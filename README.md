@@ -83,11 +83,44 @@ After building Debug with the preset:
 .\build\windows-debug\Debug\Studio.exe
 .\build\windows-debug\Debug\Server.exe
 .\build\windows-debug\Debug\Client.exe
+.\build\windows-debug\Debug\WebApp.exe
 ```
 
 Start the web backend before using authenticated Client login.
 
-## Web Backend Setup
+## Native Web Backend
+
+`WebApp.exe` is the website backend, written in C++ under `src/` (`WebApp`, `WebHttp`, `WebJson`,
+`WebCrypto`, `WebStore`). It serves `web/public`, owns accounts, avatars, friends, games and local
+game-server instances, and needs no npm, SQLite or third-party libraries.
+
+```powershell
+.\build\windows-debug\Debug\WebApp.exe
+```
+
+It listens on `http://localhost:3000` by default. Set `WEB_DIR` if the executable cannot find
+`web/public` from its working directory. Configuration comes from the environment:
+
+- `PORT` - HTTP port, default `3000`.
+- `WEB_DIR` - directory containing `public/index.html`, default `web`.
+- `DATABASE_PATH` - JSON data file, default `web/users.json`.
+- `JWT_SECRET` - token signing secret; required and at least 32 characters in production.
+- `JWT_EXPIRES_IN` - token lifetime, default `7d`.
+- `PASSWORD_ITERATIONS` - PBKDF2-SHA256 rounds, default `120000`.
+- `CORS_ORIGIN` - comma-separated allowed origins; same-origin requests are always allowed.
+- `AUTH_RATE_LIMIT_WINDOW_MS` / `AUTH_RATE_LIMIT_MAX` - auth throttling.
+- `GAME_WORLDS_DIR` - where published `.world` files are written.
+- `GAME_SERVER_HOST` / `GAME_SERVER_BASE_PORT` - local game-server address, default `127.0.0.1:7777`.
+- `GAME_INSTANCE_EMPTY_GRACE_MS` - how long an empty game instance stays up, default `30000`.
+- `SERVER_EXECUTABLE_PATH` / `CLIENT_EXECUTABLE_PATH` - binaries launched when a game is played.
+- `PUBLIC_BASE_URL` - URL handed to the native server/client for web auth.
+
+Passwords are stored as PBKDF2-SHA256 hashes and sessions are HS256 JWTs. The old `web/users.db`
+SQLite file and its bcrypt hashes are not read by this backend.
+
+## Legacy Node.js Backend
+
+`web/server.js` is the original Express implementation. It is no longer required, but still runs:
 
 ```powershell
 cd web

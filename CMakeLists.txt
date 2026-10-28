@@ -9,6 +9,7 @@ option(RBLX_BUILD_STUDIO "Build the Studio editor target" ON)
 option(RBLX_BUILD_CLIENT "Build the game client target" ON)
 option(RBLX_BUILD_SERVER "Build the game server target" ON)
 option(RBLX_BUILD_TESTS "Build C++ test targets" ON)
+option(RBLX_BUILD_WEBAPP "Build the native website backend target" ON)
 option(RBLX_ENABLE_WARNINGS "Enable stricter compiler warnings" ON)
 
 add_compile_definitions(NOMINMAX GLM_ENABLE_EXPERIMENTAL)
@@ -178,10 +179,59 @@ if(RBLX_BUILD_SERVER)
     target_link_libraries(Server PRIVATE glm reactphysics3d ws2_32 winhttp)
 endif()
 
+set(WEB_SOURCES
+    src/WebApp.cpp
+    src/WebHttp.cpp
+    src/WebJson.cpp
+    src/WebCrypto.cpp
+    src/WebStore.cpp
+)
+
+if(RBLX_BUILD_WEBAPP)
+    add_executable(WebApp
+        src/WebMain.cpp
+        ${WEB_SOURCES}
+    )
+    target_include_directories(WebApp PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+    if(RBLX_ENABLE_WARNINGS)
+        if(MSVC)
+            target_compile_options(WebApp PRIVATE /W4 /permissive-)
+        else()
+            target_compile_options(WebApp PRIVATE -Wall -Wextra -Wpedantic)
+        endif()
+    endif()
+    if(WIN32)
+        target_link_libraries(WebApp PRIVATE ws2_32)
+    else()
+        find_package(Threads REQUIRED)
+        target_link_libraries(WebApp PRIVATE Threads::Threads)
+    endif()
+endif()
+
 if(RBLX_BUILD_TESTS)
     enable_testing()
     add_executable(NetworkProtocolTests tests/network_protocol_tests.cpp)
     target_include_directories(NetworkProtocolTests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
     target_link_libraries(NetworkProtocolTests PRIVATE glm)
     add_test(NAME NetworkProtocolTests COMMAND NetworkProtocolTests)
+
+    add_executable(WebAppTests
+        tests/web_app_tests.cpp
+        ${WEB_SOURCES}
+    )
+    target_include_directories(WebAppTests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+    if(RBLX_ENABLE_WARNINGS)
+        if(MSVC)
+            target_compile_options(WebAppTests PRIVATE /W4 /permissive-)
+        else()
+            target_compile_options(WebAppTests PRIVATE -Wall -Wextra -Wpedantic)
+        endif()
+    endif()
+    if(WIN32)
+        target_link_libraries(WebAppTests PRIVATE ws2_32)
+    else()
+        find_package(Threads REQUIRED)
+        target_link_libraries(WebAppTests PRIVATE Threads::Threads)
+    endif()
+    add_test(NAME WebAppTests COMMAND WebAppTests)
 endif()

@@ -1,0 +1,182 @@
+#pragma once
+
+#include <cstddef>
+#include <map>
+#include <mutex>
+#include <string>
+#include <thread>
+#include <vector>
+
+#include "WebHttp.h"
+#include "WebJson.h"
+#include "WebStore.h"
+
+namespace rblx {
+namespace web {
+
+struct Config {
+    std::string nodeEnv = "development";
+    bool isProduction = false;
+    int port = 3000;
+    std::string jwtSecret = "local-dev-secret-change-me";
+    long long jwtExpiresSeconds = 7 * 24 * 60 * 60;
+    int passwordIterations = 120000;
+    std::string dataPath;
+    std::vector<std::string> corsOrigins;
+    long long authRateLimitWindowMs = 15 * 60 * 1000;
+    int authRateLimitMax = 20;
+    std::size_t jsonBodyLimitBytes = 2 * 1024 * 1024;
+    std::string repoRoot;
+    std::string webRoot;
+    std::string gameWorldsDir;
+    std::string gameServerHost = "127.0.0.1";
+    int gameServerBasePort = 7777;
+    long long gameInstanceEmptyGraceMs = 30 * 1000;
+    std::string publicBaseUrl;
+    std::string serverExecutablePath;
+    std::string clientExecutablePath;
+};
+
+struct WorldAnalysis {
+    std::string source;
+    int partsCount = 0;
+    int dynamicPartsCount = 0;
+    int spawnCount = 0;
+    int cubeCount = 0;
+    int sphereCount = 0;
+    int wedgeCount = 0;
+    int cylinderCount = 0;
+};
+
+// Validates and normalises a `.world` document exactly like the Node backend.
+bool analyzeWorldSource(const std::string& worldText, WorldAnalysis* analysis,
+                        std::string* error);
+
+bool loadConfigFromEnvironment(Config* config, std::string* error);
+
+class WebsiteApp {
+public:
+    explicit WebsiteApp(Config config);
+    ~WebsiteApp();
+
+    WebsiteApp(const WebsiteApp&) = delete;
+    WebsiteApp& operator=(const WebsiteApp&) = delete;
+
+    bool initialize(std::string* error);
+    void installRoutes();
+
+    HttpServer& server() { return server_; }
+    const Config& config() const { return config_; }
+    Store& store() { return store_; }
+
+    bool start(std::string* error);
+    void run();
+    void stop();
+
+private:
+    struct GameInstance {
+        std::string id;
+        int gameId = 0;
+        std::string host;
+        int port = 0;
+        std::string status = "manual";
+        bool manual = true;
+        std::string startedAt;
+        long long startedAtMs = 0;
+        int playerCount = 0;
+        std::string lastHeartbeatAt;
+        std::string emptySince;
+        long long emptySinceMs = 0;
+        long long emptyShutdownAtMs = 0;
+        bool hasShutdownAt = false;
+        std::string managerToken;
+        long processId = 0;
+        std::string command;
+#ifdef _WIN32
+        void* processHandle = nullptr;
+#endif
+    };
+
+    struct AuthUser {
+        int id = 0;
+        std::string username;
+    };
+
+    HttpServer::Handler guard(HttpServer::Handler handler);
+    bool isOriginAllowed(const std::string& origin) const;
+    bool isRateLimited(const std::string& remoteAddress);
+
+    bool parseJsonBody(const Request& request, Json* body, Response& response) const;
+    bool requireAuth(const Request& request, Response& response, AuthUser* user);
+    bool optionalAuth(const Request& request, AuthUser* user, bool* authenticated);
+
+    Json profileJson(int userId, int viewerId);
+    Json gameJson(const GameRecord& game, bool canEdit) const;
+    Json instanceJson(const GameInstance& instance) const;
+    Json avatarJson(const Avatar& avatar) const;
+
+    bool handleSignup(Request& request, Response& response);
+    bool handleLogin(Request& request, Response& response);
+    bool handleVerify(Request& request, Response& response);
+    bool handleSocial(Request& request, Response& response);
+    bool handlePlaytime(Request& request, Response& response);
+    bool handleHeartbeat(Request& request, Response& response);
+    bool handleUserSearch(Request& request, Response& response);
+    bool handleUserProfile(Request& request, Response& response);
+    bool handleFriendRequest(Request& request, Response& response);
+    bool handleFriendRespond(Request& request, Response& response);
+    bool handleFriendRemove(Request& request, Response& response);
+    bool handleListGames(Request& request, Response& response);
+    bool handleMyGames(Request& request, Response& response);
+    bool handleCreateGame(Request& request, Response& response);
+    bool handlePublishGame(Request& request, Response& response);
+    bool handleGetGame(Request& request, Response& response);
+    bool handleUpdateGame(Request& request, Response& response);
+    bool handleGameServers(Request& request, Response& response);
+    bool handlePlayGame(Request& request, Response& response);
+    bool handleGetAvatar(Request& request, Response& response);
+    bool handleSetAvatar(Request& request, Response& response);
+    bool handleStatic(Request& request, Response& response);
+
+    bool createGame(const AuthUser& user, const Json& body, GameRecord* created,
+                    Response& response);
+    bool updateGameRecord(const AuthUser& user, int gameId, const Json& body,
+                          GameRecord* updated, Response& response);
+    std::string saveWorldFile(int gameId, const std::string& contents);
+
+    GameInstance* ensureInstance(const GameRecord& game, bool forceNew, std::string* error);
+    void reserveInstanceForLaunch(GameInstance& instance);
+    void stopInstance(const std::string& instanceId, const std::string& reason);
+    void tickInstances();
+    void refreshInstances();
+    std::vector<std::string> activeInstanceIds(int gameId);
+    struct SpawnedProcess {
+        long pid = 0;
+        void* handle = nullptr;
+    };
+
+    bool spawnProcess(const std::string& executable, const std::vector<std::string>& args,
+                      const std::string& workingDirectory, SpawnedProcess* spawned,
+                      std::string* error);
+    bool processRunning(const GameInstance& instance) const;
+    void releaseProcess(GameInstance& instance);
+    static bool isPortAvailable(const std::string& host, int port);
+    int findAvailablePort(int startPort);
+
+    bool seedStarterGames(std::string* error);
+
+    Config config_;
+    Store store_;
+    HttpServer server_;
+    std::mutex mutex_;
+    std::map<std::string, GameInstance> instances_;
+    std::map<std::string, std::vector<long long>> authAttempts_;
+    std::thread ticker_;
+    bool tickerRunning_ = false;
+    bool initialized_ = false;
+};
+
+int runWebsiteServer();
+
+}  // namespace web
+}  // namespace rblx

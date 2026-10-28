@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - RBLX Clone</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <div class="page">
+        <header class="topbar">
+            <a class="brand" href="/">
+                <span>RBLX Clone</span>
+            </a>
+            <nav class="nav" aria-label="Primary">
+                <a href="/">Home</a>
+                <a href="/games">Games</a>
+                <a href="/signup">Sign up</a>
+            </nav>
+        </header>
+
+        <main id="main" class="auth-layout">
+            <section class="panel auth-panel" aria-labelledby="login-title">
+                <p class="label">Account</p>
+                <h1 id="login-title" class="page-title">Login</h1>
+                <p class="lede" data-login-lede>Use the same account in the web dashboard and the player client.</p>
+
+                <form class="form" data-login-form>
+                    <div class="field">
+                        <label for="username">Username</label>
+                        <input class="input" id="username" name="username" type="text" autocomplete="username" required>
+                    </div>
+                    <div class="field">
+                        <label for="password">Password</label>
+                        <input class="input" id="password" name="password" type="password" autocomplete="current-password" required>
+                    </div>
+                    <div class="status" data-status aria-live="polite"></div>
+                    <button class="button full" type="submit">Sign in</button>
+                </form>
+            </section>
+        </main>
+    </div>
+    <script src="/app.js?v=games-1" defer></script>
+</body>
+</html>

@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign up - RBLX Clone</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <div class="page">
+        <header class="topbar">
+            <a class="brand" href="/">
+                <span>RBLX Clone</span>
+            </a>
+            <nav class="nav" aria-label="Primary">
+                <a href="/">Home</a>
+                <a href="/games">Games</a>
+                <a href="/login">Login</a>
+            </nav>
+        </header>
+
+        <main id="main" class="auth-layout">
+            <section class="panel auth-panel" aria-labelledby="signup-title">
+                <p class="label">New account</p>
+                <h1 id="signup-title" class="page-title">Sign up</h1>
+                <p class="lede">Create a local account for login and avatar storage.</p>
+
+                <form class="form" data-signup-form>
+                    <div class="field">
+                        <label for="username">Username</label>
+                        <input class="input" id="username" name="username" type="text" autocomplete="username" minlength="3" maxlength="20" required>
+                        <small>3 to 20 characters.</small>
+                    </div>
+                    <div class="field">
+                        <label for="password">Password</label>
+                        <input class="input" id="password" name="password" type="password" autocomplete="new-password" minlength="6" required>
+                        <small>At least 6 characters.</small>
+                    </div>
+                    <div class="field">
+                        <label for="confirmPassword">Confirm password</label>
+                        <input class="input" id="confirmPassword" name="confirmPassword" type="password" autocomplete="new-password" required>
+                    </div>
+                    <div class="status" data-status aria-live="polite"></div>
+                    <button class="button full" type="submit">Create account</button>
+                </form>
+            </section>
+        </main>
+    </div>
+    <script src="/app.js?v=games-1" defer></script>
+</body>
+</html>

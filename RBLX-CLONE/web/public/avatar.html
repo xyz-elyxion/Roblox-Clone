@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Avatar - RBLX Clone</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <div class="page" data-avatar>
+        <header class="topbar">
+            <a class="brand" href="/dashboard">
+                <span>RBLX Clone</span>
+            </a>
+            <nav class="nav" aria-label="Primary">
+                <a href="/dashboard">Home</a>
+                <a href="/games">Games</a>
+                <a href="/create">Create</a>
+                <a href="/profile">Profile</a>
+                <a href="/dashboard#search">Search</a>
+                <button class="button danger" type="button" data-logout>Logout</button>
+            </nav>
+        </header>
+
+        <main id="main">
+            <div class="dashboard-head">
+                <div>
+                    <p class="label">Avatar</p>
+                    <h1 class="page-title">Colors</h1>
+                </div>
+                <button class="button" type="button" data-save-avatar>Save avatar</button>
+            </div>
+
+            <section class="avatar-layout">
+                <div class="panel avatar-preview-panel">
+                    <h2>Preview</h2>
+                    <div class="avatar-stage">
+                        <div class="avatar-figure" data-avatar-figure aria-label="Avatar preview"></div>
+                    </div>
+                </div>
+
+                <div class="panel">
+                    <h2>Body part</h2>
+                    <div class="part-tabs" data-part-tabs></div>
+
+                    <div class="color-picker-panel">
+                        <label class="color-picker-field">
+                            <span>Color</span>
+                            <input type="color" value="#cc9966" data-color-picker aria-label="Selected body part color">
+                        </label>
+                        <output class="color-code" data-color-code>#CC9966</output>
+                    </div>
+
+                    <div class="face-picker-panel">
+                        <h3>Face</h3>
+                        <div class="face-options" data-face-options></div>
+                    </div>
+
+                    <div class="status" data-status aria-live="polite"></div>
+                </div>
+            </section>
+        </main>
+    </div>
+    <script src="/app.js?v=games-1" defer></script>
+</body>
+</html>

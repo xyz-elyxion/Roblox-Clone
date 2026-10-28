@@ -64,11 +64,20 @@ FetchContent_Declare(
     GIT_TAG v0.9.0
 )
 FetchContent_MakeAvailable(rp3d)
-if(TARGET reactphysics3d AND NOT MSVC)
-    target_compile_options(reactphysics3d PUBLIC
-        $<$<COMPILE_LANGUAGE:CXX>:-include>
-        $<$<COMPILE_LANGUAGE:CXX>:cstdint>
-    )
+if(TARGET reactphysics3d)
+    if(MSVC)
+        # rp3d 0.9.0's DefaultLogger.h uses std::chrono::system_clock but never
+        # includes <chrono>. Older MSVC only saw it through <mutex> transitively
+        # and newer MSVC (19.4x) no longer does, which breaks the build.
+        target_compile_options(reactphysics3d PUBLIC
+            $<$<COMPILE_LANGUAGE:CXX>:/FIchrono>
+        )
+    else()
+        target_compile_options(reactphysics3d PUBLIC
+            $<$<COMPILE_LANGUAGE:CXX>:-include>
+            $<$<COMPILE_LANGUAGE:CXX>:cstdint>
+        )
+    endif()
 endif()
 
 FetchContent_Declare(

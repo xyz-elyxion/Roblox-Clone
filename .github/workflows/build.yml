@@ -40,12 +40,12 @@ jobs:
         run: ctest --preset windows-debug --output-on-failure
 
       - name: Upload binaries
+        # Runs even if the tests fail, so a red run still hands back whatever
+        # targets linked. A glob (not a fixed list) means a partial build
+        # produces a partial artifact instead of failing the upload outright.
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: rblx-windows-debug
-          path: |
-            build/windows-debug/Debug/Studio.exe
-            build/windows-debug/Debug/Client.exe
-            build/windows-debug/Debug/Server.exe
-            build/windows-debug/Debug/NetworkProtocolTests.exe
-          if-no-files-found: error
+          path: build/windows-debug/Debug/*.exe
+          if-no-files-found: warn

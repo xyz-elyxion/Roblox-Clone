@@ -95,6 +95,11 @@ input {
     flex-wrap: wrap;
 }
 
+/* .nav a sets display, so the hidden attribute needs a matching rule. */
+.nav [hidden] {
+    display: none;
+}
+
 .nav a,
 .button {
     min-height: 44px;

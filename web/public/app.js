@@ -303,6 +303,18 @@ function renderUserList(container, users, emptyText, onChanged) {
     }
 }
 
+// Pages that are usable while signed out show Login/Sign up; signed-in visitors
+// get the same Logout button the dashboard uses instead.
+function initNavAuth() {
+    const guestLinks = document.querySelectorAll('[data-nav-guest]');
+    const userButtons = document.querySelectorAll('[data-nav-user]');
+    if (guestLinks.length === 0 && userButtons.length === 0) return;
+
+    const signedIn = Boolean(getToken());
+    guestLinks.forEach((link) => { link.hidden = signedIn; });
+    userButtons.forEach((button) => { button.hidden = !signedIn; });
+}
+
 function initLogoutButtons() {
     document.querySelectorAll('[data-logout]').forEach((button) => {
         button.addEventListener('click', () => {
@@ -1422,6 +1434,7 @@ function initGamePage() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+    initNavAuth();
     initLogoutButtons();
     initLogin();
     initSignup();

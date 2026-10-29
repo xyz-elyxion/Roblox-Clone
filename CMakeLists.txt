@@ -21,6 +21,7 @@ option(RBLX_BUILD_CLIENT "Build the game client target" ON)
 option(RBLX_BUILD_SERVER "Build the game server target" ON)
 option(RBLX_BUILD_TESTS "Build C++ test targets" ON)
 option(RBLX_BUILD_WEBAPP "Build the native website backend target" ON)
+option(RBLX_BUILD_ANTICHEAT "Embed the vendored RBLXAntiCheat library in the game client (Windows only)" ON)
 option(RBLX_ENABLE_WARNINGS "Enable stricter compiler warnings" ON)
 
 add_compile_definitions(NOMINMAX GLM_ENABLE_EXPERIMENTAL)
@@ -171,6 +172,13 @@ if(RBLX_BUILD_STUDIO)
     endif()
 endif()
 
+# RBLXAntiCheat is compiled straight into the client (see its CMakeLists): the
+# checks have to run inside the process they watch, so there is no separate
+# executable to launch or ship.
+if(RBLX_BUILD_ANTICHEAT AND WIN32)
+    add_subdirectory(RBLXAntiCheat)
+endif()
+
 if(RBLX_BUILD_CLIENT)
     add_executable(Client
         src/Client.cpp
@@ -180,6 +188,10 @@ if(RBLX_BUILD_CLIENT)
     )
     configure_rblx_target(Client)
     target_link_libraries(Client PRIVATE glfw glm reactphysics3d glad ws2_32 winhttp shell32 comdlg32)
+    if(TARGET RBLXAntiCheat)
+        target_compile_definitions(Client PRIVATE RBLX_ANTICHEAT)
+        target_link_libraries(Client PRIVATE RBLXAntiCheat)
+    endif()
 endif()
 
 if(RBLX_BUILD_SERVER)

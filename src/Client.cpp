@@ -44,6 +44,71 @@
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl3.h"
 
+#if defined(RBLX_ANTICHEAT)
+// Vendored from UltimateAntiCheat and renamed to RBLXAntiCheat (AGPL-3.0, see
+// RBLXAntiCheat/LICENSE). It is linked into this executable on purpose: the
+// integrity, anti-debug and injection checks only mean something inside the
+// process they protect.
+//
+// Every way of starting it is non-fatal. A machine where a check cannot run
+// (an unexpected parent process, a locked-down install) still gets a playable
+// client and a line in RBLXAntiCheat.log explaining why.
+#include "Core/AntiCheatLib.hpp"
+#include "Common/Settings.hpp"
+
+namespace {
+    std::unique_ptr<Settings> g_antiCheatSettings;
+    std::unique_ptr<AntiCheat> g_antiCheat;
+
+    void startAntiCheat() {
+        try {
+            // The ways this client normally gets started: the website launcher,
+            // the desktop shell, and a terminal while developing. The library
+            // compares the real parent process against this list.
+            const std::list<std::wstring> allowedParents = {
+                L"WebApp.exe", L"explorer.exe", L"cmd.exe",
+                L"powershell.exe", L"pwsh.exe", L"bash.exe"
+            };
+
+            g_antiCheatSettings = std::make_unique<Settings>(
+                "127.0.0.1", 5445,
+                /*bNetworkingEnabled*/ false,   // no anti-cheat server is running
+                /*bEnforceSecureBoot*/ false,
+                /*bEnforceDSE*/ false,
+                /*bEnforceNoKDbg*/ false,
+                /*bUseAntiDebugging*/ true,
+                /*bCheckIntegrity*/ true,
+                /*bCheckThreads*/ true,
+                /*bCheckHypervisor*/ false,
+                /*bRequireRunAsAdministrator*/ false,  // a game client should not need admin
+                /*bUsingDriver*/ false,   // no kernel-mode driver ships with this build
+                L"",
+                allowedParents,
+                /*bEnableLogging*/ true,
+                "RBLXAntiCheat.log"
+            );
+
+            g_antiCheat = std::make_unique<AntiCheat>(g_antiCheatSettings.get());
+            std::cout << "RBLXAntiCheat started." << std::endl;
+        } catch (const std::exception& e) {
+            std::cout << "RBLXAntiCheat did not start: " << e.what() << std::endl;
+            g_antiCheat.reset();
+        } catch (...) {
+            std::cout << "RBLXAntiCheat did not start." << std::endl;
+            g_antiCheat.reset();
+        }
+    }
+
+    void stopAntiCheat() {
+        if (g_antiCheat) {
+            g_antiCheat->Destroy();
+            g_antiCheat.reset();
+        }
+        g_antiCheatSettings.reset();
+    }
+}
+#endif
+
 // Settings
 const unsigned int SCR_WIDTH = 1280;
 const unsigned int SCR_HEIGHT = 720;
@@ -1572,6 +1637,10 @@ int main(int argc, char** argv) {
     setvbuf(stdout, NULL, _IONBF, 0);
     setvbuf(stderr, NULL, _IONBF, 0);
 
+#if defined(RBLX_ANTICHEAT)
+    startAntiCheat();
+#endif
+
     try {
         std::cout << "Starting Client..." << std::endl;
         
@@ -2527,6 +2596,9 @@ int main(int argc, char** argv) {
             frameCount++;
         }
         
+#if defined(RBLX_ANTICHEAT)
+        stopAntiCheat();
+#endif
         Network::cleanup();
         return 0;
     } catch (const std::exception& e) {

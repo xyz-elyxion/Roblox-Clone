@@ -1,0 +1,53 @@
+# Prerequisites
+*.d
+
+# Compiled Object files
+*.slo
+*.lo
+*.o
+*.obj
+/x64
+/.vs
+/.vscode
+/Debug
+
+# CMake
+/build
+/CMakeFiles
+/cmake_install.cmake
+/CMakeCache.txt
+/Ultimate*
+/bin
+/ZERO_CHECK.vcxproj
+/ZERO_CHECK.vcxproj.filters
+/ALL_BUILD.vcxproj
+/ALL_BUILD.vcxproj.filters
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+
+# Fortran module files
+*.mod
+*.smod
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+
+# Libs/ holds the prebuilt curl/brotli/zlib files this project links against,
+# so *.lib and *.dll are deliberately not ignored here.
+!Libs/*.lib
+!DLLs/*.dll
+
+# Executables
+*.exe
+*.out
+*.app
+
+/UltimateAnticheat.log

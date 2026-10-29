@@ -95,3 +95,9 @@ imgui.ini
 # face.png
 # face_hex.txt
 
+
+# The vendored RBLXAntiCheat links against prebuilt curl/brotli/zlib files that
+# ship with its source. They are inputs to the linker, not build output, so they
+# stay tracked even though *.lib and *.dll are ignored above.
+!RBLXAntiCheat/Libs/*.lib
+!RBLXAntiCheat/DLLs/*.dll

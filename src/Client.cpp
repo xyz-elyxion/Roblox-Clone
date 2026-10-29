@@ -27,8 +27,10 @@
 #include <cmath>
 #include <cstring>
 #include <cctype>
+#include <chrono>
 #include <cstdio>
 #include <cstdlib>
+#include <thread>
 #include <iomanip>
 
 #define GLFW_EXPOSE_NATIVE_WIN32
@@ -639,25 +641,46 @@ void leaveCurrentGame(std::deque<Part>& parts, PhysicsWorld& physicsWorld) {
 
 bool connectToServer(std::string& error) {
     disconnectFromServerOnly();
-    clientSocket = socket(AF_INET, SOCK_STREAM, 0);
-    if (clientSocket == INVALID_SOCKET) {
-        error = "Could not create network socket.";
-        return false;
-    }
 
     sockaddr_in serverAddr;
     std::memset(&serverAddr, 0, sizeof(serverAddr));
     serverAddr.sin_family = AF_INET;
     if (inet_pton(AF_INET, automaticGameServerIp(), &serverAddr.sin_addr) != 1) {
         error = "Could not find the game server.";
-        disconnectFromServerOnly();
         return false;
     }
     serverAddr.sin_port = htons(static_cast<u_short>(serverPort));
 
-    if (connect(clientSocket, reinterpret_cast<sockaddr*>(&serverAddr), sizeof(serverAddr)) == SOCKET_ERROR) {
-        error = "Could not connect to the game server.";
+    // The website starts the game server and this client together, so the server
+    // may still be booting when we get here. Keep retrying instead of failing on
+    // the first refused connection.
+    constexpr int CONNECT_ATTEMPTS = 40;
+    constexpr int CONNECT_RETRY_DELAY_MS = 200;
+    std::cout << "Connecting to game server " << automaticGameServerIp() << ':' << serverPort
+              << std::endl;
+
+    bool connected = false;
+    for (int attempt = 0; attempt < CONNECT_ATTEMPTS; ++attempt) {
+        clientSocket = socket(AF_INET, SOCK_STREAM, 0);
+        if (clientSocket == INVALID_SOCKET) {
+            error = "Could not create network socket.";
+            return false;
+        }
+        if (connect(clientSocket, reinterpret_cast<sockaddr*>(&serverAddr), sizeof(serverAddr)) !=
+            SOCKET_ERROR) {
+            connected = true;
+            break;
+        }
         disconnectFromServerOnly();
+        if (attempt + 1 < CONNECT_ATTEMPTS) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(CONNECT_RETRY_DELAY_MS));
+        }
+    }
+
+    if (!connected) {
+        error = "Could not connect to the game server.";
+        std::cout << "Gave up connecting to " << automaticGameServerIp() << ':' << serverPort
+                  << std::endl;
         return false;
     }
 

@@ -930,11 +930,20 @@ bool loadConfigFromEnvironment(Config* config, std::string* error) {
         loaded.publicBaseUrl = "http://localhost:" + std::to_string(loaded.port);
     }
 
+    // The packaged build keeps WebApp.exe, Server.exe and Client.exe side by side,
+    // so look next to this executable before the development build folders. Without
+    // this, starting WebApp.exe straight from the package finds no game server and
+    // Play launches a client that has nothing to connect to.
+    const std::string exeDir = executableDirectory();
+
     const std::string serverOverride = envString("SERVER_EXECUTABLE_PATH");
     if (!serverOverride.empty()) {
         loaded.serverExecutablePath = resolvePath(currentDirectory(), serverOverride);
     } else {
         loaded.serverExecutablePath = firstExistingPath({
+            joinPath(exeDir, "Server.exe"),
+            joinPath(currentDirectory(), "Server.exe"),
+            joinPath(loaded.repoRoot, "Server.exe"),
             joinPath(loaded.repoRoot, "build-portable4/Server.exe"),
             joinPath(loaded.repoRoot, "build-portable3/Server.exe"),
             joinPath(loaded.repoRoot, "build/windows-debug/Debug/Server.exe"),
@@ -947,6 +956,9 @@ bool loadConfigFromEnvironment(Config* config, std::string* error) {
         loaded.clientExecutablePath = resolvePath(currentDirectory(), clientOverride);
     } else {
         loaded.clientExecutablePath = firstExistingPath({
+            joinPath(exeDir, "Client.exe"),
+            joinPath(currentDirectory(), "Client.exe"),
+            joinPath(loaded.repoRoot, "Client.exe"),
             joinPath(loaded.repoRoot, "build-portable4/Client.exe"),
             joinPath(loaded.repoRoot, "build-portable3/Client.exe"),
             joinPath(loaded.repoRoot, "build/windows-debug/Debug/Client.exe"),
@@ -2052,6 +2064,19 @@ bool WebsiteApp::handlePlayGame(Request& request, Response& response) {
         return true;
     }
 
+    // The server process was only just spawned; give it a moment to bind its port
+    // so the client started below has something to connect to.
+    const std::string instanceId = instance->id;
+    const int instancePort = instance->port;
+    if (!waitForGameServer(*instance, 10000)) {
+        stopInstance(instanceId, "unreachable");
+        errorJson(response, 503,
+                  "The game server did not start listening on port " +
+                      std::to_string(instancePort) +
+                      ". Check the website console for the game server's error output.");
+        return true;
+    }
+
     reserveInstanceForLaunch(*instance);
     store_.incrementLaunchCount(gameId);
     std::string saveError;
@@ -2408,6 +2433,32 @@ int WebsiteApp::findAvailablePort(int startPort) {
     return 0;
 }
 
+// Spawning the game server only queues the process; it still has to start up,
+// initialise physics and bind its port. Launching the client in that window is
+// why a fresh Play reports "Could not connect to the game server", so wait until
+// the port stops being bindable, which is when the server owns it.
+bool WebsiteApp::waitForGameServer(const GameInstance& instance, int timeoutMs) {
+    // A manual instance has no process of ours behind it; it points at a server
+    // somebody else started, so there is nothing to wait for.
+    if (instance.manual) {
+        return true;
+    }
+    const auto deadline =
+        std::chrono::steady_clock::now() + std::chrono::milliseconds(timeoutMs);
+    for (;;) {
+        if (!isPortAvailable(config_.gameServerHost, instance.port)) {
+            return true;
+        }
+        if (!processRunning(instance)) {
+            return false;
+        }
+        if (std::chrono::steady_clock::now() >= deadline) {
+            return false;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(25));
+    }
+}
+
 bool WebsiteApp::spawnProcess(const std::string& executable, const std::vector<std::string>& args,
                               const std::string& workingDirectory, SpawnedProcess* spawned,
                               std::string* error) {
@@ -2580,6 +2631,8 @@ WebsiteApp::GameInstance* WebsiteApp::ensureInstance(const GameRecord& game, boo
             instance.processHandle = spawned.handle;
 #endif
             instance.status = "starting";
+            std::fprintf(stdout, "Started game server for game %d on port %d (pid %ld)\n",
+                         game.id, port, spawned.pid);
         } else {
             instance.status = "error";
             std::fprintf(stderr, "Could not start a game server: %s\n", spawnError.c_str());

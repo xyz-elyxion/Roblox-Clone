@@ -162,6 +162,7 @@ private:
     void releaseProcess(GameInstance& instance);
     static bool isPortAvailable(const std::string& host, int port);
     int findAvailablePort(int startPort);
+    bool waitForGameServer(const GameInstance& instance, int timeoutMs);
 
     bool seedStarterGames(std::string* error);
 

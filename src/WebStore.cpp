@@ -178,6 +178,7 @@ bool Store::load(std::string* error) {
         record.description = entry.member("description").asString();
         record.isPublic = entry.member("isPublic").asBool(true);
         record.worldPath = entry.member("worldPath").asString();
+        record.scriptPath = entry.member("scriptPath").asString();
         record.iconPath = entry.member("iconPath").asString();
         record.bannerPath = entry.member("bannerPath").asString();
         record.partsCount = static_cast<int>(entry.member("partsCount").asInteger(0));
@@ -262,6 +263,7 @@ bool Store::save(std::string* error) const {
         entry.set("description", record.description);
         entry.set("isPublic", record.isPublic);
         entry.set("worldPath", record.worldPath);
+        entry.set("scriptPath", record.scriptPath);
         entry.set("iconPath", record.iconPath);
         entry.set("bannerPath", record.bannerPath);
         entry.set("partsCount", record.partsCount);

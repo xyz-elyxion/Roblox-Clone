@@ -246,9 +246,51 @@ The game server reports authenticated player sessions to `/api/me/playtime` whil
 - Properties: edit selected part fields.
 - Publish: sign in against the web server, save the current world, and publish it to the site as a public or private game.
 
+## Scripting
+
+The engine has its own scripting language, **RBLX Script**, a Lua-style subset used by Studio,
+the game server and the seeded platformer. Scripts drive gameplay by moving parts and
+reacting to events.
+
+```lua
+local platform = workspace:FindFirstChild("MoveA")
+local t = 0
+
+RunService.Heartbeat:Connect(function(dt)
+    t = t + dt
+    platform.Position = Vector3.new(math.sin(t) * 6, 5, 0)
+end)
+
+workspace.Lava.Touched:Connect(function(hit)
+    hit:Teleport(workspace.SpawnPoint.Position)
+end)
+```
+
+The language supports `local`, assignment, `if`/`elseif`/`else`, `while`, `repeat ... until`,
+numeric `for`, `break`, named and anonymous `function`s with closures, tables (`{1, 2}`,
+`t.field`, `t[1]`), strings, `..` concatenation, arithmetic/comparison/logic and `--`
+comments. Builtins are `print`, `warn`, `type`, `tostring`, `tonumber`, `error` and `math`
+(`sin`, `cos`, `abs`, `floor`, `ceil`, `sqrt`, `min`, `max`, `random`, `pi`).
+
+World API available to scripts:
+
+- `workspace:FindFirstChild("Name")` and `workspace.Name`.
+- Part properties: `Name`, `Position`, `Size`, `Color`, `Transparency`, `Anchored`, `CanCollide`.
+- `part:Teleport(vector)` and `part:Destroy()`.
+- `part.Touched:Connect(function(hit) ... end)`.
+- `RunService.Heartbeat:Connect(function(dt) ... end)` for per-tick logic.
+- `Players:GetPlayers()`, `Players.PlayerCount`, `player.Name` and `player:Teleport(vector)`.
+- `Vector3.new(x, y, z)`.
+
+Run a script against a world with `Server.exe --world games/sky-platformer.world --script games/sky-platformer.rbx`.
+Studio has a **Script** panel for loading, editing, saving, running and stopping scripts; the
+world view updates live while a script runs. The seeded **Sky Platformer** game uses
+`games/sky-platformer.world` and `games/sky-platformer.rbx`, and published starter games get
+their script copied next to the world file and passed to the server with `--script`.
+
 ## Multi-Game Local Hosting
 
-The website stores published `.world` files under `web/game-worlds` by default. When a signed-in user presses Play on a game page, the web backend finds an open local port, starts `Server.exe --port <port> --world <published-world> --web <site-url>`, and can launch `Client.exe --server <host> --port <port> --web <site-url> --token <jwt> --connect` when `CLIENT_EXECUTABLE_PATH` points to a built Player.
+The website stores published `.world` files under `web/game-worlds` by default, along with any `.rbx` script that belongs to the game. When a signed-in user presses Play on a game page, the web backend finds an open local port, starts `Server.exe --port <port> --world <published-world> --script <published-script> --web <site-url>`, and can launch `Client.exe --server <host> --port <port> --web <site-url> --token <jwt> --connect` when `CLIENT_EXECUTABLE_PATH` points to a built Player.
 
 Play waits for the server to own its port before launching the client, and each game server
 writes its output to `web/game-server-logs/game-server-<port>.log`. When a server dies during

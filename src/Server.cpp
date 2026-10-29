@@ -15,6 +15,11 @@
 #include "PhysicsWorld.h"
 #include "WorldLoader.h"
 #include "ServerAuth.h"
+#include "WorldScript.h"
+
+#include <fstream>
+#include <memory>
+#include <sstream>
 
 // GLM Includes
 #define GLM_ENABLE_EXPERIMENTAL
@@ -50,6 +55,10 @@ int nextPlayerId = 1;
 std::string webServerUrl = "http://localhost:3000"; // Web server URL for token verification
 std::string gameInstanceId;
 std::string gameInstanceToken;
+std::string scriptPath;
+std::unique_ptr<rblx::script::Interpreter> gameScriptInterpreter;
+std::unique_ptr<rblx::worldscript::WorldRuntime> gameScriptRuntime;
+std::map<int, glm::vec3> lastBroadcastPositions;
 const float MAX_PLAYER_COORDINATE = 10000.0f;
 const float MAX_PLAYER_ROTATION_DEGREES = 100000.0f;
 const int PLAYTIME_REPORT_INTERVAL_SECONDS = 60;
@@ -77,6 +86,8 @@ void parseServerArguments(int argc, char** argv, int& serverPort, std::string& w
             gameInstanceId = argv[++i];
         } else if (arg == "--instance-token" && i + 1 < argc) {
             gameInstanceToken = argv[++i];
+        } else if (arg == "--script" && i + 1 < argc) {
+            scriptPath = argv[++i];
         }
     }
 }
@@ -355,34 +366,61 @@ void updatePlayerShadowBody(ConnectedPlayer& player) {
     player.shadowBody->setAngularVelocity(rp3d::Vector3(0, 0, 0));
 }
 
-void broadcastWorldUpdate() {
-    // Send updates for ALL dynamic parts (server is authoritative)
-    // This ensures all clients stay in sync, even if parts are stationary
-    std::vector<PartUpdate> updates;
-    for (int i = 0; i < serverParts.size(); ++i) {
-        Part& p = serverParts[i];
-        if (p.physicsBody) {
-            rp3d::RigidBody* body = (rp3d::RigidBody*)p.physicsBody;
-            // Send updates for all dynamic parts (active or not) to keep clients in sync
-            if (body->getType() == rp3d::BodyType::DYNAMIC) {
-                rp3d::Transform t = body->getTransform();
-                rp3d::Vector3 pos = t.getPosition();
-                rp3d::Quaternion rot = t.getOrientation();
+void teleportPlayer(const std::string& username, const glm::vec3& position) {
+    for (auto& entry : players) {
+        ConnectedPlayer& player = entry.second;
+        if (!player.active) continue;
+        const std::string name =
+            PacketProtocol::fixedString(player.username, sizeof(player.username));
+        if (name != username) continue;
 
-                // Server runs physics exactly like singleplayer - simple and clean
-                p.position = glm::vec3(pos.x, pos.y, pos.z);
-
-                PartUpdate up;
-                up.partIndex = i;
-                up.position = p.position;
-
-                // Convert quaternion to euler for network transmission
-                glm::quat q(rot.w, rot.x, rot.y, rot.z);
-                up.rotation = glm::degrees(glm::eulerAngles(q));
-
-                updates.push_back(up);
-            }
+        player.state.position = position;
+        if (player.shadowBody) {
+            rp3d::Transform transform = player.shadowBody->getTransform();
+            transform.setPosition(rp3d::Vector3(position.x, position.y, position.z));
+            player.shadowBody->setTransform(transform);
+            player.shadowBody->setLinearVelocity(rp3d::Vector3(0.0f, 0.0f, 0.0f));
+            player.shadowBody->setAngularVelocity(rp3d::Vector3(0.0f, 0.0f, 0.0f));
         }
+        Network::sendStructPacket(player.socket, PacketType::TELEPORT, player.state);
+        return;
+    }
+}
+
+void broadcastWorldUpdate() {
+    // Dynamic parts are sent every tick. Anchored parts are sent only when a
+    // script moved them, which keeps scripted platforms in sync without
+    // re-sending the whole world.
+    std::vector<PartUpdate> updates;
+    for (int i = 0; i < static_cast<int>(serverParts.size()); ++i) {
+        Part& p = serverParts[i];
+        if (p.deleted || p.isFolder || !p.physicsBody) continue;
+
+        rp3d::RigidBody* body = static_cast<rp3d::RigidBody*>(p.physicsBody);
+        const bool dynamic = body->getType() == rp3d::BodyType::DYNAMIC;
+
+        rp3d::Transform t = body->getTransform();
+        const rp3d::Vector3 pos = t.getPosition();
+        const rp3d::Quaternion rot = t.getOrientation();
+        const glm::vec3 newPosition(pos.x, pos.y, pos.z);
+
+        const auto previous = lastBroadcastPositions.find(i);
+        const bool moved = previous == lastBroadcastPositions.end() ||
+                           glm::length(previous->second - newPosition) > 0.001f;
+        if (!dynamic && !moved) continue;
+
+        p.position = newPosition;
+
+        PartUpdate up;
+        up.partIndex = i;
+        up.position = newPosition;
+
+        // Convert quaternion to euler for network transmission
+        glm::quat q(rot.w, rot.x, rot.y, rot.z);
+        up.rotation = glm::degrees(glm::eulerAngles(q));
+
+        updates.push_back(up);
+        lastBroadcastPositions[i] = newPosition;
     }
 
     if (updates.empty()) return;
@@ -441,6 +479,51 @@ int main(int argc, char** argv) {
     // Load Server World
     WorldLoader::loadWorld(worldPath, serverParts, serverPhysicsWorld);
     std::cout << "Loaded ServerWorld with " << serverParts.size() << " parts." << std::endl;
+
+    if (!scriptPath.empty()) {
+        std::ifstream scriptFile(scriptPath, std::ios::binary);
+        if (!scriptFile.is_open()) {
+            std::cerr << "Could not open script " << scriptPath << std::endl;
+        } else {
+            std::stringstream scriptBuffer;
+            scriptBuffer << scriptFile.rdbuf();
+
+            gameScriptInterpreter = std::make_unique<rblx::script::Interpreter>();
+            gameScriptInterpreter->setPrintHandler([](const std::string& message, bool isError) {
+                std::cout << (isError ? "[script error] " : "[script] ") << message << std::endl;
+            });
+            gameScriptRuntime = std::make_unique<rblx::worldscript::WorldRuntime>(
+                serverParts, &serverPhysicsWorld, *gameScriptInterpreter);
+            gameScriptRuntime->setPlayerSource([]() {
+                std::vector<rblx::worldscript::ScriptPlayer> snapshot;
+                for (const auto& entry : players) {
+                    const ConnectedPlayer& player = entry.second;
+                    if (!player.active) continue;
+                    rblx::worldscript::ScriptPlayer scriptPlayer;
+                    scriptPlayer.name = PacketProtocol::fixedString(
+                        player.username, sizeof(player.username));
+                    if (scriptPlayer.name.empty()) {
+                        scriptPlayer.name = "Player" + std::to_string(entry.first);
+                    }
+                    scriptPlayer.position = player.state.position;
+                    snapshot.push_back(scriptPlayer);
+                }
+                return snapshot;
+            });
+            gameScriptRuntime->setTeleportHandler([](const std::string& name,
+                                                     const glm::vec3& position) {
+                teleportPlayer(name, position);
+            });
+
+            std::string scriptError;
+            if (!gameScriptRuntime->runScript(scriptBuffer.str(), scriptPath, scriptError)) {
+                std::cerr << "Script error: " << scriptError << std::endl;
+            } else {
+                std::cout << "Loaded script " << scriptPath << std::endl;
+            }
+        }
+    }
+
     reportInstanceHeartbeat(true);
 
     auto lastTime = std::chrono::high_resolution_clock::now();
@@ -473,6 +556,10 @@ int main(int argc, char** argv) {
             }
         }
         reportInstanceHeartbeat(false);
+
+        if (gameScriptRuntime) {
+            gameScriptRuntime->heartbeat(deltaTime);
+        }
 
         // Network Broadcast (60Hz - match physics rate for smooth updates)
         if (networkAccumulator >= 1.0f/60.0f) {

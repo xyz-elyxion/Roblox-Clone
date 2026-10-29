@@ -158,6 +158,8 @@ if(RBLX_BUILD_STUDIO)
     add_executable(Studio
         src/main.cpp
         src/Editor.cpp
+        src/RblxScript.cpp
+        src/WorldScript.cpp
         ${SHARED_SOURCES}
         ${IMGUI_SOURCES}
         ${IMGUIZMO_SOURCES}
@@ -186,6 +188,8 @@ if(RBLX_BUILD_SERVER)
         src/ServerAuth.cpp
         src/WorldLoader.cpp
         src/PhysicsWorld.cpp
+        src/RblxScript.cpp
+        src/WorldScript.cpp
     )
     configure_rblx_target(Server)
     target_link_libraries(Server PRIVATE glm reactphysics3d ws2_32 winhttp)
@@ -222,6 +226,10 @@ endif()
 
 if(RBLX_BUILD_TESTS)
     enable_testing()
+    add_executable(ScriptTests tests/rblx_script_tests.cpp src/RblxScript.cpp)
+    target_include_directories(ScriptTests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+    add_test(NAME ScriptTests COMMAND ScriptTests)
+
     add_executable(NetworkProtocolTests tests/network_protocol_tests.cpp)
     target_include_directories(NetworkProtocolTests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
     target_link_libraries(NetworkProtocolTests PRIVATE glm)

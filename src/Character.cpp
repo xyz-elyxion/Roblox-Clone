@@ -96,6 +96,24 @@ int Character::getFolderIndex() const {
     return root.parentIndex; // The folder is the parent of the root part
 }
 
+void Character::teleportTo(const glm::vec3& position) {
+    if (!partsList || rootPartIndex < 0 || rootPartIndex >= static_cast<int>(partsList->size())) {
+        return;
+    }
+
+    Part& root = (*partsList)[rootPartIndex];
+    if (root.deleted) return;
+    root.position = position;
+
+    if (root.physicsBody == nullptr) return;
+    auto* body = static_cast<rp3d::RigidBody*>(root.physicsBody);
+    rp3d::Transform transform = body->getTransform();
+    transform.setPosition(rp3d::Vector3(position.x, position.y, position.z));
+    body->setTransform(transform);
+    body->setLinearVelocity(rp3d::Vector3(0.0f, 0.0f, 0.0f));
+    body->setAngularVelocity(rp3d::Vector3(0.0f, 0.0f, 0.0f));
+}
+
 void Character::setFaceTexture(unsigned int textureId) {
     if (!partsList || headIndex < 0 || headIndex >= static_cast<int>(partsList->size())) {
         return;

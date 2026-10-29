@@ -10,6 +10,8 @@
 #include "Raycaster.h"
 #include "ShadowMap.h"
 #include "WorldLoader.h"
+#include "RblxScript.h"
+#include "WorldScript.h"
 #ifdef _WIN32
 #include "Auth.h"
 #endif
@@ -29,6 +31,7 @@
 #include <iomanip>
 #include <iostream>
 #include <iterator>
+#include <memory>
 #include <sstream>
 #include <string>
 
@@ -270,6 +273,13 @@ int main() {
         bool publishPublic = true;
         std::string publishStatus = "Sign in to publish";
 
+        char scriptPath[260] = "games/sky-platformer.rbx";
+        char scriptSource[32768] = "-- Press Load to open a .rbx script, or write one here.\n";
+        std::string scriptStatus = "No script running";
+        std::unique_ptr<rblx::script::Interpreter> scriptInterpreter;
+        std::unique_ptr<rblx::worldscript::WorldRuntime> scriptRuntime;
+        bool scriptRunning = false;
+
         float lastFrame = static_cast<float>(glfwGetTime());
         double lastMouseX = WINDOW_WIDTH / 2.0;
         double lastMouseY = WINDOW_HEIGHT / 2.0;
@@ -282,6 +292,10 @@ int main() {
             lastFrame = currentFrame;
 
             window.pollEvents();
+
+            if (scriptRunning && scriptRuntime) {
+                scriptRuntime->heartbeat(deltaTime);
+            }
 
             editor.newFrame();
             GLFWwindow* nativeWindow = window.getNativeWindow();
@@ -371,6 +385,58 @@ int main() {
             }
 #endif
             ImGui::TextWrapped("%s", publishStatus.c_str());
+            ImGui::End();
+
+            ImGui::Begin("Script");
+            ImGui::InputText("Script file", scriptPath, sizeof(scriptPath));
+            ImGui::InputTextMultiline("##scriptEditor", scriptSource, sizeof(scriptSource),
+                                      ImVec2(-1.0f, 240.0f));
+            if (ImGui::Button("Load")) {
+                const std::string text = readTextFile(scriptPath);
+                if (text.empty()) {
+                    scriptStatus = std::string("Could not read ") + scriptPath;
+                } else {
+                    std::snprintf(scriptSource, sizeof(scriptSource), "%s", text.c_str());
+                    scriptStatus = std::string("Loaded ") + scriptPath;
+                }
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Save")) {
+                std::ofstream out(scriptPath, std::ios::binary);
+                if (out.is_open()) {
+                    out << scriptSource;
+                    scriptStatus = std::string("Saved ") + scriptPath;
+                } else {
+                    scriptStatus = std::string("Could not save ") + scriptPath;
+                }
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Run")) {
+                scriptRunning = false;
+                scriptRuntime.reset();
+                scriptInterpreter.reset();
+                scriptInterpreter = std::make_unique<rblx::script::Interpreter>();
+                scriptInterpreter->setPrintHandler(
+                    [&scriptStatus](const std::string& message, bool isError) {
+                        scriptStatus = (isError ? "[script error] " : "[script] ") + message;
+                    });
+                scriptRuntime = std::make_unique<rblx::worldscript::WorldRuntime>(
+                    parts, &physicsWorld, *scriptInterpreter);
+                std::string scriptError;
+                if (scriptRuntime->runScript(scriptSource, scriptPath, scriptError)) {
+                    scriptRunning = true;
+                    scriptStatus = std::string("Running ") + scriptPath;
+                } else {
+                    scriptStatus = scriptError;
+                }
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Stop")) {
+                scriptRunning = false;
+                if (scriptRuntime) scriptRuntime->stop();
+                scriptStatus = "Stopped";
+            }
+            ImGui::TextWrapped("%s", scriptStatus.c_str());
             ImGui::End();
 
             ImGui::Begin("Explorer");

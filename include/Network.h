@@ -21,7 +21,8 @@ enum class PacketType : uint8_t {
     WORLD_UPDATE = 5,
     CHAT = 6,
     WORLD_STATE = 7,
-    PLAYER_LIST = 8
+    PLAYER_LIST = 8,
+    TELEPORT = 9
 };
 
 #pragma pack(push, 1)
@@ -138,6 +139,7 @@ namespace PacketProtocol {
             case PacketType::CHAT:
             case PacketType::WORLD_STATE:
             case PacketType::PLAYER_LIST:
+            case PacketType::TELEPORT:
                 return true;
             default:
                 return false;
@@ -155,6 +157,7 @@ namespace PacketProtocol {
             case PacketType::WELCOME:
                 return payloadSize == sizeof(PacketWelcome);
             case PacketType::PLAYER_STATE:
+            case PacketType::TELEPORT:
                 return payloadSize == sizeof(PacketPlayerState);
             case PacketType::PLAYER_JOIN:
                 return payloadSize == sizeof(PacketPlayerJoin);

@@ -46,6 +46,10 @@ public:
     void takeDamage(float amount);
     void respawn();
     void setFaceTexture(unsigned int textureId);
+
+    // Moves the character to a world position and clears its velocity. Used by
+    // the server when a script teleports a player (hazards, checkpoints).
+    void teleportTo(const glm::vec3& position);
     
     // Get the folder index for this character (for cleanup)
     int getFolderIndex() const;

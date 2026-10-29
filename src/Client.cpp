@@ -1758,6 +1758,19 @@ int main(int argc, char** argv) {
                              isCursorLocked = false;
                              glfwSetInputMode(window.getNativeWindow(), GLFW_CURSOR, GLFW_CURSOR_NORMAL);
                         }
+                        else if (header->type == PacketType::TELEPORT) {
+                            if (header->size < sizeof(PacketPlayerState)) {
+                                std::cerr << "ERROR: Invalid TELEPORT packet size" << std::endl;
+                                offset += packetSize;
+                                continue;
+                            }
+                            PacketPlayerState* pkt = (PacketPlayerState*)(packetBuffer + offset + sizeof(PacketHeader));
+                            if (pkt->playerId == myPlayerId && myCharacter) {
+                                myCharacter->teleportTo(pkt->position);
+                                isCursorLocked = false;
+                                glfwSetInputMode(window.getNativeWindow(), GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+                            }
+                        }
                         // ... (rest of packet handlers)
                         else if (header->type == PacketType::PLAYER_JOIN) {
                             if (header->size < sizeof(PacketPlayerJoin)) {
@@ -2162,7 +2175,7 @@ int main(int argc, char** argv) {
                                     }
                                     
                                     // Server is fully authoritative for world parts
-                                    if (!isPlayerPart && p.physicsBody && !p.anchored) {
+                                    if (!isPlayerPart && p.physicsBody) {
                                         rp3d::RigidBody* body = (rp3d::RigidBody*)p.physicsBody;
                                         
                                         // CRITICAL: Make world parts KINEMATIC immediately
@@ -2298,7 +2311,7 @@ int main(int argc, char** argv) {
                     }
                     
                     // Force world parts to KINEMATIC - server controls them
-                    if (!isPlayerPart && p.physicsBody && !p.anchored) {
+                    if (!isPlayerPart && p.physicsBody) {
                         rp3d::RigidBody* body = (rp3d::RigidBody*)p.physicsBody;
                         if (body->getType() != rp3d::BodyType::KINEMATIC) {
                             body->setType(rp3d::BodyType::KINEMATIC);
@@ -2331,7 +2344,7 @@ int main(int argc, char** argv) {
                         }
                         
                         // Server is fully authoritative for world parts
-                        if (!isPlayerPart && p.physicsBody && !p.anchored) {
+                        if (!isPlayerPart && p.physicsBody) {
                             rp3d::RigidBody* body = (rp3d::RigidBody*)p.physicsBody;
                             
                             // FORCE KINEMATIC - server controls this completely

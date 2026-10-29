@@ -68,6 +68,7 @@ struct GameRecord {
     std::string description;
     bool isPublic = true;
     std::string worldPath;
+    std::string scriptPath;
     std::string iconPath;
     std::string bannerPath;
     int partsCount = 0;

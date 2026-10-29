@@ -1089,14 +1089,20 @@ bool WebsiteApp::seedStarterGames(std::string* error) {
         std::string path;
         std::string title;
         std::string description;
+        std::string scriptPath;
     };
     const Seed seeds[] = {
         {joinPath(config_.repoRoot, "ServerWorld.world"), "Starter Baseplate",
-         "The default shared world, now published as the first public game."},
+         "The default shared world, now published as the first public game.", std::string()},
         {joinPath(config_.webRoot, "seed-worlds/separate-server-test.world"),
          "Separate Server Test Arena",
          "A second published world for testing that each game starts its own local server "
-         "instance."}
+         "instance.",
+         std::string()},
+        {joinPath(config_.repoRoot, "games/sky-platformer.world"), "Sky Platformer",
+         "A scripted platformer with moving platforms, lava and a sky goal, driven by a "
+         ".rbx script.",
+         joinPath(config_.repoRoot, "games/sky-platformer.rbx")}
     };
 
     AuthUser owner;
@@ -1122,6 +1128,24 @@ bool WebsiteApp::seedStarterGames(std::string* error) {
                 *error = "Could not publish the starter world " + seed.path + ".";
             }
             return false;
+        }
+
+        if (!seed.scriptPath.empty()) {
+            std::string scriptText;
+            if (readWholeFile(seed.scriptPath, &scriptText)) {
+                makeDirectories(config_.gameWorldsDir);
+                const std::string scriptFile = joinPath(
+                    config_.gameWorldsDir, "game-" + std::to_string(created.id) + ".rbx");
+                if (writeWholeFile(scriptFile, scriptText)) {
+                    if (const GameRecord* stored = store_.findGame(created.id)) {
+                        GameRecord updated = *stored;
+                        updated.scriptPath = scriptFile;
+                        store_.updateGame(updated);
+                        std::string saveError;
+                        store_.save(&saveError);
+                    }
+                }
+            }
         }
     }
     return true;
@@ -2909,13 +2933,17 @@ WebsiteApp::GameInstance* WebsiteApp::ensureInstance(const GameRecord& game, boo
         instance.logPath = joinPath(directoryOf(config_.gameWorldsDir),
                                     "game-server-logs/game-server-" + std::to_string(port) +
                                         ".log");
-        const std::vector<std::string> args = {
+        std::vector<std::string> args = {
             "--port", std::to_string(port),
             "--world", game.worldPath,
             "--web", config_.publicBaseUrl,
             "--instance", instance.id,
             "--instance-token", instance.managerToken
         };
+        if (!game.scriptPath.empty()) {
+            args.push_back("--script");
+            args.push_back(game.scriptPath);
+        }
         SpawnedProcess spawned;
         std::string spawnError;
         if (spawnProcess(config_.serverExecutablePath, args, config_.repoRoot, &spawned,

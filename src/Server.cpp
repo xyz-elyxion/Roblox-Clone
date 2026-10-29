@@ -557,12 +557,12 @@ int main(int argc, char** argv) {
         }
         reportInstanceHeartbeat(false);
 
-        if (gameScriptRuntime) {
-            gameScriptRuntime->heartbeat(deltaTime);
-        }
-
-        // Network Broadcast (60Hz - match physics rate for smooth updates)
+        // Scripts tick with the network rate so gameplay logic runs at 60Hz
+        // instead of once per loop iteration.
         if (networkAccumulator >= 1.0f/60.0f) {
+            if (gameScriptRuntime) {
+                gameScriptRuntime->heartbeat(networkAccumulator);
+            }
             broadcastWorldUpdate();
             networkAccumulator = 0.0f;
         }

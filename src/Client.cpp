@@ -36,9 +36,13 @@
 #include <thread>
 #include <iomanip>
 
+#ifdef _WIN32
+// The file picker is the only part of the client that needs a native window
+// handle, so the Win32 headers stay behind this guard.
 #define GLFW_EXPOSE_NATIVE_WIN32
 #include <GLFW/glfw3native.h>
 #include <commdlg.h>
+#endif
 
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
@@ -108,6 +112,18 @@ namespace {
     }
 }
 #endif
+
+// Keeps an error readable when the client was launched from a shortcut and its
+// window closes immediately. Windows uses its own `pause`; elsewhere the
+// message is already on the terminal or in client_error_log.txt.
+void pauseBeforeExit() {
+#ifdef _WIN32
+    system("pause");
+#else
+    std::cout << "Press Enter to close..." << std::endl;
+    std::cin.get();
+#endif
+}
 
 // Settings
 const unsigned int SCR_WIDTH = 1280;
@@ -1459,8 +1475,13 @@ void renderEscapeMenu(std::deque<Part>& parts, PhysicsWorld& physicsWorld, float
     ImGui::End();
 }
 
-// Windows File Dialog
+// File picker for opening a world file.
+//
+// Only Windows has a native dialog here. Elsewhere the caller keeps whatever
+// path was passed on the command line and the menu reports that there is no
+// picker, which beats a silently empty result.
 std::string openFileDialog(GLFWwindow* window) {
+#ifdef _WIN32
     OPENFILENAMEA ofn;
     char szFile[260] = {0};
     ZeroMemory(&ofn, sizeof(ofn));
@@ -1479,6 +1500,11 @@ std::string openFileDialog(GLFWwindow* window) {
         return std::string(ofn.lpstrFile);
     }
     return "";
+#else
+    (void)window;
+    std::cout << "No native file picker on this platform; pass the .world path on the command line." << std::endl;
+    return "";
+#endif
 }
 
 void copyArgument(char* destination, size_t destinationSize, const char* value) {
@@ -1648,7 +1674,7 @@ int main(int argc, char** argv) {
         if (!f) {
              std::cout << "CRITICAL ERROR: shaders/vertex.glsl not found in current directory!" << std::endl;
              std::cout << "Please ensure the 'shaders' folder is next to the executable." << std::endl;
-             system("pause");
+             pauseBeforeExit();
              return -1;
         }
         fclose(f);
@@ -2603,11 +2629,11 @@ int main(int argc, char** argv) {
         return 0;
     } catch (const std::exception& e) {
         std::cout << "CRITICAL ERROR: " << e.what() << std::endl;
-        system("pause");
+        pauseBeforeExit();
         return -1;
     } catch (...) {
         std::cout << "CRITICAL ERROR: Unknown." << std::endl;
-        system("pause");
+        pauseBeforeExit();
         return -1;
     }
 }

@@ -5,7 +5,7 @@ RBLX Clone is an early prototype of a Roblox-style client, game server, Studio e
 ## Current Status
 
 - Client, Server, and Studio are C++17 targets.
-- The Client and Server currently require Windows because they use WinSock and WinHTTP.
+- Client and Server build on Windows and Linux. Socket calls go through `include/Network.h` and website calls through `include/HttpClient.h`, each of which has a WinSock/WinHTTP-facing Windows branch and a POSIX branch, so the game code itself has no platform split. The anti-cheat library is Windows-only and is skipped on other platforms.
 - Client.exe embeds **RBLXAntiCheat**, a usermode anti-cheat compiled into the client process (vendored from [UltimateAntiCheat](https://github.com/AlSch092/UltimateAntiCheat) and renamed, GNU AGPL v3 — see `RBLXAntiCheat/LICENSE`). It starts with the client, writes `RBLXAntiCheat.log`, and a failed start is logged instead of stopping the game. Configure with `-DRBLX_BUILD_ANTICHEAT=OFF` to leave it out of the build.
 - Studio uses GLFW/OpenGL/ImGui/ImGuizmo and has a basic world editing path.
 - The web backend is a Node.js/Express service with SQLite, bcrypt password hashing, JWT authentication, avatar storage, public game catalog pages, and local game-server launch orchestration.
@@ -28,11 +28,21 @@ RBLX Clone is an early prototype of a Roblox-style client, game server, Studio e
 
 ### C++ Targets
 
-Windows is currently required for Client and Server.
+Client, Server and Studio build on Windows and Linux. Sockets go through `include/Network.h` and website calls through `include/HttpClient.h`, each with a WinSock branch and a POSIX branch, so the game code itself has no platform split.
+
+On Windows:
 
 - Visual Studio 2022 with "Desktop development with C++".
 - CMake 3.21 or newer if using `CMakePresets.json`; CMake 3.14 or newer for manual configure.
 - OpenGL-capable GPU/drivers.
+
+On Linux:
+
+- GCC 11+ or Clang 14+ (anything with C++17), CMake 3.14+, Ninja or Make.
+- `build-essential cmake ninja-build pkg-config` plus the GLFW development packages: `libgl1-mesa-dev libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libwayland-dev libxkbcommon-dev`.
+- OpenGL-capable GPU/drivers.
+
+RBLXAntiCheat is Windows-only and is skipped automatically on other platforms; `-DRBLX_BUILD_ANTICHEAT=OFF` leaves it out on Windows too.
 
 ### Web Backend
 
@@ -67,15 +77,24 @@ cmake --build build/ninja
 ctest --test-dir build/ninja --output-on-failure
 ```
 
+On Linux:
+
+```bash
+cmake -S . -B build/linux -G Ninja -DCMAKE_BUILD_TYPE=Release
+cmake --build build/linux --parallel
+ctest --test-dir build/linux --output-on-failure
+```
+
 Useful CMake options:
 
 - `RBLX_BUILD_CLIENT=ON|OFF`
 - `RBLX_BUILD_SERVER=ON|OFF`
 - `RBLX_BUILD_STUDIO=ON|OFF`
 - `RBLX_BUILD_TESTS=ON|OFF`
+- `RBLX_BUILD_ANTICHEAT=ON|OFF`
 - `RBLX_ENABLE_WARNINGS=ON|OFF`
 
-On non-Windows hosts, CMake disables Client and Server because those targets depend on WinSock/WinHTTP.
+Windows builds also compile the vendored RBLXAntiCheat into the client (see `RBLXAntiCheat/`); on other platforms that target is skipped.
 
 ## Run C++ Targets
 
@@ -327,11 +346,12 @@ Scale operations assign the decomposed absolute scale from ImGuizmo and clamp it
 ## Known Limitations
 
 - This is a prototype and should be treated as local-only.
-- Client and Server are Windows-only until socket and HTTP abstractions are made portable.
+- The Linux build of Client and Server compiles and passes its tests in CI, but nobody has played a match on it yet; the world file picker exists only on Windows (elsewhere pass the `.world` path on the command line).
+- The HTTP client speaks plain `http://` only. There is no TLS implementation, so an `https://` backend URL fails with an explanation instead of working.
 - The binary protocol still depends on matching C++ struct layouts across the same build family.
 - The web service uses SQLite and local JWT storage in the browser; it is not hardened for internet deployment.
 - Client UI/networking code remains large and should be split further.
-- C++ build/test is verified with CMake, Ninja, and MinGW GCC. Client, Server, and Studio runtime behavior still need manual testing with a graphics-capable Windows desktop.
+- C++ build/test is verified with CMake, Ninja, MinGW GCC and GCC on Linux. Client, Server, and Studio runtime behavior still need manual testing on a graphics-capable desktop.
 
 ## Troubleshooting
 

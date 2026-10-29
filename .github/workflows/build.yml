@@ -67,3 +67,40 @@ jobs:
           name: rblx-${{ matrix.preset }}
           path: dist/rblx-${{ matrix.preset }}
           if-no-files-found: warn
+
+  linux:
+    name: Linux ${{ matrix.configuration }} (GCC)
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - configuration: Debug
+          - configuration: Release
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential cmake ninja-build pkg-config \
+            libgl1-mesa-dev libx11-dev libxrandr-dev libxinerama-dev \
+            libxcursor-dev libxi-dev libwayland-dev libxkbcommon-dev
+
+      - name: Configure
+        run: >
+          cmake -S . -B build/linux-${{ matrix.configuration }}
+          -G Ninja
+          -DCMAKE_BUILD_TYPE=${{ matrix.configuration }}
+          -DRBLX_BUILD_ANTICHEAT=OFF
+
+      - name: Build
+        run: cmake --build build/linux-${{ matrix.configuration }} --parallel
+
+      - name: Test
+        run: ctest --test-dir build/linux-${{ matrix.configuration }} --output-on-failure

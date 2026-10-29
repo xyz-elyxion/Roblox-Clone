@@ -341,24 +341,139 @@ public:
         return sendPacket(socket, type, &payload, static_cast<uint32_t>(sizeof(T)));
     }
 };
-#else
+#else  // POSIX sockets
+
+#include <arpa/inet.h>
+#include <cerrno>
+#include <csignal>
+#include <fcntl.h>
+#include <netinet/in.h>
+#include <netinet/tcp.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <unistd.h>
+
 using SOCKET = int;
 constexpr SOCKET INVALID_SOCKET = -1;
+constexpr int SOCKET_ERROR = -1;
+
+// The client and server were written against WinSock, and their socket code is
+// identical apart from the names. Aliasing the handful of WinSock spellings
+// here keeps one implementation of the game instead of an #ifdef around every
+// send, close and error check in Client.cpp and Server.cpp.
+inline int closesocket(SOCKET s) {
+    return ::close(s);
+}
+
+inline int WSAGetLastError() {
+    return errno;
+}
+
+#ifndef WSAEWOULDBLOCK
+    #define WSAEWOULDBLOCK EWOULDBLOCK
+#endif
+#ifndef WSAECONNRESET
+    #define WSAECONNRESET ECONNRESET
+#endif
+#ifndef WSAEINPROGRESS
+    #define WSAEINPROGRESS EINPROGRESS
+#endif
+#ifndef WSAEISCONN
+    #define WSAEISCONN EISCONN
+#endif
+
+// A peer that disappears mid-send would otherwise raise SIGPIPE and kill the
+// process; MSG_NOSIGNAL is the per-send form of the Windows behaviour.
+#ifndef MSG_NOSIGNAL
+    #define MSG_NOSIGNAL 0
+#endif
 
 class Network {
 public:
-    static bool init() { return false; }
+    // How long sendAll keeps retrying a full socket before giving up.
+    static constexpr int SEND_TIMEOUT_MS = 500;
+
+    static bool init() {
+#ifdef SIGPIPE
+        std::signal(SIGPIPE, SIG_IGN);
+#endif
+        return true;
+    }
+
     static void cleanup() {}
-    static bool setNonBlocking(SOCKET) { return false; }
-    static bool setNoDelay(SOCKET) { return false; }
-    static SOCKET createUdpSocket() { return INVALID_SOCKET; }
-    static bool setIoBufferSize(SOCKET, int) { return false; }
-    static bool sendAll(SOCKET, const void*, size_t) { return false; }
-    static bool sendPacket(SOCKET, PacketType, const void*, uint32_t) { return false; }
+
+    static bool setNonBlocking(SOCKET s) {
+        const int flags = fcntl(s, F_GETFL, 0);
+        if (flags < 0) {
+            return false;
+        }
+        return fcntl(s, F_SETFL, flags | O_NONBLOCK) == 0;
+    }
+
+    // Gameplay packets are tiny and latency sensitive, so stop the stack from
+    // holding them back while it waits for more data (Nagle) or for a delayed
+    // ACK. Without this a steady 60Hz stream stalls for tens to hundreds of
+    // milliseconds at a time and then catches up in a burst.
+    static bool setNoDelay(SOCKET s) {
+        const int enabled = 1;
+        return setsockopt(s, IPPROTO_TCP, TCP_NODELAY, &enabled, sizeof(enabled)) == 0;
+    }
+
+    static SOCKET createUdpSocket() {
+        return ::socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+    }
+
+    // A world snapshot arrives as a burst of fragments, so the socket needs room
+    // for the whole burst instead of dropping the tail of it.
+    static bool setIoBufferSize(SOCKET s, int bytes) {
+        setsockopt(s, SOL_SOCKET, SO_RCVBUF, &bytes, sizeof(bytes));
+        setsockopt(s, SOL_SOCKET, SO_SNDBUF, &bytes, sizeof(bytes));
+        return true;
+    }
+
+    static bool sendAll(SOCKET socket, const void* data, size_t size) {
+        const char* bytes = static_cast<const char*>(data);
+        size_t sentTotal = 0;
+
+        // The game loop sends to every player from one thread, so a client that
+        // stops draining its receive window must not be able to wedge it here.
+        const auto deadline = std::chrono::steady_clock::now() +
+                              std::chrono::milliseconds(SEND_TIMEOUT_MS);
+
+        while (sentTotal < size) {
+            const size_t chunkSize = std::min<size_t>(size - sentTotal, 16384);
+            const ssize_t sent = ::send(socket, bytes + sentTotal, chunkSize, MSG_NOSIGNAL);
+            if (sent < 0) {
+                const int error = errno;
+                if (error == EWOULDBLOCK || error == EINTR) {
+                    if (std::chrono::steady_clock::now() >= deadline) {
+                        return false;
+                    }
+                    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                    continue;
+                }
+                return false;
+            }
+            if (sent == 0) {
+                return false;
+            }
+            sentTotal += static_cast<size_t>(sent);
+        }
+
+        return true;
+    }
+
+    static bool sendPacket(SOCKET socket, PacketType type, const void* payload, uint32_t payloadSize) {
+        if (!PacketProtocol::validatePayload(type, static_cast<const char*>(payload), payloadSize)) {
+            return false;
+        }
+        const std::vector<char> packet = PacketProtocol::buildPacket(type, payload, payloadSize);
+        return sendAll(socket, packet.data(), packet.size());
+    }
 
     template <typename T>
-    static bool sendStructPacket(SOCKET, PacketType, const T&) {
-        return false;
+    static bool sendStructPacket(SOCKET socket, PacketType type, const T& payload) {
+        return sendPacket(socket, type, &payload, static_cast<uint32_t>(sizeof(T)));
     }
 };
 #endif

@@ -26,14 +26,6 @@ option(RBLX_ENABLE_WARNINGS "Enable stricter compiler warnings" ON)
 
 add_compile_definitions(NOMINMAX GLM_ENABLE_EXPERIMENTAL)
 
-if(NOT WIN32)
-    if(RBLX_BUILD_CLIENT OR RBLX_BUILD_SERVER)
-        message(WARNING "Client and Server currently depend on WinSock/WinHTTP and are disabled on non-Windows hosts.")
-    endif()
-    set(RBLX_BUILD_CLIENT OFF CACHE BOOL "Build the game client target" FORCE)
-    set(RBLX_BUILD_SERVER OFF CACHE BOOL "Build the game server target" FORCE)
-endif()
-
 include(FetchContent)
 
 set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "Build GLFW examples" FORCE)
@@ -183,11 +175,20 @@ if(RBLX_BUILD_CLIENT)
     add_executable(Client
         src/Client.cpp
         src/WebJson.cpp
+        src/HttpClient.cpp
         ${SHARED_SOURCES}
         ${IMGUI_SOURCES}
     )
     configure_rblx_target(Client)
-    target_link_libraries(Client PRIVATE glfw glm reactphysics3d glad ws2_32 winhttp shell32 comdlg32)
+    target_link_libraries(Client PRIVATE glfw glm reactphysics3d glad)
+    if(WIN32)
+        target_link_libraries(Client PRIVATE ws2_32 shell32 comdlg32)
+    else()
+        # glad reaches GL through GLFW at runtime, but the loader still needs
+        # dlopen, and the client's worker threads are std::thread.
+        find_package(Threads REQUIRED)
+        target_link_libraries(Client PRIVATE Threads::Threads ${CMAKE_DL_LIBS})
+    endif()
     if(TARGET RBLXAntiCheat)
         target_compile_definitions(Client PRIVATE RBLX_ANTICHEAT)
         target_link_libraries(Client PRIVATE RBLXAntiCheat)
@@ -198,13 +199,20 @@ if(RBLX_BUILD_SERVER)
     add_executable(Server
         src/Server.cpp
         src/ServerAuth.cpp
+        src/HttpClient.cpp
         src/WorldLoader.cpp
         src/PhysicsWorld.cpp
         src/RblxScript.cpp
         src/WorldScript.cpp
     )
     configure_rblx_target(Server)
-    target_link_libraries(Server PRIVATE glm reactphysics3d ws2_32 winhttp)
+    target_link_libraries(Server PRIVATE glm reactphysics3d)
+    if(WIN32)
+        target_link_libraries(Server PRIVATE ws2_32)
+    else()
+        find_package(Threads REQUIRED)
+        target_link_libraries(Server PRIVATE Threads::Threads)
+    endif()
 endif()
 
 set(WEB_SOURCES
@@ -246,6 +254,16 @@ if(RBLX_BUILD_TESTS)
     target_include_directories(NetworkProtocolTests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
     target_link_libraries(NetworkProtocolTests PRIVATE glm)
     add_test(NAME NetworkProtocolTests COMMAND NetworkProtocolTests)
+
+    add_executable(HttpClientTests tests/http_client_tests.cpp src/HttpClient.cpp)
+    target_include_directories(HttpClientTests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+    if(WIN32)
+        target_link_libraries(HttpClientTests PRIVATE ws2_32)
+    else()
+        find_package(Threads REQUIRED)
+        target_link_libraries(HttpClientTests PRIVATE Threads::Threads)
+    endif()
+    add_test(NAME HttpClientTests COMMAND HttpClientTests)
 
     add_executable(WebAppTests
         tests/web_app_tests.cpp

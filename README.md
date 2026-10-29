@@ -225,6 +225,14 @@ Tokens are no longer accepted in avatar URLs. `/api/verify` still accepts a body
 
 The game server reports authenticated player sessions to `/api/me/playtime` while a player is connected and once more when the player disconnects.
 
+## Client Controls
+
+- Right mouse: hold to look around.
+- `W/A/S/D`: move, Space: jump.
+- `Esc`: open the in-game menu with Resume, Reset Character, Settings and Leave Game; `Esc` again resumes.
+- Settings holds mouse sensitivity, field of view and the debug overlay toggle.
+- `F3`: toggle the debug overlay without opening the menu.
+
 ## Studio Controls
 
 - Right mouse drag: look around.

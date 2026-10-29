@@ -203,6 +203,8 @@ bool showConnectionUI = false; // Track if connection UI should be shown
 bool autoConnectOnStart = false;
 int launchGameId = 0;
 bool showDebugGui = false;
+bool escapeMenuOpen = false;
+bool escapeMenuShowSettings = false;
 bool waitingForWebLogin = false;
 SOCKET authListenSocket = INVALID_SOCKET;
 SOCKET authClientSocket = INVALID_SOCKET;
@@ -636,6 +638,8 @@ void leaveCurrentGame(std::deque<Part>& parts, PhysicsWorld& physicsWorld) {
     physicsWorld.reset();
     parts.clear();
     currentState = MENU_PLAY_CHOICE;
+    escapeMenuOpen = false;
+    escapeMenuShowSettings = false;
     addChatLine("System", "Left the game.", true);
 }
 
@@ -975,6 +979,7 @@ void renderBottomHud(float uiScale) {
 }
 
 void renderGameHud(std::deque<Part>& parts, PhysicsWorld& physicsWorld, float uiScale) {
+    if (escapeMenuOpen) return;
     if ((currentState != ONLINE && currentState != OFFLINE) || !myCharacter) return;
     renderChat(uiScale);
     if (currentState == ONLINE && isConnected) {
@@ -982,6 +987,79 @@ void renderGameHud(std::deque<Part>& parts, PhysicsWorld& physicsWorld, float ui
     }
     renderTopBar(parts, physicsWorld, uiScale);
     renderBottomHud(uiScale);
+}
+
+// Roblox-style pause menu: dim the game, release the mouse and offer the things
+// you would expect from pressing Esc in a game - resume, reset, settings, leave.
+void renderEscapeMenu(std::deque<Part>& parts, PhysicsWorld& physicsWorld, float uiScale) {
+    if (!escapeMenuOpen) return;
+
+    const ImVec2 display = ImGui::GetIO().DisplaySize;
+
+    ImGui::SetNextWindowPos(ImVec2(0.0f, 0.0f), ImGuiCond_Always);
+    ImGui::SetNextWindowSize(display, ImGuiCond_Always);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+    ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.02f, 0.03f, 0.05f, 0.72f));
+    ImGui::Begin("EscapeMenuBackdrop", nullptr,
+                 ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoSavedSettings |
+                 ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoNav |
+                 ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoBringToFrontOnFocus);
+    ImGui::End();
+    ImGui::PopStyleColor();
+    ImGui::PopStyleVar();
+
+    const float panelWidth = std::min(display.x - UiScale::Px(40.0f, uiScale), UiScale::Px(430.0f, uiScale));
+    const float panelHeight = UiScale::Px(escapeMenuShowSettings ? 400.0f : 424.0f, uiScale);
+    ImGui::SetNextWindowPos(ImVec2((display.x - panelWidth) * 0.5f, (display.y - panelHeight) * 0.5f), ImGuiCond_Always);
+    ImGui::SetNextWindowSize(ImVec2(panelWidth, panelHeight), ImGuiCond_Always);
+
+    if (!ImGui::Begin("EscapeMenu", nullptr, overlayFlags())) {
+        ImGui::End();
+        return;
+    }
+
+    drawLabel("NOW PLAYING");
+    ImGui::Text("RBLX Clone");
+    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.56f, 0.64f, 0.76f, 1.0f));
+    if (launchGameId > 0) {
+        ImGui::Text("Game %d - %s", launchGameId, currentState == ONLINE ? "online session" : "offline session");
+    } else {
+        ImGui::Text("%s", currentState == ONLINE ? "online session" : "offline session");
+    }
+    ImGui::PopStyleColor();
+    ImGui::Separator();
+
+    if (!escapeMenuShowSettings) {
+        if (modernButton("Resume", ImVec2(-1, UiScale::Px(52.0f, uiScale)), ImVec4(0.10f, 0.50f, 0.95f, 1.0f))) {
+            escapeMenuOpen = false;
+        }
+        if (modernButton("Reset Character", ImVec2(-1, UiScale::Px(42.0f, uiScale)), ImVec4(0.16f, 0.18f, 0.23f, 1.0f))) {
+            if (myCharacter) myCharacter->respawn();
+            escapeMenuOpen = false;
+        }
+        if (modernButton("Settings", ImVec2(-1, UiScale::Px(42.0f, uiScale)), ImVec4(0.16f, 0.18f, 0.23f, 1.0f))) {
+            escapeMenuShowSettings = true;
+        }
+        if (modernButton("Leave Game", ImVec2(-1, UiScale::Px(46.0f, uiScale)), ImVec4(0.85f, 0.18f, 0.18f, 1.0f))) {
+            leaveCurrentGame(parts, physicsWorld);
+        }
+    } else {
+        drawLabel("MOUSE SENSITIVITY");
+        ImGui::SetNextItemWidth(-1.0f);
+        ImGui::SliderFloat("##mouseSensitivity", &camera.MouseSensitivity, 0.02f, 0.50f, "%.2f");
+        drawLabel("FIELD OF VIEW");
+        ImGui::SetNextItemWidth(-1.0f);
+        ImGui::SliderFloat("##fieldOfView", &camera.Zoom, 30.0f, 90.0f, "%.0f");
+        ImGui::Checkbox("Debug overlay", &showDebugGui);
+        ImGui::Spacing();
+        if (modernButton("Back", ImVec2(-1, UiScale::Px(42.0f, uiScale)), ImVec4(0.16f, 0.18f, 0.23f, 1.0f))) {
+            escapeMenuShowSettings = false;
+        }
+    }
+
+    ImGui::Separator();
+    drawLabel("Press Esc to resume");
+    ImGui::End();
 }
 
 // Windows File Dialog
@@ -1099,7 +1177,7 @@ bool connectToConfiguredServer() {
 }
 
 void mouse_callback(GLFWwindow* window, double xposIn, double yposIn) {
-    if (ImGui::GetIO().WantCaptureMouse) return;
+    if (escapeMenuOpen || ImGui::GetIO().WantCaptureMouse) return;
     
     // Right Click to Look
     bool isRightClickHeld = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS;
@@ -1247,12 +1325,24 @@ int main(int argc, char** argv) {
             deltaTime = currentFrame - lastFrame;
             lastFrame = currentFrame;
 
-            if (glfwGetKey(window.getNativeWindow(), GLFW_KEY_ESCAPE) == GLFW_PRESS) {
-                if (isCursorLocked) {
+            static bool escapeWasDown = false;
+            const bool escapeDown = glfwGetKey(window.getNativeWindow(), GLFW_KEY_ESCAPE) == GLFW_PRESS;
+            if (escapeDown && !escapeWasDown) {
+                const bool inGame = currentState == ONLINE || currentState == OFFLINE;
+                if (inGame && escapeMenuOpen) {
+                    escapeMenuOpen = false;
+                    escapeMenuShowSettings = false;
+                } else if (inGame) {
+                    escapeMenuOpen = true;
+                    escapeMenuShowSettings = false;
+                    isCursorLocked = false;
+                    glfwSetInputMode(window.getNativeWindow(), GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+                } else if (isCursorLocked) {
                     isCursorLocked = false;
                     glfwSetInputMode(window.getNativeWindow(), GLFW_CURSOR, GLFW_CURSOR_NORMAL);
                 }
             }
+            escapeWasDown = escapeDown;
 
             // 2. ImGui NewFrame
             ImGui_ImplOpenGL3_NewFrame();
@@ -1277,7 +1367,12 @@ int main(int argc, char** argv) {
             } else if (currentState == MENU_PLAY_CHOICE) {
                 renderPlayMenu(uiScale);
             }
+            if (currentState != ONLINE && currentState != OFFLINE) {
+                escapeMenuOpen = false;
+                escapeMenuShowSettings = false;
+            }
             renderGameHud(parts, physicsWorld, uiScale);
+            renderEscapeMenu(parts, physicsWorld, uiScale);
 
             if (currentState != ONLINE && currentState != OFFLINE) {
                 glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -1848,7 +1943,7 @@ int main(int argc, char** argv) {
                 }
             }
 
-            if ((isConnected || currentState == OFFLINE) && myCharacter && !io.WantCaptureKeyboard) {
+            if ((isConnected || currentState == OFFLINE) && myCharacter && !io.WantCaptureKeyboard && !escapeMenuOpen) {
                  try {
                      bool fwd = glfwGetKey(window.getNativeWindow(), GLFW_KEY_W) == GLFW_PRESS;
                      bool bwd = glfwGetKey(window.getNativeWindow(), GLFW_KEY_S) == GLFW_PRESS;

@@ -11,10 +11,20 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  windows-debug:
-    name: Windows Debug (MSVC)
+  windows:
+    name: Windows ${{ matrix.configuration }} (MSVC)
     runs-on: windows-2022
     timeout-minutes: 60
+
+    strategy:
+      # A broken Release build must not hide the Debug result.
+      fail-fast: false
+      matrix:
+        include:
+          - configuration: Debug
+            preset: windows-debug
+          - configuration: Release
+            preset: windows-release
 
     env:
       # GLFW 3.3.8 and a few other FetchContent dependencies declare
@@ -31,21 +41,29 @@ jobs:
           git --version
 
       - name: Configure
-        run: cmake --preset windows-debug
+        run: cmake --preset ${{ matrix.preset }}
 
       - name: Build
-        run: cmake --build --preset windows-debug --parallel
+        run: cmake --build --preset ${{ matrix.preset }} --parallel
 
       - name: Test
-        run: ctest --preset windows-debug --output-on-failure
+        run: ctest --preset ${{ matrix.preset }} --output-on-failure
 
-      - name: Upload binaries
+      - name: Package runnable folder
         # Runs even if the tests fail, so a red run still hands back whatever
-        # targets linked. A glob (not a fixed list) means a partial build
-        # produces a partial artifact instead of failing the upload outright.
+        # targets linked.
+        if: always()
+        shell: pwsh
+        run: >
+          ./scripts/package-build.ps1
+          -Configuration ${{ matrix.configuration }}
+          -BuildDir build/${{ matrix.preset }}
+          -Output dist/rblx-${{ matrix.preset }}
+
+      - name: Upload runnable package
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: rblx-windows-debug
-          path: build/windows-debug/Debug/*.exe
+          name: rblx-${{ matrix.preset }}
+          path: dist/rblx-${{ matrix.preset }}
           if-no-files-found: warn

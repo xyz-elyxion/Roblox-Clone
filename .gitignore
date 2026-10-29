@@ -5,6 +5,9 @@ build_old/
 build-*/
 cmake-build-*/
 
+# Packaging output
+/dist/
+
 # Compiled binaries
 *.exe
 *.dll

@@ -13,7 +13,8 @@ RBLX Clone is an early prototype of a Roblox-style client, game server, Studio e
 ## Repository Layout
 
 - `CMakeLists.txt` - C++ build configuration.
-- `CMakePresets.json` - Visual Studio debug preset for Windows.
+- `CMakePresets.json` - Visual Studio debug and release presets for Windows.
+- `scripts/package-build.ps1` - Assembles a runnable folder from a build tree.
 - `include/` - C++ headers.
 - `src/` - C++ Client, Server, Studio, rendering, physics, auth, and world loading code.
 - `shaders/` - OpenGL shader files used by Client and Studio.
@@ -87,6 +88,31 @@ After building Debug with the preset:
 ```
 
 Start the web backend before using authenticated Client login.
+
+## Prebuilt Windows Package
+
+The `Build` workflow runs on every push and packages both configurations into folders you
+can unzip and run. Open the latest run under **Actions** and download `rblx-windows-release`
+(or `rblx-windows-debug` for the assertion-enabled build with `.pdb` files):
+
+```
+rblx-windows-release/
+  WebApp.exe  Server.exe  Client.exe  Studio.exe
+  web/public/  web/seed-worlds/
+  shaders/  ServerWorld.world  face*.png  face_hex.txt
+  start-website.bat  start-studio.bat  start-client.bat
+  README.txt
+```
+
+Double-click `start-website.bat`: it starts `WebApp.exe` from that folder, points it at the
+`Server.exe` and `Client.exe` beside it, and opens <http://localhost:3000> in your browser.
+Pressing Play on a game page then launches the client from the same folder.
+
+Nothing else needs to be installed. The executables link the C++ runtime statically, so
+neither Visual Studio nor the VC++ redistributable is required at runtime; keep the folder
+layout intact because the executables load `shaders/`, `ServerWorld.world` and `web/`
+relative to the working directory. The same folder can be produced locally with
+`./scripts/package-build.ps1 -Configuration Release` after building that configuration.
 
 ## Native Web Backend
 

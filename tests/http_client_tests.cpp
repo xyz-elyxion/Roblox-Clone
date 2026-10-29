@@ -32,6 +32,20 @@
 #endif
 
 namespace {
+#ifdef _WIN32
+    // Winsock refuses socket(), bind() and listen() until WSAStartup has run.
+    // The client does that lazily inside rblx::http::request, but the stub
+    // servers below create their listening socket before any request is made,
+    // so the test has to initialise Winsock itself. A file-scope object is the
+    // earliest point at which that can happen.
+    struct WinsockInit {
+        WinsockInit() {
+            WSADATA data;
+            WSAStartup(MAKEWORD(2, 2), &data);
+        }
+    } g_winsockInit;
+#endif
+
     int failures = 0;
 
     void check(bool condition, const char* what) {

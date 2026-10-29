@@ -44,6 +44,7 @@ try {
 
     $exeDir = Join-Path $BuildDir $Configuration
     $found = @()
+    $missing = @()
     foreach ($name in @('WebApp', 'Server', 'Client', 'Studio')) {
         $exePath = Join-Path $exeDir "$name.exe"
         if (Test-Path -LiteralPath $exePath) {
@@ -51,8 +52,15 @@ try {
             $found += "$name.exe"
         }
         else {
-            Write-Warning "No $name.exe at $exePath; it will be missing from the package."
+            $missing += "$name.exe"
+            Write-Warning "No $name.exe at $exePath."
         }
+    }
+    # A link failure can leave some targets built and one missing. Packaging that
+    # folder would hand out a release that cannot run the website, so stop here
+    # instead of uploading a partial package.
+    if ($missing.Count -gt 0) {
+        throw "The build is incomplete: missing $($missing -join ', ') in $exeDir."
     }
     if ($found.Count -eq 0) {
         throw "No executables were built in $exeDir; nothing to package."

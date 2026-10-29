@@ -92,3 +92,7 @@ int runWebsiteServer(int argc, char** argv) {
 
 }  // namespace web
 }  // namespace rblx
+
+int main(int argc, char** argv) {
+    return rblx::web::runWebsiteServer(argc, argv);
+}

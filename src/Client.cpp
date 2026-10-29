@@ -10,6 +10,7 @@
 #include "ShadowMap.h"
 #include "Character.h"
 #include "Network.h"
+#include "UdpTransport.h"
 #include "WorldLoader.h"
 #include "Auth.h"
 #include "Avatar.h"
@@ -20,6 +21,7 @@
 #include <sstream>
 
 #include <deque>
+#include <memory>
 #include <vector>
 #include <map>
 #include <iostream>
@@ -188,6 +190,12 @@ GameState currentState = MENU_AUTH_CHOICE;
 
 // Network State
 SOCKET clientSocket = INVALID_SOCKET;
+std::unique_ptr<rblx::net::UdpSession> clientSession;
+bool gameConnectionLost = false;
+bool awaitingWelcome = false;
+std::chrono::steady_clock::time_point welcomeDeadline;
+const uint64_t kGameConnectionTimeoutMs = 10000;
+const int kDatagramsPerFrame = 128;
 int myPlayerId = -1;
 bool isConnected = false;
 char myUsername[32] = "Guest";
@@ -629,11 +637,84 @@ bool modernButton(const char* label, const ImVec2& size, const ImVec4& color) {
     return pressed;
 }
 
+uint64_t steadyMilliseconds() {
+    return static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::steady_clock::now().time_since_epoch()).count());
+}
+
+bool sendClientDatagram(const char* data, size_t size) {
+    if (clientSocket == INVALID_SOCKET) return false;
+    const int sent = send(clientSocket, data, static_cast<int>(size), 0);
+    return sent == static_cast<int>(size);
+}
+
+bool sendClientPacket(const std::vector<char>& frame, bool reliable) {
+    if (!clientSession) return false;
+    return clientSession->sendMessage(frame.data(), frame.size(), reliable);
+}
+
+bool sendPlayerStateToServer(const PacketPlayerState& state) {
+    return sendClientPacket(PacketProtocol::buildStructPacket(PacketType::PLAYER_STATE, state), false);
+}
+
+// Drains the socket into the session, appends every completed frame to the
+// receive buffer, and returns how many bytes it added. Nothing is appended
+// until a message is whole, so the parser below never sees half a packet.
+int receiveGameDatagrams() {
+    gameConnectionLost = false;
+    if (!clientSession || clientSocket == INVALID_SOCKET) {
+        gameConnectionLost = true;
+        return 0;
+    }
+
+    const uint64_t nowMs = steadyMilliseconds();
+    std::vector<std::vector<char>> messages;
+
+    char datagram[2048];
+    for (int i = 0; i < kDatagramsPerFrame; ++i) {
+        const int received = recv(clientSocket, datagram, sizeof(datagram), 0);
+        if (received == SOCKET_ERROR) {
+            const int error = WSAGetLastError();
+            if (error == WSAEWOULDBLOCK) break;
+            // An ICMP port-unreachable arrives as WSAECONNRESET on a connected
+            // datagram socket; the server may simply not be listening yet.
+            if (error == WSAECONNRESET) continue;
+            std::cerr << "Game socket failed: " << error << std::endl;
+            gameConnectionLost = true;
+            break;
+        }
+        if (received <= 0) break;
+        clientSession->receiveDatagram(datagram, static_cast<size_t>(received), nowMs, messages);
+    }
+
+    clientSession->pump(nowMs, sendClientDatagram);
+
+    int appended = 0;
+    for (std::vector<char>& message : messages) {
+        appended += static_cast<int>(message.size());
+        clientReceiveBuffer.insert(clientReceiveBuffer.end(), message.begin(), message.end());
+    }
+
+    if (clientSession->timedOut(nowMs, kGameConnectionTimeoutMs)) {
+        std::cout << "The game server stopped responding." << std::endl;
+        gameConnectionLost = true;
+    }
+    if (awaitingWelcome && std::chrono::steady_clock::now() > welcomeDeadline) {
+        std::cout << "The game server did not answer the join request." << std::endl;
+        gameConnectionLost = true;
+    }
+
+    return appended;
+}
+
 void disconnectFromServerOnly() {
     if (clientSocket != INVALID_SOCKET) {
         closesocket(clientSocket);
         clientSocket = INVALID_SOCKET;
     }
+    clientSession.reset();
+    awaitingWelcome = false;
+    gameConnectionLost = false;
     isConnected = false;
     myPlayerId = -1;
     showConnectionUI = false;
@@ -675,42 +756,28 @@ bool connectToServer(std::string& error) {
     serverAddr.sin_port = htons(static_cast<u_short>(serverPort));
 
     // The website starts the game server and this client together, so the server
-    // may still be booting when we get here. Keep retrying instead of failing on
-    // the first refused connection.
-    constexpr int CONNECT_ATTEMPTS = 40;
-    constexpr int CONNECT_RETRY_DELAY_MS = 200;
+    // may still be booting when we get here. A datagram socket cannot fail on a
+    // refused connection, so joining is the CONNECT packet: the session keeps
+    // sending it until the server answers with a WELCOME.
     std::cout << "Connecting to game server " << automaticGameServerIp() << ':' << serverPort
               << std::endl;
 
-    bool connected = false;
-    for (int attempt = 0; attempt < CONNECT_ATTEMPTS; ++attempt) {
-        clientSocket = socket(AF_INET, SOCK_STREAM, 0);
-        if (clientSocket == INVALID_SOCKET) {
-            error = "Could not create network socket.";
-            return false;
-        }
-        if (connect(clientSocket, reinterpret_cast<sockaddr*>(&serverAddr), sizeof(serverAddr)) !=
-            SOCKET_ERROR) {
-            connected = true;
-            break;
-        }
-        disconnectFromServerOnly();
-        if (attempt + 1 < CONNECT_ATTEMPTS) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(CONNECT_RETRY_DELAY_MS));
-        }
+    clientSocket = Network::createUdpSocket();
+    if (clientSocket == INVALID_SOCKET) {
+        error = "Could not create network socket.";
+        return false;
     }
+    Network::setIoBufferSize(clientSocket, 4 << 20);
+    Network::setNonBlocking(clientSocket);
 
-    if (!connected) {
-        error = "Could not connect to the game server.";
-        std::cout << "Gave up connecting to " << automaticGameServerIp() << ':' << serverPort
-                  << std::endl;
+    if (connect(clientSocket, reinterpret_cast<sockaddr*>(&serverAddr), sizeof(serverAddr)) ==
+        SOCKET_ERROR) {
+        error = "Could not reach the game server.";
+        disconnectFromServerOnly();
         return false;
     }
 
-    isConnected = true;
-    currentState = ONLINE;
-    Network::setNonBlocking(clientSocket);
-    Network::setNoDelay(clientSocket);
+    clientSession = std::make_unique<rblx::net::UdpSession>();
 
     PacketConnect pkt;
     std::memset(&pkt, 0, sizeof(pkt));
@@ -721,13 +788,17 @@ bool connectToServer(std::string& error) {
         copyToBuffer(pkt.username, sizeof(pkt.username), "Guest");
     }
 
-    if (!Network::sendStructPacket(clientSocket, PacketType::CONNECT, pkt)) {
-        error = "Connected, but could not send the join packet.";
+    if (!sendClientPacket(PacketProtocol::buildStructPacket(PacketType::CONNECT, pkt), true)) {
+        error = "Could not send the join packet.";
         disconnectFromServerOnly();
         currentState = MENU_PLAY_CHOICE;
         return false;
     }
 
+    isConnected = true;
+    currentState = ONLINE;
+    awaitingWelcome = true;
+    welcomeDeadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
     showConnectionUI = false;
     addChatLine("System", "Joining online game...", true);
     return true;
@@ -745,7 +816,7 @@ void sendChatMessage() {
         chat.playerId = myPlayerId;
         copyToBuffer(chat.username, sizeof(chat.username), myUsername);
         copyToBuffer(chat.message, sizeof(chat.message), message);
-        if (!Network::sendStructPacket(clientSocket, PacketType::CHAT, chat)) {
+        if (!sendClientPacket(PacketProtocol::buildStructPacket(PacketType::CHAT, chat), true)) {
             addChatLine("System", "Could not send chat message.", true);
         }
     } else {
@@ -1376,7 +1447,7 @@ void parseClientArguments(int argc, char** argv) {
 }
 
 bool connectToConfiguredServer() {
-    clientSocket = socket(AF_INET, SOCK_STREAM, 0);
+    clientSocket = Network::createUdpSocket();
     if (clientSocket == INVALID_SOCKET) {
         showLoginError = true;
         std::strncpy(loginErrorMsg, "Could not create network socket.", sizeof(loginErrorMsg) - 1);
@@ -1407,7 +1478,7 @@ bool connectToConfiguredServer() {
     currentState = ONLINE;
     showConnectionUI = false;
     Network::setNonBlocking(clientSocket);
-    Network::setNoDelay(clientSocket);
+    clientSession = std::make_unique<rblx::net::UdpSession>();
 
     PacketConnect pkt;
     std::memset(&pkt, 0, sizeof(pkt));
@@ -1419,7 +1490,7 @@ bool connectToConfiguredServer() {
         std::strncpy(pkt.username, "Guest", sizeof(pkt.username) - 1);
     }
 
-    if (!Network::sendStructPacket(clientSocket, PacketType::CONNECT, pkt)) {
+    if (!sendClientPacket(PacketProtocol::buildStructPacket(PacketType::CONNECT, pkt), true)) {
         showLoginError = true;
         std::strncpy(loginErrorMsg, "Failed to send connect packet.", sizeof(loginErrorMsg) - 1);
         isConnected = false;
@@ -1429,6 +1500,9 @@ bool connectToConfiguredServer() {
         showConnectionUI = true;
         return false;
     }
+
+    awaitingWelcome = true;
+    welcomeDeadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
 
     std::cout << "Connected to " << serverIP << ":" << serverPort;
     if (launchGameId > 0) {
@@ -1685,12 +1759,9 @@ int main(int argc, char** argv) {
 
             // ... Network & Physics Logic (Keep logic running)
             if (isConnected && clientSocket != INVALID_SOCKET) {
-                char buffer[4096];
-                int bytesReceived = recv(clientSocket, buffer, sizeof(buffer), 0);
+                int bytesReceived = receiveGameDatagrams();
                 
                 if (bytesReceived > 0) {
-                    clientReceiveBuffer.insert(clientReceiveBuffer.end(), buffer, buffer + bytesReceived);
-
                     std::vector<char> completeFrames;
                     while (true) {
                         PacketProtocol::ParsedPacket frame;
@@ -1751,6 +1822,7 @@ int main(int argc, char** argv) {
                             }
                             PacketWelcome* pkt = (PacketWelcome*)(packetBuffer + offset + sizeof(PacketHeader));
                              myPlayerId = pkt->playerId;
+                             awaitingWelcome = false;
                              std::cout << "Joined with ID: " << myPlayerId << std::endl;
                              
                              // Don't create character yet - wait for WORLD_STATE to load all parts first
@@ -2215,10 +2287,15 @@ int main(int argc, char** argv) {
                         offset += packetSize; // Use calculated packetSize
                     }
                 } 
-                else if (bytesReceived == 0 || (bytesReceived == SOCKET_ERROR && WSAGetLastError() != WSAEWOULDBLOCK)) {
-                    std::cout << "Disconnected. Error: " << (bytesReceived == 0 ? 0 : WSAGetLastError()) << std::endl;
-                    isConnected = false; closesocket(clientSocket); clientSocket = INVALID_SOCKET; currentState = MENU_AUTH_CHOICE; showConnectionUI = false;
-                    clientReceiveBuffer.clear();
+                else if (gameConnectionLost) {
+                    const bool neverJoined = awaitingWelcome;
+                    disconnectFromServerOnly();
+                    currentState = MENU_AUTH_CHOICE;
+                    addChatLine("System",
+                                neverJoined
+                                    ? "The game server did not answer. Check that it is running."
+                                    : "Lost connection to the game server.",
+                                true);
                 }
                 // Send state with safety checks
                 if (isConnected && clientSocket != INVALID_SOCKET && myCharacter && myPlayerId != -1) {
@@ -2232,7 +2309,7 @@ int main(int argc, char** argv) {
                         state.isWalking = (glm::length(myCharacter->debugMoveDir) > 0.1f);
                         state.isJumping = false;
                         state.health = myCharacter->health;
-                        if (!Network::sendStructPacket(clientSocket, PacketType::PLAYER_STATE, state)) {
+                        if (!sendPlayerStateToServer(state)) {
                             std::cout << "Disconnected while sending player state." << std::endl;
                             isConnected = false;
                             closesocket(clientSocket);

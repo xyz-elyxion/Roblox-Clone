@@ -8,7 +8,7 @@ RBLX Clone is an early prototype of a Roblox-style client, game server, Studio e
 - The Client and Server currently require Windows because they use WinSock and WinHTTP.
 - Studio uses GLFW/OpenGL/ImGui/ImGuizmo and has a basic world editing path.
 - The web backend is a Node.js/Express service with SQLite, bcrypt password hashing, JWT authentication, avatar storage, public game catalog pages, and local game-server launch orchestration.
-- Networking is still a compact binary protocol. It now has shared framing, payload limits, partial send handling, and receive buffering, but it is still a prototype protocol.
+- Networking is a compact binary protocol carried over UDP. Positions, rotations, and world updates travel as plain datagrams, so a lost update costs one frame instead of stalling the connection; the join handshake, world snapshot, chat, and join/leave events ride a reliability layer with acknowledgements, retransmission, and fragmentation (`include/UdpTransport.h`). It is still a prototype protocol.
 
 ## Repository Layout
 

@@ -16,6 +16,7 @@
 #include "WorldLoader.h"
 #include "ServerAuth.h"
 #include "WorldScript.h"
+#include "UdpTransport.h"
 
 #include <condition_variable>
 #include <fstream>
@@ -35,7 +36,9 @@
 const char* DEFAULT_FACE_ID = "classic";
 
 struct ConnectedPlayer {
-    SOCKET socket;
+    rblx::net::UdpSession session;
+    sockaddr_in address{};
+    uint64_t lastReceiveAtMs = 0;
     int id;
     char username[32];
     PacketPlayerState state;
@@ -43,7 +46,6 @@ struct ConnectedPlayer {
     int userId = -1;
     std::string authToken;
     std::chrono::steady_clock::time_point lastPlaytimeReportedAt;
-    std::vector<char> receiveBuffer; // Buffer for sticky packets
     rp3d::RigidBody* shadowBody; // Server-side physics body for player
     glm::vec3 headColor = glm::vec3(0.8f, 0.6f, 0.4f);
     glm::vec3 torsoColor = glm::vec3(0.2f, 0.4f, 0.8f);
@@ -56,6 +58,55 @@ struct ConnectedPlayer {
 
 std::map<int, ConnectedPlayer> players;
 int nextPlayerId = 1;
+
+// One UDP socket serves every player: a peer is identified by where its
+// datagrams come from and the connection id inside them, not by a socket.
+SOCKET gameSocket = INVALID_SOCKET;
+std::map<uint64_t, int> peerAddresses;
+const int kDatagramsPerTick = 256;
+const uint64_t kPeerTimeoutMs = 10000;
+
+uint64_t steadyMilliseconds() {
+    return static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::steady_clock::now().time_since_epoch()).count());
+}
+
+uint64_t addressKey(const sockaddr_in& address) {
+    return (static_cast<uint64_t>(ntohl(address.sin_addr.s_addr)) << 16) |
+           static_cast<uint64_t>(ntohs(address.sin_port));
+}
+
+ConnectedPlayer* findPlayerByAddress(const sockaddr_in& address) {
+    const auto entry = peerAddresses.find(addressKey(address));
+    if (entry == peerAddresses.end()) {
+        return nullptr;
+    }
+    const auto player = players.find(entry->second);
+    if (player == players.end()) {
+        peerAddresses.erase(entry);
+        return nullptr;
+    }
+    return &player->second;
+}
+
+bool sendToPlayer(ConnectedPlayer& player, const std::vector<char>& frame, bool reliable) {
+    if (frame.empty()) {
+        return false;
+    }
+    return player.session.sendMessage(frame.data(), frame.size(), reliable);
+}
+
+rblx::net::UdpSession::SendFunction playerSendFunction(const ConnectedPlayer& player) {
+    const sockaddr_in address = player.address;
+    return [address](const char* data, size_t size) {
+        if (gameSocket == INVALID_SOCKET) {
+            return false;
+        }
+        const int sent = sendto(gameSocket, data, static_cast<int>(size), 0,
+                                reinterpret_cast<const sockaddr*>(&address), sizeof(address));
+        return sent == static_cast<int>(size);
+    };
+}
 std::string webServerUrl = "http://localhost:3000"; // Web server URL for token verification
 std::string gameInstanceId;
 std::string gameInstanceToken;
@@ -302,18 +353,15 @@ void reportInstanceHeartbeat(bool force) {
     lastInstanceHeartbeatAt = now;
 }
 
-void broadcast(const void* data, int size, int excludeId = -1) {
+void broadcastPacket(const std::vector<char>& packet, int excludeId = -1, bool reliable = false) {
+    if (packet.empty()) return;
+
     for (auto& [id, player] : players) {
         if (id == excludeId) continue;
-        if (player.active && !Network::sendAll(player.socket, data, static_cast<size_t>(size))) {
-            std::cerr << "Failed to send packet to player " << id << std::endl;
+        if (!player.active) continue;
+        if (!sendToPlayer(player, packet, reliable)) {
+            std::cerr << "Could not queue packet for player " << id << std::endl;
         }
-    }
-}
-
-void broadcastPacket(const std::vector<char>& packet, int excludeId = -1) {
-    if (!packet.empty()) {
-        broadcast(packet.data(), static_cast<int>(packet.size()), excludeId);
     }
 }
 
@@ -363,13 +411,12 @@ std::vector<char> buildPlayerListPacket() {
     return PacketProtocol::buildPacket(PacketType::PLAYER_LIST, payload.data(), payloadSize);
 }
 
-void sendPlayerList(SOCKET socket) {
-    std::vector<char> packet = buildPlayerListPacket();
-    Network::sendAll(socket, packet.data(), packet.size());
+void sendPlayerList(ConnectedPlayer& player) {
+    sendToPlayer(player, buildPlayerListPacket(), true);
 }
 
 void broadcastPlayerList(int excludeId = -1) {
-    broadcastPacket(buildPlayerListPacket(), excludeId);
+    broadcastPacket(buildPlayerListPacket(), excludeId, true);
 }
 
 void updatePlayerShadowBody(ConnectedPlayer& player) {
@@ -444,7 +491,7 @@ void teleportPlayer(const std::string& username, const glm::vec3& position) {
             player.shadowBody->setLinearVelocity(rp3d::Vector3(0.0f, 0.0f, 0.0f));
             player.shadowBody->setAngularVelocity(rp3d::Vector3(0.0f, 0.0f, 0.0f));
         }
-        Network::sendStructPacket(player.socket, PacketType::TELEPORT, player.state);
+        sendToPlayer(player, PacketProtocol::buildStructPacket(PacketType::TELEPORT, player.state), true);
         return;
     }
 }
@@ -511,30 +558,33 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-    SOCKET serverSocket = socket(AF_INET, SOCK_STREAM, 0);
-    if (serverSocket == INVALID_SOCKET) {
+    gameSocket = Network::createUdpSocket();
+    if (gameSocket == INVALID_SOCKET) {
         std::cerr << "Failed to create socket" << std::endl;
         return 1;
     }
 
+    // A world snapshot arrives as one burst of fragments; without room to hold
+    // it the kernel drops the tail and the join never finishes.
+    Network::setIoBufferSize(gameSocket, 4 << 20);
+
     sockaddr_in serverAddr;
+    std::memset(&serverAddr, 0, sizeof(serverAddr));
     serverAddr.sin_family = AF_INET;
     serverAddr.sin_addr.s_addr = INADDR_ANY;
     serverAddr.sin_port = htons(static_cast<u_short>(serverPort));
 
-    if (bind(serverSocket, (sockaddr*)&serverAddr, sizeof(serverAddr)) == SOCKET_ERROR) {
+    if (bind(gameSocket, reinterpret_cast<sockaddr*>(&serverAddr), sizeof(serverAddr)) == SOCKET_ERROR) {
         std::cerr << "Bind failed" << std::endl;
         return 1;
     }
 
-    if (listen(serverSocket, SOMAXCONN) == SOCKET_ERROR) {
-        std::cerr << "Listen failed" << std::endl;
+    if (!Network::setNonBlocking(gameSocket)) {
+        std::cerr << "Could not put the socket in non-blocking mode" << std::endl;
         return 1;
     }
 
-    Network::setNonBlocking(serverSocket);
-
-    std::cout << "RBLX Clone Server started on port " << serverPort
+    std::cout << "RBLX Clone Server started on port " << serverPort << " (UDP)"
               << " using " << worldPath
               << " with web auth " << webServerUrl << std::endl;
 
@@ -636,38 +686,90 @@ int main(int argc, char** argv) {
             networkAccumulator = 0.0f;
         }
 
-        // 1. Accept New Connections
-        SOCKET clientSocket = accept(serverSocket, nullptr, nullptr);
-        if (clientSocket != INVALID_SOCKET) {
-            Network::setNonBlocking(clientSocket);
-            Network::setNoDelay(clientSocket);
+        // 1. Read every waiting datagram and hand it to the peer it came from.
+        // There are no connections to accept: an unknown source starts a peer
+        // and silence is what ends one.
+        std::map<int, std::vector<std::vector<char>>> tickMessages;
+        const uint64_t nowMs = steadyMilliseconds();
+        std::vector<int> disconnectedIds;
 
-            ConnectedPlayer newPlayer;
-            newPlayer.socket = clientSocket;
-            newPlayer.id = nextPlayerId++;
-            newPlayer.active = false;
-            newPlayer.userId = -1;
-            newPlayer.shadowBody = nullptr; // Init to null
-            memset(newPlayer.username, 0, 32);
+        char datagram[2048];
+        for (int datagramCount = 0; datagramCount < kDatagramsPerTick; ++datagramCount) {
+            sockaddr_in fromAddr;
+            std::memset(&fromAddr, 0, sizeof(fromAddr));
+            int fromLength = sizeof(fromAddr);
+            const int received = recvfrom(gameSocket, datagram, sizeof(datagram), 0,
+                                          reinterpret_cast<sockaddr*>(&fromAddr), &fromLength);
+            if (received == SOCKET_ERROR) {
+                const int error = WSAGetLastError();
+                if (error == WSAEWOULDBLOCK) break;
+                // Windows reports an ICMP port-unreachable from a peer that is
+                // already gone as WSAECONNRESET; that is not a socket failure.
+                if (error == WSAECONNRESET) continue;
+                std::cerr << "recvfrom failed: " << error << std::endl;
+                break;
+            }
+            if (received <= 0) break;
+            if (static_cast<size_t>(received) < sizeof(rblx::net::UdpHeader)) continue;
 
-            players[newPlayer.id] = newPlayer;
-            std::cout << "Client connected, assigned ID " << newPlayer.id << std::endl;
+            rblx::net::UdpHeader header;
+            std::memcpy(&header, datagram, sizeof(header));
+            if (header.magic0 != rblx::net::kMagic0 || header.magic1 != rblx::net::kMagic1 ||
+                header.version != rblx::net::kVersion) {
+                continue;
+            }
+
+            ConnectedPlayer* player = findPlayerByAddress(fromAddr);
+            if (!player) {
+                if (players.size() >= PacketProtocol::MAX_PLAYERS) continue;
+
+                ConnectedPlayer fresh;
+                fresh.session.reset(header.connectionId);
+                fresh.address = fromAddr;
+                fresh.lastReceiveAtMs = nowMs;
+                fresh.id = nextPlayerId++;
+                fresh.active = false;
+                fresh.userId = -1;
+                fresh.shadowBody = nullptr;
+                std::memset(fresh.username, 0, sizeof(fresh.username));
+
+                const int newId = fresh.id;
+                players[newId] = std::move(fresh);
+                peerAddresses[addressKey(fromAddr)] = newId;
+                player = &players[newId];
+                std::cout << "Client connected, assigned ID " << newId << std::endl;
+            }
+
+            // Only the session that owns a connection id may drive it, so a
+            // forged source address cannot steer somebody else's player. A
+            // different id on a port that has gone quiet means the old client
+            // left and a new one reused the port: retire the old player and let
+            // the fresh connection id open a new one.
+            if (header.connectionId != player->session.connectionId()) {
+                if (nowMs - player->lastReceiveAtMs > 1000) {
+                    disconnectedIds.push_back(player->id);
+                }
+                continue;
+            }
+            player->lastReceiveAtMs = nowMs;
+
+            player->session.receiveDatagram(datagram, static_cast<size_t>(received), nowMs,
+                                            tickMessages[player->id]);
         }
 
         // 2. Process Clients
-        std::vector<int> disconnectedIds;
 
         for (auto& [id, player] : players) {
             bool shouldDisconnect = false;
-            char buffer[4096];
-            int bytesReceived = recv(player.socket, buffer, sizeof(buffer), 0);
+            const auto tickEntry = tickMessages.find(id);
 
-            if (bytesReceived > 0) {
-                player.receiveBuffer.insert(player.receiveBuffer.end(), buffer, buffer + bytesReceived);
+            if (tickEntry != tickMessages.end() && !tickEntry->second.empty()) {
+                const std::vector<std::vector<char>>& messages = tickEntry->second;
 
-                while (!shouldDisconnect) {
+                for (size_t messageIndex = 0; messageIndex < messages.size() && !shouldDisconnect;
+                     ++messageIndex) {
                     PacketProtocol::ParsedPacket frame;
-                    PacketProtocol::ParseStatus status = PacketProtocol::tryReadFrame(player.receiveBuffer, frame);
+                    PacketProtocol::ParseStatus status = PacketProtocol::tryReadFrame(messages[messageIndex], frame);
                     if (status == PacketProtocol::ParseStatus::NeedMoreData) {
                         break;
                     }
@@ -678,6 +780,14 @@ int main(int argc, char** argv) {
                     }
 
                     if (frame.type == PacketType::CONNECT) {
+                        // A repeated CONNECT means the WELCOME or its ack was lost.
+                        // The peer already exists, so only re-send the welcome.
+                        if (player.active) {
+                            PacketWelcome repeatedWelcome = { id };
+                            sendToPlayer(player, PacketProtocol::buildStructPacket(PacketType::WELCOME, repeatedWelcome), true);
+                            continue;
+                        }
+
                         PacketConnect pkt;
                         std::memcpy(&pkt, frame.payload, sizeof(pkt));
 
@@ -729,7 +839,7 @@ int main(int argc, char** argv) {
                         reportInstanceHeartbeat(true);
 
                         PacketWelcome welcome = { id };
-                        if (!Network::sendStructPacket(player.socket, PacketType::WELCOME, welcome)) {
+                        if (!sendToPlayer(player, PacketProtocol::buildStructPacket(PacketType::WELCOME, welcome), true)) {
                             shouldDisconnect = true;
                             break;
                         }
@@ -786,20 +896,20 @@ int main(int argc, char** argv) {
                             std::memcpy(payload.data() + sizeof(uint32_t), worldData.data(), worldData.size() * sizeof(PartData));
                         }
 
-                        if (!Network::sendPacket(player.socket, PacketType::WORLD_STATE, payload.data(), payloadSize)) {
+                        if (!sendToPlayer(player, PacketProtocol::buildPacket(PacketType::WORLD_STATE, payload.data(), payloadSize), true)) {
                             shouldDisconnect = true;
                             break;
                         }
                         std::cout << "Sent complete world state (" << partCount << " parts) to player " << id << std::endl;
 
-                        sendPlayerList(player.socket);
+                        sendPlayerList(player);
                         broadcastPlayerList(id);
 
                         PacketPlayerJoin joinPkt;
                         std::memset(&joinPkt, 0, sizeof(joinPkt));
                         joinPkt.playerId = id;
                         copyFixedString(joinPkt.username, sizeof(joinPkt.username), PacketProtocol::fixedString(player.username, sizeof(player.username)));
-                        broadcastPacket(PacketProtocol::buildStructPacket(PacketType::PLAYER_JOIN, joinPkt), id);
+                        broadcastPacket(PacketProtocol::buildStructPacket(PacketType::PLAYER_JOIN, joinPkt), id, true);
 
                         for (auto& [otherId, otherPlayer] : players) {
                             if (otherId != id && otherPlayer.active) {
@@ -807,7 +917,7 @@ int main(int argc, char** argv) {
                                 std::memset(&otherJoinPkt, 0, sizeof(otherJoinPkt));
                                 otherJoinPkt.playerId = otherId;
                                 copyFixedString(otherJoinPkt.username, sizeof(otherJoinPkt.username), PacketProtocol::fixedString(otherPlayer.username, sizeof(otherPlayer.username)));
-                                if (!Network::sendStructPacket(player.socket, PacketType::PLAYER_JOIN, otherJoinPkt)) {
+                                if (!sendToPlayer(player, PacketProtocol::buildStructPacket(PacketType::PLAYER_JOIN, otherJoinPkt), true)) {
                                     shouldDisconnect = true;
                                     break;
                                 }
@@ -815,7 +925,6 @@ int main(int argc, char** argv) {
                         }
                     } else if (frame.type == PacketType::PLAYER_STATE) {
                         if (!player.active) {
-                            PacketProtocol::consumeFrame(player.receiveBuffer, frame.frameSize);
                             continue;
                         }
 
@@ -823,7 +932,6 @@ int main(int argc, char** argv) {
                         std::memcpy(&pkt, frame.payload, sizeof(pkt));
                         if (!isSafePlayerState(pkt)) {
                             std::cerr << "Ignoring invalid player state from player " << id << std::endl;
-                            PacketProtocol::consumeFrame(player.receiveBuffer, frame.frameSize);
                             continue;
                         }
 
@@ -836,7 +944,6 @@ int main(int argc, char** argv) {
                         broadcastPacket(PacketProtocol::buildStructPacket(PacketType::PLAYER_STATE, player.state), id);
                     } else if (frame.type == PacketType::CHAT) {
                         if (!player.active) {
-                            PacketProtocol::consumeFrame(player.receiveBuffer, frame.frameSize);
                             continue;
                         }
 
@@ -847,14 +954,14 @@ int main(int argc, char** argv) {
                         const std::string message = PacketProtocol::fixedString(chat.message, sizeof(chat.message));
                         if (!message.empty()) {
                             copyFixedString(chat.message, sizeof(chat.message), message);
-                            broadcastPacket(PacketProtocol::buildStructPacket(PacketType::CHAT, chat));
+                            broadcastPacket(PacketProtocol::buildStructPacket(PacketType::CHAT, chat), -1, true);
                         }
                     }
 
-                    PacketProtocol::consumeFrame(player.receiveBuffer, frame.frameSize);
                 }
 
-            } else if (bytesReceived == 0 || (bytesReceived == SOCKET_ERROR && WSAGetLastError() != WSAEWOULDBLOCK)) {
+            } else if (player.lastReceiveAtMs != 0 && nowMs - player.lastReceiveAtMs > kPeerTimeoutMs) {
+                std::cout << "Player " << id << " went silent." << std::endl;
                 shouldDisconnect = true;
             }
 
@@ -863,13 +970,18 @@ int main(int argc, char** argv) {
             }
         }
 
+        // Send whatever this tick produced: welcomes, world data, acks.
+        for (auto& [id, player] : players) {
+            player.session.pump(nowMs, playerSendFunction(player));
+        }
+
         // 3. Handle Disconnects
         for (int id : disconnectedIds) {
             if (players.find(id) == players.end()) {
                 continue;
             }
             std::cout << "Player " << id << " disconnected." << std::endl;
-            closesocket(players[id].socket);
+            peerAddresses.erase(addressKey(players[id].address));
 
             // Cleanup Shadow Body
             if (players[id].shadowBody) {
@@ -883,7 +995,7 @@ int main(int argc, char** argv) {
 
                 players[id].active = false;
                 PacketPlayerLeave leavePkt = { id };
-                broadcastPacket(PacketProtocol::buildStructPacket(PacketType::PLAYER_LEAVE, leavePkt), id);
+                broadcastPacket(PacketProtocol::buildStructPacket(PacketType::PLAYER_LEAVE, leavePkt), id, true);
                 broadcastPlayerList();
                 reportInstanceHeartbeat(true);
             }

@@ -284,6 +284,18 @@ public:
                           reinterpret_cast<const char*>(&enabled), sizeof(enabled)) == 0;
     }
 
+    static SOCKET createUdpSocket() {
+        return socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+    }
+
+    // A world snapshot arrives as a burst of fragments, so the socket needs room
+    // for the whole burst instead of dropping the tail of it.
+    static bool setIoBufferSize(SOCKET s, int bytes) {
+        setsockopt(s, SOL_SOCKET, SO_RCVBUF, reinterpret_cast<const char*>(&bytes), sizeof(bytes));
+        setsockopt(s, SOL_SOCKET, SO_SNDBUF, reinterpret_cast<const char*>(&bytes), sizeof(bytes));
+        return true;
+    }
+
     static bool sendAll(SOCKET socket, const void* data, size_t size) {
         const char* bytes = static_cast<const char*>(data);
         size_t sentTotal = 0;
@@ -339,6 +351,8 @@ public:
     static void cleanup() {}
     static bool setNonBlocking(SOCKET) { return false; }
     static bool setNoDelay(SOCKET) { return false; }
+    static SOCKET createUdpSocket() { return INVALID_SOCKET; }
+    static bool setIoBufferSize(SOCKET, int) { return false; }
     static bool sendAll(SOCKET, const void*, size_t) { return false; }
     static bool sendPacket(SOCKET, PacketType, const void*, uint32_t) { return false; }
 

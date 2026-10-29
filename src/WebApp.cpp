@@ -2676,16 +2676,18 @@ std::string WebsiteApp::saveWorldFile(int gameId, const std::string& contents) {
     return path;
 }
 
-// Server.cpp binds the wildcard address, so probe the same thing. Binding
-// 127.0.0.1 instead answers a different question: on Windows a specific-address
-// bind can succeed next to an existing wildcard listener, which reports a port
-// held by a stale Server.exe as free and then the new server fails to bind.
+// Server.cpp binds the wildcard address with a datagram socket, so probe the
+// same thing. Binding 127.0.0.1 instead answers a different question: on Windows
+// a specific-address bind can succeed next to an existing wildcard listener,
+// which reports a port held by a stale Server.exe as free and then the new
+// server fails to bind. The protocol has to match too: a TCP bind succeeds next
+// to a running UDP game server, which would report every busy port as free.
 bool WebsiteApp::isPortFreeForGameServer(int port) {
 #ifdef _WIN32
-    const SOCKET handle = ::socket(AF_INET, SOCK_STREAM, 0);
+    const SOCKET handle = ::socket(AF_INET, SOCK_DGRAM, 0);
     const bool invalid = handle == INVALID_SOCKET;
 #else
-    const int handle = ::socket(AF_INET, SOCK_STREAM, 0);
+    const int handle = ::socket(AF_INET, SOCK_DGRAM, 0);
     const bool invalid = handle < 0;
 #endif
     if (invalid) {

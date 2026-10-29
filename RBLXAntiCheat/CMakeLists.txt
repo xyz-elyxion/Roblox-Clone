@@ -89,6 +89,12 @@ target_link_libraries(RBLXAntiCheat PUBLIC
     imagehlp
     psapi
     ws2_32
+    # Signature verification (AntiTamper/NAuthenticode.cpp) and the adapter
+    # query in Network/NetClient.cpp. Without these the library archives fine
+    # and only fails at link time in whoever embeds it.
+    crypt32
+    wintrust
+    iphlpapi
     "${RBLX_ANTICHEAT_DIR}/Libs/brotlicommon.lib"
     "${RBLX_ANTICHEAT_DIR}/Libs/brotlidec.lib"
     "${RBLX_ANTICHEAT_DIR}/Libs/brotlienc.lib"

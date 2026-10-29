@@ -150,6 +150,7 @@ endfunction()
 if(RBLX_BUILD_STUDIO)
     add_executable(Studio
         src/main.cpp
+        src/HttpClient.cpp
         src/Editor.cpp
         src/RblxScript.cpp
         src/WorldScript.cpp
@@ -160,7 +161,9 @@ if(RBLX_BUILD_STUDIO)
     configure_rblx_target(Studio)
     target_link_libraries(Studio PRIVATE glfw glm reactphysics3d glad)
     if(WIN32)
-        target_link_libraries(Studio PRIVATE winhttp shell32)
+        # HttpClient is the only transport left (the website calls used to go
+        # through WinHTTP), and it is plain sockets, hence ws2_32.
+        target_link_libraries(Studio PRIVATE ws2_32 shell32)
     endif()
 endif()
 

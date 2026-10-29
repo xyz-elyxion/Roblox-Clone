@@ -80,6 +80,12 @@ try {
     Copy-Item -LiteralPath 'web/public' -Destination $webTarget -Recurse
     Copy-Item -LiteralPath 'web/seed-worlds' -Destination $webTarget -Recurse
 
+    # Scripted example games: the .world files and the .rbx scripts WebApp.exe
+    # publishes as starter games on first start.
+    if (Test-Path -LiteralPath 'games') {
+        Copy-Item -LiteralPath 'games' -Destination (Join-Path $Output 'games') -Recurse
+    }
+
     $crlf = "`r`n"
     $encoding = [System.Text.Encoding]::ASCII
 
@@ -144,6 +150,7 @@ try {
         '  Client.exe    game client, started by WebApp.exe when you press Play'
         '  Studio.exe    world editor'
         '  web/          website assets (public/ pages and API scripts, seed-worlds/)'
+        '  games/        example worlds and their .rbx scripts (Sky Platformer)'
         '  shaders/      OpenGL shaders used by Client and Studio'
         '  ServerWorld.world, face*.png, face_hex.txt  data loaded from the working directory'
         ''

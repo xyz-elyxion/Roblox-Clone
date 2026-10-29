@@ -627,6 +627,96 @@ void testHttp() {
     app.stop();
 }
 
+// Starter games must show up in an install that already has a database, not only in a
+// brand new one: adding a starter game used to leave existing installs without it.
+void testStarterSeeding() {
+    const auto stamp = std::chrono::high_resolution_clock::now().time_since_epoch().count();
+    const auto root = std::filesystem::temp_directory_path() /
+                      ("rblx-starter-seed-" + std::to_string(stamp));
+    std::filesystem::create_directories(root / "games");
+
+    const std::string worldText = "1\n" + validWorldLine() + "\n";
+    const std::string scriptText = "-- starter script\nprint(\"hello from the platformer\")\n";
+    {
+        std::ofstream base((root / "ServerWorld.world").string().c_str(),
+                           std::ios::binary | std::ios::trunc);
+        base << worldText;
+    }
+
+    auto platformerWorld = [&root]() { return (root / "games" / "sky-platformer.world").string(); };
+    auto platformerScript = [&root]() { return (root / "games" / "sky-platformer.rbx").string(); };
+
+    rblx::web::Config config;
+    config.nodeEnv = "test";
+    config.passwordIterations = 800;
+    config.gameInstanceEmptyGraceMs = 0;
+    config.port = 0;
+    config.dataPath = (root / "data" / "data.json").string();
+    config.webRoot = (root / "web").string();
+    config.repoRoot = root.string();
+    config.gameWorldsDir = (root / "data" / "game-worlds").string();
+
+    auto findByTitle = [](rblx::web::Store& store, const std::string& title) {
+        for (const rblx::web::GameRecord* game : store.allGames()) {
+            if (game->title == title) {
+                return game;
+            }
+        }
+        return static_cast<const rblx::web::GameRecord*>(nullptr);
+    };
+
+    // An install that predates the platformer: only the baseplate was shipped.
+    {
+        rblx::web::WebsiteApp app(config);
+        std::string error;
+        check(app.initialize(&error), "seeding: an old install initialises: " + error);
+        check(findByTitle(app.store(), "Starter Baseplate") != nullptr,
+              "seeding: the baseplate is published");
+        check(findByTitle(app.store(), "Sky Platformer") == nullptr,
+              "seeding: a starter game whose assets are absent is skipped");
+    }
+
+    // The same install after the platformer ships with the build.
+    {
+        std::ofstream world(platformerWorld().c_str(), std::ios::binary | std::ios::trunc);
+        world << worldText;
+        std::ofstream script(platformerScript().c_str(), std::ios::binary | std::ios::trunc);
+        script << scriptText;
+    }
+
+    {
+        rblx::web::WebsiteApp app(config);
+        std::string error;
+        check(app.initialize(&error), "seeding: the existing install restarts: " + error);
+        const rblx::web::GameRecord* platformer = findByTitle(app.store(), "Sky Platformer");
+        check(platformer != nullptr, "seeding: an existing install gains the new starter game");
+        check(platformer != nullptr && !platformer->scriptPath.empty(),
+              "seeding: the starter script is copied next to the world");
+        check(platformer != nullptr && std::filesystem::exists(platformer->scriptPath),
+              "seeding: the copied starter script exists on disk");
+
+        std::ifstream copied(platformer != nullptr ? platformer->scriptPath.c_str() : "",
+                             std::ios::binary);
+        std::ostringstream buffer;
+        buffer << copied.rdbuf();
+        checkEqual(buffer.str(), scriptText, "seeding: the copied starter script keeps its contents");
+    }
+
+    // Restarting again must not duplicate what is already published.
+    {
+        rblx::web::WebsiteApp app(config);
+        std::string error;
+        check(app.initialize(&error), "seeding: a third start succeeds: " + error);
+        int platformers = 0;
+        for (const rblx::web::GameRecord* game : app.store().allGames()) {
+            if (game->title == "Sky Platformer") {
+                ++platformers;
+            }
+        }
+        checkEqual(std::to_string(platformers), "1", "seeding: starter games are not duplicated");
+    }
+}
+
 }  // namespace
 
 int main() {
@@ -635,6 +725,7 @@ int main() {
     testJson();
     testWorld();
     testStore();
+    testStarterSeeding();
     testHttp();
 
     if (failures == 0) {

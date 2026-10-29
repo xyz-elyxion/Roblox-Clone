@@ -1066,7 +1066,45 @@ bool WebsiteApp::initialize(std::string* error) {
 }
 
 bool WebsiteApp::seedStarterGames(std::string* error) {
-    if (store_.gameCount() > 0) {
+    struct Seed {
+        std::string title;
+        std::string description;
+        std::string worldFile;  // relative to the repo or package root
+        std::string scriptFile;
+    };
+    const Seed seeds[] = {
+        {"Starter Baseplate",
+         "The default shared world, now published as the first public game.",
+         "ServerWorld.world", std::string()},
+        {"Separate Server Test Arena",
+         "A second published world for testing that each game starts its own local server "
+         "instance.",
+         "web/seed-worlds/separate-server-test.world", std::string()},
+        {"Sky Platformer",
+         "A scripted platformer with moving platforms, lava and a sky goal, driven by a "
+         ".rbx script.",
+         "games/sky-platformer.world", "games/sky-platformer.rbx"}
+    };
+
+    // Publish every starter game this data file does not have yet, so an install
+    // created before a starter game existed picks it up on the next start instead
+    // of only a brand new database getting it. Games that are already present are
+    // never duplicated or overwritten.
+    std::vector<const Seed*> missing;
+    for (const Seed& seed : seeds) {
+        const std::string slug = slugify(seed.title);
+        bool present = false;
+        for (const GameRecord* game : store_.allGames()) {
+            if (game != nullptr && (game->title == seed.title || game->slug == slug)) {
+                present = true;
+                break;
+            }
+        }
+        if (!present) {
+            missing.push_back(&seed);
+        }
+    }
+    if (missing.empty()) {
         return true;
     }
 
@@ -1085,24 +1123,14 @@ bool WebsiteApp::seedStarterGames(std::string* error) {
         }
     }
 
-    struct Seed {
-        std::string path;
-        std::string title;
-        std::string description;
-        std::string scriptPath;
-    };
-    const Seed seeds[] = {
-        {joinPath(config_.repoRoot, "ServerWorld.world"), "Starter Baseplate",
-         "The default shared world, now published as the first public game.", std::string()},
-        {joinPath(config_.webRoot, "seed-worlds/separate-server-test.world"),
-         "Separate Server Test Arena",
-         "A second published world for testing that each game starts its own local server "
-         "instance.",
-         std::string()},
-        {joinPath(config_.repoRoot, "games/sky-platformer.world"), "Sky Platformer",
-         "A scripted platformer with moving platforms, lava and a sky goal, driven by a "
-         ".rbx script.",
-         joinPath(config_.repoRoot, "games/sky-platformer.rbx")}
+    // Starter assets live next to the sources during development and next to
+    // WebApp.exe in a packaged build. The working directory is deliberately not
+    // searched: seeding must not depend on where the process was started.
+    auto locate = [this](const std::string& relative) {
+        return firstExistingPath({
+            joinPath(config_.repoRoot, relative),
+            joinPath(executableDirectory(), relative)
+        });
     };
 
     AuthUser owner;
@@ -1111,28 +1139,33 @@ bool WebsiteApp::seedStarterGames(std::string* error) {
         owner.username = record->username;
     }
 
-    for (const Seed& seed : seeds) {
+    for (const Seed* seed : missing) {
+        const std::string worldPath = locate(seed->worldFile);
+        if (worldPath.empty()) {
+            continue;  // not shipped with this build
+        }
         std::string worldText;
-        if (!readWholeFile(seed.path, &worldText)) {
+        if (!readWholeFile(worldPath, &worldText)) {
             continue;
         }
         Json body = Json::makeObject();
-        body.set("title", seed.title);
-        body.set("description", seed.description);
+        body.set("title", seed->title);
+        body.set("description", seed->description);
         body.set("isPublic", true);
         body.set("worldText", worldText);
         Response ignored;
         GameRecord created;
         if (!createGame(owner, body, &created, ignored)) {
             if (error) {
-                *error = "Could not publish the starter world " + seed.path + ".";
+                *error = "Could not publish the starter world " + worldPath + ".";
             }
             return false;
         }
 
-        if (!seed.scriptPath.empty()) {
+        if (!seed->scriptFile.empty()) {
+            const std::string scriptPath = locate(seed->scriptFile);
             std::string scriptText;
-            if (readWholeFile(seed.scriptPath, &scriptText)) {
+            if (!scriptPath.empty() && readWholeFile(scriptPath, &scriptText)) {
                 makeDirectories(config_.gameWorldsDir);
                 const std::string scriptFile = joinPath(
                     config_.gameWorldsDir, "game-" + std::to_string(created.id) + ".rbx");

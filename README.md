@@ -288,6 +288,12 @@ world view updates live while a script runs. The seeded **Sky Platformer** game 
 `games/sky-platformer.world` and `games/sky-platformer.rbx`, and published starter games get
 their script copied next to the world file and passed to the server with `--script`.
 
+Starter games are checked on every start, not just on an empty database: any starter game the
+data file is missing is published then, so an install created before a game existed picks it up
+after restarting the website. Starter games that are already present are never duplicated. The
+starter assets are read from the repo root during development and from next to `WebApp.exe` in a
+packaged build (`games/`, `web/seed-worlds/`, `ServerWorld.world`).
+
 ## Multi-Game Local Hosting
 
 The website stores published `.world` files under `web/game-worlds` by default, along with any `.rbx` script that belongs to the game. When a signed-in user presses Play on a game page, the web backend finds an open local port, starts `Server.exe --port <port> --world <published-world> --script <published-script> --web <site-url>`, and can launch `Client.exe --server <host> --port <port> --web <site-url> --token <jwt> --connect` when `CLIENT_EXECUTABLE_PATH` points to a built Player.

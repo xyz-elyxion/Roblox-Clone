@@ -17,9 +17,13 @@
 #include "ServerAuth.h"
 #include "WorldScript.h"
 
+#include <condition_variable>
 #include <fstream>
+#include <functional>
 #include <memory>
+#include <mutex>
 #include <sstream>
+#include <thread>
 
 // GLM Includes
 #define GLM_ENABLE_EXPERIMENTAL
@@ -65,6 +69,57 @@ const int PLAYTIME_REPORT_INTERVAL_SECONDS = 60;
 const int INSTANCE_HEARTBEAT_INTERVAL_SECONDS = 5;
 std::chrono::steady_clock::time_point lastInstanceHeartbeatAt = std::chrono::steady_clock::time_point::min();
 int lastReportedActivePlayers = -1;
+
+// Heartbeats and playtime reports are HTTP calls to the website. Running them
+// inline used to stall the whole game loop (and with it every player's packets)
+// for as long as the request took, so they are handed to a background worker.
+std::mutex telemetryMutex;
+std::condition_variable telemetryWake;
+std::deque<std::function<void()>> telemetryJobs;
+const std::size_t MAX_PENDING_TELEMETRY_JOBS = 64;
+
+void telemetryWorkerLoop() {
+    for (;;) {
+        std::function<void()> job;
+        {
+            std::unique_lock<std::mutex> lock(telemetryMutex);
+            telemetryWake.wait(lock, [] { return !telemetryJobs.empty(); });
+            job = std::move(telemetryJobs.front());
+            telemetryJobs.pop_front();
+        }
+
+        try {
+            job();
+        } catch (...) {
+            std::cerr << "Telemetry report failed" << std::endl;
+        }
+    }
+}
+
+void startTelemetryWorker() {
+    std::thread(telemetryWorkerLoop).detach();
+}
+
+void enqueueTelemetry(std::function<void()> job) {
+    if (!job) return;
+
+    {
+        std::lock_guard<std::mutex> lock(telemetryMutex);
+        if (telemetryJobs.size() >= MAX_PENDING_TELEMETRY_JOBS) {
+            // The website is not answering; drop reports instead of growing forever.
+            static bool warned = false;
+            if (!warned) {
+                warned = true;
+                std::cerr << "Telemetry queue is full; dropping reports until the website responds."
+                          << std::endl;
+            }
+            return;
+        }
+        telemetryJobs.push_back(std::move(job));
+    }
+
+    telemetryWake.notify_one();
+}
 
 // Server World State
 std::deque<Part> serverParts;
@@ -199,9 +254,13 @@ void reportPlayerPlaytime(ConnectedPlayer& player, std::chrono::steady_clock::ti
         return;
     }
 
-    if (!ServerAuth::recordPlaytime(player.authToken, playtimeSeconds, webServerUrl)) {
-        std::cerr << "Could not record playtime for player " << playerId << std::endl;
-    }
+    const std::string token = player.authToken;
+    const std::string webUrl = webServerUrl;
+    enqueueTelemetry([token, playtimeSeconds, playerId, webUrl]() {
+        if (!ServerAuth::recordPlaytime(token, playtimeSeconds, webUrl)) {
+            std::cerr << "Could not record playtime for player " << playerId << std::endl;
+        }
+    });
     player.lastPlaytimeReportedAt = now;
 }
 
@@ -230,11 +289,14 @@ void reportInstanceHeartbeat(bool force) {
         return;
     }
 
-    if (!ServerAuth::reportInstanceHeartbeat(gameInstanceId, gameInstanceToken, playerCount, webServerUrl)) {
-        std::cerr << "Could not report heartbeat for game instance " << gameInstanceId << std::endl;
-        lastInstanceHeartbeatAt = now;
-        return;
-    }
+    const std::string instanceId = gameInstanceId;
+    const std::string instanceToken = gameInstanceToken;
+    const std::string webUrl = webServerUrl;
+    enqueueTelemetry([instanceId, instanceToken, playerCount, webUrl]() {
+        if (!ServerAuth::reportInstanceHeartbeat(instanceId, instanceToken, playerCount, webUrl)) {
+            std::cerr << "Could not report heartbeat for game instance " << instanceId << std::endl;
+        }
+    });
 
     lastReportedActivePlayers = playerCount;
     lastInstanceHeartbeatAt = now;
@@ -524,6 +586,7 @@ int main(int argc, char** argv) {
         }
     }
 
+    startTelemetryWorker();
     reportInstanceHeartbeat(true);
 
     auto lastTime = std::chrono::high_resolution_clock::now();
@@ -534,6 +597,12 @@ int main(int argc, char** argv) {
         auto currentTime = std::chrono::high_resolution_clock::now();
         float deltaTime = std::chrono::duration<float>(currentTime - lastTime).count();
         lastTime = currentTime;
+
+        // Never let one long frame queue up hundreds of physics steps: the
+        // catch-up burst would freeze the server for seconds right afterwards.
+        if (deltaTime > 0.25f) {
+            deltaTime = 0.25f;
+        }
 
         physicsAccumulator += deltaTime;
         networkAccumulator += deltaTime;
@@ -571,6 +640,7 @@ int main(int argc, char** argv) {
         SOCKET clientSocket = accept(serverSocket, nullptr, nullptr);
         if (clientSocket != INVALID_SOCKET) {
             Network::setNonBlocking(clientSocket);
+            Network::setNoDelay(clientSocket);
 
             ConnectedPlayer newPlayer;
             newPlayer.socket = clientSocket;

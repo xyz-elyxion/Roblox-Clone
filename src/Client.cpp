@@ -710,6 +710,7 @@ bool connectToServer(std::string& error) {
     isConnected = true;
     currentState = ONLINE;
     Network::setNonBlocking(clientSocket);
+    Network::setNoDelay(clientSocket);
 
     PacketConnect pkt;
     std::memset(&pkt, 0, sizeof(pkt));
@@ -1406,6 +1407,7 @@ bool connectToConfiguredServer() {
     currentState = ONLINE;
     showConnectionUI = false;
     Network::setNonBlocking(clientSocket);
+    Network::setNoDelay(clientSocket);
 
     PacketConnect pkt;
     std::memset(&pkt, 0, sizeof(pkt));

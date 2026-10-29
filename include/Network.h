@@ -257,6 +257,9 @@ namespace PacketProtocol {
 
 class Network {
 public:
+    // How long sendAll keeps retrying a full socket before giving up.
+    static constexpr int SEND_TIMEOUT_MS = 500;
+
     static bool init() {
         WSADATA wsaData;
         return WSAStartup(MAKEWORD(2, 2), &wsaData) == 0;
@@ -271,9 +274,24 @@ public:
         return ioctlsocket(s, FIONBIO, &mode) == 0;
     }
 
+    // Gameplay packets are tiny and latency sensitive, so stop the stack from
+    // holding them back while it waits for more data (Nagle) or for a delayed
+    // ACK. Without this a steady 60Hz stream stalls for tens to hundreds of
+    // milliseconds at a time and then catches up in a burst.
+    static bool setNoDelay(SOCKET s) {
+        const int enabled = 1;
+        return setsockopt(s, IPPROTO_TCP, TCP_NODELAY,
+                          reinterpret_cast<const char*>(&enabled), sizeof(enabled)) == 0;
+    }
+
     static bool sendAll(SOCKET socket, const void* data, size_t size) {
         const char* bytes = static_cast<const char*>(data);
         size_t sentTotal = 0;
+
+        // The game loop sends to every player from one thread, so a client that
+        // stops draining its receive window must not be able to wedge it here.
+        const auto deadline = std::chrono::steady_clock::now() +
+                              std::chrono::milliseconds(SEND_TIMEOUT_MS);
 
         while (sentTotal < size) {
             const int chunkSize = static_cast<int>(std::min<size_t>(size - sentTotal, 16384));
@@ -281,6 +299,9 @@ public:
             if (sent == SOCKET_ERROR) {
                 const int error = WSAGetLastError();
                 if (error == WSAEWOULDBLOCK) {
+                    if (std::chrono::steady_clock::now() >= deadline) {
+                        return false;
+                    }
                     std::this_thread::sleep_for(std::chrono::milliseconds(1));
                     continue;
                 }
@@ -317,6 +338,7 @@ public:
     static bool init() { return false; }
     static void cleanup() {}
     static bool setNonBlocking(SOCKET) { return false; }
+    static bool setNoDelay(SOCKET) { return false; }
     static bool sendAll(SOCKET, const void*, size_t) { return false; }
     static bool sendPacket(SOCKET, PacketType, const void*, uint32_t) { return false; }
 

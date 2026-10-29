@@ -92,6 +92,11 @@ private:
         std::string managerToken;
         long processId = 0;
         std::string command;
+        // Game server output is captured here so a startup failure (a busy port,
+        // a missing world) can be reported instead of disappearing.
+        std::string logPath;
+        int exitCode = -1;
+        bool exitCodeKnown = false;
 #ifdef _WIN32
         void* processHandle = nullptr;
 #endif
@@ -157,12 +162,17 @@ private:
 
     bool spawnProcess(const std::string& executable, const std::vector<std::string>& args,
                       const std::string& workingDirectory, SpawnedProcess* spawned,
-                      std::string* error);
-    bool processRunning(const GameInstance& instance) const;
+                      std::string* error,
+                      const std::string& stdoutLogPath = std::string());
+    bool processRunning(GameInstance& instance);
     void releaseProcess(GameInstance& instance);
     static bool isPortAvailable(const std::string& host, int port);
+    // Mirrors the bind the game server performs (INADDR_ANY) rather than binding
+    // the loopback address, which Windows lets coexist with a wildcard listener.
+    static bool isPortFreeForGameServer(int port);
     int findAvailablePort(int startPort);
-    bool waitForGameServer(const GameInstance& instance, int timeoutMs);
+    bool waitForGameServer(GameInstance& instance, int timeoutMs, std::string* failureDetail);
+    std::string describeGameServerLog(const GameInstance& instance) const;
 
     bool seedStarterGames(std::string* error);
 

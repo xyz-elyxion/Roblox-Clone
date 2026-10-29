@@ -225,6 +225,11 @@ The game server reports authenticated player sessions to `/api/me/playtime` whil
 
 The website stores published `.world` files under `web/game-worlds` by default. When a signed-in user presses Play on a game page, the web backend finds an open local port, starts `Server.exe --port <port> --world <published-world> --web <site-url>`, and can launch `Client.exe --server <host> --port <port> --web <site-url> --token <jwt> --connect` when `CLIENT_EXECUTABLE_PATH` points to a built Player.
 
+Play waits for the server to own its port before launching the client, and each game server
+writes its output to `web/game-server-logs/game-server-<port>.log`. When a server dies during
+startup, for example because its port is still held by a leftover `Server.exe`, the game page
+shows that output and the log path instead of a bare connection error.
+
 Useful launch environment variables:
 
 - `GAME_WORLDS_DIR` - directory for published world files.
@@ -252,3 +257,6 @@ Scale operations assign the decomposed absolute scale from ImGuizmo and clamp it
 - `JWT_SECRET must be set`: set a strong secret in production or use development mode locally.
 - Client login fails: start the web backend first and confirm `http://localhost:3000` is reachable.
 - Client cannot connect: start `Server.exe`, allow firewall access, and connect to `127.0.0.1` for local testing.
+- Play reports that the game server did not start: read `web/game-server-logs/game-server-<port>.log`,
+  which the error message also quotes. A leftover `Server.exe` holding the port is the usual cause;
+  close it and press Play again.

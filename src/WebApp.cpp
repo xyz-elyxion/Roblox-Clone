@@ -22,6 +22,7 @@
 #include <windows.h>
 #else
 #include <arpa/inet.h>
+#include <fcntl.h>
 #include <netinet/in.h>
 #include <signal.h>
 #include <sys/socket.h>
@@ -212,6 +213,34 @@ bool readWholeFile(const std::string& path, std::string* out) {
     buffer << stream.rdbuf();
     *out = buffer.str();
     return true;
+}
+
+// A game server that dies during startup usually says why on stderr; keep the
+// end of that output so the failure message can include it.
+std::string readLogTail(const std::string& path, std::size_t maxBytes) {
+    if (path.empty()) {
+        return std::string();
+    }
+    std::ifstream stream(path.c_str(), std::ios::binary);
+    if (!stream) {
+        return std::string();
+    }
+    stream.seekg(0, std::ios::end);
+    const std::streamoff size = stream.tellg();
+    if (size <= 0) {
+        return std::string();
+    }
+    const std::streamoff start = size > static_cast<std::streamoff>(maxBytes)
+                                     ? size - static_cast<std::streamoff>(maxBytes)
+                                     : 0;
+    stream.seekg(start, std::ios::beg);
+    std::string text(static_cast<std::size_t>(size - start), '\0');
+    stream.read(&text[0], static_cast<std::streamsize>(text.size()));
+    text.resize(static_cast<std::size_t>(stream.gcount()));
+    while (!text.empty() && (text.back() == '\n' || text.back() == '\r')) {
+        text.pop_back();
+    }
+    return text;
 }
 
 bool writeWholeFile(const std::string& path, const std::string& contents) {
@@ -2068,12 +2097,16 @@ bool WebsiteApp::handlePlayGame(Request& request, Response& response) {
     // so the client started below has something to connect to.
     const std::string instanceId = instance->id;
     const int instancePort = instance->port;
-    if (!waitForGameServer(*instance, 10000)) {
+    std::string failureDetail;
+    if (!waitForGameServer(*instance, 10000, &failureDetail)) {
+        if (failureDetail.empty()) {
+            failureDetail = "The game server did not start listening on port " +
+                            std::to_string(instancePort) + ".";
+        }
+        std::fprintf(stderr, "Game server for game %d failed: %s\n", gameId,
+                     failureDetail.c_str());
         stopInstance(instanceId, "unreachable");
-        errorJson(response, 503,
-                  "The game server did not start listening on port " +
-                      std::to_string(instancePort) +
-                      ". Check the website console for the game server's error output.");
+        errorJson(response, 503, failureDetail);
         return true;
     }
 
@@ -2386,7 +2419,11 @@ std::string WebsiteApp::saveWorldFile(int gameId, const std::string& contents) {
     return path;
 }
 
-bool WebsiteApp::isPortAvailable(const std::string& host, int port) {
+// Server.cpp binds the wildcard address, so probe the same thing. Binding
+// 127.0.0.1 instead answers a different question: on Windows a specific-address
+// bind can succeed next to an existing wildcard listener, which reports a port
+// held by a stale Server.exe as free and then the new server fails to bind.
+bool WebsiteApp::isPortFreeForGameServer(int port) {
 #ifdef _WIN32
     const SOCKET handle = ::socket(AF_INET, SOCK_STREAM, 0);
     const bool invalid = handle == INVALID_SOCKET;
@@ -2401,9 +2438,7 @@ bool WebsiteApp::isPortAvailable(const std::string& host, int port) {
     sockaddr_in address{};
     address.sin_family = AF_INET;
     address.sin_port = htons(static_cast<unsigned short>(port));
-    if (::inet_pton(AF_INET, host.c_str(), &address.sin_addr) != 1) {
-        address.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-    }
+    address.sin_addr.s_addr = htonl(INADDR_ANY);
     const int result = ::bind(handle, reinterpret_cast<sockaddr*>(&address), sizeof(address));
 #ifdef _WIN32
     closesocket(handle);
@@ -2426,7 +2461,7 @@ int WebsiteApp::findAvailablePort(int startPort) {
         if (used) {
             continue;
         }
-        if (isPortAvailable(config_.gameServerHost, port)) {
+        if (isPortFreeForGameServer(port)) {
             return port;
         }
     }
@@ -2437,7 +2472,11 @@ int WebsiteApp::findAvailablePort(int startPort) {
 // initialise physics and bind its port. Launching the client in that window is
 // why a fresh Play reports "Could not connect to the game server", so wait until
 // the port stops being bindable, which is when the server owns it.
-bool WebsiteApp::waitForGameServer(const GameInstance& instance, int timeoutMs) {
+//
+// A server that dies immediately (a busy port, a missing world file) is reported
+// straight away together with its own output, so the caller can show the reason.
+bool WebsiteApp::waitForGameServer(GameInstance& instance, int timeoutMs,
+                                   std::string* failureDetail) {
     // A manual instance has no process of ours behind it; it points at a server
     // somebody else started, so there is nothing to wait for.
     if (instance.manual) {
@@ -2446,22 +2485,50 @@ bool WebsiteApp::waitForGameServer(const GameInstance& instance, int timeoutMs) 
     const auto deadline =
         std::chrono::steady_clock::now() + std::chrono::milliseconds(timeoutMs);
     for (;;) {
-        if (!isPortAvailable(config_.gameServerHost, instance.port)) {
+        if (!isPortFreeForGameServer(instance.port)) {
             return true;
         }
         if (!processRunning(instance)) {
+            std::string message =
+                "The game server stopped before it began listening on port " +
+                std::to_string(instance.port);
+            if (instance.exitCodeKnown) {
+                message += " (exit code " + std::to_string(instance.exitCode) + ")";
+            }
+            message += ".";
+            if (failureDetail) {
+                *failureDetail = message + describeGameServerLog(instance);
+            }
             return false;
         }
         if (std::chrono::steady_clock::now() >= deadline) {
+            if (failureDetail) {
+                *failureDetail = "The game server did not start listening on port " +
+                                 std::to_string(instance.port) + " within " +
+                                 std::to_string(timeoutMs / 1000) + " seconds." +
+                                 describeGameServerLog(instance);
+            }
             return false;
         }
         std::this_thread::sleep_for(std::chrono::milliseconds(25));
     }
 }
 
+std::string WebsiteApp::describeGameServerLog(const GameInstance& instance) const {
+    std::string detail;
+    const std::string tail = readLogTail(instance.logPath, 2000);
+    if (!tail.empty()) {
+        detail += "\n\nGame server output:\n" + tail;
+    }
+    if (!instance.logPath.empty()) {
+        detail += "\n\nLog file: " + instance.logPath;
+    }
+    return detail;
+}
+
 bool WebsiteApp::spawnProcess(const std::string& executable, const std::vector<std::string>& args,
                               const std::string& workingDirectory, SpawnedProcess* spawned,
-                              std::string* error) {
+                              std::string* error, const std::string& stdoutLogPath) {
     if (executable.empty()) {
         if (error) {
             *error = "Executable path is empty.";
@@ -2480,11 +2547,42 @@ bool WebsiteApp::spawnProcess(const std::string& executable, const std::vector<s
 
     STARTUPINFOA startup{};
     startup.cb = sizeof(startup);
+
+    HANDLE logHandle = INVALID_HANDLE_VALUE;
+    HANDLE nullInput = INVALID_HANDLE_VALUE;
+    if (!stdoutLogPath.empty()) {
+        makeDirectories(directoryOf(stdoutLogPath));
+        logHandle = ::CreateFileA(stdoutLogPath.c_str(), FILE_APPEND_DATA,
+                                  FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, CREATE_ALWAYS,
+                                  FILE_ATTRIBUTE_NORMAL, nullptr);
+        if (logHandle == INVALID_HANDLE_VALUE) {
+            if (error) {
+                *error = "Could not open " + stdoutLogPath + " (error " +
+                         std::to_string(::GetLastError()) + ").";
+            }
+            return false;
+        }
+        // With STARTF_USESTDHANDLES every standard handle must be valid, and the
+        // child's stdin is not redirected, so point it at NUL.
+        nullInput = ::CreateFileA("NUL", GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE,
+                                  nullptr, OPEN_EXISTING, 0, nullptr);
+        startup.dwFlags |= STARTF_USESTDHANDLES;
+        startup.hStdInput = nullInput;
+        startup.hStdOutput = logHandle;
+        startup.hStdError = logHandle;
+    }
+
     PROCESS_INFORMATION information{};
     const BOOL created = ::CreateProcessA(
-        executable.c_str(), mutableCommand.data(), nullptr, nullptr, FALSE, CREATE_NO_WINDOW,
-        nullptr, workingDirectory.empty() ? nullptr : workingDirectory.c_str(), &startup,
-        &information);
+        executable.c_str(), mutableCommand.data(), nullptr, nullptr,
+        logHandle == INVALID_HANDLE_VALUE ? FALSE : TRUE, CREATE_NO_WINDOW, nullptr,
+        workingDirectory.empty() ? nullptr : workingDirectory.c_str(), &startup, &information);
+    if (logHandle != INVALID_HANDLE_VALUE) {
+        ::CloseHandle(logHandle);
+    }
+    if (nullInput != INVALID_HANDLE_VALUE) {
+        ::CloseHandle(nullInput);
+    }
     if (created == 0) {
         if (error) {
             *error = "Could not start " + executable + " (error " +
@@ -2497,6 +2595,9 @@ bool WebsiteApp::spawnProcess(const std::string& executable, const std::vector<s
     spawned->handle = static_cast<void*>(information.hProcess);
     return true;
 #else
+    if (!stdoutLogPath.empty()) {
+        makeDirectories(directoryOf(stdoutLogPath));
+    }
     const pid_t pid = ::fork();
     if (pid < 0) {
         if (error) {
@@ -2506,6 +2607,16 @@ bool WebsiteApp::spawnProcess(const std::string& executable, const std::vector<s
     }
     if (pid == 0) {
         ::setsid();
+        if (!stdoutLogPath.empty()) {
+            const int logFd = ::open(stdoutLogPath.c_str(), O_CREAT | O_WRONLY | O_TRUNC, 0666);
+            if (logFd >= 0) {
+                ::dup2(logFd, STDOUT_FILENO);
+                ::dup2(logFd, STDERR_FILENO);
+                if (logFd > STDERR_FILENO) {
+                    ::close(logFd);
+                }
+            }
+        }
         if (!workingDirectory.empty() && ::chdir(workingDirectory.c_str()) != 0) {
             _exit(127);
         }
@@ -2529,18 +2640,39 @@ bool WebsiteApp::spawnProcess(const std::string& executable, const std::vector<s
 #endif
 }
 
-bool WebsiteApp::processRunning(const GameInstance& instance) const {
+bool WebsiteApp::processRunning(GameInstance& instance) {
 #ifdef _WIN32
     if (instance.processHandle == nullptr) {
         return false;
     }
-    return ::WaitForSingleObject(static_cast<HANDLE>(instance.processHandle), 0) == WAIT_TIMEOUT;
+    const HANDLE handle = static_cast<HANDLE>(instance.processHandle);
+    if (::WaitForSingleObject(handle, 0) == WAIT_TIMEOUT) {
+        return true;
+    }
+    DWORD code = 0;
+    if (::GetExitCodeProcess(handle, &code) != 0) {
+        instance.exitCode = static_cast<int>(code);
+        instance.exitCodeKnown = true;
+    }
+    return false;
 #else
     if (instance.processId <= 0) {
         return false;
     }
     int status = 0;
-    return ::waitpid(static_cast<pid_t>(instance.processId), &status, WNOHANG) == 0;
+    const pid_t result = ::waitpid(static_cast<pid_t>(instance.processId), &status, WNOHANG);
+    if (result == 0) {
+        return true;
+    }
+    if (result > 0) {
+        instance.exitCodeKnown = true;
+        if (WIFEXITED(status)) {
+            instance.exitCode = WEXITSTATUS(status);
+        } else if (WIFSIGNALED(status)) {
+            instance.exitCode = 128 + WTERMSIG(status);
+        }
+    }
+    return false;
 #endif
 }
 
@@ -2615,6 +2747,9 @@ WebsiteApp::GameInstance* WebsiteApp::ensureInstance(const GameRecord& game, boo
     if (!config_.serverExecutablePath.empty() && fileExists(config_.serverExecutablePath) &&
         !game.worldPath.empty()) {
         instance.manual = false;
+        instance.logPath = joinPath(directoryOf(config_.gameWorldsDir),
+                                    "game-server-logs/game-server-" + std::to_string(port) +
+                                        ".log");
         const std::vector<std::string> args = {
             "--port", std::to_string(port),
             "--world", game.worldPath,
@@ -2625,7 +2760,7 @@ WebsiteApp::GameInstance* WebsiteApp::ensureInstance(const GameRecord& game, boo
         SpawnedProcess spawned;
         std::string spawnError;
         if (spawnProcess(config_.serverExecutablePath, args, config_.repoRoot, &spawned,
-                         &spawnError)) {
+                         &spawnError, instance.logPath)) {
             instance.processId = spawned.pid;
 #ifdef _WIN32
             instance.processHandle = spawned.handle;
@@ -2633,6 +2768,7 @@ WebsiteApp::GameInstance* WebsiteApp::ensureInstance(const GameRecord& game, boo
             instance.status = "starting";
             std::fprintf(stdout, "Started game server for game %d on port %d (pid %ld)\n",
                          game.id, port, spawned.pid);
+            std::fprintf(stdout, "  server log: %s\n", instance.logPath.c_str());
         } else {
             instance.status = "error";
             std::fprintf(stderr, "Could not start a game server: %s\n", spawnError.c_str());

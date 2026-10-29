@@ -125,7 +125,17 @@ game-server instances, and needs no npm, SQLite or third-party libraries.
 ```
 
 It listens on `http://localhost:3000` by default. Set `WEB_DIR` if the executable cannot find
-`web/public` from its working directory. Configuration comes from the environment:
+`web/public` from its working directory.
+
+`WebApp.exe` opens a **server console window** instead of relying on a terminal. The window shows
+the live server log with timestamps and levels, a filter box and level toggles, the address the
+site is served on, and every game server it has running (port, pid, players, uptime) with a Stop
+button and that server's captured output. Buttons cover opening the site in the browser, copying
+the log and clearing it; closing the window stops the website and every game server it started.
+The text is still written to the terminal, so run it with `--nogui` (or set `RBLX_NO_GUI=1`) on a
+headless host or in CI. If no window can be created, it falls back to the plain console on its own.
+
+Configuration comes from the environment:
 
 - `PORT` - HTTP port, default `3000`.
 - `WEB_DIR` - directory containing `public/index.html`, default `web`.

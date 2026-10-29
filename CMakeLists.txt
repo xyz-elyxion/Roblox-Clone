@@ -204,20 +204,20 @@ set(WEB_SOURCES
 )
 
 if(RBLX_BUILD_WEBAPP)
+    # The website server has a desktop console window: it shows the process log,
+    # every running game server and that server's output instead of a bare
+    # terminal. --nogui / RBLX_NO_GUI keeps the plain console for CI, tests and
+    # headless hosts, and a machine without a usable display falls back to it.
     add_executable(WebApp
         src/WebMain.cpp
+        src/ConsoleGui.cpp
         ${WEB_SOURCES}
+        ${IMGUI_SOURCES}
     )
-    target_include_directories(WebApp PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
-    if(RBLX_ENABLE_WARNINGS)
-        if(MSVC)
-            target_compile_options(WebApp PRIVATE /W4 /permissive-)
-        else()
-            target_compile_options(WebApp PRIVATE -Wall -Wextra -Wpedantic)
-        endif()
-    endif()
+    configure_rblx_target(WebApp)
+    target_link_libraries(WebApp PRIVATE glfw glad)
     if(WIN32)
-        target_link_libraries(WebApp PRIVATE ws2_32)
+        target_link_libraries(WebApp PRIVATE ws2_32 shell32)
     else()
         find_package(Threads REQUIRED)
         target_link_libraries(WebApp PRIVATE Threads::Threads)

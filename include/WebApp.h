@@ -50,6 +50,19 @@ struct WorldAnalysis {
     int cylinderCount = 0;
 };
 
+// Snapshot of one running game server, used by the desktop console window.
+struct GameInstanceInfo {
+    std::string id;
+    std::string title;
+    std::string status;
+    std::string logPath;
+    long long startedAtMs = 0;
+    int gameId = 0;
+    int port = 0;
+    int players = 0;
+    long pid = 0;
+};
+
 // Validates and normalises a `.world` document exactly like the Node backend.
 bool analyzeWorldSource(const std::string& worldText, WorldAnalysis* analysis,
                         std::string* error);
@@ -70,6 +83,12 @@ public:
     HttpServer& server() { return server_; }
     const Config& config() const { return config_; }
     Store& store() { return store_; }
+
+    // Read-only view of the running game servers for the console window. The
+    // list is sorted by port so the window's order stays stable.
+    void collectGameInstances(std::vector<GameInstanceInfo>* out);
+    // Stops one game server by instance id; false when it already stopped.
+    bool stopGameInstanceById(const std::string& instanceId);
 
     bool start(std::string* error);
     void run();
@@ -192,7 +211,9 @@ private:
     bool initialized_ = false;
 };
 
-int runWebsiteServer();
+// Serves the site, showing the desktop console window unless --nogui /
+// --headless is passed or RBLX_NO_GUI is set.
+int runWebsiteServer(int argc, char** argv);
 
 }  // namespace web
 }  // namespace rblx

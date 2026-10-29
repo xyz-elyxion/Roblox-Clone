@@ -1184,6 +1184,47 @@ bool WebsiteApp::seedStarterGames(std::string* error) {
     return true;
 }
 
+void WebsiteApp::collectGameInstances(std::vector<GameInstanceInfo>* out) {
+    if (out == nullptr) {
+        return;
+    }
+    std::lock_guard<std::mutex> lock(mutex_);
+    refreshInstances();
+    out->clear();
+    for (const auto& entry : instances_) {
+        const GameInstance& instance = entry.second;
+        GameInstanceInfo info;
+        info.id = instance.id;
+        info.gameId = instance.gameId;
+        if (const GameRecord* game = store_.findGame(instance.gameId)) {
+            info.title = game->title;
+        }
+        if (info.title.empty()) {
+            info.title = "Game " + std::to_string(instance.gameId);
+        }
+        info.status = instance.status;
+        info.logPath = instance.logPath;
+        info.startedAtMs = instance.startedAtMs;
+        info.port = instance.port;
+        info.players = instance.playerCount;
+        info.pid = instance.processId;
+        out->push_back(std::move(info));
+    }
+    std::sort(out->begin(), out->end(),
+              [](const GameInstanceInfo& left, const GameInstanceInfo& right) {
+                  return left.port < right.port;
+              });
+}
+
+bool WebsiteApp::stopGameInstanceById(const std::string& instanceId) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (instances_.find(instanceId) == instances_.end()) {
+        return false;
+    }
+    stopInstance(instanceId, "console");
+    return true;
+}
+
 bool WebsiteApp::start(std::string* error) {
     return server_.listen("0.0.0.0", config_.port, error);
 }
@@ -3052,31 +3093,6 @@ void WebsiteApp::tickInstances() {
     for (const std::string& instanceId : expired) {
         stopInstance(instanceId, "empty");
     }
-}
-
-int runWebsiteServer() {
-    Config config;
-    std::string error;
-    if (!loadConfigFromEnvironment(&config, &error)) {
-        std::fprintf(stderr, "%s\n", error.c_str());
-        return 1;
-    }
-
-    WebsiteApp app(config);
-    if (!app.initialize(&error)) {
-        std::fprintf(stderr, "%s\n", error.c_str());
-        return 1;
-    }
-    app.installRoutes();
-    if (!app.start(&error)) {
-        std::fprintf(stderr, "%s\n", error.c_str());
-        return 1;
-    }
-
-    std::printf("Website server running on http://localhost:%d\n", app.server().port());
-    std::printf("Serving %s\n", config.webRoot.c_str());
-    app.run();
-    return 0;
 }
 
 }  // namespace web

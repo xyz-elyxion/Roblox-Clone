@@ -64,6 +64,18 @@ target_compile_definitions(RBLXAntiCheat PRIVATE
     _WINSOCK_DEPRECATED_NO_WARNINGS
 )
 
+# The wide/narrow Win32 mapping and the module-name macros are not optional.
+# The sources pass std::wstring to the TCHAR-mapped APIs (GetFullPathName,
+# CreateService, GetModuleFileNameEx) and read the module name at compile time,
+# so without these the build fails with conversion errors at every TCHAR call
+# site -- exactly what the Windows CI job reported.
+target_compile_definitions(RBLXAntiCheat PRIVATE
+    "UNICODE"
+    "_UNICODE"
+    "_MAIN_MODULE_NAME=\"Client.exe\""
+    "_MAIN_MODULE_NAME_W=L\"Client.exe\""
+)
+
 if(MSVC)
     target_compile_options(RBLXAntiCheat PRIVATE /W3)
 endif()

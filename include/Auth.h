@@ -7,8 +7,11 @@
 #include "HttpClient.h"
 
 #ifdef _WIN32
-    #include <shellapi.h>
+    // windows.h must come first: shellapi.h uses types (HDROP and friends) that
+    // it does not declare itself, so including it alone breaks every
+    // translation unit that reaches this header.
     #include <windows.h>
+    #include <shellapi.h>
 #endif
 
 // Client-side calls to the website backend. The transport lives in

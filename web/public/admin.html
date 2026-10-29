@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - RBLX Clone</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <div class="page" data-admin-page>
+        <header class="topbar">
+            <a class="brand" href="/dashboard">
+                <span>RBLX Clone</span>
+            </a>
+            <nav class="nav" aria-label="Primary">
+                <a href="/dashboard">Home</a>
+                <a href="/games">Games</a>
+                <a href="/create">Create</a>
+                <a href="/profile">Profile</a>
+                <a href="/avatar">Avatar</a>
+                <a href="/admin" aria-current="page">Admin</a>
+                <button class="button danger" type="button" data-logout>Logout</button>
+            </nav>
+        </header>
+
+        <main id="main">
+            <div class="dashboard-head">
+                <div>
+                    <p class="label">Admin</p>
+                    <h1 class="page-title">Site overview</h1>
+                </div>
+                <button class="button" type="button" data-admin-refresh>Refresh</button>
+            </div>
+
+            <div class="status" data-admin-status aria-live="polite"></div>
+
+            <section class="stats-grid admin-stats" data-admin-stats aria-label="Site totals"></section>
+
+            <section class="admin-sections">
+                <article class="panel">
+                    <div class="panel-heading">
+                        <div>
+                            <p class="label">Accounts</p>
+                            <h2>Users</h2>
+                        </div>
+                    </div>
+                    <div class="admin-table-wrap">
+                        <table class="admin-table">
+                            <thead>
+                                <tr>
+                                    <th scope="col">ID</th>
+                                    <th scope="col">Username</th>
+                                    <th scope="col">Role</th>
+                                    <th scope="col">Games</th>
+                                    <th scope="col">Friends</th>
+                                    <th scope="col">Playtime</th>
+                                    <th scope="col">Joined</th>
+                                </tr>
+                            </thead>
+                            <tbody data-admin-users></tbody>
+                        </table>
+                    </div>
+                </article>
+
+                <article class="panel">
+                    <div class="panel-heading">
+                        <div>
+                            <p class="label">Worlds</p>
+                            <h2>Games</h2>
+                        </div>
+                    </div>
+                    <div class="admin-table-wrap">
+                        <table class="admin-table">
+                            <thead>
+                                <tr>
+                                    <th scope="col">ID</th>
+                                    <th scope="col">Title</th>
+                                    <th scope="col">Owner</th>
+                                    <th scope="col">Visibility</th>
+                                    <th scope="col">Size</th>
+                                    <th scope="col">Launches</th>
+                                    <th scope="col">Updated</th>
+                                    <th scope="col">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody data-admin-games></tbody>
+                        </table>
+                    </div>
+                </article>
+
+                <article class="panel">
+                    <div class="panel-heading">
+                        <div>
+                            <p class="label">Servers</p>
+                            <h2>Running instances</h2>
+                        </div>
+                    </div>
+                    <div class="admin-table-wrap">
+                        <table class="admin-table">
+                            <thead>
+                                <tr>
+                                    <th scope="col">Instance</th>
+                                    <th scope="col">Address</th>
+                                    <th scope="col">Status</th>
+                                    <th scope="col">Players</th>
+                                    <th scope="col">Started</th>
+                                </tr>
+                            </thead>
+                            <tbody data-admin-instances></tbody>
+                        </table>
+                    </div>
+                </article>
+            </section>
+        </main>
+    </div>
+    <script src="/app.js?v=games-1" defer></script>
+</body>
+</html>

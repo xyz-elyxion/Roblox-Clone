@@ -546,6 +546,21 @@ const GameRecord* Store::findGame(int id) const {
     return nullptr;
 }
 
+std::vector<const GameRecord*> Store::allGames() const {
+    std::vector<const GameRecord*> records;
+    records.reserve(games_.size());
+    for (const GameRecord& record : games_) {
+        records.push_back(&record);
+    }
+    std::sort(records.begin(), records.end(), [](const GameRecord* a, const GameRecord* b) {
+        if (a->publishedAt != b->publishedAt) {
+            return a->publishedAt > b->publishedAt;
+        }
+        return a->id > b->id;
+    });
+    return records;
+}
+
 std::vector<const GameRecord*> Store::publicGames(std::size_t limit) const {
     std::vector<const GameRecord*> records;
     for (const GameRecord& record : games_) {
@@ -610,6 +625,16 @@ void Store::incrementLaunchCount(int gameId) {
             return;
         }
     }
+}
+
+bool Store::removeGame(int id) {
+    for (auto it = games_.begin(); it != games_.end(); ++it) {
+        if (it->id == id) {
+            games_.erase(it);
+            return true;
+        }
+    }
+    return false;
 }
 
 void Store::resolveOwnerNames() {

@@ -140,9 +140,22 @@ It listens on `http://localhost:3000` by default. Set `WEB_DIR` if the executabl
 - `GAME_INSTANCE_EMPTY_GRACE_MS` - how long an empty game instance stays up, default `30000`.
 - `SERVER_EXECUTABLE_PATH` / `CLIENT_EXECUTABLE_PATH` - binaries launched when a game is played.
 - `PUBLIC_BASE_URL` - URL handed to the native server/client for web auth.
+- `ADMIN_USERNAMES` - comma-separated accounts allowed into `/admin`, default `RBLXCreator`.
 
 Passwords are stored as PBKDF2-SHA256 hashes and sessions are HS256 JWTs. The old `web/users.db`
 SQLite file and its bcrypt hashes are not read by this backend.
+
+## Admin Dashboard
+
+`/admin` shows the local install at a glance: account, game, live server, launch and playtime totals,
+the full user and game lists, the running game-server instances, and a Delete action that removes a
+game together with its published `.world` file (stopping any instance for it first).
+
+Admin access is by username: set `ADMIN_USERNAMES` to a comma-separated list, or leave it unset to
+make the seeded `RBLXCreator` account the only admin. The list is matched case-sensitively against the
+signed-in account, so the flag follows the account rather than the browser. Non-admins get `403` from
+`GET /api/admin/overview` and `DELETE /api/admin/games/:id`, and the Admin link on the dashboard stays
+hidden for them.
 
 ## Legacy Node.js Backend
 
@@ -205,6 +218,8 @@ Games:
 - `GET /api/games/mine` with `Authorization: Bearer <token>` lists your published games.
 - `POST /api/games` with `Authorization: Bearer <token>` and `{ "title": "...", "description": "...", "isPublic": true, "worldText": "..." }` publishes a world file.
 - `POST /api/games/:id/play` with `Authorization: Bearer <token>` starts or reuses a local game server and returns native Player launch metadata.
+- `GET /api/admin/overview` with an admin token returns site totals plus the user, game and instance lists.
+- `DELETE /api/admin/games/:id` with an admin token deletes a game and its world file.
 
 Tokens are no longer accepted in avatar URLs. `/api/verify` still accepts a body token as a deprecated compatibility fallback, but new callers should use the Authorization header.
 

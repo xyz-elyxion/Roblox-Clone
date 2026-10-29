@@ -520,6 +520,10 @@ function initDashboard() {
             }
             if (welcomeHeading) welcomeHeading.textContent = `Welcome, ${session.username}`;
 
+            for (const link of document.querySelectorAll('[data-admin-only]')) {
+                link.hidden = !session.isAdmin;
+            }
+
             async function loadSocial() {
                 setStatus(status, '', '');
                 const { response, data } = await getJson('/api/me/social', getToken());
@@ -1433,6 +1437,180 @@ function initGamePage() {
     });
 }
 
+function initAdminPage() {
+    const root = document.querySelector('[data-admin-page]');
+    if (!root) return;
+
+    const statsGrid = document.querySelector('[data-admin-stats]');
+    const usersBody = document.querySelector('[data-admin-users]');
+    const gamesBody = document.querySelector('[data-admin-games]');
+    const instancesBody = document.querySelector('[data-admin-instances]');
+    const status = document.querySelector('[data-admin-status]');
+    const refreshButton = document.querySelector('[data-admin-refresh]');
+
+    function adminRow(cells) {
+        const row = document.createElement('tr');
+        for (const cell of cells) {
+            const td = document.createElement('td');
+            if (cell instanceof Node) {
+                td.appendChild(cell);
+            } else {
+                td.textContent = String(cell);
+            }
+            row.appendChild(td);
+        }
+        return row;
+    }
+
+    function adminEmptyRow(body, columns, message) {
+        const row = document.createElement('tr');
+        const cell = document.createElement('td');
+        cell.colSpan = columns;
+        cell.className = 'admin-empty';
+        cell.textContent = message;
+        row.appendChild(cell);
+        body.appendChild(row);
+    }
+
+    function gameLink(game) {
+        const link = document.createElement('a');
+        link.className = 'game-title-link';
+        link.href = gameHref(game);
+        link.textContent = game.title;
+        return link;
+    }
+
+    async function deleteGame(game, button) {
+        const confirmed = window.confirm(`Delete "${game.title}"? Its world file is removed too.`);
+        if (!confirmed) return;
+
+        button.disabled = true;
+        button.textContent = 'Deleting';
+        try {
+            const response = await fetch(`/api/admin/games/${game.id}`, {
+                method: 'DELETE',
+                headers: { Authorization: `Bearer ${getToken()}` }
+            });
+            const data = await response.json();
+            if (!response.ok || !data.success) throw new Error(data.error || 'Could not delete the game.');
+            setStatus(status, `Deleted "${game.title}".`, 'success');
+            await load();
+        } catch (error) {
+            setStatus(status, error.message || 'Could not delete the game.', 'error');
+            button.disabled = false;
+            button.textContent = 'Delete';
+        }
+    }
+
+    function renderStats(stats) {
+        if (!statsGrid) return;
+        statsGrid.innerHTML = '';
+        statsGrid.append(
+            statTile('Users', String(stats.userCount)),
+            statTile('Games', String(stats.gameCount)),
+            statTile('Public games', String(stats.publicGameCount)),
+            statTile('Live servers', String(stats.instanceCount)),
+            statTile('Launches', String(stats.launchCount)),
+            statTile('Playtime', formatPlaytime(stats.playtimeSeconds))
+        );
+    }
+
+    function renderUsers(users) {
+        if (!usersBody) return;
+        usersBody.innerHTML = '';
+        if (!users || users.length === 0) {
+            adminEmptyRow(usersBody, 7, 'No accounts yet.');
+            return;
+        }
+        for (const user of users) {
+            const name = document.createElement('a');
+            name.className = 'game-title-link';
+            name.href = profileHref(user);
+            name.textContent = user.username;
+            usersBody.appendChild(adminRow([
+                user.id,
+                name,
+                user.isAdmin ? 'Admin' : 'Player',
+                user.gameCount,
+                user.friendCount,
+                formatPlaytime(user.playtimeSeconds),
+                formatDate(user.createdAt)
+            ]));
+        }
+    }
+
+    function renderGames(games) {
+        if (!gamesBody) return;
+        gamesBody.innerHTML = '';
+        if (!games || games.length === 0) {
+            adminEmptyRow(gamesBody, 8, 'No games published yet.');
+            return;
+        }
+        for (const game of games) {
+            const remove = makeButton('Delete', 'button danger small', () => {});
+            remove.addEventListener('click', () => deleteGame(game, remove));
+            gamesBody.appendChild(adminRow([
+                game.id,
+                gameLink(game),
+                game.ownerUsername || game.ownerId,
+                game.isPublic ? 'Public' : 'Private',
+                formatGameCount(game.stats?.partsCount, 'part', 'parts'),
+                game.stats?.launchCount ?? 0,
+                formatDate(game.updatedAt),
+                remove
+            ]));
+        }
+    }
+
+    function renderInstances(instances) {
+        if (!instancesBody) return;
+        instancesBody.innerHTML = '';
+        if (!instances || instances.length === 0) {
+            adminEmptyRow(instancesBody, 5, 'No game servers are running.');
+            return;
+        }
+        for (const instance of instances) {
+            instancesBody.appendChild(adminRow([
+                instance.id.slice(0, 8),
+                `${instance.host}:${instance.port}`,
+                instance.status,
+                instance.playerCount,
+                formatDate(instance.startedAt)
+            ]));
+        }
+    }
+
+    async function load() {
+        setStatus(status, 'Loading site data', '');
+        if (refreshButton) refreshButton.disabled = true;
+        try {
+            const { response, data } = await getJson('/api/admin/overview', getToken());
+            if (response.status === 401) {
+                window.location.href = `/login?next=${encodeURIComponent('/admin')}`;
+                return;
+            }
+            if (!response.ok || !data.success) throw new Error(data.error || 'Could not load admin data.');
+            renderStats(data.stats);
+            renderUsers(data.users);
+            renderGames(data.games);
+            renderInstances(data.instances);
+            setStatus(status, '', '');
+        } catch (error) {
+            setStatus(status, error.message || 'Could not load admin data.', 'error');
+        } finally {
+            if (refreshButton) refreshButton.disabled = false;
+        }
+    }
+
+    refreshButton?.addEventListener('click', () => {
+        load().catch(() => {});
+    });
+
+    load().catch((error) => {
+        setStatus(status, error.message || 'Could not load admin data.', 'error');
+    });
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     initNavAuth();
     initLogoutButtons();
@@ -1445,4 +1623,5 @@ document.addEventListener('DOMContentLoaded', () => {
     initGamesPage();
     initCreateGamePage();
     initGamePage();
+    initAdminPage();
 });

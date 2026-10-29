@@ -70,6 +70,10 @@ std::string testWebRoot() {
                         std::ios::binary | std::ios::trunc);
     index << "<!doctype html><title>native</title><h1>native web app test page</h1>";
     index.close();
+    std::ofstream admin((directory / "public" / "admin.html").string().c_str(),
+                        std::ios::binary | std::ios::trunc);
+    admin << "<!doctype html><title>admin</title><div data-admin-page></div>";
+    admin.close();
     return directory.string();
 }
 
@@ -431,6 +435,7 @@ void testHttp() {
     config.port = 0;
     config.gameInstanceEmptyGraceMs = 0;
     config.publicBaseUrl = "http://127.0.0.1:3000";
+    config.adminUsernames.push_back("TestPilot");
 
     rblx::web::WebsiteApp app(config);
     std::string error;
@@ -564,6 +569,46 @@ void testHttp() {
                 "{\"description\":\"Updated description\"}", token, 200,
                 "PUT /api/games/:id updates", &body);
     checkContains(body, "Updated description", "the update is applied");
+
+    checkStatus(app, "GET", "/api/admin/overview", std::string(), std::string(), 401,
+                "the admin overview requires a token");
+
+    checkStatus(app, "POST", "/api/signup",
+                "{\"username\":\"Outsider\",\"password\":\"long-enough-password\"}",
+                std::string(), 201, "a second account signs up", &body);
+    const std::string outsiderToken =
+        rblx::web::Json::parse(body, &error).member("token").asString();
+    checkStatus(app, "GET", "/api/admin/overview", std::string(), outsiderToken, 403,
+                "the admin overview rejects a normal account");
+
+    checkStatus(app, "POST", "/api/verify", "{}", token, 200, "verify reports the admin flag",
+                &body);
+    checkContains(body, "\"isAdmin\":true", "verify marks the admin account");
+    checkStatus(app, "POST", "/api/verify", "{}", outsiderToken, 200,
+                "verify answers for a normal account", &body);
+    checkContains(body, "\"isAdmin\":false", "verify marks a normal account as not admin");
+
+    checkStatus(app, "GET", "/api/admin/overview", std::string(), token, 200,
+                "the admin overview lists site data", &body);
+    // The store seeds a creator account, so the count covers it plus the two signups.
+    checkContains(body, "\"userCount\":3", "the overview counts users");
+    checkContains(body, "\"username\":\"Outsider\"", "the overview lists every account");
+    checkContains(body, "\"gameCount\":1", "the overview counts games");
+    checkContains(body, "Test World", "the overview lists games");
+    checkContains(body, "\"isAdmin\":true", "the overview flags the admin account");
+
+    checkStatus(app, "GET", "/admin", std::string(), std::string(), 200,
+                "the admin page is served", &body);
+    checkContains(body, "data-admin-page", "the admin page markup is returned");
+
+    checkStatus(app, "DELETE", "/api/admin/games/" + std::to_string(gameId), std::string(),
+                outsiderToken, 403, "deleting a game needs an admin");
+    checkStatus(app, "DELETE", "/api/admin/games/" + std::to_string(gameId), std::string(), token,
+                200, "an admin deletes a game", &body);
+    checkContains(body, "\"deletedGameId\":" + std::to_string(gameId),
+                  "the deleted game id is returned");
+    checkStatus(app, "GET", "/api/games/" + std::to_string(gameId), std::string(), std::string(),
+                404, "the deleted game is gone");
 
     checkStatus(app, "GET", "/does-not-exist", std::string(), std::string(), 404,
                 "unknown paths return 404");

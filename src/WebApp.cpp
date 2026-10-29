@@ -688,6 +688,9 @@ std::string pageFileForPath(const std::string& path) {
     if (path == "/profile") {
         return "profile.html";
     }
+    if (path == "/admin") {
+        return "admin.html";
+    }
     if (path.compare(0, 7, "/games/") == 0 || path.compare(0, 9, "/profile/") == 0) {
         return path.compare(0, 7, "/games/") == 0 ? "game.html" : "profile.html";
     }
@@ -954,6 +957,20 @@ bool loadConfigFromEnvironment(Config* config, std::string* error) {
     loaded.gameInstanceEmptyGraceMs =
         static_cast<long long>(parsePositiveInt(envString("GAME_INSTANCE_EMPTY_GRACE_MS"), 30000));
 
+    loaded.adminUsernames.clear();
+    const std::string adminNames = envString("ADMIN_USERNAMES");
+    if (adminNames.empty()) {
+        // The seeded creator account owns the starter games.
+        loaded.adminUsernames.push_back("RBLXCreator");
+    } else {
+        for (const std::string& name : splitCsv(adminNames)) {
+            const std::string trimmed = trimCopy(name);
+            if (!trimmed.empty()) {
+                loaded.adminUsernames.push_back(trimmed);
+            }
+        }
+    }
+
     loaded.publicBaseUrl = envString("PUBLIC_BASE_URL");
     if (loaded.publicBaseUrl.empty()) {
         loaded.publicBaseUrl = "http://localhost:" + std::to_string(loaded.port);
@@ -1210,6 +1227,14 @@ bool WebsiteApp::parseJsonBody(const Request& request, Json* body, Response& res
     return true;
 }
 
+bool WebsiteApp::isAdminUser(const AuthUser& user) const {
+    if (user.id <= 0) {
+        return false;
+    }
+    return std::find(config_.adminUsernames.begin(), config_.adminUsernames.end(),
+                     user.username) != config_.adminUsernames.end();
+}
+
 bool WebsiteApp::requireAuth(const Request& request, Response& response, AuthUser* user) {
     const std::string token = bearerToken(request.header("authorization"));
     if (token.empty()) {
@@ -1433,6 +1458,14 @@ void WebsiteApp::installRoutes() {
                   guard([this](Request& request, Response& response) {
                       return handlePlayGame(request, response);
                   }));
+    server_.route("GET", "/api/admin/overview",
+                  guard([this](Request& request, Response& response) {
+                      return handleAdminOverview(request, response);
+                  }));
+    server_.route("DELETE", "/api/admin/games/:id",
+                  guard([this](Request& request, Response& response) {
+                      return handleAdminDeleteGame(request, response);
+                  }));
     server_.route("GET", "/api/avatar", guard([this](Request& request, Response& response) {
                       return handleGetAvatar(request, response);
                   }));
@@ -1557,10 +1590,15 @@ bool WebsiteApp::handleVerify(Request& request, Response& response) {
         return true;
     }
 
+    AuthUser authUser;
+    authUser.id = user->id;
+    authUser.username = user->username;
+
     Json result = Json::makeObject();
     result.set("success", true);
     result.set("userId", user->id);
     result.set("username", user->username);
+    result.set("isAdmin", isAdminUser(authUser));
     sendJson(response, 200, result);
     return true;
 }
@@ -1574,6 +1612,7 @@ bool WebsiteApp::handleSocial(Request& request, Response& response) {
 
     Json result = Json::makeObject();
     result.set("success", true);
+    result.set("isAdmin", isAdminUser(user));
     result.set("profile", profileJson(user.id, user.id));
 
     Json friends = Json::makeArray();
@@ -2185,6 +2224,126 @@ bool WebsiteApp::handlePlayGame(Request& request, Response& response) {
     result.set("server", instanceJson(snapshot));
     result.set("launch", launch);
     result.set("player", player);
+    sendJson(response, 200, result);
+    return true;
+}
+
+bool WebsiteApp::handleAdminOverview(Request& request, Response& response) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    AuthUser user;
+    if (!requireAuth(request, response, &user)) {
+        return true;
+    }
+    if (!isAdminUser(user)) {
+        errorJson(response, 403, "Admin access is required.");
+        return true;
+    }
+
+    refreshInstances();
+    const std::vector<const GameRecord*> games = store_.allGames();
+    int publicGames = 0;
+    long long launchCount = 0;
+    for (const GameRecord* game : games) {
+        if (game->isPublic) {
+            ++publicGames;
+        }
+        launchCount += game->launchCount;
+    }
+
+    long long playtimeSeconds = 0;
+    Json users = Json::makeArray();
+    for (const UserRecord& record : store_.users()) {
+        const long long seconds = store_.playtimeFor(record.id);
+        playtimeSeconds += seconds;
+
+        AuthUser listed;
+        listed.id = record.id;
+        listed.username = record.username;
+
+        Json entry = Json::makeObject();
+        entry.set("id", record.id);
+        entry.set("username", record.username);
+        entry.set("createdAt", record.createdAt);
+        entry.set("playtimeSeconds", seconds);
+        entry.set("friendCount", store_.countAcceptedFriends(record.id));
+        entry.set("gameCount", static_cast<long long>(store_.gamesOwnedBy(record.id).size()));
+        entry.set("isAdmin", isAdminUser(listed));
+        users.push(entry);
+    }
+
+    Json stats = Json::makeObject();
+    stats.set("userCount", static_cast<long long>(store_.users().size()));
+    stats.set("gameCount", static_cast<long long>(games.size()));
+    stats.set("publicGameCount", publicGames);
+    stats.set("instanceCount", static_cast<long long>(instances_.size()));
+    stats.set("playtimeSeconds", playtimeSeconds);
+    stats.set("launchCount", launchCount);
+
+    Json gameList = Json::makeArray();
+    for (const GameRecord* game : games) {
+        gameList.push(gameJson(*game, true));
+    }
+
+    Json instanceList = Json::makeArray();
+    for (const auto& entry : instances_) {
+        instanceList.push(instanceJson(entry.second));
+    }
+
+    Json result = Json::makeObject();
+    result.set("success", true);
+    result.set("stats", stats);
+    result.set("users", users);
+    result.set("games", gameList);
+    result.set("instances", instanceList);
+    sendJson(response, 200, result);
+    return true;
+}
+
+bool WebsiteApp::handleAdminDeleteGame(Request& request, Response& response) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    AuthUser user;
+    if (!requireAuth(request, response, &user)) {
+        return true;
+    }
+    if (!isAdminUser(user)) {
+        errorJson(response, 403, "Admin access is required.");
+        return true;
+    }
+
+    const int gameId = parseUserId(request.param("id"));
+    const GameRecord* game = gameId > 0 ? store_.findGame(gameId) : nullptr;
+    if (game == nullptr) {
+        errorJson(response, 404, "Game not found.");
+        return true;
+    }
+
+    const std::string worldPath = game->worldPath;
+    std::vector<std::string> doomedInstances;
+    for (const auto& entry : instances_) {
+        if (entry.second.gameId == gameId) {
+            doomedInstances.push_back(entry.first);
+        }
+    }
+    for (const std::string& instanceId : doomedInstances) {
+        stopInstance(instanceId, "admin");
+    }
+
+    if (!store_.removeGame(gameId)) {
+        errorJson(response, 500, "Could not delete the game.");
+        return true;
+    }
+    std::string saveError;
+    if (!store_.save(&saveError)) {
+        errorJson(response, 500, saveError.empty() ? "Could not save the change." : saveError);
+        return true;
+    }
+    if (!worldPath.empty()) {
+        std::remove(worldPath.c_str());
+    }
+
+    Json result = Json::makeObject();
+    result.set("success", true);
+    result.set("deletedGameId", gameId);
     sendJson(response, 200, result);
     return true;
 }

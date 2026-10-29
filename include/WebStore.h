@@ -124,11 +124,13 @@ public:
 
     // games
     const GameRecord* findGame(int id) const;
+    std::vector<const GameRecord*> allGames() const;
     std::vector<const GameRecord*> publicGames(std::size_t limit) const;
     std::vector<const GameRecord*> gamesOwnedBy(int ownerId) const;
     int addGame(const GameRecord& record);
     void updateGame(const GameRecord& record);
     void incrementLaunchCount(int gameId);
+    bool removeGame(int id);
     std::size_t gameCount() const { return games_.size(); }
 
 private:

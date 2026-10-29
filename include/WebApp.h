@@ -35,6 +35,8 @@ struct Config {
     std::string publicBaseUrl;
     std::string serverExecutablePath;
     std::string clientExecutablePath;
+    // Usernames that may open the admin dashboard, matched case-sensitively.
+    std::vector<std::string> adminUsernames = {"RBLXCreator"};
 };
 
 struct WorldAnalysis {
@@ -114,6 +116,7 @@ private:
     bool parseJsonBody(const Request& request, Json* body, Response& response) const;
     bool requireAuth(const Request& request, Response& response, AuthUser* user);
     bool optionalAuth(const Request& request, AuthUser* user, bool* authenticated);
+    bool isAdminUser(const AuthUser& user) const;
 
     Json profileJson(int userId, int viewerId);
     Json gameJson(const GameRecord& game, bool canEdit) const;
@@ -139,6 +142,8 @@ private:
     bool handleUpdateGame(Request& request, Response& response);
     bool handleGameServers(Request& request, Response& response);
     bool handlePlayGame(Request& request, Response& response);
+    bool handleAdminOverview(Request& request, Response& response);
+    bool handleAdminDeleteGame(Request& request, Response& response);
     bool handleGetAvatar(Request& request, Response& response);
     bool handleSetAvatar(Request& request, Response& response);
     bool handleStatic(Request& request, Response& response);

@@ -172,6 +172,7 @@ endif()
 if(RBLX_BUILD_CLIENT)
     add_executable(Client
         src/Client.cpp
+        src/WebJson.cpp
         ${SHARED_SOURCES}
         ${IMGUI_SOURCES}
     )

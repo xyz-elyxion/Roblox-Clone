@@ -14,6 +14,7 @@
 #include "Auth.h"
 #include "Avatar.h"
 #include "UiScale.h"
+#include "WebJson.h"
 #include <glm/gtx/euler_angles.hpp>
 #include <fstream>
 #include <sstream>
@@ -179,6 +180,7 @@ enum GameState {
     MENU,
     MENU_AUTH_CHOICE,  // First menu: Login/Register/Guest
     MENU_PLAY_CHOICE,   // Second menu: Online/Offline
+    MENU_GAMES,         // In-client games browser
     OFFLINE,
     ONLINE
 };
@@ -223,6 +225,19 @@ std::map<int, std::string> playerNames;
 std::vector<PlayerInfo> playerList;
 std::vector<char> clientReceiveBuffer;
 std::vector<ChatLine> chatLines;
+
+struct DiscoverGame {
+    int id = 0;
+    std::string title;
+    std::string owner;
+    std::string description;
+    int partsCount = 0;
+    int launchCount = 0;
+};
+
+std::vector<DiscoverGame> discoverGames;
+bool discoverLoaded = false;
+std::string discoverError;
 
 Character* myCharacter = nullptr;
 AvatarConfig currentAvatar;
@@ -836,20 +851,105 @@ void renderAuthMenu(float uiScale) {
     ImGui::End();
 }
 
+// Reads the public game list straight from the website so the player can browse
+// and join without being sent to a browser first.
+void loadDiscoverGames() {
+    discoverError.clear();
+    const std::string response = Auth::httpGet(automaticWebServerUrl() + "/api/games");
+    if (response.empty()) {
+        discoverLoaded = false;
+        discoverError = "Could not reach the website. Start it, then press Refresh.";
+        return;
+    }
+
+    std::string parseError;
+    const rblx::web::Json root = rblx::web::Json::parse(response, &parseError);
+    if (!root.isObject()) {
+        discoverLoaded = false;
+        discoverError = parseError.empty() ? "The website sent a game list the player could not read."
+                                           : parseError;
+        return;
+    }
+
+    discoverGames.clear();
+    const rblx::web::Json& games = root.member("games");
+    if (games.isArray()) {
+        for (const rblx::web::Json& item : games.elements()) {
+            DiscoverGame game;
+            game.id = static_cast<int>(item.member("id").asInteger());
+            game.title = item.member("title").asString();
+            game.owner = item.member("ownerUsername").asString();
+            game.description = item.member("description").asString();
+            game.partsCount = static_cast<int>(item.member("stats").member("partsCount").asInteger());
+            game.launchCount = static_cast<int>(item.member("stats").member("launchCount").asInteger());
+            if (game.id > 0 && !game.title.empty()) {
+                discoverGames.push_back(game);
+            }
+        }
+    }
+    discoverLoaded = true;
+}
+
+bool joinDiscoveredGame(const DiscoverGame& game, std::string& error) {
+    if (std::strlen(authToken) == 0) {
+        error = "Sign in to join a game.";
+        return false;
+    }
+
+    const std::string response = Auth::httpPost(
+        automaticWebServerUrl() + "/api/games/" + std::to_string(game.id) + "/play",
+        "{\"launchClient\":false}",
+        authToken);
+    if (response.empty()) {
+        error = "Could not reach the website to start the game.";
+        return false;
+    }
+
+    std::string parseError;
+    const rblx::web::Json root = rblx::web::Json::parse(response, &parseError);
+    if (!root.isObject() || !root.member("success").asBool(false)) {
+        const std::string message = root.member("error").asString();
+        error = !message.empty() ? message : "The website could not start that game.";
+        return false;
+    }
+
+    const rblx::web::Json& launch = root.member("launch");
+    const std::string host = launch.member("host").asString();
+    const int port = static_cast<int>(launch.member("port").asInteger());
+    if (port <= 0) {
+        error = "The website did not report a server port.";
+        return false;
+    }
+
+    if (!host.empty()) {
+        copyToBuffer(serverIP, sizeof(serverIP), host);
+    }
+    serverPort = port;
+    launchGameId = game.id;
+    return connectToServer(error);
+}
+
 void renderPlayMenu(float uiScale) {
     const ImVec2 display = ImGui::GetIO().DisplaySize;
     const float panelWidth = std::min(display.x - UiScale::Px(40.0f, uiScale), UiScale::Px(620.0f, uiScale));
-    const float panelHeight = UiScale::Px(270.0f, uiScale);
+    const float panelHeight = UiScale::Px(330.0f, uiScale);
     ImGui::SetNextWindowPos(ImVec2((display.x - panelWidth) * 0.5f, (display.y - panelHeight) * 0.5f), ImGuiCond_Always);
     ImGui::SetNextWindowSize(ImVec2(panelWidth, panelHeight), ImGuiCond_Always);
 
     if (ImGui::Begin("PlayMenu", nullptr, overlayFlags())) {
         drawLabel(std::strlen(authToken) > 0 ? "SIGNED IN" : "GUEST SESSION");
         ImGui::Text("Welcome, %s", myUsername);
-        ImGui::TextWrapped("Find a game on the website, then press Play there.");
+        ImGui::TextWrapped("Browse public games and join without leaving the player.");
         ImGui::Spacing();
 
-        if (modernButton("Play online", ImVec2(-1, UiScale::Px(52.0f, uiScale)), ImVec4(0.10f, 0.50f, 0.95f, 1.0f))) {
+        if (modernButton("Browse games", ImVec2(-1, UiScale::Px(52.0f, uiScale)), ImVec4(0.10f, 0.50f, 0.95f, 1.0f))) {
+            currentState = MENU_GAMES;
+            if (!discoverLoaded) {
+                loadDiscoverGames();
+            }
+        }
+
+        if (modernButton("Open website", ImVec2(-1, UiScale::Px(42.0f, uiScale)), ImVec4(0.16f, 0.18f, 0.23f, 1.0f))) {
             Auth::openBrowser(automaticWebServerUrl() + "/games");
             showLoginError = false;
         }
@@ -864,6 +964,91 @@ void renderPlayMenu(float uiScale) {
             ImGui::TextWrapped("%s", loginErrorMsg);
             ImGui::PopStyleColor();
         }
+    }
+    ImGui::End();
+}
+
+void renderGamesMenu(float uiScale) {
+    const ImVec2 display = ImGui::GetIO().DisplaySize;
+    const float panelWidth = std::min(display.x - UiScale::Px(40.0f, uiScale), UiScale::Px(760.0f, uiScale));
+    const float panelHeight = std::min(display.y - UiScale::Px(40.0f, uiScale), UiScale::Px(620.0f, uiScale));
+    ImGui::SetNextWindowPos(ImVec2((display.x - panelWidth) * 0.5f, (display.y - panelHeight) * 0.5f), ImGuiCond_Always);
+    ImGui::SetNextWindowSize(ImVec2(panelWidth, panelHeight), ImGuiCond_Always);
+
+    if (ImGui::Begin("GamesMenu", nullptr, overlayFlags())) {
+        drawLabel("DISCOVER");
+        ImGui::Text("Games");
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.56f, 0.64f, 0.76f, 1.0f));
+        ImGui::TextWrapped("%s", discoverLoaded
+                                    ? "Public games from the website. Press Play to join one."
+                                    : "Loading public games from the website...");
+        ImGui::PopStyleColor();
+        ImGui::Spacing();
+
+        if (modernButton("Refresh", ImVec2(UiScale::Px(110.0f, uiScale), UiScale::Px(34.0f, uiScale)), ImVec4(0.16f, 0.18f, 0.23f, 1.0f))) {
+            loadDiscoverGames();
+        }
+        ImGui::SameLine();
+        if (modernButton("Back", ImVec2(UiScale::Px(90.0f, uiScale), UiScale::Px(34.0f, uiScale)), ImVec4(0.16f, 0.18f, 0.23f, 1.0f))) {
+            currentState = MENU_PLAY_CHOICE;
+        }
+        ImGui::Separator();
+
+        const bool signedIn = std::strlen(authToken) > 0;
+        if (!signedIn) {
+            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.95f, 0.75f, 0.30f, 1.0f));
+            ImGui::TextWrapped("Browsing as a guest. Sign in to join a game.");
+            ImGui::PopStyleColor();
+            if (modernButton("Sign in", ImVec2(-1, UiScale::Px(40.0f, uiScale)), ImVec4(0.10f, 0.50f, 0.95f, 1.0f))) {
+                currentState = MENU_AUTH_CHOICE;
+            }
+            ImGui::Separator();
+        }
+
+        if (!discoverError.empty()) {
+            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.36f, 0.36f, 1.0f));
+            ImGui::TextWrapped("%s", discoverError.c_str());
+            ImGui::PopStyleColor();
+        }
+
+        ImGui::BeginChild("GameList", ImVec2(0, 0), false);
+        if (discoverGames.empty()) {
+            ImGui::TextWrapped("%s", discoverLoaded ? "No public games have been published yet."
+                                                    : "No games loaded yet. Press Refresh to try again.");
+        }
+
+        for (const DiscoverGame& game : discoverGames) {
+            ImGui::PushID(game.id);
+            const float playWidth = UiScale::Px(84.0f, uiScale);
+
+            ImGui::Text("%s", game.title.c_str());
+            ImGui::SameLine();
+            const float remaining = ImGui::GetContentRegionAvail().x;
+            if (remaining > playWidth + UiScale::Px(12.0f, uiScale)) {
+                ImGui::SetCursorPosX(ImGui::GetCursorPosX() + remaining - playWidth);
+            }
+            if (!signedIn) ImGui::BeginDisabled();
+            if (modernButton("Play", ImVec2(playWidth, UiScale::Px(30.0f, uiScale)), ImVec4(0.10f, 0.50f, 0.95f, 1.0f))) {
+                std::string joinError;
+                if (!joinDiscoveredGame(game, joinError)) {
+                    discoverError = joinError;
+                }
+            }
+            if (!signedIn) ImGui::EndDisabled();
+
+            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.56f, 0.64f, 0.76f, 1.0f));
+            ImGui::Text("by %s - %d parts - %d launches",
+                        game.owner.empty() ? "unknown" : game.owner.c_str(),
+                        game.partsCount,
+                        game.launchCount);
+            ImGui::PopStyleColor();
+            if (!game.description.empty()) {
+                ImGui::TextWrapped("%s", game.description.c_str());
+            }
+            ImGui::Separator();
+            ImGui::PopID();
+        }
+        ImGui::EndChild();
     }
     ImGui::End();
 }
@@ -1366,6 +1551,8 @@ int main(int argc, char** argv) {
                 renderAuthMenu(uiScale);
             } else if (currentState == MENU_PLAY_CHOICE) {
                 renderPlayMenu(uiScale);
+            } else if (currentState == MENU_GAMES) {
+                renderGamesMenu(uiScale);
             }
             if (currentState != ONLINE && currentState != OFFLINE) {
                 escapeMenuOpen = false;

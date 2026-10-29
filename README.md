@@ -229,6 +229,7 @@ The game server reports authenticated player sessions to `/api/me/playtime` whil
 
 - Right mouse: hold to look around.
 - `W/A/S/D`: move, Space: jump.
+- `Browse games` in the player lists public games straight from the website and joins them without a browser.
 - `Esc`: open the in-game menu with Resume, Reset Character, Settings and Leave Game; `Esc` again resumes.
 - Settings holds mouse sensitivity, field of view and the debug overlay toggle.
 - `F3`: toggle the debug overlay without opening the menu.

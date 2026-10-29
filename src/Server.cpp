@@ -697,7 +697,7 @@ int main(int argc, char** argv) {
         for (int datagramCount = 0; datagramCount < kDatagramsPerTick; ++datagramCount) {
             sockaddr_in fromAddr;
             std::memset(&fromAddr, 0, sizeof(fromAddr));
-            int fromLength = sizeof(fromAddr);
+            SocketLength fromLength = sizeof(fromAddr);
             const int received = recvfrom(gameSocket, datagram, sizeof(datagram), 0,
                                           reinterpret_cast<sockaddr*>(&fromAddr), &fromLength);
             if (received == SOCKET_ERROR) {

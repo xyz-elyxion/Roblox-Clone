@@ -612,7 +612,7 @@ void pollAuthCallback() {
 
     if (authClientSocket == INVALID_SOCKET) {
         sockaddr_in clientAddr;
-        int clientLen = sizeof(clientAddr);
+        SocketLength clientLen = sizeof(clientAddr);
         SOCKET accepted = accept(authListenSocket, reinterpret_cast<sockaddr*>(&clientAddr), &clientLen);
         if (accepted == INVALID_SOCKET) return;
         Network::setNonBlocking(accepted);

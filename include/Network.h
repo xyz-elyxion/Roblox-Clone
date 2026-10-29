@@ -255,6 +255,10 @@ namespace PacketProtocol {
     #include <ws2tcpip.h>
     #pragma comment(lib, "ws2_32.lib")
 
+// The length argument of accept()/recvfrom()/getsockname(): an int on WinSock,
+// a socklen_t on POSIX. Call sites use this so they compile on both.
+using SocketLength = int;
+
 class Network {
 public:
     // How long sendAll keeps retrying a full socket before giving up.
@@ -356,6 +360,10 @@ public:
 using SOCKET = int;
 constexpr SOCKET INVALID_SOCKET = -1;
 constexpr int SOCKET_ERROR = -1;
+
+// The length argument of accept()/recvfrom()/getsockname(): an int on WinSock,
+// a socklen_t on POSIX. Call sites use this so they compile on both.
+using SocketLength = socklen_t;
 
 // The client and server were written against WinSock, and their socket code is
 // identical apart from the names. Aliasing the handful of WinSock spellings

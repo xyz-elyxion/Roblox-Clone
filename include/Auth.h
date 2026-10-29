@@ -78,10 +78,10 @@ public:
         ShellExecuteW(nullptr, L"open", wurl.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
 #elif defined(__APPLE__)
         const std::string command = "open '" + url + "' >/dev/null 2>&1 &";
-        std::system(command.c_str());
+        (void)std::system(command.c_str());
 #else
         const std::string command = "xdg-open '" + url + "' >/dev/null 2>&1 &";
-        std::system(command.c_str());
+        (void)std::system(command.c_str());
 #endif
     }
 };

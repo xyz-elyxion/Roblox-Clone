@@ -230,8 +230,9 @@ The game server reports authenticated player sessions to `/api/me/playtime` whil
 - Right mouse: hold to look around.
 - `W/A/S/D`: move, Space: jump.
 - `Browse games` in the player lists public games straight from the website and joins them without a browser.
+- `Shift`: toggle shift lock, which captures the mouse, keeps the character facing the camera and moves the view over the shoulder.
 - `Esc`: open the in-game menu with Resume, Reset Character, Settings and Leave Game; `Esc` again resumes.
-- Settings holds mouse sensitivity, field of view and the debug overlay toggle.
+- Settings holds shift lock, mouse sensitivity, invert mouse Y, field of view, chat and player list toggles, the debug overlay and a reset to defaults button.
 - `F3`: toggle the debug overlay without opening the menu.
 
 ## Studio Controls

@@ -207,6 +207,10 @@ int launchGameId = 0;
 bool showDebugGui = false;
 bool escapeMenuOpen = false;
 bool escapeMenuShowSettings = false;
+bool shiftLockEnabled = false;
+bool invertMouseY = false;
+bool showChatHud = true;
+bool showPlayerListHud = true;
 bool waitingForWebLogin = false;
 SOCKET authListenSocket = INVALID_SOCKET;
 SOCKET authClientSocket = INVALID_SOCKET;
@@ -1166,12 +1170,60 @@ void renderBottomHud(float uiScale) {
 void renderGameHud(std::deque<Part>& parts, PhysicsWorld& physicsWorld, float uiScale) {
     if (escapeMenuOpen) return;
     if ((currentState != ONLINE && currentState != OFFLINE) || !myCharacter) return;
-    renderChat(uiScale);
-    if (currentState == ONLINE && isConnected) {
+    if (showChatHud) {
+        renderChat(uiScale);
+    }
+    if (currentState == ONLINE && isConnected && showPlayerListHud) {
         renderPlayerList(uiScale);
     }
     renderTopBar(parts, physicsWorld, uiScale);
     renderBottomHud(uiScale);
+}
+
+void setShiftLockEnabled(bool enabled) {
+    shiftLockEnabled = enabled;
+
+    GLFWwindow* window = glfwGetCurrentContext();
+    if (!window) return;
+
+    if (enabled) {
+        const bool inGame = currentState == ONLINE || currentState == OFFLINE;
+        if (inGame && !escapeMenuOpen) {
+            isCursorLocked = true;
+            glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+            firstMouse = true;
+        }
+        return;
+    }
+
+    if (isCursorLocked) {
+        isCursorLocked = false;
+        glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+    }
+}
+
+void closeEscapeMenu() {
+    escapeMenuOpen = false;
+    escapeMenuShowSettings = false;
+
+    if (!shiftLockEnabled) return;
+    if (currentState != ONLINE && currentState != OFFLINE) return;
+
+    GLFWwindow* window = glfwGetCurrentContext();
+    if (!window) return;
+    isCursorLocked = true;
+    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+    firstMouse = true;
+}
+
+void resetClientSettings() {
+    camera.MouseSensitivity = SENSITIVITY;
+    camera.Zoom = ZOOM;
+    invertMouseY = false;
+    showChatHud = true;
+    showPlayerListHud = true;
+    showDebugGui = false;
+    setShiftLockEnabled(false);
 }
 
 // Roblox-style pause menu: dim the game, release the mouse and offer the things
@@ -1194,7 +1246,8 @@ void renderEscapeMenu(std::deque<Part>& parts, PhysicsWorld& physicsWorld, float
     ImGui::PopStyleVar();
 
     const float panelWidth = std::min(display.x - UiScale::Px(40.0f, uiScale), UiScale::Px(430.0f, uiScale));
-    const float panelHeight = UiScale::Px(escapeMenuShowSettings ? 400.0f : 424.0f, uiScale);
+    const float panelHeight = std::min(display.y - UiScale::Px(40.0f, uiScale),
+                                       UiScale::Px(escapeMenuShowSettings ? 540.0f : 424.0f, uiScale));
     ImGui::SetNextWindowPos(ImVec2((display.x - panelWidth) * 0.5f, (display.y - panelHeight) * 0.5f), ImGuiCond_Always);
     ImGui::SetNextWindowSize(ImVec2(panelWidth, panelHeight), ImGuiCond_Always);
 
@@ -1216,11 +1269,11 @@ void renderEscapeMenu(std::deque<Part>& parts, PhysicsWorld& physicsWorld, float
 
     if (!escapeMenuShowSettings) {
         if (modernButton("Resume", ImVec2(-1, UiScale::Px(52.0f, uiScale)), ImVec4(0.10f, 0.50f, 0.95f, 1.0f))) {
-            escapeMenuOpen = false;
+            closeEscapeMenu();
         }
         if (modernButton("Reset Character", ImVec2(-1, UiScale::Px(42.0f, uiScale)), ImVec4(0.16f, 0.18f, 0.23f, 1.0f))) {
             if (myCharacter) myCharacter->respawn();
-            escapeMenuOpen = false;
+            closeEscapeMenu();
         }
         if (modernButton("Settings", ImVec2(-1, UiScale::Px(42.0f, uiScale)), ImVec4(0.16f, 0.18f, 0.23f, 1.0f))) {
             escapeMenuShowSettings = true;
@@ -1229,14 +1282,36 @@ void renderEscapeMenu(std::deque<Part>& parts, PhysicsWorld& physicsWorld, float
             leaveCurrentGame(parts, physicsWorld);
         }
     } else {
+        drawLabel("CONTROLS");
+        ImGui::BeginChild("SettingsList", ImVec2(0, -UiScale::Px(52.0f, uiScale)), false);
+
+        bool shiftLockValue = shiftLockEnabled;
+        if (ImGui::Checkbox("Shift lock", &shiftLockValue)) {
+            setShiftLockEnabled(shiftLockValue);
+        }
+        ImGui::TextWrapped("Locks the mouse to the centre and keeps the character facing the camera.");
+
         drawLabel("MOUSE SENSITIVITY");
         ImGui::SetNextItemWidth(-1.0f);
         ImGui::SliderFloat("##mouseSensitivity", &camera.MouseSensitivity, 0.02f, 0.50f, "%.2f");
+        ImGui::Checkbox("Invert mouse Y", &invertMouseY);
+
         drawLabel("FIELD OF VIEW");
         ImGui::SetNextItemWidth(-1.0f);
         ImGui::SliderFloat("##fieldOfView", &camera.Zoom, 30.0f, 90.0f, "%.0f");
+
+        ImGui::Separator();
+        drawLabel("INTERFACE");
+        ImGui::Checkbox("Show chat", &showChatHud);
+        ImGui::Checkbox("Show player list", &showPlayerListHud);
         ImGui::Checkbox("Debug overlay", &showDebugGui);
-        ImGui::Spacing();
+
+        ImGui::Separator();
+        if (modernButton("Reset to defaults", ImVec2(-1, UiScale::Px(38.0f, uiScale)), ImVec4(0.16f, 0.18f, 0.23f, 1.0f))) {
+            resetClientSettings();
+        }
+        ImGui::EndChild();
+
         if (modernButton("Back", ImVec2(-1, UiScale::Px(42.0f, uiScale)), ImVec4(0.16f, 0.18f, 0.23f, 1.0f))) {
             escapeMenuShowSettings = false;
         }
@@ -1363,22 +1438,34 @@ bool connectToConfiguredServer() {
 
 void mouse_callback(GLFWwindow* window, double xposIn, double yposIn) {
     if (escapeMenuOpen || ImGui::GetIO().WantCaptureMouse) return;
-    
-    // Right Click to Look
-    bool isRightClickHeld = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS;
-    
-    if (isRightClickHeld) {
+
+    const bool shiftLockActive = shiftLockEnabled &&
+                                 (currentState == ONLINE || currentState == OFFLINE);
+
+    if (shiftLockActive) {
+        // Shift lock keeps the cursor captured without needing right mouse held.
         if (!isCursorLocked) {
             isCursorLocked = true;
             glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-            firstMouse = true; // Reset on re-engage
+            firstMouse = true;
         }
     } else {
-        if (isCursorLocked) {
-            isCursorLocked = false;
-            glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+        // Right Click to Look
+        bool isRightClickHeld = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS;
+
+        if (isRightClickHeld) {
+            if (!isCursorLocked) {
+                isCursorLocked = true;
+                glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+                firstMouse = true; // Reset on re-engage
+            }
+        } else {
+            if (isCursorLocked) {
+                isCursorLocked = false;
+                glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+            }
+            return; // Don't process mouse move for camera if not locked
         }
-        return; // Don't process mouse move for camera if not locked
     }
 
     float xpos = static_cast<float>(xposIn);
@@ -1392,6 +1479,9 @@ void mouse_callback(GLFWwindow* window, double xposIn, double yposIn) {
 
     float xoffset = xpos - lastX;
     float yoffset = lastY - ypos; 
+    if (invertMouseY) {
+        yoffset = -yoffset;
+    }
 
     lastX = xpos;
     lastY = ypos;
@@ -1515,8 +1605,7 @@ int main(int argc, char** argv) {
             if (escapeDown && !escapeWasDown) {
                 const bool inGame = currentState == ONLINE || currentState == OFFLINE;
                 if (inGame && escapeMenuOpen) {
-                    escapeMenuOpen = false;
-                    escapeMenuShowSettings = false;
+                    closeEscapeMenu();
                 } else if (inGame) {
                     escapeMenuOpen = true;
                     escapeMenuShowSettings = false;
@@ -1546,6 +1635,15 @@ int main(int argc, char** argv) {
             }
             wasDebugToggleDown = debugToggleDown;
 
+            static bool shiftWasDown = false;
+            const bool shiftDown = glfwGetKey(window.getNativeWindow(), GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS ||
+                                   glfwGetKey(window.getNativeWindow(), GLFW_KEY_RIGHT_SHIFT) == GLFW_PRESS;
+            if (shiftDown && !shiftWasDown && !escapeMenuOpen && !io.WantCaptureKeyboard &&
+                (currentState == ONLINE || currentState == OFFLINE)) {
+                setShiftLockEnabled(!shiftLockEnabled);
+            }
+            shiftWasDown = shiftDown;
+
             renderDebugWindow(io);
             if (currentState == MENU_AUTH_CHOICE || currentState == MENU) {
                 renderAuthMenu(uiScale);
@@ -1557,6 +1655,10 @@ int main(int argc, char** argv) {
             if (currentState != ONLINE && currentState != OFFLINE) {
                 escapeMenuOpen = false;
                 escapeMenuShowSettings = false;
+                if (isCursorLocked) {
+                    isCursorLocked = false;
+                    glfwSetInputMode(window.getNativeWindow(), GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+                }
             }
             renderGameHud(parts, physicsWorld, uiScale);
             renderEscapeMenu(parts, physicsWorld, uiScale);
@@ -2128,6 +2230,11 @@ int main(int argc, char** argv) {
                         std::cerr << "ERROR: Exception getting character state" << std::endl;
                     }
                 }
+            }
+
+            if (myCharacter) {
+                myCharacter->faceCameraYaw = shiftLockEnabled;
+                myCharacter->cameraShoulderOffset = shiftLockEnabled ? 1.5f : 0.0f;
             }
 
             if ((isConnected || currentState == OFFLINE) && myCharacter && !io.WantCaptureKeyboard && !escapeMenuOpen) {

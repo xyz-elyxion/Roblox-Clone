@@ -322,6 +322,12 @@ void Character::update(float deltaTime, Camera* camera, bool isSprinting) {
         
         camera->Position = rootPos - (camera->Front * distance);
         camera->Position.y += height; 
+
+        // Shift lock pulls the camera over the shoulder so the character does not
+        // block the middle of the screen.
+        if (cameraShoulderOffset != 0.0f) {
+            camera->Position += camera->Right * cameraShoulderOffset;
+        }
     }
 }
 
@@ -392,6 +398,17 @@ void Character::processInput(bool forward, bool backward, bool left, bool right,
         debugMoveDir = glm::vec3(0.0f); // Clear move dir to stop animation state
     }
     
+    // Shift lock keeps the character facing where the camera looks, even while
+    // strafing, instead of turning towards the movement direction.
+    if (faceCameraYaw) {
+        const float cameraYaw = normalizeDegrees(glm::degrees(atan2(camFront.x, camFront.z)));
+        const float currentYaw = normalizeDegrees(internalYaw);
+        const float diff = normalizeDegrees(cameraYaw - currentYaw);
+        internalYaw = normalizeDegrees(internalYaw + diff * 15.0f * deltaTime);
+        debugTargetYaw = cameraYaw;
+        debugCurrentYaw = internalYaw;
+    }
+
     // Always use internalYaw (which smoothly interpolates to target when moving)
     root.rotation.y = internalYaw;
     

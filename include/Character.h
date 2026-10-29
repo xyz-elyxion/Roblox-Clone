@@ -26,6 +26,11 @@ public:
     bool isRemote;
     bool isJumping; // Added member
 
+    // Shift lock: the character faces the camera and the camera sits over the
+    // shoulder instead of directly behind the character.
+    bool faceCameraYaw = false;
+    float cameraShoulderOffset = 0.0f;
+
     void processInput(bool forward, bool backward, bool left, bool right, bool jump, const Camera& camera, float zoomInput, float deltaTime);
 
     glm::vec3 getPosition() const;

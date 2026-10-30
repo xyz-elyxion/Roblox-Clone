@@ -70,7 +70,7 @@ namespace {
             // the desktop shell, and a terminal while developing. The library
             // compares the real parent process against this list.
             const std::list<std::wstring> allowedParents = {
-                L"WebApp.exe", L"explorer.exe", L"cmd.exe",
+                L"WebApp.exe", L"node.exe", L"explorer.exe", L"cmd.exe",
                 L"powershell.exe", L"pwsh.exe", L"bash.exe"
             };
 

@@ -22,6 +22,9 @@ bool Process::CheckParentProcess(__in const std::wstring& desiredParent, __in co
     {
         bool bFoundValidSignature = false;
 
+        //The launchers that ship with this project (WebApp.exe) are built here and are not code-signed, so they can never satisfy the certificate check below. A parent that lives in this executable's own directory is part of the same build and is accepted without a signature; an unsigned parent anywhere else is still rejected.
+        const std::wstring ownDirectory = Services::GetProcessDirectoryW(GetCurrentProcessId());
+
         for (const DWORD pid : pids)
         {
             if (parentPid == pid)
@@ -31,6 +34,15 @@ bool Process::CheckParentProcess(__in const std::wstring& desiredParent, __in co
 
                 if (Authenticode::HasSignature(fullPath.c_str(), TRUE))
                 {
+                    bFoundValidSignature = true;
+                    break;
+                }
+
+                const std::wstring parentDirectory = Services::GetProcessDirectoryW(pid);
+
+                if (!ownDirectory.empty() && !parentDirectory.empty() && _wcsicmp(ownDirectory.c_str(), parentDirectory.c_str()) == 0)
+                {
+                    Logger::logfw(Warning, L"Parent process '%s' is unsigned but lives in this build's directory, accepting it", desiredParent.c_str());
                     bFoundValidSignature = true;
                     break;
                 }

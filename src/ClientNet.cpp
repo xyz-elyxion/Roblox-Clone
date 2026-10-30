@@ -72,8 +72,10 @@ int receiveGameDatagrams() {
                             std::string("The game server at ") + automaticGameServerIp() + ":" +
                                 std::to_string(serverPort) +
                                 " never answered the join request, so the player could not get "
-                                "into the world. Check that the server is running on that port "
-                                "and that its console does not reject the player.");
+                                "into the world. The usual cause is a Server.exe built from "
+                                "different source than this client: the handshake sizes then "
+                                "differ and the server drops the connect packet. Rebuild both "
+                                "from the same source before checking the port.");
     }
 
     return appended;

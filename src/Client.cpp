@@ -1237,7 +1237,24 @@ int main(int argc, char** argv) {
 
                         if (header->type == PacketType::WELCOME) {
                             if (header->size < sizeof(PacketWelcome)) {
-                                std::cerr << "ERROR: Invalid WELCOME packet size" << std::endl;
+                                // A server built before the handshake carried a fingerprint
+                                // sends the shorter, older welcome. Left alone this looks
+                                // like ten seconds of silence and then a silent trip back
+                                // to the menu, so say what actually happened.
+                                std::cerr << "The game server sent a " << header->size
+                                          << "-byte welcome but this client expects "
+                                          << sizeof(PacketWelcome)
+                                          << ". Rebuild Server.exe and Client.exe from the same source."
+                                          << std::endl;
+                                reportClientProblem(
+                                    "join",
+                                    "The game server answered with an older handshake, so the "
+                                    "server binary was built from different source than this "
+                                    "client. Rebuild both from the same source.");
+                                addChatLine("System", "That game server is an older build. Rebuild the server and client together.", true);
+                                awaitingWelcome = false;
+                                disconnectFromServerOnly();
+                                currentState = MENU_AUTH_CHOICE;
                                 offset += packetSize;
                                 continue;
                             }

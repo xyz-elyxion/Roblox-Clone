@@ -774,7 +774,13 @@ int main(int argc, char** argv) {
                         break;
                     }
                     if (status == PacketProtocol::ParseStatus::Invalid) {
-                        std::cerr << "Disconnecting player " << id << " after malformed packet" << std::endl;
+                        // Every packet type is size-checked, so a client built from
+                        // different source fails here before anything is parsed. Name
+                        // that instead of implying the packet was corrupt.
+                        std::cerr << "Disconnecting player " << id
+                                  << " after a packet this build cannot accept; if the client "
+                                     "was built separately, rebuild both from the same source"
+                                  << std::endl;
                         shouldDisconnect = true;
                         break;
                     }

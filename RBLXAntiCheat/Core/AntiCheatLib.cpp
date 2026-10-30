@@ -263,10 +263,14 @@ void NTAPI __stdcall TLSCallback(PVOID pHandle, DWORD dwReason, PVOID Reserved)
     {
     case DLL_PROCESS_ATTACH:
     {
+        // Upstream terminates here. A leftover or crashed client keeps the named
+        // "UAC" section alive for as long as that process runs, and every later
+        // launch would then be killed before main() with a message that only reaches
+        // a console Play does not show - so pressing Play looked like a no-op.
+        // Warn instead: this is multi-boxing prevention, not a security boundary.
         if (!Preventions::StopMultipleProcessInstances()) //prevent multi-clients by using shared memory-mapped region
         {
-            Logger::logf(Err, "Could not initialize program: shared memory check failed, make sure only one instance of the program is open. Shutting down.");
-            terminate();
+            Logger::logf(Warning, "Another instance is already running (shared memory check failed); continuing anyway.");
         }
 
         Logger::logf(Info, " New process attached, current thread %d\n", GetCurrentThreadId());

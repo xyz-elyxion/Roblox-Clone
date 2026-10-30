@@ -2308,8 +2308,48 @@ bool WebsiteApp::handlePlayGame(Request& request, Response& response) {
         SpawnedProcess spawned;
         std::string spawnError;
         if (spawnProcess(clientPath, args, config_.repoRoot, &spawned, &spawnError)) {
-            player.set("launched", true);
-            player.set("processId", static_cast<long long>(spawned.pid));
+            // CreateProcess/fork only reports that the image was started, and the
+            // client does work before main() (the anti-cheat TLS callback). A client
+            // that dies there used to be reported as "player opening", so the page
+            // promised a window that never appeared. Give it a moment and check.
+            bool exitedEarly = false;
+            int exitCode = 0;
+#ifdef _WIN32
+            if (spawned.handle != nullptr) {
+                const HANDLE handle = static_cast<HANDLE>(spawned.handle);
+                if (::WaitForSingleObject(handle, 1200) != WAIT_TIMEOUT) {
+                    DWORD code = 0;
+                    if (::GetExitCodeProcess(handle, &code) != 0) {
+                        exitCode = static_cast<int>(code);
+                    }
+                    exitedEarly = true;
+                }
+            }
+#else
+            if (spawned.pid > 0) {
+                ::usleep(1200 * 1000);
+                int status = 0;
+                const pid_t result = ::waitpid(static_cast<pid_t>(spawned.pid), &status, WNOHANG);
+                if (result > 0) {
+                    exitedEarly = true;
+                    if (WIFEXITED(status)) {
+                        exitCode = WEXITSTATUS(status);
+                    } else if (WIFSIGNALED(status)) {
+                        exitCode = 128 + WTERMSIG(status);
+                    }
+                }
+            }
+#endif
+            if (exitedEarly) {
+                player.set("launched", false);
+                player.set("exitedEarly", true);
+                player.set("exitCode", exitCode);
+                player.set("reason", "The player started and then exited immediately (exit code " +
+                                        std::to_string(exitCode) + ").");
+            } else {
+                player.set("launched", true);
+                player.set("processId", static_cast<long long>(spawned.pid));
+            }
         } else {
             player.set("launched", false);
             player.set("reason", spawnError);

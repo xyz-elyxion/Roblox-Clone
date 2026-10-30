@@ -1,3 +1,4 @@
+#include <exception>
 #include <iostream>
 #include <vector>
 #include <map>
@@ -543,22 +544,30 @@ void broadcastWorldUpdate() {
     broadcastPacket(PacketProtocol::buildPacket(PacketType::WORLD_UPDATE, updates.data(), payloadSize));
 }
 
-int main(int argc, char** argv) {
+static int runServer(int argc, char** argv) {
     // The website redirects this output into game-server-<port>.log. Without this
     // the C runtime buffers it, so the file stays empty until the process exits
     // and a join that failed has nothing to explain itself with.
-    std::setvbuf(stdout, nullptr, _IOLBF, 0);
-    std::setvbuf(stderr, nullptr, _IONBF, 0);
+    setvbuf(stdout, NULL, _IONBF, 0);
+    setvbuf(stderr, NULL, _IONBF, 0);
 
     int serverPort = 7777;
     std::string worldPath = "ServerWorld.world";
     parseServerArguments(argc, argv, serverPort, worldPath);
 
+    // Print each start-up step as it happens, so a crash still leaves the log
+    // pointing at the step that failed instead of an empty file.
+    std::cout << "RBLX Clone Server starting on port " << serverPort
+              << " using " << worldPath
+              << " with web auth " << webServerUrl << std::endl;
+
     // Initialize random seed for guest usernames
     srand((unsigned int)time(NULL));
 
     // Initialize Physics World
+    std::cout << "Initialising physics..." << std::endl;
     serverPhysicsWorld.init();
+    std::cout << "Reading world " << worldPath << std::endl;
 
     if (!Network::init()) {
         std::cerr << "Failed to init winsock" << std::endl;
@@ -1078,4 +1087,18 @@ int main(int argc, char** argv) {
 
     Network::cleanup();
     return 0;
+}
+
+// A server that dies during start-up used to leave an empty log and nothing but a
+// status code, so turn an escaped C++ exception into something readable.
+int main(int argc, char** argv) {
+    try {
+        return runServer(argc, argv);
+    } catch (const std::exception& error) {
+        std::cerr << "Fatal error: " << error.what() << std::endl;
+        return 1;
+    } catch (...) {
+        std::cerr << "Fatal error: unknown exception" << std::endl;
+        return 1;
+    }
 }

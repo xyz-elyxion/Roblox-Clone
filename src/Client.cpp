@@ -542,14 +542,35 @@ void fetchAvatarForToken(const std::string& token, const std::string& serverUrl)
     }
 }
 
-bool applyAuthSession(const std::string& token, const std::string& fallbackUsername, const std::string& serverUrl, bool saveToken, std::string& error) {
+// Returns false when the token is unusable. `tokenRejected` separates a token
+// the website refused (expired, signed with an old secret, account deleted) from
+// a website that simply could not be reached: only the first one is a reason to
+// sign the player out.
+bool applyAuthSession(const std::string& token, const std::string& fallbackUsername, const std::string& serverUrl, bool saveToken, std::string& error, bool* tokenRejected = nullptr) {
+    if (tokenRejected) {
+        *tokenRejected = false;
+    }
     if (token.empty()) {
         error = "No token came back from the website.";
         return false;
     }
 
-    std::string verifyResponse = Auth::verifyToken(token, serverUrl);
-    if (verifyResponse.empty() || verifyResponse.find("\"success\":true") == std::string::npos) {
+    const rblx::http::Response verify =
+        rblx::http::request("POST", serverUrl + "/api/verify", "{}", token);
+    if (verify.status == 401 || verify.status == 403) {
+        error = "The website no longer accepts this login, so it was signed out.";
+        if (tokenRejected) {
+            *tokenRejected = true;
+        }
+        return false;
+    }
+    if (!verify.ok()) {
+        error = "Could not reach the website to check the login.";
+        return false;
+    }
+
+    const std::string& verifyResponse = verify.body;
+    if (verifyResponse.find("\"success\":true") == std::string::npos) {
         error = "The website login could not be verified.";
         return false;
     }
@@ -567,6 +588,22 @@ bool applyAuthSession(const std::string& token, const std::string& fallbackUsern
 
     fetchAvatarForToken(token, serverUrl);
     return true;
+}
+
+// Forgets a login the website refused: the saved token is deleted, the in-memory
+// token is cleared and the player is put back on the sign-in screen instead of
+// being left in the menu with a token that will fail on every request.
+void signOutInvalidToken(const std::string& reason) {
+    authToken[0] = '\0';
+    copyToBuffer(myUsername, sizeof(myUsername), "Guest");
+    loginUsername[0] = '\0';
+    loginPassword[0] = '\0';
+    showLoginError = true;
+    copyToBuffer(loginErrorMsg, sizeof(loginErrorMsg), reason);
+    currentState = MENU_AUTH_CHOICE;
+    showConnectionUI = false;
+    std::remove("auth_token.txt");
+    addChatLine("System", reason, true);
 }
 
 void closeAuthCallback() {
@@ -1771,15 +1808,23 @@ int main(int argc, char** argv) {
         currentAvatar.loadFromFile("avatar.txt");
         if (hasLaunchToken) {
             std::string authError;
-            if (applyAuthSession(authToken, "Player", automaticWebServerUrl(), false, authError)) {
+            bool tokenRejected = false;
+            if (applyAuthSession(authToken, "Player", automaticWebServerUrl(), false, authError,
+                                 &tokenRejected)) {
                 currentState = MENU_PLAY_CHOICE;
+            } else if (tokenRejected) {
+                signOutInvalidToken(authError);
             } else {
                 addChatLine("System", authError, true);
             }
         } else if (!savedToken.empty()) {
             std::string authError;
-            if (applyAuthSession(savedToken, "Player", automaticWebServerUrl(), false, authError)) {
+            bool tokenRejected = false;
+            if (applyAuthSession(savedToken, "Player", automaticWebServerUrl(), false, authError,
+                                 &tokenRejected)) {
                 currentState = MENU_PLAY_CHOICE;
+            } else if (tokenRejected) {
+                signOutInvalidToken(authError);
             } else {
                 authToken[0] = '\0';
                 currentState = MENU_AUTH_CHOICE;

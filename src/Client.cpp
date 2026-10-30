@@ -1988,10 +1988,35 @@ int main(int argc, char** argv) {
             frameCount++;
         }
         
+        // The window is destroyed last, by the destructor of `window`, so all of
+        // the shutdown below used to run behind a window that had stopped
+        // pumping messages. Windows paints that as "RBLX Clone Client is not
+        // responding" and the player has to kill the process, even though it was
+        // busy shutting down. Hide the window as soon as the close is asked for,
+        // so the close happens at once and the rest of the work (the anti-cheat's
+        // threads, Winsock, the physics world) finishes out of sight.
+        const auto shutdownStart = std::chrono::steady_clock::now();
+        auto shutdownMs = [&shutdownStart]() {
+            return std::chrono::duration_cast<std::chrono::milliseconds>(
+                       std::chrono::steady_clock::now() - shutdownStart)
+                .count();
+        };
+        glfwHideWindow(window.getNativeWindow());
+        glfwPollEvents();
+        std::cout << "Shutting down." << std::endl;
+
+        // Sockets must not outlive the Winsock session that owns them, and the
+        // game socket and the login callback socket are both still open here.
+        disconnectFromServerOnly();
+        closeAuthCallback();
+        std::cout << "Sockets closed after " << shutdownMs() << " ms." << std::endl;
+
 #if defined(RBLX_ANTICHEAT)
         stopAntiCheat();
+        std::cout << "Anti-cheat stopped after " << shutdownMs() << " ms." << std::endl;
 #endif
         Network::cleanup();
+        std::cout << "Winsock closed after " << shutdownMs() << " ms." << std::endl;
         return 0;
     } catch (const std::exception& e) {
         std::cout << "CRITICAL ERROR: " << e.what() << std::endl;

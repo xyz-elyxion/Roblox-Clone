@@ -110,6 +110,7 @@ rblx::net::UdpSession::SendFunction playerSendFunction(const ConnectedPlayer& pl
     };
 }
 std::string webServerUrl = "http://localhost:3000"; // Web server URL for token verification
+std::string serverLogPath; // --log: a copy of this output for the website that launched us
 std::string gameInstanceId;
 std::string gameInstanceToken;
 std::string scriptPath;
@@ -178,6 +179,70 @@ void enqueueTelemetry(std::function<void()> job) {
 std::deque<Part> serverParts;
 PhysicsWorld serverPhysicsWorld;
 
+namespace {
+
+// Everything the server prints goes to two places at once: the console window the
+// website opens for it, and the log file the website reads to tell when the server
+// is ready. A visible console cannot also inherit a redirected log handle, so the
+// server has to keep the file itself.
+class TeeStreamBuffer : public std::streambuf {
+public:
+    TeeStreamBuffer(std::streambuf* console, std::streambuf* file)
+        : console_(console), file_(file) {}
+
+protected:
+    int_type overflow(int_type ch) override {
+        if (ch == traits_type::eof()) {
+            return traits_type::not_eof(ch);
+        }
+        const char c = traits_type::to_char_type(ch);
+        const int_type toConsole = console_->sputc(c);
+        const int_type toFile = file_->sputc(c);
+        if (toConsole == traits_type::eof() || toFile == traits_type::eof()) {
+            return traits_type::eof();
+        }
+        return ch;
+    }
+
+    std::streamsize xsputn(const char* text, std::streamsize count) override {
+        const std::streamsize toConsole = console_->sputn(text, count);
+        const std::streamsize toFile = file_->sputn(text, count);
+        return toConsole < toFile ? toConsole : toFile;
+    }
+
+    int sync() override {
+        const int consoleResult = console_->pubsync();
+        const int fileResult = file_->pubsync();
+        return (consoleResult == 0 && fileResult == 0) ? 0 : -1;
+    }
+
+private:
+    std::streambuf* console_;
+    std::streambuf* file_;
+};
+
+} // namespace
+
+// Mirrors stdout and stderr into the log file the website tails. Installed once,
+// after the arguments are parsed and before the first line of output.
+void mirrorOutputToLog(const std::string& path) {
+    static bool installed = false;
+    if (installed) {
+        return;
+    }
+    static std::ofstream logFile;
+    logFile.open(path, std::ios::out | std::ios::trunc);
+    if (!logFile.is_open()) {
+        std::cerr << "Could not open log file " << path << std::endl;
+        return;
+    }
+    installed = true;
+    static TeeStreamBuffer consoleOut(std::cout.rdbuf(), logFile.rdbuf());
+    static TeeStreamBuffer consoleErr(std::cerr.rdbuf(), logFile.rdbuf());
+    std::cout.rdbuf(&consoleOut);
+    std::cerr.rdbuf(&consoleErr);
+}
+
 void parseServerArguments(int argc, char** argv, int& serverPort, std::string& worldPath) {
     for (int i = 1; i < argc; ++i) {
         const std::string arg = argv[i] ? argv[i] : "";
@@ -196,6 +261,8 @@ void parseServerArguments(int argc, char** argv, int& serverPort, std::string& w
             gameInstanceToken = argv[++i];
         } else if (arg == "--script" && i + 1 < argc) {
             scriptPath = argv[++i];
+        } else if (arg == "--log" && i + 1 < argc) {
+            serverLogPath = argv[++i];
         }
     }
 }
@@ -554,6 +621,9 @@ static int runServer(int argc, char** argv) {
     int serverPort = 7777;
     std::string worldPath = "ServerWorld.world";
     parseServerArguments(argc, argv, serverPort, worldPath);
+    if (!serverLogPath.empty()) {
+        mirrorOutputToLog(serverLogPath);
+    }
 
     // Print each start-up step as it happens, so a crash still leaves the log
     // pointing at the step that failed instead of an empty file.

@@ -201,7 +201,8 @@ private:
     bool spawnProcess(const std::string& executable, const std::vector<std::string>& args,
                       const std::string& workingDirectory, SpawnedProcess* spawned,
                       std::string* error,
-                      const std::string& stdoutLogPath = std::string());
+                      const std::string& stdoutLogPath = std::string(),
+                      bool showConsole = false);
     bool processRunning(GameInstance& instance);
     void releaseProcess(GameInstance& instance);
     static bool isPortAvailable(const std::string& host, int port);

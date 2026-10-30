@@ -2957,7 +2957,8 @@ std::string WebsiteApp::describeGameServerLog(const GameInstance& instance) cons
 
 bool WebsiteApp::spawnProcess(const std::string& executable, const std::vector<std::string>& args,
                               const std::string& workingDirectory, SpawnedProcess* spawned,
-                              std::string* error, const std::string& stdoutLogPath) {
+                              std::string* error, const std::string& stdoutLogPath,
+                              bool showConsole) {
     if (executable.empty()) {
         if (error) {
             *error = "Executable path is empty.";
@@ -2979,7 +2980,9 @@ bool WebsiteApp::spawnProcess(const std::string& executable, const std::vector<s
 
     HANDLE logHandle = INVALID_HANDLE_VALUE;
     HANDLE nullInput = INVALID_HANDLE_VALUE;
-    if (!stdoutLogPath.empty()) {
+    // A process with its own console cannot inherit a redirected log handle, so a
+    // visible server is handed --log and writes that file itself.
+    if (!stdoutLogPath.empty() && !showConsole) {
         makeDirectories(directoryOf(stdoutLogPath));
         logHandle = ::CreateFileA(stdoutLogPath.c_str(), FILE_APPEND_DATA,
                                   FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, CREATE_ALWAYS,
@@ -3002,9 +3005,10 @@ bool WebsiteApp::spawnProcess(const std::string& executable, const std::vector<s
     }
 
     PROCESS_INFORMATION information{};
+    const DWORD creationFlags = showConsole ? CREATE_NEW_CONSOLE : CREATE_NO_WINDOW;
     const BOOL created = ::CreateProcessA(
         executable.c_str(), mutableCommand.data(), nullptr, nullptr,
-        logHandle == INVALID_HANDLE_VALUE ? FALSE : TRUE, CREATE_NO_WINDOW, nullptr,
+        logHandle == INVALID_HANDLE_VALUE ? FALSE : TRUE, creationFlags, nullptr,
         workingDirectory.empty() ? nullptr : workingDirectory.c_str(), &startup, &information);
     if (logHandle != INVALID_HANDLE_VALUE) {
         ::CloseHandle(logHandle);
@@ -3036,7 +3040,7 @@ bool WebsiteApp::spawnProcess(const std::string& executable, const std::vector<s
     }
     if (pid == 0) {
         ::setsid();
-        if (!stdoutLogPath.empty()) {
+        if (!stdoutLogPath.empty() && !showConsole) {
             const int logFd = ::open(stdoutLogPath.c_str(), O_CREAT | O_WRONLY | O_TRUNC, 0666);
             if (logFd >= 0) {
                 ::dup2(logFd, STDOUT_FILENO);
@@ -3186,6 +3190,10 @@ WebsiteApp::GameInstance* WebsiteApp::ensureInstance(const GameRecord& game, boo
             "--instance", instance.id,
             "--instance-token", instance.managerToken
         };
+        // The game server runs with its own console window so its output is visible
+        // while it runs, so it writes the log itself instead of having it redirected.
+        args.push_back("--log");
+        args.push_back(instance.logPath);
         if (!game.scriptPath.empty()) {
             args.push_back("--script");
             args.push_back(game.scriptPath);
@@ -3193,7 +3201,7 @@ WebsiteApp::GameInstance* WebsiteApp::ensureInstance(const GameRecord& game, boo
         SpawnedProcess spawned;
         std::string spawnError;
         if (spawnProcess(config_.serverExecutablePath, args, config_.repoRoot, &spawned,
-                         &spawnError, instance.logPath)) {
+                         &spawnError, instance.logPath, true)) {
             instance.processId = spawned.pid;
 #ifdef _WIN32
             instance.processHandle = spawned.handle;

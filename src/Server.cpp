@@ -243,6 +243,24 @@ void mirrorOutputToLog(const std::string& path) {
     std::cerr.rdbuf(&consoleErr);
 }
 
+// Puts std::cout and std::cerr back on the console when the server winds down. The
+// iostreams flush themselves while the process exits, after function-local statics
+// are already gone, so leaving them pointed at the log tee would be a use-after-free.
+class OutputTeeRestorer {
+public:
+    ~OutputTeeRestorer() {
+        std::cout.flush();
+        std::cerr.flush();
+        std::cout.rdbuf(consoleOut_);
+        std::cerr.rdbuf(consoleErr_);
+    }
+
+private:
+    // Read when this is constructed, which is before the tee is installed.
+    std::streambuf* consoleOut_ = std::cout.rdbuf();
+    std::streambuf* consoleErr_ = std::cerr.rdbuf();
+};
+
 void parseServerArguments(int argc, char** argv, int& serverPort, std::string& worldPath) {
     for (int i = 1; i < argc; ++i) {
         const std::string arg = argv[i] ? argv[i] : "";
@@ -617,6 +635,9 @@ static int runServer(int argc, char** argv) {
     // and a join that failed has nothing to explain itself with.
     setvbuf(stdout, NULL, _IONBF, 0);
     setvbuf(stderr, NULL, _IONBF, 0);
+
+    // Constructed before any log tee exists, so it remembers the real console.
+    OutputTeeRestorer restoreOutput;
 
     int serverPort = 7777;
     std::string worldPath = "ServerWorld.world";

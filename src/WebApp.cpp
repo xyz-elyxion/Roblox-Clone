@@ -215,6 +215,46 @@ bool readWholeFile(const std::string& path, std::string* out) {
     return true;
 }
 
+// Client.exe opens shaders/, ServerWorld.world and face*.png relative to its
+// working directory (see scripts/package-build.ps1), so it has to run from the
+// folder that ships them - the one holding the executable in a packaged build.
+std::string preferredClientWorkingDirectory(const std::string& clientPath,
+                                            const std::string& fallback) {
+    const std::string clientDir = directoryOf(clientPath);
+    if (!clientDir.empty() &&
+        fileExists(joinPath(joinPath(clientDir, "shaders"), "vertex.glsl"))) {
+        return clientDir;
+    }
+    return fallback;
+}
+
+// Client.cpp redirects its own stdout and stderr into these files before main()
+// runs, so a spawned copy prints nothing on the handles we give it and its log is
+// the only record of why it stopped. Report the end of it rather than an exit code
+// on its own.
+std::string clientLogTail(const std::string& directory) {
+    const char* const names[] = {"client_log.txt", "client_error_log.txt"};
+    for (const char* name : names) {
+        std::string text;
+        if (!readWholeFile(joinPath(directory, name), &text)) {
+            continue;
+        }
+        const std::size_t limit = 240;
+        std::string tail = text.size() > limit ? text.substr(text.size() - limit) : text;
+        for (char& c : tail) {
+            if (c == '\r' || c == '\n' || c == '\t') {
+                c = ' ';
+            }
+        }
+        const std::size_t first = tail.find_first_not_of(' ');
+        if (first == std::string::npos) {
+            continue;
+        }
+        return " " + std::string(name) + " says: " + tail.substr(first);
+    }
+    return std::string();
+}
+
 // A game server that dies during startup usually says why on stderr; keep the
 // end of that output so the failure message can include it.
 std::string readLogTail(const std::string& path, std::size_t maxBytes) {
@@ -2307,7 +2347,9 @@ bool WebsiteApp::handlePlayGame(Request& request, Response& response) {
     } else {
         SpawnedProcess spawned;
         std::string spawnError;
-        if (spawnProcess(clientPath, args, config_.repoRoot, &spawned, &spawnError)) {
+        const std::string clientDirectory =
+            preferredClientWorkingDirectory(clientPath, config_.repoRoot);
+        if (spawnProcess(clientPath, args, clientDirectory, &spawned, &spawnError)) {
             // CreateProcess/fork only reports that the image was started, and the
             // client does work before main() (the anti-cheat TLS callback). A client
             // that dies there used to be reported as "player opening", so the page
@@ -2345,7 +2387,8 @@ bool WebsiteApp::handlePlayGame(Request& request, Response& response) {
                 player.set("exitedEarly", true);
                 player.set("exitCode", exitCode);
                 player.set("reason", "The player started and then exited immediately (exit code " +
-                                        std::to_string(exitCode) + ").");
+                                        std::to_string(exitCode) + ")." +
+                                        clientLogTail(clientDirectory));
             } else {
                 player.set("launched", true);
                 player.set("processId", static_cast<long long>(spawned.pid));

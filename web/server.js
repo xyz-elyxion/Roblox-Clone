@@ -917,15 +917,57 @@ function describeClientOutput(output) {
     return ` Client said: ${lines.slice(-3).join(' ')}`;
 }
 
+// The client opens shaders/, ServerWorld.world and face*.png relative to its
+// working directory (see scripts/package-build.ps1). Running it from the
+// repository root only works while those assets happen to sit there too, so use
+// the executable's own folder when that is where they ship.
+function resolveClientWorkingDirectory(config) {
+    const fallback = config.repoRoot || path.resolve(__dirname, '..');
+    if (!config.clientExecutablePath) {
+        return fallback;
+    }
+    const clientDir = path.dirname(config.clientExecutablePath);
+    if (fs.existsSync(path.join(clientDir, 'shaders', 'vertex.glsl'))) {
+        return clientDir;
+    }
+    return fallback;
+}
+
+// Client.cpp redirects its own stdout and stderr into these files before it does
+// anything else, so a spawned copy prints nothing on the pipes and the only
+// record of why it stopped is its own log. A file older than this launch belongs
+// to an earlier run and must not be reported as this one's output.
+function readClientLogTail(directory, launchedAtMs) {
+    for (const name of ['client_log.txt', 'client_error_log.txt']) {
+        const filePath = path.join(directory, name);
+        try {
+            if (fs.statSync(filePath).mtimeMs < launchedAtMs - 1000) {
+                continue;
+            }
+            const lines = fs.readFileSync(filePath, 'utf8')
+                .split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+            if (lines.length > 0) {
+                return ` ${name} says: ${lines.slice(-3).join(' ')}`;
+            }
+        } catch (error) {
+            // Not written yet, or not readable: fall through to the next name.
+        }
+    }
+    return '';
+}
+
 async function launchClientIfAvailable(config, launch) {
     if (!config.clientExecutablePath || !fs.existsSync(config.clientExecutablePath)) {
         return { launched: false, reason: 'Client executable was not found.' };
     }
 
+    const workingDirectory = resolveClientWorkingDirectory(config);
+    const launchedAtMs = Date.now();
+
     let child;
     try {
         child = spawn(config.clientExecutablePath, launch.args, {
-            cwd: config.repoRoot || path.resolve(__dirname, '..'),
+            cwd: workingDirectory,
             detached: true,
             stdio: ['ignore', 'pipe', 'pipe']
         });
@@ -976,11 +1018,14 @@ async function launchClientIfAvailable(config, launch) {
         const reason = exitCode === null
             ? `The player started and then exited immediately${outcome.signal ? ` after ${outcome.signal}` : ''}.`
             : `The player started and then exited immediately (exit code ${exitCode}).`;
+        // The pipes stay empty when the client redirected its own output, so read
+        // the log it writes next to itself before reporting an unexplained exit.
+        const detail = describeClientOutput(output) || readClientLogTail(workingDirectory, launchedAtMs);
         return {
             launched: false,
             exitedEarly: true,
             exitCode,
-            reason: reason + describeClientOutput(output)
+            reason: reason + detail
         };
     }
 

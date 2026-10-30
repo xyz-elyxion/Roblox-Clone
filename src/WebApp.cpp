@@ -2281,7 +2281,10 @@ bool WebsiteApp::handlePlayGame(Request& request, Response& response) {
     const std::string instanceId = instance->id;
     const int instancePort = instance->port;
     std::string failureDetail;
-    if (!waitForGameServer(*instance, 10000, &failureDetail)) {
+    // The port only becomes busy once the server has loaded its world and its
+    // scripts, so this wait now covers the whole start-up rather than just the
+    // socket creation. A long world needs more than the old ten seconds.
+    if (!waitForGameServer(*instance, 30000, &failureDetail)) {
         if (failureDetail.empty()) {
             failureDetail = "The game server did not start listening on port " +
                             std::to_string(instancePort) + ".";

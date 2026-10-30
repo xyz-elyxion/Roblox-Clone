@@ -568,25 +568,9 @@ int main(int argc, char** argv) {
     // it the kernel drops the tail and the join never finishes.
     Network::setIoBufferSize(gameSocket, 4 << 20);
 
-    sockaddr_in serverAddr;
-    std::memset(&serverAddr, 0, sizeof(serverAddr));
-    serverAddr.sin_family = AF_INET;
-    serverAddr.sin_addr.s_addr = INADDR_ANY;
-    serverAddr.sin_port = htons(static_cast<u_short>(serverPort));
-
-    if (bind(gameSocket, reinterpret_cast<sockaddr*>(&serverAddr), sizeof(serverAddr)) == SOCKET_ERROR) {
-        std::cerr << "Bind failed" << std::endl;
-        return 1;
-    }
-
-    if (!Network::setNonBlocking(gameSocket)) {
-        std::cerr << "Could not put the socket in non-blocking mode" << std::endl;
-        return 1;
-    }
-
-    std::cout << "RBLX Clone Server started on port " << serverPort << " (UDP)"
-              << " using " << worldPath
-              << " with web auth " << webServerUrl << std::endl;
+    // The socket is bound further down, once the world is loaded. Binding here
+    // would make the port look ready to the website while this process is still
+    // building physics bodies and cannot answer anything.
 
     // Load Server World
     WorldLoader::loadWorld(worldPath, serverParts, serverPhysicsWorld);
@@ -635,6 +619,31 @@ int main(int argc, char** argv) {
             }
         }
     }
+
+    // Bind only now that the world and its scripts are in place. The website
+    // starts a game server, waits for this port to become busy and then launches
+    // the client, so a port that was bound before the first receive loop made a
+    // fresh Play join a server that could not answer yet: the client showed the
+    // sky-blue clear colour until its join deadline and then dropped to the menu.
+    sockaddr_in serverAddr;
+    std::memset(&serverAddr, 0, sizeof(serverAddr));
+    serverAddr.sin_family = AF_INET;
+    serverAddr.sin_addr.s_addr = INADDR_ANY;
+    serverAddr.sin_port = htons(static_cast<u_short>(serverPort));
+
+    if (bind(gameSocket, reinterpret_cast<sockaddr*>(&serverAddr), sizeof(serverAddr)) == SOCKET_ERROR) {
+        std::cerr << "Bind failed" << std::endl;
+        return 1;
+    }
+
+    if (!Network::setNonBlocking(gameSocket)) {
+        std::cerr << "Could not put the socket in non-blocking mode" << std::endl;
+        return 1;
+    }
+
+    std::cout << "RBLX Clone Server listening on port " << serverPort << " (UDP)"
+              << " using " << worldPath
+              << " with web auth " << webServerUrl << std::endl;
 
     startTelemetryWorker();
     reportInstanceHeartbeat(true);
@@ -781,6 +790,17 @@ int main(int argc, char** argv) {
                                   << " after a packet this build cannot accept; if the client "
                                      "was built separately, rebuild both from the same source"
                                   << std::endl;
+                        {
+                            // The player only ever saw a blue window and a silent trip
+                            // back to the menu, so the reason goes back over the wire in
+                            // the one packet shape both builds agree on.
+                            PacketChat notice;
+                            std::memset(&notice, 0, sizeof(notice));
+                            copyFixedString(notice.username, sizeof(notice.username), "Server");
+                            copyFixedString(notice.message, sizeof(notice.message),
+                                            "This server could not read your join packet, so Client.exe and Server.exe were built from different source. Rebuild both together.");
+                            sendToPlayer(player, PacketProtocol::buildStructPacket(PacketType::CHAT, notice), true);
+                        }
                         shouldDisconnect = true;
                         break;
                     }
@@ -810,6 +830,14 @@ int main(int argc, char** argv) {
                                       << PacketProtocol::packetLayoutSignature()
                                       << "; rebuild Client.exe and Server.exe from the same source."
                                       << std::endl;
+                            {
+                                PacketChat notice;
+                                std::memset(&notice, 0, sizeof(notice));
+                                copyFixedString(notice.username, sizeof(notice.username), "Server");
+                                copyFixedString(notice.message, sizeof(notice.message),
+                                                "This server speaks a different protocol version than your client. Rebuild Client.exe and Server.exe from the same source.");
+                                sendToPlayer(player, PacketProtocol::buildStructPacket(PacketType::CHAT, notice), true);
+                            }
                             shouldDisconnect = true;
                             break;
                         }
@@ -829,6 +857,16 @@ int main(int argc, char** argv) {
                             VerifiedUser verified = ServerAuth::verifyToken(token, webServerUrl);
                             if (!verified.success) {
                                 std::cout << "Player " << id << " failed authentication" << std::endl;
+                                {
+                                    // A refused login used to be indistinguishable from a
+                                    // dead server on the client side.
+                                    PacketChat notice;
+                                    std::memset(&notice, 0, sizeof(notice));
+                                    copyFixedString(notice.username, sizeof(notice.username), "Server");
+                                    copyFixedString(notice.message, sizeof(notice.message),
+                                                    "The website did not accept this login, so the game server refused the join. Sign in again and retry.");
+                                    sendToPlayer(player, PacketProtocol::buildStructPacket(PacketType::CHAT, notice), true);
+                                }
                                 shouldDisconnect = true;
                                 break;
                             }

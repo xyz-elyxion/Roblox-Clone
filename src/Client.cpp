@@ -423,6 +423,10 @@ void reportClientProblem(const std::string& stage, const std::string& reason) {
 
 void addChatLine(const std::string& username, const std::string& message, bool system) {
     if (message.empty()) return;
+    // The in-game chat is not drawn on the menu a failed join returns to, so a
+    // server that explains itself would still look silent. Mirror every line to
+    // the console that client_log.txt captures.
+    std::cout << (system ? "[system] " : "[chat] ") << username << ": " << message << std::endl;
     chatLines.push_back({username, message, system});
     if (chatLines.size() > 80) {
         chatLines.erase(chatLines.begin(), chatLines.begin() + static_cast<std::ptrdiff_t>(chatLines.size() - 80));

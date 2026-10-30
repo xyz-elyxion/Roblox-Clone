@@ -316,8 +316,8 @@ Scale operations assign the decomposed absolute scale from ImGuizmo and clamp it
 - This is a prototype and should be treated as local-only.
 - The Linux build of Client and Server compiles and passes its tests in CI, but nobody has played a match on it yet; the world file picker exists only on Windows (elsewhere pass the `.world` path on the command line).
 - The HTTP client speaks plain `http://` only. There is no TLS implementation, so an `https://` backend URL fails with an explanation instead of working.
-- The binary protocol still depends on matching C++ struct layouts across the same build family.
-- The web service keeps its data in a JSON file and sessions in browser storage; it is not hardened for internet deployment.
+- The binary protocol depends on matching C++ struct layouts, so Client and Server must be built from the same source. The handshake now carries a protocol revision and a layout signature derived from the packet sizes; a mismatched pair refuses the join and prints which build to rebuild instead of misreading packets.
+- The web service keeps its data in a JSON file and sessions in browser storage; it is not hardened for internet deployment. Every response now carries `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY` and `Referrer-Policy: same-origin`, but that is baseline browser hygiene, not a security review.
 - The client is split by concern: `src/Client.cpp` (startup, argument handling, main loop), `src/ClientNet.cpp` (game socket, reliable session, joining and leaving) and `src/ClientUi.cpp` (menus, HUD, chat, settings), sharing state through `src/ClientShared.h`. The remaining files could be split further.
 - C++ build/test is verified with CMake, Ninja, MinGW GCC and GCC on Linux. Client, Server, and Studio runtime behavior still need manual testing on a graphics-capable desktop.
 

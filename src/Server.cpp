@@ -783,13 +783,30 @@ int main(int argc, char** argv) {
                         // A repeated CONNECT means the WELCOME or its ack was lost.
                         // The peer already exists, so only re-send the welcome.
                         if (player.active) {
-                            PacketWelcome repeatedWelcome = { id };
+                            PacketWelcome repeatedWelcome = {
+                                id, PacketProtocol::kProtocolRevision,
+                                PacketProtocol::packetLayoutSignature() };
                             sendToPlayer(player, PacketProtocol::buildStructPacket(PacketType::WELCOME, repeatedWelcome), true);
                             continue;
                         }
 
                         PacketConnect pkt;
                         std::memcpy(&pkt, frame.payload, sizeof(pkt));
+
+                        // Refuse a peer built from a different protocol revision:
+                        // its packets would be misread from here on.
+                        if (pkt.protocolRevision != PacketProtocol::kProtocolRevision ||
+                            pkt.packetLayout != PacketProtocol::packetLayoutSignature()) {
+                            std::cerr << "Player " << id << " speaks protocol "
+                                      << pkt.protocolRevision << "/" << pkt.packetLayout
+                                      << " but this server speaks "
+                                      << PacketProtocol::kProtocolRevision << "/"
+                                      << PacketProtocol::packetLayoutSignature()
+                                      << "; rebuild Client.exe and Server.exe from the same source."
+                                      << std::endl;
+                            shouldDisconnect = true;
+                            break;
+                        }
 
                         const std::string token = PacketProtocol::fixedString(pkt.authToken, sizeof(pkt.authToken));
                         const bool isGuest = token.empty();
@@ -838,7 +855,9 @@ int main(int argc, char** argv) {
                         player.active = true;
                         reportInstanceHeartbeat(true);
 
-                        PacketWelcome welcome = { id };
+                        PacketWelcome welcome = {
+                            id, PacketProtocol::kProtocolRevision,
+                            PacketProtocol::packetLayoutSignature() };
                         if (!sendToPlayer(player, PacketProtocol::buildStructPacket(PacketType::WELCOME, welcome), true)) {
                             shouldDisconnect = true;
                             break;

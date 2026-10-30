@@ -886,6 +886,8 @@ bool connectToConfiguredServer() {
 
     PacketConnect pkt;
     std::memset(&pkt, 0, sizeof(pkt));
+    pkt.protocolRevision = PacketProtocol::kProtocolRevision;
+    pkt.packetLayout = PacketProtocol::packetLayoutSignature();
 
     if (std::strlen(authToken) > 0) {
         std::strncpy(pkt.username, myUsername, sizeof(pkt.username) - 1);
@@ -1240,6 +1242,24 @@ int main(int argc, char** argv) {
                                 continue;
                             }
                             PacketWelcome* pkt = (PacketWelcome*)(packetBuffer + offset + sizeof(PacketHeader));
+                             if (pkt->protocolRevision != PacketProtocol::kProtocolRevision ||
+                                 pkt->packetLayout != PacketProtocol::packetLayoutSignature()) {
+                                 // A build from another revision parses every later packet
+                                 // as garbage, so stop here and say why instead.
+                                 std::cerr << "Protocol mismatch: the server speaks "
+                                           << pkt->protocolRevision << "/" << pkt->packetLayout
+                                           << ", this client speaks "
+                                           << PacketProtocol::kProtocolRevision << "/"
+                                           << PacketProtocol::packetLayoutSignature()
+                                           << ". Rebuild Client.exe and Server.exe from the same source."
+                                           << std::endl;
+                                 addChatLine("System", "The server was built from a different version. Rebuild the client and server together.", true);
+                                 awaitingWelcome = false;
+                                 disconnectFromServerOnly();
+                                 currentState = MENU_PLAY_CHOICE;
+                                 offset += packetSize;
+                                 continue;
+                             }
                              myPlayerId = pkt->playerId;
                              awaitingWelcome = false;
                              std::cout << "Joined with ID: " << myPlayerId << std::endl;

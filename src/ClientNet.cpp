@@ -161,6 +161,9 @@ bool connectToServer(std::string& error) {
         copyToBuffer(pkt.username, sizeof(pkt.username), "Guest");
     }
 
+    pkt.protocolRevision = PacketProtocol::kProtocolRevision;
+    pkt.packetLayout = PacketProtocol::packetLayoutSignature();
+
     if (!sendClientPacket(PacketProtocol::buildStructPacket(PacketType::CONNECT, pkt), true)) {
         error = "Could not send the join packet.";
         disconnectFromServerOnly();

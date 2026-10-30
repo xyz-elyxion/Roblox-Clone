@@ -511,6 +511,11 @@ bool HttpServer::writesResponse(std::intptr_t socketHandle, const Request& reque
     out += "Connection: ";
     out += *keepAlive ? "keep-alive" : "close";
     out += "\r\n";
+    // The service only ever serves its own pages and JSON to its own origin, so
+    // framing, MIME sniffing and referrer leakage are all safely refused.
+    out += "X-Content-Type-Options: nosniff\r\n";
+    out += "X-Frame-Options: DENY\r\n";
+    out += "Referrer-Policy: same-origin\r\n";
     for (const auto& header : response.headers) {
         out += header.first + ": " + header.second + "\r\n";
     }

@@ -36,11 +36,17 @@ struct PacketHeader {
 struct PacketConnect {
     char username[32];
     char authToken[256]; // JWT token for authentication
+    // Handshake fingerprint: a build compiled from a different revision would
+    // parse every later packet as garbage, so both sides compare these first.
+    uint16_t protocolRevision;
+    uint16_t packetLayout;
 };
 
 // 2. Welcome (Server -> Client)
 struct PacketWelcome {
     int playerId;
+    uint16_t protocolRevision;
+    uint16_t packetLayout;
 };
 
 // 3. Player State (Client <-> Server)
@@ -110,6 +116,17 @@ struct PartData {
 #pragma pack(pop)
 
 namespace PacketProtocol {
+    // Bumped whenever a packet layout or its meaning changes. Sent in the
+    // handshake next to `kPacketLayoutSignature` so two differently built
+    // binaries fail with an explanation instead of silently misparsing.
+    constexpr uint16_t kProtocolRevision = 2;
+
+    constexpr uint16_t packetLayoutSignature() {
+        return static_cast<uint16_t>(sizeof(PacketConnect) * 31u + sizeof(PacketWelcome) * 17u +
+                                     sizeof(PacketPlayerState) * 13u +
+                                     sizeof(PacketPlayerJoin) * 7u + sizeof(PacketChat) * 3u);
+    }
+
     constexpr uint32_t MAX_PAYLOAD_SIZE = 64 * 1024;
     constexpr uint32_t MAX_PLAYERS = 128;
     constexpr uint32_t MAX_WORLD_PARTS = 4096;

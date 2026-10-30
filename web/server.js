@@ -849,16 +849,88 @@ function buildClientLaunch(config, req, game, instance, token) {
     };
 }
 
-function launchClientIfAvailable(config, launch) {
+const CLIENT_SETTLE_MS = 1500;
+const CLIENT_OUTPUT_LIMIT = 4000;
+
+function describeClientOutput(output) {
+    const lines = output.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+    if (lines.length === 0) {
+        return '';
+    }
+    // The last lines carry the reason the client gave up; earlier ones are
+    // startup chatter such as "Network Initialized.".
+    return ` Client said: ${lines.slice(-3).join(' ')}`;
+}
+
+async function launchClientIfAvailable(config, launch) {
     if (!config.clientExecutablePath || !fs.existsSync(config.clientExecutablePath)) {
         return { launched: false, reason: 'Client executable was not found.' };
     }
 
-    const child = spawn(config.clientExecutablePath, launch.args, {
-        cwd: config.repoRoot || path.resolve(__dirname, '..'),
-        detached: true,
-        stdio: 'ignore'
+    let child;
+    try {
+        child = spawn(config.clientExecutablePath, launch.args, {
+            cwd: config.repoRoot || path.resolve(__dirname, '..'),
+            detached: true,
+            stdio: ['ignore', 'pipe', 'pipe']
+        });
+    } catch (error) {
+        return {
+            launched: false,
+            reason: `Could not start ${config.clientExecutablePath}: ${error.message}`
+        };
+    }
+
+    // A successful spawn only means the image was loaded. The client runs its
+    // embedded anti-cheat from a TLS callback before main(), so it can exit
+    // before any window exists. That used to be reported as "launched", leaving
+    // the page promising a player that never appeared and nothing to go on. Keep
+    // what the client printed and watch for an exit instead of assuming.
+    let output = '';
+    const collect = (chunk) => {
+        if (output.length < CLIENT_OUTPUT_LIMIT) {
+            output += chunk.toString();
+        }
+    };
+    if (child.stdout) child.stdout.on('data', collect);
+    if (child.stderr) child.stderr.on('data', collect);
+
+    const outcome = await new Promise((resolve) => {
+        let settled = false;
+        let timer = null;
+        const finish = (result) => {
+            if (settled) return;
+            settled = true;
+            if (timer) clearTimeout(timer);
+            resolve(result);
+        };
+        timer = setTimeout(() => finish({ state: 'running' }), CLIENT_SETTLE_MS);
+        child.once('error', (error) => finish({ state: 'error', error }));
+        child.once('exit', (code, signal) => finish({ state: 'exited', code, signal }));
     });
+
+    if (outcome.state === 'error') {
+        return {
+            launched: false,
+            reason: `Could not start ${config.clientExecutablePath}: ${outcome.error.message}`
+        };
+    }
+
+    if (outcome.state === 'exited') {
+        const exitCode = typeof outcome.code === 'number' ? outcome.code : null;
+        const reason = exitCode === null
+            ? `The player started and then exited immediately${outcome.signal ? ` after ${outcome.signal}` : ''}.`
+            : `The player started and then exited immediately (exit code ${exitCode}).`;
+        return {
+            launched: false,
+            exitedEarly: true,
+            exitCode,
+            reason: reason + describeClientOutput(output)
+        };
+    }
+
+    // Detach so stopping the website does not take the player with it. The pipes
+    // stay attached so the client can never block on a full buffer.
     child.unref();
     return { launched: true, processId: child.pid || null };
 }
@@ -1614,7 +1686,7 @@ function createApp(options = {}) {
             const launch = buildClientLaunch(config, req, row, instance, token);
             const player = req.body && req.body.launchClient === false
                 ? { launched: false, reason: 'Client launch was skipped.' }
-                : launchClientIfAvailable(config, launch);
+                : await launchClientIfAvailable(config, launch);
 
             res.json({
                 success: true,

@@ -1596,6 +1596,10 @@ void WebsiteApp::installRoutes() {
                   guard([this](Request& request, Response& response) {
                       return handlePlayGame(request, response);
                   }));
+    server_.route("POST", "/api/client-reports",
+                  guard([this](Request& request, Response& response) {
+                      return handleClientReport(request, response);
+                  }));
     server_.route("GET", "/api/admin/overview",
                   guard([this](Request& request, Response& response) {
                       return handleAdminOverview(request, response);
@@ -2409,6 +2413,56 @@ bool WebsiteApp::handlePlayGame(Request& request, Response& response) {
     return true;
 }
 
+bool WebsiteApp::handleClientReport(Request& request, Response& response) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    Json body;
+    if (!parseJsonBody(request, &body, response)) {
+        return true;
+    }
+
+    std::string reason = body.member("reason").asString();
+    if (reason.empty()) {
+        errorJson(response, 400, "A reason is required.");
+        return true;
+    }
+    if (reason.size() > 600) {
+        reason.resize(600);
+    }
+
+    ClientReport report;
+    report.createdAt = nowIso();
+    report.stage = trimCopy(body.member("stage").asString());
+    if (report.stage.empty()) {
+        report.stage = "unknown";
+    }
+    report.reason = reason;
+    report.serverAddress = trimCopy(body.member("serverAddress").asString());
+    const long long gameId = body.member("gameId").asInteger();
+    report.gameId = gameId > 0 && gameId <= 1000000 ? static_cast<int>(gameId) : 0;
+
+    // A client may be signed in or a guest, so the token only decides which
+    // account the report is filed under; it never blocks the report itself.
+    AuthUser user;
+    bool authenticated = false;
+    optionalAuth(request, &user, &authenticated);
+    report.userId = authenticated ? user.id : -1;
+    report.username = authenticated ? user.username : std::string("guest");
+
+    constexpr std::size_t kMaxClientReports = 50;
+    if (clientReports_.size() >= kMaxClientReports) {
+        clientReports_.pop_front();
+    }
+    clientReports_.push_back(report);
+
+    std::fprintf(stdout, "  client problem [%s] %s: %s\n", report.username.c_str(),
+                 report.stage.c_str(), report.reason.c_str());
+
+    Json result = Json::makeObject();
+    result.set("success", true);
+    sendJson(response, 200, result);
+    return true;
+}
+
 bool WebsiteApp::handleAdminOverview(Request& request, Response& response) {
     std::lock_guard<std::mutex> lock(mutex_);
     AuthUser user;
@@ -2470,12 +2524,26 @@ bool WebsiteApp::handleAdminOverview(Request& request, Response& response) {
         instanceList.push(instanceJson(entry.second));
     }
 
+    Json reportList = Json::makeArray();
+    for (auto entry = clientReports_.rbegin(); entry != clientReports_.rend(); ++entry) {
+        Json report = Json::makeObject();
+        report.set("createdAt", entry->createdAt);
+        report.set("stage", entry->stage);
+        report.set("reason", entry->reason);
+        report.set("serverAddress", entry->serverAddress);
+        report.set("gameId", entry->gameId);
+        report.set("userId", entry->userId);
+        report.set("username", entry->username);
+        reportList.push(report);
+    }
+
     Json result = Json::makeObject();
     result.set("success", true);
     result.set("stats", stats);
     result.set("users", users);
     result.set("games", gameList);
     result.set("instances", instanceList);
+    result.set("clientReports", reportList);
     sendJson(response, 200, result);
     return true;
 }

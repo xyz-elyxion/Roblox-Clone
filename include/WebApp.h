@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstddef>
+#include <deque>
 #include <map>
 #include <mutex>
 #include <string>
@@ -128,6 +129,18 @@ private:
         std::string username;
     };
 
+    // Why a client stopped working, sent by the client itself so the reason is
+    // readable on the website instead of only in its local log files.
+    struct ClientReport {
+        std::string createdAt;
+        std::string stage;
+        std::string reason;
+        std::string serverAddress;
+        int gameId = 0;
+        int userId = -1;
+        std::string username;
+    };
+
     HttpServer::Handler guard(HttpServer::Handler handler);
     bool isOriginAllowed(const std::string& origin) const;
     bool isRateLimited(const std::string& remoteAddress);
@@ -161,6 +174,7 @@ private:
     bool handleUpdateGame(Request& request, Response& response);
     bool handleGameServers(Request& request, Response& response);
     bool handlePlayGame(Request& request, Response& response);
+    bool handleClientReport(Request& request, Response& response);
     bool handleAdminOverview(Request& request, Response& response);
     bool handleAdminDeleteGame(Request& request, Response& response);
     bool handleGetAvatar(Request& request, Response& response);
@@ -205,6 +219,7 @@ private:
     HttpServer server_;
     std::mutex mutex_;
     std::map<std::string, GameInstance> instances_;
+    std::deque<ClientReport> clientReports_;
     std::map<std::string, std::vector<long long>> authAttempts_;
     std::thread ticker_;
     bool tickerRunning_ = false;

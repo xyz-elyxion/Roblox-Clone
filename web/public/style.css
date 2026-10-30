@@ -781,6 +781,13 @@ input {
     font-weight: 700;
 }
 
+/* Report reasons are sentences, so they wrap instead of widening the table. */
+.admin-reason {
+    display: inline-block;
+    min-width: 18rem;
+    white-space: normal;
+}
+
 .game-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));

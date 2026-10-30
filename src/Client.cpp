@@ -273,6 +273,8 @@ GameState currentState = MENU_AUTH_CHOICE;
 SOCKET clientSocket = INVALID_SOCKET;
 std::unique_ptr<rblx::net::UdpSession> clientSession;
 bool gameConnectionLost = false;
+// Keeps a failing client from sending the same report on every frame.
+bool clientProblemReported = false;
 bool awaitingWelcome = false;
 std::chrono::steady_clock::time_point welcomeDeadline;
 const uint64_t kGameConnectionTimeoutMs = 10000;
@@ -408,6 +410,27 @@ const char* automaticGameServerIp() {
         copyToBuffer(serverIP, sizeof(serverIP), DEFAULT_GAME_SERVER_IP);
     }
     return serverIP;
+}
+
+// Tells the website why this client could not play, so the reason shows up in
+// the admin panel instead of only in client_log.txt on this machine. Best
+// effort on purpose: a client that is already failing must not hang or crash
+// because the website is slow, and the player still sees the message locally.
+void reportClientProblem(const std::string& stage, const std::string& reason) {
+    if (reason.empty()) {
+        return;
+    }
+
+    const std::string body =
+        "{\"gameId\":" + std::to_string(launchGameId) +
+        ",\"stage\":\"" + Auth::jsonEscape(stage) +
+        "\",\"reason\":\"" + Auth::jsonEscape(reason) +
+        "\",\"serverAddress\":\"" +
+        Auth::jsonEscape(std::string(automaticGameServerIp()) + ":" +
+                         std::to_string(serverPort)) +
+        "\"}";
+
+    Auth::httpPost(automaticWebServerUrl() + "/api/client-reports", body, authToken);
 }
 
 void addChatLine(const std::string& username, const std::string& message, bool system = false) {
@@ -776,13 +799,25 @@ int receiveGameDatagrams() {
         clientReceiveBuffer.insert(clientReceiveBuffer.end(), message.begin(), message.end());
     }
 
+    bool joinFailed = false;
     if (clientSession->timedOut(nowMs, kGameConnectionTimeoutMs)) {
         std::cout << "The game server stopped responding." << std::endl;
         gameConnectionLost = true;
+        joinFailed = true;
     }
     if (awaitingWelcome && std::chrono::steady_clock::now() > welcomeDeadline) {
         std::cout << "The game server did not answer the join request." << std::endl;
         gameConnectionLost = true;
+        joinFailed = true;
+    }
+    if (joinFailed && !clientProblemReported) {
+        clientProblemReported = true;
+        reportClientProblem("join",
+                            std::string("The game server at ") + automaticGameServerIp() + ":" +
+                                std::to_string(serverPort) +
+                                " never answered the join request, so the player could not get "
+                                "into the world. Check that the server is running on that port "
+                                "and that its console does not reject the player.");
     }
 
     return appended;
@@ -796,6 +831,7 @@ void disconnectFromServerOnly() {
     clientSession.reset();
     awaitingWelcome = false;
     gameConnectionLost = false;
+    clientProblemReported = false;
     isConnected = false;
     myPlayerId = -1;
     showConnectionUI = false;
@@ -1674,6 +1710,9 @@ int main(int argc, char** argv) {
         if (!f) {
              std::cout << "CRITICAL ERROR: shaders/vertex.glsl not found in current directory!" << std::endl;
              std::cout << "Please ensure the 'shaders' folder is next to the executable." << std::endl;
+             reportClientProblem("startup",
+                                 "shaders/vertex.glsl is missing from the client's working "
+                                 "directory, so the client stopped before opening a window.");
              pauseBeforeExit();
              return -1;
         }
@@ -2629,10 +2668,12 @@ int main(int argc, char** argv) {
         return 0;
     } catch (const std::exception& e) {
         std::cout << "CRITICAL ERROR: " << e.what() << std::endl;
+        reportClientProblem("startup", std::string("The client stopped with an error: ") + e.what());
         pauseBeforeExit();
         return -1;
     } catch (...) {
         std::cout << "CRITICAL ERROR: Unknown." << std::endl;
+        reportClientProblem("startup", "The client stopped with an unknown error.");
         pauseBeforeExit();
         return -1;
     }

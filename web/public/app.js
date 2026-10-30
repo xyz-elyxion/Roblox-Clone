@@ -1456,6 +1456,7 @@ function initAdminPage() {
     const usersBody = document.querySelector('[data-admin-users]');
     const gamesBody = document.querySelector('[data-admin-games]');
     const instancesBody = document.querySelector('[data-admin-instances]');
+    const reportsBody = document.querySelector('[data-admin-reports]');
     const status = document.querySelector('[data-admin-status]');
     const refreshButton = document.querySelector('[data-admin-refresh]');
 
@@ -1591,6 +1592,27 @@ function initAdminPage() {
         }
     }
 
+    function renderReports(reports) {
+        if (!reportsBody) return;
+        reportsBody.innerHTML = '';
+        if (!reports || reports.length === 0) {
+            adminEmptyRow(reportsBody, 5, 'No client problems reported.');
+            return;
+        }
+        for (const report of reports) {
+            const reason = document.createElement('span');
+            reason.className = 'admin-reason';
+            reason.textContent = report.reason || '';
+            reportsBody.appendChild(adminRow([
+                formatDate(report.createdAt),
+                report.username || 'guest',
+                report.stage || 'unknown',
+                report.serverAddress || '—',
+                reason
+            ]));
+        }
+    }
+
     async function load() {
         setStatus(status, 'Loading site data', '');
         if (refreshButton) refreshButton.disabled = true;
@@ -1605,6 +1627,7 @@ function initAdminPage() {
             renderUsers(data.users);
             renderGames(data.games);
             renderInstances(data.instances);
+            renderReports(data.clientReports);
             setStatus(status, '', '');
         } catch (error) {
             setStatus(status, error.message || 'Could not load admin data.', 'error');

@@ -62,7 +62,11 @@ struct DiscoverGame {
 };
 
 // How long the client waits for any sign of life before calling the join failed.
-constexpr uint64_t kGameConnectionTimeoutMs = 10000;
+// A join is not answered until the game server has checked the login with the
+// website and fetched the avatar, and each of those two HTTP calls may use the
+// whole five-second timeout, so ten seconds of patience could expire while the
+// server was still working on a join it would have completed.
+constexpr uint64_t kGameConnectionTimeoutMs = 20000;
 // Datagrams drained per frame: enough for a busy server, bounded so one frame
 // cannot spend the whole budget on the socket.
 constexpr int kDatagramsPerFrame = 128;

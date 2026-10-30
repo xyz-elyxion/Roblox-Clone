@@ -176,7 +176,8 @@ bool connectToServer(std::string& error) {
     isConnected = true;
     currentState = ONLINE;
     awaitingWelcome = true;
-    welcomeDeadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
+    welcomeDeadline = std::chrono::steady_clock::now() +
+                      std::chrono::milliseconds(static_cast<long long>(kGameConnectionTimeoutMs));
     showConnectionUI = false;
     addChatLine("System", "Joining online game...", true);
     return true;

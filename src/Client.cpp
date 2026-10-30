@@ -912,7 +912,8 @@ bool connectToConfiguredServer() {
     }
 
     awaitingWelcome = true;
-    welcomeDeadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
+    welcomeDeadline = std::chrono::steady_clock::now() +
+                      std::chrono::milliseconds(static_cast<long long>(kGameConnectionTimeoutMs));
 
     std::cout << "Connected to " << serverIP << ":" << serverPort;
     if (launchGameId > 0) {

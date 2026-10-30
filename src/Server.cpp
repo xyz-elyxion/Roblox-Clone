@@ -961,9 +961,21 @@ static int runServer(int argc, char** argv) {
                         player.faceId = DEFAULT_FACE_ID;
 
                         if (!isGuest) {
+                            // This is the only place a join waits on the website, and
+                            // the client stops waiting after ten seconds. A slow login
+                            // therefore looked exactly like a server that died: the log
+                            // ended at "Client connected" with no hint about where the
+                            // time went. Say when the check starts and how long it took.
+                            std::cout << "Player " << id << ": checking the login with "
+                                      << webServerUrl << std::endl;
+                            const auto authStartedAt = std::chrono::steady_clock::now();
                             VerifiedUser verified = ServerAuth::verifyToken(token, webServerUrl);
+                            const long long authMs = std::chrono::duration_cast<std::chrono::milliseconds>(
+                                                         std::chrono::steady_clock::now() - authStartedAt)
+                                                         .count();
                             if (!verified.success) {
-                                std::cout << "Player " << id << " failed authentication" << std::endl;
+                                std::cout << "Player " << id << " failed authentication after "
+                                          << authMs << " ms" << std::endl;
                                 {
                                     // A refused login used to be indistinguishable from a
                                     // dead server on the client side.
@@ -994,7 +1006,9 @@ static int runServer(int argc, char** argv) {
                                 player.faceId = parseAvatarFaceId(avatarJson);
                             }
 
-                            std::cout << "Player " << id << " joined as " << player.username << " (authenticated)" << std::endl;
+                            std::cout << "Player " << id << " joined as " << player.username
+                                      << " (authenticated, login checked in " << authMs << " ms)"
+                                      << std::endl;
                         } else {
                             player.userId = -1;
                             player.authToken.clear();

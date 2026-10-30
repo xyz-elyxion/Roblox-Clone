@@ -3128,6 +3128,17 @@ void WebsiteApp::refreshInstances() {
     for (auto it = instances_.begin(); it != instances_.end();) {
         GameInstance& instance = it->second;
         if (!instance.manual && !processRunning(instance)) {
+            // A game server that ends on its own used to disappear from the table
+            // without a word, so Play reported a timeout (or the next Play started a
+            // fresh server) and nothing said whether the old one had crashed. Report
+            // the exit code and where its output stopped instead.
+            std::string message = "Game server for game " + std::to_string(instance.gameId) +
+                                  " on port " + std::to_string(instance.port) + " exited";
+            if (instance.exitCodeKnown) {
+                message += " (exit code " + std::to_string(instance.exitCode) + ")";
+            }
+            message += ".";
+            std::fprintf(stderr, "%s\n", (message + describeGameServerLog(instance)).c_str());
             releaseProcess(instance);
             it = instances_.erase(it);
             continue;

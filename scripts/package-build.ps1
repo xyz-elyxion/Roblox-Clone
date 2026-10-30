@@ -199,6 +199,7 @@ try {
         '  GAME_SERVER_HOST            interface game servers bind to, default 127.0.0.1'
         '  GAME_SERVER_BASE_PORT       first port tried for a game server, default 7777'
         '  GAME_INSTANCE_EMPTY_GRACE_MS  delay before an empty server is shut down'
+        '  GAME_INSTANCE_LAUNCH_GRACE_MS delay before a server nobody has joined yet is shut down'
     ) -join $crlf
     [System.IO.File]::WriteAllText((Join-Path $Output 'README.txt'), $readmeLines + $crlf, $encoding)
 

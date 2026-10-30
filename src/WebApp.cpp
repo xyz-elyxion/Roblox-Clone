@@ -996,6 +996,8 @@ bool loadConfigFromEnvironment(Config* config, std::string* error) {
     loaded.gameServerBasePort = parsePositiveInt(envString("GAME_SERVER_BASE_PORT"), 7777);
     loaded.gameInstanceEmptyGraceMs =
         static_cast<long long>(parsePositiveInt(envString("GAME_INSTANCE_EMPTY_GRACE_MS"), 30000));
+    loaded.gameInstanceLaunchGraceMs =
+        static_cast<long long>(parsePositiveInt(envString("GAME_INSTANCE_LAUNCH_GRACE_MS"), 120000));
 
     loaded.adminUsernames.clear();
     const std::string adminNames = envString("ADMIN_USERNAMES");
@@ -1844,12 +1846,15 @@ bool WebsiteApp::handleHeartbeat(Request& request, Response& response) {
     const long long now = nowMilliseconds();
     instance.playerCount = playerCount;
     instance.lastHeartbeatAt = nowIso();
+    instance.lastHeartbeatAtMs = now;
+    instance.staleHeartbeatWarned = false;
     if (playerCount > 0) {
         if (!instance.manual) {
             instance.status = "running";
         }
         instance.emptySince.clear();
         instance.hasShutdownAt = false;
+        instance.hadPlayer = true;
     } else {
         if (!instance.manual && instance.status == "starting" && processRunning(instance)) {
             instance.status = "running";
@@ -1858,8 +1863,12 @@ bool WebsiteApp::handleHeartbeat(Request& request, Response& response) {
             instance.emptySince = instance.lastHeartbeatAt;
             instance.emptySinceMs = now;
         }
+        // Before the first player joins, an empty count only means the client has
+        // not finished connecting, so the launch grace is used instead.
+        const long long grace = instance.hadPlayer ? config_.gameInstanceEmptyGraceMs
+                                                   : config_.gameInstanceLaunchGraceMs;
         const long long elapsed = now - instance.emptySinceMs;
-        const long long delay = std::max<long long>(0, config_.gameInstanceEmptyGraceMs - elapsed);
+        const long long delay = std::max<long long>(0, grace - elapsed);
         instance.hasShutdownAt = true;
         instance.emptyShutdownAtMs = now + delay;
     }
@@ -3248,8 +3257,11 @@ void WebsiteApp::reserveInstanceForLaunch(GameInstance& instance) {
     }
     instance.emptySince = nowIso();
     instance.emptySinceMs = nowMilliseconds();
+    instance.lastHeartbeatAtMs = instance.emptySinceMs;
     instance.hasShutdownAt = true;
-    instance.emptyShutdownAtMs = instance.emptySinceMs + config_.gameInstanceEmptyGraceMs;
+    const long long grace = instance.hadPlayer ? config_.gameInstanceEmptyGraceMs
+                                               : config_.gameInstanceLaunchGraceMs;
+    instance.emptyShutdownAtMs = instance.emptySinceMs + grace;
 }
 
 void WebsiteApp::stopInstance(const std::string& instanceId, const std::string& reason) {
@@ -3259,7 +3271,8 @@ void WebsiteApp::stopInstance(const std::string& instanceId, const std::string& 
     }
     GameInstance& instance = found->second;
     instance.status = "stopping";
-    (void)reason;
+    std::fprintf(stdout, "Stopped game server for game %d on port %d (%s)\n",
+                 instance.gameId, instance.port, reason.empty() ? "requested" : reason.c_str());
 
     if (processRunning(instance)) {
 #ifdef _WIN32
@@ -3276,13 +3289,30 @@ void WebsiteApp::tickInstances() {
     std::lock_guard<std::mutex> lock(mutex_);
     refreshInstances();
     const long long now = nowMilliseconds();
+    // The reaper only acts on evidence: if the server has stopped reporting, the
+    // player count it saw last is stale and may belong to a server somebody is
+    // playing on, so it is left alone rather than killed on a guess.
+    const long long heartbeatStaleMs = 30 * 1000;
     std::vector<std::string> expired;
-    for (const auto& entry : instances_) {
-        const GameInstance& instance = entry.second;
-        if (instance.hasShutdownAt && instance.playerCount == 0 &&
-            now >= instance.emptyShutdownAtMs) {
-            expired.push_back(instance.id);
+    for (auto& entry : instances_) {
+        GameInstance& instance = entry.second;
+        if (!instance.hasShutdownAt || instance.playerCount > 0) {
+            continue;
         }
+        if (now < instance.emptyShutdownAtMs) {
+            continue;
+        }
+        if (instance.lastHeartbeatAtMs > 0 && now - instance.lastHeartbeatAtMs > heartbeatStaleMs) {
+            if (!instance.staleHeartbeatWarned) {
+                instance.staleHeartbeatWarned = true;
+                std::fprintf(stderr,
+                             "Game server for game %d on port %d stopped reporting players, so it "
+                             "is being left running instead of shut down on a guess.\n",
+                             instance.gameId, instance.port);
+            }
+            continue;
+        }
+        expired.push_back(instance.id);
     }
     for (const std::string& instanceId : expired) {
         stopInstance(instanceId, "empty");

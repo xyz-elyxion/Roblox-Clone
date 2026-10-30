@@ -33,6 +33,11 @@ struct Config {
     std::string gameServerHost = "127.0.0.1";
     int gameServerBasePort = 7777;
     long long gameInstanceEmptyGraceMs = 30 * 1000;
+    // A freshly started server has not had a chance to be joined yet, and a join
+    // includes an account check, the avatar fetch and the world download. That
+    // window is not the same thing as an empty server, so it gets its own, longer
+    // grace before the empty server reaper is allowed to touch it.
+    long long gameInstanceLaunchGraceMs = 120 * 1000;
     std::string publicBaseUrl;
     std::string serverExecutablePath;
     std::string clientExecutablePath;
@@ -111,6 +116,11 @@ private:
         long long emptySinceMs = 0;
         long long emptyShutdownAtMs = 0;
         bool hasShutdownAt = false;
+        // Set once the server has reported a player. Until then "no players" only
+        // means "nobody has finished joining", so the launch grace applies.
+        bool hadPlayer = false;
+        long long lastHeartbeatAtMs = 0;
+        bool staleHeartbeatWarned = false;
         std::string managerToken;
         long processId = 0;
         std::string command;

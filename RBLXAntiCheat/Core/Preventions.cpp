@@ -131,13 +131,27 @@ bool Preventions::RemapProgramSections()
 */
 bool Preventions::StopMultipleProcessInstances()
 {
-    HANDLE hSharedMemory = CreateFileMappingA(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE, 0, sizeof(int), "UAC");
+    // The section name is deliberately project-specific. Upstream used the bare
+    // name "UAC", which is short and generic enough that unrelated software on
+    // the same machine can already have created an object with that name. When
+    // that happens CreateFileMappingA still succeeds, but the view belongs to
+    // the OTHER program, so every launch reported "already running" and closing
+    // our own clients could never clear it.
+    const char* const SectionName = "RBLXClientSingleInstance";
+
+    // GetLastError is only meaningful for ERROR_ALREADY_EXISTS if it is cleared
+    // first; a stale value from an earlier call would look like a live duplicate.
+    SetLastError(0);
+
+    HANDLE hSharedMemory = CreateFileMappingA(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE, 0, sizeof(int), SectionName);
 
     if (hSharedMemory == NULL)
     {
-        Logger::logf(Err, "Failed to create shared memory. Error code: %lu\n", GetLastError());
+        Logger::logf(Err, "Failed to create shared memory '%s'. Error code: %lu\n", SectionName, GetLastError());
         return false;
     }
+
+    const bool sectionAlreadyExisted = (GetLastError() == ERROR_ALREADY_EXISTS);
 
     int* pIsRunning = (int*)MapViewOfFile(hSharedMemory, FILE_MAP_ALL_ACCESS, 0, 0, sizeof(int));
 
@@ -148,8 +162,12 @@ bool Preventions::StopMultipleProcessInstances()
         return false;
     }
 
-    if (*pIsRunning == 1337) //duplicate instance found, these instructions can be obfuscated if desired
+    if (sectionAlreadyExisted && *pIsRunning == 1337) //duplicate instance found, these instructions can be obfuscated if desired
     {
+        // Name the holder, because the process keeping this alive is not always
+        // a window the user can see: a hidden client spawned by the launcher, or
+        // one wedged in a previous run, both count.
+        Logger::logf(Warning, "Another client instance already claimed '%s' (a Client.exe may still be running)\n", SectionName);
         UnmapViewOfFile(pIsRunning);
         CloseHandle(hSharedMemory);
         return false;

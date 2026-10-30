@@ -21,6 +21,10 @@ enum class AvatarSlot {
 
 const int kAvatarSlotCount = 6;
 
+// How much playtime earns one coin. The game server reports playtime in
+// one-minute chunks, so a minute played is one coin earned.
+const long long kSecondsPerCoin = 60;
+
 struct Avatar {
     double colors[kAvatarSlotCount][3] = {
         {0.8, 0.6, 0.4},
@@ -57,6 +61,7 @@ struct FriendshipRecord {
 struct StatsRecord {
     int userId = 0;
     long long playtimeSeconds = 0;
+    long long coins = 0;
     std::string lastPlayedAt;
 };
 
@@ -109,6 +114,7 @@ public:
 
     // stats
     long long playtimeFor(int userId) const;
+    long long coinsFor(int userId) const;
     std::string lastPlayedAtFor(int userId) const;
     void addPlaytime(int userId, long long seconds, const std::string& nowIso);
 

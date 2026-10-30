@@ -205,12 +205,14 @@ test('social profiles support search, friend requests, friends, and playtime', a
         }, bob.token);
         assert.equal(playtime.response.status, 200);
         assert.equal(playtime.json.profile.stats.playtimeSeconds, 3661);
+        assert.equal(playtime.json.profile.stats.coins, 61);
 
         const playtimeChunk = await request(baseUrl, 'POST', '/api/me/playtime', {
             seconds: 60
         }, bob.token);
         assert.equal(playtimeChunk.response.status, 200);
         assert.equal(playtimeChunk.json.profile.stats.playtimeSeconds, 3721);
+        assert.equal(playtimeChunk.json.profile.stats.coins, 62);
 
         const search = await request(baseUrl, 'GET', '/api/users/search?q=Bob', undefined, alice.token);
         assert.equal(search.response.status, 200);

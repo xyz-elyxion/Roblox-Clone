@@ -163,6 +163,9 @@ bool Store::load(std::string* error) {
         StatsRecord record;
         record.userId = static_cast<int>(entry.member("userId").asInteger(0));
         record.playtimeSeconds = entry.member("playtimeSeconds").asInteger(0);
+        // Saves written before coins existed have none stored, so they start with
+        // the one coin per minute of playtime they would have earned.
+        record.coins = entry.member("coins").asInteger(record.playtimeSeconds / kSecondsPerCoin);
         record.lastPlayedAt = entry.member("lastPlayedAt").asString();
         if (record.userId > 0) {
             stats_.push_back(record);
@@ -248,6 +251,7 @@ bool Store::save(std::string* error) const {
         Json entry = Json::makeObject();
         entry.set("userId", record.userId);
         entry.set("playtimeSeconds", record.playtimeSeconds);
+        entry.set("coins", record.coins);
         entry.set("lastPlayedAt", record.lastPlayedAt);
         stats.push(entry);
     }
@@ -401,6 +405,15 @@ long long Store::playtimeFor(int userId) const {
     return 0;
 }
 
+long long Store::coinsFor(int userId) const {
+    for (const StatsRecord& record : stats_) {
+        if (record.userId == userId) {
+            return record.coins;
+        }
+    }
+    return 0;
+}
+
 std::string Store::lastPlayedAtFor(int userId) const {
     for (const StatsRecord& record : stats_) {
         if (record.userId == userId) {
@@ -425,6 +438,7 @@ StatsRecord* Store::findOrCreateStats(int userId) {
 void Store::addPlaytime(int userId, long long seconds, const std::string& nowIso) {
     StatsRecord* record = findOrCreateStats(userId);
     record->playtimeSeconds += seconds;
+    record->coins += seconds / kSecondsPerCoin;
     record->lastPlayedAt = nowIso;
 }
 

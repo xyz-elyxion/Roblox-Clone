@@ -645,6 +645,7 @@ function initProfilePage() {
             const rows = [
                 ['Friends', String(profile.friendCount)],
                 ['Playtime', formatPlaytime(profile.stats.playtimeSeconds)],
+                ['Coins', String(profile.stats.coins ?? 0)],
                 ['Last played', profile.stats.lastPlayedAt ? new Date(profile.stats.lastPlayedAt).toLocaleString() : 'Not yet'],
                 ['Joined', formatJoined(profile.createdAt).replace('Joined ', '')]
             ];
@@ -1531,7 +1532,7 @@ function initAdminPage() {
         if (!usersBody) return;
         usersBody.innerHTML = '';
         if (!users || users.length === 0) {
-            adminEmptyRow(usersBody, 7, 'No accounts yet.');
+            adminEmptyRow(usersBody, 8, 'No accounts yet.');
             return;
         }
         for (const user of users) {
@@ -1545,6 +1546,7 @@ function initAdminPage() {
                 user.isAdmin ? 'Admin' : 'Player',
                 user.gameCount,
                 user.friendCount,
+                user.coins ?? 0,
                 formatPlaytime(user.playtimeSeconds),
                 formatDate(user.createdAt)
             ]));

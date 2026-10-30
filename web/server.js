@@ -207,6 +207,13 @@ async function initializeDatabase(db) {
         FOREIGN KEY (user_id) REFERENCES users(id)
     )`);
 
+    const statColumns = await dbAll(db, 'PRAGMA table_info(user_stats)');
+    if (!statColumns.some((column) => column.name === 'coins')) {
+        await dbRun(db, 'ALTER TABLE user_stats ADD COLUMN coins INTEGER NOT NULL DEFAULT 0');
+        // Accounts that already played earn the coins they would have earned.
+        await dbRun(db, 'UPDATE user_stats SET coins = playtime_seconds / 60');
+    }
+
     await dbRun(db, `CREATE TABLE IF NOT EXISTS games (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         owner_id INTEGER NOT NULL,
@@ -1043,6 +1050,7 @@ function serializePublicUser(row, relationship = 'none', friendCount = 0) {
         avatar: rowToAvatar(row.user_id ? row : null),
         stats: {
             playtimeSeconds: Number(row.playtime_seconds || 0),
+            coins: Number(row.coins || 0),
             lastPlayedAt: row.last_played_at || null
         },
         friendCount,
@@ -1080,6 +1088,7 @@ function relationshipFor(viewerId, userId, friendship) {
 async function getPublicUser(db, userId, viewerId) {
     const row = await dbGet(db, `SELECT u.id, u.username, u.created_at,
             COALESCE(s.playtime_seconds, 0) AS playtime_seconds,
+            COALESCE(s.coins, 0) AS coins,
             s.last_played_at,
             a.user_id, a.face_id,
             a.head_color_r, a.head_color_g, a.head_color_b,
@@ -1105,6 +1114,7 @@ async function getPublicUser(db, userId, viewerId) {
 async function getFriends(db, userId, viewerId, limit = 24) {
     const rows = await dbAll(db, `SELECT u.id, u.username, u.created_at,
             COALESCE(s.playtime_seconds, 0) AS playtime_seconds,
+            COALESCE(s.coins, 0) AS coins,
             s.last_played_at,
             a.user_id, a.face_id,
             a.head_color_r, a.head_color_g, a.head_color_b,
@@ -1136,6 +1146,7 @@ async function getFriendRequests(db, userId, direction) {
     const otherColumn = direction === 'incoming' ? 'requester_id' : 'addressee_id';
     const rows = await dbAll(db, `SELECT u.id, u.username, u.created_at,
             COALESCE(s.playtime_seconds, 0) AS playtime_seconds,
+            COALESCE(s.coins, 0) AS coins,
             s.last_played_at,
             a.user_id, a.face_id,
             a.head_color_r, a.head_color_g, a.head_color_b,
@@ -1375,10 +1386,13 @@ function createApp(options = {}) {
                 return;
             }
 
+            const stats = await dbGet(db, 'SELECT coins FROM user_stats WHERE user_id = ?', [user.id]);
+
             res.json({
                 success: true,
                 userId: user.id,
-                username: user.username
+                username: user.username,
+                coins: Number(stats && stats.coins ? stats.coins : 0)
             });
         } catch (error) {
             res.status(401).json({ error: 'Invalid or expired token.' });
@@ -1414,12 +1428,13 @@ function createApp(options = {}) {
                 return;
             }
 
-            await dbRun(db, `INSERT INTO user_stats (user_id, playtime_seconds, last_played_at, updated_at)
-                    VALUES (?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+            await dbRun(db, `INSERT INTO user_stats (user_id, playtime_seconds, coins, last_played_at, updated_at)
+                    VALUES (?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
                     ON CONFLICT(user_id) DO UPDATE SET
                         playtime_seconds = playtime_seconds + excluded.playtime_seconds,
+                        coins = coins + excluded.coins,
                         last_played_at = CURRENT_TIMESTAMP,
-                        updated_at = CURRENT_TIMESTAMP`, [req.user.id, seconds]);
+                        updated_at = CURRENT_TIMESTAMP`, [req.user.id, seconds, Math.floor(seconds / 60)]);
 
             const profile = await getPublicUser(db, req.user.id, req.user.id);
             res.json({ success: true, profile });
@@ -1463,6 +1478,7 @@ function createApp(options = {}) {
             const rows = query
                 ? await dbAll(db, `SELECT u.id, u.username, u.created_at,
                         COALESCE(s.playtime_seconds, 0) AS playtime_seconds,
+            COALESCE(s.coins, 0) AS coins,
                         s.last_played_at,
                         a.user_id, a.face_id,
                         a.head_color_r, a.head_color_g, a.head_color_b,
@@ -1486,6 +1502,7 @@ function createApp(options = {}) {
                 ])
                 : await dbAll(db, `SELECT u.id, u.username, u.created_at,
                         COALESCE(s.playtime_seconds, 0) AS playtime_seconds,
+            COALESCE(s.coins, 0) AS coins,
                         s.last_played_at,
                         a.user_id, a.face_id,
                         a.head_color_r, a.head_color_g, a.head_color_b,

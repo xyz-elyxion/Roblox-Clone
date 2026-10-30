@@ -282,6 +282,8 @@ const int kDatagramsPerFrame = 128;
 int myPlayerId = -1;
 bool isConnected = false;
 char myUsername[32] = "Guest";
+// Coins the signed-in account owns, as last reported by the website.
+int accountCoins = 0;
 char serverIP[32] = "127.0.0.1";
 int serverPort = 7777;
 char authToken[256] = "";
@@ -390,6 +392,14 @@ std::string jsonStringField(const std::string& json, const std::string& name) {
     if (end == std::string::npos || end <= pos + 1) return {};
 
     return json.substr(pos + 1, end - pos - 1);
+}
+
+// Reads a numeric field ("coins":42) out of a small JSON response.
+int jsonIntField(const std::string& json, const std::string& field) {
+    const std::string needle = "\"" + field + "\":";
+    const size_t pos = json.find(needle);
+    if (pos == std::string::npos) return 0;
+    return std::atoi(json.c_str() + pos + needle.size());
 }
 
 void copyToBuffer(char* destination, size_t destinationSize, const std::string& value) {
@@ -576,6 +586,7 @@ bool applyAuthSession(const std::string& token, const std::string& fallbackUsern
     }
 
     const std::string verifiedUsername = jsonStringField(verifyResponse, "username");
+    accountCoins = jsonIntField(verifyResponse, "coins");
     copyToBuffer(authToken, sizeof(authToken), token);
     copyToBuffer(myUsername, sizeof(myUsername), verifiedUsername.empty() ? fallbackUsername : verifiedUsername);
 
@@ -595,6 +606,7 @@ bool applyAuthSession(const std::string& token, const std::string& fallbackUsern
 // being left in the menu with a token that will fail on every request.
 void signOutInvalidToken(const std::string& reason) {
     authToken[0] = '\0';
+    accountCoins = 0;
     copyToBuffer(myUsername, sizeof(myUsername), "Guest");
     loginUsername[0] = '\0';
     loginPassword[0] = '\0';
@@ -1067,6 +1079,7 @@ void renderAuthMenu(float uiScale) {
 
         if (modernButton("Play as guest", ImVec2(-1, UiScale::Px(42.0f, uiScale)), ImVec4(0.16f, 0.18f, 0.23f, 1.0f))) {
             authToken[0] = '\0';
+            accountCoins = 0;
             copyToBuffer(myUsername, sizeof(myUsername), "Guest");
             currentState = MENU_PLAY_CHOICE;
             showLoginError = false;
@@ -1169,6 +1182,9 @@ void renderPlayMenu(float uiScale) {
     if (ImGui::Begin("PlayMenu", nullptr, overlayFlags())) {
         drawLabel(std::strlen(authToken) > 0 ? "SIGNED IN" : "GUEST SESSION");
         ImGui::Text("Welcome, %s", myUsername);
+        if (std::strlen(authToken) > 0) {
+            ImGui::Text("%d coins", accountCoins);
+        }
         ImGui::TextWrapped("Browse public games and join without leaving the player.");
         ImGui::Spacing();
 

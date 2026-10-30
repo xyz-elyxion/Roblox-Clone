@@ -1446,6 +1446,7 @@ Json WebsiteApp::profileJson(int userId, int viewerId) {
 
     Json stats = Json::makeObject();
     stats.set("playtimeSeconds", store_.playtimeFor(userId));
+    stats.set("coins", store_.coinsFor(userId));
     const std::string lastPlayed = store_.lastPlayedAtFor(userId);
     if (lastPlayed.empty()) {
         stats.setNull("lastPlayedAt");
@@ -1740,6 +1741,7 @@ bool WebsiteApp::handleVerify(Request& request, Response& response) {
     result.set("success", true);
     result.set("userId", user->id);
     result.set("username", user->username);
+    result.set("coins", store_.coinsFor(user->id));
     result.set("isAdmin", isAdminUser(authUser));
     sendJson(response, 200, result);
     return true;
@@ -2500,6 +2502,7 @@ bool WebsiteApp::handleAdminOverview(Request& request, Response& response) {
         entry.set("username", record.username);
         entry.set("createdAt", record.createdAt);
         entry.set("playtimeSeconds", seconds);
+        entry.set("coins", store_.coinsFor(record.id));
         entry.set("friendCount", store_.countAcceptedFriends(record.id));
         entry.set("gameCount", static_cast<long long>(store_.gamesOwnedBy(record.id).size()));
         entry.set("isAdmin", isAdminUser(listed));

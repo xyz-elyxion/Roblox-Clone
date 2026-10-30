@@ -318,7 +318,7 @@ Scale operations assign the decomposed absolute scale from ImGuizmo and clamp it
 - The HTTP client speaks plain `http://` only. There is no TLS implementation, so an `https://` backend URL fails with an explanation instead of working.
 - The binary protocol still depends on matching C++ struct layouts across the same build family.
 - The web service keeps its data in a JSON file and sessions in browser storage; it is not hardened for internet deployment.
-- Client UI/networking code remains large and should be split further.
+- The client is split by concern: `src/Client.cpp` (startup, argument handling, main loop), `src/ClientNet.cpp` (game socket, reliable session, joining and leaving) and `src/ClientUi.cpp` (menus, HUD, chat, settings), sharing state through `src/ClientShared.h`. The remaining files could be split further.
 - C++ build/test is verified with CMake, Ninja, MinGW GCC and GCC on Linux. Client, Server, and Studio runtime behavior still need manual testing on a graphics-capable desktop.
 
 ## Troubleshooting

@@ -177,6 +177,8 @@ endif()
 if(RBLX_BUILD_CLIENT)
     add_executable(Client
         src/Client.cpp
+        src/ClientNet.cpp
+        src/ClientUi.cpp
         src/WebJson.cpp
         src/HttpClient.cpp
         ${SHARED_SOURCES}

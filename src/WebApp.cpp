@@ -2981,9 +2981,12 @@ bool WebsiteApp::spawnProcess(const std::string& executable, const std::vector<s
     HANDLE logHandle = INVALID_HANDLE_VALUE;
     HANDLE nullInput = INVALID_HANDLE_VALUE;
     // A process with its own console cannot inherit a redirected log handle, so a
-    // visible server is handed --log and writes that file itself.
-    if (!stdoutLogPath.empty() && !showConsole) {
+    // visible server is handed --log and writes that file itself. Its directory is
+    // created either way: the file is wanted whether we redirect or the child writes.
+    if (!stdoutLogPath.empty()) {
         makeDirectories(directoryOf(stdoutLogPath));
+    }
+    if (!stdoutLogPath.empty() && !showConsole) {
         logHandle = ::CreateFileA(stdoutLogPath.c_str(), FILE_APPEND_DATA,
                                   FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, CREATE_ALWAYS,
                                   FILE_ATTRIBUTE_NORMAL, nullptr);

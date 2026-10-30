@@ -8,7 +8,7 @@ RBLX Clone is an early prototype of a Roblox-style client, game server, Studio e
 - Client and Server build on Windows and Linux. Socket calls go through `include/Network.h` and website calls through `include/HttpClient.h`, each of which has a WinSock/WinHTTP-facing Windows branch and a POSIX branch, so the game code itself has no platform split. The anti-cheat library is Windows-only and is skipped on other platforms.
 - Client.exe embeds **RBLXAntiCheat**, a usermode anti-cheat compiled into the client process (vendored from [UltimateAntiCheat](https://github.com/AlSch092/UltimateAntiCheat) and renamed, GNU AGPL v3 — see `RBLXAntiCheat/LICENSE`). It starts with the client, writes `RBLXAntiCheat.log`, and a failed start is logged instead of stopping the game. Configure with `-DRBLX_BUILD_ANTICHEAT=OFF` to leave it out of the build.
 - Studio uses GLFW/OpenGL/ImGui/ImGuizmo and has a basic world editing path.
-- The web backend is a Node.js/Express service with SQLite, bcrypt password hashing, JWT authentication, avatar storage, public game catalog pages, and local game-server launch orchestration.
+- The web backend is `WebApp.exe`, a native C++ service (`src/WebApp.cpp`) that serves `web/public` and owns accounts (PBKDF2-SHA256), JWT sessions, avatars, friends, the public game catalog, and local game-server launch orchestration. There is no Node.js service any more.
 - Networking is a compact binary protocol carried over UDP. Positions, rotations, and world updates travel as plain datagrams, so a lost update costs one frame instead of stalling the connection; the join handshake, world snapshot, chat, and join/leave events ride a reliability layer with acknowledgements, retransmission, and fragmentation (`include/UdpTransport.h`). It is still a prototype protocol.
 
 ## Repository Layout
@@ -20,7 +20,7 @@ RBLX Clone is an early prototype of a Roblox-style client, game server, Studio e
 - `src/` - C++ Client, Server, Studio, rendering, physics, auth, and world loading code.
 - `shaders/` - OpenGL shader files used by Client and Studio.
 - `tests/` - C++ protocol tests.
-- `web/` - Express backend and public HTML pages.
+- `web/` - public HTML pages, starter worlds and published `.world` files served by `WebApp.exe`.
 - `ServerWorld.world` - Default world file.
 - `GameRelease/` - Existing release asset folders. Do not commit generated binaries here.
 
@@ -46,10 +46,8 @@ RBLXAntiCheat is Windows-only and is skipped automatically on other platforms; `
 
 ### Web Backend
 
-- Node.js 20 or newer. The project was tested with Node.js 24.
-- npm.
-
-PowerShell may block `npm.ps1` on some machines. Use `npm.cmd` if that happens.
+`WebApp.exe` is built from `src/WebApp.cpp` with the rest of the C++ targets and needs nothing
+beyond them: no Node.js, npm or SQLite.
 
 ## Build C++
 
@@ -172,8 +170,7 @@ Configuration comes from the environment:
 - `PUBLIC_BASE_URL` - URL handed to the native server/client for web auth.
 - `ADMIN_USERNAMES` - comma-separated accounts allowed into `/admin`, default `RBLXCreator`.
 
-Passwords are stored as PBKDF2-SHA256 hashes and sessions are HS256 JWTs. The old `web/users.db`
-SQLite file and its bcrypt hashes are not read by this backend.
+Passwords are stored as PBKDF2-SHA256 hashes and sessions are HS256 JWTs.
 
 ## Admin Dashboard
 
@@ -186,35 +183,6 @@ make the seeded `RBLXCreator` account the only admin. The list is matched case-s
 signed-in account, so the flag follows the account rather than the browser. Non-admins get `403` from
 `GET /api/admin/overview` and `DELETE /api/admin/games/:id`, and the Admin link on the dashboard stays
 hidden for them.
-
-## Legacy Node.js Backend
-
-`web/server.js` is the original Express implementation. It is no longer required, but still runs:
-
-```powershell
-cd web
-npm.cmd install
-npm.cmd test
-npm.cmd start
-```
-
-The backend listens on `http://localhost:3000` by default.
-
-Copy `web/.env.example` to `web/.env` for local overrides. Do not commit `.env`.
-
-Environment variables:
-
-- `NODE_ENV` - `development`, `test`, or `production`.
-- `PORT` - HTTP port, default `3000`.
-- `DATABASE_PATH` - SQLite database path, default `web/users.db`.
-- `JWT_SECRET` - required and must be strong in production.
-- `JWT_EXPIRES_IN` - JWT lifetime, default `7d`.
-- `CORS_ORIGIN` - comma-separated allowed origins. Development defaults to localhost origins.
-- `JSON_BODY_LIMIT` - Express JSON body limit, default `2mb`.
-- `AUTH_RATE_LIMIT_WINDOW_MS` - auth rate limit window.
-- `AUTH_RATE_LIMIT_MAX` - auth requests allowed per window.
-
-Production startup fails if `JWT_SECRET` is missing, too short, or left as an unsafe placeholder.
 
 ## Web API
 
@@ -349,7 +317,7 @@ Scale operations assign the decomposed absolute scale from ImGuizmo and clamp it
 - The Linux build of Client and Server compiles and passes its tests in CI, but nobody has played a match on it yet; the world file picker exists only on Windows (elsewhere pass the `.world` path on the command line).
 - The HTTP client speaks plain `http://` only. There is no TLS implementation, so an `https://` backend URL fails with an explanation instead of working.
 - The binary protocol still depends on matching C++ struct layouts across the same build family.
-- The web service uses SQLite and local JWT storage in the browser; it is not hardened for internet deployment.
+- The web service keeps its data in a JSON file and sessions in browser storage; it is not hardened for internet deployment.
 - Client UI/networking code remains large and should be split further.
 - C++ build/test is verified with CMake, Ninja, MinGW GCC and GCC on Linux. Client, Server, and Studio runtime behavior still need manual testing on a graphics-capable desktop.
 
@@ -357,7 +325,6 @@ Scale operations assign the decomposed absolute scale from ImGuizmo and clamp it
 
 - `cmake is not recognized`: install CMake or add it to PATH.
 - `cl not found`: run from a Visual Studio Developer shell or install the C++ workload.
-- `npm.ps1 cannot be loaded`: use `npm.cmd` from PowerShell.
 - `JWT_SECRET must be set`: set a strong secret in production or use development mode locally.
 - Client login fails: start the web backend first and confirm `http://localhost:3000` is reachable.
 - Client cannot connect: start `Server.exe`, allow firewall access, and connect to `127.0.0.1` for local testing.

@@ -41,10 +41,6 @@ cmake_install.cmake
 *.swo
 *~
 
-# Node modules
-node_modules/
-coverage/
-
 # Database files
 *.db
 *.sqlite
@@ -55,9 +51,6 @@ web/game-worlds/
 .env
 .env.*
 !.env.example
-web/.env
-web/.env.*
-!web/.env.example
 
 # Logs
 *.log

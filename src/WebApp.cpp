@@ -2660,17 +2660,12 @@ bool WebsiteApp::handleStatic(Request& request, Response& response) {
 
     if (relative.compare(0, 14, "/vendor/three/") == 0) {
         const std::string rest = relative.substr(14);
-        const std::string candidates[] = {
+        const std::string vendored =
             joinPath(joinPath(joinPath(joinPath(config_.webRoot, "public"), "vendor"), "three"),
-                     rest),
-            joinPath(joinPath(joinPath(config_.webRoot, "node_modules"), "three/build"), rest),
-            joinPath(joinPath(joinPath(config_.webRoot, "node_modules"), "three"), rest)
-        };
-        for (const std::string& candidate : candidates) {
-            if (fileExists(candidate)) {
-                response.file(200, candidate, HttpServer::mimeTypeForPath(candidate));
-                return true;
-            }
+                     rest);
+        if (fileExists(vendored)) {
+            response.file(200, vendored, HttpServer::mimeTypeForPath(vendored));
+            return true;
         }
         return false;
     }

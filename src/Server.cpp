@@ -6,6 +6,7 @@
 #include <cstring> // for memset
 #include <cmath>
 #include <chrono>
+#include <cstdio>
 #include <cstdlib>
 #include <ctime>
 #include <deque>
@@ -543,6 +544,12 @@ void broadcastWorldUpdate() {
 }
 
 int main(int argc, char** argv) {
+    // The website redirects this output into game-server-<port>.log. Without this
+    // the C runtime buffers it, so the file stays empty until the process exits
+    // and a join that failed has nothing to explain itself with.
+    std::setvbuf(stdout, nullptr, _IOLBF, 0);
+    std::setvbuf(stderr, nullptr, _IONBF, 0);
+
     int serverPort = 7777;
     std::string worldPath = "ServerWorld.world";
     parseServerArguments(argc, argv, serverPort, worldPath);

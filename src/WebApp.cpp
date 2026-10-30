@@ -2893,11 +2893,27 @@ bool WebsiteApp::waitForGameServer(GameInstance& instance, int timeoutMs,
     if (instance.manual) {
         return true;
     }
+    // Readiness is the server's own announcement, not a busy port. Polling the
+    // port let any leftover process that still held it pass as a running server,
+    // so Play launched the client against a server that was not reading its
+    // socket: the client sat on its sky-blue clear colour until the join deadline
+    // and then dropped back to the menu.
+    const std::string readyMarker = "listening on port " + std::to_string(instance.port);
     const auto deadline =
         std::chrono::steady_clock::now() + std::chrono::milliseconds(timeoutMs);
     for (;;) {
-        if (!isPortFreeForGameServer(instance.port)) {
+        const std::string output = readLogTail(instance.logPath, 8000);
+        if (output.find(readyMarker) != std::string::npos) {
             return true;
+        }
+        if (output.find("Bind failed") != std::string::npos) {
+            if (failureDetail) {
+                *failureDetail = "The game server could not bind port " +
+                                 std::to_string(instance.port) +
+                                 ", so another program already holds it." +
+                                 describeGameServerLog(instance);
+            }
+            return false;
         }
         if (!processRunning(instance)) {
             std::string message =
@@ -2914,9 +2930,11 @@ bool WebsiteApp::waitForGameServer(GameInstance& instance, int timeoutMs,
         }
         if (std::chrono::steady_clock::now() >= deadline) {
             if (failureDetail) {
-                *failureDetail = "The game server did not start listening on port " +
+                *failureDetail = "The game server did not report that it was listening on port " +
                                  std::to_string(instance.port) + " within " +
-                                 std::to_string(timeoutMs / 1000) + " seconds." +
+                                 std::to_string(timeoutMs / 1000) +
+                                 " seconds. If its output stops before that line, the installed "
+                                 "Server.exe is an older build." +
                                  describeGameServerLog(instance);
             }
             return false;

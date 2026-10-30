@@ -1421,11 +1421,17 @@ function initGamePage() {
             // A failed client launch used to render as a green "Server ready" line,
             // which hid the reason no player window appeared. Report it as an error
             // and keep the command visible so the client can be started by hand.
-            if (data.player?.launched) {
-                setStatus(status, `Player opening on ${data.server.host}:${data.server.port}.`, 'success');
+            const address = `${data.server.host}:${data.server.port}`;
+            if (data.server?.running === false) {
+                // The backend reserved an address without starting anything on it,
+                // so calling it ready promises a listener that does not exist.
+                const how = data.server.command ? ` Start it with: ${data.server.command}` : '';
+                setStatus(status, `No game server is running on ${address}.${how}`, 'error');
+            } else if (data.player?.launched) {
+                setStatus(status, `Player opening on ${address}.`, 'success');
             } else {
                 const reason = data.player?.reason ? ` ${data.player.reason}` : '';
-                setStatus(status, `Server ready on ${data.server.host}:${data.server.port}, but the player did not open.${reason}`, 'error');
+                setStatus(status, `Server ready on ${address}, but the player did not open.${reason}`, 'error');
             }
             renderServerList(servers, [data.server]);
             await loadGame();

@@ -686,6 +686,36 @@ async function isPortAvailable(host, port) {
     });
 }
 
+function waitForPort(host, port, timeoutMs) {
+    const deadline = Date.now() + timeoutMs;
+    return new Promise((resolve) => {
+        const attempt = () => {
+            let settled = false;
+            const socket = net.createConnection({ host, port });
+            const retry = () => {
+                if (settled) return;
+                settled = true;
+                socket.destroy();
+                if (Date.now() >= deadline) {
+                    resolve(false);
+                } else {
+                    setTimeout(attempt, 150);
+                }
+            };
+            socket.setTimeout(500);
+            socket.once('connect', () => {
+                if (settled) return;
+                settled = true;
+                socket.destroy();
+                resolve(true);
+            });
+            socket.once('error', retry);
+            socket.once('timeout', retry);
+        };
+        attempt();
+    });
+}
+
 async function findAvailablePort(host, startPort, usedPorts) {
     for (let offset = 0; offset < 200; offset += 1) {
         const port = startPort + offset;
@@ -719,6 +749,10 @@ function serializeGameInstance(instance) {
         port: instance.port,
         status: instance.status,
         processId: instance.processId,
+        // A reserved address is not a running server: without a live child nothing
+        // is listening, so callers must not call this address ready.
+        running: Boolean(isChildRunning(instance.child)),
+        command: instance.command || '',
         startedAt: instance.startedAt,
         playerCount: Number(instance.playerCount || 0),
         lastHeartbeatAt: instance.lastHeartbeatAt || null,
@@ -812,6 +846,27 @@ async function ensureGameInstance(app, game, options = {}) {
             instance.status = 'error';
             instance.lastError = error.message;
         });
+
+        // Spawning only proves the image was loaded. Advertise the port as live
+        // only once something accepts connections on it, otherwise the page hands
+        // out an address that refuses every connection and no player can join.
+        const listening = await waitForPort(instance.host, instance.port, 10000);
+        if (!listening) {
+            const detail = instance.lastError
+                ? `Could not start the game server: ${instance.lastError}`
+                : `The game server did not start listening on port ${port}.`;
+            if (isChildRunning(child)) {
+                try {
+                    child.kill();
+                } catch (error) {
+                    // The instance is unusable either way; nothing else to do.
+                }
+            }
+            const failure = new Error(detail);
+            failure.statusCode = 503;
+            throw failure;
+        }
+        instance.status = 'running';
     } else {
         instance.command = `Server.exe --port ${port} --world "${game.world_path}" --web "${config.publicBaseUrl || 'http://localhost:3000'}"`;
     }
@@ -1674,9 +1729,18 @@ function createApp(options = {}) {
                 return;
             }
 
-            const instance = await ensureGameInstance(app, row, {
-                forceNew: Boolean(req.body && req.body.newServer)
-            });
+            let instance;
+            try {
+                instance = await ensureGameInstance(app, row, {
+                    forceNew: Boolean(req.body && req.body.newServer)
+                });
+            } catch (error) {
+                if (error.statusCode) {
+                    res.status(error.statusCode).json({ error: error.message });
+                    return;
+                }
+                throw error;
+            }
             reserveGameInstanceForLaunch(app, instance);
             await dbRun(db, `UPDATE games
                 SET launch_count = launch_count + 1, updated_at = CURRENT_TIMESTAMP

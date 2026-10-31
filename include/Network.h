@@ -24,7 +24,10 @@ enum class PacketType : uint8_t {
     PLAYER_LIST = 8,
     TELEPORT = 9,
     PLAYER_HEALTH = 10,
-    RESPAWN_REQUEST = 11
+    RESPAWN_REQUEST = 11,
+    VEHICLE_STATE = 12,
+    VEHICLE_INPUT = 13,
+    VEHICLE_TOGGLE = 14
 };
 
 #pragma pack(push, 1)
@@ -71,6 +74,25 @@ struct PacketPlayerHealth {
     float health;
     float maxHealth;
     uint16_t respawnSeconds; // 0 while alive
+};
+
+// 12. Vehicle State (Server -> Client)
+//
+// The car is simulated by the server; every client follows these packets. A
+// client never reports the car's position.
+struct PacketVehicleState {
+    int partIndex;  // index in the world's part list, -1 when the world has no car
+    int driverId;   // -1 when nobody is driving
+    glm::vec3 position;
+    float yaw;      // degrees
+    float speed;    // units per second along the heading
+};
+
+// 13. Vehicle Input (Client -> Server)
+struct PacketVehicleInput {
+    int playerId;
+    float throttle;  // -1 brake/reverse, +1 forward
+    float steer;     // -1 left, +1 right
 };
 
 // 4. Player Join (Server -> Client)
@@ -135,13 +157,15 @@ namespace PacketProtocol {
     // Bumped whenever a packet layout or its meaning changes. Sent in the
     // handshake next to `kPacketLayoutSignature` so two differently built
     // binaries fail with an explanation instead of silently misparsing.
-    constexpr uint16_t kProtocolRevision = 4;
+    constexpr uint16_t kProtocolRevision = 5;
 
     constexpr uint16_t packetLayoutSignature() {
         return static_cast<uint16_t>(sizeof(PacketConnect) * 31u + sizeof(PacketWelcome) * 17u +
                                      sizeof(PacketPlayerState) * 13u +
                                      sizeof(PacketPlayerJoin) * 7u + sizeof(PacketChat) * 3u +
-                                     sizeof(PacketPlayerHealth) * 11u);
+                                     sizeof(PacketPlayerHealth) * 11u +
+                                     sizeof(PacketVehicleState) * 13u +
+                                     sizeof(PacketVehicleInput) * 7u);
     }
 
     constexpr uint32_t MAX_PAYLOAD_SIZE = 64 * 1024;
@@ -176,6 +200,9 @@ namespace PacketProtocol {
             case PacketType::TELEPORT:
             case PacketType::PLAYER_HEALTH:
             case PacketType::RESPAWN_REQUEST:
+            case PacketType::VEHICLE_STATE:
+            case PacketType::VEHICLE_INPUT:
+            case PacketType::VEHICLE_TOGGLE:
                 return true;
             default:
                 return false;
@@ -198,6 +225,12 @@ namespace PacketProtocol {
             case PacketType::PLAYER_HEALTH:
                 return payloadSize == sizeof(PacketPlayerHealth);
             case PacketType::RESPAWN_REQUEST:
+                return payloadSize == 0;
+            case PacketType::VEHICLE_STATE:
+                return payloadSize == sizeof(PacketVehicleState);
+            case PacketType::VEHICLE_INPUT:
+                return payloadSize == sizeof(PacketVehicleInput);
+            case PacketType::VEHICLE_TOGGLE:
                 return payloadSize == 0;
             case PacketType::PLAYER_JOIN:
                 return payloadSize == sizeof(PacketPlayerJoin);

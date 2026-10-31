@@ -122,6 +122,13 @@ extern int accountCoins;
 // The client shows them and freezes input while dead; it never decides them.
 extern bool playerIsDead;
 extern float respawnCountdown;
+
+// The driving game, as reported by the server's VEHICLE_STATE packets: the car's
+// index in the world, who is driving it (-1 for nobody) and its speed. The car
+// itself is simulated by the server; the client only sends input and follows.
+extern int vehiclePartIndex;
+extern int vehicleDriverId;
+extern float vehicleSpeed;
 extern int launchGameId;
 extern std::vector<ChatLine> chatLines;
 extern std::vector<DiscoverGame> discoverGames;
@@ -152,6 +159,8 @@ void leaveCurrentGame(std::deque<Part>& parts, PhysicsWorld& physicsWorld);
 bool connectToServer(std::string& error);
 void sendChatMessage();
 void requestRespawn();
+void toggleVehicle();
+void sendVehicleInput(float throttle, float steer);
 
 // Defined in Client.cpp, called from ClientNet.cpp and ClientUi.cpp.
 struct GLFWwindow;

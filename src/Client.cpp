@@ -288,6 +288,11 @@ int accountCoins = 0;
 // the character is waiting to come back.
 bool playerIsDead = false;
 float respawnCountdown = 0.0f;
+
+// Driving game state, mirrored from the server's VEHICLE_STATE packets.
+int vehiclePartIndex = -1;
+int vehicleDriverId = -1;
+float vehicleSpeed = 0.0f;
 char serverIP[32] = "127.0.0.1";
 int serverPort = 7777;
 char authToken[256] = "";
@@ -1509,6 +1514,39 @@ int main(int argc, char** argv) {
                                 }
                             }
                         }
+                        else if (header->type == PacketType::VEHICLE_STATE) {
+                            if (header->size < sizeof(PacketVehicleState)) {
+                                std::cerr << "ERROR: Invalid VEHICLE_STATE packet size" << std::endl;
+                                offset += packetSize;
+                                continue;
+                            }
+                            PacketVehicleState* pkt = (PacketVehicleState*)(packetBuffer + offset + sizeof(PacketHeader));
+                            const int previousDriver = vehicleDriverId;
+                            vehiclePartIndex = pkt->partIndex;
+                            vehicleDriverId = pkt->driverId;
+                            vehicleSpeed = pkt->speed;
+
+                            // The car is as authoritative as any other world part,
+                            // so it is placed exactly where the server says.
+                            if (pkt->partIndex >= 0 && pkt->partIndex < (int)parts.size()) {
+                                Part& car = parts[pkt->partIndex];
+                                car.position = pkt->position;
+                                car.rotation.y = pkt->yaw;
+                                if (car.physicsBody) {
+                                    auto* body = (rp3d::RigidBody*)car.physicsBody;
+                                    body->setType(rp3d::BodyType::KINEMATIC);
+                                    body->setTransform(rp3d::Transform(
+                                        rp3d::Vector3(pkt->position.x, pkt->position.y, pkt->position.z),
+                                        rp3d::Quaternion::fromEulerAngles(0.0f, glm::radians(pkt->yaw), 0.0f)));
+                                    body->setLinearVelocity(rp3d::Vector3(0, 0, 0));
+                                    body->setAngularVelocity(rp3d::Vector3(0, 0, 0));
+                                }
+                            }
+
+                            if (pkt->driverId == myPlayerId && previousDriver != myPlayerId) {
+                                addChatLine("System", "Driving: W/S throttle and brake, A/D steer, E to get out.", true);
+                            }
+                        }
                         else if (header->type == PacketType::PLAYER_HEALTH) {
                             if (header->size < sizeof(PacketPlayerHealth)) {
                                 std::cerr << "ERROR: Invalid PLAYER_HEALTH packet size" << std::endl;
@@ -1853,8 +1891,49 @@ int main(int argc, char** argv) {
                 myCharacter->cameraShoulderOffset = shiftLockEnabled ? 1.5f : 0.0f;
             }
 
-            if ((isConnected || currentState == OFFLINE) && myCharacter && !io.WantCaptureKeyboard &&
-                !escapeMenuOpen && !playerIsDead) {
+            // While seated the client sends throttle and steer instead of walking,
+            // and follows the car the server is moving.
+            const bool drivingVehicle =
+                vehicleDriverId == myPlayerId && vehiclePartIndex >= 0 &&
+                vehiclePartIndex < static_cast<int>(parts.size()) && myCharacter != nullptr;
+
+            static bool vehicleKeyDown = false;
+            const bool vehicleKey = glfwGetKey(window.getNativeWindow(), GLFW_KEY_E) == GLFW_PRESS;
+            if (vehicleKey && !vehicleKeyDown && isConnected && !io.WantCaptureKeyboard &&
+                !escapeMenuOpen) {
+                toggleVehicle();
+            }
+            vehicleKeyDown = vehicleKey;
+
+            if (drivingVehicle) {
+                static float vehicleInputTimer = 0.0f;
+                vehicleInputTimer += deltaTime;
+                if (vehicleInputTimer >= 1.0f / 20.0f) {
+                    vehicleInputTimer = 0.0f;
+                    const auto pressed = [&](int key) {
+                        return glfwGetKey(window.getNativeWindow(), key) == GLFW_PRESS;
+                    };
+                    const float throttle = (pressed(GLFW_KEY_W) ? 1.0f : 0.0f) -
+                                           (pressed(GLFW_KEY_S) ? 1.0f : 0.0f);
+                    const float steer = (pressed(GLFW_KEY_D) ? 1.0f : 0.0f) -
+                                        (pressed(GLFW_KEY_A) ? 1.0f : 0.0f);
+                    sendVehicleInput(throttle, steer);
+                }
+
+                Part& car = parts[vehiclePartIndex];
+                myCharacter->teleportTo(car.position + glm::vec3(0.0f, 1.8f, 0.0f));
+                myCharacter->update(deltaTime, nullptr, false);
+
+                // Chase camera: behind the car along its heading, looking at it.
+                // The car's yaw uses the same convention as Camera::Yaw.
+                const float yawRad = glm::radians(car.rotation.y);
+                const glm::vec3 forward(std::cos(yawRad), 0.0f, std::sin(yawRad));
+                camera.Position = car.position - forward * 13.0f + glm::vec3(0.0f, 6.5f, 0.0f);
+                camera.LookAt(car.position + glm::vec3(0.0f, 1.5f, 0.0f));
+            }
+
+            if (!drivingVehicle && (isConnected || currentState == OFFLINE) && myCharacter &&
+                !io.WantCaptureKeyboard && !escapeMenuOpen && !playerIsDead) {
                  try {
                      bool fwd = glfwGetKey(window.getNativeWindow(), GLFW_KEY_W) == GLFW_PRESS;
                      bool bwd = glfwGetKey(window.getNativeWindow(), GLFW_KEY_S) == GLFW_PRESS;
@@ -1869,8 +1948,9 @@ int main(int argc, char** argv) {
                      std::cerr << "ERROR: Exception processing character input" << std::endl;
                  }
             }
-            // Update local character with safety checks
-            if (myCharacter) {
+            // Update local character with safety checks (the car drives it while
+            // the player is seated)
+            if (myCharacter && !drivingVehicle) {
                 try {
                     myCharacter->update(deltaTime, &camera, false);
                 } catch (...) {

@@ -84,6 +84,9 @@ int receiveGameDatagrams() {
 void disconnectFromServerOnly() {
     playerIsDead = false;
     respawnCountdown = 0.0f;
+    vehiclePartIndex = -1;
+    vehicleDriverId = -1;
+    vehicleSpeed = 0.0f;
     if (clientSocket != INVALID_SOCKET) {
         closesocket(clientSocket);
         clientSocket = INVALID_SOCKET;
@@ -193,6 +196,26 @@ void requestRespawn() {
     // and runs the same countdown as any other death, so the client cannot skip
     // the delay and reappear on its own.
     sendClientPacket(PacketProtocol::buildPacket(PacketType::RESPAWN_REQUEST, nullptr, 0), true);
+}
+
+void toggleVehicle() {
+    if (!isConnected || !clientSession) {
+        return;
+    }
+    // "Get in" or "get out": the server checks the distance and decides, so a
+    // modified client cannot climb into a car across the map.
+    sendClientPacket(PacketProtocol::buildPacket(PacketType::VEHICLE_TOGGLE, nullptr, 0), true);
+}
+
+void sendVehicleInput(float throttle, float steer) {
+    if (!isConnected || !clientSession) {
+        return;
+    }
+    PacketVehicleInput input;
+    input.playerId = myPlayerId;
+    input.throttle = throttle;
+    input.steer = steer;
+    sendClientPacket(PacketProtocol::buildStructPacket(PacketType::VEHICLE_INPUT, input), false);
 }
 
 void sendChatMessage() {

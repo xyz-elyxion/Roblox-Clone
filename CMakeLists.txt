@@ -293,6 +293,11 @@ if(RBLX_BUILD_TESTS)
     target_include_directories(HealthStateTests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
     add_test(NAME HealthStateTests COMMAND HealthStateTests)
 
+    add_executable(VehicleTests tests/vehicle_tests.cpp)
+    target_include_directories(VehicleTests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+    target_link_libraries(VehicleTests PRIVATE glm)
+    add_test(NAME VehicleTests COMMAND VehicleTests)
+
     add_executable(HttpClientTests tests/http_client_tests.cpp src/HttpClient.cpp)
     target_include_directories(HttpClientTests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
     if(WIN32)

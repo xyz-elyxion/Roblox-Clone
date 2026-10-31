@@ -21,6 +21,7 @@
 #include "WorldScript.h"
 #include "UdpTransport.h"
 #include "HealthState.h"
+#include "Vehicle.h"
 
 #include <condition_variable>
 #include <fstream>
@@ -125,6 +126,19 @@ std::string scriptPath;
 std::unique_ptr<rblx::script::Interpreter> gameScriptInterpreter;
 std::unique_ptr<rblx::worldscript::WorldRuntime> gameScriptRuntime;
 std::map<int, glm::vec3> lastBroadcastPositions;
+
+// The driving game's car. A part named "Car" in the world is the vehicle: the
+// server integrates it and every client follows the packets, so the car cannot
+// be teleported by a modified client any more than a character can.
+struct VehicleRuntime {
+    int partIndex = -1;
+    int driverId = -1;
+    rblx::vehicle::State state;
+    rblx::vehicle::Input input;
+    float seatHeight = 1.8f;
+};
+
+VehicleRuntime vehicle;
 const float MAX_PLAYER_COORDINATE = 10000.0f;
 const float MAX_PLAYER_ROTATION_DEGREES = 100000.0f;
 const int PLAYTIME_REPORT_INTERVAL_SECONDS = 60;
@@ -723,6 +737,138 @@ void respawnPlayer(ConnectedPlayer& player, int id, uint64_t nowMs) {
               << player.spawnPosition.y << ", " << player.spawnPosition.z << std::endl;
 }
 
+Part* vehiclePart() {
+    if (vehicle.partIndex < 0 || vehicle.partIndex >= static_cast<int>(serverParts.size())) {
+        return nullptr;
+    }
+    Part& part = serverParts[vehicle.partIndex];
+    return part.deleted ? nullptr : &part;
+}
+
+void broadcastVehicleState() {
+    if (vehicle.partIndex < 0) return;
+
+    PacketVehicleState packet;
+    packet.partIndex = vehicle.partIndex;
+    packet.driverId = vehicle.driverId;
+    packet.position = vehicle.state.position;
+    packet.yaw = vehicle.state.yawDegrees;
+    packet.speed = vehicle.state.speed;
+    broadcastPacket(PacketProtocol::buildStructPacket(PacketType::VEHICLE_STATE, packet));
+}
+
+// A part named "Car" is the vehicle, which leaves the world format alone and
+// matches how scripts already find SpawnPoint, Lava and the rest by name.
+void prepareVehicle() {
+    vehicle.partIndex = -1;
+    vehicle.driverId = -1;
+
+    for (int i = 0; i < static_cast<int>(serverParts.size()); ++i) {
+        Part& part = serverParts[i];
+        if (part.deleted || part.isFolder || part.name != "Car") continue;
+
+        vehicle.partIndex = i;
+        vehicle.state.position = part.position;
+        vehicle.state.yawDegrees = part.rotation.y;
+        vehicle.state.speed = 0.0f;
+        vehicle.input.set(0.0f, 0.0f);
+
+        // The server moves the body itself along the driving model, so it must
+        // not be a dynamic body falling or being shoved while someone drives.
+        if (part.physicsBody) {
+            static_cast<rp3d::RigidBody*>(part.physicsBody)->setType(rp3d::BodyType::KINEMATIC);
+        }
+
+        std::cout << "Driving: car is part " << i << " at " << part.position.x << ", "
+                  << part.position.y << ", " << part.position.z << std::endl;
+        return;
+    }
+}
+
+void seatPlayer(ConnectedPlayer& player, int id, uint64_t nowMs) {
+    vehicle.driverId = id;
+    vehicle.input.set(0.0f, 0.0f);
+    vehicle.state.speed = 0.0f;
+
+    player.state.position = vehicle.state.seatPosition(vehicle.seatHeight);
+    player.state.rotationY = vehicle.state.yawDegrees;
+    player.movement.teleport(player.state.position, nowMs);
+    sendToPlayer(player, PacketProtocol::buildStructPacket(PacketType::TELEPORT, player.state), true);
+    broadcastVehicleState();
+
+    std::cout << "Player " << id << " (" << scriptPlayerName(player, id) << ") got into the car"
+              << std::endl;
+}
+
+// Puts the player on the ground beside the car. The movement guard is reset to
+// that spot, so the first walking packet is not "corrected" back into the car.
+void unseatPlayer(ConnectedPlayer& player, int id, uint64_t nowMs, bool placeBeside) {
+    vehicle.driverId = -1;
+    vehicle.state.speed = 0.0f;
+    vehicle.input.set(0.0f, 0.0f);
+
+    if (placeBeside) {
+        const float yaw = glm::radians(vehicle.state.yawDegrees);
+        const glm::vec3 right(-std::sin(yaw), 0.0f, std::cos(yaw));
+        player.state.position = vehicle.state.position + right * 3.0f + glm::vec3(0.0f, 2.0f, 0.0f);
+        player.movement.teleport(player.state.position, nowMs);
+        sendToPlayer(player, PacketProtocol::buildStructPacket(PacketType::TELEPORT, player.state), true);
+    }
+
+    broadcastVehicleState();
+    std::cout << "Player " << id << " left the car" << std::endl;
+}
+
+// One tick of the car. The driver's character rides with it, so every client
+// sees the same seat position and the movement guard stays in step.
+void updateVehicle(float dt, uint64_t nowMs) {
+    if (vehicle.partIndex < 0) return;
+
+    if (vehicle.driverId != -1) {
+        const auto driver = players.find(vehicle.driverId);
+        if (driver == players.end() || !driver->second.active || driver->second.health.isDead()) {
+            vehicle.driverId = -1;
+            vehicle.state.speed = 0.0f;
+            vehicle.input.set(0.0f, 0.0f);
+            broadcastVehicleState();
+        }
+    }
+
+    if (vehicle.driverId == -1 || dt <= 0.0f) return;
+
+    rblx::vehicle::step(vehicle.state, vehicle.input, dt);
+
+    Part* part = vehiclePart();
+    if (part == nullptr) {
+        vehicle.driverId = -1;
+        broadcastVehicleState();
+        return;
+    }
+
+    part->position = vehicle.state.position;
+    part->rotation.y = vehicle.state.yawDegrees;
+    if (part->physicsBody) {
+        auto* body = static_cast<rp3d::RigidBody*>(part->physicsBody);
+        body->setTransform(rp3d::Transform(
+            rp3d::Vector3(vehicle.state.position.x, vehicle.state.position.y, vehicle.state.position.z),
+            rp3d::Quaternion::fromEulerAngles(0.0f, glm::radians(vehicle.state.yawDegrees), 0.0f)));
+        body->setLinearVelocity(rp3d::Vector3(0.0f, 0.0f, 0.0f));
+        body->setAngularVelocity(rp3d::Vector3(0.0f, 0.0f, 0.0f));
+    }
+
+    ConnectedPlayer& driver = players[vehicle.driverId];
+    driver.state.position = vehicle.state.seatPosition(vehicle.seatHeight);
+    driver.state.rotationY = vehicle.state.yawDegrees;
+    driver.state.isWalking = false;
+    driver.state.isJumping = false;
+    driver.state.health = driver.health.health;
+    driver.movement.teleport(driver.state.position, nowMs);
+
+    broadcastPacket(PacketProtocol::buildStructPacket(PacketType::PLAYER_STATE, driver.state),
+                    vehicle.driverId);
+    broadcastVehicleState();
+}
+
 static int runServer(int argc, char** argv) {
     // The website redirects this output into game-server-<port>.log. Without this
     // the C runtime buffers it, so the file stays empty until the process exits
@@ -827,6 +973,8 @@ static int runServer(int argc, char** argv) {
         }
     }
 
+    prepareVehicle();
+
     // Bind only now that the world and its scripts are in place. The website
     // starts a game server, waits for this port to become busy and then launches
     // the client, so a port that was bound before the first receive loop made a
@@ -911,6 +1059,10 @@ static int runServer(int argc, char** argv) {
         }
 
         reportInstanceHeartbeat(false);
+
+        // The car moves before the 60Hz block so its new position goes out in
+        // the same world update as the rest of the moving parts.
+        updateVehicle(deltaTime, steadyMilliseconds());
 
         // Scripts tick with the network rate so gameplay logic runs at 60Hz
         // instead of once per loop iteration.
@@ -1259,6 +1411,12 @@ static int runServer(int argc, char** argv) {
                             continue;
                         }
 
+                        if (vehicle.driverId == id) {
+                            // The car carries the character, so a walking packet
+                            // from the driver would fight the seat position.
+                            continue;
+                        }
+
                         pkt.rotationY = normalizeRotationDegrees(pkt.rotationY);
                         // Health is the server's now. This used to clamp whatever
                         // the client reported, so a modified client could send
@@ -1290,6 +1448,32 @@ static int runServer(int argc, char** argv) {
 
                         updatePlayerShadowBody(player);
                         broadcastPacket(PacketProtocol::buildStructPacket(PacketType::PLAYER_STATE, player.state), id);
+                    } else if (frame.type == PacketType::VEHICLE_TOGGLE) {
+                        if (!player.active || player.health.isDead() || vehicle.partIndex < 0) {
+                            continue;
+                        }
+                        if (vehicle.driverId == id) {
+                            unseatPlayer(player, id, nowMs, true);
+                            continue;
+                        }
+                        if (vehicle.driverId != -1) {
+                            continue;
+                        }
+                        // Only a player standing next to the car can get in.
+                        if (!rblx::vehicle::canEnter(vehicle.state.position, player.state.position)) {
+                            continue;
+                        }
+                        seatPlayer(player, id, nowMs);
+                    } else if (frame.type == PacketType::VEHICLE_INPUT) {
+                        if (!player.active || vehicle.driverId != id) {
+                            continue;
+                        }
+
+                        PacketVehicleInput input;
+                        std::memcpy(&input, frame.payload, sizeof(input));
+                        // Input::set clamps and rejects non-finite values, so the
+                        // car only ever sees -1..1.
+                        vehicle.input.set(input.throttle, input.steer);
                     } else if (frame.type == PacketType::RESPAWN_REQUEST) {
                         if (!player.active) {
                             continue;
@@ -1338,6 +1522,13 @@ static int runServer(int argc, char** argv) {
             }
             std::cout << "Player " << id << " disconnected." << std::endl;
             peerAddresses.erase(addressKey(players[id].address));
+
+            if (vehicle.driverId == id) {
+                vehicle.driverId = -1;
+                vehicle.state.speed = 0.0f;
+                vehicle.input.set(0.0f, 0.0f);
+                broadcastVehicleState();
+            }
 
             // Cleanup Shadow Body
             if (players[id].shadowBody) {

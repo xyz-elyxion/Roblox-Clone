@@ -1125,7 +1125,12 @@ bool WebsiteApp::seedStarterGames(std::string* error) {
         {"Sky Platformer",
          "A scripted platformer with moving platforms, lava and a sky goal, driven by a "
          ".rbx script.",
-         "games/sky-platformer.world", "games/sky-platformer.rbx"}
+         "games/sky-platformer.world", "games/sky-platformer.rbx"},
+        {"Turbo Circuit",
+         "A driving game: press E beside the car to get in, then W/S for throttle and "
+         "brake and A/D to steer around the circuit. The car is simulated by the game "
+         "server and the lap counter is a .rbx script.",
+         "games/turbo-circuit.world", "games/turbo-circuit.rbx"}
     };
 
     // Publish every starter game this data file does not have yet, so an install

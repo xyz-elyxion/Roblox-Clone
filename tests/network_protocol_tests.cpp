@@ -74,6 +74,40 @@ int main() {
     assert(parsed.payloadSize == 0);
     assert(!PacketProtocol::validatePayload(PacketType::RESPAWN_REQUEST, nullptr, 1));
 
+    PacketVehicleState car{};
+    car.partIndex = 3;
+    car.driverId = 7;
+    car.position = glm::vec3(1.0f, 2.0f, 3.0f);
+    car.yaw = 45.0f;
+    car.speed = 12.5f;
+    std::vector<char> carPacket = PacketProtocol::buildStructPacket(PacketType::VEHICLE_STATE, car);
+    assert(PacketProtocol::tryReadFrame(carPacket, parsed) == PacketProtocol::ParseStatus::Complete);
+    assert(parsed.type == PacketType::VEHICLE_STATE);
+    assert(parsed.payloadSize == sizeof(PacketVehicleState));
+
+    PacketVehicleState decodedCar{};
+    std::memcpy(&decodedCar, parsed.payload, sizeof(decodedCar));
+    assert(decodedCar.partIndex == 3);
+    assert(decodedCar.driverId == 7);
+    assert(decodedCar.speed == 12.5f);
+
+    PacketVehicleInput carInput{};
+    carInput.playerId = 7;
+    carInput.throttle = 1.0f;
+    carInput.steer = -1.0f;
+    std::vector<char> inputPacket =
+        PacketProtocol::buildStructPacket(PacketType::VEHICLE_INPUT, carInput);
+    assert(PacketProtocol::tryReadFrame(inputPacket, parsed) == PacketProtocol::ParseStatus::Complete);
+    assert(parsed.type == PacketType::VEHICLE_INPUT);
+    assert(parsed.payloadSize == sizeof(PacketVehicleInput));
+
+    std::vector<char> togglePacket =
+        PacketProtocol::buildPacket(PacketType::VEHICLE_TOGGLE, nullptr, 0);
+    assert(PacketProtocol::tryReadFrame(togglePacket, parsed) == PacketProtocol::ParseStatus::Complete);
+    assert(parsed.type == PacketType::VEHICLE_TOGGLE);
+    assert(parsed.payloadSize == 0);
+    assert(!PacketProtocol::validatePayload(PacketType::VEHICLE_INPUT, nullptr, 0));
+
     PacketHeader badHeader{PacketType::WORLD_STATE, PacketProtocol::MAX_PAYLOAD_SIZE + 1};
     std::vector<char> bad(sizeof(PacketHeader));
     std::memcpy(bad.data(), &badHeader, sizeof(badHeader));

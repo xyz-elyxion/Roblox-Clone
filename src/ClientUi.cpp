@@ -5,6 +5,7 @@
 #include "Auth.h"
 #include "UiScale.h"
 #include "WebJson.h"
+#include "Vehicle.h"
 
 void applyModernPlayerStyle() {
     ImGuiStyle& style = ImGui::GetStyle();
@@ -426,6 +427,10 @@ void renderBottomHud(float uiScale) {
         std::snprintf(label, sizeof(label), "Health %.0f / %.0f", health, maxHealth);
         ImGui::ProgressBar(fraction, ImVec2(-1, UiScale::Px(24.0f, uiScale)), label);
         ImGui::PopStyleColor();
+
+        if (vehicleDriverId == myPlayerId) {
+            ImGui::Text("%d km/h", rblx::vehicle::speedKmh(vehicleSpeed));
+        }
     }
     ImGui::End();
 }
@@ -472,6 +477,21 @@ void renderGameHud(std::deque<Part>& parts, PhysicsWorld& physicsWorld, float ui
     }
     renderTopBar(parts, physicsWorld, uiScale);
     renderBottomHud(uiScale);
+
+    if (currentState == ONLINE && isConnected && myCharacter && vehicleDriverId != myPlayerId &&
+        vehiclePartIndex >= 0 && vehiclePartIndex < static_cast<int>(parts.size()) &&
+        rblx::vehicle::canEnter(parts[vehiclePartIndex].position, myCharacter->getPosition())) {
+        const ImVec2 display = ImGui::GetIO().DisplaySize;
+        const float width = UiScale::Px(240.0f, uiScale);
+        ImGui::SetNextWindowPos(ImVec2((display.x - width) * 0.5f,
+                                      display.y - UiScale::Px(188.0f, uiScale)),
+                                ImGuiCond_Always);
+        ImGui::SetNextWindowSize(ImVec2(width, UiScale::Px(50.0f, uiScale)), ImGuiCond_Always);
+        if (ImGui::Begin("VehiclePrompt", nullptr, overlayFlags())) {
+            ImGui::TextUnformatted("Press E to drive");
+        }
+        ImGui::End();
+    }
     // Drawn last: while dead the server holds the character still, so the player
     // needs to know why the controls stopped responding.
     renderDeathOverlay(uiScale);

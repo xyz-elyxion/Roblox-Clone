@@ -8,6 +8,7 @@ RBLX Clone is an early prototype of a Roblox-style client, game server, Studio e
 - Client and Server build on Windows and Linux. Socket calls go through `include/Network.h` and website calls through `include/HttpClient.h`, each of which has a WinSock/WinHTTP-facing Windows branch and a POSIX branch, so the game code itself has no platform split. The anti-cheat library is Windows-only and is skipped on other platforms.
 - Client.exe embeds **RBLXAntiCheat**, a usermode anti-cheat compiled into the client process (vendored from [UltimateAntiCheat](https://github.com/AlSch092/UltimateAntiCheat) and renamed, GNU AGPL v3 — see `RBLXAntiCheat/LICENSE`). It starts with the client, writes `RBLXAntiCheat.log`, and a failed start is logged instead of stopping the game. Configure with `-DRBLX_BUILD_ANTICHEAT=OFF` to leave it out of the build. Its identifying strings (log name, startup messages, accepted parent processes) are stored XOR-masked at compile time through `include/Obfuscated.h` so they do not show up in `strings`, and MSVC Release builds link the client with control-flow guard, full ASLR and identical-code folding. That raises the cost of finding and patching the checks; it is not a security boundary, which is why the rules that matter (movement, world contents) are enforced by the server.
 - Health and respawning are decided by the game server, not the client. The server keeps each player's health, kills anyone who falls below the world or takes damage, and returns them to the world's `SpawnLocation` after a three-second countdown that every client sees. The client draws the health bar and a "You died" overlay and stops taking movement input while dead; `Reset Character` asks the server rather than respawning locally. Scripts damage players with `player:TakeDamage(amount)`.
+- **Turbo Circuit** is the bundled driving game. A world part named `Car` is the vehicle: the game server integrates it from client throttle and steer input (`include/Vehicle.h`) and broadcasts its position, so a modified client cannot teleport the car any more than a character. Walk up to it and press `E` to get in or out; the driver's character rides in the car, the camera follows behind and the HUD shows km/h. A `.rbx` script counts laps at the finish line.
 - Studio uses GLFW/OpenGL/ImGui/ImGuizmo and has a basic world editing path.
 - The web backend is `WebApp.exe`, a native C++ service (`src/WebApp.cpp`) that serves `web/public` and owns accounts (PBKDF2-SHA256), JWT sessions, avatars, friends, the public game catalog, and local game-server launch orchestration. There is no Node.js service any more.
 - Networking is a compact binary protocol carried over UDP. Positions, rotations, and world updates travel as plain datagrams, so a lost update costs one frame instead of stalling the connection; the join handshake, world snapshot, chat, and join/leave events ride a reliability layer with acknowledgements, retransmission, and fragmentation (`include/UdpTransport.h`). It is still a prototype protocol.
@@ -231,6 +232,7 @@ The game server reports authenticated player sessions to `/api/me/playtime` whil
 - `W/A/S/D`: move, Space: jump.
 - `Browse games` in the player lists public games straight from the website and joins them without a browser.
 - `Shift`: toggle shift lock, which captures the mouse, keeps the character facing the camera and moves the view over the shoulder.
+- `E`: get into or out of the car when you are standing next to it. While driving, `W`/`S` are throttle and brake/reverse and `A`/`D` steer.
 - `Esc`: open the in-game menu with Resume, Reset Character, Settings and Leave Game; `Esc` again resumes.
 - Settings holds shift lock, mouse sensitivity, invert mouse Y, field of view, chat and player list toggles, the debug overlay and a reset to defaults button.
 - `F3`: toggle the debug overlay without opening the menu.
@@ -286,7 +288,9 @@ Run a script against a world with `Server.exe --world games/sky-platformer.world
 Studio has a **Script** panel for loading, editing, saving, running and stopping scripts; the
 world view updates live while a script runs. The seeded **Sky Platformer** game uses
 `games/sky-platformer.world` and `games/sky-platformer.rbx`, and published starter games get
-their script copied next to the world file and passed to the server with `--script`.
+their script copied next to the world file and passed to the server with `--script`. The seeded
+**Turbo Circuit** driving game works the same way with `games/turbo-circuit.world` and
+`games/turbo-circuit.rbx`.
 
 Starter games are checked on every start, not just on an empty database: any starter game the
 data file is missing is published then, so an install created before a game existed picks it up
@@ -317,6 +321,7 @@ Scale operations assign the decomposed absolute scale from ImGuizmo and clamp it
 
 - This is a prototype and should be treated as local-only.
 - The Linux build of Client and Server compiles and passes its tests in CI, but nobody has played a match on it yet; the world file picker exists only on Windows (elsewhere pass the `.world` path on the command line).
+- The driving game's car is a kinematic arcade body: it accelerates, brakes, coasts and steers, but it does not collide with world geometry, so it will drive through a wall, and there is no client-side prediction, so steering over a high-latency connection feels delayed.
 - The HTTP client speaks plain `http://` only. There is no TLS implementation, so an `https://` backend URL fails with an explanation instead of working.
 - The binary protocol depends on matching C++ struct layouts, so Client and Server must be built from the same source. The handshake now carries a protocol revision and a layout signature derived from the packet sizes; a mismatched pair refuses the join and prints which build to rebuild instead of misreading packets.
 - The web service keeps its data in a JSON file and sessions in browser storage; it is not hardened for internet deployment. Every response now carries `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY` and `Referrer-Policy: same-origin`, but that is baseline browser hygiene, not a security review.

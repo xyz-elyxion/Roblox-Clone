@@ -1743,6 +1743,22 @@ int main(int argc, char** argv) {
                             }
                             
                             std::cout << "Loaded complete world state from server: " << partCount << " parts" << std::endl;
+                            {
+                                // The game view hides stdout, so a client that renders an
+                                // empty world and a client that never got the snapshot used
+                                // to look identical. Say which one it was in the chat panel.
+                                addChatLine("System",
+                                            "World loaded from the game server: " +
+                                                std::to_string(partCount) + " parts",
+                                            false);
+                                if (partCount == 0) {
+                                    addChatLine("System",
+                                                "The game server started with an empty world, so there is "
+                                                "nothing to stand on. Restart it with its world file and check "
+                                                "its log.",
+                                                true);
+                                }
+                            }
                             
                             // Now that world is loaded, create the character
                             if (myPlayerId != -1 && !myCharacter) {

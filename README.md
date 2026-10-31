@@ -202,6 +202,7 @@ cross-entropy method, so walk speed, jumping and falling behave exactly as they 
 ```
 AiTrainer --world games/turbo-circuit.world --goal FinishLine --generations 60
 AiTrainer --world games/turbo-circuit.world --goal FinishLine --replay
+AiTrainer --world games/turbo-circuit.world --goal FinishLine --replay --watch
 ```
 
 The policy sees eight numbers (direction to the goal on X and Z, distance, height above the spawn,
@@ -214,6 +215,12 @@ have falls back to the part furthest from the spawn.
 The trained weights are written to `models/<world>.policy` as plain text (one row per action) unless
 `--out` says otherwise. `--replay` loads that file and runs one episode, exiting 0 only if the goal
 was reached, which makes it usable as a check. Training is CPU only and needs no GPU.
+
+`--watch` draws the episode as a top-down map in the terminal while it happens: `@` is the
+character, `G` the goal, `S` the spawn, `.` the path already walked, `#` a wall and `_` floor. It
+works with `--replay`, and during training it shows the best policy once training finishes. The view
+uses ANSI colours and cursor control, so run it in a terminal rather than piping it to a file. Parts
+are drawn from their axis-aligned size, so a rotated part covers a little more than it really does.
 
 ## Web API
 

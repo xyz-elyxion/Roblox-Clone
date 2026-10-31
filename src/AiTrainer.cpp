@@ -8,6 +8,7 @@
 // policy is not trained against a world that the game does not have.
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -15,8 +16,10 @@
 #include <deque>
 #include <filesystem>
 #include <fstream>
+#include <functional>
 #include <random>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include <glm/glm.hpp>
@@ -42,6 +45,10 @@ constexpr int kDefaultSteps = 900;
 constexpr int kDefaultGenerations = 60;
 constexpr int kDefaultCandidates = 12;
 constexpr int kDefaultEpisodesPerCandidate = 1;
+// --watch redraws the map every kFrameStride steps and then waits, so a run
+// plays at a speed a person can follow instead of finishing in one blink.
+constexpr int kFrameStride = 4;
+constexpr int kFrameDelayMilliseconds = 16;
 
 // One row of weights per action, one column per observation. The idle action
 // scores exactly zero, so an action has to earn a positive score to be taken.
@@ -150,12 +157,19 @@ public:
 
     bool ready() const { return character_ != nullptr; }
     std::size_t partCount() const { return parts_.size(); }
+    const std::deque<Part>& parts() const { return parts_; }
     const std::string& goalName() const { return goalName_; }
     glm::vec3 spawn() const { return spawn_; }
     glm::vec3 goal() const { return goal_; }
     float startDistance() const { return glm::length(goal_ - spawn_); }
 
-    EpisodeResult runEpisode(const Policy& policy, int maxSteps) {
+    // Called once per simulated step, which is how --watch turns an episode into
+    // frames without teaching the trainer anything about drawing.
+    using StepObserver = std::function<void(int step, int action, const glm::vec3& position,
+                                            float distance, float reward)>;
+
+    EpisodeResult runEpisode(const Policy& policy, int maxSteps,
+                             const StepObserver& observer = StepObserver()) {
         EpisodeResult result;
 
         character_->teleportTo(spawn_);
@@ -167,7 +181,8 @@ public:
         for (int step = 0; step < maxSteps; ++step) {
             float observation[kObservationCount];
             observe(observation);
-            applyAction(policy.act(observation));
+            const int action = policy.act(observation);
+            applyAction(action);
 
             character_->update(kStepSeconds, nullptr, false);
             physics_.update(kStepSeconds);
@@ -179,6 +194,9 @@ public:
             result.reward += (previousDistance_ - distance) - 0.01f;
             previousDistance_ = distance;
             result.steps = step + 1;
+            if (observer) {
+                observer(step, action, position_, distance, result.reward);
+            }
 
             if (distance <= kGoalRadius) {
                 result.reward += 50.0f;
@@ -247,6 +265,181 @@ private:
     float previousDistance_ = 0.0f;
 };
 
+// Top-down view used by --watch. Rotated parts are drawn from their axis-aligned
+// size, so an angled wall covers a little more than it really does; that is fine
+// for a view whose job is to show where the policy walked.
+struct MapView {
+    float originX = 0.0f;
+    float originZ = 0.0f;
+    float cellSize = 1.0f;
+    int columns = 0;
+    int rows = 0;
+    std::vector<char> terrain;
+    std::vector<unsigned char> tall;
+};
+
+MapView buildMapView(const std::deque<Part>& parts, const glm::vec3& spawn) {
+    MapView view;
+    float minX = 1.0e30f;
+    float maxX = -1.0e30f;
+    float minZ = 1.0e30f;
+    float maxZ = -1.0e30f;
+    for (const Part& part : parts) {
+        if (part.deleted || part.isFolder) continue;
+        minX = std::min(minX, part.position.x - part.size.x * 0.5f);
+        maxX = std::max(maxX, part.position.x + part.size.x * 0.5f);
+        minZ = std::min(minZ, part.position.z - part.size.z * 0.5f);
+        maxZ = std::max(maxZ, part.position.z + part.size.z * 0.5f);
+    }
+    if (!(maxX > minX) || !(maxZ > minZ)) {
+        return view;
+    }
+
+    constexpr int kMaxColumns = 74;
+    constexpr int kMaxRows = 26;
+    const float spanX = maxX - minX;
+    const float spanZ = maxZ - minZ;
+    view.cellSize = std::max(std::max(spanX / kMaxColumns, spanZ / kMaxRows), 0.5f);
+    view.columns = std::max(1, static_cast<int>(std::ceil(spanX / view.cellSize)));
+    view.rows = std::max(1, static_cast<int>(std::ceil(spanZ / view.cellSize)));
+    view.originX = minX;
+    view.originZ = minZ;
+    view.terrain.assign(static_cast<std::size_t>(view.columns * view.rows), ' ');
+    view.tall.assign(static_cast<std::size_t>(view.columns * view.rows), 0);
+
+    for (int row = 0; row < view.rows; ++row) {
+        for (int column = 0; column < view.columns; ++column) {
+            const float x = view.originX + (static_cast<float>(column) + 0.5f) * view.cellSize;
+            const float z = view.originZ + (static_cast<float>(row) + 0.5f) * view.cellSize;
+            float top = -1.0e30f;
+            for (const Part& part : parts) {
+                if (part.deleted || part.isFolder) continue;
+                if (x < part.position.x - part.size.x * 0.5f) continue;
+                if (x > part.position.x + part.size.x * 0.5f) continue;
+                if (z < part.position.z - part.size.z * 0.5f) continue;
+                if (z > part.position.z + part.size.z * 0.5f) continue;
+                top = std::max(top, part.position.y + part.size.y * 0.5f);
+            }
+            if (top > -1.0e29f) {
+                const std::size_t index = static_cast<std::size_t>(row * view.columns + column);
+                // Anything the character could stand on is drawn as floor; only
+                // geometry standing above it counts as a wall, otherwise a large
+                // ground slab would fill the whole map and hide the walk.
+                const bool obstacle = top > spawn.y + 1.5f;
+                view.terrain[index] = obstacle ? '#' : '_';
+                view.tall[index] = obstacle ? 1 : 0;
+            }
+        }
+    }
+    return view;
+}
+
+const char* actionName(int action) {
+    static const char* names[kActionCount] = {"forward", "backward", "left",
+                                              "right",   "jump",     "idle"};
+    return action >= 0 && action < kActionCount ? names[action] : "idle";
+}
+
+void drawMapFrame(const MapView& view, const glm::vec3& spawn, const glm::vec3& goal,
+                  const glm::vec3& position, const std::deque<glm::vec3>& trail,
+                  const std::string& status) {
+    if (view.columns <= 0 || view.rows <= 0) {
+        return;
+    }
+
+    struct Overlay {
+        char glyph = ' ';
+        const char* color = "";
+    };
+
+    const std::size_t cellCount = static_cast<std::size_t>(view.columns * view.rows);
+    std::vector<Overlay> overlays(cellCount);
+    const auto mark = [&view, &overlays, cellCount](const glm::vec3& point, char glyph,
+                                                    const char* color) {
+        const int column = static_cast<int>(std::floor((point.x - view.originX) / view.cellSize));
+        const int row = static_cast<int>(std::floor((point.z - view.originZ) / view.cellSize));
+        if (column < 0 || column >= view.columns || row < 0 || row >= view.rows) return;
+        const std::size_t index = static_cast<std::size_t>(row * view.columns + column);
+        if (index >= cellCount) return;
+        overlays[index].glyph = glyph;
+        overlays[index].color = color;
+    };
+
+    for (const glm::vec3& visited : trail) {
+        mark(visited, '.', "\x1b[34m");
+    }
+    mark(spawn, 'S', "\x1b[36m");
+    mark(goal, 'G', "\x1b[32m");
+    mark(position, '@', "\x1b[33m");
+
+    std::string frame = "\x1b[H\x1b[0m";
+    const char* color = "\x1b[0m";
+    for (int row = 0; row < view.rows; ++row) {
+        for (int column = 0; column < view.columns; ++column) {
+            const std::size_t index = static_cast<std::size_t>(row * view.columns + column);
+            char glyph = view.terrain[index];
+            const char* glyphColor = view.tall[index] ? "\x1b[31m" : "\x1b[90m";
+            if (glyph == ' ') {
+                glyphColor = "\x1b[0m";
+            }
+            if (overlays[index].glyph != ' ') {
+                glyph = overlays[index].glyph;
+                glyphColor = overlays[index].color;
+            }
+            if (std::strcmp(glyphColor, color) != 0) {
+                color = glyphColor;
+                frame += color;
+            }
+            frame += glyph;
+        }
+        frame += "\x1b[0m\x1b[K\n";
+        color = "\x1b[0m";
+    }
+    frame += status;
+    frame += "\n\x1b[J";
+    std::fputs(frame.c_str(), stdout);
+    std::fflush(stdout);
+}
+
+EpisodeResult runWatchedEpisode(TrainingWorld& world, const Policy& policy, int maxSteps,
+                                const std::string& label) {
+    const MapView view = buildMapView(world.parts(), world.spawn());
+    std::deque<glm::vec3> trail;
+    // Clear once so the first frame starts from a blank screen; later frames only
+    // home the cursor, which avoids a full-screen flash on every step.
+    std::fputs("\x1b[2J\x1b[H", stdout);
+
+    const EpisodeResult result = world.runEpisode(
+        policy, maxSteps,
+        [&](int step, int action, const glm::vec3& position, float distance, float reward) {
+            trail.push_back(position);
+            if (trail.size() > 4096) {
+                trail.pop_front();
+            }
+            if (step % kFrameStride != 0) {
+                return;
+            }
+            char status[512];
+            std::snprintf(status, sizeof(status),
+                          "%s   step %d/%d   distance %.1f   action %s   reward %.1f   "
+                          "(@ character, G goal, # wall, _ floor)",
+                          label.c_str(), step + 1, maxSteps, distance, actionName(action),
+                          reward);
+            drawMapFrame(view, world.spawn(), world.goal(), position, trail, status);
+            std::this_thread::sleep_for(std::chrono::milliseconds(kFrameDelayMilliseconds));
+        });
+
+    char status[512];
+    std::snprintf(status, sizeof(status),
+                  "%s finished   reward %.2f   closest %.1f   %d steps   %s", label.c_str(),
+                  result.reward, result.distance, result.steps,
+                  result.reached ? "reached the goal"
+                                 : (result.fell ? "fell" : "ran out of time"));
+    drawMapFrame(view, world.spawn(), world.goal(), result.finalPosition, trail, status);
+    std::fputs("\n", stdout);
+    return result;
+}
+
 struct Options {
     std::string world = "games/turbo-circuit.world";
     std::string goal = "FinishLine";
@@ -257,6 +450,7 @@ struct Options {
     int steps = kDefaultSteps;
     unsigned int seed = 1337;
     bool replay = false;
+    bool watch = false;
 };
 
 void printUsage() {
@@ -272,6 +466,7 @@ void printUsage() {
         "  --out <file>          where to write the trained policy\n"
         "                        (default models/<world>.policy)\n"
         "  --replay              load --out and run one episode with it\n"
+        "  --watch               draw the episode as a top-down map while it runs\n"
         "  --seed <n>            sampling seed (default 1337)\n",
         "games/turbo-circuit.world", kDefaultGenerations, kDefaultCandidates,
         kDefaultEpisodesPerCandidate, kDefaultSteps);
@@ -405,6 +600,8 @@ int main(int argc, char** argv) {
             options.seed = static_cast<unsigned int>(std::strtoul(argv[++i], nullptr, 10));
         } else if (arg == "--replay") {
             options.replay = true;
+        } else if (arg == "--watch") {
+            options.watch = true;
         } else if (arg == "--help" || arg == "-h") {
             printUsage();
             return 0;
@@ -437,7 +634,9 @@ int main(int argc, char** argv) {
             std::fprintf(stderr, "Could not load %s: %s\n", options.out.c_str(), error.c_str());
             return 1;
         }
-        const EpisodeResult result = world.runEpisode(policy, options.steps);
+        const EpisodeResult result =
+            options.watch ? runWatchedEpisode(world, policy, options.steps, "replay")
+                          : world.runEpisode(policy, options.steps);
         std::printf("Replay %s: reward %.2f, closest %.2f at (%.1f, %.1f, %.1f), %d steps, %s\n",
                     options.out.c_str(), result.reward, result.distance, result.finalPosition.x,
                     result.finalPosition.y, result.finalPosition.z, result.steps,
@@ -523,6 +722,10 @@ int main(int argc, char** argv) {
     if (!savePolicy(best, options.out, world, &error)) {
         std::fprintf(stderr, "Could not save the policy: %s\n", error.c_str());
         return 1;
+    }
+
+    if (options.watch) {
+        runWatchedEpisode(world, best, options.steps, "best policy");
     }
 
     std::printf("\nBest policy: reward %.2f, closest %.2f at (%.1f, %.1f, %.1f), %d steps, %s\n",

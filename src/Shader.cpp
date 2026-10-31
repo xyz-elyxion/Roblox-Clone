@@ -59,6 +59,10 @@ Shader::Shader(const char* vertexPath, const char* fragmentPath) {
     glAttachShader(ID, fragment);
     glLinkProgram(ID);
     checkCompileErrors(ID, "PROGRAM");
+
+    GLint linked = GL_FALSE;
+    glGetProgramiv(ID, GL_LINK_STATUS, &linked);
+    usable = (linked == GL_TRUE);
     
     // delete the shaders as they're linked into our program now and no longer necessary
     glDeleteShader(vertex);
@@ -93,12 +97,14 @@ void Shader::checkCompileErrors(unsigned int shader, std::string type) {
         if (!success) {
             glGetShaderInfoLog(shader, 1024, NULL, infoLog);
             std::cout << "ERROR::SHADER_COMPILATION_ERROR of type: " << type << "\n" << infoLog << "\n -- --------------------------------------------------- -- " << std::endl;
+            buildLog += type + ": " + infoLog + " ";
         }
     } else {
         glGetProgramiv(shader, GL_LINK_STATUS, &success);
         if (!success) {
             glGetProgramInfoLog(shader, 1024, NULL, infoLog);
             std::cout << "ERROR::PROGRAM_LINKING_ERROR of type: " << type << "\n" << infoLog << "\n -- --------------------------------------------------- -- " << std::endl;
+            buildLog += type + " (link): " + infoLog + " ";
         }
     }
 }

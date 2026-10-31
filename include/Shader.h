@@ -11,6 +11,12 @@ class Shader {
 public:
     unsigned int ID;
 
+    // False when the driver refused to build the program. Nothing drawn with an
+    // unusable program appears at all, and the driver's complaint used to reach
+    // only the log the game view hides, so it is kept for the caller to report.
+    bool usable = false;
+    std::string buildLog;
+
     Shader(const char* vertexPath, const char* fragmentPath);
     void use();
     void setBool(const std::string &name, bool value) const;

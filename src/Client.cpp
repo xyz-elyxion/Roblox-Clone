@@ -2108,6 +2108,42 @@ int main(int argc, char** argv) {
             skybox.draw(view, projection);
             glDepthMask(GL_TRUE);
 
+            // The game view hides stdout, so a machine whose driver refused the
+            // part shader showed nothing but the sky with no hint why. Say it
+            // once, in the panel the player can actually see.
+            static bool reportedPartShader = false;
+            if (!reportedPartShader && renderer.shader && !renderer.shader->usable &&
+                (currentState == ONLINE || currentState == OFFLINE)) {
+                reportedPartShader = true;
+                addChatLine("System",
+                            "This GPU refused the 3D shader, so only the sky can be drawn. "
+                            "Driver said: " + renderer.shader->buildLog.substr(0, 300),
+                            true);
+            }
+
+            // Once per game, report where the view is actually pointed. An empty
+            // screen is either a camera looking at nothing or geometry that never
+            // reached the GPU, and the two are impossible to tell apart by eye.
+            static bool reportedView = false;
+            if (!reportedView && myCharacter && (currentState == ONLINE || currentState == OFFLINE)) {
+                reportedView = true;
+                int liveParts = 0;
+                for (const auto& p : parts) {
+                    if (!p.deleted) ++liveParts;
+                }
+                const glm::vec3 playerPos = myCharacter->getPosition();
+                addChatLine("System",
+                            "View: camera (" + std::to_string((int)camera.Position.x) + ", " +
+                                std::to_string((int)camera.Position.y) + ", " +
+                                std::to_string((int)camera.Position.z) + ") yaw " +
+                                std::to_string((int)camera.Yaw) + ", player (" +
+                                std::to_string((int)playerPos.x) + ", " +
+                                std::to_string((int)playerPos.y) + ", " +
+                                std::to_string((int)playerPos.z) + "), " +
+                                std::to_string(liveParts) + " parts",
+                            false);
+            }
+
             // Bind Skybox Texture for Parts Reflection (Texture Unit 0)
             glActiveTexture(GL_TEXTURE0);
             glBindTexture(GL_TEXTURE_CUBE_MAP, skybox.getTextureID());

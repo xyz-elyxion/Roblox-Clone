@@ -1,4 +1,5 @@
 #include "PhysicsWorld.h"
+#include <algorithm>
 #include <iostream>
 #include <glm/gtc/quaternion.hpp>
 #include <glm/gtx/quaternion.hpp>
@@ -217,7 +218,22 @@ void PhysicsWorld::updatePartBody(Part* part) {
 }
 
 void PhysicsWorld::update(float deltaTime) {
-    world->update(deltaTime);
+    // A frame that took a long time - loading a world, a stalled shader compile,
+    // a minimised window - used to arrive here as one huge step. Nothing sweeps
+    // the bodies, so a character dropping onto a thin part passed straight
+    // through it: the first frame after joining an online game put the player
+    // below the map, where the camera followed it into empty sky. Step in fixed
+    // slices instead, and treat anything past a quarter second as a hitch
+    // rather than as gameplay that should be simulated.
+    constexpr float kFixedStep = 1.0f / 60.0f;
+    constexpr float kMaxFrameSeconds = 0.25f;
+
+    float remaining = std::min(std::max(deltaTime, 0.0f), kMaxFrameSeconds);
+    while (remaining > 1.0e-4f) {
+        const float step = std::min(remaining, kFixedStep);
+        world->update(step);
+        remaining -= step;
+    }
     
     for (auto const& [part, body] : bodyMap) {
         if (part->anchored) continue;

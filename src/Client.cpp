@@ -16,6 +16,7 @@
 #include "Avatar.h"
 #include "UiScale.h"
 #include "ClientShared.h"
+#include "Obfuscated.h"
 #include "WebJson.h"
 #include <glm/gtx/euler_angles.hpp>
 #include <fstream>
@@ -70,9 +71,15 @@ namespace {
             // The ways this client normally gets started: the website launcher,
             // the desktop shell, and a terminal while developing. The library
             // compares the real parent process against this list.
+            //
+            // Masked at compile time: this list is the one thing in the client
+            // worth knowing before attacking it (launch from an allowed parent),
+            // and it should not fall out of `strings Client.exe`.
             const std::list<std::wstring> allowedParents = {
-                L"WebApp.exe", L"node.exe", L"explorer.exe", L"cmd.exe",
-                L"powershell.exe", L"pwsh.exe", L"bash.exe"
+                RBLX_OBF_W(L"WebApp.exe"), RBLX_OBF_W(L"node.exe"),
+                RBLX_OBF_W(L"explorer.exe"), RBLX_OBF_W(L"cmd.exe"),
+                RBLX_OBF_W(L"powershell.exe"), RBLX_OBF_W(L"pwsh.exe"),
+                RBLX_OBF_W(L"bash.exe")
             };
 
             g_antiCheatSettings = std::make_unique<Settings>(
@@ -90,16 +97,16 @@ namespace {
                 L"",
                 allowedParents,
                 /*bEnableLogging*/ true,
-                "RBLXAntiCheat.log"
+                RBLX_OBF("RBLXAntiCheat.log")
             );
 
             g_antiCheat = std::make_unique<AntiCheat>(g_antiCheatSettings.get());
-            std::cout << "RBLXAntiCheat started." << std::endl;
+            std::cout << RBLX_OBF("RBLXAntiCheat started.") << std::endl;
         } catch (const std::exception& e) {
-            std::cout << "RBLXAntiCheat did not start: " << e.what() << std::endl;
+            std::cout << RBLX_OBF("RBLXAntiCheat did not start: ") << e.what() << std::endl;
             g_antiCheat.reset();
         } catch (...) {
-            std::cout << "RBLXAntiCheat did not start." << std::endl;
+            std::cout << RBLX_OBF("RBLXAntiCheat did not start.") << std::endl;
             g_antiCheat.reset();
         }
     }

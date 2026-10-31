@@ -198,6 +198,26 @@ if(RBLX_BUILD_CLIENT)
         target_compile_definitions(Client PRIVATE RBLX_ANTICHEAT)
         target_link_libraries(Client PRIVATE RBLXAntiCheat)
     endif()
+    if(MSVC)
+        # Hardening for the executable players actually run. Control-flow guard
+        # rejects indirect calls that do not land on a valid target, so a patched
+        # call site in the anti-cheat path cannot simply be redirected, and full
+        # ASLR keeps the image from loading at a predictable base. Identical-code
+        # folding makes the individual checks harder to tell apart when reading
+        # the disassembly.
+        target_compile_options(Client PRIVATE
+            $<$<CONFIG:Release>:/guard:cf>
+            $<$<CONFIG:Release>:/Gy>
+            $<$<CONFIG:Release>:/GS>
+        )
+        target_link_options(Client PRIVATE
+            $<$<CONFIG:Release>:/guard:cf>
+            $<$<CONFIG:Release>:/DYNAMICBASE>
+            $<$<CONFIG:Release>:/HIGHENTROPYVA>
+            $<$<CONFIG:Release>:/OPT:REF>
+            $<$<CONFIG:Release>:/OPT:ICF>
+        )
+    endif()
 endif()
 
 if(RBLX_BUILD_SERVER)
@@ -264,6 +284,10 @@ if(RBLX_BUILD_TESTS)
     target_include_directories(MovementGuardTests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
     target_link_libraries(MovementGuardTests PRIVATE glm)
     add_test(NAME MovementGuardTests COMMAND MovementGuardTests)
+
+    add_executable(ObfuscatedTests tests/obfuscated_tests.cpp)
+    target_include_directories(ObfuscatedTests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+    add_test(NAME ObfuscatedTests COMMAND ObfuscatedTests)
 
     add_executable(HttpClientTests tests/http_client_tests.cpp src/HttpClient.cpp)
     target_include_directories(HttpClientTests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)

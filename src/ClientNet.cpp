@@ -82,6 +82,8 @@ int receiveGameDatagrams() {
 }
 
 void disconnectFromServerOnly() {
+    playerIsDead = false;
+    respawnCountdown = 0.0f;
     if (clientSocket != INVALID_SOCKET) {
         closesocket(clientSocket);
         clientSocket = INVALID_SOCKET;
@@ -181,6 +183,16 @@ bool connectToServer(std::string& error) {
     showConnectionUI = false;
     addChatLine("System", "Joining online game...", true);
     return true;
+}
+
+void requestRespawn() {
+    if (!isConnected || !clientSession) {
+        return;
+    }
+    // "Reset Character" asks rather than acts: the server kills the character
+    // and runs the same countdown as any other death, so the client cannot skip
+    // the delay and reappear on its own.
+    sendClientPacket(PacketProtocol::buildPacket(PacketType::RESPAWN_REQUEST, nullptr, 0), true);
 }
 
 void sendChatMessage() {

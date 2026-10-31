@@ -51,6 +51,29 @@ int main() {
     std::memcpy(badChat.data(), &badChatHeader, sizeof(badChatHeader));
     assert(PacketProtocol::tryReadFrame(badChat, parsed) == PacketProtocol::ParseStatus::Invalid);
 
+    PacketPlayerHealth health{};
+    health.playerId = 9;
+    health.health = 0.0f;
+    health.maxHealth = 100.0f;
+    health.respawnSeconds = 3;
+    std::vector<char> healthPacket =
+        PacketProtocol::buildStructPacket(PacketType::PLAYER_HEALTH, health);
+    assert(PacketProtocol::tryReadFrame(healthPacket, parsed) == PacketProtocol::ParseStatus::Complete);
+    assert(parsed.type == PacketType::PLAYER_HEALTH);
+    assert(parsed.payloadSize == sizeof(PacketPlayerHealth));
+
+    PacketPlayerHealth decodedHealth{};
+    std::memcpy(&decodedHealth, parsed.payload, sizeof(decodedHealth));
+    assert(decodedHealth.playerId == 9);
+    assert(decodedHealth.respawnSeconds == 3);
+
+    std::vector<char> respawnRequest =
+        PacketProtocol::buildPacket(PacketType::RESPAWN_REQUEST, nullptr, 0);
+    assert(PacketProtocol::tryReadFrame(respawnRequest, parsed) == PacketProtocol::ParseStatus::Complete);
+    assert(parsed.type == PacketType::RESPAWN_REQUEST);
+    assert(parsed.payloadSize == 0);
+    assert(!PacketProtocol::validatePayload(PacketType::RESPAWN_REQUEST, nullptr, 1));
+
     PacketHeader badHeader{PacketType::WORLD_STATE, PacketProtocol::MAX_PAYLOAD_SIZE + 1};
     std::vector<char> bad(sizeof(PacketHeader));
     std::memcpy(bad.data(), &badHeader, sizeof(badHeader));

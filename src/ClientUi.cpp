@@ -430,6 +430,37 @@ void renderBottomHud(float uiScale) {
     ImGui::End();
 }
 
+void renderDeathOverlay(float uiScale) {
+    if (!playerIsDead) return;
+
+    const ImVec2 display = ImGui::GetIO().DisplaySize;
+    ImGui::SetNextWindowPos(ImVec2(0.0f, 0.0f), ImGuiCond_Always);
+    ImGui::SetNextWindowSize(display, ImGuiCond_Always);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+    ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.02f, 0.03f, 0.05f, 0.55f));
+    ImGui::Begin("DeathBackdrop", nullptr,
+                 ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoSavedSettings |
+                 ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoNav |
+                 ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoBringToFrontOnFocus);
+    ImGui::End();
+    ImGui::PopStyleColor();
+    ImGui::PopStyleVar();
+
+    const float width = std::min(UiScale::Px(380.0f, uiScale), display.x - UiScale::Px(40.0f, uiScale));
+    ImGui::SetNextWindowPos(ImVec2((display.x - width) * 0.5f,
+                                  display.y * 0.5f - UiScale::Px(48.0f, uiScale)),
+                            ImGuiCond_Always);
+    ImGui::SetNextWindowSize(ImVec2(width, UiScale::Px(104.0f, uiScale)), ImGuiCond_Always);
+    if (ImGui::Begin("DeathNotice", nullptr, overlayFlags())) {
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.36f, 0.36f, 1.0f));
+        ImGui::TextUnformatted("You died");
+        ImGui::PopStyleColor();
+        const int seconds = std::max(1, static_cast<int>(respawnCountdown + 0.999f));
+        ImGui::Text("Respawning at the spawn point in %d...", seconds);
+    }
+    ImGui::End();
+}
+
 void renderGameHud(std::deque<Part>& parts, PhysicsWorld& physicsWorld, float uiScale) {
     if (escapeMenuOpen) return;
     if ((currentState != ONLINE && currentState != OFFLINE) || !myCharacter) return;
@@ -441,6 +472,9 @@ void renderGameHud(std::deque<Part>& parts, PhysicsWorld& physicsWorld, float ui
     }
     renderTopBar(parts, physicsWorld, uiScale);
     renderBottomHud(uiScale);
+    // Drawn last: while dead the server holds the character still, so the player
+    // needs to know why the controls stopped responding.
+    renderDeathOverlay(uiScale);
 }
 
 void setShiftLockEnabled(bool enabled) {
@@ -533,7 +567,13 @@ void renderEscapeMenu(std::deque<Part>& parts, PhysicsWorld& physicsWorld, float
             closeEscapeMenu();
         }
         if (modernButton("Reset Character", ImVec2(-1, UiScale::Px(42.0f, uiScale)), ImVec4(0.16f, 0.18f, 0.23f, 1.0f))) {
-            if (myCharacter) myCharacter->respawn();
+            // Online, a reset is a death the server performs, so it obeys the
+            // same respawn delay as falling out of the world.
+            if (currentState == ONLINE) {
+                requestRespawn();
+            } else if (myCharacter) {
+                myCharacter->respawn();
+            }
             closeEscapeMenu();
         }
         if (modernButton("Settings", ImVec2(-1, UiScale::Px(42.0f, uiScale)), ImVec4(0.16f, 0.18f, 0.23f, 1.0f))) {

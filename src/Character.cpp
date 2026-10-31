@@ -239,7 +239,12 @@ void Character::update(float deltaTime, Camera* camera, bool isSprinting) {
         }
         
         if (root.position.y < -185.0f) {
-            takeDamage(100.0f); 
+            // Offline this character is the only authority there is. Online the
+            // server applies the same death plane itself and decides when to
+            // respawn, so respawning here as well would fight its position.
+            if (!serverControlsHealth) {
+                takeDamage(100.0f);
+            }
             return;
         }
         

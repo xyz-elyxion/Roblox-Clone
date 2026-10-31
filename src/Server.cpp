@@ -20,6 +20,7 @@
 #include "ServerAuth.h"
 #include "WorldScript.h"
 #include "UdpTransport.h"
+#include "HealthState.h"
 
 #include <condition_variable>
 #include <fstream>
@@ -59,6 +60,10 @@ struct ConnectedPlayer {
     std::string faceId = DEFAULT_FACE_ID;
     // The server's own view of where this player can legitimately be.
     rblx::movement::Guard movement;
+    // Health, death and the respawn timer are the server's, not the client's.
+    rblx::health::State health;
+    // Where a death puts this player back: the world's SpawnLocation.
+    glm::vec3 spawnPosition = glm::vec3(0.0f, 10.0f, 0.0f);
 };
 
 std::map<int, ConnectedPlayer> players;
@@ -635,6 +640,89 @@ void broadcastWorldUpdate() {
     broadcastPacket(PacketProtocol::buildPacket(PacketType::WORLD_UPDATE, updates.data(), payloadSize));
 }
 
+// The world's first SpawnLocation, lifted by the same offset the client uses when
+// it creates a character. A world without one keeps the old default so an empty
+// test world still starts.
+glm::vec3 findSpawnPosition() {
+    for (const Part& part : serverParts) {
+        if (part.deleted || !part.isSpawn) continue;
+        return part.position + glm::vec3(0.0f, 5.0f, 0.0f);
+    }
+    return glm::vec3(0.0f, 10.0f, 0.0f);
+}
+
+// The name scripts and chat use for a player, matching what setPlayerSource
+// reports so a script can address the player it saw in Touched.
+std::string scriptPlayerName(const ConnectedPlayer& player, int id) {
+    std::string name = PacketProtocol::fixedString(player.username, sizeof(player.username));
+    if (name.empty()) {
+        name = "Player" + std::to_string(id);
+    }
+    return name;
+}
+
+void broadcastPlayerHealth(int id, const rblx::health::State& health, uint64_t nowMs) {
+    PacketPlayerHealth packet;
+    packet.playerId = id;
+    packet.health = health.health;
+    packet.maxHealth = health.maxHealth;
+    packet.respawnSeconds = static_cast<uint16_t>(
+        std::max(0, std::min(255, health.respawnSecondsRemaining(nowMs))));
+    broadcastPacket(PacketProtocol::buildStructPacket(PacketType::PLAYER_HEALTH, packet), -1, true);
+}
+
+// The one place damage is applied. A fall, a script and a reset request all end
+// up here, so they share the same death and respawn handling.
+void damagePlayer(ConnectedPlayer& player, int id, float amount, uint64_t nowMs,
+                  const std::string& reason) {
+    if (!player.active || player.health.isDead()) {
+        return;
+    }
+
+    const bool killed = player.health.damage(amount, nowMs);
+    player.state.health = player.health.health;
+    broadcastPlayerHealth(id, player.health, nowMs);
+
+    if (!killed) {
+        return;
+    }
+
+    const std::string name = scriptPlayerName(player, id);
+    std::cout << "Player " << id << " (" << name << ") died: " << reason << std::endl;
+
+    // Say why the character dropped instead of letting it simply disappear for
+    // everyone else in the game.
+    PacketChat notice;
+    std::memset(&notice, 0, sizeof(notice));
+    copyFixedString(notice.username, sizeof(notice.username), "Server");
+    copyFixedString(notice.message, sizeof(notice.message), name + " died.");
+    broadcastPacket(PacketProtocol::buildStructPacket(PacketType::CHAT, notice), -1, true);
+}
+
+// Puts a player back at the spawn point the server holds, and tells every client
+// so the character is in the same place for its owner and for the players
+// watching it.
+void respawnPlayer(ConnectedPlayer& player, int id, uint64_t nowMs) {
+    player.health.reset();
+    player.state.position = player.spawnPosition;
+    player.state.health = player.health.health;
+
+    if (player.shadowBody) {
+        rp3d::Transform transform = player.shadowBody->getTransform();
+        transform.setPosition(rp3d::Vector3(player.spawnPosition.x, player.spawnPosition.y,
+                                            player.spawnPosition.z));
+        player.shadowBody->setTransform(transform);
+        player.shadowBody->setLinearVelocity(rp3d::Vector3(0.0f, 0.0f, 0.0f));
+        player.shadowBody->setAngularVelocity(rp3d::Vector3(0.0f, 0.0f, 0.0f));
+    }
+
+    player.movement.teleport(player.spawnPosition, nowMs);
+    broadcastPacket(PacketProtocol::buildStructPacket(PacketType::TELEPORT, player.state), -1, true);
+    broadcastPlayerHealth(id, player.health, nowMs);
+    std::cout << "Player " << id << " respawned at " << player.spawnPosition.x << ", "
+              << player.spawnPosition.y << ", " << player.spawnPosition.z << std::endl;
+}
+
 static int runServer(int argc, char** argv) {
     // The website redirects this output into game-server-<port>.log. Without this
     // the C runtime buffers it, so the file stays empty until the process exits
@@ -709,11 +797,7 @@ static int runServer(int argc, char** argv) {
                     const ConnectedPlayer& player = entry.second;
                     if (!player.active) continue;
                     rblx::worldscript::ScriptPlayer scriptPlayer;
-                    scriptPlayer.name = PacketProtocol::fixedString(
-                        player.username, sizeof(player.username));
-                    if (scriptPlayer.name.empty()) {
-                        scriptPlayer.name = "Player" + std::to_string(entry.first);
-                    }
+                    scriptPlayer.name = scriptPlayerName(player, entry.first);
                     scriptPlayer.position = player.state.position;
                     snapshot.push_back(scriptPlayer);
                 }
@@ -722,6 +806,16 @@ static int runServer(int argc, char** argv) {
             gameScriptRuntime->setTeleportHandler([](const std::string& name,
                                                      const glm::vec3& position) {
                 teleportPlayer(name, position);
+            });
+            gameScriptRuntime->setDamageHandler([](const std::string& name, float amount) {
+                for (auto& entry : players) {
+                    ConnectedPlayer& player = entry.second;
+                    if (!player.active) continue;
+                    if (scriptPlayerName(player, entry.first) != name) continue;
+                    damagePlayer(player, entry.first, amount, steadyMilliseconds(),
+                                 "script damage");
+                    return;
+                }
             });
 
             std::string scriptError;
@@ -796,6 +890,26 @@ static int runServer(int argc, char** argv) {
                 reportPlayerPlaytime(player, std::chrono::steady_clock::now(), id, false);
             }
         }
+        // Deaths and respawns are decided here, not in the client that owns the
+        // character: the fall below the world used to be handled locally, which a
+        // modified client could simply not run.
+        for (auto& [id, player] : players) {
+            if (!player.active) continue;
+            const uint64_t healthNowMs = steadyMilliseconds();
+
+            if (player.health.isDead()) {
+                if (player.health.update(healthNowMs)) {
+                    respawnPlayer(player, id, healthNowMs);
+                }
+                continue;
+            }
+
+            if (player.state.position.y < rblx::health::kFallDeathHeight) {
+                damagePlayer(player, id, rblx::health::kMaxHealth, healthNowMs,
+                             "falling out of the world");
+            }
+        }
+
         reportInstanceHeartbeat(false);
 
         // Scripts tick with the network rate so gameplay logic runs at 60Hz
@@ -1026,6 +1140,16 @@ static int runServer(int argc, char** argv) {
                         player.active = true;
                         reportInstanceHeartbeat(true);
 
+                        // Spawn and health are the server's to decide. The world's
+                        // SpawnLocation is where a death returns to, and the
+                        // movement guard starts from that point instead of from
+                        // whatever the client claims in its first packet.
+                        player.spawnPosition = findSpawnPosition();
+                        player.health.reset();
+                        player.state.position = player.spawnPosition;
+                        player.state.health = player.health.health;
+                        player.movement.teleport(player.spawnPosition, nowMs);
+
                         PacketWelcome welcome = {
                             id, PacketProtocol::kProtocolRevision,
                             PacketProtocol::packetLayoutSignature() };
@@ -1096,6 +1220,7 @@ static int runServer(int argc, char** argv) {
 
                         sendPlayerList(player);
                         broadcastPlayerList(id);
+                        broadcastPlayerHealth(id, player.health, nowMs);
 
                         PacketPlayerJoin joinPkt;
                         std::memset(&joinPkt, 0, sizeof(joinPkt));
@@ -1127,10 +1252,20 @@ static int runServer(int argc, char** argv) {
                             continue;
                         }
 
+                        if (player.health.isDead()) {
+                            // Waiting to respawn: ignore the dead character's
+                            // movement instead of letting the client steer it
+                            // around while the countdown runs.
+                            continue;
+                        }
+
                         pkt.rotationY = normalizeRotationDegrees(pkt.rotationY);
+                        // Health is the server's now. This used to clamp whatever
+                        // the client reported, so a modified client could send
+                        // 100 forever and nothing could ever kill it.
+                        pkt.health = player.health.health;
                         player.state = pkt;
                         player.state.playerId = id;
-                        player.state.health = std::max(0.0f, std::min(100.0f, player.state.health));
 
                         // The client simulates its own character, so this
                         // position is a claim. Hold it against the last one the
@@ -1155,6 +1290,14 @@ static int runServer(int argc, char** argv) {
 
                         updatePlayerShadowBody(player);
                         broadcastPacket(PacketProtocol::buildStructPacket(PacketType::PLAYER_STATE, player.state), id);
+                    } else if (frame.type == PacketType::RESPAWN_REQUEST) {
+                        if (!player.active) {
+                            continue;
+                        }
+                        // "Reset Character": the client asks, the server kills the
+                        // character, so a reset and a death share one timer.
+                        damagePlayer(player, id, rblx::health::kMaxHealth, nowMs,
+                                     "resetting the character");
                     } else if (frame.type == PacketType::CHAT) {
                         if (!player.active) {
                             continue;

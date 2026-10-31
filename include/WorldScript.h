@@ -42,6 +42,11 @@ public:
     void setTeleportHandler(
         std::function<void(const std::string& name, const glm::vec3& position)> handler);
 
+    // Script-driven damage. The host owns health, so a script asks for damage
+    // (player:TakeDamage(amount)) and the server applies it and decides when the
+    // player respawns.
+    void setDamageHandler(std::function<void(const std::string& name, float amount)> handler);
+
     // Fires RunService.Heartbeat handlers and checks parts for new Touched pairs.
     void heartbeat(float deltaTime);
 

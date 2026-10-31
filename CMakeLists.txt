@@ -289,6 +289,10 @@ if(RBLX_BUILD_TESTS)
     target_include_directories(ObfuscatedTests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
     add_test(NAME ObfuscatedTests COMMAND ObfuscatedTests)
 
+    add_executable(HealthStateTests tests/health_state_tests.cpp)
+    target_include_directories(HealthStateTests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+    add_test(NAME HealthStateTests COMMAND HealthStateTests)
+
     add_executable(HttpClientTests tests/http_client_tests.cpp src/HttpClient.cpp)
     target_include_directories(HttpClientTests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
     if(WIN32)

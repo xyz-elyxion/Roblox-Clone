@@ -43,6 +43,9 @@ public:
     // Health
     float health;
     float maxHealth;
+    // Online, the game server owns health and respawns: the client must not run
+    // its own death plane, or the two disagree about where the player is.
+    bool serverControlsHealth = false;
     void takeDamage(float amount);
     void respawn();
     void setFaceTexture(unsigned int textureId);

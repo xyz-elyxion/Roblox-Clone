@@ -117,6 +117,11 @@ extern char loginPassword[64];
 extern bool showLoginError;
 extern char loginErrorMsg[256];
 extern int accountCoins;
+
+// Health and the respawn timer come from the server's PLAYER_HEALTH packets.
+// The client shows them and freezes input while dead; it never decides them.
+extern bool playerIsDead;
+extern float respawnCountdown;
 extern int launchGameId;
 extern std::vector<ChatLine> chatLines;
 extern std::vector<DiscoverGame> discoverGames;
@@ -146,6 +151,7 @@ void disconnectFromServerOnly();
 void leaveCurrentGame(std::deque<Part>& parts, PhysicsWorld& physicsWorld);
 bool connectToServer(std::string& error);
 void sendChatMessage();
+void requestRespawn();
 
 // Defined in Client.cpp, called from ClientNet.cpp and ClientUi.cpp.
 struct GLFWwindow;

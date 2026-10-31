@@ -123,6 +123,7 @@ struct WorldRuntimeState : public std::enable_shared_from_this<WorldRuntimeState
     std::set<std::pair<int, std::string>> touching;
     std::function<std::vector<ScriptPlayer>()> playerSource;
     std::function<void(const std::string&, const glm::vec3&)> teleportHandler;
+    std::function<void(const std::string&, float)> damageHandler;
 
     int findPart(const std::string& name) const;
     Value partValue(int index);
@@ -402,6 +403,19 @@ public:
             out = Value::nil();
             return true;
         }
+        if (method == "TakeDamage") {
+            if (args.empty() || !args[0].isNumber()) {
+                error = "TakeDamage expects a number";
+                return false;
+            }
+            if (!state_->damageHandler) {
+                error = "players cannot take damage here";
+                return false;
+            }
+            state_->damageHandler(name_, static_cast<float>(args[0].number));
+            out = Value::nil();
+            return true;
+        }
         error = "Player has no method '" + method + "'";
         return false;
     }
@@ -554,6 +568,11 @@ void WorldRuntime::setPlayerSource(std::function<std::vector<ScriptPlayer>()> so
 void WorldRuntime::setTeleportHandler(
     std::function<void(const std::string&, const glm::vec3&)> handler) {
     state_->teleportHandler = std::move(handler);
+}
+
+void WorldRuntime::setDamageHandler(
+    std::function<void(const std::string&, float)> handler) {
+    state_->damageHandler = std::move(handler);
 }
 
 bool WorldRuntime::runScript(const std::string& source, const std::string& chunkName,

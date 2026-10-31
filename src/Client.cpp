@@ -282,6 +282,12 @@ bool isConnected = false;
 char myUsername[32] = "Guest";
 // Coins the signed-in account owns, as last reported by the website.
 int accountCoins = 0;
+
+// Health and the respawn timer belong to the server; these only mirror what its
+// PLAYER_HEALTH packets said so the HUD can draw them and input can stop while
+// the character is waiting to come back.
+bool playerIsDead = false;
+float respawnCountdown = 0.0f;
 char serverIP[32] = "127.0.0.1";
 int serverPort = 7777;
 char authToken[256] = "";
@@ -1503,6 +1509,38 @@ int main(int argc, char** argv) {
                                 }
                             }
                         }
+                        else if (header->type == PacketType::PLAYER_HEALTH) {
+                            if (header->size < sizeof(PacketPlayerHealth)) {
+                                std::cerr << "ERROR: Invalid PLAYER_HEALTH packet size" << std::endl;
+                                offset += packetSize;
+                                continue;
+                            }
+                            PacketPlayerHealth* pkt = (PacketPlayerHealth*)(packetBuffer + offset + sizeof(PacketHeader));
+                            const float maxHealth = pkt->maxHealth > 0.0f ? pkt->maxHealth : 100.0f;
+                            if (pkt->playerId == myPlayerId && myCharacter) {
+                                myCharacter->health = pkt->health;
+                                myCharacter->maxHealth = maxHealth;
+                                myCharacter->serverControlsHealth = true;
+
+                                const bool wasDead = playerIsDead;
+                                playerIsDead = pkt->respawnSeconds > 0;
+                                respawnCountdown = static_cast<float>(pkt->respawnSeconds);
+                                if (playerIsDead && !wasDead) {
+                                    // The server is holding the character until the
+                                    // timer ends, so hand the mouse back instead of
+                                    // leaving the player looking around while the
+                                    // countdown runs.
+                                    isCursorLocked = false;
+                                    glfwSetInputMode(window.getNativeWindow(), GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+                                }
+                            } else if (remotePlayers.count(pkt->playerId) != 0) {
+                                Character* remoteChar = remotePlayers[pkt->playerId];
+                                if (remoteChar) {
+                                    remoteChar->health = pkt->health;
+                                    remoteChar->maxHealth = maxHealth;
+                                }
+                            }
+                        }
                         else if (header->type == PacketType::CHAT) {
                             if (header->size < sizeof(PacketChat)) {
                                 std::cerr << "ERROR: Invalid CHAT packet size" << std::endl;
@@ -1687,6 +1725,8 @@ int main(int argc, char** argv) {
                                 
                                 // Immediately update character to position all parts correctly
                                 if (myCharacter) {
+                                    myCharacter->serverControlsHealth =
+                                        (currentState == ONLINE);
                                     myCharacter->setFaceTexture(textureForFace(currentAvatar.faceId));
                                     myCharacter->update(0.0f, nullptr, false);
                                 }
@@ -1799,12 +1839,22 @@ int main(int argc, char** argv) {
                 }
             }
 
+            // The countdown is drawn locally between the server's packets; the
+            // server still decides when the respawn actually happens.
+            if (respawnCountdown > 0.0f) {
+                respawnCountdown = std::max(0.0f, respawnCountdown - deltaTime);
+                if (respawnCountdown <= 0.0f) {
+                    playerIsDead = false;
+                }
+            }
+
             if (myCharacter) {
                 myCharacter->faceCameraYaw = shiftLockEnabled;
                 myCharacter->cameraShoulderOffset = shiftLockEnabled ? 1.5f : 0.0f;
             }
 
-            if ((isConnected || currentState == OFFLINE) && myCharacter && !io.WantCaptureKeyboard && !escapeMenuOpen) {
+            if ((isConnected || currentState == OFFLINE) && myCharacter && !io.WantCaptureKeyboard &&
+                !escapeMenuOpen && !playerIsDead) {
                  try {
                      bool fwd = glfwGetKey(window.getNativeWindow(), GLFW_KEY_W) == GLFW_PRESS;
                      bool bwd = glfwGetKey(window.getNativeWindow(), GLFW_KEY_S) == GLFW_PRESS;

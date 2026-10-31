@@ -21,6 +21,7 @@ option(RBLX_BUILD_CLIENT "Build the game client target" ON)
 option(RBLX_BUILD_SERVER "Build the game server target" ON)
 option(RBLX_BUILD_TESTS "Build C++ test targets" ON)
 option(RBLX_BUILD_WEBAPP "Build the native website backend target" ON)
+option(RBLX_BUILD_TRAINER "Build the headless AI trainer target" ON)
 option(RBLX_BUILD_ANTICHEAT "Embed the vendored RBLXAntiCheat library in the game client (Windows only)" ON)
 option(RBLX_ENABLE_WARNINGS "Enable stricter compiler warnings" ON)
 
@@ -237,6 +238,25 @@ if(RBLX_BUILD_SERVER)
     else()
         find_package(Threads REQUIRED)
         target_link_libraries(Server PRIVATE Threads::Threads)
+    endif()
+endif()
+
+if(RBLX_BUILD_TRAINER)
+    # Headless learner: loads a .world, drives the same Character and PhysicsWorld
+    # the game uses, and writes a policy file. No window and no GL, so it runs on
+    # a build machine or in CI.
+    add_executable(AiTrainer
+        src/AiTrainer.cpp
+        src/PhysicsWorld.cpp
+        src/Character.cpp
+        src/Camera.cpp
+        src/WorldLoader.cpp
+    )
+    configure_rblx_target(AiTrainer)
+    target_link_libraries(AiTrainer PRIVATE reactphysics3d glm)
+    if(NOT WIN32)
+        find_package(Threads REQUIRED)
+        target_link_libraries(AiTrainer PRIVATE Threads::Threads)
     endif()
 endif()
 

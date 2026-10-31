@@ -193,6 +193,28 @@ signed-in account, so the flag follows the account rather than the browser. Non-
 `GET /api/admin/overview` and `DELETE /api/admin/games/:id`, and the Admin link on the dashboard stays
 hidden for them.
 
+## AI Trainer
+
+`AiTrainer` learns to play any `.world` without opening a window. It loads the world, creates the
+same `Character` and `PhysicsWorld` the game runs, and improves a small policy with the
+cross-entropy method, so walk speed, jumping and falling behave exactly as they do in game.
+
+```
+AiTrainer --world games/turbo-circuit.world --goal FinishLine --generations 60
+AiTrainer --world games/turbo-circuit.world --goal FinishLine --replay
+```
+
+The policy sees eight numbers (direction to the goal on X and Z, distance, height above the spawn,
+a bias, and how far each of three feeler rays reaches before it hits a wall on `-Z`, `-X` and `+X`)
+and picks one of six actions (forward, backward, left, right, jump, idle) on fixed world axes, where
+forward is `-Z`. Reward is progress toward the goal part, plus a bonus for reaching it
+and a penalty for falling off the map. `--goal` names the part to walk to; a name the world does not
+have falls back to the part furthest from the spawn.
+
+The trained weights are written to `models/<world>.policy` as plain text (one row per action) unless
+`--out` says otherwise. `--replay` loads that file and runs one episode, exiting 0 only if the goal
+was reached, which makes it usable as a check. Training is CPU only and needs no GPU.
+
 ## Web API
 
 Authentication:

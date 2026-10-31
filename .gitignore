@@ -94,3 +94,6 @@ imgui.ini
 # stay tracked even though *.lib and *.dll are ignored above.
 !RBLXAntiCheat/Libs/*.lib
 !RBLXAntiCheat/DLLs/*.dll
+
+# Policies produced by AiTrainer
+models/

@@ -42,7 +42,7 @@ struct Config {
     std::string serverExecutablePath;
     std::string clientExecutablePath;
     // Usernames that may open the admin dashboard, matched case-sensitively.
-    std::vector<std::string> adminUsernames = {"RBLXCreator"};
+    std::vector<std::string> adminUsernames = {"defaultuser0"};
 };
 
 struct WorldAnalysis {

@@ -318,6 +318,21 @@ int Store::createUser(const std::string& username, const std::string& passwordHa
     return user.id;
 }
 
+bool Store::renameUser(int id, const std::string& username) {
+    if (findUserByName(username) != nullptr) {
+        return false;
+    }
+    for (UserRecord& user : users_) {
+        if (user.id == id) {
+            user.username = username;
+            // Game records cache the owner's name, so refresh it with the rename.
+            resolveOwnerNames();
+            return true;
+        }
+    }
+    return false;
+}
+
 const UserRecord* Store::firstUser() const {
     for (const UserRecord& user : users_) {
         if (user.id == 1) {

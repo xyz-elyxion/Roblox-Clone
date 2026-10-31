@@ -171,9 +171,15 @@ Configuration comes from the environment:
 - `GAME_INSTANCE_EMPTY_GRACE_MS` - how long an empty game instance stays up, default `30000`.
 - `SERVER_EXECUTABLE_PATH` / `CLIENT_EXECUTABLE_PATH` - binaries launched when a game is played.
 - `PUBLIC_BASE_URL` - URL handed to the native server/client for web auth.
-- `ADMIN_USERNAMES` - comma-separated accounts allowed into `/admin`, default `RBLXCreator`.
+- `ADMIN_USERNAMES` - comma-separated accounts allowed into `/admin`, default `defaultuser0`.
 
 Passwords are stored as PBKDF2-SHA256 hashes and sessions are HS256 JWTs.
+
+A fresh install seeds one account, `defaultuser0`, with the password `local-starter-account`. It owns
+the starter games and is the default admin, so `POST /api/login` with
+`{"username":"defaultuser0","password":"local-starter-account"}` signs into it. Installs from
+earlier builds seeded the same account as `RBLXCreator`; it is renamed to `defaultuser0` on startup
+with its id, password and games unchanged.
 
 ## Admin Dashboard
 
@@ -182,7 +188,7 @@ the full user and game lists, the running game-server instances, and a Delete ac
 game together with its published `.world` file (stopping any instance for it first).
 
 Admin access is by username: set `ADMIN_USERNAMES` to a comma-separated list, or leave it unset to
-make the seeded `RBLXCreator` account the only admin. The list is matched case-sensitively against the
+make the seeded `defaultuser0` account the only admin. The list is matched case-sensitively against the
 signed-in account, so the flag follows the account rather than the browser. Non-admins get `403` from
 `GET /api/admin/overview` and `DELETE /api/admin/games/:id`, and the Admin link on the dashboard stays
 hidden for them.

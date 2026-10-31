@@ -1002,8 +1002,8 @@ bool loadConfigFromEnvironment(Config* config, std::string* error) {
     loaded.adminUsernames.clear();
     const std::string adminNames = envString("ADMIN_USERNAMES");
     if (adminNames.empty()) {
-        // The seeded creator account owns the starter games.
-        loaded.adminUsernames.push_back("RBLXCreator");
+        // The seeded starter account owns the starter games.
+        loaded.adminUsernames.push_back("defaultuser0");
     } else {
         for (const std::string& name : splitCsv(adminNames)) {
             const std::string trimmed = trimCopy(name);
@@ -1082,6 +1082,21 @@ bool WebsiteApp::initialize(std::string* error) {
     if (!store_.load(error)) {
         return false;
     }
+
+    // Earlier builds seeded the starter account as RBLXCreator. It owns the
+    // starter games and is the default admin, so an install that still has it
+    // is renamed in place: the id, password hash and games all stay with the
+    // account, and it can be signed into under the documented starter name.
+    if (const UserRecord* legacy = store_.findUserByName("RBLXCreator")) {
+        if (store_.findUserByName("defaultuser0") == nullptr &&
+            store_.renameUser(legacy->id, "defaultuser0")) {
+            std::string saveError;
+            if (!store_.save(&saveError)) {
+                std::fprintf(stderr, "Could not save the data file: %s\n", saveError.c_str());
+            }
+        }
+    }
+
     if (!seedStarterGames(error)) {
         return false;
     }
@@ -1161,7 +1176,7 @@ bool WebsiteApp::seedStarterGames(std::string* error) {
     } else {
         const std::string passwordHash =
             hashPassword("local-starter-account", config_.passwordIterations);
-        ownerId = store_.createUser("RBLXCreator", passwordHash, nowIso());
+        ownerId = store_.createUser("defaultuser0", passwordHash, nowIso());
         if (ownerId <= 0) {
             if (error) {
                 *error = "Could not create the starter account.";

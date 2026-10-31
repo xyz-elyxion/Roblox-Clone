@@ -104,6 +104,9 @@ public:
     const UserRecord* findUserById(int id) const;
     int createUser(const std::string& username, const std::string& passwordHash,
                    const std::string& nowIso);
+    // Keeps the account's id, password hash and ownership; refuses a name that
+    // another account already holds.
+    bool renameUser(int id, const std::string& username);
     const UserRecord* firstUser() const;
     const std::vector<UserRecord>& users() const { return users_; }
     std::vector<const UserRecord*> searchUsers(const std::string& query, std::size_t limit) const;

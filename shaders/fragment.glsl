@@ -143,18 +143,22 @@ float ShadowCalculation(vec4 fragPosLightSpace, vec3 normal, vec3 lightDir)
 }
 
 void main() {
-    const float matId = floor(material + 0.5);
+    // These four were declared const, which GLSL 3.30 only allows for constant
+    // expressions. A uniform, a texture lookup helper and an attribute-derived
+    // value are none of those, so drivers that enforce the spec refused to build
+    // the shader at all and drew nothing but the sky.
+    float matId = floor(material + 0.5);
     vec3 albedo = toLinear(PartColor);
     vec3 N = normalize(Normal);
     vec3 V = normalize(viewPos - FragPos);
 
-    const vec3 surfacePos = LocalPos * partSize;
-    const vec2 surfaceUv = boxUv(LocalPos, LocalNormal);
+    vec3 surfacePos = LocalPos * partSize;
+    vec2 surfaceUv = boxUv(LocalPos, LocalNormal);
 
-    const bool isFacePart = isCamera > 0.5;
+    bool isFacePart = isCamera > 0.5;
     // Studs belong to plastic bricks. A smooth plastic, metal or grass surface
     // studded like a brick was the giveaway that materials were only a colour.
-    const bool studded = !isFacePart && matId < 0.5;
+    bool studded = !isFacePart && matId < 0.5;
 
     float surfaceShade = 1.0;
 

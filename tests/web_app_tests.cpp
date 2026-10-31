@@ -199,6 +199,14 @@ void testWorld() {
     check(!analysis.source.empty() && analysis.source.back() == '\n',
           "world analysis normalises the trailing newline");
 
+    // Parts may carry two optional trailing fields, a material id and a quoted
+    // texture path. Publishing has to keep accepting worlds that use them.
+    const std::string materialWorld = "1\n" + validWorldLine() + " 3 \"brick.png\"\n";
+    error.clear();
+    check(rblx::web::analyzeWorldSource(materialWorld, &analysis, &error),
+          "world analysis accepts material and texture fields");
+    check(analysis.partsCount == 1, "a material world still counts its parts");
+
     error.clear();
     check(!rblx::web::analyzeWorldSource("", &analysis, &error), "world analysis rejects empty data");
     checkEqual(error, "World data is required.", "empty world reports the expected message");

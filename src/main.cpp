@@ -89,6 +89,16 @@ namespace {
                 out << ' ' << targetIndex;
             }
 
+            // Material and texture are optional trailing fields: a world that
+            // uses neither writes nothing extra and keeps the old byte layout,
+            // which older readers still load.
+            if (part.material != Material::Plastic || !part.texture.empty()) {
+                out << ' ' << static_cast<int>(part.material);
+                if (!part.texture.empty()) {
+                    out << ' ' << std::quoted(part.texture);
+                }
+            }
+
             out << '\n';
         }
 
@@ -469,6 +479,23 @@ int main() {
                     physicsWorld.updatePartBody(&part);
                 }
                 ImGui::ColorEdit3("Color", glm::value_ptr(part.color));
+
+                static const char* materialLabels[kMaterialCount] = {
+                    "Plastic", "Smooth plastic", "Neon", "Metal",
+                    "Wood", "Grass", "Concrete", "Brick"
+                };
+                int materialIndex = static_cast<int>(part.material);
+                if (ImGui::Combo("Material", &materialIndex, materialLabels, kMaterialCount)) {
+                    part.material = static_cast<Material>(materialIndex);
+                }
+
+                char texturePath[128] = {};
+                std::snprintf(texturePath, sizeof(texturePath), "%s", part.texture.c_str());
+                if (ImGui::InputText("Texture", texturePath, sizeof(texturePath))) {
+                    part.texture = texturePath;
+                }
+                ImGui::TextDisabled("Tiles over the part; image goes in textures/.");
+
                 ImGui::Checkbox("Anchored", &part.anchored);
                 ImGui::Checkbox("Can collide", &part.canCollide);
             } else {

@@ -2,6 +2,8 @@
 
 #include "Shader.h"
 #include "Part.h"
+#include <map>
+#include <string>
 #include <vector>
 #include <glm/glm.hpp>
 
@@ -26,4 +28,10 @@ private:
     void initCubeMesh();
     void initSphereMesh();
     void initWedgeMesh();
+
+    // Part textures are loaded on first use and kept for the life of the
+    // renderer. A failed load is cached as 0 so a typo in a world file is logged
+    // once instead of being retried every frame for every part using it.
+    std::map<std::string, unsigned int> partTextures;
+    unsigned int textureForPart(const std::string& path);
 };

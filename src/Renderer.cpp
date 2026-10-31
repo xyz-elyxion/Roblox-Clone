@@ -4,6 +4,26 @@
 // ... (rest of includes)
 #include <vector>
 #include <cmath>
+#include <iostream>
+#include <string>
+
+#include "stb_image.h"
+
+namespace {
+// A texture name comes from a world file anybody can publish, so it is held to
+// plain relative image paths: no absolute paths and no parent traversal.
+bool isSafeTexturePath(const std::string& path) {
+    if (path.empty() || path.size() > 96) return false;
+    if (path.find("..") != std::string::npos) return false;
+    if (path.front() == '/' || path.front() == '\\') return false;
+    for (const char c : path) {
+        const bool allowed = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
+                             (c >= '0' && c <= '9') || c == '_' || c == '-' || c == '.' || c == '/';
+        if (!allowed) return false;
+    }
+    return true;
+}
+} // namespace
 
 Renderer::Renderer() : shader(nullptr), depthShader(nullptr), cubeVAO(0), cubeVBO(0), sphereVAO(0), sphereVBO(0), sphereEBO(0), wedgeVAO(0), wedgeVBO(0) {}
 
@@ -72,6 +92,17 @@ void Renderer::drawPart(const Part& part, const glm::mat4& view, const glm::mat4
     shader->setVec3("color", part.color);
     shader->setFloat("transparency", part.transparency);
     shader->setFloat("reflectance", part.reflectance);
+    shader->setFloat("material", static_cast<float>(part.material));
+
+    // Part textures are resolved here rather than in the clients so Studio and
+    // the game use the same loader, cache and tiling.
+    const unsigned int partTexture = textureForPart(part.texture);
+    shader->setInt("partTexture", 3);
+    shader->setFloat("hasPartTexture", partTexture > 0 ? 1.0f : 0.0f);
+    if (partTexture > 0) {
+        glActiveTexture(GL_TEXTURE3);
+        glBindTexture(GL_TEXTURE_2D, partTexture);
+    }
     // Check if this is a head part (character head) or camera part
     bool isHeadPart = (part.name == "Head");
     unsigned int activeFaceTexture = (isHeadPart && part.textureId > 0) ? part.textureId : faceTexture;
@@ -199,6 +230,72 @@ void Renderer::drawPartShadow(const Part& part, const glm::mat4& lightSpaceMatri
         glDrawArrays(GL_TRIANGLES, 0, count);
     }
     glBindVertexArray(0);
+}
+
+unsigned int Renderer::textureForPart(const std::string& path) {
+    if (path.empty()) {
+        return 0;
+    }
+
+    const auto cached = partTextures.find(path);
+    if (cached != partTextures.end()) {
+        return cached->second;
+    }
+
+    if (!isSafeTexturePath(path)) {
+        std::cerr << "Refusing unsafe part texture path: " << path << std::endl;
+        partTextures[path] = 0;
+        return 0;
+    }
+
+    // A world names its texture relative to textures/, but Studio and the client
+    // run from different working directories, so try the same three places the
+    // shaders are looked for.
+    const std::string candidates[] = {path, "textures/" + path, "../../textures/" + path};
+    int width = 0;
+    int height = 0;
+    int channels = 0;
+    unsigned char* data = nullptr;
+    std::string loadedFrom;
+    for (const std::string& candidate : candidates) {
+        data = stbi_load(candidate.c_str(), &width, &height, &channels, 4);
+        if (data && width > 0 && height > 0) {
+            loadedFrom = candidate;
+            break;
+        }
+        if (data) {
+            stbi_image_free(data);
+            data = nullptr;
+        }
+    }
+
+    if (!data) {
+        std::cerr << "Part texture not found: " << path
+                  << " (looked for it as given, under textures/ and ../../textures/)"
+                  << std::endl;
+        partTextures[path] = 0;
+        return 0;
+    }
+
+    unsigned int textureId = 0;
+    glGenTextures(1, &textureId);
+    glBindTexture(GL_TEXTURE_2D, textureId);
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+    glGenerateMipmap(GL_TEXTURE_2D);
+    // Repeating is what lets one image tile across a whole platform.
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
+
+    stbi_image_free(data);
+    std::cout << "Loaded part texture " << loadedFrom << " (" << width << "x" << height << ")"
+              << std::endl;
+
+    partTextures[path] = textureId;
+    return textureId;
 }
 
 void Renderer::initCubeMesh() {

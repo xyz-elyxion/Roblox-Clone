@@ -111,6 +111,8 @@ struct PartData {
     float reflectance;
     uint8_t physicsFlags; // anchored (bit 0), canCollide (bit 1)
     float mass;
+    uint8_t material; // Material enum value
+    char texture[64]; // Optional image path, relative to textures/
 };
 
 #pragma pack(pop)
@@ -119,7 +121,7 @@ namespace PacketProtocol {
     // Bumped whenever a packet layout or its meaning changes. Sent in the
     // handshake next to `kPacketLayoutSignature` so two differently built
     // binaries fail with an explanation instead of silently misparsing.
-    constexpr uint16_t kProtocolRevision = 2;
+    constexpr uint16_t kProtocolRevision = 3;
 
     constexpr uint16_t packetLayoutSignature() {
         return static_cast<uint16_t>(sizeof(PacketConnect) * 31u + sizeof(PacketWelcome) * 17u +

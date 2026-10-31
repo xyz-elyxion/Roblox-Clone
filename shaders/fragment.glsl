@@ -19,6 +19,19 @@ uniform float hasTexture; // Whether to use face texture
 uniform vec3 lightPos; // The sun: its direction from the origin is the light direction
 uniform vec3 partSize; // Added size for scaling studs
 uniform float isCamera;  // Flag for camera part visualization
+uniform float material;  // Material enum value, see Material in include/Part.h
+uniform sampler2D partTexture; // Tiled image, when the part names one
+uniform float hasPartTexture;
+
+// Material ids, mirroring the Material enum.
+const float MAT_PLASTIC = 0.0;
+const float MAT_SMOOTH_PLASTIC = 1.0;
+const float MAT_NEON = 2.0;
+const float MAT_METAL = 3.0;
+const float MAT_WOOD = 4.0;
+const float MAT_GRASS = 5.0;
+const float MAT_CONCRETE = 6.0;
+const float MAT_BRICK = 7.0;
 
 // Part colours and the skybox are stored as sRGB, the space the palette is
 // picked in. Lighting maths has to happen in linear light and be encoded once on
@@ -31,6 +44,65 @@ vec3 toSrgb(vec3 c) { return pow(max(c, vec3(0.0)), vec3(1.0 / 2.2)); }
 // shader without one, and a sampler with nothing behind it can read back
 // anything at all, so the samples are clamped to a real colour range.
 vec3 sampleSky(vec3 dir) { return clamp(texture(skybox, dir).rgb, 0.0, 1.0); }
+
+float hash21(vec2 p) {
+    p = fract(p * vec2(123.34, 456.21));
+    p += dot(p, p + 45.32);
+    return fract(p.x * p.y);
+}
+
+float valueNoise(vec2 p) {
+    vec2 i = floor(p);
+    vec2 f = fract(p);
+    f = f * f * (3.0 - 2.0 * f);
+    float a = hash21(i);
+    float b = hash21(i + vec2(1.0, 0.0));
+    float c = hash21(i + vec2(0.0, 1.0));
+    float d = hash21(i + vec2(1.0, 1.0));
+    return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+}
+
+// Box mapping in stud units: every face samples the same image without needing
+// the mesh to carry UVs, and the scale comes from the part's size so a small
+// brick and a large platform show tiles of the same physical size.
+vec2 boxUv(vec3 localPos, vec3 localNormal) {
+    vec3 p = localPos * partSize;
+    vec3 n = abs(localNormal);
+    if (n.y >= n.x && n.y >= n.z) return p.xz;
+    if (n.x >= n.z) return p.zy;
+    return p.xy;
+}
+
+// Procedural surface patterns for the flat materials. They are deliberately
+// cheap and coarse: the point is that a wall reads as brick and a plank reads as
+// wood from across the map, not that it survives a close-up shader review.
+vec3 materialPattern(float matId, vec2 uv, vec3 p) {
+    if (abs(matId - MAT_WOOD) < 0.5) {
+        float rings = sin(p.y * 6.5 + valueNoise(p.xz * 1.3) * 4.0);
+        float grain = valueNoise(vec2(p.x * 2.0, p.y * 22.0));
+        return vec3(0.84 + 0.16 * rings) * (0.92 + 0.08 * grain);
+    }
+    if (abs(matId - MAT_GRASS) < 0.5) {
+        float clumps = valueNoise(p.xz * 2.2) * 0.65 + valueNoise(p.xz * 8.0) * 0.35;
+        return mix(vec3(0.74, 0.88, 0.70), vec3(1.10, 1.06, 0.94), clumps);
+    }
+    if (abs(matId - MAT_CONCRETE) < 0.5) {
+        float speck = valueNoise(p.xz * 13.0 + p.y * 5.0);
+        float blotch = valueNoise(p.xz * 2.6 + p.y * 1.4);
+        return vec3(0.84 + 0.10 * speck + 0.06 * blotch);
+    }
+    if (abs(matId - MAT_BRICK) < 0.5) {
+        vec2 brickUv = uv * vec2(0.5, 1.0);
+        float row = floor(brickUv.y);
+        brickUv.x += mod(row, 2.0) * 0.5;
+        vec2 cell = fract(brickUv);
+        float mortar = smoothstep(0.0, 0.05, cell.x) * smoothstep(0.0, 0.05, 1.0 - cell.x) *
+                       smoothstep(0.0, 0.09, cell.y) * smoothstep(0.0, 0.09, 1.0 - cell.y);
+        float tint = 0.86 + 0.14 * hash21(floor(brickUv));
+        return mix(vec3(0.68, 0.64, 0.60), vec3(tint), mortar);
+    }
+    return vec3(1.0);
+}
 
 float ShadowCalculation(vec4 fragPosLightSpace, vec3 normal, vec3 lightDir)
 {
@@ -71,25 +143,26 @@ float ShadowCalculation(vec4 fragPosLightSpace, vec3 normal, vec3 lightDir)
 }
 
 void main() {
+    const float matId = floor(material + 0.5);
     vec3 albedo = toLinear(PartColor);
     vec3 N = normalize(Normal);
     vec3 V = normalize(viewPos - FragPos);
 
-    // The sun is the light position, and the shadow camera looks from that same
-    // point at the origin, so the light direction is the same across the world.
-    // Deriving it per fragment turned it into a point light and lit identical
-    // builds differently depending on where they stood.
-    vec3 L = normalize(lightPos);
-    vec3 sunColor = vec3(1.0, 0.97, 0.92);
+    const vec3 surfacePos = LocalPos * partSize;
+    const vec2 surfaceUv = boxUv(LocalPos, LocalNormal);
 
-    bool isFacePart = isCamera > 0.5;
+    const bool isFacePart = isCamera > 0.5;
+    // Studs belong to plastic bricks. A smooth plastic, metal or grass surface
+    // studded like a brick was the giveaway that materials were only a colour.
+    const bool studded = !isFacePart && matId < 0.5;
+
     float surfaceShade = 1.0;
 
     // --- Studs and inlets ---
     // These used to be painted circles. Tilting the normal towards the stud rim
     // lets the sun shade them like the raised cylinder they represent, and a
     // contact shadow where the stud meets the face sells the height.
-    if (!isFacePart && LocalNormal.y > 0.5) {
+    if (studded && LocalNormal.y > 0.5) {
         vec2 uv = LocalPos.xz * partSize.xz;
         vec2 cell = fract(uv) - 0.5;
         float r = length(cell);
@@ -103,7 +176,7 @@ void main() {
         } else if (r < 0.36) {
             surfaceShade = mix(0.74, 1.0, smoothstep(0.30, 0.36, r));
         }
-    } else if (!isFacePart && LocalNormal.y < -0.9) {
+    } else if (studded && LocalNormal.y < -0.9) {
         vec2 uv = LocalPos.xz * partSize.xz;
         vec2 cell = fract(uv) - 0.5;
         float r = length(cell);
@@ -120,6 +193,49 @@ void main() {
         }
     }
 
+    // --- Texture ---
+    // One tile per two studs, multiplied by the part colour so a texture can be
+    // tinted the same way a plain part is.
+    if (hasPartTexture > 0.5) {
+        vec4 texel = texture(partTexture, surfaceUv * 0.5);
+        albedo = toLinear(texel.rgb) * albedo;
+    }
+
+    albedo *= materialPattern(matId, surfaceUv, surfacePos);
+
+    // --- Lighting parameters per material ---
+    float gloss = clamp(reflectance, 0.0, 1.0);
+    float shininess = mix(64.0, 8.0, gloss);
+    float specStrength = 0.04 + 0.55 * gloss;
+    float ambientStrength = 0.42;
+    float shadowStrength = 1.0;
+
+    if (abs(matId - MAT_SMOOTH_PLASTIC) < 0.5) {
+        gloss = max(gloss, 0.20);
+        shininess = mix(96.0, 32.0, gloss);
+        specStrength = 0.28 + 0.55 * gloss;
+    } else if (abs(matId - MAT_NEON) < 0.5) {
+        ambientStrength = 0.0;
+        shadowStrength = 0.0;
+        specStrength = 0.0;
+    } else if (abs(matId - MAT_METAL) < 0.5) {
+        gloss = max(gloss, 0.60);
+        shininess = 28.0;
+        specStrength = 0.80;
+        ambientStrength = 0.30;
+    } else if (matId > MAT_METAL + 0.5) {
+        specStrength = 0.03;
+        shininess = 14.0;
+        ambientStrength = 0.46;
+    }
+
+    // The sun is the light position, and the shadow camera looks from that same
+    // point at the origin, so the light direction is the same across the world.
+    // Deriving it per fragment turned it into a point light and lit identical
+    // builds differently depending on where they stood.
+    vec3 L = normalize(lightPos);
+    vec3 sunColor = vec3(1.0, 0.97, 0.92);
+
     // --- Ambient ---
     // Sky above, bounced ground light below: what gives stacked bricks a lit top
     // and a darker underside without any extra geometry.
@@ -128,20 +244,17 @@ void main() {
     vec3 ambientTint = mix(groundTint, skyTint, 0.5 + 0.5 * N.y);
     // Kept mostly neutral so a solid-colour skybox does not wash the world blue.
     ambientTint = mix(vec3(1.0), ambientTint, 0.55);
-    vec3 ambient = albedo * surfaceShade * ambientTint * 0.42;
+    vec3 ambient = albedo * surfaceShade * ambientTint * ambientStrength;
 
     // --- Sun ---
     float ndl = max(dot(N, L), 0.0);
-    float shadow = ShadowCalculation(FragPosLightSpace, N, L);
+    float shadow = ShadowCalculation(FragPosLightSpace, N, L) * shadowStrength;
 
     vec3 diffuse = albedo * surfaceShade * sunColor * ndl;
 
     // Matte plastic, glossier as reflectance rises. Blinn-Phong with a low base
     // strength keeps parts from looking wet the way a flat 0.5 highlight did.
     vec3 H = normalize(L + V);
-    float gloss = clamp(reflectance, 0.0, 1.0);
-    float shininess = mix(64.0, 8.0, gloss);
-    float specStrength = 0.04 + 0.55 * gloss;
     float spec = pow(max(dot(N, H), 0.0), shininess);
     vec3 specular = sunColor * spec * specStrength * ndl;
 
@@ -150,7 +263,18 @@ void main() {
     // --- Reflection map ---
     vec3 R = reflect(-V, N);
     vec3 reflectionColor = toLinear(sampleSky(R));
-    finalColor = mix(finalColor, reflectionColor, gloss);
+    if (abs(matId - MAT_METAL) < 0.5) {
+        // Metal reflects its own colour; that tint is what separates it from a
+        // very shiny plastic.
+        reflectionColor *= albedo * 2.0 + 0.2;
+    }
+    finalColor = mix(finalColor, reflectionColor, clamp(gloss, 0.0, 0.9));
+
+    // Neon emits instead of being lit, so it reads as a light source in a dark
+    // map rather than as a bright plastic.
+    if (abs(matId - MAT_NEON) < 0.5) {
+        finalColor = albedo * (1.55 + 0.45 * ndl) + albedo * 0.2;
+    }
 
     // --- Camera Part / Head Part Face Visualization ---
     if (isFacePart) {

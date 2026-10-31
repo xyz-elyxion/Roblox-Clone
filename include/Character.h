@@ -67,7 +67,10 @@ private:
     int rightLegIndex;
 
     // Animation State
-    float walkTime;
+    float walkTime;   // Walk cycle phase, kept while the walk blends out
+    float walkBlend;  // 0 idle, 1 full walk cycle
+    float airBlend;   // 0 grounded, 1 airborne pose
+    float idleTime;
     bool isWalking;
     float zoomDistance;
 

@@ -74,6 +74,10 @@ try {
 
     # Data the executables read from their working directory.
     Copy-Item -LiteralPath 'shaders' -Destination (Join-Path $Output 'shaders') -Recurse
+    # Part textures: world files name their images relative to this folder.
+    if (Test-Path -LiteralPath 'textures') {
+        Copy-Item -LiteralPath 'textures' -Destination (Join-Path $Output 'textures') -Recurse
+    }
     Copy-Item -LiteralPath 'ServerWorld.world' -Destination $Output
     Get-ChildItem -LiteralPath '.' -File |
         Where-Object {

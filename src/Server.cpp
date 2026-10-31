@@ -13,6 +13,7 @@
 #include <deque>
 #include <limits>
 #include "Network.h"
+#include "MovementGuard.h"
 #include "Part.h"
 #include "PhysicsWorld.h"
 #include "WorldLoader.h"
@@ -56,6 +57,8 @@ struct ConnectedPlayer {
     glm::vec3 leftLegColor = glm::vec3(0.2f, 0.6f, 0.2f);
     glm::vec3 rightLegColor = glm::vec3(0.2f, 0.6f, 0.2f);
     std::string faceId = DEFAULT_FACE_ID;
+    // The server's own view of where this player can legitimately be.
+    rblx::movement::Guard movement;
 };
 
 std::map<int, ConnectedPlayer> players;
@@ -578,6 +581,9 @@ void teleportPlayer(const std::string& username, const glm::vec3& position) {
             player.shadowBody->setLinearVelocity(rp3d::Vector3(0.0f, 0.0f, 0.0f));
             player.shadowBody->setAngularVelocity(rp3d::Vector3(0.0f, 0.0f, 0.0f));
         }
+        // A script moved this player: that position is the server's own, so it
+        // becomes the baseline the next packet is measured against.
+        player.movement.teleport(position, steadyMilliseconds());
         sendToPlayer(player, PacketProtocol::buildStructPacket(PacketType::TELEPORT, player.state), true);
         return;
     }
@@ -1069,6 +1075,8 @@ static int runServer(int argc, char** argv) {
                             if (p.canCollide) data.physicsFlags |= 2;
 
                             data.mass = p.mass;
+                            data.material = static_cast<uint8_t>(p.material);
+                            copyFixedString(data.texture, sizeof(data.texture), p.texture);
                             worldData.push_back(data);
                         }
 
@@ -1123,6 +1131,27 @@ static int runServer(int argc, char** argv) {
                         player.state = pkt;
                         player.state.playerId = id;
                         player.state.health = std::max(0.0f, std::min(100.0f, player.state.health));
+
+                        // The client simulates its own character, so this
+                        // position is a claim. Hold it against the last one the
+                        // server accepted and clamp anything a player could not
+                        // have walked, jumped or fallen into.
+                        const rblx::movement::Correction movement =
+                            player.movement.validate(player.state.position, nowMs);
+                        if (movement.corrected) {
+                            player.state.position = movement.position;
+                            if (movement.flight || player.movement.corrections() <= 3 ||
+                                player.movement.corrections() % 100 == 0) {
+                                std::cerr << "Corrected movement for player " << id << " ("
+                                          << (movement.flight ? "climbed without falling"
+                                                              : "moved faster than allowed")
+                                          << ", " << player.movement.corrections()
+                                          << " corrections so far)" << std::endl;
+                            }
+                            // Snap the client back, otherwise it keeps
+                            // predicting from the position just rejected.
+                            sendToPlayer(player, PacketProtocol::buildStructPacket(PacketType::TELEPORT, player.state), true);
+                        }
 
                         updatePlayerShadowBody(player);
                         broadcastPacket(PacketProtocol::buildStructPacket(PacketType::PLAYER_STATE, player.state), id);

@@ -1,4 +1,5 @@
 #include "Character.h"
+#include <algorithm>
 #include <cmath>
 #include <iostream>
 
@@ -23,7 +24,8 @@ Character::Character(glm::vec3 startPos, PhysicsWorld* physicsWorld, std::deque<
       debugMoveDir(0.0f), health(100.0f), maxHealth(100.0f),
       physicsWorld(physicsWorld), partsList(partsList), spawnPoint(startPos),
       headIndex(-1), torsoIndex(-1), leftArmIndex(-1), rightArmIndex(-1),
-      leftLegIndex(-1), rightLegIndex(-1), walkTime(0.0f), isWalking(false),
+      leftLegIndex(-1), rightLegIndex(-1), walkTime(0.0f), walkBlend(0.0f),
+      airBlend(0.0f), idleTime(0.0f), isWalking(false),
       zoomDistance(15.0f), internalYaw(0.0f), hasReceivedFirstRotation(false),
       rootPartIndex(-1) {
     
@@ -46,6 +48,7 @@ Character::Character(glm::vec3 startPos, PhysicsWorld* physicsWorld, std::deque<
     rootPart.canCollide = true;
     rootPart.mass = 10.0f;
     rootPart.transparency = 1.0f; // Invisible
+    rootPart.material = Material::SmoothPlastic;
     
     partsList->push_back(rootPart);
     rootPartIndex = partsList->size() - 1;
@@ -65,6 +68,9 @@ Character::Character(glm::vec3 startPos, PhysicsWorld* physicsWorld, std::deque<
     torso.parentIndex = folderIndex; 
     torso.anchored = true;
     torso.canCollide = false;
+    // Avatar limbs are smooth: studs on an arm read as a stack of bricks, not a
+    // character.
+    torso.material = Material::SmoothPlastic;
     partsList->push_back(torso);
     torsoIndex = partsList->size() - 1;
 
@@ -74,6 +80,7 @@ Character::Character(glm::vec3 startPos, PhysicsWorld* physicsWorld, std::deque<
         p.parentIndex = folderIndex; 
         p.anchored = true; 
         p.canCollide = false; 
+        p.material = Material::SmoothPlastic;
         partsList->push_back(p);
         return partsList->size() - 1;
     };
@@ -243,80 +250,105 @@ void Character::update(float deltaTime, Camera* camera, bool isSprinting) {
     }
 
     // 2. Animation
+    // The avatar is a root plus five boxes, so the pose is sold with blending
+    // rather than a joint chain: one walk phase drives the swing, and separate
+    // weights ease the walk and the airborne pose in and out. Snapping the swing
+    // to zero the moment a key was released is what made movement look like a
+    // sliding toy.
     glm::vec3 rootPos = root.position;
-    glm::vec3 rootRot = root.rotation; 
+    glm::vec3 rootRot = root.rotation;
 
-    if (isWalking) {
-        float speed = 10.0f;
-        if (!isRemote && body) {
-             rp3d::Vector3 v = body->getLinearVelocity();
-             speed = glm::length(glm::vec2(v.x, v.z));
-        }
-        walkTime += deltaTime * speed * 0.5f; 
-    } else {
-        walkTime = 0; 
-    }
-    
-    float armAngle = std::sin(walkTime) * 45.0f;
-    float legAngle = std::sin(walkTime) * 45.0f;
-    
-    if (isJumping) {
-        armAngle = 180.0f; 
-        legAngle = 0.0f; 
+    float horizontalSpeed = 0.0f;
+    if (body) {
+        rp3d::Vector3 velocity = body->getLinearVelocity();
+        horizontalSpeed = glm::length(glm::vec2(velocity.x, velocity.z));
     }
 
-    auto updateLimb = [&](int index, glm::vec3 offset, float rotX, float rotY, float rotZ) {
-        if (index < 0 || index >= partsList->size()) return;
+    const float walkTarget = isWalking ? 1.0f : 0.0f;
+    const float airTarget = isJumping ? 1.0f : 0.0f;
+    walkBlend += (walkTarget - walkBlend) * std::min(1.0f, deltaTime * 9.0f);
+    airBlend += (airTarget - airBlend) * std::min(1.0f, deltaTime * 7.0f);
+    if (walkBlend < 0.002f) walkBlend = walkTarget;
+    if (airBlend < 0.002f) airBlend = airTarget;
+    idleTime += deltaTime;
+
+    // Faster legs turn faster, but the phase keeps its value while the walk
+    // blends out, so the character eases to a stop instead of resetting mid-stride.
+    const float strideRate = std::clamp(horizontalSpeed * 0.62f, 6.0f, 13.0f);
+    if (walkBlend > 0.002f) {
+        walkTime += deltaTime * strideRate * walkBlend;
+    }
+
+    const float swing = std::sin(walkTime) * walkBlend;
+    const float idleSway = std::sin(idleTime * 1.6f);
+    const float breathe = std::sin(idleTime * 1.9f) * 0.035f;
+
+    // Airborne pose: arms up and out, legs tucked, instead of the old 180° that
+    // put both arms straight over the head.
+    const float airArmPitch = -135.0f;
+    const float airLegPitch = -26.0f;
+    float leftArmPitch = swing * 34.0f;
+    float rightArmPitch = -swing * 34.0f;
+    float leftLegPitch = -swing * 40.0f;
+    float rightLegPitch = swing * 40.0f;
+    leftArmPitch = glm::mix(leftArmPitch, airArmPitch, airBlend);
+    rightArmPitch = glm::mix(rightArmPitch, airArmPitch, airBlend);
+    leftLegPitch = glm::mix(leftLegPitch, airLegPitch, airBlend);
+    rightLegPitch = glm::mix(rightLegPitch, airLegPitch, airBlend);
+
+    // A slow sway at rest, small enough that it never fights the walk cycle.
+    const float idleArm = idleSway * 2.2f * (1.0f - walkBlend) * (1.0f - airBlend);
+    leftArmPitch += idleArm;
+    rightArmPitch -= idleArm;
+
+    auto yawed = [&](const glm::vec3& local) {
+        const float yaw = glm::radians(rootRot.y);
+        const float c = std::cos(yaw);
+        const float s = std::sin(yaw);
+        return glm::vec3(local.x * c + local.z * s, local.y, -local.x * s + local.z * c);
+    };
+
+    auto placeDirect = [&](int index, const glm::vec3& localCenter, float pitchDeg,
+                           float twistDeg, float rollDeg) {
+        if (index < 0 || index >= static_cast<int>(partsList->size())) return;
         Part& p = (*partsList)[index];
-        if (p.deleted) return; // Part is deleted
-        float yaw = glm::radians(rootRot.y);
-        float c = cos(yaw);
-        float s = sin(yaw);
-        
-        glm::vec3 rotOffset;
-        rotOffset.x = offset.x * c + offset.z * s;
-        rotOffset.y = offset.y;
-        rotOffset.z = -offset.x * s + offset.z * c;
-        
-        p.position = rootPos + rotOffset;
-        p.rotation = glm::vec3(rotX, rotY + rootRot.y, rotZ);
-    };
-    
-    updateLimb(torsoIndex, glm::vec3(0, 0.5f, 0), 0, 0, 0);
-    updateLimb(headIndex, glm::vec3(0, 2.1f, 0), 0, 0, 0);
-    
-    float armAmp = isJumping ? 180.0f : (isWalking ? 45.0f : 0.0f);
-    float legAmp = isJumping ? 0.0f : (isWalking ? 45.0f : 0.0f);
-    
-    auto getRotatedOffset = [&](glm::vec3 offset, float rotX) -> glm::vec3 {
-        float rad = glm::radians(rotX);
-        float c = cos(rad);
-        float s = sin(rad);
-        glm::vec3 newOffset = offset;
-        newOffset.y = offset.y * c - offset.z * s;
-        newOffset.z = offset.y * s + offset.z * c;
-        return newOffset;
+        if (p.deleted) return;
+        p.position = rootPos + yawed(localCenter);
+        p.rotation = glm::vec3(pitchDeg, rootRot.y + twistDeg, rollDeg);
     };
 
-    glm::vec3 leftArmOffset = glm::vec3(-1.5f, 0.5f, 0); 
-    float leftArmAngle = isJumping ? armAmp : (isWalking ? armAmp * std::sin(walkTime) : 0);
-    glm::vec3 lArmRel = getRotatedOffset(glm::vec3(0, -1.0f, 0), leftArmAngle);
-    updateLimb(leftArmIndex, leftArmOffset - glm::vec3(0, -1.0f, 0) + lArmRel, leftArmAngle, 0, 0);
+    // Swings a limb about its shoulder or hip rather than its centre, so the far
+    // end travels like an arm and the top stays joined to the torso.
+    auto placeSwinging = [&](int index, const glm::vec3& pivot, const glm::vec3& limbSize,
+                             float pitchDeg, float rollDeg) {
+        const float pitch = glm::radians(pitchDeg);
+        const float roll = glm::radians(rollDeg);
+        const glm::vec3 offset(0.0f, -limbSize.y * 0.5f, 0.0f);
 
-    glm::vec3 rightArmOffset = glm::vec3(1.5f, 0.5f, 0); 
-    float rightArmAngle = isJumping ? armAmp : (isWalking ? -armAmp * std::sin(walkTime) : 0);
-    glm::vec3 rArmRel = getRotatedOffset(glm::vec3(0, -1.0f, 0), rightArmAngle);
-    updateLimb(rightArmIndex, rightArmOffset - glm::vec3(0, -1.0f, 0) + rArmRel, rightArmAngle, 0, 0);
-    
-    glm::vec3 leftLegOffset = glm::vec3(-0.5f, -1.5f, 0); 
-    float leftLegAngle = isJumping ? 0 : (isWalking ? -legAmp * std::sin(walkTime) : 0);
-    glm::vec3 lLegRel = getRotatedOffset(glm::vec3(0, -1.0f, 0), leftLegAngle);
-    updateLimb(leftLegIndex, leftLegOffset - glm::vec3(0, -1.0f, 0) + lLegRel, leftLegAngle, 0, 0);
+        // Roll first (splay), then pitch (forward and back), both about the pivot.
+        const glm::vec3 rolled(offset.x * std::cos(roll) - offset.y * std::sin(roll),
+                               offset.x * std::sin(roll) + offset.y * std::cos(roll),
+                               offset.z);
+        const glm::vec3 swung(rolled.x,
+                              rolled.y * std::cos(pitch) - rolled.z * std::sin(pitch),
+                              rolled.y * std::sin(pitch) + rolled.z * std::cos(pitch));
+        placeDirect(index, pivot + swung, pitchDeg, 0.0f, rollDeg);
+    };
 
-    glm::vec3 rightLegOffset = glm::vec3(0.5f, -1.5f, 0);
-    float rightLegAngle = isJumping ? 0 : (isWalking ? legAmp * std::sin(walkTime) : 0);
-    glm::vec3 rLegRel = getRotatedOffset(glm::vec3(0, -1.0f, 0), rightLegAngle);
-    updateLimb(rightLegIndex, rightLegOffset - glm::vec3(0, -1.0f, 0) + rLegRel, rightLegAngle, 0, 0);
+    // Torso and head: a small counter-twist to the arm swing, plus breathing.
+    const float counterTwist = -swing * 5.0f;
+    placeDirect(torsoIndex, glm::vec3(0.0f, 0.5f + breathe, 0.0f), 0.0f, counterTwist, 0.0f);
+    placeDirect(headIndex, glm::vec3(0.0f, 2.1f + breathe * 0.6f, 0.0f),
+                airBlend * -6.0f + swing * 2.5f, counterTwist * 0.4f, 0.0f);
+
+    placeSwinging(leftArmIndex, glm::vec3(-1.5f, 1.5f, 0.0f), glm::vec3(1.0f, 2.0f, 1.0f),
+                  leftArmPitch, -airBlend * 12.0f);
+    placeSwinging(rightArmIndex, glm::vec3(1.5f, 1.5f, 0.0f), glm::vec3(1.0f, 2.0f, 1.0f),
+                  rightArmPitch, airBlend * 12.0f);
+    placeSwinging(leftLegIndex, glm::vec3(-0.5f, -0.5f, 0.0f), glm::vec3(1.0f, 2.0f, 1.0f),
+                  leftLegPitch, -airBlend * 6.0f);
+    placeSwinging(rightLegIndex, glm::vec3(0.5f, -0.5f, 0.0f), glm::vec3(1.0f, 2.0f, 1.0f),
+                  rightLegPitch, airBlend * 6.0f);
     
     // Update Camera (Local only)
     if (!isRemote && camera) {

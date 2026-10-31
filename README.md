@@ -19,6 +19,7 @@ RBLX Clone is an early prototype of a Roblox-style client, game server, Studio e
 - `include/` - C++ headers.
 - `src/` - C++ Client, Server, Studio, rendering, physics, auth, and world loading code.
 - `shaders/` - OpenGL shader files used by Client and Studio.
+- `textures/` - Tileable part textures a world can name.
 - `tests/` - C++ protocol tests.
 - `web/` - public HTML pages, starter worlds and published `.world` files served by `WebApp.exe`.
 - `ServerWorld.world` - Default world file.
@@ -241,7 +242,7 @@ The game server reports authenticated player sessions to `/api/me/playtime` whil
 - Shift: faster camera movement.
 - Left click: select part.
 - Toolbox: add parts, switch move/rotate/scale tools, enable snap.
-- Properties: edit selected part fields.
+- Properties: edit selected part fields, including the surface material (plastic, smooth plastic, neon, metal, wood, grass, concrete, brick) and an optional texture image from `textures/`, tiled across the part.
 - Publish: sign in against the web server, save the current world, and publish it to the site as a public or private game.
 
 ## Scripting

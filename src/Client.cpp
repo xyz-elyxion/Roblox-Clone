@@ -1645,6 +1645,10 @@ int main(int argc, char** argv) {
                                 p.canCollide = (data.physicsFlags & 2) != 0;
                                 
                                 p.mass = data.mass;
+                                p.material = data.material < kMaterialCount
+                                                 ? static_cast<Material>(data.material)
+                                                 : Material::Plastic;
+                                p.texture = PacketProtocol::fixedString(data.texture, sizeof(data.texture));
                                 p.deleted = false;
                                 
                                 parts.push_back(p);
@@ -1768,7 +1772,10 @@ int main(int argc, char** argv) {
                         // This ensures smooth rotation even during diagonal movement
                         state.rotationY = myCharacter->debugCurrentYaw;
                         state.isWalking = (glm::length(myCharacter->debugMoveDir) > 0.1f);
-                        state.isJumping = false;
+                        // Remote players need this to play the airborne pose;
+                        // it used to be hard-coded false, so everyone else only
+                        // ever saw the walk cycle.
+                        state.isJumping = myCharacter->isJumping;
                         state.health = myCharacter->health;
                         if (!sendPlayerStateToServer(state)) {
                             std::cout << "Disconnected while sending player state." << std::endl;

@@ -4,6 +4,32 @@
 #include <fstream>
 #include <iostream>
 #include <iomanip>
+#include <sstream>
+
+namespace {
+constexpr std::size_t kMaxParts = 4096;
+// A part record is a few hundred bytes; anything far beyond that is not a world
+// file we want to build geometry from.
+constexpr std::size_t kMaxLineLength = 8192;
+
+// A texture name comes from a world file anybody can publish, so it is held to
+// plain relative image paths: no absolute paths and no parent traversal.
+bool isSafeTexturePath(const std::string& path) {
+    if (path.empty() || path.size() > 96) return false;
+    if (path.find("..") != std::string::npos) return false;
+    if (path.front() == '/' || path.front() == '\\') return false;
+    for (const char c : path) {
+        const bool allowed = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
+                             (c >= '0' && c <= '9') || c == '_' || c == '-' || c == '.' || c == '/';
+        if (!allowed) return false;
+    }
+    return true;
+}
+
+bool isBlankLine(const std::string& line) {
+    return line.find_first_not_of(" \t\r") == std::string::npos;
+}
+} // namespace
 
 void WorldLoader::loadWorld(const std::string& filename, std::deque<Part>& parts, PhysicsWorld& physicsWorld) {
     std::ifstream in(filename);
@@ -15,14 +41,24 @@ void WorldLoader::loadWorld(const std::string& filename, std::deque<Part>& parts
     physicsWorld.reset();
     parts.clear();
     
-    size_t count;
-    if (!(in >> count)) {
+    // One part per line, so the optional trailing fields can be read without
+    // guessing where a record ends.
+    std::string headerLine;
+    if (!std::getline(in, headerLine)) {
         std::cerr << "Malformed world file header: " << filename << std::endl;
         return;
     }
 
-    const size_t maxParts = 4096;
-    if (count > maxParts) {
+    std::size_t count = 0;
+    {
+        std::istringstream headerStream(headerLine);
+        if (!(headerStream >> count)) {
+            std::cerr << "Malformed world file header: " << filename << std::endl;
+            return;
+        }
+    }
+
+    if (count > kMaxParts) {
         std::cerr << "World file has too many parts: " << count << std::endl;
         return;
     }
@@ -33,9 +69,28 @@ void WorldLoader::loadWorld(const std::string& filename, std::deque<Part>& parts
     };
     std::vector<TempWeld> tempWelds;
     
-    for (size_t i = 0; i < count; i++) {
-        int shapeInt;
-        if (!(in >> shapeInt) || shapeInt < 0 || shapeInt > static_cast<int>(ShapeType::Cylinder)) {
+    std::string line;
+    for (std::size_t i = 0; i < count; i++) {
+        do {
+            if (!std::getline(in, line)) {
+                std::cerr << "World file ended before part " << i << " of " << count << std::endl;
+                parts.clear();
+                physicsWorld.reset();
+                return;
+            }
+        } while (isBlankLine(line));
+
+        if (line.size() > kMaxLineLength) {
+            std::cerr << "World part " << i << " has an implausibly long line" << std::endl;
+            parts.clear();
+            physicsWorld.reset();
+            return;
+        }
+
+        std::istringstream stream(line);
+
+        int shapeInt = 0;
+        if (!(stream >> shapeInt) || shapeInt < 0 || shapeInt > static_cast<int>(ShapeType::Cylinder)) {
             std::cerr << "Malformed or unsupported part shape at index " << i << std::endl;
             parts.clear();
             physicsWorld.reset();
@@ -45,26 +100,26 @@ void WorldLoader::loadWorld(const std::string& filename, std::deque<Part>& parts
         Part p;
         p.shape = (ShapeType)shapeInt;
         
-        in >> std::ws;
-        if (in.peek() == '"') {
-            in >> std::quoted(p.name);
+        stream >> std::ws;
+        if (stream.peek() == '"') {
+            stream >> std::quoted(p.name);
         } else {
-            in >> p.name; 
+            stream >> p.name; 
         }
         
-        if (!(in >> p.parentIndex >> p.isFolder >> p.isCamera >> p.isSpawn)) {
+        if (!(stream >> p.parentIndex >> p.isFolder >> p.isCamera >> p.isSpawn)) {
             std::cerr << "Malformed hierarchy flags at part " << i << std::endl;
             parts.clear();
             physicsWorld.reset();
             return;
         }
         
-        if (!(in >> p.position.x >> p.position.y >> p.position.z
-                 >> p.size.x >> p.size.y >> p.size.z
-                 >> p.color.x >> p.color.y >> p.color.z
-                 >> p.rotation.x >> p.rotation.y >> p.rotation.z
-                 >> p.transparency >> p.reflectance
-                 >> p.anchored >> p.canCollide)) {
+        if (!(stream >> p.position.x >> p.position.y >> p.position.z
+                     >> p.size.x >> p.size.y >> p.size.z
+                     >> p.color.x >> p.color.y >> p.color.z
+                     >> p.rotation.x >> p.rotation.y >> p.rotation.z
+                     >> p.transparency >> p.reflectance
+                     >> p.anchored >> p.canCollide)) {
             std::cerr << "Malformed transform/material data at part " << i << std::endl;
             parts.clear();
             physicsWorld.reset();
@@ -91,8 +146,8 @@ void WorldLoader::loadWorld(const std::string& filename, std::deque<Part>& parts
         p.transparency = std::clamp(p.transparency, 0.0f, 1.0f);
         p.reflectance = std::clamp(p.reflectance, 0.0f, 1.0f);
            
-        size_t weldCount;
-        if (!(in >> weldCount) || weldCount > maxParts) {
+        std::size_t weldCount = 0;
+        if (!(stream >> weldCount) || weldCount > kMaxParts) {
             std::cerr << "Malformed weld data at part " << i << std::endl;
             parts.clear();
             physicsWorld.reset();
@@ -102,12 +157,37 @@ void WorldLoader::loadWorld(const std::string& filename, std::deque<Part>& parts
         if (weldCount > 0) {
             TempWeld tw;
             tw.partIndex = (int)i;
-            for (size_t j=0; j<weldCount; j++) {
-                int targetIdx;
-                in >> targetIdx;
+            for (std::size_t j = 0; j < weldCount; j++) {
+                int targetIdx = -1;
+                if (!(stream >> targetIdx)) {
+                    std::cerr << "Malformed weld data at part " << i << std::endl;
+                    parts.clear();
+                    physicsWorld.reset();
+                    return;
+                }
                 tw.targets.push_back(targetIdx);
             }
             tempWelds.push_back(tw);
+        }
+
+        // Optional trailing fields, written by newer Studio builds: a material
+        // id and a quoted texture path. Older files end after the welds and older
+        // readers stop there, so worlds keep loading in both directions.
+        int materialId = 0;
+        if (stream >> materialId) {
+            if (materialId >= 0 && materialId < kMaterialCount) {
+                p.material = static_cast<Material>(materialId);
+            }
+            stream >> std::ws;
+            if (stream.peek() == '"') {
+                std::string textureName;
+                stream >> std::quoted(textureName);
+                if (isSafeTexturePath(textureName)) {
+                    p.texture = textureName;
+                } else {
+                    std::cerr << "Ignoring unsafe texture path on part " << i << std::endl;
+                }
+            }
         }
         
         parts.push_back(p);
@@ -116,7 +196,7 @@ void WorldLoader::loadWorld(const std::string& filename, std::deque<Part>& parts
     
     for (const auto& tw : tempWelds) {
         for (int target : tw.targets) {
-            if (target >= 0 && target < parts.size()) {
+            if (target >= 0 && target < static_cast<int>(parts.size())) {
                 Weld w;
                 w.part1 = &parts[target];
                 parts[tw.partIndex].welds.push_back(w);
@@ -129,4 +209,3 @@ void WorldLoader::loadWorld(const std::string& filename, std::deque<Part>& parts
     
     in.close();
 }
-

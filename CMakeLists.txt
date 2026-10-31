@@ -260,6 +260,11 @@ if(RBLX_BUILD_TESTS)
     target_link_libraries(NetworkProtocolTests PRIVATE glm)
     add_test(NAME NetworkProtocolTests COMMAND NetworkProtocolTests)
 
+    add_executable(MovementGuardTests tests/movement_guard_tests.cpp)
+    target_include_directories(MovementGuardTests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+    target_link_libraries(MovementGuardTests PRIVATE glm)
+    add_test(NAME MovementGuardTests COMMAND MovementGuardTests)
+
     add_executable(HttpClientTests tests/http_client_tests.cpp src/HttpClient.cpp)
     target_include_directories(HttpClientTests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
     if(WIN32)

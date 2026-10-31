@@ -45,7 +45,7 @@ try {
     $exeDir = Join-Path $BuildDir $Configuration
     $found = @()
     $missing = @()
-    foreach ($name in @('WebApp', 'Server', 'Client', 'Studio')) {
+    foreach ($name in @('WebApp', 'Server', 'Client', 'Studio', 'AiTrainer')) {
         $exePath = Join-Path $exeDir "$name.exe"
         if (Test-Path -LiteralPath $exePath) {
             Copy-Item -LiteralPath $exePath -Destination $Output
@@ -161,6 +161,7 @@ try {
         '  Server.exe    game server, started by WebApp.exe when a game is played'
         '  Client.exe    game client, started by WebApp.exe when you press Play'
         '  Studio.exe    world editor'
+        '  AiTrainer.exe headless trainer: learns and replays a policy for a world, no window'
         '  web/          website assets (public/ pages and API scripts, seed-worlds/)'
         '  games/        example worlds and their .rbx scripts (Sky Platformer)'
         '  shaders/      OpenGL shaders used by Client and Studio'
@@ -170,6 +171,14 @@ try {
         '  start-website.bat   starts WebApp.exe, then opens http://localhost:3000'
         '  start-studio.bat    opens the Studio editor'
         '  start-client.bat    opens the client directly (the website normally does this)'
+        '  AiTrainer.exe       headless trainer, run it from this folder with the flags below'
+        ''
+        'AI TRAINER (AiTrainer.exe)'
+        '  AiTrainer.exe --world games\turbo-circuit.world --goal FinishLine --generations 60'
+        '      trains a policy and writes models\<world>.policy'
+        '  AiTrainer.exe --world games\turbo-circuit.world --goal FinishLine --replay --watch'
+        '      replays the saved policy; --watch draws the run as a top-down map in the terminal'
+        '  Run it from this folder so games\ and models\ resolve. CPU only, no GPU, no window.'
         ''
         'NOTES'
         '  - Keep this folder layout intact. The executables look for shaders/ and web/'

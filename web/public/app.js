@@ -314,6 +314,18 @@ function initNavAuth() {
     const signedIn = Boolean(getToken());
     guestLinks.forEach((link) => { link.hidden = signedIn; });
     userButtons.forEach((button) => { button.hidden = !signedIn; });
+
+    // The Admin entry is part of the same bar on every page, so the dashboard
+    // is no longer the only page that reveals it.
+    const adminLinks = document.querySelectorAll('[data-admin-only]');
+    if (signedIn && adminLinks.length > 0) {
+        verifySession()
+            .then((session) => {
+                if (!session) return;
+                adminLinks.forEach((link) => { link.hidden = !session.isAdmin; });
+            })
+            .catch(() => {});
+    }
 }
 
 function initLogoutButtons() {

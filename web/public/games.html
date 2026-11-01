@@ -10,14 +10,19 @@
     <a class="skip-link" href="#main">Skip to content</a>
     <div class="page" data-games-page>
         <header class="topbar">
-            <a class="brand" href="/">
+            <a class="brand" href="/" aria-label="RBLX Clone home">
                 <span>RBLX Clone</span>
             </a>
             <nav class="nav" aria-label="Primary">
+                <a href="/dashboard" data-nav-user hidden>Home</a>
                 <a href="/games">Games</a>
-                <a href="/create">Create</a>
-                <a href="/dashboard">Dashboard</a>
+                <a href="/create" data-nav-user hidden>Create</a>
+                <a href="/dashboard#search" data-nav-user hidden>Search</a>
+                <a href="/avatar" data-nav-user hidden>Avatar</a>
+                <a href="/profile" data-nav-user hidden>Profile</a>
+                <a href="/admin" data-admin-only data-nav-user hidden>Admin</a>
                 <a href="/login" data-nav-guest>Login</a>
+                <a href="/signup" data-nav-guest>Sign up</a>
                 <button class="button danger" type="button" data-logout data-nav-user hidden>Logout</button>
             </nav>
         </header>

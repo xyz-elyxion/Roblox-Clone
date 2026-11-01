@@ -27,6 +27,12 @@ Part* partAt(const std::deque<Part>& parts, int index) {
     return const_cast<Part*>(&parts[static_cast<std::size_t>(index)]);
 }
 
+// A script that builds its own level still has to fit through the join
+// handshake: the server sends at most PacketProtocol::MAX_WORLD_PARTS parts and
+// the rest are dropped, so an oversized world would leave its far end missing
+// instead of failing loudly.
+constexpr std::size_t kMaxScriptParts = 4096;
+
 Value makeVector3(double x, double y, double z);
 
 bool readVector3(const Value& value, glm::vec3& out);
@@ -458,6 +464,56 @@ public:
                 children.table->elements.push_back(state_->partValue(static_cast<int>(i)));
             }
             out = children;
+            return true;
+        }
+        if (method == "CreatePart") {
+            // The way a script makes a level instead of decorating one: a room
+            // builder needs parts that were never in the world file.
+            if (state_->parts == nullptr) {
+                error = "the workspace cannot build parts here";
+                return false;
+            }
+            if (args.size() < 4 || !args[0].isString()) {
+                error = "CreatePart expects a name, a position, a size and a color";
+                return false;
+            }
+            glm::vec3 position;
+            glm::vec3 size;
+            glm::vec3 color;
+            if (!readVector3(args[1], position) || !readVector3(args[2], size) ||
+                !readVector3(args[3], color)) {
+                error = "CreatePart expects Vector3 values for position, size and color";
+                return false;
+            }
+            for (const glm::vec3& value : {position, size, color}) {
+                if (!std::isfinite(value.x) || !std::isfinite(value.y) ||
+                    !std::isfinite(value.z)) {
+                    error = "CreatePart refuses non-finite values";
+                    return false;
+                }
+            }
+            if (state_->parts->size() >= kMaxScriptParts) {
+                error = "the workspace is full; a script can build at most " +
+                        std::to_string(kMaxScriptParts) + " parts";
+                return false;
+            }
+
+            Part part(glm::vec3(0.0f), glm::vec3(1.0f), glm::vec3(0.6f), ShapeType::Cube,
+                      args[0].string);
+            part.position = position;
+            part.size.x = std::clamp(size.x, 0.05f, 512.0f);
+            part.size.y = std::clamp(size.y, 0.05f, 512.0f);
+            part.size.z = std::clamp(size.z, 0.05f, 512.0f);
+            part.color.x = std::clamp(color.x, 0.0f, 1.0f);
+            part.color.y = std::clamp(color.y, 0.0f, 1.0f);
+            part.color.z = std::clamp(color.z, 0.0f, 1.0f);
+
+            state_->parts->push_back(part);
+            Part& created = state_->parts->back();
+            if (state_->physics != nullptr) {
+                state_->physics->addPart(&created);
+            }
+            out = state_->partValue(static_cast<int>(state_->parts->size()) - 1);
             return true;
         }
         error = "Workspace has no method '" + method + "'";

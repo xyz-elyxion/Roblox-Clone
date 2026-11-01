@@ -34,9 +34,13 @@ namespace Handles
 
     bool DoesProcessHaveOpenHandleToUs(__in const DWORD pid, __in const std::vector <Handles::SYSTEM_HANDLE> handleList);
 
+// WebApp.exe, Server.exe and Studio.exe are this project's own executables. The site
+// launcher starts the client with CreateProcess and keeps the process handle it waits
+// on, so every normal launch by the launcher leaves an open handle to the client; without
+// these entries the handle scan reports the launcher as an intruder on a clean machine.
 #ifdef _DEBUG //in addition to checking process names, we should check the file's certificate to ensure a whitelisted process can't be spoofed to obtain a whitelisted handle
-    static const wchar_t* Whitelisted[] = { {L"conhost.exe"}, {L"devenv.exe"}, {L"VsDebugConsole.exe"} }; //on different people's PC's, different processes might be opening handles to our process. 
+    static const wchar_t* Whitelisted[] = { {L"conhost.exe"}, {L"devenv.exe"}, {L"VsDebugConsole.exe"}, {L"WebApp.exe"}, {L"Server.exe"}, {L"Studio.exe"} }; //on different people's PC's, different processes might be opening handles to our process. 
 #else
-    static const wchar_t* Whitelisted[] = { {L"conhost.exe"} }; //non-console version of this project will be different and conhost should not be considered whitelisted 
+    static const wchar_t* Whitelisted[] = { {L"conhost.exe"}, {L"WebApp.exe"}, {L"Server.exe"}, {L"Studio.exe"} }; //non-console version of this project will be different and conhost should not be considered whitelisted 
 #endif
 }

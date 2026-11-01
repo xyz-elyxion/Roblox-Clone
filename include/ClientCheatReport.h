@@ -53,6 +53,44 @@ inline std::string detectionDetail(const std::string& line, std::size_t limit = 
     return detail;
 }
 
+// A detection about another process holding a handle to the client. The library
+// writes this family in three shapes, all from the one scan in
+// Detections::CheckOpenHandles, and only one of the three is a summary.
+inline bool isHandleDetection(const std::string& detail) {
+    return detail.find("referencing our process") != std::string::npos ||
+           detail.find("open process handle to our process") != std::string::npos;
+}
+
+// True for a handle detection that names one of this project's own executables.
+// WebApp.exe launches the client with CreateProcess and keeps the process handle
+// it waits on, so a perfectly normal launch by the site leaves an open handle to
+// the client and the scan reads it as an intrusion. Server.exe and Studio.exe are
+// started the same way. The check is limited to handle detections on purpose:
+// a modified module is still tampering even when the module is one of ours.
+inline bool namesOurOwnProcesses(const std::string& detail) {
+    if (!isHandleDetection(detail)) {
+        return false;
+    }
+    static const char* const own[] = {"WebApp.exe", "Server.exe", "Client.exe", "Studio.exe"};
+    for (const char* name : own) {
+        if (detail.find(name) != std::string::npos) {
+            return true;
+        }
+    }
+    return false;
+}
+
+// What a detection is filed as. One open-handle scan logs the handle, the process
+// that owns it and the scan's own summary - three lines about one event. Filing
+// them separately would let a single scan climb the whole warning-and-suspension
+// ladder, so the whole family is reported under the summary.
+inline std::string canonicalDetection(const std::string& detail) {
+    if (isHandleDetection(detail)) {
+        return "Found open process handles to our process from other processes";
+    }
+    return detail;
+}
+
 // Every detection in a chunk of log text, in the order the library wrote them.
 inline std::vector<std::string> detectionDetails(const std::string& text,
                                                  std::size_t limit = 300) {

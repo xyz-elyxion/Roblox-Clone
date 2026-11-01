@@ -51,6 +51,37 @@ int main() {
     check(details.size() == 2 && details[0] == "first" && details[1] == "second",
           "the details keep their order and lose the line ending");
 
+    using rblx::anticheat::canonicalDetection;
+    using rblx::anticheat::namesOurOwnProcesses;
+
+    // One open-handle scan writes three lines about the same handle. The site
+    // launcher is one of the processes it names, and launching the client is not
+    // a detection at all.
+    const std::string perHandle =
+        "[t] [DETECTION] Handle 12 from process 29916 is referencing our process.";
+    const std::string owningProcess =
+        "[t] [DETECTION] Process WebApp.exe has open process handle to our process.";
+    const std::string scanSummary =
+        "[t] [DETECTION] Found open process handles to our process from other processes";
+    check(canonicalDetection(detectionDetail(perHandle)) ==
+              canonicalDetection(detectionDetail(scanSummary)),
+          "the handle and the scan summary are filed as one detection");
+    check(canonicalDetection(detectionDetail(owningProcess)) ==
+              canonicalDetection(detectionDetail(scanSummary)),
+          "the owning process is filed as the same detection");
+    check(namesOurOwnProcesses(detectionDetail(owningProcess)),
+          "a handle from our own launcher is not the player's doing");
+    check(namesOurOwnProcesses("[t] [DETECTION] Process Server.exe has open process handle "
+                               "to our process."),
+          "the game server this project starts is ours too");
+    check(!namesOurOwnProcesses("[t] [DETECTION] Process cheatengine-x86_64.exe has open "
+                                "process handle to our process."),
+          "a handle from anybody else is still reported");
+    check(!namesOurOwnProcesses("[t] [DETECTION] Module 'Client.exe' was modified"),
+          "tampering with our own module is still reported");
+    check(canonicalDetection("Cheat Engine is running") == "Cheat Engine is running",
+          "a detection outside the handle family keeps its own text");
+
     std::string longLine = "[t] [DETECTION] ";
     longLine.append(400, 'x');
     check(detectionDetail(longLine).size() == 300, "a long detail is clipped to the limit");

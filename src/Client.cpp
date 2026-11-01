@@ -493,11 +493,25 @@ namespace {
                 continue;
             }
 
+            // WebApp.exe starts this client and keeps the handle it waits on, so
+            // the library's handle scan reports the project's own launcher as an
+            // intruder on a clean machine. That is a normal launch, not tampering.
+            if (rblx::anticheat::namesOurOwnProcesses(detail)) {
+                std::cout << RBLX_OBF("Ignored a detection about this project's own processes.")
+                          << std::endl;
+                continue;
+            }
+
+            // One handle scan writes the handle, the process behind it and the
+            // scan's summary as three detections. They are filed as the one event
+            // they describe, so a single scan cannot climb the whole ladder.
+            const std::string filed = rblx::anticheat::canonicalDetection(detail);
+
             // The library repeats a detection every time its check runs, so the
-            // same detail is only sent once.
+            // same detection is only sent once.
             bool alreadySent = false;
             for (const std::string& sent : reportedDetections) {
-                if (sent == detail) {
+                if (sent == filed) {
                     alreadySent = true;
                     break;
                 }
@@ -505,10 +519,10 @@ namespace {
             if (alreadySent || reportedDetections.size() >= 64) {
                 continue;
             }
-            reportedDetections.push_back(detail);
+            reportedDetections.push_back(filed);
 
             const std::string body =
-                "{\"flag\":\"anticheat\",\"detail\":\"" + Auth::jsonEscape(detail) + "\"}";
+                "{\"flag\":\"anticheat\",\"detail\":\"" + Auth::jsonEscape(filed) + "\"}";
             const std::string url = automaticWebServerUrl() + "/api/client-detections";
             const std::string token = authToken;
             std::thread([url, body, token]() {

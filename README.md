@@ -171,7 +171,7 @@ Configuration comes from the environment:
 - `GAME_INSTANCE_EMPTY_GRACE_MS` - how long an empty game instance stays up, default `30000`.
 - `SERVER_EXECUTABLE_PATH` / `CLIENT_EXECUTABLE_PATH` - binaries launched when a game is played.
 - `PUBLIC_BASE_URL` - URL handed to the native server/client for web auth.
-- `ADMIN_USERNAMES` - comma-separated accounts allowed into `/admin`, default `defaultuser0`.
+- `ADMIN_USERNAMES` - comma-separated extra accounts allowed into `/admin`; the install owner is always allowed.
 
 Passwords are stored as PBKDF2-SHA256 hashes and sessions are HS256 JWTs.
 
@@ -200,10 +200,11 @@ yet: the player list the game server sends still carries body colours and the fa
 the full user and game lists, the running game-server instances, and a Delete action that removes a
 game together with its published `.world` file (stopping any instance for it first).
 
-Admin access is by account: set `ADMIN_USERNAMES` to a comma-separated list, or leave it unset to make
-the account that owns the install an admin. That is the seeded `defaultuser0` account, and it stays the
-admin after a rename or a differently-spelled seed, because the owner is matched by id rather than by
-name. Usernames are compared case-sensitively, so the flag follows the account rather than the browser.
+Admin access is by account, and the account that owns the install is always an admin. That is the
+seeded `defaultuser0` account, and it stays the admin after a rename or a differently-spelled seed,
+because the owner is matched by id rather than by name. `ADMIN_USERNAMES` adds other accounts to the
+list; it never replaces the owner, so naming someone else there cannot lock the install's own owner
+out of `/admin`. Usernames are compared case-sensitively, so the flag follows the account rather than the browser.
 Non-admins get `403` from `GET /api/admin/overview` and `DELETE /api/admin/games/:id`, the Admin link on
 the dashboard stays hidden for them, and the refusal names the account that is signed in and the names
 that are allowed, so a mismatch is visible instead of silent.

@@ -1006,7 +1006,6 @@ bool loadConfigFromEnvironment(Config* config, std::string* error) {
         // The seeded starter account owns the starter games.
         loaded.adminUsernames.push_back("defaultuser0");
     } else {
-        loaded.adminUsernamesFromEnvironment = true;
         for (const std::string& name : splitCsv(adminNames)) {
             const std::string trimmed = trimCopy(name);
             if (!trimmed.empty()) {
@@ -1397,13 +1396,10 @@ bool WebsiteApp::isAdminUser(const AuthUser& user) const {
         config_.adminUsernames.end()) {
         return true;
     }
-    if (config_.adminUsernamesFromEnvironment) {
-        return false;
-    }
-    // Without an explicit list the account that owns the install is the admin.
-    // Matching the owner instead of a literal name keeps the dashboard reachable
-    // when the seeded account was renamed or seeded under another spelling, since
-    // usernames are compared case-sensitively.
+    // The account that owns the install is always an admin, whether or not
+    // ADMIN_USERNAMES was set. Matching the owner instead of a literal name keeps
+    // the dashboard reachable when the seeded account was renamed or seeded under
+    // another spelling, since usernames are compared case-sensitively.
     const UserRecord* owner = store_.firstUser();
     return owner != nullptr && owner->id == user.id;
 }
@@ -1411,11 +1407,9 @@ bool WebsiteApp::isAdminUser(const AuthUser& user) const {
 std::string WebsiteApp::adminDeniedMessage(const AuthUser& user) const {
     // Mirrors isAdminUser so the message names exactly who is allowed in.
     std::vector<std::string> names = config_.adminUsernames;
-    if (!config_.adminUsernamesFromEnvironment) {
-        if (const UserRecord* owner = store_.firstUser()) {
-            if (std::find(names.begin(), names.end(), owner->username) == names.end()) {
-                names.push_back(owner->username);
-            }
+    if (const UserRecord* owner = store_.firstUser()) {
+        if (std::find(names.begin(), names.end(), owner->username) == names.end()) {
+            names.push_back(owner->username);
         }
     }
     std::string allowed;

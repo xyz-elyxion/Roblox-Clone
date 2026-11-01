@@ -41,11 +41,10 @@ struct Config {
     std::string publicBaseUrl;
     std::string serverExecutablePath;
     std::string clientExecutablePath;
-    // Usernames that may open the admin dashboard, matched case-sensitively.
+    // Extra usernames that may open the admin dashboard, matched case-sensitively.
+    // The account that owns the install is always allowed on top of these, so
+    // naming another account here cannot lock the owner out of /admin.
     std::vector<std::string> adminUsernames = {"defaultuser0"};
-    // Set when ADMIN_USERNAMES came from the environment, which replaces the
-    // built-in default instead of adding to it.
-    bool adminUsernamesFromEnvironment = false;
 };
 
 struct WorldAnalysis {

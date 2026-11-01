@@ -5,6 +5,7 @@
 #include <string>
 
 #include "HttpClient.h"
+#include "WebCaptcha.h"
 
 #ifdef _WIN32
     // windows.h must come first: shellapi.h uses types (HDROP and friends) that
@@ -60,9 +61,56 @@ public:
         return response.body;
     }
 
+    // The client only reads a few scalar fields out of a response, so these sit
+    // here instead of pulling a second JSON parser into every target.
+    static std::string jsonStringField(const std::string& json, const std::string& field) {
+        const std::string needle = "\"" + field + "\":\"";
+        const std::size_t pos = json.find(needle);
+        if (pos == std::string::npos) {
+            return "";
+        }
+        const std::size_t begin = pos + needle.size();
+        const std::size_t end = json.find('"', begin);
+        if (end == std::string::npos) {
+            return "";
+        }
+        return json.substr(begin, end - begin);
+    }
+
+    static std::string jsonNumberField(const std::string& json, const std::string& field) {
+        const std::string needle = "\"" + field + "\":";
+        const std::size_t pos = json.find(needle);
+        if (pos == std::string::npos) {
+            return "";
+        }
+        std::size_t end = pos + needle.size();
+        const std::size_t begin = end;
+        while (end < json.size() && (std::isdigit(static_cast<unsigned char>(json[end])) || json[end] == '-')) {
+            ++end;
+        }
+        return json.substr(begin, end - begin);
+    }
+
+    // The account endpoints only answer a solved captcha. A program cannot read
+    // the image one, so this asks for the machine challenge and finds a nonce
+    // whose sha256 digest starts with the difficulty the server asked for.
     static std::string login(const std::string& username, const std::string& password, const std::string& serverUrl = "http://localhost:3000") {
+        std::string captchaFields;
+        const std::string challenge = httpGet(serverUrl + "/api/captcha?kind=machine");
+        const std::string captchaId = jsonStringField(challenge, "id");
+        const int difficulty = std::atoi(jsonNumberField(challenge, "difficulty").c_str());
+        std::string nonce;
+        if (!captchaId.empty() && difficulty > 0 &&
+            rblx::web::solveCaptchaPow(captchaId, difficulty, &nonce)) {
+            std::ostringstream captcha;
+            captcha << ",\"captchaId\":\"" << jsonEscape(captchaId) << "\",\"captchaNonce\":\""
+                    << nonce << "\"";
+            captchaFields = captcha.str();
+        }
+
         std::ostringstream json;
-        json << "{\"username\":\"" << jsonEscape(username) << "\",\"password\":\"" << jsonEscape(password) << "\"}";
+        json << "{\"username\":\"" << jsonEscape(username) << "\",\"password\":\"" << jsonEscape(password) << "\""
+             << captchaFields << "}";
         return httpPost(serverUrl + "/api/login", json.str());
     }
 

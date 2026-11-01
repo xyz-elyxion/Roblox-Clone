@@ -200,6 +200,20 @@ install owner is refused with `400`, because the install cannot be recovered wit
 `GET /api/account/export` returns the same data as JSON and leaves the password and recovery hashes out.
 Both live in Settings, next to the password form.
 
+## Captchas
+
+Signing up, logging in and resetting a forgotten password all need a solved captcha. There are two kinds and either one satisfies an endpoint:
+
+- **Human.** `GET /api/captcha?kind=human` returns `id`, `kind`, `image` and `prompt`. The `image` is a self-contained `data:image/svg+xml` URI of four digits drawn from a 5x7 bitmap font, with jittered and rotated glyphs, noise lines and dots. The digits exist only as pixels, so the answer cannot be read back out of the markup the way a `<text>` element would allow. The signup, login and recovery forms send `captchaId` with `captchaAnswer`; spacing and dashes are ignored.
+- **Machine.** `GET /api/captcha?kind=machine` returns `id`, `kind`, `difficulty`, `algorithm` and `input`. Find a decimal `nonce` where `sha256("<id>:<nonce>")` starts with `difficulty` hex zeros, then send `captchaId` with `captchaNonce`. This is what `Auth::login` does, so the desktop client's publish login keeps working: a program cannot read the image, but it can hash, and the work is useless to a person.
+
+A challenge is single use and expires after five minutes. A wrong answer spends it too, so every attempt needs a fresh one, and the existing per-address rate limit still applies on top. Challenges live in the website process's memory, so restarting the backend invalidates the ones in flight.
+
+```bash
+# Ask for a machine challenge, then hash until the digest starts with zeros.
+curl -s "http://localhost:3000/api/captcha?kind=machine"
+```
+
 ## Blocks, reports and presence
 
 `POST /api/blocks` with `{ "userId": 3, "blocked": true }` blocks an account and drops any friendship

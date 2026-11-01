@@ -43,6 +43,16 @@
                         <label for="password">Password</label>
                         <input class="input" id="password" name="password" type="password" autocomplete="current-password" required>
                     </div>
+                    <div class="field">
+                        <label for="captcha-answer">Human check</label>
+                        <div class="captcha-row">
+                            <img class="captcha-image" data-captcha-image alt="Captcha image: type the four digits shown" width="212" height="64">
+                            <button class="button secondary" type="button" data-captcha-refresh>New image</button>
+                        </div>
+                        <input class="input" id="captcha-answer" name="captchaAnswer" type="text" inputmode="numeric" autocomplete="off" maxlength="4" pattern="[0-9]*" required>
+                        <input type="hidden" name="captchaId" data-captcha-id>
+                        <small>Type the four digits in the image. Scripts solve the machine challenge instead.</small>
+                    </div>
                     <div class="status" data-status aria-live="polite"></div>
                     <button class="button full" type="submit">Sign in</button>
                 </form>
@@ -67,6 +77,15 @@
                             <label for="recovery-confirm">Confirm new password</label>
                             <input class="input" id="recovery-confirm" name="confirmPassword" type="password" autocomplete="new-password" minlength="8" maxlength="128" required>
                         </div>
+                        <div class="field">
+                            <label for="captcha-answer-recover">Human check</label>
+                            <div class="captcha-row">
+                                <img class="captcha-image" data-captcha-image alt="Captcha image: type the four digits shown" width="212" height="64">
+                                <button class="button secondary" type="button" data-captcha-refresh>New image</button>
+                            </div>
+                            <input class="input" id="captcha-answer-recover" name="captchaAnswer" type="text" inputmode="numeric" autocomplete="off" maxlength="4" pattern="[0-9]*" required>
+                            <input type="hidden" name="captchaId" data-captcha-id>
+                        </div>
                         <div class="status" data-recovery-status aria-live="polite"></div>
                         <p class="recovery-code" data-recovery-new-code hidden></p>
                         <button class="button secondary full" type="submit">Reset password</button>
@@ -82,6 +101,6 @@
             </nav>
         </footer>
     </div>
-    <script src="/app.js?v=games-1" defer></script>
+    <script src="/app.js?v=captcha-1" defer></script>
 </body>
 </html>

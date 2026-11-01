@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "WebApp.h"
+#include "WebCaptcha.h"
 #include "WebCrypto.h"
 #include "WebJson.h"
 #include "WebStore.h"
@@ -406,6 +407,29 @@ std::string buildRequest(const std::string& method, const std::string& path,
     return raw;
 }
 
+// The account endpoints only answer a solved captcha. The tests take the machine
+// route, which is the same path a script or the desktop client uses.
+std::string machineCaptcha(rblx::web::WebsiteApp& app) {
+    std::thread serverThread([&app]() { app.server().serveOneConnection(); });
+    const std::string response = sendRaw(
+        app.server().port(),
+        buildRequest("GET", "/api/captcha?kind=machine", std::string(), std::string(),
+                     "application/json"));
+    serverThread.join();
+
+    std::string error;
+    const rblx::web::Json challenge = rblx::web::Json::parse(bodyOf(response), &error);
+    const std::string id = challenge.member("id").asString();
+    const int difficulty = static_cast<int>(challenge.member("difficulty").asInteger(0));
+    std::string nonce;
+    if (id.empty() || !rblx::web::solveCaptchaPow(id, difficulty, &nonce)) {
+        ++failures;
+        std::printf("FAIL could not solve a machine captcha: %s\n", bodyOf(response).c_str());
+        return "\"captchaId\":\"\",\"captchaNonce\":\"\"";
+    }
+    return "\"captchaId\":\"" + id + "\",\"captchaNonce\":\"" + nonce + "\"";
+}
+
 void checkStatus(rblx::web::WebsiteApp& app, const std::string& method,
                  const std::string& path, const std::string& body, const std::string& token,
                  int expected, const std::string& name, std::string* bodyOut = nullptr,
@@ -471,8 +495,15 @@ void testHttp() {
     checkStatus(app, "POST", "/api/signup", "{\"username\":\"ab\",\"password\":\"short\"}",
                 std::string(), 400, "signup validates the credentials");
 
+    checkStatus(app, "POST", "/api/signup",
+                "{\"username\":\"NoCaptcha\",\"password\":\"long-enough-password\"}",
+                std::string(), 400, "signup refuses a request without a captcha");
+
+    // Kept so the reuse check below can spend the same challenge twice.
+    const std::string signupCaptcha = machineCaptcha(app);
     const std::string signupBody =
-        "{\"username\":\"TestPilot\",\"password\":\"long-enough-password\"}";
+        "{\"username\":\"TestPilot\",\"password\":\"long-enough-password\"," + signupCaptcha +
+        "}";
     checkStatus(app, "POST", "/api/signup", signupBody, std::string(), 201, "signup creates a user",
                 &body);
     rblx::web::Json signup = rblx::web::Json::parse(body, &error);
@@ -480,16 +511,25 @@ void testHttp() {
     check(!token.empty(), "signup returns a token");
     check(signup.member("userId").asInteger(0) > 0, "signup returns the user id");
 
-    checkStatus(app, "POST", "/api/signup", signupBody, std::string(), 409,
-                "signup rejects a duplicate username");
+    checkStatus(app, "POST", "/api/signup",
+                "{\"username\":\"TestPilot\",\"password\":\"long-enough-password\"," +
+                    machineCaptcha(app) + "}",
+                std::string(), 409, "signup rejects a duplicate username");
 
     checkStatus(app, "POST", "/api/login",
-                "{\"username\":\"TestPilot\",\"password\":\"wrong-password\"}", std::string(), 401,
-                "login rejects a wrong password");
+                "{\"username\":\"TestPilot\",\"password\":\"wrong-password\"," +
+                    machineCaptcha(app) + "}",
+                std::string(), 401, "login rejects a wrong password");
 
     checkStatus(app, "POST", "/api/login",
-                "{\"username\":\"TestPilot\",\"password\":\"long-enough-password\"}",
+                "{\"username\":\"TestPilot\",\"password\":\"long-enough-password\"," +
+                    machineCaptcha(app) + "}",
                 std::string(), 200, "login accepts the right password", &body);
+
+    checkStatus(app, "POST", "/api/login",
+                "{\"username\":\"TestPilot\",\"password\":\"long-enough-password\"," +
+                    signupCaptcha + "}",
+                std::string(), 400, "a captcha cannot be answered twice");
     checkContains(body, "\"token\"", "login returns a token");
 
     checkStatus(app, "POST", "/api/verify", "{}", token, 200, "verify accepts a bearer token");
@@ -583,7 +623,8 @@ void testHttp() {
                 "the admin overview requires a token");
 
     checkStatus(app, "POST", "/api/signup",
-                "{\"username\":\"Outsider\",\"password\":\"long-enough-password\"}",
+                "{\"username\":\"Outsider\",\"password\":\"long-enough-password\"," +
+                    machineCaptcha(app) + "}",
                 std::string(), 201, "a second account signs up", &body);
     const std::string outsiderToken =
         rblx::web::Json::parse(body, &error).member("token").asString();

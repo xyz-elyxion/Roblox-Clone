@@ -141,6 +141,16 @@ private:
         std::string username;
     };
 
+    // A captcha that has been handed out but not spent yet. A human challenge
+    // carries the digits the image shows; a machine challenge carries the work
+    // the client had to do to answer it.
+    struct CaptchaChallenge {
+        std::string kind;
+        std::string answer;
+        int difficulty = 0;
+        long long expiresAtMs = 0;
+    };
+
     // Why a client stopped working, sent by the client itself so the reason is
     // readable on the website instead of only in its local log files.
     struct ClientReport {
@@ -168,6 +178,13 @@ private:
     Json gameJson(const GameRecord& game, bool canEdit) const;
     Json instanceJson(const GameInstance& instance) const;
     Json avatarJson(const Avatar& avatar) const;
+
+    // Hands out a single-use challenge: an image for people, a proof-of-work
+    // target for scripts.
+    bool handleCaptcha(Request& request, Response& response);
+    // Spends the captcha named in `body`; false with a reason when it does not
+    // check out. The challenge is gone either way.
+    bool consumeCaptcha(const Json& body, std::string* error);
 
     bool handleSignup(Request& request, Response& response);
     bool handleLogin(Request& request, Response& response);
@@ -250,6 +267,7 @@ private:
     std::map<std::string, GameInstance> instances_;
     std::deque<ClientReport> clientReports_;
     std::map<std::string, std::vector<long long>> authAttempts_;
+    std::map<std::string, CaptchaChallenge> captchas_;
     std::thread ticker_;
     bool tickerRunning_ = false;
     bool initialized_ = false;

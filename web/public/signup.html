@@ -49,6 +49,16 @@
                         <label for="confirmPassword">Confirm password</label>
                         <input class="input" id="confirmPassword" name="confirmPassword" type="password" autocomplete="new-password" required>
                     </div>
+                    <div class="field">
+                        <label for="captcha-answer">Human check</label>
+                        <div class="captcha-row">
+                            <img class="captcha-image" data-captcha-image alt="Captcha image: type the four digits shown" width="212" height="64">
+                            <button class="button secondary" type="button" data-captcha-refresh>New image</button>
+                        </div>
+                        <input class="input" id="captcha-answer" name="captchaAnswer" type="text" inputmode="numeric" autocomplete="off" maxlength="4" pattern="[0-9]*" required>
+                        <input type="hidden" name="captchaId" data-captcha-id>
+                        <small>Type the four digits in the image. Scripts solve the machine challenge instead.</small>
+                    </div>
                     <div class="status" data-status aria-live="polite"></div>
                     <button class="button full" type="submit">Create account</button>
                 </form>
@@ -69,6 +79,6 @@
             </nav>
         </footer>
     </div>
-    <script src="/app.js?v=games-1" defer></script>
+    <script src="/app.js?v=captcha-1" defer></script>
 </body>
 </html>

@@ -152,6 +152,9 @@ if(RBLX_BUILD_STUDIO)
     add_executable(Studio
         src/main.cpp
         src/HttpClient.cpp
+        # The publish login solves the machine captcha, which needs sha256.
+        src/WebJson.cpp
+        src/WebCrypto.cpp
         src/Editor.cpp
         src/RblxScript.cpp
         src/WorldScript.cpp
@@ -181,6 +184,7 @@ if(RBLX_BUILD_CLIENT)
         src/ClientNet.cpp
         src/ClientUi.cpp
         src/WebJson.cpp
+        src/WebCrypto.cpp
         src/HttpClient.cpp
         ${SHARED_SOURCES}
         ${IMGUI_SOURCES}
@@ -312,6 +316,14 @@ if(RBLX_BUILD_TESTS)
     add_executable(HealthStateTests tests/health_state_tests.cpp)
     target_include_directories(HealthStateTests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
     add_test(NAME HealthStateTests COMMAND HealthStateTests)
+
+    add_executable(WebCaptchaTests
+        tests/web_captcha_tests.cpp
+        src/WebJson.cpp
+        src/WebCrypto.cpp
+    )
+    target_include_directories(WebCaptchaTests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+    add_test(NAME WebCaptchaTests COMMAND WebCaptchaTests)
 
     add_executable(VehicleTests tests/vehicle_tests.cpp)
     target_include_directories(VehicleTests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)

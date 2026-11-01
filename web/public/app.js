@@ -380,6 +380,45 @@ function initLogoutButtons() {
     });
 }
 
+// The account endpoints take either captcha: a browser solves the image one,
+// while scripts and the desktop client solve the machine proof-of-work.
+async function loadCaptcha(form) {
+    const image = form.querySelector('[data-captcha-image]');
+    const idField = form.querySelector('[data-captcha-id]');
+    const answer = form.querySelector('input[name="captchaAnswer"]');
+    if (!image || !idField) return;
+
+    idField.value = '';
+    if (answer) answer.value = '';
+    image.removeAttribute('src');
+    image.alt = 'Loading captcha';
+
+    try {
+        const response = await fetch('/api/captcha?kind=human');
+        const data = await response.json();
+        if (!response.ok || !data.image) throw new Error(data.error || 'Captcha unavailable.');
+        image.src = data.image;
+        image.alt = 'Captcha image: type the four digits shown';
+        idField.value = data.id;
+    } catch (error) {
+        image.alt = 'Captcha could not be loaded. Use New image to retry.';
+    }
+}
+
+// A challenge is spent whether the answer was right or not, so every failed
+// attempt comes back with a fresh image.
+function initCaptcha(form) {
+    const refresh = form.querySelector('[data-captcha-refresh]');
+    if (refresh) {
+        refresh.addEventListener('click', (event) => {
+            event.preventDefault();
+            loadCaptcha(form);
+        });
+    }
+    loadCaptcha(form);
+    return () => loadCaptcha(form);
+}
+
 function initLogin() {
     const form = document.querySelector('[data-login-form]');
     if (!form) return;
@@ -388,6 +427,7 @@ function initLogin() {
     const submit = form.querySelector('button[type="submit"]');
     const params = new URLSearchParams(window.location.search);
     const playerRedirect = safePlayerRedirect(params.get('redirect'));
+    const refreshCaptcha = initCaptcha(form);
 
     if (params.get('client') === 'player') {
         const lede = document.querySelector('[data-login-lede]');
@@ -419,6 +459,7 @@ function initLogin() {
                 window.setTimeout(() => { window.location.href = destination; }, 350);
             }
         } catch (error) {
+            refreshCaptcha();
             setStatus(status, error.message || 'Network error.', 'error');
             submit.disabled = false;
             submit.textContent = 'Sign in';
@@ -448,6 +489,7 @@ function initSignup() {
 
     const status = document.querySelector('[data-status]');
     const submit = form.querySelector('button[type="submit"]');
+    const refreshCaptcha = initCaptcha(form);
 
     form.addEventListener('submit', async (event) => {
         event.preventDefault();
@@ -484,6 +526,7 @@ function initSignup() {
             setStatus(status, 'Account created. Opening dashboard.', 'success');
             window.setTimeout(() => { window.location.href = '/dashboard'; }, 350);
         } catch (error) {
+            refreshCaptcha();
             setStatus(status, error.message || 'Network error.', 'error');
             submit.disabled = false;
             submit.textContent = 'Create account';
@@ -2038,6 +2081,7 @@ function initRecovery() {
 
     const status = document.querySelector('[data-recovery-status]');
     const output = document.querySelector('[data-recovery-new-code]');
+    const refreshCaptcha = initCaptcha(form);
 
     form.addEventListener('submit', async (event) => {
         event.preventDefault();
@@ -2058,7 +2102,9 @@ function initRecovery() {
             const { response, data } = await postJson('/api/account/recover', {
                 username,
                 recoveryCode,
-                newPassword
+                newPassword,
+                captchaId: form.querySelector('[data-captcha-id]')?.value || '',
+                captchaAnswer: form.querySelector('input[name="captchaAnswer"]')?.value || ''
             });
             if (!response.ok || !data.success) throw new Error(data.error || 'Could not reset the password.');
             form.reset();
@@ -2068,6 +2114,7 @@ function initRecovery() {
             }
             setStatus(status, 'Password reset. The code above replaces the one you used.', 'success');
         } catch (error) {
+            refreshCaptcha();
             setStatus(status, error.message || 'Could not reset the password.', 'error');
         } finally {
             submit.disabled = false;

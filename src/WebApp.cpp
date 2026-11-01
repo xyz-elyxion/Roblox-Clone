@@ -1,5 +1,6 @@
 #include "AvatarItems.h"
 #include "WebApp.h"
+#include "WebCaptcha.h"
 #include "WebCrypto.h"
 
 #include <chrono>
@@ -1651,6 +1652,9 @@ void WebsiteApp::installRoutes() {
     server_.route("POST", "/api/login", guard([this](Request& request, Response& response) {
                       return handleLogin(request, response);
                   }));
+    server_.route("GET", "/api/captcha", guard([this](Request& request, Response& response) {
+                      return handleCaptcha(request, response);
+                  }));
     server_.route("POST", "/api/verify", guard([this](Request& request, Response& response) {
                       return handleVerify(request, response);
                   }));
@@ -1770,6 +1774,94 @@ void WebsiteApp::installRoutes() {
     });
 }
 
+bool WebsiteApp::handleCaptcha(Request& request, Response& response) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    const std::string kind = request.queryParam("kind") == "machine" ? "machine" : "human";
+    const long long now = nowMilliseconds();
+
+    // An abandoned page leaves its challenge behind, so expired entries are
+    // cleared whenever a new one is issued rather than on a timer.
+    for (auto it = captchas_.begin(); it != captchas_.end();) {
+        if (it->second.expiresAtMs <= now) {
+            it = captchas_.erase(it);
+        } else {
+            ++it;
+        }
+    }
+    while (captchas_.size() >= 4096) {
+        captchas_.erase(captchas_.begin());
+    }
+
+    const std::string id = randomUuid();
+    CaptchaChallenge challenge;
+    challenge.kind = kind;
+    challenge.expiresAtMs = now + kCaptchaTtlMs;
+
+    Json result = Json::makeObject();
+    result.set("id", id);
+    result.set("kind", kind);
+    result.set("expiresInSeconds", kCaptchaTtlMs / 1000);
+    if (kind == "machine") {
+        challenge.difficulty = kCaptchaPowDifficulty;
+        result.set("difficulty", challenge.difficulty);
+        result.set("algorithm", "sha256");
+        result.set("input", id + ":{nonce}");
+        result.set("rule",
+                   "Hash the input with the decimal nonce substituted in; the hex digest must "
+                   "start with `difficulty` zeros. Send the nonce as captchaNonce.");
+    } else {
+        challenge.answer = makeCaptchaCode();
+        result.set("image", captchaImageDataUri(renderHumanCaptchaSvg(challenge.answer)));
+        result.set("prompt", "Type the four digits in the image.");
+    }
+
+    captchas_[id] = challenge;
+    // A challenge is single use, so it must never come back out of a cache.
+    response.headers["Cache-Control"] = "no-store";
+    sendJson(response, 200, result);
+    return true;
+}
+
+bool WebsiteApp::consumeCaptcha(const Json& body, std::string* error) {
+    const std::string id = body.member("captchaId").asString();
+    if (id.empty()) {
+        *error = "A captcha is required. Reload the page and solve the challenge.";
+        return false;
+    }
+
+    auto it = captchas_.find(id);
+    if (it == captchas_.end() || it->second.expiresAtMs <= nowMilliseconds()) {
+        if (it != captchas_.end()) {
+            captchas_.erase(it);
+        }
+        *error = "That captcha expired. Solve the new challenge.";
+        return false;
+    }
+
+    // Spent whether or not the answer is right, so a wrong guess cannot be
+    // retried against the same image or the same proof-of-work target.
+    const CaptchaChallenge challenge = it->second;
+    captchas_.erase(it);
+
+    if (challenge.kind == "machine") {
+        std::string nonce = body.member("captchaNonce").asString();
+        if (nonce.empty() && body.member("captchaNonce").isNumber()) {
+            nonce = std::to_string(body.member("captchaNonce").asInteger());
+        }
+        if (!verifyCaptchaPow(id, nonce, challenge.difficulty)) {
+            *error = "The machine challenge was not solved.";
+            return false;
+        }
+        return true;
+    }
+
+    if (!captchaAnswerMatches(challenge.answer, body.member("captchaAnswer").asString())) {
+        *error = "That captcha answer was not correct.";
+        return false;
+    }
+    return true;
+}
+
 bool WebsiteApp::handleSignup(Request& request, Response& response) {
     std::lock_guard<std::mutex> lock(mutex_);
     if (isRateLimited(request.remoteAddress)) {
@@ -1786,6 +1878,11 @@ bool WebsiteApp::handleSignup(Request& request, Response& response) {
     const std::string validation = validateCredentials(username, password);
     if (!validation.empty()) {
         errorJson(response, 400, validation);
+        return true;
+    }
+    std::string captchaError;
+    if (!consumeCaptcha(body, &captchaError)) {
+        errorJson(response, 400, captchaError);
         return true;
     }
     if (store_.findUserByName(username) != nullptr) {
@@ -1835,6 +1932,11 @@ bool WebsiteApp::handleLogin(Request& request, Response& response) {
     const std::string validation = validateLoginInput(username, password);
     if (!validation.empty()) {
         errorJson(response, 400, validation);
+        return true;
+    }
+    std::string captchaError;
+    if (!consumeCaptcha(body, &captchaError)) {
+        errorJson(response, 400, captchaError);
         return true;
     }
 
@@ -2008,6 +2110,12 @@ bool WebsiteApp::handleRecovery(Request& request, Response& response) {
     }
     Json body;
     if (!parseJsonBody(request, &body, response)) {
+        return true;
+    }
+
+    std::string captchaError;
+    if (!consumeCaptcha(body, &captchaError)) {
+        errorJson(response, 400, captchaError);
         return true;
     }
 

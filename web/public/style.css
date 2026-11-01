@@ -1283,3 +1283,24 @@ html.reduce-motion *::after {
 .danger-zone .form {
     margin-top: var(--space-3);
 }
+
+/* Captcha: the image and its refresh button sit on one line above the answer. */
+.captcha-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    margin-bottom: var(--space-2);
+}
+
+.captcha-image {
+    display: block;
+    border: 2px solid var(--line);
+    background: #f5f2ec;
+    min-width: 212px;
+    min-height: 64px;
+}
+
+.captcha-row .button {
+    width: auto;
+}

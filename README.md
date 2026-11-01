@@ -181,6 +181,17 @@ the starter games and is the default admin, so `POST /api/login` with
 earlier builds seeded the same account as `RBLXCreator`; it is renamed to `defaultuser0` on startup
 with its id, password and games unchanged.
 
+## Settings
+
+`/settings` is the account page. It shows the signed-in username, user id and coin balance, changes
+the password through `POST /api/account/password` (`{"currentPassword": "...", "newPassword": "..."}`,
+8 to 128 characters, the current password is required, a wrong one is refused with `403` and the new
+one must differ from the old), and has a Reduce motion switch.
+
+The switch is a browser preference rather than an account setting: it is stored in `localStorage` and
+applies the same `reduce-motion` rules as the `prefers-reduced-motion` media query, so it holds for
+every page in that browser without touching the account.
+
 ## Avatar Items
 
 `/avatar` also sells hats, paid for with the coins the game server already awards for playtime: a

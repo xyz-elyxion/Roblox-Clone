@@ -112,6 +112,9 @@ public:
     // Keeps the account's id, password hash and ownership; refuses a name that
     // another account already holds.
     bool renameUser(int id, const std::string& username);
+    // Replaces the stored hash; the caller builds it with hashPassword so the
+    // iterations and salt stay with the credential rather than the store.
+    bool setPasswordHash(int id, const std::string& passwordHash);
     const UserRecord* firstUser() const;
     const std::vector<UserRecord>& users() const { return users_; }
     std::vector<const UserRecord*> searchUsers(const std::string& query, std::size_t limit) const;

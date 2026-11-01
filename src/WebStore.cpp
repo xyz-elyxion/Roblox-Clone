@@ -346,6 +346,16 @@ bool Store::renameUser(int id, const std::string& username) {
     return false;
 }
 
+bool Store::setPasswordHash(int id, const std::string& passwordHash) {
+    for (UserRecord& user : users_) {
+        if (user.id == id) {
+            user.passwordHash = passwordHash;
+            return true;
+        }
+    }
+    return false;
+}
+
 const UserRecord* Store::firstUser() const {
     for (const UserRecord& user : users_) {
         if (user.id == 1) {

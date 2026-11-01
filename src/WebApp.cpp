@@ -729,6 +729,9 @@ std::string pageFileForPath(const std::string& path) {
     if (path == "/profile") {
         return "profile.html";
     }
+    if (path == "/settings") {
+        return "settings.html";
+    }
     if (path == "/admin") {
         return "admin.html";
     }
@@ -1596,6 +1599,10 @@ void WebsiteApp::installRoutes() {
     server_.route("POST", "/api/verify", guard([this](Request& request, Response& response) {
                       return handleVerify(request, response);
                   }));
+    server_.route("POST", "/api/account/password",
+                  guard([this](Request& request, Response& response) {
+                      return handleChangePassword(request, response);
+                  }));
     server_.route("GET", "/api/me/social", guard([this](Request& request, Response& response) {
                       return handleSocial(request, response);
                   }));
@@ -1804,6 +1811,57 @@ bool WebsiteApp::handleVerify(Request& request, Response& response) {
     result.set("username", user->username);
     result.set("coins", store_.coinsFor(user->id));
     result.set("isAdmin", isAdminUser(authUser));
+    sendJson(response, 200, result);
+    return true;
+}
+
+bool WebsiteApp::handleChangePassword(Request& request, Response& response) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (isRateLimited(request.remoteAddress)) {
+        errorJson(response, 429, "Too many authentication attempts. Try again later.");
+        return true;
+    }
+    AuthUser user;
+    if (!requireAuth(request, response, &user)) {
+        return true;
+    }
+    Json body;
+    if (!parseJsonBody(request, &body, response)) {
+        return true;
+    }
+
+    const std::string currentPassword = body.member("currentPassword").asString();
+    const std::string newPassword = body.member("newPassword").asString();
+    const UserRecord* record = store_.findUserById(user.id);
+    if (record == nullptr) {
+        errorJson(response, 401, "Invalid or expired token.");
+        return true;
+    }
+    // Checking the current password is what stops a borrowed session from
+    // locking the real owner out of their own account.
+    if (currentPassword.empty() || !verifyPassword(currentPassword, record->passwordHash)) {
+        errorJson(response, 403, "Current password is incorrect.");
+        return true;
+    }
+    if (newPassword.size() < 8 || newPassword.size() > 128) {
+        errorJson(response, 400, "Password must be between 8 and 128 characters.");
+        return true;
+    }
+    if (newPassword == currentPassword) {
+        errorJson(response, 400, "The new password must differ from the current one.");
+        return true;
+    }
+    if (!store_.setPasswordHash(user.id, hashPassword(newPassword, config_.passwordIterations))) {
+        errorJson(response, 500, "Could not update the password.");
+        return true;
+    }
+    std::string saveError;
+    if (!store_.save(&saveError)) {
+        std::fprintf(stderr, "Could not save the data file: %s\n", saveError.c_str());
+    }
+
+    Json result = Json::makeObject();
+    result.set("success", true);
     sendJson(response, 200, result);
     return true;
 }

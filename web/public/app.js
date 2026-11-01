@@ -1754,7 +1754,85 @@ function initAdminPage() {
     });
 }
 
+// Display preferences are per browser, not per account, and they change how every
+// page looks, so they are applied before any page-specific setup runs.
+function applyDisplayPreferences() {
+    const reduced = localStorage.getItem('reduceMotion') === '1';
+    document.documentElement.classList.toggle('reduce-motion', reduced);
+    return reduced;
+}
+
+function initSettings() {
+    const root = document.querySelector('[data-settings]');
+    if (!root) return;
+
+    const reducedToggle = document.querySelector('[data-reduce-motion]');
+    if (reducedToggle) {
+        reducedToggle.checked = applyDisplayPreferences();
+        reducedToggle.addEventListener('change', () => {
+            localStorage.setItem('reduceMotion', reducedToggle.checked ? '1' : '0');
+            applyDisplayPreferences();
+        });
+    }
+
+    const form = document.querySelector('[data-password-form]');
+    if (!form) return;
+
+    const token = getToken();
+    if (!token) {
+        window.location.href = '/login';
+        return;
+    }
+
+    const usernameOutput = document.querySelector('[data-settings-username]');
+    const idOutput = document.querySelector('[data-settings-id]');
+    const coinsOutput = document.querySelector('[data-settings-coins]');
+    const status = document.querySelector('[data-password-status]');
+
+    verifySession()
+        .then((session) => {
+            if (!session) {
+                window.location.href = '/login';
+                return;
+            }
+            if (usernameOutput) usernameOutput.textContent = session.username;
+            if (idOutput) idOutput.textContent = String(session.userId);
+            if (coinsOutput) coinsOutput.textContent = String(Number(session.coins || 0));
+        })
+        .catch(() => {});
+
+    form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const submit = form.querySelector('button[type="submit"]');
+        const currentPassword = form.querySelector('#current-password').value;
+        const newPassword = form.querySelector('#new-password').value;
+        const confirmPassword = form.querySelector('#confirm-password').value;
+
+        if (newPassword !== confirmPassword) {
+            setStatus(status, 'The new passwords do not match.', 'error');
+            return;
+        }
+
+        submit.disabled = true;
+        setStatus(status, '', '');
+        try {
+            const { response, data } = await postJson('/api/account/password',
+                { currentPassword, newPassword }, getToken());
+            if (!response.ok || !data.success) {
+                throw new Error(data.error || 'Could not change the password.');
+            }
+            form.reset();
+            setStatus(status, 'Password changed.', 'success');
+        } catch (error) {
+            setStatus(status, error.message || 'Could not change the password.', 'error');
+        } finally {
+            submit.disabled = false;
+        }
+    });
+}
+
 document.addEventListener('DOMContentLoaded', () => {
+    applyDisplayPreferences();
     initNavAuth();
     initLogoutButtons();
     initLogin();
@@ -1767,4 +1845,5 @@ document.addEventListener('DOMContentLoaded', () => {
     initCreateGamePage();
     initGamePage();
     initAdminPage();
+    initSettings();
 });

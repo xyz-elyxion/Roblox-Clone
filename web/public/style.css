@@ -1079,3 +1079,48 @@ input {
     border: 1px solid #050505;
     border-radius: 2px;
 }
+
+/* Settings page: account facts, password form and display preference. */
+.settings-layout {
+    display: grid;
+    gap: var(--space-3);
+    align-items: start;
+}
+
+.settings-facts {
+    display: grid;
+    gap: var(--space-2);
+    margin: 0;
+}
+
+.settings-facts div {
+    display: grid;
+    grid-template-columns: 7rem minmax(0, 1fr);
+    gap: var(--space-2);
+    align-items: baseline;
+}
+
+.settings-facts dt {
+    color: var(--muted);
+    font-weight: 700;
+}
+
+.settings-facts dd {
+    margin: 0;
+    font-weight: 900;
+}
+
+@media (min-width: 900px) {
+    .settings-layout {
+        grid-template-columns: minmax(280px, 0.8fr) minmax(320px, 1.2fr);
+    }
+}
+
+/* The Reduce motion switch does the same thing as the OS preference. */
+html.reduce-motion *,
+html.reduce-motion *::before,
+html.reduce-motion *::after {
+    scroll-behavior: auto !important;
+    transition: none !important;
+    animation: none !important;
+}

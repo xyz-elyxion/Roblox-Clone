@@ -732,13 +732,15 @@ void testHttp() {
                 "{\"flag\":\"anticheat\",\"detail\":\"Module was modified\"}", token, 200,
                 "a signed-in client files a detection", &body);
     checkContains(body, "\"clientDetections\":1", "the detection is counted on the account");
+    checkContains(body, "\"action\":\"warned\"", "a token-bearing detection is punished");
+    checkContains(body, "\"restricted\":false", "a warning does not end the session");
     checkStatus(app, "POST", "/api/client-detections", "{\"detail\":\"  \"}", token, 400,
                 "a detection without a detail is refused");
 
     checkStatus(app, "GET", "/api/admin/overview", std::string(), token, 200,
                 "the overview loads after a detection", &body);
     checkContains(body, "\"clientDetections\":1", "the dashboard counts client detections");
-    checkContains(body, "\"cheatStrikes\":0", "a client detection adds no strike");
+    checkContains(body, "\"cheatStrikes\":1", "a client detection adds a strike");
     checkContains(body, "\"stage\":\"anticheat\"", "the detection is listed for the dashboard");
 
     {
@@ -748,7 +750,38 @@ void testHttp() {
         const rblx::web::UserRecord* saved = reloaded.findUserByName("TestPilot");
         check(saved != nullptr && saved->clientDetections == 1,
               "the detection count survives a restart");
+        check(saved != nullptr && saved->cheatStrikes == 1,
+              "the strike from a detection survives a restart");
     }
+
+    // The punishment is the point of binding a detection to a token, so a fresh
+    // account is walked up the ladder with nothing but its own client's reports.
+    checkStatus(app, "POST", "/api/signup",
+                "{\"username\":\"Cheater\",\"password\":\"long-enough-password\"," +
+                    machineCaptcha(app) + "}",
+                std::string(), 201, "an account for the detection ladder signs up", &body);
+    const std::string cheaterToken =
+        rblx::web::Json::parse(body, &error).member("token").asString();
+
+    checkStatus(app, "POST", "/api/client-detections",
+                "{\"flag\":\"anticheat\",\"detail\":\"Debugger attached\"}", cheaterToken, 200,
+                "the first detection on a fresh account is a warning", &body);
+    checkContains(body, "\"restricted\":false", "one detection leaves the account playing");
+    checkStatus(app, "POST", "/api/client-detections",
+                "{\"flag\":\"anticheat\",\"detail\":\"Thread was hijacked\"}", cheaterToken,
+                200, "the second detection is still a warning", &body);
+    checkStatus(app, "POST", "/api/client-detections",
+                "{\"flag\":\"anticheat\",\"detail\":\"Module was modified\"}", cheaterToken,
+                200, "the third detection suspends the account", &body);
+    checkContains(body, "\"action\":\"suspended\"", "the third detection suspends");
+    checkContains(body, "\"restricted\":true", "the client is told the session is over");
+    checkContains(body, "suspended for", "the client gets the reason to show the player");
+
+    checkStatus(app, "POST", "/api/login",
+                "{\"username\":\"Cheater\",\"password\":\"long-enough-password\"," +
+                    machineCaptcha(app) + "}",
+                std::string(), 403, "a suspended detection account cannot sign in", &body);
+    checkContains(body, "suspended for cheating", "the sign-in refusal says why");
 
     checkStatus(app, "GET", "/does-not-exist", std::string(), std::string(), 404,
                 "unknown paths return 404");

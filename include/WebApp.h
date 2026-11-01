@@ -211,7 +211,8 @@ private:
     bool handlePlayGame(Request& request, Response& response);
     bool handleClientReport(Request& request, Response& response);
     // The client's own anti-cheat, reporting a detection from inside the process.
-    // Filed against the signed-in account as evidence, never as a strike.
+    // The report is filed against the signed-in account, which is what makes it
+    // attributable: a token-bearing detection climbs the moderation ladder.
     bool handleClientDetection(Request& request, Response& response);
     bool handleAdminOverview(Request& request, Response& response);
     bool handleAdminDeleteGame(Request& request, Response& response);

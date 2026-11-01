@@ -3328,6 +3328,12 @@ bool WebsiteApp::handleClientDetection(Request& request, Response& response) {
         detail.resize(300);
     }
 
+    const UserRecord* record = store_.findUserById(user.id);
+    if (record == nullptr) {
+        errorJson(response, 401, "Invalid or expired token.");
+        return true;
+    }
+
     ClientReport report;
     report.createdAt = nowIso();
     report.stage = "anticheat";
@@ -3341,21 +3347,45 @@ bool WebsiteApp::handleClientDetection(Request& request, Response& response) {
     }
     clientReports_.push_back(report);
 
-    store_.recordClientDetection(user.id, nowIso());
+    // The report carries this account's token, so it is attributable and climbs
+    // the same ladder a server-side detection does. A report without a token
+    // never reaches here at all: with no account behind it there is nobody to
+    // punish, and a client that could name somebody else's account would be a
+    // griefing tool.
+    rblx::moderation::State state = moderationStateOf(*record);
+    const long long now = nowMilliseconds();
+    const rblx::moderation::Decision decision = rblx::moderation::applyStrike(
+        &state, config_.moderation, now, "client anti-cheat: " + detail);
+
+    store_.setModeration(record->id, state.strikes, state.suspendedUntilMs, state.banned,
+                         "client anti-cheat: " + detail, nowIso());
+    store_.recordClientDetection(record->id, nowIso());
+    if (rblx::moderation::isRestricted(state, now)) {
+        // The session the client is holding stops being accepted, so the account
+        // cannot rejoin a game or reload the site with it.
+        store_.bumpTokenVersion(record->id);
+    }
     std::string saveError;
     if (!store_.save(&saveError)) {
         std::fprintf(stderr, "Could not save the data file: %s\n", saveError.c_str());
     }
 
-    std::fprintf(stdout, "  anti-cheat detection [%s] %s\n", user.username.c_str(),
-                 report.reason.c_str());
+    std::fprintf(stdout, "  anti-cheat detection [%s] %s, %s\n", user.username.c_str(),
+                 report.reason.c_str(), rblx::moderation::actionName(decision.action));
 
     const UserRecord* updated = store_.findUserById(user.id);
     Json result = Json::makeObject();
     result.set("success", true);
-    // Counted, not punished: this is evidence an admin can weigh, and the client
-    // that reports it is the one being cheated.
+    result.set("action", rblx::moderation::actionName(decision.action));
+    result.set("strikes", state.strikes);
+    result.set("banned", state.banned);
     result.set("clientDetections", updated != nullptr ? updated->clientDetections : 0);
+    // The client reads this: restricted means it stops playing rather than
+    // waiting for the account to be refused at its next sign-in.
+    result.set("restricted", rblx::moderation::isRestricted(state, now));
+    result.set("message", decision.message.empty()
+                              ? rblx::moderation::restrictionMessage(state, now)
+                              : decision.message);
     sendJson(response, 200, result);
     return true;
 }

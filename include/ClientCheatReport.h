@@ -5,10 +5,11 @@
 // RBLXAntiCheat is linked into the client on purpose, but its own transport is
 // switched off (nothing here speaks its protocol) and a detection is written
 // only to its log file on the player's machine. The client tails that file and
-// files what it finds against the signed-in account, so tampering reaches an
-// admin instead of sitting on the cheater's own disk. A detection is evidence,
-// not proof: the process reporting it is the one being cheated, so it never
-// raises a strike on its own.
+// files what it finds against the signed-in account, so tampering costs the
+// account instead of sitting on the cheater's own disk. A report only counts
+// when it carries that account's token: with no account behind it there is
+// nobody to punish, and a client that could name somebody else's account would
+// be a griefing tool.
 //
 // The parsing and the tail offset live here rather than in Client.cpp so they
 // can be tested without a Windows build or a running client.

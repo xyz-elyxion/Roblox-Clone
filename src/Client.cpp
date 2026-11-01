@@ -29,6 +29,7 @@
 #include <iostream>
 #include <string>
 #include <algorithm>
+#include <atomic>
 #include <cmath>
 #include <cstring>
 #include <cctype>
@@ -36,6 +37,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <thread>
+#include <mutex>
 #include <iomanip>
 
 #ifdef _WIN32
@@ -448,6 +450,13 @@ namespace {
     std::chrono::steady_clock::time_point lastDetectionPoll =
         std::chrono::steady_clock::time_point::min();
 
+    // The website answers a reported detection with what it cost. A restricted
+    // answer means the session is over, which is posted back from a worker
+    // thread and acted on by the render thread in the main loop.
+    std::atomic<bool> punishmentPending{false};
+    std::mutex punishmentMutex;
+    std::string punishmentMessage;
+
     // The anti-cheat library writes its detections to RBLXAntiCheat.log and
     // nowhere else: its own transport is switched off, and it speaks a protocol
     // no server here hosts. This reads what it appended and files each detection
@@ -502,7 +511,25 @@ namespace {
                 "{\"flag\":\"anticheat\",\"detail\":\"" + Auth::jsonEscape(detail) + "\"}";
             const std::string url = automaticWebServerUrl() + "/api/client-detections";
             const std::string token = authToken;
-            std::thread([url, body, token]() { Auth::httpPost(url, body, token); }).detach();
+            std::thread([url, body, token]() {
+                const std::string reply = Auth::httpPost(url, body, token);
+                if (reply.empty()) {
+                    return;
+                }
+                std::string parseError;
+                const rblx::web::Json answer = rblx::web::Json::parse(reply, &parseError);
+                if (!answer.member("restricted").asBool(false)) {
+                    return;
+                }
+                // The account is suspended or banned now. The player is told why
+                // and taken out of the game rather than left playing until the
+                // token happens to expire.
+                {
+                    std::lock_guard<std::mutex> lock(punishmentMutex);
+                    punishmentMessage = answer.member("message").asString();
+                }
+                punishmentPending = true;
+            }).detach();
         }
     }
 }  // namespace
@@ -1221,6 +1248,22 @@ int main(int argc, char** argv) {
             // Anti-cheat detections are filed against the signed-in account, so
             // tampering shows up on the site and not only in a local log.
             pollAntiCheatDetections();
+
+            // A detection the website acted on ends the session here, so an
+            // account that has just been suspended or banned is not left playing.
+            if (punishmentPending.exchange(false)) {
+                std::string reason;
+                {
+                    std::lock_guard<std::mutex> lock(punishmentMutex);
+                    reason = punishmentMessage;
+                }
+                if (reason.empty()) {
+                    reason = "The anti-cheat detected tampering, so this session ended.";
+                }
+                disconnectFromServerOnly();
+                currentState = MENU_AUTH_CHOICE;
+                addChatLine("System", reason, true);
+            }
 #endif
 
             static bool wasDebugToggleDown = false;

@@ -649,12 +649,21 @@ long long claimUserId(const Json& claims) {
     return parseIntegerPrefix(subject, &parsed) ? parsed : 0;
 }
 
-std::string issueToken(const Config& config, int userId, const std::string& username) {
+// The token version the claims were issued with. A token minted before sessions
+// could be revoked has no claim, which reads as version 0, so upgrading a live
+// install does not sign everybody out.
+int claimTokenVersion(const Json& claims) {
+    return static_cast<int>(claims.member("ver").asInteger(0));
+}
+
+std::string issueToken(const Config& config, int userId, const std::string& username,
+                       int tokenVersion) {
     const long long issuedAt = static_cast<long long>(std::time(nullptr));
     Json payload = Json::makeObject();
     payload.set("userId", userId);
     payload.set("username", username);
     payload.set("sub", std::to_string(userId));
+    payload.set("ver", tokenVersion);
     payload.set("iat", issuedAt);
     payload.set("exp", issuedAt + config.jwtExpiresSeconds);
     return signJwt(payload, config.jwtSecret);
@@ -1506,6 +1515,13 @@ bool WebsiteApp::requireAuth(const Request& request, Response& response, AuthUse
         errorJson(response, 401, "Invalid or expired token.");
         return false;
     }
+    // A password change or a recovery reset raises the account's version, which
+    // is what turns "valid signature, still unexpired" into "this session was
+    // signed out".
+    if (claimTokenVersion(claims) != record->tokenVersion) {
+        errorJson(response, 401, "This session was signed out. Sign in again.");
+        return false;
+    }
     user->id = record->id;
     user->username = record->username;
     return true;
@@ -1527,7 +1543,7 @@ bool WebsiteApp::optionalAuth(const Request& request, AuthUser* user, bool* auth
     const long long userId = claimUserId(claims);
     const UserRecord* record =
         userId > 0 ? store_.findUserById(static_cast<int>(userId)) : nullptr;
-    if (record == nullptr) {
+    if (record == nullptr || claimTokenVersion(claims) != record->tokenVersion) {
         return true;
     }
     user->id = record->id;
@@ -1908,7 +1924,9 @@ bool WebsiteApp::handleSignup(Request& request, Response& response) {
 
     Json result = Json::makeObject();
     result.set("success", true);
-    result.set("token", issueToken(config_, userId, username));
+    const UserRecord* created = store_.findUserById(userId);
+    result.set("token", issueToken(config_, userId, username,
+                                   created != nullptr ? created->tokenVersion : 0));
     result.set("userId", userId);
     result.set("username", username);
     result.set("recoveryCode", formatRecoveryCode(recoveryCode));
@@ -1948,7 +1966,7 @@ bool WebsiteApp::handleLogin(Request& request, Response& response) {
 
     Json result = Json::makeObject();
     result.set("success", true);
-    result.set("token", issueToken(config_, user->id, user->username));
+    result.set("token", issueToken(config_, user->id, user->username, user->tokenVersion));
     result.set("userId", user->id);
     result.set("username", user->username);
     sendJson(response, 200, result);
@@ -1987,6 +2005,11 @@ bool WebsiteApp::handleVerify(Request& request, Response& response) {
         userId > 0 ? store_.findUserById(static_cast<int>(userId)) : nullptr;
     if (user == nullptr) {
         errorJson(response, 401, "Invalid or expired token.");
+        return true;
+    }
+    // The game server asks here, so a revoked session also stops joining games.
+    if (claimTokenVersion(claims) != user->tokenVersion) {
+        errorJson(response, 401, "This session was signed out. Sign in again.");
         return true;
     }
 
@@ -2051,6 +2074,10 @@ bool WebsiteApp::handleChangePassword(Request& request, Response& response) {
         errorJson(response, 500, "Could not update the password.");
         return true;
     }
+    // Changing the password is the moment a stolen token has to stop working,
+    // so every session issued before now is revoked. The caller gets a fresh
+    // token because it just proved it knows the password.
+    const int tokenVersion = store_.bumpTokenVersion(user.id);
     std::string saveError;
     if (!store_.save(&saveError)) {
         std::fprintf(stderr, "Could not save the data file: %s\n", saveError.c_str());
@@ -2058,6 +2085,8 @@ bool WebsiteApp::handleChangePassword(Request& request, Response& response) {
 
     Json result = Json::makeObject();
     result.set("success", true);
+    result.set("token", issueToken(config_, user.id, user.username,
+                                   tokenVersion > 0 ? tokenVersion : 0));
     sendJson(response, 200, result);
     return true;
 }
@@ -2148,6 +2177,9 @@ bool WebsiteApp::handleRecovery(Request& request, Response& response) {
         errorJson(response, 500, "Could not reset the password.");
         return true;
     }
+    // Recovery happens from outside a session, so there is no session to hand a
+    // fresh token to: every token issued before the reset is revoked.
+    store_.bumpTokenVersion(userId);
     std::string saveError;
     if (!store_.save(&saveError)) {
         errorJson(response, 500, "Could not update the data file.");
@@ -2214,8 +2246,11 @@ bool WebsiteApp::handleChangeUsername(Request& request, Response& response) {
     result.set("userId", user.id);
     result.set("username", username);
     // The username is inside the token, so the caller replaces its session with
-    // the one issued here instead of carrying a stale claim around.
-    result.set("token", issueToken(config_, user.id, username));
+    // the one issued here instead of carrying a stale claim around. Renaming is
+    // not a credential change, so other sessions keep working.
+    const UserRecord* renamed = store_.findUserById(user.id);
+    result.set("token", issueToken(config_, user.id, username,
+                                   renamed != nullptr ? renamed->tokenVersion : 0));
     sendJson(response, 200, result);
     return true;
 }

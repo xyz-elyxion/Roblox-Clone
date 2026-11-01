@@ -1373,6 +1373,7 @@ int main(int argc, char** argv) {
                                     glm::vec3 leftLegColor(0.2f, 0.6f, 0.2f);
                                     glm::vec3 rightLegColor(0.2f, 0.6f, 0.2f);
                                     std::string faceId = DEFAULT_FACE_ID;
+                                    std::string hatId;
                                     
                                     // Find player in playerList for avatar colors
                                     bool foundAvatar = false;
@@ -1385,6 +1386,7 @@ int main(int argc, char** argv) {
                                             leftLegColor = glm::vec3(playerInfo.leftLegColor[0], playerInfo.leftLegColor[1], playerInfo.leftLegColor[2]);
                                             rightLegColor = glm::vec3(playerInfo.rightLegColor[0], playerInfo.rightLegColor[1], playerInfo.rightLegColor[2]);
                                             faceId = normalizeFaceId(PacketProtocol::fixedString(playerInfo.faceId, sizeof(playerInfo.faceId)));
+                                            hatId = PacketProtocol::fixedString(playerInfo.hatId, sizeof(playerInfo.hatId));
                                             foundAvatar = true;
                                             break;
                                         }
@@ -1409,6 +1411,9 @@ int main(int argc, char** argv) {
                                         
                                         if (remoteChar) {
                                             remoteChar->setFaceTexture(textureForFace(faceId));
+                                            // The hat is drawn from the same catalog as our
+                                            // own, and an unknown id draws nothing.
+                                            remoteChar->setHat(hatId);
                                             remoteChar->setRemoteControlled(true);
                                             remotePlayers[pkt->playerId] = remoteChar;
                                             std::cout << "Successfully created remote character for player " << pkt->playerId << " with avatar colors" << std::endl;
@@ -1622,6 +1627,12 @@ int main(int argc, char** argv) {
                                     // Apply avatar colors to remote character if it exists
                                     if (remotePlayers.count(players[i].playerId) > 0) {
                                         Character* remoteChar = remotePlayers[players[i].playerId];
+                                        if (remoteChar) {
+                                            // setHat keeps its part and only resizes it, so a
+                                            // repeated player list does not leak parts.
+                                            remoteChar->setHat(PacketProtocol::fixedString(
+                                                players[i].hatId, sizeof(players[i].hatId)));
+                                        }
                                         // Update part colors
                                         if (remoteChar && !parts.empty()) {
                                             try {

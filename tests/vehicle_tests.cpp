@@ -3,6 +3,7 @@
 #include <cmath>
 #include <iostream>
 #include <limits>
+#include <vector>
 
 namespace {
 
@@ -164,6 +165,100 @@ int main() {
         check(rblx::vehicle::speedKmh(10.0f) == 36, "speed converts to km/h for the HUD");
         check(rblx::vehicle::speedKmh(-10.0f) == 36, "reverse speed is shown as a magnitude");
         check(rblx::vehicle::speedKmh(std::nanf("")) == 0, "an invalid speed shows as zero");
+    }
+
+    {
+        // Driving straight at a wall used to mean driving through it.
+        State car;
+        car.position = glm::vec3(0.0f, 1.5f, 0.0f);
+        car.speed = 20.0f;
+        Input input;
+        input.throttle = 1.0f;
+        const std::vector<rblx::vehicle::Obstacle> wall = {
+            {{10.0f, 0.0f, -10.0f}, {12.0f, 8.0f, 10.0f}}};
+        for (int i = 0; i < 240; ++i) {
+            rblx::vehicle::stepColliding(car, input, 1.0f / 60.0f, wall,
+                                         glm::vec3(5.0f, 1.0f, 3.0f));
+        }
+        check(car.position.x <= 5.001f, "a wall stops the car before it drives through it");
+        check(car.position.x > 1.0f, "the car still covered the ground before the wall");
+        check(near(car.speed, 0.0f), "hitting a wall drops the car's speed");
+    }
+
+    {
+        State colliding;
+        colliding.position = glm::vec3(0.0f, 1.5f, 0.0f);
+        colliding.speed = 15.0f;
+        State plain = colliding;
+        Input input;
+        input.throttle = 1.0f;
+        rblx::vehicle::stepColliding(colliding, input, 0.5f, {}, glm::vec3(5.0f, 1.0f, 3.0f));
+        rblx::vehicle::step(plain, input, 0.5f);
+        check(near(colliding.position.x, plain.position.x) &&
+                  near(colliding.position.z, plain.position.z),
+              "with no obstacles the car drives exactly as it does without collision");
+    }
+
+    {
+        // A part that reaches only to y 0.7 against a body starting at 0.5 is a
+        // kerb, not a wall: the car drives over it.
+        State car;
+        car.position = glm::vec3(0.0f, 1.5f, 0.0f);
+        Input input;
+        input.throttle = 1.0f;
+        const std::vector<rblx::vehicle::Obstacle> kerb = {
+            {{8.0f, -1.0f, -10.0f}, {20.0f, 0.7f, 10.0f}}};
+        for (int i = 0; i < 120; ++i) {
+            rblx::vehicle::stepColliding(car, input, 1.0f / 60.0f, kerb,
+                                         glm::vec3(5.0f, 1.0f, 3.0f));
+        }
+        check(car.position.x > 25.0f, "a low part under the car is not a wall");
+    }
+
+    {
+        // 42 units per second over a 0.1 s tick is 4.2 units of travel: more than
+        // a thin wall is wide, so the move has to be sliced to notice it.
+        State car;
+        car.position = glm::vec3(0.0f, 1.5f, 0.0f);
+        car.speed = rblx::vehicle::Limits{}.maxSpeed;
+        Input input;
+        input.throttle = 1.0f;
+        const std::vector<rblx::vehicle::Obstacle> thin = {
+            {{20.0f, 0.0f, -10.0f}, {20.5f, 8.0f, 10.0f}}};
+        for (int i = 0; i < 300; ++i) {
+            rblx::vehicle::stepColliding(car, input, 0.1f, thin, glm::vec3(5.0f, 1.0f, 3.0f));
+        }
+        check(car.position.x < 20.0f, "a thin wall is not tunneled through at top speed");
+    }
+
+    {
+        // A world moved onto the car must not trap it for good.
+        State car;
+        car.position = glm::vec3(10.0f, 1.5f, 0.0f);
+        Input input;
+        input.throttle = 1.0f;
+        const std::vector<rblx::vehicle::Obstacle> wall = {
+            {{8.0f, 0.0f, -10.0f}, {12.0f, 8.0f, 10.0f}}};
+        rblx::vehicle::stepColliding(car, input, 0.2f, wall, glm::vec3(5.0f, 1.0f, 3.0f));
+        check(car.position.x > 10.0f, "a car that starts inside a part can drive out of it");
+    }
+
+    {
+        // Hitting a wall at an angle should slide along it, not stop dead.
+        State car;
+        car.position = glm::vec3(0.0f, 1.5f, 0.0f);
+        car.yawDegrees = 45.0f;  // heading along +X and +Z
+        car.speed = 20.0f;
+        Input input;
+        input.throttle = 1.0f;
+        const std::vector<rblx::vehicle::Obstacle> wall = {
+            {{10.0f, 0.0f, -100.0f}, {12.0f, 8.0f, 100.0f}}};
+        for (int i = 0; i < 180; ++i) {
+            rblx::vehicle::stepColliding(car, input, 1.0f / 60.0f, wall,
+                                         glm::vec3(5.0f, 1.0f, 3.0f));
+        }
+        check(car.position.x <= 5.001f, "a wall holds the car on the axis it blocks");
+        check(car.position.z > 2.0f, "a car that clips a wall slides along it");
     }
 
     if (failures != 0) {

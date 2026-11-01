@@ -8,7 +8,7 @@ RBLX Clone is an early prototype of a Roblox-style client, game server, Studio e
 - Client and Server build on Windows, Linux and macOS. Socket calls go through `include/Network.h` and website calls through `include/HttpClient.h`, each of which has a WinSock/WinHTTP-facing Windows branch and a POSIX branch, so the game code itself has no platform split. The anti-cheat library is Windows-only and is skipped on other platforms.
 - Client.exe embeds **RBLXAntiCheat**, a usermode anti-cheat compiled into the client process (vendored from [UltimateAntiCheat](https://github.com/AlSch092/UltimateAntiCheat) and renamed, GNU AGPL v3 — see `RBLXAntiCheat/LICENSE`). It starts with the client, writes `RBLXAntiCheat.log`, and a failed start is logged instead of stopping the game. Configure with `-DRBLX_BUILD_ANTICHEAT=OFF` to leave it out of the build. Its identifying strings (log name, startup messages, accepted parent processes) are stored XOR-masked at compile time through `include/Obfuscated.h` so they do not show up in `strings`, and MSVC Release builds link the client with control-flow guard, full ASLR and identical-code folding. That raises the cost of finding and patching the checks; it is not a security boundary, which is why the rules that matter (movement, world contents) are enforced by the server.
 - Health and respawning are decided by the game server, not the client. The server keeps each player's health, kills anyone who falls below the world or takes damage, and returns them to the world's `SpawnLocation` after a three-second countdown that every client sees. The client draws the health bar and a "You died" overlay and stops taking movement input while dead; `Reset Character` asks the server rather than respawning locally. Scripts damage players with `player:TakeDamage(amount)`.
-- **Turbo Circuit** is the bundled driving game. A world part named `Car` is the vehicle: the game server integrates it from client throttle and steer input (`include/Vehicle.h`) and broadcasts its position, so a modified client cannot teleport the car any more than a character. Walk up to it and press `E` to get in or out; the driver's character rides in the car, the camera follows behind and the HUD shows km/h. A `.rbx` script counts laps at the finish line.
+- **Turbo Circuit** is the bundled driving game. A world part named `Car` is the vehicle: the game server integrates it from client throttle and steer input (`include/Vehicle.h`) and broadcasts its position, so a modified client cannot teleport the car any more than a character. Walk up to it and press `E` to get in or out; the driver's character rides in the car, the camera follows behind and the HUD shows km/h. A `.rbx` script counts laps at the finish line. The car stops at the world's collidable parts and slides along a wall it only clips, so a lap cannot be finished by driving through the edge of the track; the finish line and the checkpoints are non-colliding triggers, because a car that bumps into a checkpoint flag would never score the lap.
 - Studio uses GLFW/OpenGL/ImGui/ImGuizmo and has a basic world editing path.
 - The web backend is `WebApp.exe`, a native C++ service (`src/WebApp.cpp`) that serves `web/public` and owns accounts (PBKDF2-SHA256), JWT sessions, avatars, friends, the public game catalog, and local game-server launch orchestration. There is no Node.js service any more.
 - Networking is a compact binary protocol carried over UDP. Positions, rotations, and world updates travel as plain datagrams, so a lost update costs one frame instead of stalling the connection; the join handshake, world snapshot, chat, and join/leave events ride a reliability layer with acknowledgements, retransmission, and fragmentation (`include/UdpTransport.h`). It is still a prototype protocol.
@@ -222,6 +222,12 @@ install owner is refused with `400`, because the install cannot be recovered wit
 `GET /api/account/export` returns the same data as JSON and leaves the password and recovery hashes out.
 Both live in Settings, next to the password form.
 
+Changing the password raises the account's token version, and every token carries the version it
+was issued with, so sessions from before the change are refused with `401` instead of staying valid
+until they expire. The form that changed the password is handed a fresh token and carries on; a
+recovery revokes everything, because there is no session to hand one to. Renaming is not a credential
+change, so other sessions survive it.
+
 ## Captchas
 
 Signing up, logging in and resetting a forgotten password all need a solved captcha. There are two kinds and either one satisfies an endpoint:
@@ -295,8 +301,7 @@ refused, and saving body colours through `POST /api/avatar` leaves the equipped 
 
 The catalog is `include/AvatarItems.h`, so the shop, the web preview and the 3D client all draw a hat
 from the same size, colour and offset. In the client the hat is a posed part that follows the head
-every frame, so it moves with the walk and breathing animation. Other players cannot see your hat
-yet: the player list the game server sends still carries body colours and the face only.
+every frame, so it moves with the walk and breathing animation. The hat travels in the player list the game server sends, so the other players in your game see it too; an id this build's catalog does not know is dropped rather than drawn.
 
 ## Admin Dashboard
 
@@ -484,10 +489,10 @@ Scale operations assign the decomposed absolute scale from ImGuizmo and clamp it
 
 - This is a prototype and should be treated as local-only.
 - The Linux build of Client and Server compiles and passes its tests in CI, but nobody has played a match on it yet; the world file picker exists only on Windows (elsewhere pass the `.world` path on the command line).
-- The driving game's car is a kinematic arcade body: it accelerates, brakes, coasts and steers, but it does not collide with world geometry, so it will drive through a wall, and there is no client-side prediction, so steering over a high-latency connection feels delayed.
+- The driving game's car is a kinematic arcade body: it accelerates, brakes, coasts, steers and stops at collidable parts, but there is no client-side prediction, so steering over a high-latency connection feels delayed. Collision uses the axis-aligned box around a rotated part, so a diagonal wall blocks a little more ground than it looks like it does.
 - The HTTP client speaks plain `http://` only. There is no TLS implementation, so an `https://` backend URL fails with an explanation instead of working.
 - The binary protocol depends on matching C++ struct layouts, so Client and Server must be built from the same source. The handshake now carries a protocol revision and a layout signature derived from the packet sizes; a mismatched pair refuses the join and prints which build to rebuild instead of misreading packets.
-- The web service keeps its data in a JSON file and sessions in browser storage; it is not hardened for internet deployment. Every response carries `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: same-origin` and a strict `Content-Security-Policy`, but that is baseline browser hygiene, not a security review. A password change still leaves tokens issued earlier valid until they expire.
+- The web service keeps its data in a JSON file and sessions in browser storage; it is not hardened for internet deployment. Every response carries `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: same-origin` and a strict `Content-Security-Policy`, but that is baseline browser hygiene, not a security review.
 - Account recovery depends on a recovery code the player saved, not on email, and presence is "an authenticated request in the last two minutes" rather than a game-server connection. Blocks and reports stop at the website: the native game server is not told about either.
 - The client is split by concern: `src/Client.cpp` (startup, argument handling, main loop), `src/ClientNet.cpp` (game socket, reliable session, joining and leaving) and `src/ClientUi.cpp` (menus, HUD, chat, settings), sharing state through `src/ClientShared.h`. The remaining files could be split further.
 - C++ build/test is verified with CMake, Ninja, MinGW GCC and GCC on Linux. Client, Server, and Studio runtime behavior still need manual testing on a graphics-capable desktop.

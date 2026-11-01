@@ -125,6 +125,7 @@ bool Store::load(std::string* error) {
         user.recoveryHash = entry.member("recoveryHash").asString();
         user.createdAt = entry.member("createdAt").asString();
         user.lastSeenAtMs = entry.member("lastSeenAtMs").asInteger(0);
+        user.tokenVersion = static_cast<int>(entry.member("tokenVersion").asInteger(0));
         if (user.id > 0 && !user.username.empty()) {
             users_.push_back(user);
             nextUserId_ = std::max(nextUserId_, user.id + 1);
@@ -259,6 +260,7 @@ bool Store::save(std::string* error) const {
         entry.set("recoveryHash", user.recoveryHash);
         entry.set("createdAt", user.createdAt);
         entry.set("lastSeenAtMs", user.lastSeenAtMs);
+        entry.set("tokenVersion", user.tokenVersion);
         users.push(entry);
     }
     document.set("users", users);
@@ -419,6 +421,16 @@ bool Store::setPasswordHash(int id, const std::string& passwordHash) {
         }
     }
     return false;
+}
+
+int Store::bumpTokenVersion(int id) {
+    for (UserRecord& user : users_) {
+        if (user.id == id) {
+            ++user.tokenVersion;
+            return user.tokenVersion;
+        }
+    }
+    return -1;
 }
 
 bool Store::setRecoveryHash(int id, const std::string& recoveryHash) {

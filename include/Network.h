@@ -124,6 +124,7 @@ struct PlayerInfo {
     float leftLegColor[3];
     float rightLegColor[3];
     char faceId[16];
+    char hatId[16];
 };
 
 // 6. World Update (Server -> Client)
@@ -157,7 +158,7 @@ namespace PacketProtocol {
     // Bumped whenever a packet layout or its meaning changes. Sent in the
     // handshake next to `kPacketLayoutSignature` so two differently built
     // binaries fail with an explanation instead of silently misparsing.
-    constexpr uint16_t kProtocolRevision = 5;
+    constexpr uint16_t kProtocolRevision = 6;
 
     constexpr uint16_t packetLayoutSignature() {
         return static_cast<uint16_t>(sizeof(PacketConnect) * 31u + sizeof(PacketWelcome) * 17u +
@@ -165,7 +166,8 @@ namespace PacketProtocol {
                                      sizeof(PacketPlayerJoin) * 7u + sizeof(PacketChat) * 3u +
                                      sizeof(PacketPlayerHealth) * 11u +
                                      sizeof(PacketVehicleState) * 13u +
-                                     sizeof(PacketVehicleInput) * 7u);
+                                     sizeof(PacketVehicleInput) * 7u +
+                                     sizeof(PlayerInfo) * 5u);
     }
 
     constexpr uint32_t MAX_PAYLOAD_SIZE = 64 * 1024;

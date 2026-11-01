@@ -50,6 +50,11 @@ struct UserRecord {
     // Wall-clock time of the account's last authenticated request, in ms since
     // the epoch. Used for the online dot and never sent to another account.
     long long lastSeenAtMs = 0;
+    // Raised whenever every existing session for the account must stop being
+    // accepted: a password change or a recovery reset. Tokens carry the value
+    // they were issued with, so a token minted before the bump is refused
+    // instead of staying valid until it expires.
+    int tokenVersion = 0;
 };
 
 struct AvatarRecord {
@@ -143,6 +148,10 @@ public:
     // Replaces the stored hash; the caller builds it with hashPassword so the
     // iterations and salt stay with the credential rather than the store.
     bool setPasswordHash(int id, const std::string& passwordHash);
+    // Raises the account's token version and returns the new value, or -1 when
+    // there is no account with that id. Every token issued earlier stops being
+    // accepted once this returns.
+    int bumpTokenVersion(int id);
     bool setRecoveryHash(int id, const std::string& recoveryHash);
     // Records activity for the online dot; true when the stored time was old
     // enough to be replaced, so the caller only rewrites the file when needed.

@@ -21,6 +21,7 @@
 #include "WorldScript.h"
 #include "UdpTransport.h"
 #include "HealthState.h"
+#include "AvatarItems.h"
 #include "Vehicle.h"
 
 #include <condition_variable>
@@ -59,6 +60,10 @@ struct ConnectedPlayer {
     glm::vec3 leftLegColor = glm::vec3(0.2f, 0.6f, 0.2f);
     glm::vec3 rightLegColor = glm::vec3(0.2f, 0.6f, 0.2f);
     std::string faceId = DEFAULT_FACE_ID;
+    // Equipped hat id from the account, or empty. The catalog lives in
+    // AvatarItems.h, so an id this build does not know is dropped rather than
+    // sent on to clients that could not draw it.
+    std::string hatId;
     // The server's own view of where this player can legitimately be.
     rblx::movement::Guard movement;
     // Health, death and the respawn timer are the server's, not the client's.
@@ -389,6 +394,26 @@ std::string parseAvatarFaceId(const std::string& avatarJson) {
     return normalizeFaceId(avatarJson.substr(pos + 1, end - pos - 1));
 }
 
+// The equipped hat, or empty when the account wears none. An id the catalog does
+// not have is dropped here rather than sent on, so a client is never asked to
+// draw a hat it has no shape for.
+std::string parseAvatarHatId(const std::string& avatarJson) {
+    size_t pos = avatarJson.find("\"hatId\"");
+    if (pos == std::string::npos) return std::string();
+
+    pos = avatarJson.find(":", pos);
+    if (pos == std::string::npos) return std::string();
+
+    pos = avatarJson.find("\"", pos);
+    if (pos == std::string::npos) return std::string();
+
+    size_t end = avatarJson.find("\"", pos + 1);
+    if (end == std::string::npos) return std::string();
+
+    const std::string id = avatarJson.substr(pos + 1, end - pos - 1);
+    return rblx::items::findAvatarItem(id) == nullptr ? std::string() : id;
+}
+
 void copyFixedString(char* destination, size_t destinationSize, const std::string& value) {
     if (!destination || destinationSize == 0) return;
     std::memset(destination, 0, destinationSize);
@@ -501,6 +526,7 @@ std::vector<char> buildPlayerListPacket() {
             info.rightLegColor[1] = player.rightLegColor.g;
             info.rightLegColor[2] = player.rightLegColor.b;
             copyFixedString(info.faceId, sizeof(info.faceId), normalizeFaceId(player.faceId));
+            copyFixedString(info.hatId, sizeof(info.hatId), player.hatId);
             playerInfoList.push_back(info);
         }
     }
@@ -819,6 +845,43 @@ void unseatPlayer(ConnectedPlayer& player, int id, uint64_t nowMs, bool placeBes
     std::cout << "Player " << id << " left the car" << std::endl;
 }
 
+// The boxes the car has to stop at. Read every tick rather than cached, because
+// a script can move, unanchor or delete a part while somebody is driving.
+std::vector<rblx::vehicle::Obstacle> vehicleObstacles() {
+    std::vector<rblx::vehicle::Obstacle> obstacles;
+    for (int i = 0; i < static_cast<int>(serverParts.size()); ++i) {
+        const Part& part = serverParts[i];
+        if (i == vehicle.partIndex || part.deleted || part.isFolder || !part.canCollide) {
+            continue;
+        }
+        // A yaw-rotated box covers more ground than its own footprint, so the
+        // obstacle is the axis-aligned box around it: generous at the corners of
+        // a diagonal wall, and never small enough to let the car clip through.
+        const float yaw = glm::radians(part.rotation.y);
+        const float cosine = std::abs(std::cos(yaw));
+        const float sine = std::abs(std::sin(yaw));
+        const glm::vec3 half(0.5f * (cosine * part.size.x + sine * part.size.z),
+                             0.5f * part.size.y,
+                             0.5f * (sine * part.size.x + cosine * part.size.z));
+        rblx::vehicle::Obstacle obstacle;
+        obstacle.min = part.position - half;
+        obstacle.max = part.position + half;
+        obstacles.push_back(obstacle);
+    }
+    return obstacles;
+}
+
+// Half the car part's size, so the box that collides is the car the player sees.
+glm::vec3 vehicleHalfExtents() {
+    const Part* part = vehiclePart();
+    if (part == nullptr) {
+        return glm::vec3(5.0f, 1.0f, 3.0f);
+    }
+    return glm::vec3(std::max(0.5f, part->size.x) * 0.5f,
+                     std::max(0.5f, part->size.y) * 0.5f,
+                     std::max(0.5f, part->size.z) * 0.5f);
+}
+
 // One tick of the car. The driver's character rides with it, so every client
 // sees the same seat position and the movement guard stays in step.
 void updateVehicle(float dt, uint64_t nowMs) {
@@ -836,7 +899,8 @@ void updateVehicle(float dt, uint64_t nowMs) {
 
     if (vehicle.driverId == -1 || dt <= 0.0f) return;
 
-    rblx::vehicle::step(vehicle.state, vehicle.input, dt);
+    rblx::vehicle::stepColliding(vehicle.state, vehicle.input, dt, vehicleObstacles(),
+                                 vehicleHalfExtents());
 
     Part* part = vehiclePart();
     if (part == nullptr) {
@@ -1231,6 +1295,7 @@ static int runServer(int argc, char** argv) {
                         player.leftLegColor = glm::vec3(0.2f, 0.6f, 0.2f);
                         player.rightLegColor = glm::vec3(0.2f, 0.6f, 0.2f);
                         player.faceId = DEFAULT_FACE_ID;
+                        player.hatId.clear();
 
                         if (!isGuest) {
                             // This is the only place a join waits on the website, and
@@ -1276,6 +1341,7 @@ static int runServer(int argc, char** argv) {
                                 parseAvatarColor(avatarJson, "leftLegColor", player.leftLegColor);
                                 parseAvatarColor(avatarJson, "rightLegColor", player.rightLegColor);
                                 player.faceId = parseAvatarFaceId(avatarJson);
+                                player.hatId = parseAvatarHatId(avatarJson);
                             }
 
                             std::cout << "Player " << id << " joined as " << player.username

@@ -1953,6 +1953,9 @@ function initSettings() {
             if (!response.ok || !data.success) {
                 throw new Error(data.error || 'Could not change the password.');
             }
+            // Changing the password signs out every session, this one included,
+            // so it keeps going with the token the server just issued.
+            if (data.token) localStorage.setItem(tokenKey, data.token);
             form.reset();
             setStatus(status, 'Password changed.', 'success');
         } catch (error) {

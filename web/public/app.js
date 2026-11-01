@@ -196,6 +196,34 @@ async function runFriendAction(buttons, action) {
     }
 }
 
+function createBlockButton(user, onChanged) {
+    const blocked = Boolean(user.blocked);
+    return makeButton(blocked ? 'Unblock' : 'Block', 'button secondary small', async () => {
+        const { response, data } = await postJson('/api/blocks', {
+            userId: user.id,
+            blocked: !blocked
+        }, getToken());
+        if (!response.ok || !data.success) throw new Error(data.error || 'Could not update the block.');
+        // Unfriending happens on the server with the block, so the relationship
+        // shown here drops back to none either way.
+        onChanged?.({ ...user, blocked: Boolean(data.blocked), relationship: 'none' });
+    });
+}
+
+function createReportButton(user) {
+    return makeButton('Report', 'button secondary small', async () => {
+        const reason = window.prompt(`Why are you reporting ${user.username}?`);
+        if (!reason) return;
+        const { response, data } = await postJson('/api/reports', {
+            targetType: 'user',
+            targetId: user.id,
+            reason
+        }, getToken());
+        if (!response.ok || !data.success) throw new Error(data.error || 'Could not send the report.');
+        window.alert('Report sent to the site admin.');
+    });
+}
+
 function createRelationshipActions(user, onChanged) {
     const token = getToken();
     const actions = document.createElement('div');
@@ -218,7 +246,11 @@ function createRelationshipActions(user, onChanged) {
                 onChanged?.(data.profile || user);
             });
         });
-        actions.appendChild(add);
+        if (!user.blocked) {
+            actions.appendChild(add);
+        }
+        actions.appendChild(createBlockButton(user, onChanged));
+        actions.appendChild(createReportButton(user));
         return actions;
     }
 
@@ -244,6 +276,8 @@ function createRelationshipActions(user, onChanged) {
             });
         });
         actions.append(accept, decline);
+        actions.appendChild(createBlockButton(user, onChanged));
+        actions.appendChild(createReportButton(user));
         return actions;
     }
 
@@ -257,6 +291,8 @@ function createRelationshipActions(user, onChanged) {
         });
     });
     actions.appendChild(remove);
+    actions.appendChild(createBlockButton(user, onChanged));
+    actions.appendChild(createReportButton(user));
     return actions;
 }
 
@@ -277,6 +313,13 @@ function createUserCard(user, onChanged) {
     name.className = 'user-name';
     name.href = profileHref(user);
     name.textContent = user.username;
+    if (user.online) {
+        const dot = document.createElement('span');
+        dot.className = 'presence-dot';
+        dot.title = 'Online now';
+        dot.setAttribute('aria-label', 'Online now');
+        name.append(' ', dot);
+    }
 
     const meta = document.createElement('p');
     meta.className = 'user-meta';
@@ -425,6 +468,19 @@ function initSignup() {
             if (!response.ok) throw new Error(data.error || 'Signup failed.');
 
             saveSession(data);
+
+            const recoveryPanel = document.querySelector('[data-recovery-panel]');
+            const recoveryCode = document.querySelector('[data-signup-recovery-code]');
+            if (recoveryPanel && data.recoveryCode) {
+                // The code is shown once and only ever stored as a hash, so the
+                // form gives way to it instead of navigating away immediately.
+                if (recoveryCode) recoveryCode.textContent = data.recoveryCode;
+                form.hidden = true;
+                recoveryPanel.hidden = false;
+                setStatus(status, 'Account created. Save your recovery code.', 'success');
+                return;
+            }
+
             setStatus(status, 'Account created. Opening dashboard.', 'success');
             window.setTimeout(() => { window.location.href = '/dashboard'; }, 350);
         } catch (error) {
@@ -1565,6 +1621,7 @@ function initAdminPage() {
     const gamesBody = document.querySelector('[data-admin-games]');
     const instancesBody = document.querySelector('[data-admin-instances]');
     const reportsBody = document.querySelector('[data-admin-reports]');
+    const userReportsBody = document.querySelector('[data-admin-user-reports]');
     const status = document.querySelector('[data-admin-status]');
     const refreshButton = document.querySelector('[data-admin-refresh]');
 
@@ -1722,6 +1779,28 @@ function initAdminPage() {
         }
     }
 
+    function renderUserReports(reports) {
+        if (!userReportsBody) return;
+        userReportsBody.innerHTML = '';
+        if (!reports || reports.length === 0) {
+            adminEmptyRow(userReportsBody, 4, 'No reports filed.');
+            return;
+        }
+        for (const report of reports) {
+            const target = document.createElement('span');
+            target.textContent = `${report.targetType === 'game' ? 'Game' : 'Player'}: ${report.targetLabel || report.targetId}`;
+            const reason = document.createElement('span');
+            reason.className = 'admin-reason';
+            reason.textContent = report.reason || '';
+            userReportsBody.appendChild(adminRow([
+                formatDate(report.createdAt),
+                report.reporterUsername || 'unknown',
+                target,
+                reason
+            ]));
+        }
+    }
+
     async function load() {
         setStatus(status, 'Loading site data', '');
         if (refreshButton) refreshButton.disabled = true;
@@ -1737,6 +1816,7 @@ function initAdminPage() {
             renderGames(data.games);
             renderInstances(data.instances);
             renderReports(data.clientReports);
+            renderUserReports(data.reports);
             setStatus(status, '', '');
         } catch (error) {
             setStatus(status, error.message || 'Could not load admin data.', 'error');
@@ -1759,6 +1839,15 @@ function initAdminPage() {
 function applyDisplayPreferences() {
     const reduced = localStorage.getItem('reduceMotion') === '1';
     document.documentElement.classList.toggle('reduce-motion', reduced);
+
+    // "system" removes the attribute so the prefers-color-scheme rules in the
+    // stylesheet take over; an explicit choice pins the theme in this browser.
+    const theme = localStorage.getItem('theme') || 'system';
+    if (theme === 'light' || theme === 'dark') {
+        document.documentElement.dataset.theme = theme;
+    } else {
+        delete document.documentElement.dataset.theme;
+    }
     return reduced;
 }
 
@@ -1829,6 +1918,190 @@ function initSettings() {
             submit.disabled = false;
         }
     });
+
+    const themeSelect = document.querySelector('[data-theme-select]');
+    if (themeSelect) {
+        themeSelect.value = localStorage.getItem('theme') || 'system';
+        themeSelect.addEventListener('change', () => {
+            localStorage.setItem('theme', themeSelect.value);
+            applyDisplayPreferences();
+        });
+    }
+
+    const usernameForm = document.querySelector('[data-username-form]');
+    const usernameStatus = document.querySelector('[data-username-status]');
+    if (usernameForm) {
+        usernameForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const submit = usernameForm.querySelector('button[type="submit"]');
+            submit.disabled = true;
+            setStatus(usernameStatus, '', '');
+            try {
+                const { response, data } = await postJson('/api/account/username', {
+                    username: usernameForm.querySelector('#new-username').value.trim(),
+                    currentPassword: usernameForm.querySelector('#username-password').value
+                }, getToken());
+                if (!response.ok || !data.success) throw new Error(data.error || 'Could not change the username.');
+                // The token carries the username, so the new one replaces the old
+                // session rather than leaving a stale claim behind.
+                saveSession(data);
+                if (usernameOutput) usernameOutput.textContent = data.username;
+                usernameForm.reset();
+                setStatus(usernameStatus, `Signed in as ${data.username}.`, 'success');
+                initNavAuth();
+            } catch (error) {
+                setStatus(usernameStatus, error.message || 'Could not change the username.', 'error');
+            } finally {
+                submit.disabled = false;
+            }
+        });
+    }
+
+    const recoveryForm = document.querySelector('[data-recovery-form]');
+    const recoveryStatus = document.querySelector('[data-recovery-status]');
+    const recoveryOutput = document.querySelector('[data-recovery-code]');
+    if (recoveryForm) {
+        recoveryForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const submit = recoveryForm.querySelector('button[type="submit"]');
+            submit.disabled = true;
+            setStatus(recoveryStatus, '', '');
+            try {
+                const { response, data } = await postJson('/api/account/recovery', {
+                    currentPassword: recoveryForm.querySelector('#recovery-password').value
+                }, getToken());
+                if (!response.ok || !data.success) throw new Error(data.error || 'Could not create a recovery code.');
+                recoveryForm.reset();
+                if (recoveryOutput) {
+                    recoveryOutput.textContent = data.recoveryCode;
+                    recoveryOutput.hidden = false;
+                }
+                setStatus(recoveryStatus, 'New code created. The old one no longer works.', 'success');
+            } catch (error) {
+                setStatus(recoveryStatus, error.message || 'Could not create a recovery code.', 'error');
+            } finally {
+                submit.disabled = false;
+            }
+        });
+    }
+
+    const exportButton = document.querySelector('[data-export]');
+    const deleteForm = document.querySelector('[data-delete-form]');
+    const deleteStatus = document.querySelector('[data-delete-status]');
+    if (exportButton) {
+        exportButton.addEventListener('click', async () => {
+            exportButton.disabled = true;
+            try {
+                const { response, data } = await getJson('/api/account/export', getToken());
+                if (!response.ok) throw new Error(data.error || 'Could not build the export.');
+                const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = 'rblx-account.json';
+                link.click();
+                URL.revokeObjectURL(url);
+            } catch (error) {
+                setStatus(deleteStatus, error.message || 'Could not build the export.', 'error');
+            } finally {
+                exportButton.disabled = false;
+            }
+        });
+    }
+
+    if (deleteForm) {
+        deleteForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            if (!window.confirm('Delete this account? Its games and world files are removed too, and this cannot be undone.')) return;
+            const submit = deleteForm.querySelector('button[type="submit"]');
+            submit.disabled = true;
+            setStatus(deleteStatus, '', '');
+            try {
+                const { response, data } = await postJson('/api/account/delete', {
+                    password: deleteForm.querySelector('#delete-password').value
+                }, getToken());
+                if (!response.ok || !data.success) throw new Error(data.error || 'Could not delete the account.');
+                clearSession();
+                window.location.href = '/';
+            } catch (error) {
+                setStatus(deleteStatus, error.message || 'Could not delete the account.', 'error');
+                submit.disabled = false;
+            }
+        });
+    }
+}
+
+// The login page carries the recovery form for accounts whose password is gone.
+function initRecovery() {
+    const form = document.querySelector('[data-recovery-form]');
+    if (!form) return;
+
+    const status = document.querySelector('[data-recovery-status]');
+    const output = document.querySelector('[data-recovery-new-code]');
+
+    form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const submit = form.querySelector('button[type="submit"]');
+        const username = form.querySelector('#recovery-username').value.trim();
+        const recoveryCode = form.querySelector('#recovery-code').value.trim();
+        const newPassword = form.querySelector('#recovery-password').value;
+        const confirmPassword = form.querySelector('#recovery-confirm').value;
+
+        if (newPassword !== confirmPassword) {
+            setStatus(status, 'The new passwords do not match.', 'error');
+            return;
+        }
+
+        submit.disabled = true;
+        setStatus(status, '', '');
+        try {
+            const { response, data } = await postJson('/api/account/recover', {
+                username,
+                recoveryCode,
+                newPassword
+            });
+            if (!response.ok || !data.success) throw new Error(data.error || 'Could not reset the password.');
+            form.reset();
+            if (output) {
+                output.textContent = data.recoveryCode;
+                output.hidden = false;
+            }
+            setStatus(status, 'Password reset. The code above replaces the one you used.', 'success');
+        } catch (error) {
+            setStatus(status, error.message || 'Could not reset the password.', 'error');
+        } finally {
+            submit.disabled = false;
+        }
+    });
+}
+
+// Games are reported from their own page; the id is in the address.
+function initReportGame() {
+    const button = document.querySelector('[data-report-game]');
+    if (!button) return;
+
+    const match = window.location.pathname.match(/^\/games\/(\d+)$/);
+    if (!match) {
+        button.hidden = true;
+        return;
+    }
+    const gameId = Number(match[1]);
+
+    button.addEventListener('click', async () => {
+        const reason = window.prompt('What is wrong with this game?');
+        if (!reason) return;
+        try {
+            const { response, data } = await postJson('/api/reports', {
+                targetType: 'game',
+                targetId: gameId,
+                reason
+            }, getToken());
+            if (!response.ok || !data.success) throw new Error(data.error || 'Could not send the report.');
+            window.alert('Report sent to the site admin.');
+        } catch (error) {
+            window.alert(error.message || 'Could not send the report.');
+        }
+    });
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -1837,6 +2110,8 @@ document.addEventListener('DOMContentLoaded', () => {
     initLogoutButtons();
     initLogin();
     initSignup();
+    initRecovery();
+    initReportGame();
     initDashboard();
     initSearch();
     initProfilePage();

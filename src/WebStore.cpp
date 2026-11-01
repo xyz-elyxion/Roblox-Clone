@@ -88,9 +88,13 @@ void Store::clear() {
     friendships_.clear();
     stats_.clear();
     games_.clear();
+    reports_.clear();
+    blocks_.clear();
     nextUserId_ = 1;
     nextFriendshipId_ = 1;
     nextGameId_ = 1;
+    nextReportId_ = 1;
+    nextBlockId_ = 1;
 }
 
 bool Store::load(std::string* error) {
@@ -118,7 +122,9 @@ bool Store::load(std::string* error) {
         user.id = static_cast<int>(entry.member("id").asInteger(0));
         user.username = entry.member("username").asString();
         user.passwordHash = entry.member("passwordHash").asString();
+        user.recoveryHash = entry.member("recoveryHash").asString();
         user.createdAt = entry.member("createdAt").asString();
+        user.lastSeenAtMs = entry.member("lastSeenAtMs").asInteger(0);
         if (user.id > 0 && !user.username.empty()) {
             users_.push_back(user);
             nextUserId_ = std::max(nextUserId_, user.id + 1);
@@ -206,6 +212,37 @@ bool Store::load(std::string* error) {
         nextGameId_ = std::max(nextGameId_, record.id + 1);
     }
 
+    for (const Json& entry : document.member("reports").elements()) {
+        ReportRecord record;
+        record.id = static_cast<int>(entry.member("id").asInteger(0));
+        record.reporterId = static_cast<int>(entry.member("reporterId").asInteger(0));
+        record.reporterUsername = entry.member("reporterUsername").asString();
+        record.targetType = entry.member("targetType").asString();
+        record.targetId = static_cast<int>(entry.member("targetId").asInteger(0));
+        record.targetLabel = entry.member("targetLabel").asString();
+        record.reason = entry.member("reason").asString();
+        record.createdAt = entry.member("createdAt").asString();
+        if (record.id <= 0 || record.targetId <= 0) {
+            continue;
+        }
+        reports_.push_back(record);
+        nextReportId_ = std::max(nextReportId_, record.id + 1);
+    }
+
+    for (const Json& entry : document.member("blocks").elements()) {
+        BlockRecord record;
+        record.id = static_cast<int>(entry.member("id").asInteger(0));
+        record.blockerId = static_cast<int>(entry.member("blockerId").asInteger(0));
+        record.blockedId = static_cast<int>(entry.member("blockedId").asInteger(0));
+        record.createdAt = entry.member("createdAt").asString();
+        if (record.id <= 0 || record.blockerId <= 0 || record.blockedId <= 0 ||
+            record.blockerId == record.blockedId) {
+            continue;
+        }
+        blocks_.push_back(record);
+        nextBlockId_ = std::max(nextBlockId_, record.id + 1);
+    }
+
     resolveOwnerNames();
     return true;
 }
@@ -219,7 +256,9 @@ bool Store::save(std::string* error) const {
         entry.set("id", user.id);
         entry.set("username", user.username);
         entry.set("passwordHash", user.passwordHash);
+        entry.set("recoveryHash", user.recoveryHash);
         entry.set("createdAt", user.createdAt);
+        entry.set("lastSeenAtMs", user.lastSeenAtMs);
         users.push(entry);
     }
     document.set("users", users);
@@ -294,6 +333,32 @@ bool Store::save(std::string* error) const {
     }
     document.set("games", games);
 
+    Json reports = Json::makeArray();
+    for (const ReportRecord& record : reports_) {
+        Json entry = Json::makeObject();
+        entry.set("id", record.id);
+        entry.set("reporterId", record.reporterId);
+        entry.set("reporterUsername", record.reporterUsername);
+        entry.set("targetType", record.targetType);
+        entry.set("targetId", record.targetId);
+        entry.set("targetLabel", record.targetLabel);
+        entry.set("reason", record.reason);
+        entry.set("createdAt", record.createdAt);
+        reports.push(entry);
+    }
+    document.set("reports", reports);
+
+    Json blocks = Json::makeArray();
+    for (const BlockRecord& record : blocks_) {
+        Json entry = Json::makeObject();
+        entry.set("id", record.id);
+        entry.set("blockerId", record.blockerId);
+        entry.set("blockedId", record.blockedId);
+        entry.set("createdAt", record.createdAt);
+        blocks.push(entry);
+    }
+    document.set("blocks", blocks);
+
     return writeFileAtomically(path_, document.dump(), error);
 }
 
@@ -354,6 +419,68 @@ bool Store::setPasswordHash(int id, const std::string& passwordHash) {
         }
     }
     return false;
+}
+
+bool Store::setRecoveryHash(int id, const std::string& recoveryHash) {
+    for (UserRecord& user : users_) {
+        if (user.id == id) {
+            user.recoveryHash = recoveryHash;
+            return true;
+        }
+    }
+    return false;
+}
+
+bool Store::touchUser(int id, long long nowMs) {
+    for (UserRecord& user : users_) {
+        if (user.id != id) {
+            continue;
+        }
+        // A single page load is several authenticated calls, so an almost current
+        // timestamp is left alone instead of rewriting the file every time.
+        if (nowMs - user.lastSeenAtMs < 30 * 1000) {
+            return false;
+        }
+        user.lastSeenAtMs = nowMs;
+        return true;
+    }
+    return false;
+}
+
+bool Store::removeUser(int id) {
+    const auto user = std::find_if(users_.begin(), users_.end(),
+                                   [id](const UserRecord& record) { return record.id == id; });
+    if (user == users_.end()) {
+        return false;
+    }
+    users_.erase(user);
+
+    const auto isUser = [id](int userId) { return userId == id; };
+    avatars_.erase(std::remove_if(avatars_.begin(), avatars_.end(),
+                                  [&](const AvatarRecord& record) {
+                                      return isUser(record.userId);
+                                  }),
+                   avatars_.end());
+    stats_.erase(std::remove_if(stats_.begin(), stats_.end(),
+                                [&](const StatsRecord& record) { return isUser(record.userId); }),
+                 stats_.end());
+    friendships_.erase(
+        std::remove_if(friendships_.begin(), friendships_.end(),
+                       [&](const FriendshipRecord& record) {
+                           return isUser(record.requesterId) || isUser(record.addresseeId);
+                       }),
+        friendships_.end());
+    blocks_.erase(std::remove_if(blocks_.begin(), blocks_.end(),
+                                 [&](const BlockRecord& record) {
+                                     return isUser(record.blockerId) || isUser(record.blockedId);
+                                 }),
+                  blocks_.end());
+    reports_.erase(std::remove_if(reports_.begin(), reports_.end(),
+                                  [&](const ReportRecord& record) {
+                                      return isUser(record.reporterId);
+                                  }),
+                   reports_.end());
+    return true;
 }
 
 const UserRecord* Store::firstUser() const {
@@ -635,6 +762,73 @@ void Store::removeFriendshipsBetween(int firstUserId, int secondUserId) {
                            return forward || backward;
                        }),
         friendships_.end());
+}
+
+int Store::addReport(const ReportRecord& record) {
+    ReportRecord stored = record;
+    stored.id = nextReportId_++;
+    reports_.push_back(stored);
+    return stored.id;
+}
+
+std::vector<const ReportRecord*> Store::recentReports(std::size_t limit) const {
+    std::vector<const ReportRecord*> out;
+    for (auto entry = reports_.rbegin(); entry != reports_.rend() && out.size() < limit; ++entry) {
+        out.push_back(&*entry);
+    }
+    return out;
+}
+
+bool Store::addBlock(int blockerId, int blockedId, const std::string& nowIso) {
+    if (blockerId <= 0 || blockedId <= 0 || blockerId == blockedId) {
+        return false;
+    }
+    if (isBlocked(blockerId, blockedId)) {
+        return true;
+    }
+    BlockRecord record;
+    record.id = nextBlockId_++;
+    record.blockerId = blockerId;
+    record.blockedId = blockedId;
+    record.createdAt = nowIso;
+    blocks_.push_back(record);
+    return true;
+}
+
+bool Store::removeBlock(int blockerId, int blockedId) {
+    const auto entry = std::find_if(blocks_.begin(), blocks_.end(),
+                                    [&](const BlockRecord& record) {
+                                        return record.blockerId == blockerId &&
+                                               record.blockedId == blockedId;
+                                    });
+    if (entry == blocks_.end()) {
+        return false;
+    }
+    blocks_.erase(entry);
+    return true;
+}
+
+bool Store::isBlocked(int blockerId, int blockedId) const {
+    for (const BlockRecord& record : blocks_) {
+        if (record.blockerId == blockerId && record.blockedId == blockedId) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool Store::blockedEitherWay(int firstUserId, int secondUserId) const {
+    return isBlocked(firstUserId, secondUserId) || isBlocked(secondUserId, firstUserId);
+}
+
+std::vector<const BlockRecord*> Store::blocksBy(int userId) const {
+    std::vector<const BlockRecord*> out;
+    for (const BlockRecord& record : blocks_) {
+        if (record.blockerId == userId) {
+            out.push_back(&record);
+        }
+    }
+    return out;
 }
 
 const GameRecord* Store::findGame(int id) const {

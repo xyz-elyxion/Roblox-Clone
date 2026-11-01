@@ -516,6 +516,15 @@ bool HttpServer::writesResponse(std::intptr_t socketHandle, const Request& reque
     out += "X-Content-Type-Options: nosniff\r\n";
     out += "X-Frame-Options: DENY\r\n";
     out += "Referrer-Policy: same-origin\r\n";
+    // Every page loads only its own scripts, styles, images and the vendored
+    // three.js copy, and no page has an inline handler or inline script, so the
+    // policy can stay this narrow. style-src needs 'unsafe-inline' because the
+    // avatar preview sets colours through the style attribute.
+    out += "Content-Security-Policy: default-src 'self'; script-src 'self'; "
+           "style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; "
+           "font-src 'self'; connect-src 'self'; worker-src 'self' blob:; "
+           "object-src 'none'; base-uri 'none'; form-action 'self'; "
+           "frame-ancestors 'none'\r\n";
     for (const auto& header : response.headers) {
         out += header.first + ": " + header.second + "\r\n";
     }

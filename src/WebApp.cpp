@@ -1,5 +1,54 @@
 #include "AvatarItems.h"
 #include "WebApp.h"
+#include "WebCrypto.h"
+
+#include <chrono>
+
+namespace {
+
+long long presenceMillis() {
+    return std::chrono::duration_cast<std::chrono::milliseconds>(
+               std::chrono::system_clock::now().time_since_epoch())
+        .count();
+}
+
+// An account is online while its last authenticated request is recent. The
+// window is short on purpose: this is presence, not a last-seen record.
+bool userIsOnline(const rblx::web::UserRecord* user, long long nowMs) {
+    return user != nullptr && user->lastSeenAtMs > 0 &&
+           nowMs - user->lastSeenAtMs < 2 * 60 * 1000;
+}
+
+// Recovery codes are 20 hex characters shown in groups of five so they can be
+// read off a screen, and compared after stripping the dashes and the case.
+std::string makeRecoveryCode() {
+    return rblx::web::randomHex(10);
+}
+
+std::string normalizeRecoveryCode(const std::string& input) {
+    std::string out;
+    out.reserve(input.size());
+    for (char c : input) {
+        if (c == '-' || c == ' ' || c == '\t') {
+            continue;
+        }
+        out.push_back(static_cast<char>(std::tolower(static_cast<unsigned char>(c))));
+    }
+    return out;
+}
+
+std::string formatRecoveryCode(const std::string& code) {
+    std::string out;
+    for (std::size_t i = 0; i < code.size(); ++i) {
+        if (i > 0 && i % 5 == 0) {
+            out.push_back('-');
+        }
+        out.push_back(code[i]);
+    }
+    return out;
+}
+
+}  // namespace
 
 #include <algorithm>
 #include <cctype>
@@ -1609,6 +1658,32 @@ void WebsiteApp::installRoutes() {
                   guard([this](Request& request, Response& response) {
                       return handleChangePassword(request, response);
                   }));
+    server_.route("POST", "/api/account/recover",
+                  guard([this](Request& request, Response& response) {
+                      return handleRecovery(request, response);
+                  }));
+    server_.route("POST", "/api/account/recovery",
+                  guard([this](Request& request, Response& response) {
+                      return handleRotateRecovery(request, response);
+                  }));
+    server_.route("POST", "/api/account/username",
+                  guard([this](Request& request, Response& response) {
+                      return handleChangeUsername(request, response);
+                  }));
+    server_.route("POST", "/api/account/delete",
+                  guard([this](Request& request, Response& response) {
+                      return handleDeleteAccount(request, response);
+                  }));
+    server_.route("GET", "/api/account/export",
+                  guard([this](Request& request, Response& response) {
+                      return handleExportData(request, response);
+                  }));
+    server_.route("POST", "/api/blocks", guard([this](Request& request, Response& response) {
+                      return handleBlockUser(request, response);
+                  }));
+    server_.route("POST", "/api/reports", guard([this](Request& request, Response& response) {
+                      return handleReport(request, response);
+                  }));
     server_.route("GET", "/api/me/social", guard([this](Request& request, Response& response) {
                       return handleSocial(request, response);
                   }));
@@ -1724,6 +1799,11 @@ bool WebsiteApp::handleSignup(Request& request, Response& response) {
         errorJson(response, 409, "Username already exists.");
         return true;
     }
+    // The recovery code is shown once and stored only as a hash, so a forgotten
+    // password has a way back in without an email address on the account.
+    const std::string recoveryCode = makeRecoveryCode();
+    store_.setRecoveryHash(userId, hashPassword(recoveryCode, config_.passwordIterations));
+
     std::string saveError;
     if (!store_.save(&saveError)) {
         std::fprintf(stderr, "Could not save the data file: %s\n", saveError.c_str());
@@ -1734,6 +1814,7 @@ bool WebsiteApp::handleSignup(Request& request, Response& response) {
     result.set("token", issueToken(config_, userId, username));
     result.set("userId", userId);
     result.set("username", username);
+    result.set("recoveryCode", formatRecoveryCode(recoveryCode));
     sendJson(response, 201, result);
     return true;
 }
@@ -1811,6 +1892,13 @@ bool WebsiteApp::handleVerify(Request& request, Response& response) {
     authUser.id = user->id;
     authUser.username = user->username;
 
+    // Every page load verifies the session, so this is the cheapest place to
+    // record activity for the online dot.
+    if (store_.touchUser(user->id, presenceMillis())) {
+        std::string saveError;
+        store_.save(&saveError);
+    }
+
     Json result = Json::makeObject();
     result.set("success", true);
     result.set("userId", user->id);
@@ -1872,6 +1960,397 @@ bool WebsiteApp::handleChangePassword(Request& request, Response& response) {
     return true;
 }
 
+bool WebsiteApp::handleRotateRecovery(Request& request, Response& response) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (isRateLimited(request.remoteAddress)) {
+        errorJson(response, 429, "Too many attempts. Try again later.");
+        return true;
+    }
+    AuthUser user;
+    if (!requireAuth(request, response, &user)) {
+        return true;
+    }
+    Json body;
+    if (!parseJsonBody(request, &body, response)) {
+        return true;
+    }
+
+    const UserRecord* record = store_.findUserById(user.id);
+    if (record == nullptr) {
+        errorJson(response, 401, "Invalid or expired token.");
+        return true;
+    }
+    if (!verifyPassword(body.member("currentPassword").asString(), record->passwordHash)) {
+        errorJson(response, 403, "Current password is incorrect.");
+        return true;
+    }
+
+    const std::string recoveryCode = makeRecoveryCode();
+    store_.setRecoveryHash(user.id, hashPassword(recoveryCode, config_.passwordIterations));
+    std::string saveError;
+    if (!store_.save(&saveError)) {
+        errorJson(response, 500, "Could not update the data file.");
+        return true;
+    }
+
+    Json result = Json::makeObject();
+    result.set("success", true);
+    result.set("recoveryCode", formatRecoveryCode(recoveryCode));
+    sendJson(response, 200, result);
+    return true;
+}
+
+bool WebsiteApp::handleRecovery(Request& request, Response& response) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (isRateLimited(request.remoteAddress)) {
+        errorJson(response, 429, "Too many attempts. Try again later.");
+        return true;
+    }
+    Json body;
+    if (!parseJsonBody(request, &body, response)) {
+        return true;
+    }
+
+    const std::string username = body.member("username").asString();
+    const std::string recoveryCode =
+        normalizeRecoveryCode(body.member("recoveryCode").asString());
+    const std::string newPassword = body.member("newPassword").asString();
+
+    const UserRecord* record = store_.findUserByName(username);
+    // One message for "no such account" and "wrong code", so the form cannot be
+    // used to find out which usernames exist.
+    if (record == nullptr || record->recoveryHash.empty() || recoveryCode.empty() ||
+        !verifyPassword(recoveryCode, record->recoveryHash)) {
+        errorJson(response, 401, "That username and recovery code do not match.");
+        return true;
+    }
+    if (newPassword.size() < 8 || newPassword.size() > 128) {
+        errorJson(response, 400, "Password must be between 8 and 128 characters.");
+        return true;
+    }
+    if (verifyPassword(newPassword, record->passwordHash)) {
+        errorJson(response, 400, "The new password must differ from the current one.");
+        return true;
+    }
+
+    const int userId = record->id;
+    const std::string newRecovery = makeRecoveryCode();
+    if (!store_.setPasswordHash(userId, hashPassword(newPassword, config_.passwordIterations)) ||
+        !store_.setRecoveryHash(userId, hashPassword(newRecovery, config_.passwordIterations))) {
+        errorJson(response, 500, "Could not reset the password.");
+        return true;
+    }
+    std::string saveError;
+    if (!store_.save(&saveError)) {
+        errorJson(response, 500, "Could not update the data file.");
+        return true;
+    }
+
+    Json result = Json::makeObject();
+    result.set("success", true);
+    result.set("username", username);
+    result.set("recoveryCode", formatRecoveryCode(newRecovery));
+    sendJson(response, 200, result);
+    return true;
+}
+
+bool WebsiteApp::handleChangeUsername(Request& request, Response& response) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (isRateLimited(request.remoteAddress)) {
+        errorJson(response, 429, "Too many attempts. Try again later.");
+        return true;
+    }
+    AuthUser user;
+    if (!requireAuth(request, response, &user)) {
+        return true;
+    }
+    Json body;
+    if (!parseJsonBody(request, &body, response)) {
+        return true;
+    }
+
+    const UserRecord* record = store_.findUserById(user.id);
+    if (record == nullptr) {
+        errorJson(response, 401, "Invalid or expired token.");
+        return true;
+    }
+    if (!verifyPassword(body.member("currentPassword").asString(), record->passwordHash)) {
+        errorJson(response, 403, "Current password is incorrect.");
+        return true;
+    }
+
+    const std::string username = trimCopy(body.member("username").asString());
+    // The signup rule is reused rather than restated, so a rename cannot land a
+    // name the signup form would have refused.
+    const std::string validation = validateCredentials(username, std::string(8, 'a'));
+    if (!validation.empty()) {
+        errorJson(response, 400, validation);
+        return true;
+    }
+    if (username == record->username) {
+        errorJson(response, 400, "That is already your username.");
+        return true;
+    }
+    if (!store_.renameUser(user.id, username)) {
+        errorJson(response, 409, "Username already exists.");
+        return true;
+    }
+    std::string saveError;
+    if (!store_.save(&saveError)) {
+        errorJson(response, 500, "Could not update the data file.");
+        return true;
+    }
+
+    Json result = Json::makeObject();
+    result.set("success", true);
+    result.set("userId", user.id);
+    result.set("username", username);
+    // The username is inside the token, so the caller replaces its session with
+    // the one issued here instead of carrying a stale claim around.
+    result.set("token", issueToken(config_, user.id, username));
+    sendJson(response, 200, result);
+    return true;
+}
+
+bool WebsiteApp::handleDeleteAccount(Request& request, Response& response) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    AuthUser user;
+    if (!requireAuth(request, response, &user)) {
+        return true;
+    }
+    Json body;
+    if (!parseJsonBody(request, &body, response)) {
+        return true;
+    }
+
+    const UserRecord* record = store_.findUserById(user.id);
+    if (record == nullptr) {
+        errorJson(response, 401, "Invalid or expired token.");
+        return true;
+    }
+    if (!verifyPassword(body.member("password").asString(), record->passwordHash)) {
+        errorJson(response, 403, "Password is incorrect.");
+        return true;
+    }
+    // The install owner is the one account that cannot be recreated, so it stays
+    // even when its own owner asks.
+    const UserRecord* owner = store_.firstUser();
+    if (owner != nullptr && owner->id == user.id) {
+        errorJson(response, 400, "The account that owns this install cannot be deleted.");
+        return true;
+    }
+
+    std::vector<int> ownedGameIds;
+    for (const GameRecord* game : store_.gamesOwnedBy(user.id)) {
+        ownedGameIds.push_back(game->id);
+    }
+    for (int gameId : ownedGameIds) {
+        const GameRecord* game = store_.findGame(gameId);
+        if (game == nullptr) {
+            continue;
+        }
+        for (const std::string& instanceId : activeInstanceIds(gameId)) {
+            stopInstance(instanceId, "account deleted");
+        }
+        const std::string worldPath = game->worldPath;
+        const std::string scriptPath = game->scriptPath;
+        store_.removeGame(gameId);
+        if (!worldPath.empty()) {
+            std::remove(worldPath.c_str());
+        }
+        if (!scriptPath.empty()) {
+            std::remove(scriptPath.c_str());
+        }
+    }
+
+    store_.removeUser(user.id);
+    std::string saveError;
+    if (!store_.save(&saveError)) {
+        errorJson(response, 500, "Could not update the data file.");
+        return true;
+    }
+
+    Json result = Json::makeObject();
+    result.set("success", true);
+    sendJson(response, 200, result);
+    return true;
+}
+
+bool WebsiteApp::handleExportData(Request& request, Response& response) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    AuthUser user;
+    if (!requireAuth(request, response, &user)) {
+        return true;
+    }
+    const UserRecord* record = store_.findUserById(user.id);
+    if (record == nullptr) {
+        errorJson(response, 401, "Invalid or expired token.");
+        return true;
+    }
+
+    Json result = Json::makeObject();
+    result.set("exportedAt", nowIso());
+
+    Json account = Json::makeObject();
+    account.set("id", record->id);
+    account.set("username", record->username);
+    account.set("createdAt", record->createdAt);
+    result.set("account", account);
+
+    // The password and recovery hashes stay out of the export: they are not the
+    // account's data, they are the credentials that protect it.
+    result.set("profile", profileJson(user.id, user.id));
+
+    Json games = Json::makeArray();
+    for (const GameRecord* game : store_.gamesOwnedBy(user.id)) {
+        games.push(gameJson(*game, true));
+    }
+    result.set("games", games);
+
+    Json friends = Json::makeArray();
+    for (const FriendshipRecord* friendship : store_.acceptedFriendships(user.id, 200)) {
+        const int friendId = friendship->requesterId == user.id ? friendship->addresseeId
+                                                              : friendship->requesterId;
+        const UserRecord* friendRecord = store_.findUserById(friendId);
+        Json entry = Json::makeObject();
+        entry.set("id", friendId);
+        entry.set("username", friendRecord != nullptr ? friendRecord->username : std::string());
+        entry.set("since", friendship->updatedAt);
+        friends.push(entry);
+    }
+    result.set("friends", friends);
+
+    Json blocks = Json::makeArray();
+    for (const BlockRecord* block : store_.blocksBy(user.id)) {
+        Json entry = Json::makeObject();
+        entry.set("userId", block->blockedId);
+        entry.set("createdAt", block->createdAt);
+        blocks.push(entry);
+    }
+    result.set("blocks", blocks);
+
+    sendJson(response, 200, result);
+    return true;
+}
+
+bool WebsiteApp::handleBlockUser(Request& request, Response& response) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    AuthUser user;
+    if (!requireAuth(request, response, &user)) {
+        return true;
+    }
+    Json body;
+    if (!parseJsonBody(request, &body, response)) {
+        return true;
+    }
+
+    const int targetId = static_cast<int>(body.member("userId").asInteger(0));
+    const bool blocked = body.member("blocked").asBool(true);
+    if (targetId <= 0) {
+        errorJson(response, 400, "User ID must be a positive number.");
+        return true;
+    }
+    if (targetId == user.id) {
+        errorJson(response, 400, "You cannot block your own account.");
+        return true;
+    }
+    if (store_.findUserById(targetId) == nullptr) {
+        errorJson(response, 404, "User not found.");
+        return true;
+    }
+
+    if (blocked) {
+        store_.addBlock(user.id, targetId, nowIso());
+        // A block also drops the friendship, so neither side keeps the other in
+        // a friend list it can no longer see.
+        store_.removeFriendshipsBetween(user.id, targetId);
+    } else {
+        store_.removeBlock(user.id, targetId);
+    }
+    std::string saveError;
+    if (!store_.save(&saveError)) {
+        errorJson(response, 500, "Could not update the data file.");
+        return true;
+    }
+
+    Json result = Json::makeObject();
+    result.set("success", true);
+    result.set("blocked", blocked);
+    sendJson(response, 200, result);
+    return true;
+}
+
+bool WebsiteApp::handleReport(Request& request, Response& response) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    AuthUser user;
+    if (!requireAuth(request, response, &user)) {
+        return true;
+    }
+    Json body;
+    if (!parseJsonBody(request, &body, response)) {
+        return true;
+    }
+
+    const std::string targetType = body.member("targetType").asString();
+    const int targetId = static_cast<int>(body.member("targetId").asInteger(0));
+    std::string reason = trimCopy(body.member("reason").asString());
+    if (targetType != "game" && targetType != "user") {
+        errorJson(response, 400, "Reports are for a game or a user.");
+        return true;
+    }
+    if (targetId <= 0) {
+        errorJson(response, 400, "That report target was not found.");
+        return true;
+    }
+    if (reason.size() < 3) {
+        errorJson(response, 400, "Add a short reason for the report.");
+        return true;
+    }
+    if (reason.size() > 300) {
+        reason.resize(300);
+    }
+
+    ReportRecord record;
+    record.reporterId = user.id;
+    record.reporterUsername = user.username;
+    record.targetType = targetType;
+    record.targetId = targetId;
+    record.createdAt = nowIso();
+    record.reason = reason;
+
+    if (targetType == "game") {
+        const GameRecord* game = store_.findGame(targetId);
+        if (game == nullptr) {
+            errorJson(response, 404, "Game not found.");
+            return true;
+        }
+        record.targetLabel = game->title;
+    } else {
+        if (targetId == user.id) {
+            errorJson(response, 400, "You cannot report your own account.");
+            return true;
+        }
+        const UserRecord* target = store_.findUserById(targetId);
+        if (target == nullptr) {
+            errorJson(response, 404, "User not found.");
+            return true;
+        }
+        record.targetLabel = target->username;
+    }
+
+    store_.addReport(record);
+    std::string saveError;
+    if (!store_.save(&saveError)) {
+        errorJson(response, 500, "Could not update the data file.");
+        return true;
+    }
+
+    Json result = Json::makeObject();
+    result.set("success", true);
+    sendJson(response, 201, result);
+    return true;
+}
+
 bool WebsiteApp::handleSocial(Request& request, Response& response) {
     std::lock_guard<std::mutex> lock(mutex_);
     AuthUser user;
@@ -1879,6 +2358,14 @@ bool WebsiteApp::handleSocial(Request& request, Response& response) {
         return true;
     }
 
+    // The dashboard reloads this endpoint while it is open, so it keeps presence
+    // fresh without every poll counting as a session check.
+    if (store_.touchUser(user.id, presenceMillis())) {
+        std::string presenceError;
+        store_.save(&presenceError);
+    }
+
+    const long long presenceNow = presenceMillis();
     Json result = Json::makeObject();
     result.set("success", true);
     result.set("isAdmin", isAdminUser(user));
@@ -1888,7 +2375,9 @@ bool WebsiteApp::handleSocial(Request& request, Response& response) {
     for (const FriendshipRecord* record : store_.acceptedFriendships(user.id, 48)) {
         const int friendId =
             record->requesterId == user.id ? record->addresseeId : record->requesterId;
-        friends.push(profileJson(friendId, user.id));
+        Json friendProfile = profileJson(friendId, user.id);
+        friendProfile.set("online", userIsOnline(store_.findUserById(friendId), presenceNow));
+        friends.push(friendProfile);
     }
     result.set("friends", friends);
 
@@ -2020,6 +2509,10 @@ bool WebsiteApp::handleUserSearch(Request& request, Response& response) {
         if (record->id == user.id) {
             continue;
         }
+        // A block hides both accounts from each other, whoever filed it.
+        if (store_.blockedEitherWay(user.id, record->id)) {
+            continue;
+        }
         users.push(profileJson(record->id, user.id));
     }
 
@@ -2048,16 +2541,23 @@ bool WebsiteApp::handleUserProfile(Request& request, Response& response) {
         return true;
     }
 
+    const long long presenceNow = presenceMillis();
     Json friends = Json::makeArray();
     for (const FriendshipRecord* record : store_.acceptedFriendships(userId, 24)) {
         const int friendId =
             record->requesterId == userId ? record->addresseeId : record->requesterId;
-        friends.push(profileJson(friendId, user.id));
+        Json friendProfile = profileJson(friendId, user.id);
+        friendProfile.set("online", userIsOnline(store_.findUserById(friendId), presenceNow));
+        friends.push(friendProfile);
     }
+
+    Json profile = profileJson(userId, user.id);
+    profile.set("online", userIsOnline(store_.findUserById(userId), presenceNow));
+    profile.set("blocked", store_.isBlocked(user.id, userId));
 
     Json result = Json::makeObject();
     result.set("success", true);
-    result.set("profile", profileJson(userId, user.id));
+    result.set("profile", profile);
     result.set("friends", friends);
     sendJson(response, 200, result);
     return true;
@@ -2651,6 +3151,7 @@ bool WebsiteApp::handleAdminOverview(Request& request, Response& response) {
     stats.set("instanceCount", static_cast<long long>(instances_.size()));
     stats.set("playtimeSeconds", playtimeSeconds);
     stats.set("launchCount", launchCount);
+    stats.set("reportCount", static_cast<long long>(store_.reportCount()));
 
     Json gameList = Json::makeArray();
     for (const GameRecord* game : games) {
@@ -2682,6 +3183,20 @@ bool WebsiteApp::handleAdminOverview(Request& request, Response& response) {
     result.set("games", gameList);
     result.set("instances", instanceList);
     result.set("clientReports", reportList);
+
+    Json userReports = Json::makeArray();
+    for (const ReportRecord* report : store_.recentReports(50)) {
+        Json entry = Json::makeObject();
+        entry.set("id", report->id);
+        entry.set("createdAt", report->createdAt);
+        entry.set("reporterUsername", report->reporterUsername);
+        entry.set("targetType", report->targetType);
+        entry.set("targetId", report->targetId);
+        entry.set("targetLabel", report->targetLabel);
+        entry.set("reason", report->reason);
+        userReports.push(entry);
+    }
+    result.set("reports", userReports);
     sendJson(response, 200, result);
     return true;
 }
@@ -2925,6 +3440,14 @@ bool WebsiteApp::handleStatic(Request& request, Response& response) {
             response.file(200, pagePath, "text/html; charset=utf-8");
             return true;
         }
+    }
+
+    // Nothing matched, so answer a mistyped URL with the site's own page instead
+    // of the JSON error a bare fallback would produce.
+    const std::string notFoundPath = joinPath(joinPath(config_.webRoot, "public"), "404.html");
+    if (fileExists(notFoundPath)) {
+        response.file(404, notFoundPath, "text/html; charset=utf-8");
+        return true;
     }
     return false;
 }

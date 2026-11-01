@@ -99,6 +99,75 @@
                         <span>Reduce motion</span>
                     </label>
                     <p class="lede">Turns off the transitions on buttons and panels on every page. This browser remembers the choice.</p>
+                    <div class="field">
+                        <label for="theme">Theme</label>
+                        <select class="input" id="theme" data-theme-select>
+                            <option value="system">Follow the system</option>
+                            <option value="light">Light</option>
+                            <option value="dark">Dark</option>
+                        </select>
+                    </div>
+                </article>
+
+                <article class="panel">
+                    <div class="panel-heading">
+                        <div>
+                            <p class="label">Account</p>
+                            <h2>Change username</h2>
+                        </div>
+                    </div>
+                    <form class="form" data-username-form>
+                        <div class="field">
+                            <label for="new-username">New username</label>
+                            <input class="input" id="new-username" name="username" type="text" autocomplete="username" minlength="3" maxlength="20" required>
+                            <small>3 to 20 characters, the same rule signup uses.</small>
+                        </div>
+                        <div class="field">
+                            <label for="username-password">Current password</label>
+                            <input class="input" id="username-password" name="currentPassword" type="password" autocomplete="current-password" required>
+                        </div>
+                        <div class="status" data-username-status aria-live="polite"></div>
+                        <button class="button full" type="submit">Change username</button>
+                    </form>
+                </article>
+
+                <article class="panel">
+                    <div class="panel-heading">
+                        <div>
+                            <p class="label">Recovery</p>
+                            <h2>Recovery code</h2>
+                        </div>
+                    </div>
+                    <p class="lede">A recovery code is the only way back into an account with a forgotten password. It is shown once and the site keeps only its hash.</p>
+                    <form class="form" data-recovery-form>
+                        <div class="field">
+                            <label for="recovery-password">Current password</label>
+                            <input class="input" id="recovery-password" name="currentPassword" type="password" autocomplete="current-password" required>
+                        </div>
+                        <div class="status" data-recovery-status aria-live="polite"></div>
+                        <button class="button secondary full" type="submit">Generate a new code</button>
+                    </form>
+                    <p class="recovery-code" data-recovery-code hidden></p>
+                </article>
+
+                <article class="panel danger-zone">
+                    <div class="panel-heading">
+                        <div>
+                            <p class="label">Data</p>
+                            <h2>Export or delete</h2>
+                        </div>
+                    </div>
+                    <p class="lede">Download everything the site keeps about this account as JSON, or delete the account, its games and their world files.</p>
+                    <button class="button secondary" type="button" data-export>Download my data</button>
+                    <form class="form" data-delete-form>
+                        <div class="field">
+                            <label for="delete-password">Password</label>
+                            <input class="input" id="delete-password" name="password" type="password" autocomplete="current-password" required>
+                            <small>The account that owns this install cannot be deleted.</small>
+                        </div>
+                        <div class="status" data-delete-status aria-live="polite"></div>
+                        <button class="button danger full" type="submit">Delete my account</button>
+                    </form>
                 </article>
             </section>
         </main>

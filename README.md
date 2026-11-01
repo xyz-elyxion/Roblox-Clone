@@ -181,6 +181,50 @@ the starter games and is the default admin, so `POST /api/login` with
 earlier builds seeded the same account as `RBLXCreator`; it is renamed to `defaultuser0` on startup
 with its id, password and games unchanged.
 
+## Accounts, recovery and deletion
+
+There is no email address on an account and no mail service, so recovery works with a one-time code
+instead. `POST /api/signup` returns a `recoveryCode` exactly once and stores only its PBKDF2-SHA256 hash;
+`POST /api/account/recover` with `{ "username": "...", "recoveryCode": "...", "newPassword": "..." }`
+sets a new password and rotates the code, so a code that was used stops working. Codes are 20 hex
+characters shown in groups of five, and the comparison strips the dashes and the case. An account created
+before this existed - including the seeded `defaultuser0` - has no code until it generates one with
+`POST /api/account/recovery`, which needs the current password. The login page carries the recovery form
+under **Forgot your password?**, and Settings has a button to issue a new code.
+
+`POST /api/account/username` renames the signed-in account after checking its password, applies the same
+3-20 character rule as signup, and returns a fresh token because the username is a claim inside it.
+`POST /api/account/delete` removes the account with its avatar, stats, friendships, blocks, the reports it
+filed and its games - world files deleted, running instances stopped - after checking the password. The
+install owner is refused with `400`, because the install cannot be recovered without that account.
+`GET /api/account/export` returns the same data as JSON and leaves the password and recovery hashes out.
+Both live in Settings, next to the password form.
+
+## Blocks, reports and presence
+
+`POST /api/blocks` with `{ "userId": 3, "blocked": true }` blocks an account and drops any friendship
+between the pair; `false` removes the block. A block hides both accounts from each other in
+`/api/users/search` and shows up on the profile as `"blocked": true`. It does not reach the native game
+server, so it cannot stop someone joining a game you are in. `POST /api/reports` files a report against a
+`game` or a `user`, which the admin dashboard lists newest first under **Reports** and counts in its totals.
+
+`/api/verify` and `/api/me/social` record the time of the request against the account, and a friend counts
+as online while that time is under two minutes old, which is what the green dot next to a name in the
+friend list means. The dashboard reloads `/api/me/social` every 45 seconds while it is open, so presence
+stays current without a second connection.
+
+## 404 page, CSP and theme
+
+An address that matches no page now answers with `404.html` and a real `404` status instead of a JSON error.
+Every response also carries a `Content-Security-Policy` that allows only same-origin scripts, styles and
+images plus the vendored three.js build, with `'unsafe-inline'` for styles because the avatar preview sets
+colours through the `style` attribute. No page uses an inline script or `on...` handler, so nothing relies
+on that being relaxed further.
+
+Settings offers **Follow the system**, **Light** and **Dark**. The choice is stored in `localStorage` beside
+Reduce motion and applied as `data-theme` on `<html>`; with the default, `prefers-color-scheme` decides.
+Every colour is a CSS custom property, so the theme is one variable block rather than a second stylesheet.
+
 ## Privacy and Terms
 
 `/privacy` and `/terms` are the policy pages (`web/public/privacy.html` and `terms.html`), both public and
@@ -269,6 +313,14 @@ Authentication:
 - `POST /api/signup` with JSON `{ "username": "Player_1", "password": "long-password" }`
 - `POST /api/login` with JSON `{ "username": "Player_1", "password": "long-password" }`
 - `POST /api/verify` with `Authorization: Bearer <token>`
+- `POST /api/account/password` with the current and new password
+- `POST /api/account/recover` with `{ "username": "...", "recoveryCode": "...", "newPassword": "..." }`
+- `POST /api/account/recovery` with the current password, to issue a fresh recovery code
+- `POST /api/account/username` with the new name and the current password
+- `POST /api/account/delete` with the password
+- `GET /api/account/export` returns everything kept about the account as JSON
+- `POST /api/blocks` with `{ "userId": 2, "blocked": true }`
+- `POST /api/reports` with `{ "targetType": "game", "targetId": 1, "reason": "..." }`
 
 Avatar:
 
@@ -399,7 +451,8 @@ Scale operations assign the decomposed absolute scale from ImGuizmo and clamp it
 - The driving game's car is a kinematic arcade body: it accelerates, brakes, coasts and steers, but it does not collide with world geometry, so it will drive through a wall, and there is no client-side prediction, so steering over a high-latency connection feels delayed.
 - The HTTP client speaks plain `http://` only. There is no TLS implementation, so an `https://` backend URL fails with an explanation instead of working.
 - The binary protocol depends on matching C++ struct layouts, so Client and Server must be built from the same source. The handshake now carries a protocol revision and a layout signature derived from the packet sizes; a mismatched pair refuses the join and prints which build to rebuild instead of misreading packets.
-- The web service keeps its data in a JSON file and sessions in browser storage; it is not hardened for internet deployment. Every response now carries `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY` and `Referrer-Policy: same-origin`, but that is baseline browser hygiene, not a security review.
+- The web service keeps its data in a JSON file and sessions in browser storage; it is not hardened for internet deployment. Every response carries `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: same-origin` and a strict `Content-Security-Policy`, but that is baseline browser hygiene, not a security review. A password change still leaves tokens issued earlier valid until they expire.
+- Account recovery depends on a recovery code the player saved, not on email, and presence is "an authenticated request in the last two minutes" rather than a game-server connection. Blocks and reports stop at the website: the native game server is not told about either.
 - The client is split by concern: `src/Client.cpp` (startup, argument handling, main loop), `src/ClientNet.cpp` (game socket, reliable session, joining and leaving) and `src/ClientUi.cpp` (menus, HUD, chat, settings), sharing state through `src/ClientShared.h`. The remaining files could be split further.
 - C++ build/test is verified with CMake, Ninja, MinGW GCC and GCC on Linux. Client, Server, and Studio runtime behavior still need manual testing on a graphics-capable desktop.
 

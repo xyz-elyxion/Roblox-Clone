@@ -194,6 +194,15 @@ private:
     bool handleGetAvatar(Request& request, Response& response);
     bool handleSetAvatar(Request& request, Response& response);
     bool handleChangePassword(Request& request, Response& response);
+    // Issues a fresh recovery code for the signed-in account.
+    bool handleRotateRecovery(Request& request, Response& response);
+    // Public: resets a forgotten password with a recovery code.
+    bool handleRecovery(Request& request, Response& response);
+    bool handleChangeUsername(Request& request, Response& response);
+    bool handleDeleteAccount(Request& request, Response& response);
+    bool handleExportData(Request& request, Response& response);
+    bool handleBlockUser(Request& request, Response& response);
+    bool handleReport(Request& request, Response& response);
     bool handleBuyItem(Request& request, Response& response);
     bool handleEquipItem(Request& request, Response& response);
     // Catalog plus what this account owns and wears, in one list.

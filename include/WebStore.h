@@ -43,7 +43,13 @@ struct UserRecord {
     int id = 0;
     std::string username;
     std::string passwordHash;
+    // Hash of the one-time recovery code handed to the account when it was
+    // created or when the code was rotated. Empty when no code was issued yet.
+    std::string recoveryHash;
     std::string createdAt;
+    // Wall-clock time of the account's last authenticated request, in ms since
+    // the epoch. Used for the online dot and never sent to another account.
+    long long lastSeenAtMs = 0;
 };
 
 struct AvatarRecord {
@@ -68,6 +74,28 @@ struct StatsRecord {
     long long playtimeSeconds = 0;
     long long coins = 0;
     std::string lastPlayedAt;
+};
+
+// A report filed from the site against a game or another account. The names are
+// copied in so a report still reads correctly after a rename or a deletion.
+struct ReportRecord {
+    int id = 0;
+    int reporterId = 0;
+    std::string reporterUsername;
+    std::string targetType;  // "game" or "user"
+    int targetId = 0;
+    std::string targetLabel;
+    std::string reason;
+    std::string createdAt;
+};
+
+// One direction of a block. Visibility is cut both ways, so a pair is checked
+// with blockedEitherWay instead of a row per side.
+struct BlockRecord {
+    int id = 0;
+    int blockerId = 0;
+    int blockedId = 0;
+    std::string createdAt;
 };
 
 struct GameRecord {
@@ -115,6 +143,13 @@ public:
     // Replaces the stored hash; the caller builds it with hashPassword so the
     // iterations and salt stay with the credential rather than the store.
     bool setPasswordHash(int id, const std::string& passwordHash);
+    bool setRecoveryHash(int id, const std::string& recoveryHash);
+    // Records activity for the online dot; true when the stored time was old
+    // enough to be replaced, so the caller only rewrites the file when needed.
+    bool touchUser(int id, long long nowMs);
+    // Removes the account with its avatar, stats, friendships, blocks and the
+    // reports it filed. The caller removes its games, which own files on disk.
+    bool removeUser(int id);
     const UserRecord* firstUser() const;
     const std::vector<UserRecord>& users() const { return users_; }
     std::vector<const UserRecord*> searchUsers(const std::string& query, std::size_t limit) const;
@@ -146,6 +181,20 @@ public:
     void removeFriendship(int friendshipId);
     void removeFriendshipsBetween(int firstUserId, int secondUserId);
 
+    // reports
+    int addReport(const ReportRecord& record);
+    std::vector<const ReportRecord*> recentReports(std::size_t limit) const;
+    std::size_t reportCount() const { return reports_.size(); }
+
+    // blocks
+    bool addBlock(int blockerId, int blockedId, const std::string& nowIso);
+    bool removeBlock(int blockerId, int blockedId);
+    bool isBlocked(int blockerId, int blockedId) const;
+    // True when either account blocked the other: a block hides both sides from
+    // each other, whoever filed it.
+    bool blockedEitherWay(int firstUserId, int secondUserId) const;
+    std::vector<const BlockRecord*> blocksBy(int userId) const;
+
     // games
     const GameRecord* findGame(int id) const;
     std::vector<const GameRecord*> allGames() const;
@@ -168,9 +217,13 @@ private:
     std::vector<FriendshipRecord> friendships_;
     std::vector<StatsRecord> stats_;
     std::vector<GameRecord> games_;
+    std::vector<ReportRecord> reports_;
+    std::vector<BlockRecord> blocks_;
     int nextUserId_ = 1;
     int nextFriendshipId_ = 1;
     int nextGameId_ = 1;
+    int nextReportId_ = 1;
+    int nextBlockId_ = 1;
 };
 
 }  // namespace web

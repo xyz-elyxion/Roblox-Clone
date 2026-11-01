@@ -49,6 +49,13 @@
                     <li><strong>Account.</strong> Username, numeric user id, and a password hash. Passwords are
                         stored as PBKDF2-SHA256 hashes with a random per-account salt, never as plain text, and
                         the site cannot show you your password because it does not keep it.</li>
+                    <li><strong>Recovery code.</strong> The one-time code shown when the account was created is kept
+                        only as the same kind of PBKDF2-SHA256 hash, so it cannot be displayed again; a new code
+                        replaces the old one when you generate one or use one to reset a forgotten password.</li>
+                    <li><strong>Activity.</strong> The time of your last signed-in request, used to show friends an
+                        online dot. It is never shown on a public profile.</li>
+                    <li><strong>Safety choices.</strong> The accounts you blocked and the reports you filed. A report
+                        carries your username so an admin can follow it up, and its target and reason.</li>
                     <li><strong>Session.</strong> When you sign in the site issues a signed token (a JSON Web
                         Token) that your browser keeps in <code>localStorage</code>. It holds your user id and
                         username and expires after the lifetime the operator configured, seven days by default.</li>
@@ -84,11 +91,17 @@
                     until you log out or clear site data for this address. Logging out removes the token and the
                     cached username and id; the display preference stays.</p>
 
-                <h2>Retention and deleting your data</h2>
-                <p>Account data is kept until the operator removes it. This build has no self-service account
-                    deletion, so to have an account, its games or its playtime removed, ask whoever runs the
-                    install; they can delete a game from the admin dashboard and remove an account from the data
-                    file. Cleaning out a game is immediate: the world file is deleted together with its entry.</p>
+                <h2>Retention, export and deleting your data</h2>
+                <p>Account data is kept until you or the operator removes it. The
+                    <a href="/settings">Settings</a> page can download everything kept about the account as JSON —
+                    profile, avatar, playtime, coins, friends, blocks and the games you own, without the password or
+                    recovery hashes — and can delete the account after asking for its password.</p>
+                <p>Deleting an account removes its profile, avatar, playtime, coins, friendships, blocks and the
+                    reports it filed, together with its games, their published world files and any game server
+                    running for them. Deleting a single game from its page or the admin dashboard is immediate in
+                    the same way. One account cannot be deleted: the install owner, which is the account created
+                    when the site was first started, because the install cannot be recovered without it. Ask the
+                    operator if that account has to go.</p>
 
                 <h2>Children</h2>
                 <p>The site is a local prototype, not a service aimed at children, and it does not verify anyone's

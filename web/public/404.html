@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Page not found - RBLX Clone</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <div class="page">
+        <header class="topbar">
+            <a class="brand" href="/" aria-label="RBLX Clone home">
+                <span>RBLX Clone</span>
+            </a>
+            <nav class="nav" aria-label="Primary">
+                <a href="/dashboard" data-nav-user hidden>Home</a>
+                <a href="/games">Games</a>
+                <a href="/create" data-nav-user hidden>Create</a>
+                <a href="/dashboard#search" data-nav-user hidden>Search</a>
+                <a href="/avatar" data-nav-user hidden>Avatar</a>
+                <a href="/profile" data-nav-user hidden>Profile</a>
+                <a href="/settings" data-nav-user hidden>Settings</a>
+                <a href="/admin" data-admin-only data-nav-user hidden>Admin</a>
+                <a href="/login" data-nav-guest>Login</a>
+                <a href="/signup" data-nav-guest>Sign up</a>
+                <button class="button danger" type="button" data-logout data-nav-user hidden>Logout</button>
+            </nav>
+        </header>
+
+        <main id="main" class="hero">
+            <section>
+                <p class="label">Error 404</p>
+                <h1>Nothing here</h1>
+                <p class="lede">That address does not match a page on this site. It may have been a game that was
+                    deleted, or a link with a typo in it.</p>
+                <div class="hero-actions">
+                    <a class="button" href="/games">Browse games</a>
+                    <a class="button secondary" href="/">Back to the start</a>
+                </div>
+            </section>
+
+            <aside class="info-stack" aria-label="Where to go">
+                <div class="info-row">
+                    <div class="label">Home</div>
+                    <div class="value">Start page</div>
+                </div>
+                <div class="info-row">
+                    <div class="label">Games</div>
+                    <div class="value">Public worlds</div>
+                </div>
+                <div class="info-row">
+                    <div class="label">Account</div>
+                    <div class="value">Settings and profile</div>
+                </div>
+            </aside>
+        </main>
+
+        <footer class="legal-footer">
+            <span>RBLX Clone · local prototype</span>
+            <nav aria-label="Legal">
+                <a href="/privacy">Privacy</a>
+                <a href="/terms">Terms</a>
+            </nav>
+        </footer>
+    </div>
+    <script src="/app.js?v=games-1" defer></script>
+</body>
+</html>

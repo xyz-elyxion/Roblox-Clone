@@ -46,6 +46,32 @@
                     <div class="status" data-status aria-live="polite"></div>
                     <button class="button full" type="submit">Sign in</button>
                 </form>
+
+                <details class="recovery-details">
+                    <summary>Forgot your password?</summary>
+                    <p class="lede">A recovery code was shown once when the account was created. Use it here to set a new password.</p>
+                    <form class="form" data-recovery-form>
+                        <div class="field">
+                            <label for="recovery-username">Username</label>
+                            <input class="input" id="recovery-username" name="username" type="text" autocomplete="username" required>
+                        </div>
+                        <div class="field">
+                            <label for="recovery-code">Recovery code</label>
+                            <input class="input" id="recovery-code" name="recoveryCode" type="text" autocomplete="off" placeholder="abcde-fghij-klmno-pqrst" required>
+                        </div>
+                        <div class="field">
+                            <label for="recovery-password">New password</label>
+                            <input class="input" id="recovery-password" name="newPassword" type="password" autocomplete="new-password" minlength="8" maxlength="128" required>
+                        </div>
+                        <div class="field">
+                            <label for="recovery-confirm">Confirm new password</label>
+                            <input class="input" id="recovery-confirm" name="confirmPassword" type="password" autocomplete="new-password" minlength="8" maxlength="128" required>
+                        </div>
+                        <div class="status" data-recovery-status aria-live="polite"></div>
+                        <p class="recovery-code" data-recovery-new-code hidden></p>
+                        <button class="button secondary full" type="submit">Reset password</button>
+                    </form>
+                </details>
             </section>
         </main>
         <footer class="legal-footer">

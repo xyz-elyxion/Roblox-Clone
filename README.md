@@ -181,6 +181,19 @@ the starter games and is the default admin, so `POST /api/login` with
 earlier builds seeded the same account as `RBLXCreator`; it is renamed to `defaultuser0` on startup
 with its id, password and games unchanged.
 
+## Privacy and Terms
+
+`/privacy` and `/terms` are the policy pages (`web/public/privacy.html` and `terms.html`), both public and
+linked from a footer that every page carries next to the menu bar. They describe what this build actually
+does rather than boilerplate: the account record in the JSON data file, passwords kept only as PBKDF2-SHA256
+hashes, the JWT session and display preference in `localStorage`, no cookies and no third-party analytics,
+public profiles and public games, game-server logs under `web/game-server-logs`, and coins and hats as
+prototype-only value with no cash equivalent. The terms cover accounts, acceptable use, published worlds,
+availability, liability and the fact that the person running the install is the party responsible for it.
+
+Both are a starting point for a local prototype, not legal advice: have them reviewed before pointing an
+install at the open internet, and adjust the contact and governing-law wording to whoever operates it.
+
 ## Settings
 
 `/settings` is the account page. It shows the signed-in username, user id and coin balance, changes

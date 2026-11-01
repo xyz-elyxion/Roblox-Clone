@@ -732,6 +732,12 @@ std::string pageFileForPath(const std::string& path) {
     if (path == "/settings") {
         return "settings.html";
     }
+    if (path == "/privacy") {
+        return "privacy.html";
+    }
+    if (path == "/terms") {
+        return "terms.html";
+    }
     if (path == "/admin") {
         return "admin.html";
     }

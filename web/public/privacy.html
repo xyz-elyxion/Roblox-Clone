@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Privacy Policy - RBLX Clone</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <div class="page">
+        <header class="topbar">
+            <a class="brand" href="/" aria-label="RBLX Clone home">
+                <span>RBLX Clone</span>
+            </a>
+            <nav class="nav" aria-label="Primary">
+                <a href="/dashboard" data-nav-user hidden>Home</a>
+                <a href="/games">Games</a>
+                <a href="/create" data-nav-user hidden>Create</a>
+                <a href="/dashboard#search" data-nav-user hidden>Search</a>
+                <a href="/avatar" data-nav-user hidden>Avatar</a>
+                <a href="/profile" data-nav-user hidden>Profile</a>
+                <a href="/settings" data-nav-user hidden>Settings</a>
+                <a href="/admin" data-admin-only data-nav-user hidden>Admin</a>
+                <a href="/login" data-nav-guest>Login</a>
+                <a href="/signup" data-nav-guest>Sign up</a>
+                <button class="button danger" type="button" data-logout data-nav-user hidden>Logout</button>
+            </nav>
+        </header>
+
+        <main id="main">
+            <div class="dashboard-head">
+                <div>
+                    <p class="label">Legal</p>
+                    <h1 class="legal-title">Privacy Policy</h1>
+                </div>
+            </div>
+
+            <article class="panel legal-doc">
+                <p class="legal-meta">Last updated 1 November 2026</p>
+
+                <p>RBLX Clone is a self-hosted prototype: the website, the game server and the player all run
+                    on one machine that you or someone you know controls. This page explains what that install
+                    keeps and who can see it. It describes what this build actually does, not what a commercial
+                    service would do.</p>
+
+                <h2>What the site stores</h2>
+                <ul>
+                    <li><strong>Account.</strong> Username, numeric user id, and a password hash. Passwords are
+                        stored as PBKDF2-SHA256 hashes with a random per-account salt, never as plain text, and
+                        the site cannot show you your password because it does not keep it.</li>
+                    <li><strong>Session.</strong> When you sign in the site issues a signed token (a JSON Web
+                        Token) that your browser keeps in <code>localStorage</code>. It holds your user id and
+                        username and expires after the lifetime the operator configured, seven days by default.</li>
+                    <li><strong>Profile and avatar.</strong> Body colours, face choice, hats you own or wear, coin
+                        balance, playtime seconds, and your friends and friend requests.</li>
+                    <li><strong>Games you publish.</strong> Title, description, public or private flag, the world
+                        file and any script that belongs to it, and who created it.</li>
+                    <li><strong>Server output.</strong> The web server log and, for each game instance it starts,
+                        a log file containing that game server's console output.</li>
+                </ul>
+
+                <h2>Where it is kept</h2>
+                <p>Everything lives on the machine running the site: accounts in a JSON data file
+                    (<code>web/users.json</code> by default), published worlds under <code>web/game-worlds</code>,
+                    and game-server logs under <code>web/game-server-logs</code>. The operator of the install can
+                    read, copy or delete those files at any time. Nothing is sent to a third-party analytics,
+                    advertising or tracking service, and this build does not use cookies at all.</p>
+
+                <h2>What other people can see</h2>
+                <ul>
+                    <li>Your username, user id, avatar, playtime and friend count are visible to anyone who opens
+                        your profile or searches for you.</li>
+                    <li>Games you publish as public are listed on the games page with your name as the creator.</li>
+                    <li>Players in the same game instance see your character, its colours and face, and your chat
+                        messages. Hats are not sent to other players in this build.</li>
+                    <li>Your password hash, session token and coin balance are never shown to another account.
+                        The admin dashboard does show an admin the user list, game list and running servers.</li>
+                </ul>
+
+                <h2>What the browser remembers</h2>
+                <p>Besides the session token, the site stores your username, your user id, and the Reduce motion
+                    preference from <a href="/settings">Settings</a> in <code>localStorage</code>. They stay there
+                    until you log out or clear site data for this address. Logging out removes the token and the
+                    cached username and id; the display preference stays.</p>
+
+                <h2>Retention and deleting your data</h2>
+                <p>Account data is kept until the operator removes it. This build has no self-service account
+                    deletion, so to have an account, its games or its playtime removed, ask whoever runs the
+                    install; they can delete a game from the admin dashboard and remove an account from the data
+                    file. Cleaning out a game is immediate: the world file is deleted together with its entry.</p>
+
+                <h2>Children</h2>
+                <p>The site is a local prototype, not a service aimed at children, and it does not verify anyone's
+                    age. It has no parental controls or consent flow. If you are not old enough to agree to these
+                    terms where you live, do not create an account.</p>
+
+                <h2>Security</h2>
+                <p>Passwords are hashed with PBKDF2-SHA256 and sessions are signed tokens, but this is a prototype:
+                    the backend serves plain <code>http://</code> with no TLS, keeps its data in a JSON file, and
+                    has not had a security review. Treat it as something to run on your own machine or local
+                    network, not as a place to store a password you use anywhere else.</p>
+
+                <h2>Changes</h2>
+                <p>This page changes when the stored data changes. The date at the top is the last time it was
+                    updated, and the operator of an install is responsible for keeping it accurate for that
+                    install.</p>
+
+                <h2>Contact</h2>
+                <p>Questions about data on this site go to the person who runs it — the same person who starts
+                    <code>WebApp.exe</code> and can see its files. See also the <a href="/terms">Terms and
+                    Conditions</a>.</p>
+            </article>
+        </main>
+
+        <footer class="legal-footer">
+            <span>RBLX Clone · local prototype</span>
+            <nav aria-label="Legal">
+                <a href="/privacy">Privacy</a>
+                <a href="/terms">Terms</a>
+            </nav>
+        </footer>
+    </div>
+    <script src="/app.js?v=games-1" defer></script>
+</body>
+</html>

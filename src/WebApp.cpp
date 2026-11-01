@@ -1214,7 +1214,13 @@ bool WebsiteApp::seedStarterGames(std::string* error) {
          "A driving game: press E beside the car to get in, then W/S for throttle and "
          "brake and A/D to steer around the circuit. The car is simulated by the game "
          "server and the lap counter is a .rbx script.",
-         "games/turbo-circuit.world", "games/turbo-circuit.rbx"}
+         "games/turbo-circuit.world", "games/turbo-circuit.rbx"},
+        {"Doors Hotel",
+         "A horror run in the style of Doors: eight dark rooms, a door that slides up "
+         "when you walk into its pad, wardrobes to hide in, and something that sweeps "
+         "the corridor and kills anyone still standing in the open. Reach the elevator "
+         "to survive. Driven by a .rbx script.",
+         "games/doors-hotel.world", "games/doors-hotel.rbx"}
     };
 
     // Publish every starter game this data file does not have yet, so an install

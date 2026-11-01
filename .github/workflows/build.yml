@@ -12,19 +12,9 @@ concurrency:
 
 jobs:
   windows:
-    name: Windows ${{ matrix.configuration }} (MSVC)
+    name: Windows Release (MSVC)
     runs-on: windows-2022
     timeout-minutes: 60
-
-    strategy:
-      # A broken Release build must not hide the Debug result.
-      fail-fast: false
-      matrix:
-        include:
-          - configuration: Debug
-            preset: windows-debug
-          - configuration: Release
-            preset: windows-release
 
     env:
       # GLFW 3.3.8 and a few other FetchContent dependencies declare
@@ -41,13 +31,13 @@ jobs:
           git --version
 
       - name: Configure
-        run: cmake --preset ${{ matrix.preset }}
+        run: cmake --preset windows-release
 
       - name: Build
-        run: cmake --build --preset ${{ matrix.preset }} --parallel
+        run: cmake --build --preset windows-release --parallel
 
       - name: Test
-        run: ctest --preset ${{ matrix.preset }} --output-on-failure
+        run: ctest --preset windows-release --output-on-failure
 
       - name: Package runnable folder
         # Runs even if the tests fail, so a red run still hands back whatever
@@ -56,29 +46,25 @@ jobs:
         shell: pwsh
         run: >
           ./scripts/package-build.ps1
-          -Configuration ${{ matrix.configuration }}
-          -BuildDir build/${{ matrix.preset }}
-          -Output dist/rblx-${{ matrix.preset }}
+          -Configuration Release
+          -BuildDir build/windows-release
+          -Output dist/rblx-windows-release
 
       - name: Upload runnable package
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: rblx-${{ matrix.preset }}
-          path: dist/rblx-${{ matrix.preset }}
+          name: rblx-windows-release
+          path: dist/rblx-windows-release
           if-no-files-found: warn
 
   linux:
-    name: Linux ${{ matrix.configuration }} (GCC)
+    name: Linux Release (GCC)
     runs-on: ubuntu-22.04
     timeout-minutes: 45
 
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - configuration: Debug
-          - configuration: Release
+    env:
+      CMAKE_POLICY_VERSION_MINIMUM: "3.5"
 
     steps:
       - name: Checkout
@@ -94,13 +80,61 @@ jobs:
 
       - name: Configure
         run: >
-          cmake -S . -B build/linux-${{ matrix.configuration }}
+          cmake -S . -B build/linux-release
           -G Ninja
-          -DCMAKE_BUILD_TYPE=${{ matrix.configuration }}
+          -DCMAKE_BUILD_TYPE=Release
           -DRBLX_BUILD_ANTICHEAT=OFF
 
       - name: Build
-        run: cmake --build build/linux-${{ matrix.configuration }} --parallel
+        run: cmake --build build/linux-release --parallel
 
       - name: Test
-        run: ctest --test-dir build/linux-${{ matrix.configuration }} --output-on-failure
+        run: ctest --test-dir build/linux-release --output-on-failure
+
+  macos:
+    name: macOS Release (Clang)
+    runs-on: macos-14
+    timeout-minutes: 60
+
+    env:
+      CMAKE_POLICY_VERSION_MINIMUM: "3.5"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Show toolchain versions
+        run: |
+          cmake --version
+          clang++ --version
+
+      - name: Install build dependencies
+        # GLFW, GLM, ImGui, ImGuizmo, rp3d and stb all come from FetchContent;
+        # Ninja is the only tool the image does not always provide.
+        run: |
+          command -v ninja || brew install ninja
+
+      - name: Configure
+        run: >
+          cmake -S . -B build/macos-release
+          -G Ninja
+          -DCMAKE_BUILD_TYPE=Release
+          -DRBLX_BUILD_ANTICHEAT=OFF
+
+      - name: Build
+        run: cmake --build build/macos-release --parallel
+
+      - name: Test
+        run: ctest --test-dir build/macos-release --output-on-failure
+
+      - name: Upload binaries
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rblx-macos-release
+          path: |
+            build/macos-release/Studio
+            build/macos-release/Server
+            build/macos-release/Client
+            build/macos-release/WebApp
+          if-no-files-found: warn

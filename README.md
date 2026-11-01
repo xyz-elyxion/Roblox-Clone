@@ -5,7 +5,7 @@ RBLX Clone is an early prototype of a Roblox-style client, game server, Studio e
 ## Current Status
 
 - Client, Server, and Studio are C++17 targets.
-- Client and Server build on Windows and Linux. Socket calls go through `include/Network.h` and website calls through `include/HttpClient.h`, each of which has a WinSock/WinHTTP-facing Windows branch and a POSIX branch, so the game code itself has no platform split. The anti-cheat library is Windows-only and is skipped on other platforms.
+- Client and Server build on Windows, Linux and macOS. Socket calls go through `include/Network.h` and website calls through `include/HttpClient.h`, each of which has a WinSock/WinHTTP-facing Windows branch and a POSIX branch, so the game code itself has no platform split. The anti-cheat library is Windows-only and is skipped on other platforms.
 - Client.exe embeds **RBLXAntiCheat**, a usermode anti-cheat compiled into the client process (vendored from [UltimateAntiCheat](https://github.com/AlSch092/UltimateAntiCheat) and renamed, GNU AGPL v3 — see `RBLXAntiCheat/LICENSE`). It starts with the client, writes `RBLXAntiCheat.log`, and a failed start is logged instead of stopping the game. Configure with `-DRBLX_BUILD_ANTICHEAT=OFF` to leave it out of the build. Its identifying strings (log name, startup messages, accepted parent processes) are stored XOR-masked at compile time through `include/Obfuscated.h` so they do not show up in `strings`, and MSVC Release builds link the client with control-flow guard, full ASLR and identical-code folding. That raises the cost of finding and patching the checks; it is not a security boundary, which is why the rules that matter (movement, world contents) are enforced by the server.
 - Health and respawning are decided by the game server, not the client. The server keeps each player's health, kills anyone who falls below the world or takes damage, and returns them to the world's `SpawnLocation` after a three-second countdown that every client sees. The client draws the health bar and a "You died" overlay and stops taking movement input while dead; `Reset Character` asks the server rather than respawning locally. Scripts damage players with `player:TakeDamage(amount)`.
 - **Turbo Circuit** is the bundled driving game. A world part named `Car` is the vehicle: the game server integrates it from client throttle and steer input (`include/Vehicle.h`) and broadcasts its position, so a modified client cannot teleport the car any more than a character. Walk up to it and press `E` to get in or out; the driver's character rides in the car, the camera follows behind and the HUD shows km/h. A `.rbx` script counts laps at the finish line.
@@ -16,7 +16,7 @@ RBLX Clone is an early prototype of a Roblox-style client, game server, Studio e
 ## Repository Layout
 
 - `CMakeLists.txt` - C++ build configuration.
-- `CMakePresets.json` - Visual Studio debug and release presets for Windows.
+- `CMakePresets.json` - A Visual Studio Release preset for Windows and a Ninja Release preset for macOS.
 - `scripts/package-build.ps1` - Assembles a runnable folder from a build tree.
 - `include/` - C++ headers.
 - `src/` - C++ Client, Server, Studio, rendering, physics, auth, and world loading code.
@@ -31,7 +31,7 @@ RBLX Clone is an early prototype of a Roblox-style client, game server, Studio e
 
 ### C++ Targets
 
-Client, Server and Studio build on Windows and Linux. Sockets go through `include/Network.h` and website calls through `include/HttpClient.h`, each with a WinSock branch and a POSIX branch, so the game code itself has no platform split.
+Client, Server and Studio build on Windows, Linux and macOS. Sockets go through `include/Network.h` and website calls through `include/HttpClient.h`, each with a WinSock branch and a POSIX branch, so the game code itself has no platform split.
 
 On Windows:
 
@@ -45,6 +45,12 @@ On Linux:
 - `build-essential cmake ninja-build pkg-config` plus the GLFW development packages: `libgl1-mesa-dev libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libwayland-dev libxkbcommon-dev`.
 - OpenGL-capable GPU/drivers.
 
+On macOS:
+
+- Xcode command line tools (Clang with C++17) and CMake 3.21 or newer.
+- Ninja, either from Homebrew (`brew install ninja`) or the preinstalled copy on the CI runners.
+- GLFW, GLM, ImGui, ImGuizmo, ReactPhysics3D and stb are fetched at configure time, so no Homebrew packages are needed for them.
+
 RBLXAntiCheat is Windows-only and is skipped automatically on other platforms; `-DRBLX_BUILD_ANTICHEAT=OFF` leaves it out on Windows too.
 
 ### Web Backend
@@ -57,17 +63,17 @@ beyond them: no Node.js, npm or SQLite.
 From a Developer PowerShell or Developer Command Prompt:
 
 ```powershell
-cmake --preset windows-debug
-cmake --build --preset windows-debug
-ctest --preset windows-debug
+cmake --preset windows-release
+cmake --build --preset windows-release
+ctest --preset windows-release
 ```
 
 Manual configure also works:
 
 ```powershell
-cmake -S . -B build/windows-debug -G "Visual Studio 17 2022" -DRBLX_BUILD_TESTS=ON
-cmake --build build/windows-debug --config Debug
-ctest --test-dir build/windows-debug -C Debug
+cmake -S . -B build/windows-release -G "Visual Studio 17 2022" -DRBLX_BUILD_TESTS=ON
+cmake --build build/windows-release --config Release
+ctest --test-dir build/windows-release -C Release
 ```
 
 The project has also been verified with a portable MinGW/Ninja toolchain:
@@ -81,10 +87,22 @@ ctest --test-dir build/ninja --output-on-failure
 On Linux:
 
 ```bash
-cmake -S . -B build/linux -G Ninja -DCMAKE_BUILD_TYPE=Release
-cmake --build build/linux --parallel
-ctest --test-dir build/linux --output-on-failure
+cmake -S . -B build/linux-release -G Ninja -DCMAKE_BUILD_TYPE=Release
+cmake --build build/linux-release --parallel
+ctest --test-dir build/linux-release --output-on-failure
 ```
+
+On macOS, with the Xcode command line tools and Ninja installed (`brew install ninja`):
+
+```bash
+cmake --preset macos-release
+cmake --build --preset macos-release
+ctest --preset macos-release
+```
+
+The same configure works by hand as `cmake -S . -B build/macos-release -G Ninja
+-DCMAKE_BUILD_TYPE=Release`. The anti-cheat library is Windows-only, so it is left out of the
+Linux and macOS builds.
 
 Useful CMake options:
 
@@ -99,22 +117,26 @@ Windows builds also compile the vendored RBLXAntiCheat into the client (see `RBL
 
 ## Run C++ Targets
 
-After building Debug with the preset:
+After building Release with the preset:
 
 ```powershell
-.\build\windows-debug\Debug\Studio.exe
-.\build\windows-debug\Debug\Server.exe
-.\build\windows-debug\Debug\Client.exe
-.\build\windows-debug\Debug\WebApp.exe
+.\build\windows-release\Release\Studio.exe
+.\build\windows-release\Release\Server.exe
+.\build\windows-release\Release\Client.exe
+.\build\windows-release\Release\WebApp.exe
 ```
+
+On Linux and macOS the same four executables land directly in `build/linux-release` and
+`build/macos-release`.
 
 Start the web backend before using authenticated Client login.
 
 ## Prebuilt Windows Package
 
-The `Build` workflow runs on every push and packages both configurations into folders you
-can unzip and run. Open the latest run under **Actions** and download `rblx-windows-release`
-(or `rblx-windows-debug` for the assertion-enabled build with `.pdb` files):
+The `Build` workflow runs on every push and packages the Release build into a folder you can
+unzip and run. Open the latest run under **Actions** and download `rblx-windows-release`; the
+macOS job uploads its four binaries as `rblx-macos-release`, and the Linux job builds and runs
+the tests:
 
 ```
 rblx-windows-release/
@@ -142,7 +164,7 @@ relative to the working directory. The same folder can be produced locally with
 game-server instances, and needs no npm, SQLite or third-party libraries.
 
 ```powershell
-.\build\windows-debug\Debug\WebApp.exe
+.\build\windows-release\Release\WebApp.exe
 ```
 
 It listens on `http://localhost:3000` by default. Set `WEB_DIR` if the executable cannot find

@@ -1770,6 +1770,10 @@ void WebsiteApp::installRoutes() {
                   guard([this](Request& request, Response& response) {
                       return handleClientReport(request, response);
                   }));
+    server_.route("POST", "/api/client-detections",
+                  guard([this](Request& request, Response& response) {
+                      return handleClientDetection(request, response);
+                  }));
     server_.route("GET", "/api/admin/overview",
                   guard([this](Request& request, Response& response) {
                       return handleAdminOverview(request, response);
@@ -3294,6 +3298,68 @@ bool WebsiteApp::handleClientReport(Request& request, Response& response) {
     return true;
 }
 
+bool WebsiteApp::handleClientDetection(Request& request, Response& response) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    // Only the account the client is signed in as can file a detection, and only
+    // against itself. A flag a client could aim at somebody else would be a
+    // griefing tool, which is the whole reason this is not a moderation action.
+    AuthUser user;
+    if (!requireAuth(request, response, &user)) {
+        return true;
+    }
+
+    Json body;
+    if (!parseJsonBody(request, &body, response)) {
+        return true;
+    }
+    std::string flag = trimCopy(body.member("flag").asString());
+    std::string detail = trimCopy(body.member("detail").asString());
+    if (detail.empty()) {
+        errorJson(response, 400, "A detection detail is required.");
+        return true;
+    }
+    if (flag.empty()) {
+        flag = "anticheat";
+    }
+    if (flag.size() > 40) {
+        flag.resize(40);
+    }
+    if (detail.size() > 300) {
+        detail.resize(300);
+    }
+
+    ClientReport report;
+    report.createdAt = nowIso();
+    report.stage = "anticheat";
+    report.reason = flag + ": " + detail;
+    report.userId = user.id;
+    report.username = user.username;
+
+    constexpr std::size_t kMaxClientReports = 50;
+    if (clientReports_.size() >= kMaxClientReports) {
+        clientReports_.pop_front();
+    }
+    clientReports_.push_back(report);
+
+    store_.recordClientDetection(user.id, nowIso());
+    std::string saveError;
+    if (!store_.save(&saveError)) {
+        std::fprintf(stderr, "Could not save the data file: %s\n", saveError.c_str());
+    }
+
+    std::fprintf(stdout, "  anti-cheat detection [%s] %s\n", user.username.c_str(),
+                 report.reason.c_str());
+
+    const UserRecord* updated = store_.findUserById(user.id);
+    Json result = Json::makeObject();
+    result.set("success", true);
+    // Counted, not punished: this is evidence an admin can weigh, and the client
+    // that reports it is the one being cheated.
+    result.set("clientDetections", updated != nullptr ? updated->clientDetections : 0);
+    sendJson(response, 200, result);
+    return true;
+}
+
 bool WebsiteApp::handleInstanceModeration(Request& request, Response& response) {
     std::lock_guard<std::mutex> lock(mutex_);
     const std::string instanceId = request.param("id");
@@ -3512,6 +3578,7 @@ bool WebsiteApp::handleAdminOverview(Request& request, Response& response) {
         entry.set("gameCount", static_cast<long long>(store_.gamesOwnedBy(record.id).size()));
         entry.set("isAdmin", isAdminUser(listed));
         entry.set("cheatStrikes", record.cheatStrikes);
+        entry.set("clientDetections", record.clientDetections);
         entry.set("banned", record.banned);
         entry.set("moderationReason", record.moderationReason);
         // An expired suspension is reported as no suspension, so the dashboard

@@ -67,6 +67,11 @@ struct UserRecord {
     // an admin why an account is where it is.
     std::string moderationReason;
     std::string moderatedAt;
+    // Anti-cheat detections the client reported from inside its own process.
+    // They are evidence an admin weighs, not strikes: the client that reports
+    // them is the one being cheated, so they never move the ladder on their own.
+    int clientDetections = 0;
+    std::string lastClientDetectionAt;
 };
 
 struct AvatarRecord {
@@ -167,6 +172,8 @@ public:
     // Writes the moderation state of an account; false when the id is unknown.
     bool setModeration(int id, int strikeCount, long long suspendedUntilMs, bool banned,
                        const std::string& reason, const std::string& nowIso);
+    // Counts one detection reported by the account's own client.
+    bool recordClientDetection(int id, const std::string& nowIso);
     bool setRecoveryHash(int id, const std::string& recoveryHash);
     // Records activity for the online dot; true when the stored time was old
     // enough to be replaced, so the caller only rewrites the file when needed.

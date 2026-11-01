@@ -1773,7 +1773,7 @@ function initAdminPage() {
         if (!usersBody) return;
         usersBody.innerHTML = '';
         if (!users || users.length === 0) {
-            adminEmptyRow(usersBody, 10, 'No accounts yet.');
+            adminEmptyRow(usersBody, 11, 'No accounts yet.');
             return;
         }
         for (const user of users) {
@@ -1808,6 +1808,7 @@ function initAdminPage() {
                 user.coins ?? 0,
                 formatPlaytime(user.playtimeSeconds),
                 formatDate(user.createdAt),
+                user.clientDetections ?? 0,
                 user.cheatStrikes ?? 0,
                 cell
             ]));

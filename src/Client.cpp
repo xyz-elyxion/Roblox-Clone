@@ -439,6 +439,75 @@ void reportClientProblem(const std::string& stage, const std::string& reason) {
     Auth::httpPost(automaticWebServerUrl() + "/api/client-reports", body, authToken);
 }
 
+#if defined(RBLX_ANTICHEAT)
+#include "ClientCheatReport.h"
+
+namespace {
+    std::unique_ptr<rblx::anticheat::LogTail> detectionTail;
+    std::vector<std::string> reportedDetections;
+    std::chrono::steady_clock::time_point lastDetectionPoll =
+        std::chrono::steady_clock::time_point::min();
+
+    // The anti-cheat library writes its detections to RBLXAntiCheat.log and
+    // nowhere else: its own transport is switched off, and it speaks a protocol
+    // no server here hosts. This reads what it appended and files each detection
+    // against the signed-in account, so tampering reaches an admin instead of
+    // sitting on the cheater's own disk. It runs on the render thread but only
+    // every few seconds, and the request itself is handed to another thread, so
+    // a slow website cannot stall a frame.
+    void pollAntiCheatDetections() {
+        if (std::strlen(authToken) == 0) {
+            // A guest has no account to file a detection against; the log is
+            // still on disk for the player to read.
+            return;
+        }
+
+        const auto now = std::chrono::steady_clock::now();
+        if (lastDetectionPoll != std::chrono::steady_clock::time_point::min() &&
+            now - lastDetectionPoll < std::chrono::seconds(5)) {
+            return;
+        }
+        lastDetectionPoll = now;
+
+        if (!detectionTail) {
+            detectionTail = std::make_unique<rblx::anticheat::LogTail>();
+        }
+
+        std::vector<std::string> lines;
+        if (!detectionTail->poll(RBLX_OBF("RBLXAntiCheat.log"), &lines)) {
+            return;
+        }
+
+        for (const std::string& line : lines) {
+            const std::string detail = rblx::anticheat::detectionDetail(line);
+            if (detail.empty()) {
+                continue;
+            }
+
+            // The library repeats a detection every time its check runs, so the
+            // same detail is only sent once.
+            bool alreadySent = false;
+            for (const std::string& sent : reportedDetections) {
+                if (sent == detail) {
+                    alreadySent = true;
+                    break;
+                }
+            }
+            if (alreadySent || reportedDetections.size() >= 64) {
+                continue;
+            }
+            reportedDetections.push_back(detail);
+
+            const std::string body =
+                "{\"flag\":\"anticheat\",\"detail\":\"" + Auth::jsonEscape(detail) + "\"}";
+            const std::string url = automaticWebServerUrl() + "/api/client-detections";
+            const std::string token = authToken;
+            std::thread([url, body, token]() { Auth::httpPost(url, body, token); }).detach();
+        }
+    }
+}  // namespace
+#endif
+
 void addChatLine(const std::string& username, const std::string& message, bool system) {
     if (message.empty()) return;
     // The in-game chat is not drawn on the menu a failed join returns to, so a
@@ -1148,6 +1217,11 @@ int main(int argc, char** argv) {
 
             // 3. Logic / UI
             pollAuthCallback();
+#if defined(RBLX_ANTICHEAT)
+            // Anti-cheat detections are filed against the signed-in account, so
+            // tampering shows up on the site and not only in a local log.
+            pollAntiCheatDetections();
+#endif
 
             static bool wasDebugToggleDown = false;
             const bool debugToggleDown = glfwGetKey(window.getNativeWindow(), GLFW_KEY_F3) == GLFW_PRESS;

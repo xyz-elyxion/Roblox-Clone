@@ -131,6 +131,8 @@ bool Store::load(std::string* error) {
         user.banned = entry.member("banned").asBool(false);
         user.moderationReason = entry.member("moderationReason").asString();
         user.moderatedAt = entry.member("moderatedAt").asString();
+        user.clientDetections = static_cast<int>(entry.member("clientDetections").asInteger(0));
+        user.lastClientDetectionAt = entry.member("lastClientDetectionAt").asString();
         if (user.id > 0 && !user.username.empty()) {
             users_.push_back(user);
             nextUserId_ = std::max(nextUserId_, user.id + 1);
@@ -271,6 +273,8 @@ bool Store::save(std::string* error) const {
         entry.set("banned", user.banned);
         entry.set("moderationReason", user.moderationReason);
         entry.set("moderatedAt", user.moderatedAt);
+        entry.set("clientDetections", user.clientDetections);
+        entry.set("lastClientDetectionAt", user.lastClientDetectionAt);
         users.push(entry);
     }
     document.set("users", users);
@@ -444,6 +448,18 @@ bool Store::setModeration(int id, int strikeCount, long long suspendedUntilMs, b
         user.banned = banned;
         user.moderationReason = reason;
         user.moderatedAt = nowIso;
+        return true;
+    }
+    return false;
+}
+
+bool Store::recordClientDetection(int id, const std::string& nowIso) {
+    for (UserRecord& user : users_) {
+        if (user.id != id) {
+            continue;
+        }
+        ++user.clientDetections;
+        user.lastClientDetectionAt = nowIso;
         return true;
     }
     return false;

@@ -210,6 +210,9 @@ private:
     bool handleGameServers(Request& request, Response& response);
     bool handlePlayGame(Request& request, Response& response);
     bool handleClientReport(Request& request, Response& response);
+    // The client's own anti-cheat, reporting a detection from inside the process.
+    // Filed against the signed-in account as evidence, never as a strike.
+    bool handleClientDetection(Request& request, Response& response);
     bool handleAdminOverview(Request& request, Response& response);
     bool handleAdminDeleteGame(Request& request, Response& response);
     // The running game server reports a confirmed detection here. The instance's

@@ -313,6 +313,10 @@ if(RBLX_BUILD_TESTS)
     target_include_directories(ModerationTests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
     add_test(NAME ModerationTests COMMAND ModerationTests)
 
+    add_executable(ClientCheatReportTests tests/client_cheat_report_tests.cpp)
+    target_include_directories(ClientCheatReportTests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+    add_test(NAME ClientCheatReportTests COMMAND ClientCheatReportTests)
+
     add_executable(ObfuscatedTests tests/obfuscated_tests.cpp)
     target_include_directories(ObfuscatedTests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
     add_test(NAME ObfuscatedTests COMMAND ObfuscatedTests)

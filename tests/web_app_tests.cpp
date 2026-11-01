@@ -721,6 +721,35 @@ void testHttp() {
               "the suspension survives a restart");
     }
 
+    // The client's own anti-cheat reports what it finds inside the process. That
+    // report can only be filed by the account it runs under, and it is counted
+    // as evidence: no strike is added, because the client reporting it is the
+    // one being cheated.
+    checkStatus(app, "POST", "/api/client-detections",
+                "{\"flag\":\"anticheat\",\"detail\":\"Module was modified\"}", std::string(),
+                401, "a client detection needs a signed-in account");
+    checkStatus(app, "POST", "/api/client-detections",
+                "{\"flag\":\"anticheat\",\"detail\":\"Module was modified\"}", token, 200,
+                "a signed-in client files a detection", &body);
+    checkContains(body, "\"clientDetections\":1", "the detection is counted on the account");
+    checkStatus(app, "POST", "/api/client-detections", "{\"detail\":\"  \"}", token, 400,
+                "a detection without a detail is refused");
+
+    checkStatus(app, "GET", "/api/admin/overview", std::string(), token, 200,
+                "the overview loads after a detection", &body);
+    checkContains(body, "\"clientDetections\":1", "the dashboard counts client detections");
+    checkContains(body, "\"cheatStrikes\":0", "a client detection adds no strike");
+    checkContains(body, "\"stage\":\"anticheat\"", "the detection is listed for the dashboard");
+
+    {
+        rblx::web::Store reloaded(config.dataPath);
+        std::string loadError;
+        check(reloaded.load(&loadError), "the detection count reaches the data file");
+        const rblx::web::UserRecord* saved = reloaded.findUserByName("TestPilot");
+        check(saved != nullptr && saved->clientDetections == 1,
+              "the detection count survives a restart");
+    }
+
     checkStatus(app, "GET", "/does-not-exist", std::string(), std::string(), 404,
                 "unknown paths return 404");
 

@@ -51,10 +51,22 @@ struct UserRecord {
     // the epoch. Used for the online dot and never sent to another account.
     long long lastSeenAtMs = 0;
     // Raised whenever every existing session for the account must stop being
-    // accepted: a password change or a recovery reset. Tokens carry the value
-    // they were issued with, so a token minted before the bump is refused
-    // instead of staying valid until it expires.
+    // accepted: a password change, a recovery reset, a suspension or a ban.
+    // Tokens carry the value they were issued with, so a token minted before the
+    // bump is refused instead of staying valid until it expires.
     int tokenVersion = 0;
+    // Confirmed anti-cheat detections. The ladder in Moderation.h decides what
+    // each one costs, so the account stores the count and the outcome of the
+    // last one rather than the rule itself.
+    int cheatStrikes = 0;
+    // Wall-clock time the suspension ends, in ms since the epoch. Zero when the
+    // account is not suspended, and an expired time is not a restriction.
+    long long suspendedUntilMs = 0;
+    bool banned = false;
+    // What the last strike was for, and when it happened, so the dashboard shows
+    // an admin why an account is where it is.
+    std::string moderationReason;
+    std::string moderatedAt;
 };
 
 struct AvatarRecord {
@@ -152,6 +164,9 @@ public:
     // there is no account with that id. Every token issued earlier stops being
     // accepted once this returns.
     int bumpTokenVersion(int id);
+    // Writes the moderation state of an account; false when the id is unknown.
+    bool setModeration(int id, int strikeCount, long long suspendedUntilMs, bool banned,
+                       const std::string& reason, const std::string& nowIso);
     bool setRecoveryHash(int id, const std::string& recoveryHash);
     // Records activity for the online dot; true when the stored time was old
     // enough to be replaced, so the caller only rewrites the file when needed.

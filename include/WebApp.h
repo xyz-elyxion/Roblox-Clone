@@ -8,6 +8,7 @@
 #include <thread>
 #include <vector>
 
+#include "Moderation.h"
 #include "WebHttp.h"
 #include "WebJson.h"
 #include "WebStore.h"
@@ -45,6 +46,9 @@ struct Config {
     // The account that owns the install is always allowed on top of these, so
     // naming another account here cannot lock the owner out of /admin.
     std::vector<std::string> adminUsernames = {"defaultuser0"};
+    // What a confirmed anti-cheat detection costs. The ladder is in Moderation.h;
+    // this is the one place an install can tune it.
+    rblx::moderation::Policy moderation;
 };
 
 struct WorldAnalysis {
@@ -208,6 +212,12 @@ private:
     bool handleClientReport(Request& request, Response& response);
     bool handleAdminOverview(Request& request, Response& response);
     bool handleAdminDeleteGame(Request& request, Response& response);
+    // The running game server reports a confirmed detection here. The instance's
+    // own launch token proves the report came from us and not from a client
+    // claiming another player cheated.
+    bool handleInstanceModeration(Request& request, Response& response);
+    // Admin override: warn, suspend, ban or pardon an account by hand.
+    bool handleAdminModerateUser(Request& request, Response& response);
     bool handleGetAvatar(Request& request, Response& response);
     bool handleSetAvatar(Request& request, Response& response);
     bool handleChangePassword(Request& request, Response& response);

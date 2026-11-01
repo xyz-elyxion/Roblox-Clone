@@ -1735,11 +1735,45 @@ function initAdminPage() {
         );
     }
 
+    function moderationLabel(user) {
+        if (user.banned) return 'Banned';
+        if (user.suspendedUntil) return `Suspended until ${formatDate(user.suspendedUntil)}`;
+        if (user.cheatStrikes > 0) {
+            return `${user.cheatStrikes} strike${user.cheatStrikes === 1 ? '' : 's'}`;
+        }
+        return 'Clear';
+    }
+
+    async function moderateUser(user, action, button) {
+        if (action === 'ban') {
+            const confirmed = window.confirm(`Ban "${user.username}" for cheating?`);
+            if (!confirmed) return;
+        }
+        button.disabled = true;
+        try {
+            const response = await fetch(`/api/admin/users/${user.id}/moderation`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${getToken()}`
+                },
+                body: JSON.stringify({ action })
+            });
+            const data = await response.json();
+            if (!response.ok || !data.success) throw new Error(data.error || 'Could not change the account.');
+            await load();
+            setStatus(status, data.message || `Updated "${user.username}".`, 'success');
+        } catch (error) {
+            setStatus(status, error.message || 'Could not change the account.', 'error');
+            button.disabled = false;
+        }
+    }
+
     function renderUsers(users) {
         if (!usersBody) return;
         usersBody.innerHTML = '';
         if (!users || users.length === 0) {
-            adminEmptyRow(usersBody, 8, 'No accounts yet.');
+            adminEmptyRow(usersBody, 10, 'No accounts yet.');
             return;
         }
         for (const user of users) {
@@ -1747,6 +1781,24 @@ function initAdminPage() {
             name.className = 'game-title-link';
             name.href = profileHref(user);
             name.textContent = user.username;
+
+            // A restricted account is the one case where the button changes what
+            // it does, so the label says which one it is.
+            const restricted = Boolean(user.banned || user.suspendedUntil);
+            const cell = document.createElement('div');
+            const stateText = document.createElement('span');
+            stateText.className = 'admin-reason';
+            stateText.textContent = moderationLabel(user);
+            const button = makeButton(
+                restricted ? 'Pardon' : 'Ban',
+                restricted ? 'button small' : 'button danger small',
+                () => {}
+            );
+            button.addEventListener('click', () => {
+                moderateUser(user, restricted ? 'pardon' : 'ban', button).catch(() => {});
+            });
+            cell.append(stateText, button);
+
             usersBody.appendChild(adminRow([
                 user.id,
                 name,
@@ -1755,7 +1807,9 @@ function initAdminPage() {
                 user.friendCount,
                 user.coins ?? 0,
                 formatPlaytime(user.playtimeSeconds),
-                formatDate(user.createdAt)
+                formatDate(user.createdAt),
+                user.cheatStrikes ?? 0,
+                cell
             ]));
         }
     }

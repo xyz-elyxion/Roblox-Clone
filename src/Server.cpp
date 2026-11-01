@@ -66,6 +66,9 @@ struct ConnectedPlayer {
     std::string hatId;
     // The server's own view of where this player can legitimately be.
     rblx::movement::Guard movement;
+    // Corrections already reported to the website, so one long episode earns
+    // one strike rather than one per packet.
+    int reportedCorrections = 0;
     // Health, death and the respawn timer are the server's, not the client's.
     rblx::health::State health;
     // Where a death puts this player back: the world's SpawnLocation.
@@ -419,6 +422,48 @@ void copyFixedString(char* destination, size_t destinationSize, const std::strin
     std::memset(destination, 0, destinationSize);
     const size_t bytesToCopy = std::min(destinationSize - 1, value.size());
     std::memcpy(destination, value.data(), bytesToCopy);
+}
+
+// Outcomes of the anti-cheat reports the game server sends the website. The
+// report runs on the telemetry thread so a slow website never stalls a tick, so
+// the answer comes back through here instead of as a return value.
+struct ModerationOutcome {
+    int playerId = -1;
+    std::string message;
+    bool restricted = false;
+};
+
+std::mutex moderationOutcomeMutex;
+std::vector<ModerationOutcome> moderationOutcomes;
+
+// A confirmed detection is not one stray correction: a laggy packet can cost
+// one. Sixty is a second of sustained cheating at a client tick rate, and a fly
+// hack reaches it in the same second, so a player has to keep doing it to earn a
+// strike. Flying is unambiguous and needs less evidence than a fast step.
+const int kCorrectionsPerReport = 60;
+const int kFlightCorrectionsPerReport = 30;
+
+void reportCheatingToWebsite(int playerId, const std::string& username, const std::string& reason) {
+    if (gameInstanceId.empty() || gameInstanceToken.empty() || username.empty()) {
+        // A server started by hand has no launch token, so the website has no way
+        // to know the report is ours. Skipping it beats sending an unsigned one
+        // that could have come from any client.
+        return;
+    }
+
+    const std::string instanceId = gameInstanceId;
+    const std::string instanceToken = gameInstanceToken;
+    const std::string webUrl = webServerUrl;
+    enqueueTelemetry([playerId, username, reason, instanceId, instanceToken, webUrl]() {
+        const CheatReportResult result =
+            ServerAuth::reportCheating(instanceId, instanceToken, username, reason, webUrl);
+        if (!result.reported) {
+            std::cerr << "Could not report cheating for player " << playerId << std::endl;
+            return;
+        }
+        std::lock_guard<std::mutex> lock(moderationOutcomeMutex);
+        moderationOutcomes.push_back({playerId, result.message, result.restricted});
+    });
 }
 
 void reportPlayerPlaytime(ConnectedPlayer& player, std::chrono::steady_clock::time_point now, int playerId, bool force) {
@@ -1211,9 +1256,35 @@ static int runServer(int argc, char** argv) {
 
         // 2. Process Clients
 
+        // Answers to the anti-cheat reports come back from the telemetry thread,
+        // so they are collected once per tick and handed to the player they
+        // belong to: a warning becomes a chat line, a suspension a dropped peer.
+        std::vector<ModerationOutcome> moderationResults;
+        {
+            std::lock_guard<std::mutex> lock(moderationOutcomeMutex);
+            moderationResults.swap(moderationOutcomes);
+        }
+
         for (auto& [id, player] : players) {
             bool shouldDisconnect = false;
             const auto tickEntry = tickMessages.find(id);
+
+            for (const ModerationOutcome& outcome : moderationResults) {
+                if (outcome.playerId != id) {
+                    continue;
+                }
+                if (!outcome.message.empty()) {
+                    PacketChat notice;
+                    std::memset(&notice, 0, sizeof(notice));
+                    copyFixedString(notice.username, sizeof(notice.username), "Server");
+                    copyFixedString(notice.message, sizeof(notice.message), outcome.message);
+                    sendToPlayer(player, PacketProtocol::buildStructPacket(PacketType::CHAT, notice), true);
+                }
+                if (outcome.restricted) {
+                    std::cout << "Player " << id << " was removed by moderation." << std::endl;
+                    shouldDisconnect = true;
+                }
+            }
 
             if (tickEntry != tickMessages.end() && !tickEntry->second.empty()) {
                 const std::vector<std::vector<char>>& messages = tickEntry->second;
@@ -1319,8 +1390,13 @@ static int runServer(int argc, char** argv) {
                                     PacketChat notice;
                                     std::memset(&notice, 0, sizeof(notice));
                                     copyFixedString(notice.username, sizeof(notice.username), "Server");
+                                    // A suspension or a ban refuses the login with a reason
+                                    // the player can act on, so it is passed on instead of
+                                    // the generic "sign in again" text.
                                     copyFixedString(notice.message, sizeof(notice.message),
-                                                    "The website did not accept this login, so the game server refused the join. Sign in again and retry.");
+                                                    verified.reason.empty()
+                                                        ? "The website did not accept this login, so the game server refused the join. Sign in again and retry."
+                                                        : verified.reason);
                                     sendToPlayer(player, PacketProtocol::buildStructPacket(PacketType::CHAT, notice), true);
                                 }
                                 shouldDisconnect = true;
@@ -1507,6 +1583,19 @@ static int runServer(int argc, char** argv) {
                                           << ", " << player.movement.corrections()
                                           << " corrections so far)" << std::endl;
                             }
+                            // Report the episode, not the packet: a fly hack is
+                            // corrected once per packet, and a strike each would
+                            // ban the account before the warning reached the screen.
+                            const int corrections = player.movement.corrections();
+                            const int needed = movement.flight ? kFlightCorrectionsPerReport
+                                                               : kCorrectionsPerReport;
+                            if (corrections - player.reportedCorrections >= needed) {
+                                player.reportedCorrections = corrections;
+                                reportCheatingToWebsite(
+                                    id, PacketProtocol::fixedString(player.username, sizeof(player.username)),
+                                    movement.flight ? "flying" : "moving faster than allowed");
+                            }
+
                             // Snap the client back, otherwise it keeps
                             // predicting from the position just rejected.
                             sendToPlayer(player, PacketProtocol::buildStructPacket(PacketType::TELEPORT, player.state), true);

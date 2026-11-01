@@ -660,6 +660,67 @@ void testHttp() {
     checkStatus(app, "GET", "/api/games/" + std::to_string(gameId), std::string(), std::string(),
                 404, "the deleted game is gone");
 
+    // Moderation. The ladder itself is covered by ModerationTests; these checks
+    // are about an account restricted here being unable to sign in or keep a
+    // session, which is the part a player actually feels.
+    const rblx::web::UserRecord* outsider = app.store().findUserByName("Outsider");
+    check(outsider != nullptr, "the second account exists");
+    const std::string outsiderId = std::to_string(outsider != nullptr ? outsider->id : 0);
+
+    checkStatus(app, "POST", "/api/admin/users/" + outsiderId + "/moderation",
+                "{\"action\":\"ban\"}", outsiderToken, 403,
+                "a normal account cannot moderate anybody");
+
+    checkStatus(app, "POST", "/api/admin/users/" + outsiderId + "/moderation",
+                "{\"action\":\"ban\"}", token, 200, "an admin bans an account", &body);
+    checkContains(body, "\"banned\":true", "the ban is reported back");
+
+    checkStatus(app, "GET", "/api/admin/overview", std::string(), token, 200,
+                "the overview still loads after a ban", &body);
+    checkContains(body, "\"banned\":true", "the dashboard shows the ban");
+
+    // The ban has to be felt, not just recorded. The ban raises the account's
+    // token version, so the token it already holds dies with it, and the password
+    // path is refused with the reason the player should read.
+    checkStatus(app, "POST", "/api/login",
+                "{\"username\":\"Outsider\",\"password\":\"long-enough-password\"," +
+                    machineCaptcha(app) + "}",
+                std::string(), 403, "a banned account cannot sign in", &body);
+    checkContains(body, "banned for cheating", "the sign-in refusal says why");
+    checkStatus(app, "POST", "/api/verify", "{}", outsiderToken, 401,
+                "a banned account loses the session it already held");
+
+    checkStatus(app, "POST", "/api/admin/users/" + outsiderId + "/moderation",
+                "{\"action\":\"pardon\"}", token, 200, "an admin pardons the account", &body);
+    checkContains(body, "\"banned\":false", "the pardon clears the ban");
+    checkStatus(app, "POST", "/api/login",
+                "{\"username\":\"Outsider\",\"password\":\"long-enough-password\"," +
+                    machineCaptcha(app) + "}",
+                std::string(), 200, "a pardoned account can sign in again");
+
+    const rblx::web::UserRecord* owner = app.store().firstUser();
+    checkStatus(app, "POST",
+                "/api/admin/users/" + std::to_string(owner != nullptr ? owner->id : 0) +
+                    "/moderation",
+                "{\"action\":\"ban\"}", token, 403,
+                "the account that owns the install cannot be restricted");
+
+    checkStatus(app, "POST", "/api/admin/users/" + outsiderId + "/moderation",
+                "{\"action\":\"suspend\",\"hours\":2}", token, 200,
+                "an admin suspends an account", &body);
+    checkContains(body, "suspended", "the suspension is reported back");
+
+    // A restriction that is not written down is not enforcement, so the account
+    // is reloaded from the data file it was saved to.
+    {
+        rblx::web::Store reloaded(config.dataPath);
+        std::string loadError;
+        check(reloaded.load(&loadError), "the moderation state reaches the data file");
+        const rblx::web::UserRecord* saved = reloaded.findUserByName("Outsider");
+        check(saved != nullptr && saved->suspendedUntilMs > 0,
+              "the suspension survives a restart");
+    }
+
     checkStatus(app, "GET", "/does-not-exist", std::string(), std::string(), 404,
                 "unknown paths return 404");
 

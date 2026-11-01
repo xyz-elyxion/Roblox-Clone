@@ -1,4 +1,5 @@
 #include "AvatarItems.h"
+#include "Moderation.h"
 #include "WebApp.h"
 #include "WebCaptcha.h"
 #include "WebCrypto.h"
@@ -1777,6 +1778,14 @@ void WebsiteApp::installRoutes() {
                   guard([this](Request& request, Response& response) {
                       return handleAdminDeleteGame(request, response);
                   }));
+    server_.route("POST", "/api/game-instances/:id/moderation",
+                  guard([this](Request& request, Response& response) {
+                      return handleInstanceModeration(request, response);
+                  }));
+    server_.route("POST", "/api/admin/users/:id/moderation",
+                  guard([this](Request& request, Response& response) {
+                      return handleAdminModerateUser(request, response);
+                  }));
     server_.route("GET", "/api/avatar", guard([this](Request& request, Response& response) {
                       return handleGetAvatar(request, response);
                   }));
@@ -1884,6 +1893,30 @@ bool WebsiteApp::consumeCaptcha(const Json& body, std::string* error) {
     return true;
 }
 
+// Fills the ladder state from the stored account. The account keeps the strikes
+// and the outcome; the rule that turns one into the other is in Moderation.h.
+static rblx::moderation::State moderationStateOf(const UserRecord& record) {
+    rblx::moderation::State state;
+    state.strikes = record.cheatStrikes;
+    state.suspendedUntilMs = record.suspendedUntilMs;
+    state.banned = record.banned;
+    return state;
+}
+
+// Writes the refusal when the account may not hold a session right now, which is
+// what turns a suspension or a ban into "cannot sign in or join a game" instead
+// of a flag nobody checks. An expired suspension is not a restriction, so it
+// never needs an admin to clear it.
+static bool refuseRestrictedAccount(const UserRecord& record, Response& response) {
+    const rblx::moderation::State state = moderationStateOf(record);
+    const long long now = nowMilliseconds();
+    if (!rblx::moderation::isRestricted(state, now)) {
+        return false;
+    }
+    errorJson(response, 403, rblx::moderation::restrictionMessage(state, now));
+    return true;
+}
+
 bool WebsiteApp::handleSignup(Request& request, Response& response) {
     std::lock_guard<std::mutex> lock(mutex_);
     if (isRateLimited(request.remoteAddress)) {
@@ -1969,6 +2002,13 @@ bool WebsiteApp::handleLogin(Request& request, Response& response) {
         errorJson(response, 401, "Invalid username or password.");
         return true;
     }
+    // The password was right, but a suspended or banned account still gets no
+    // session: the punishment has to survive a sign-out, and a cheater who can
+    // keep signing in cannot tell it was applied at all.
+    if (refuseRestrictedAccount(*user, response)) {
+        std::fprintf(stdout, "  refused sign-in for %s (moderation)\n", user->username.c_str());
+        return true;
+    }
 
     Json result = Json::makeObject();
     result.set("success", true);
@@ -2016,6 +2056,11 @@ bool WebsiteApp::handleVerify(Request& request, Response& response) {
     // The game server asks here, so a revoked session also stops joining games.
     if (claimTokenVersion(claims) != user->tokenVersion) {
         errorJson(response, 401, "This session was signed out. Sign in again.");
+        return true;
+    }
+    // The game server reads this answer, so a suspension applies to the join as
+    // well as to the site, and the reason is what it shows the player.
+    if (refuseRestrictedAccount(*user, response)) {
         return true;
     }
 
@@ -3249,6 +3294,182 @@ bool WebsiteApp::handleClientReport(Request& request, Response& response) {
     return true;
 }
 
+bool WebsiteApp::handleInstanceModeration(Request& request, Response& response) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    const std::string instanceId = request.param("id");
+    auto found = instances_.find(instanceId);
+    if (found == instances_.end()) {
+        errorJson(response, 404, "Game instance not found.");
+        return true;
+    }
+    // The same launch token the heartbeat uses. A player cannot report
+    // themselves, and another client cannot report them either.
+    const std::string managerToken = bearerToken(request.header("authorization"));
+    if (managerToken.empty() || managerToken != found->second.managerToken) {
+        errorJson(response, 403, "Game instance token is invalid.");
+        return true;
+    }
+
+    Json body;
+    if (!parseJsonBody(request, &body, response)) {
+        return true;
+    }
+    const std::string username = trimCopy(body.member("username").asString());
+    std::string reason = trimCopy(body.member("reason").asString());
+    if (reason.empty()) {
+        reason = "cheating";
+    }
+    if (reason.size() > 80) {
+        reason.resize(80);
+    }
+
+    const UserRecord* record = username.empty() ? nullptr : store_.findUserByName(username);
+    if (record == nullptr) {
+        errorJson(response, 404, "No account matches that player.");
+        return true;
+    }
+
+    rblx::moderation::State state = moderationStateOf(*record);
+    const long long now = nowMilliseconds();
+    const rblx::moderation::Decision decision =
+        rblx::moderation::applyStrike(&state, config_.moderation, now, reason);
+    if (decision.action != rblx::moderation::Action::None) {
+        store_.setModeration(record->id, state.strikes, state.suspendedUntilMs, state.banned,
+                             reason, nowIso());
+        // A suspension or a ban has to take effect now, not when the token
+        // happens to expire, so every session the account holds stops being
+        // accepted.
+        if (rblx::moderation::isRestricted(state, now)) {
+            store_.bumpTokenVersion(record->id);
+        }
+        std::string saveError;
+        if (!store_.save(&saveError)) {
+            std::fprintf(stderr, "Could not save the data file: %s\n", saveError.c_str());
+        }
+    }
+
+    std::fprintf(stdout, "  anti-cheat [%s] %s, %s: %s\n", record->username.c_str(),
+                 reason.c_str(), rblx::moderation::actionName(decision.action),
+                 decision.message.c_str());
+
+    Json result = Json::makeObject();
+    result.set("success", true);
+    result.set("action", rblx::moderation::actionName(decision.action));
+    result.set("strikes", state.strikes);
+    result.set("banned", state.banned);
+    result.set("message", decision.message.empty()
+                              ? rblx::moderation::restrictionMessage(state, now)
+                              : decision.message);
+    if (state.suspendedUntilMs > now) {
+        result.set("suspendedUntil",
+                   isoFromTime(static_cast<std::time_t>(state.suspendedUntilMs / 1000)));
+    } else {
+        result.setNull("suspendedUntil");
+    }
+    // What the game server acts on: a restricted account is dropped, a warning
+    // is read out in chat and the player keeps playing.
+    result.set("restricted", rblx::moderation::isRestricted(state, now));
+    sendJson(response, 200, result);
+    return true;
+}
+
+bool WebsiteApp::handleAdminModerateUser(Request& request, Response& response) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    AuthUser user;
+    if (!requireAuth(request, response, &user)) {
+        return true;
+    }
+    if (!isAdminUser(user)) {
+        errorJson(response, 403, adminDeniedMessage(user));
+        return true;
+    }
+
+    const int userId = parseUserId(request.param("id"));
+    const UserRecord* record = userId > 0 ? store_.findUserById(userId) : nullptr;
+    if (record == nullptr) {
+        errorJson(response, 404, "User not found.");
+        return true;
+    }
+    // The install owner is the one account that cannot be recreated, so a ban on
+    // it is refused: one click should not be able to lock the owner out for good.
+    const UserRecord* owner = store_.firstUser();
+    if (owner != nullptr && owner->id == record->id) {
+        errorJson(response, 403, "The account that owns this install cannot be restricted.");
+        return true;
+    }
+
+    Json body;
+    if (!parseJsonBody(request, &body, response)) {
+        return true;
+    }
+    const std::string action = trimCopy(body.member("action").asString());
+    std::string reason = trimCopy(body.member("reason").asString());
+    if (reason.empty()) {
+        reason = "manual review";
+    }
+    if (reason.size() > 80) {
+        reason.resize(80);
+    }
+
+    const long long now = nowMilliseconds();
+    rblx::moderation::State state = moderationStateOf(*record);
+    std::string message;
+    if (action == "pardon") {
+        // The way back for a false positive: everything a strike added is cleared.
+        message = rblx::moderation::liftRestriction(&state).message;
+    } else if (action == "warn") {
+        // A manual warning is a strike, so it climbs the same ladder an
+        // automatic detection does rather than sitting beside it.
+        message = rblx::moderation::applyStrike(&state, config_.moderation, now, reason).message;
+    } else if (action == "suspend") {
+        long long hours = body.member("hours").asInteger(0);
+        if (hours <= 0 || hours > 24 * 365) {
+            hours = config_.moderation.suspensionHours.empty()
+                        ? 24
+                        : config_.moderation.suspensionHours.front();
+        }
+        state.suspendedUntilMs = now + hours * 3600000;
+        message = rblx::moderation::restrictionMessage(state, now);
+    } else if (action == "ban") {
+        state.banned = true;
+        message = rblx::moderation::restrictionMessage(state, now);
+    } else {
+        errorJson(response, 400, "Action must be warn, suspend, ban or pardon.");
+        return true;
+    }
+
+    store_.setModeration(record->id, state.strikes, state.suspendedUntilMs, state.banned,
+                         reason, nowIso());
+    if (rblx::moderation::isRestricted(state, now)) {
+        // The account is locked out the moment the button is pressed, which is
+        // also what stops it rejoining the server it is cheating on.
+        store_.bumpTokenVersion(record->id);
+    }
+    std::string saveError;
+    if (!store_.save(&saveError)) {
+        errorJson(response, 500, saveError.empty() ? "Could not save the change." : saveError);
+        return true;
+    }
+
+    std::fprintf(stdout, "  moderation [%s] %s by %s\n", record->username.c_str(),
+                 action.c_str(), user.username.c_str());
+
+    Json result = Json::makeObject();
+    result.set("success", true);
+    result.set("action", action);
+    result.set("strikes", state.strikes);
+    result.set("banned", state.banned);
+    if (state.suspendedUntilMs > now) {
+        result.set("suspendedUntil",
+                   isoFromTime(static_cast<std::time_t>(state.suspendedUntilMs / 1000)));
+    } else {
+        result.setNull("suspendedUntil");
+    }
+    result.set("message", message);
+    sendJson(response, 200, result);
+    return true;
+}
+
 bool WebsiteApp::handleAdminOverview(Request& request, Response& response) {
     std::lock_guard<std::mutex> lock(mutex_);
     AuthUser user;
@@ -3290,6 +3511,17 @@ bool WebsiteApp::handleAdminOverview(Request& request, Response& response) {
         entry.set("friendCount", store_.countAcceptedFriends(record.id));
         entry.set("gameCount", static_cast<long long>(store_.gamesOwnedBy(record.id).size()));
         entry.set("isAdmin", isAdminUser(listed));
+        entry.set("cheatStrikes", record.cheatStrikes);
+        entry.set("banned", record.banned);
+        entry.set("moderationReason", record.moderationReason);
+        // An expired suspension is reported as no suspension, so the dashboard
+        // never shows a restriction the site is not enforcing.
+        if (record.suspendedUntilMs > nowMilliseconds()) {
+            entry.set("suspendedUntil",
+                      isoFromTime(static_cast<std::time_t>(record.suspendedUntilMs / 1000)));
+        } else {
+            entry.setNull("suspendedUntil");
+        }
         users.push(entry);
     }
 

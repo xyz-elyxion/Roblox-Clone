@@ -7,9 +7,9 @@
 #include "HttpClient.h"
 
 // The game server reports to the website: it verifies player tokens, fetches
-// avatars, records playtime and posts instance heartbeats. All of it goes
-// through HttpClient so the same code runs on Windows and POSIX; there is no
-// WinHTTP dependency left in the server.
+// avatars, records playtime, posts instance heartbeats and reports confirmed
+// cheating. All of it goes through HttpClient so the same code runs on Windows
+// and POSIX; there is no WinHTTP dependency left in the server.
 namespace {
     bool jsonBoolTrue(const std::string& json, const std::string& field) {
         const std::string needle = "\"" + field + "\":true";
@@ -34,6 +34,19 @@ namespace {
         return json.substr(pos, end - pos);
     }
 
+    // A JSON string field built by hand, so a quote or a newline in a reason
+    // cannot break the request. The server only ever sends its own literals and
+    // account names, but the escaping is here rather than at every call site.
+    std::string jsonSafe(const std::string& value, size_t limit) {
+        std::string out;
+        for (char c : value) {
+            if (out.size() >= limit) break;
+            if (c == '"' || c == '\\' || c == '\n' || c == '\r' || c == '\t') continue;
+            out.push_back(c);
+        }
+        return out;
+    }
+
     std::string postJson(const std::string& url, const std::string& body, const std::string& bearerToken) {
         const rblx::http::Response response = rblx::http::request("POST", url, body, bearerToken);
         if (!response.ok()) {
@@ -47,13 +60,18 @@ VerifiedUser ServerAuth::verifyToken(const std::string& token, const std::string
     VerifiedUser user;
     if (token.empty()) return user;
 
-    const std::string response = postJson(serverUrl + "/api/verify", "{}", token);
-    if (response.empty() || !jsonBoolTrue(response, "success")) {
+    // The body is read whether the answer was 200 or not: a suspended or banned
+    // account is refused with a 403 and the reason the player should see, which
+    // the game server passes on instead of a generic "login refused".
+    const rblx::http::Response reply =
+        rblx::http::request("POST", serverUrl + "/api/verify", "{}", token);
+    if (reply.body.empty() || !jsonBoolTrue(reply.body, "success")) {
+        user.reason = jsonString(reply.body, "error");
         return user;
     }
 
-    user.userId = jsonInt(response, "userId");
-    user.username = jsonString(response, "username");
+    user.userId = jsonInt(reply.body, "userId");
+    user.username = jsonString(reply.body, "username");
     user.success = user.userId > 0 && !user.username.empty() && user.username.size() < 32;
     return user;
 }
@@ -89,4 +107,33 @@ bool ServerAuth::reportInstanceHeartbeat(const std::string& instanceId, const st
         body.str(),
         managerToken);
     return !response.empty() && jsonBoolTrue(response, "success");
+}
+
+CheatReportResult ServerAuth::reportCheating(const std::string& instanceId,
+                                            const std::string& managerToken,
+                                            const std::string& username,
+                                            const std::string& reason,
+                                            const std::string& serverUrl) {
+    CheatReportResult result;
+    if (instanceId.empty() || managerToken.empty() || username.empty()) {
+        return result;
+    }
+
+    std::ostringstream body;
+    body << "{\"username\":\"" << jsonSafe(username, 32) << "\",\"reason\":\""
+         << jsonSafe(reason, 80) << "\"}";
+
+    const std::string response = postJson(
+        serverUrl + "/api/game-instances/" + instanceId + "/moderation",
+        body.str(),
+        managerToken);
+    if (response.empty() || !jsonBoolTrue(response, "success")) {
+        return result;
+    }
+
+    result.reported = true;
+    result.action = jsonString(response, "action");
+    result.message = jsonString(response, "message");
+    result.restricted = jsonBoolTrue(response, "restricted");
+    return result;
 }

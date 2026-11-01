@@ -126,6 +126,11 @@ bool Store::load(std::string* error) {
         user.createdAt = entry.member("createdAt").asString();
         user.lastSeenAtMs = entry.member("lastSeenAtMs").asInteger(0);
         user.tokenVersion = static_cast<int>(entry.member("tokenVersion").asInteger(0));
+        user.cheatStrikes = static_cast<int>(entry.member("cheatStrikes").asInteger(0));
+        user.suspendedUntilMs = entry.member("suspendedUntilMs").asInteger(0);
+        user.banned = entry.member("banned").asBool(false);
+        user.moderationReason = entry.member("moderationReason").asString();
+        user.moderatedAt = entry.member("moderatedAt").asString();
         if (user.id > 0 && !user.username.empty()) {
             users_.push_back(user);
             nextUserId_ = std::max(nextUserId_, user.id + 1);
@@ -261,6 +266,11 @@ bool Store::save(std::string* error) const {
         entry.set("createdAt", user.createdAt);
         entry.set("lastSeenAtMs", user.lastSeenAtMs);
         entry.set("tokenVersion", user.tokenVersion);
+        entry.set("cheatStrikes", user.cheatStrikes);
+        entry.set("suspendedUntilMs", user.suspendedUntilMs);
+        entry.set("banned", user.banned);
+        entry.set("moderationReason", user.moderationReason);
+        entry.set("moderatedAt", user.moderatedAt);
         users.push(entry);
     }
     document.set("users", users);
@@ -419,6 +429,22 @@ bool Store::setPasswordHash(int id, const std::string& passwordHash) {
             user.passwordHash = passwordHash;
             return true;
         }
+    }
+    return false;
+}
+
+bool Store::setModeration(int id, int strikeCount, long long suspendedUntilMs, bool banned,
+                          const std::string& reason, const std::string& nowIso) {
+    for (UserRecord& user : users_) {
+        if (user.id != id) {
+            continue;
+        }
+        user.cheatStrikes = strikeCount > 0 ? strikeCount : 0;
+        user.suspendedUntilMs = suspendedUntilMs > 0 ? suspendedUntilMs : 0;
+        user.banned = banned;
+        user.moderationReason = reason;
+        user.moderatedAt = nowIso;
+        return true;
     }
     return false;
 }

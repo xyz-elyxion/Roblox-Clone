@@ -309,6 +309,10 @@ if(RBLX_BUILD_TESTS)
     target_link_libraries(MovementGuardTests PRIVATE glm)
     add_test(NAME MovementGuardTests COMMAND MovementGuardTests)
 
+    add_executable(ModerationTests tests/moderation_tests.cpp)
+    target_include_directories(ModerationTests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+    add_test(NAME ModerationTests COMMAND ModerationTests)
+
     add_executable(ObfuscatedTests tests/obfuscated_tests.cpp)
     target_include_directories(ObfuscatedTests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
     add_test(NAME ObfuscatedTests COMMAND ObfuscatedTests)

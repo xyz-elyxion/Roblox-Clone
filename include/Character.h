@@ -1,6 +1,7 @@
 #pragma once
 
 #include <glm/glm.hpp>
+#include <string>
 #include <vector>
 #include <deque>
 #include "Part.h"
@@ -49,6 +50,9 @@ public:
     void takeDamage(float amount);
     void respawn();
     void setFaceTexture(unsigned int textureId);
+    // Wears the hat with this item id, or takes the hat off for an empty id. The
+    // hat is a posed part like the head, not a simulated body.
+    void setHat(const std::string& hatId);
 
     // Moves the character to a world position and clears its velocity. Used by
     // the server when a script teleports a player (hazards, checkpoints).
@@ -68,6 +72,8 @@ private:
     int rightArmIndex;
     int leftLegIndex;
     int rightLegIndex;
+    int hatIndex = -1;
+    std::string hatId;
 
     // Animation State
     float walkTime;   // Walk cycle phase, kept while the walk blends out

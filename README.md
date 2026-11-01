@@ -181,6 +181,19 @@ the starter games and is the default admin, so `POST /api/login` with
 earlier builds seeded the same account as `RBLXCreator`; it is renamed to `defaultuser0` on startup
 with its id, password and games unchanged.
 
+## Avatar Items
+
+`/avatar` also sells hats, paid for with the coins the game server already awards for playtime: a
+minute played is one coin. `GET /api/avatar` returns the catalog with `owned` and `equipped` flags
+plus your balance, `POST /api/avatar/buy` charges the price, and `POST /api/avatar/equip` wears a hat
+or takes it off (`{"itemId": ""}`). A hat has to be owned before it can be worn, buying one twice is
+refused, and saving body colours through `POST /api/avatar` leaves the equipped hat alone.
+
+The catalog is `include/AvatarItems.h`, so the shop, the web preview and the 3D client all draw a hat
+from the same size, colour and offset. In the client the hat is a posed part that follows the head
+every frame, so it moves with the walk and breathing animation. Other players cannot see your hat
+yet: the player list the game server sends still carries body colours and the face only.
+
 ## Admin Dashboard
 
 `/admin` shows the local install at a glance: account, game, live server, launch and playtime totals,

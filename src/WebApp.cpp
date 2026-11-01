@@ -1,3 +1,4 @@
+#include "AvatarItems.h"
 #include "WebApp.h"
 
 #include <algorithm>
@@ -1488,6 +1489,7 @@ Json WebsiteApp::avatarJson(const Avatar& avatar) const {
         result.set(kAvatarSlots[slot], colorsJson(avatar.colors[slot]));
     }
     result.set("faceId", avatar.faceId);
+    result.set("hatId", avatar.hatId);
     return result;
 }
 
@@ -1672,6 +1674,13 @@ void WebsiteApp::installRoutes() {
                   }));
     server_.route("POST", "/api/avatar", guard([this](Request& request, Response& response) {
                       return handleSetAvatar(request, response);
+                  }));
+    server_.route("POST", "/api/avatar/buy", guard([this](Request& request, Response& response) {
+                      return handleBuyItem(request, response);
+                  }));
+    server_.route("POST", "/api/avatar/equip",
+                  guard([this](Request& request, Response& response) {
+                      return handleEquipItem(request, response);
                   }));
 
     server_.setFallback([this](Request& request, Response& response) {
@@ -2678,6 +2687,8 @@ bool WebsiteApp::handleGetAvatar(Request& request, Response& response) {
     Json result = Json::makeObject();
     result.set("success", true);
     result.set("avatar", avatarJson(store_.avatarFor(user.id)));
+    result.set("coins", store_.coinsFor(user.id));
+    result.set("items", itemsJson(user.id));
     sendJson(response, 200, result);
     return true;
 }
@@ -2700,12 +2711,117 @@ bool WebsiteApp::handleSetAvatar(Request& request, Response& response) {
         return true;
     }
 
+    // The colour form owns the body colours; the hat is set by the equip
+    // endpoint, so saving colours must not take the hat off.
+    avatar.hatId = store_.avatarFor(user.id).hatId;
     store_.setAvatar(user.id, avatar);
     std::string saveError;
     store_.save(&saveError);
 
     Json result = Json::makeObject();
     result.set("success", true);
+    sendJson(response, 200, result);
+    return true;
+}
+
+Json WebsiteApp::itemsJson(int userId) const {
+    const Avatar avatar = store_.avatarFor(userId);
+    Json list = Json::makeArray();
+    for (const items::AvatarItem& item : items::avatarItems()) {
+        Json entry = Json::makeObject();
+        entry.set("id", item.id);
+        entry.set("name", item.name);
+        entry.set("price", item.price);
+        entry.set("owned", store_.ownsHat(userId, item.id));
+        entry.set("equipped", avatar.hatId == item.id);
+        Json color = Json::makeArray();
+        Json size = Json::makeArray();
+        for (int component = 0; component < 3; ++component) {
+            color.push(Json(static_cast<double>(item.color[component])));
+            size.push(Json(static_cast<double>(item.size[component])));
+        }
+        entry.set("color", color);
+        entry.set("size", size);
+        entry.set("offsetY", static_cast<double>(item.offsetY));
+        entry.set("offsetZ", static_cast<double>(item.offsetZ));
+        list.push(entry);
+    }
+    return list;
+}
+
+bool WebsiteApp::handleBuyItem(Request& request, Response& response) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    AuthUser user;
+    if (!requireAuth(request, response, &user)) {
+        return true;
+    }
+    Json body;
+    if (!parseJsonBody(request, &body, response)) {
+        return true;
+    }
+
+    const items::AvatarItem* item = items::findAvatarItem(body.member("itemId").asString());
+    if (item == nullptr) {
+        errorJson(response, 404, "No such item.");
+        return true;
+    }
+    if (store_.ownsHat(user.id, item->id)) {
+        errorJson(response, 409, "That item is already in your inventory.");
+        return true;
+    }
+    // Coins come from playtime, so a purchase has to be refused rather than
+    // taking the balance negative.
+    if (!store_.spendCoins(user.id, item->price)) {
+        errorJson(response, 402, "Not enough coins.");
+        return true;
+    }
+    store_.grantHat(user.id, item->id);
+
+    std::string saveError;
+    store_.save(&saveError);
+
+    Json result = Json::makeObject();
+    result.set("success", true);
+    result.set("coins", store_.coinsFor(user.id));
+    result.set("items", itemsJson(user.id));
+    sendJson(response, 200, result);
+    return true;
+}
+
+bool WebsiteApp::handleEquipItem(Request& request, Response& response) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    AuthUser user;
+    if (!requireAuth(request, response, &user)) {
+        return true;
+    }
+    Json body;
+    if (!parseJsonBody(request, &body, response)) {
+        return true;
+    }
+
+    // An empty id takes the hat off; anything else has to be owned already.
+    const std::string itemId = body.member("itemId").asString();
+    if (!itemId.empty()) {
+        if (items::findAvatarItem(itemId) == nullptr) {
+            errorJson(response, 404, "No such item.");
+            return true;
+        }
+        if (!store_.ownsHat(user.id, itemId)) {
+            errorJson(response, 403, "Buy that item before wearing it.");
+            return true;
+        }
+    }
+
+    Avatar avatar = store_.avatarFor(user.id);
+    avatar.hatId = itemId;
+    store_.setAvatar(user.id, avatar);
+    std::string saveError;
+    store_.save(&saveError);
+
+    Json result = Json::makeObject();
+    result.set("success", true);
+    result.set("avatar", avatarJson(avatar));
+    result.set("items", itemsJson(user.id));
     sendJson(response, 200, result);
     return true;
 }

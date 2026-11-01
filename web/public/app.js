@@ -14,7 +14,8 @@ function faceSrc(faceId) {
 
 function normalizeAvatar(avatar) {
     const faceId = faceCatalog.some((face) => face.id === avatar?.faceId) ? avatar.faceId : defaultFaceId;
-    return { ...defaultAvatar, ...(avatar || {}), faceId };
+    const hatId = typeof avatar?.hatId === 'string' ? avatar.hatId : '';
+    return { ...defaultAvatar, ...(avatar || {}), faceId, hatId };
 }
 
 function getToken() {
@@ -730,8 +731,17 @@ const defaultAvatar = {
     rightArmColor: [0.8, 0.6, 0.4],
     leftLegColor: [0.2, 0.6, 0.2],
     rightLegColor: [0.2, 0.6, 0.2],
-    faceId: defaultFaceId
+    faceId: defaultFaceId,
+    hatId: ''
 };
+
+// Filled from GET /api/avatar. The shop and the preview read the same catalog,
+// so a hat has one size and colour rather than a copy per renderer.
+let avatarItemCatalog = [];
+
+function avatarItem(id) {
+    return avatarItemCatalog.find((item) => item.id === id) || null;
+}
 
 const avatarBlocks = [
     { id: 'head', label: 'Head', key: 'headColor', size: [1.2, 1.2, 1.0], position: [0, 4.8, 0] },
@@ -778,6 +788,7 @@ async function createAvatarPreview(container, onSelect) {
         }
     }));
     let faceMesh = null;
+    let hatMesh = null;
 
     renderer.setClearColor(0xffffff, 1);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
@@ -891,6 +902,26 @@ async function createAvatarPreview(container, onSelect) {
             faceMesh.material.map = faceTextures.get(safeAvatar.faceId) || faceTextures.get(defaultFaceId);
             faceMesh.material.needsUpdate = true;
             renderer.domElement.dataset.faceId = safeAvatar.faceId;
+        }
+        const hat = avatarItem(safeAvatar.hatId);
+        if (hat) {
+            if (!hatMesh) {
+                const geometry = new THREE.BoxGeometry(1, 1, 1);
+                hatMesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({ color: 0xffffff }));
+                hatMesh.add(new THREE.LineSegments(
+                    new THREE.EdgesGeometry(geometry),
+                    new THREE.LineBasicMaterial({ color: 0x050505 })
+                ));
+                root.add(hatMesh);
+            }
+            hatMesh.visible = true;
+            hatMesh.scale.set(...hat.size);
+            hatMesh.position.set(0, 4.8 + hat.offsetY, hat.offsetZ || 0);
+            hatMesh.material.color.setRGB(...threeColor(hat.color));
+            renderer.domElement.dataset.hatId = hat.id;
+        } else if (hatMesh) {
+            hatMesh.visible = false;
+            renderer.domElement.dataset.hatId = '';
         }
         render();
     }
@@ -1007,7 +1038,10 @@ function initAvatar() {
     const colorPicker = document.querySelector('[data-color-picker]');
     const colorCode = document.querySelector('[data-color-code]');
     const faceOptions = document.querySelector('[data-face-options]');
+    const hatOptions = document.querySelector('[data-hat-options]');
+    const coinsOutput = document.querySelector('[data-coins]');
     const status = document.querySelector('[data-status]');
+    let coins = 0;
     let preview = null;
 
     function selectedKey() {
@@ -1045,6 +1079,66 @@ function initAvatar() {
             button.append(image, label);
             faceOptions.appendChild(button);
         }
+    }
+
+    function drawHats() {
+        if (!hatOptions) return;
+        hatOptions.innerHTML = '';
+        for (const item of avatarItemCatalog) {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = `face-option hat-option${item.equipped ? ' active' : ''}`;
+            button.setAttribute('aria-pressed', item.equipped ? 'true' : 'false');
+            const swatch = document.createElement('span');
+            swatch.className = 'hat-swatch';
+            swatch.style.background = colorToHex(item.color);
+            const label = document.createElement('span');
+            label.textContent = item.owned
+                ? `${item.name} - ${item.equipped ? 'wearing' : 'wear'}`
+                : `${item.name} - ${item.price} coins`;
+            button.append(swatch, label);
+            button.addEventListener('click', () => {
+                (item.owned ? equipHat(item.id) : buyHat(item)).catch((error) => {
+                    setStatus(status, error.message || 'Could not update your hats.', 'error');
+                });
+            });
+            hatOptions.appendChild(button);
+        }
+        if (avatar.hatId) {
+            const remove = document.createElement('button');
+            remove.type = 'button';
+            remove.className = 'face-option hat-option';
+            remove.textContent = 'Take hat off';
+            remove.addEventListener('click', () => {
+                equipHat('').catch((error) => {
+                    setStatus(status, error.message || 'Could not remove that hat.', 'error');
+                });
+            });
+            hatOptions.appendChild(remove);
+        }
+        if (coinsOutput) coinsOutput.value = `${coins} coins`;
+    }
+
+    function applyHats(items, nextCoins) {
+        if (Array.isArray(items)) avatarItemCatalog = items;
+        if (typeof nextCoins === 'number') coins = nextCoins;
+        drawHats();
+    }
+
+    async function buyHat(item) {
+        const { response, data } = await postJson('/api/avatar/buy', { itemId: item.id }, token);
+        if (!response.ok || !data.success) throw new Error(data.error || 'Purchase failed.');
+        applyHats(data.items, data.coins);
+        setStatus(status, `${item.name} bought. Press it again to wear it.`, 'success');
+    }
+
+    async function equipHat(itemId) {
+        const { response, data } = await postJson('/api/avatar/equip', { itemId }, token);
+        if (!response.ok || !data.success) throw new Error(data.error || 'Could not wear that.');
+        avatar.hatId = data.avatar?.hatId || '';
+        applyHats(data.items, data.coins);
+        syncPreview();
+        setStatus(status, avatar.hatId ? 'Hat updated.' : 'Hat removed.', 'success');
     }
 
     function drawTabs() {
@@ -1112,6 +1206,7 @@ function initAvatar() {
         .then((response) => response.json())
         .then((data) => {
             if (data.success && data.avatar) avatar = normalizeAvatar(data.avatar);
+            applyHats(data.items, data.coins);
             drawFaceOptions();
             selectPart('head');
         })

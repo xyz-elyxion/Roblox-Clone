@@ -548,6 +548,7 @@ void fetchAvatarForToken(const std::string& token, const std::string& serverUrl)
         parseJsonColorArray(avatarResponse, "leftLegColor", currentAvatar.leftLegColor);
         parseJsonColorArray(avatarResponse, "rightLegColor", currentAvatar.rightLegColor);
         currentAvatar.faceId = normalizeFaceId(jsonStringField(avatarResponse, "faceId"));
+        currentAvatar.hatId = jsonStringField(avatarResponse, "hatId");
         currentAvatar.saveToFile("avatar.txt");
     }
 }
@@ -1782,6 +1783,7 @@ int main(int argc, char** argv) {
                                     myCharacter->serverControlsHealth =
                                         (currentState == ONLINE);
                                     myCharacter->setFaceTexture(textureForFace(currentAvatar.faceId));
+                                    myCharacter->setHat(currentAvatar.hatId);
                                     myCharacter->update(0.0f, nullptr, false);
                                 }
                             }

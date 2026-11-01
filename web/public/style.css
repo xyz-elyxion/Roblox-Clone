@@ -1062,3 +1062,20 @@ input {
         transition: none !important;
     }
 }
+
+/* Hat shop on the avatar page: a colour swatch plus the name and price. */
+.hat-options {
+    grid-template-columns: 1fr;
+}
+
+.hat-option {
+    width: 100%;
+    justify-content: flex-start;
+}
+
+.hat-swatch {
+    width: 100%;
+    height: 16px;
+    border: 1px solid #050505;
+    border-radius: 2px;
+}

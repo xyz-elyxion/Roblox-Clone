@@ -11,6 +11,8 @@ struct AvatarConfig {
     glm::vec3 leftLegColor = glm::vec3(0.2f, 0.6f, 0.2f);  // Green pants
     glm::vec3 rightLegColor = glm::vec3(0.2f, 0.6f, 0.2f); // Green pants
     std::string faceId = "classic";
+    // Equipped hat item id; empty when the character wears none.
+    std::string hatId;
     
     void saveToFile(const std::string& filename = "avatar.txt");
     void loadFromFile(const std::string& filename = "avatar.txt");

@@ -1,4 +1,5 @@
 #include "Character.h"
+#include "AvatarItems.h"
 #include <algorithm>
 #include <cmath>
 #include <iostream>
@@ -126,6 +127,37 @@ void Character::setFaceTexture(unsigned int textureId) {
         return;
     }
     (*partsList)[headIndex].textureId = textureId;
+}
+
+void Character::setHat(const std::string& id) {
+    hatId = id;
+    const rblx::items::AvatarItem* item = rblx::items::findAvatarItem(id);
+    if (!partsList || rootPartIndex < 0) {
+        return;
+    }
+    if (item == nullptr) {
+        if (hatIndex >= 0 && hatIndex < static_cast<int>(partsList->size())) {
+            (*partsList)[hatIndex].transparency = 1.0f;
+        }
+        return;
+    }
+    const bool reusable = hatIndex >= 0 && hatIndex < static_cast<int>(partsList->size()) &&
+                          !(*partsList)[hatIndex].deleted;
+    if (!reusable) {
+        Part hat(spawnPoint, glm::vec3(item->size[0], item->size[1], item->size[2]),
+                 glm::vec3(item->color[0], item->color[1], item->color[2]));
+        hat.name = "Hat";
+        hat.parentIndex = getFolderIndex();
+        hat.anchored = true;
+        hat.canCollide = false;
+        hat.material = Material::SmoothPlastic;
+        partsList->push_back(hat);
+        hatIndex = static_cast<int>(partsList->size()) - 1;
+    }
+    Part& part = (*partsList)[hatIndex];
+    part.size = glm::vec3(item->size[0], item->size[1], item->size[2]);
+    part.color = glm::vec3(item->color[0], item->color[1], item->color[2]);
+    part.transparency = 0.0f;
 }
 
 void Character::setRemoteControlled(bool remote) {
@@ -345,6 +377,13 @@ void Character::update(float deltaTime, Camera* camera, bool isSprinting) {
     placeDirect(torsoIndex, glm::vec3(0.0f, 0.5f + breathe, 0.0f), 0.0f, counterTwist, 0.0f);
     placeDirect(headIndex, glm::vec3(0.0f, 2.1f + breathe * 0.6f, 0.0f),
                 airBlend * -6.0f + swing * 2.5f, counterTwist * 0.4f, 0.0f);
+    // The hat follows the same pose as the head, so it does not slide off
+    // while the avatar breathes or leans.
+    if (const rblx::items::AvatarItem* hat = rblx::items::findAvatarItem(hatId)) {
+        placeDirect(hatIndex,
+                    glm::vec3(0.0f, 2.1f + breathe * 0.6f + hat->offsetY, hat->offsetZ),
+                    airBlend * -6.0f + swing * 2.5f, counterTwist * 0.4f, 0.0f);
+    }
 
     placeSwinging(leftArmIndex, glm::vec3(-1.5f, 1.5f, 0.0f), glm::vec3(1.0f, 2.0f, 1.0f),
                   leftArmPitch, -airBlend * 12.0f);

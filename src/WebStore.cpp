@@ -140,6 +140,13 @@ bool Store::load(std::string* error) {
         }
         const std::string faceId = entry.member("faceId").asString("classic");
         record.avatar.faceId = faceId.empty() ? "classic" : faceId;
+        record.avatar.hatId = entry.member("hatId").asString();
+        for (const Json& owned : entry.member("ownedHats").elements()) {
+            const std::string hatId = owned.asString();
+            if (!hatId.empty()) {
+                record.ownedHatIds.push_back(hatId);
+            }
+        }
         avatars_.push_back(record);
     }
 
@@ -229,6 +236,12 @@ bool Store::save(std::string* error) const {
             entry.set(slots[slot], tripleToJson(record.avatar.colors[slot]));
         }
         entry.set("faceId", record.avatar.faceId);
+        entry.set("hatId", record.avatar.hatId);
+        Json ownedHats = Json::makeArray();
+        for (const std::string& hatId : record.ownedHatIds) {
+            ownedHats.push(Json(hatId));
+        }
+        entry.set("ownedHats", ownedHats);
         avatars.push(entry);
     }
     document.set("avatars", avatars);
@@ -418,6 +431,52 @@ long long Store::playtimeFor(int userId) const {
         }
     }
     return 0;
+}
+
+AvatarRecord* Store::findOrCreateAvatar(int userId) {
+    for (AvatarRecord& record : avatars_) {
+        if (record.userId == userId) {
+            return &record;
+        }
+    }
+    AvatarRecord record;
+    record.userId = userId;
+    avatars_.push_back(record);
+    return &avatars_.back();
+}
+
+std::vector<std::string> Store::ownedHatsFor(int userId) const {
+    for (const AvatarRecord& record : avatars_) {
+        if (record.userId == userId) {
+            return record.ownedHatIds;
+        }
+    }
+    return std::vector<std::string>();
+}
+
+bool Store::ownsHat(int userId, const std::string& hatId) const {
+    const std::vector<std::string> owned = ownedHatsFor(userId);
+    return std::find(owned.begin(), owned.end(), hatId) != owned.end();
+}
+
+bool Store::grantHat(int userId, const std::string& hatId) {
+    if (userId <= 0 || hatId.empty() || ownsHat(userId, hatId)) {
+        return false;
+    }
+    findOrCreateAvatar(userId)->ownedHatIds.push_back(hatId);
+    return true;
+}
+
+bool Store::spendCoins(int userId, long long amount) {
+    if (userId <= 0 || amount <= 0) {
+        return false;
+    }
+    StatsRecord* record = findOrCreateStats(userId);
+    if (record == nullptr || record->coins < amount) {
+        return false;
+    }
+    record->coins -= amount;
+    return true;
 }
 
 long long Store::coinsFor(int userId) const {

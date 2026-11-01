@@ -35,6 +35,8 @@ struct Avatar {
         {0.2, 0.6, 0.2}
     };
     std::string faceId = "classic";
+    // Equipped hat id; empty when the character wears none.
+    std::string hatId;
 };
 
 struct UserRecord {
@@ -47,6 +49,9 @@ struct UserRecord {
 struct AvatarRecord {
     int userId = 0;
     Avatar avatar;
+    // Hats this account bought. Ownership lives with the avatar record so one
+    // entry per account carries both appearance and inventory.
+    std::vector<std::string> ownedHatIds;
 };
 
 struct FriendshipRecord {
@@ -114,6 +119,12 @@ public:
     // avatars
     Avatar avatarFor(int userId) const;
     void setAvatar(int userId, const Avatar& avatar);
+    std::vector<std::string> ownedHatsFor(int userId) const;
+    bool ownsHat(int userId, const std::string& hatId) const;
+    // Adds a hat to the account's inventory; false when it already owns it.
+    bool grantHat(int userId, const std::string& hatId);
+    // Deducts coins; false when the account cannot afford the price.
+    bool spendCoins(int userId, long long amount);
 
     // stats
     long long playtimeFor(int userId) const;
@@ -146,6 +157,7 @@ public:
 private:
     void resolveOwnerNames();
     StatsRecord* findOrCreateStats(int userId);
+    AvatarRecord* findOrCreateAvatar(int userId);
 
     std::string path_;
     std::vector<UserRecord> users_;

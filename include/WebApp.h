@@ -194,6 +194,10 @@ private:
     bool handleAdminDeleteGame(Request& request, Response& response);
     bool handleGetAvatar(Request& request, Response& response);
     bool handleSetAvatar(Request& request, Response& response);
+    bool handleBuyItem(Request& request, Response& response);
+    bool handleEquipItem(Request& request, Response& response);
+    // Catalog plus what this account owns and wears, in one list.
+    Json itemsJson(int userId) const;
     bool handleStatic(Request& request, Response& response);
 
     bool createGame(const AuthUser& user, const Json& body, GameRecord* created,

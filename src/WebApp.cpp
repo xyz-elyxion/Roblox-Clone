@@ -1005,6 +1005,7 @@ bool loadConfigFromEnvironment(Config* config, std::string* error) {
         // The seeded starter account owns the starter games.
         loaded.adminUsernames.push_back("defaultuser0");
     } else {
+        loaded.adminUsernamesFromEnvironment = true;
         for (const std::string& name : splitCsv(adminNames)) {
             const std::string trimmed = trimCopy(name);
             if (!trimmed.empty()) {
@@ -1391,8 +1392,43 @@ bool WebsiteApp::isAdminUser(const AuthUser& user) const {
     if (user.id <= 0) {
         return false;
     }
-    return std::find(config_.adminUsernames.begin(), config_.adminUsernames.end(),
-                     user.username) != config_.adminUsernames.end();
+    if (std::find(config_.adminUsernames.begin(), config_.adminUsernames.end(), user.username) !=
+        config_.adminUsernames.end()) {
+        return true;
+    }
+    if (config_.adminUsernamesFromEnvironment) {
+        return false;
+    }
+    // Without an explicit list the account that owns the install is the admin.
+    // Matching the owner instead of a literal name keeps the dashboard reachable
+    // when the seeded account was renamed or seeded under another spelling, since
+    // usernames are compared case-sensitively.
+    const UserRecord* owner = store_.firstUser();
+    return owner != nullptr && owner->id == user.id;
+}
+
+std::string WebsiteApp::adminDeniedMessage(const AuthUser& user) const {
+    // Mirrors isAdminUser so the message names exactly who is allowed in.
+    std::vector<std::string> names = config_.adminUsernames;
+    if (!config_.adminUsernamesFromEnvironment) {
+        if (const UserRecord* owner = store_.firstUser()) {
+            if (std::find(names.begin(), names.end(), owner->username) == names.end()) {
+                names.push_back(owner->username);
+            }
+        }
+    }
+    std::string allowed;
+    for (const std::string& name : names) {
+        if (!allowed.empty()) {
+            allowed += ", ";
+        }
+        allowed += name;
+    }
+    if (allowed.empty()) {
+        allowed = "(none)";
+    }
+    return "Admin access is required: signed in as '" + user.username + "', allowed: " + allowed +
+           ".";
 }
 
 bool WebsiteApp::requireAuth(const Request& request, Response& response, AuthUser* user) {
@@ -2504,7 +2540,7 @@ bool WebsiteApp::handleAdminOverview(Request& request, Response& response) {
         return true;
     }
     if (!isAdminUser(user)) {
-        errorJson(response, 403, "Admin access is required.");
+        errorJson(response, 403, adminDeniedMessage(user));
         return true;
     }
 
@@ -2590,7 +2626,7 @@ bool WebsiteApp::handleAdminDeleteGame(Request& request, Response& response) {
         return true;
     }
     if (!isAdminUser(user)) {
-        errorJson(response, 403, "Admin access is required.");
+        errorJson(response, 403, adminDeniedMessage(user));
         return true;
     }
 

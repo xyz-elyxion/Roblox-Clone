@@ -187,11 +187,13 @@ with its id, password and games unchanged.
 the full user and game lists, the running game-server instances, and a Delete action that removes a
 game together with its published `.world` file (stopping any instance for it first).
 
-Admin access is by username: set `ADMIN_USERNAMES` to a comma-separated list, or leave it unset to
-make the seeded `defaultuser0` account the only admin. The list is matched case-sensitively against the
-signed-in account, so the flag follows the account rather than the browser. Non-admins get `403` from
-`GET /api/admin/overview` and `DELETE /api/admin/games/:id`, and the Admin link on the dashboard stays
-hidden for them.
+Admin access is by account: set `ADMIN_USERNAMES` to a comma-separated list, or leave it unset to make
+the account that owns the install an admin. That is the seeded `defaultuser0` account, and it stays the
+admin after a rename or a differently-spelled seed, because the owner is matched by id rather than by
+name. Usernames are compared case-sensitively, so the flag follows the account rather than the browser.
+Non-admins get `403` from `GET /api/admin/overview` and `DELETE /api/admin/games/:id`, the Admin link on
+the dashboard stays hidden for them, and the refusal names the account that is signed in and the names
+that are allowed, so a mismatch is visible instead of silent.
 
 ## AI Trainer
 

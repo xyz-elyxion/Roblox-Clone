@@ -43,6 +43,9 @@ struct Config {
     std::string clientExecutablePath;
     // Usernames that may open the admin dashboard, matched case-sensitively.
     std::vector<std::string> adminUsernames = {"defaultuser0"};
+    // Set when ADMIN_USERNAMES came from the environment, which replaces the
+    // built-in default instead of adding to it.
+    bool adminUsernamesFromEnvironment = false;
 };
 
 struct WorldAnalysis {
@@ -159,6 +162,8 @@ private:
     bool requireAuth(const Request& request, Response& response, AuthUser* user);
     bool optionalAuth(const Request& request, AuthUser* user, bool* authenticated);
     bool isAdminUser(const AuthUser& user) const;
+    // 403 body for a signed-in account that is not allowed into the dashboard.
+    std::string adminDeniedMessage(const AuthUser& user) const;
 
     Json profileJson(int userId, int viewerId);
     Json gameJson(const GameRecord& game, bool canEdit) const;

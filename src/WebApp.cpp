@@ -1865,6 +1865,10 @@ void WebsiteApp::installRoutes() {
                   guard([this](Request& request, Response& response) {
                       return handleAdminModerateUser(request, response);
                   }));
+    server_.route("POST", "/api/admin/users/:id/coins",
+                  guard([this](Request& request, Response& response) {
+                      return handleAdminGrantCoins(request, response);
+                  }));
     server_.route("GET", "/api/account/standing",
                   guard([this](Request& request, Response& response) {
                       return handleAccountStanding(request, response);
@@ -3907,6 +3911,64 @@ bool WebsiteApp::handleAdminModerateUser(Request& request, Response& response) {
         result.setNull("suspendedUntil");
     }
     result.set("message", message);
+    sendJson(response, 200, result);
+    return true;
+}
+
+// Coins are earned by playing, so the dashboard does not edit the balance a player
+// earned; it hands coins out. The grant lands in the same balance Settings and the
+// avatar shop read, which is what makes a prize or a refund visible to the account
+// without a client update.
+bool WebsiteApp::handleAdminGrantCoins(Request& request, Response& response) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    AuthUser user;
+    if (!requireAuth(request, response, &user)) {
+        return true;
+    }
+    if (!isAdminUser(user)) {
+        errorJson(response, 403, adminDeniedMessage(user));
+        return true;
+    }
+
+    const int userId = parseUserId(request.param("id"));
+    const UserRecord* record = userId > 0 ? store_.findUserById(userId) : nullptr;
+    if (record == nullptr) {
+        errorJson(response, 404, "User not found.");
+        return true;
+    }
+
+    Json body;
+    if (!parseJsonBody(request, &body, response)) {
+        return true;
+    }
+    // A grant only ever adds: a typo should not be able to take away coins the
+    // account earned, and one click should not write a balance nobody can spend.
+    const long long maxGrant = 100000;
+    const long long amount = body.member("amount").asInteger(0);
+    if (amount <= 0 || amount > maxGrant) {
+        errorJson(response, 400,
+                  "Coins must be a whole number from 1 to " + std::to_string(maxGrant) + ".");
+        return true;
+    }
+    if (!store_.grantCoins(record->id, amount)) {
+        errorJson(response, 400, "The coins could not be given to that account.");
+        return true;
+    }
+    std::string saveError;
+    if (!store_.save(&saveError)) {
+        errorJson(response, 500, saveError.empty() ? "Could not save the change." : saveError);
+        return true;
+    }
+
+    std::fprintf(stdout, "  coins [%s] +%lld by %s\n", record->username.c_str(), amount,
+                 user.username.c_str());
+
+    Json result = Json::makeObject();
+    result.set("success", true);
+    result.set("amount", amount);
+    result.set("coins", store_.coinsFor(record->id));
+    result.set("message", "Gave " + std::to_string(amount) +
+                              (amount == 1 ? " coin to " : " coins to ") + record->username + ".");
     sendJson(response, 200, result);
     return true;
 }

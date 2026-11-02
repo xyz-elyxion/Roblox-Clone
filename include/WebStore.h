@@ -287,6 +287,9 @@ public:
     bool grantHat(int userId, const std::string& hatId);
     // Deducts coins; false when the account cannot afford the price.
     bool spendCoins(int userId, long long amount);
+    // Adds coins by hand, which is what an admin hands out from the dashboard.
+    // False for an unknown account or an amount that is not positive.
+    bool grantCoins(int userId, long long amount);
 
     // stats
     long long playtimeFor(int userId) const;

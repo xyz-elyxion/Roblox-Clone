@@ -790,6 +790,14 @@ input {
     white-space: normal;
 }
 
+/* The balance is read-only and the grant box sits beside it, so the coins an
+   account earned and the coins about to be added never read as one number. */
+.admin-table .coin-grant-input {
+    width: 4.5rem;
+    margin: 0 0.35rem;
+    padding: 0.15rem 0.35rem;
+}
+
 .game-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));

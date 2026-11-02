@@ -234,6 +234,8 @@ private:
     bool handleInstanceModeration(Request& request, Response& response);
     // Admin override: warn, suspend, ban or pardon an account by hand.
     bool handleAdminModerateUser(Request& request, Response& response);
+    // Admin override: hand an account coins, from the dashboard.
+    bool handleAdminGrantCoins(Request& request, Response& response);
     // The account's own view of its record: where it stands, every entry that
     // put it there, and the appeals it has filed. Settings shows this.
     bool handleAccountStanding(Request& request, Response& response);

@@ -313,7 +313,11 @@ every frame, so it moves with the walk and breathing animation. The hat travels 
 
 `/admin` shows the local install at a glance: account, game, live server, launch and playtime totals,
 the full user and game lists, the running game-server instances, and a Delete action that removes a
-game together with its published `.world` file (stopping any instance for it first).
+game together with its published `.world` file (stopping any instance for it first). Each account row
+carries the balance it earned by playing and a Give box beside it, so an admin can hand out coins - a
+prize, a refund, or making a run the server dropped good - without touching the playtime that earned
+the rest. A grant is one account at a time and only ever adds, 1 to 100000 coins, and it lands in the
+same balance Settings and the avatar shop read.
 
 Admin access is by account, and the account that owns the install is always an admin. That is the
 seeded `defaultuser0` account, and it stays the admin after a rename or a differently-spelled seed,
@@ -397,6 +401,7 @@ Games:
 - `POST /api/games/:id/play` with `Authorization: Bearer <token>` starts or reuses a local game server and returns native Player launch metadata.
 - `GET /api/admin/overview` with an admin token returns site totals plus the user, game and instance lists.
 - `DELETE /api/admin/games/:id` with an admin token deletes a game and its world file.
+- `POST /api/admin/users/:id/coins` with `{ "amount": 100 }` (admin only) gives an account coins; the balance it writes is the one Settings and the avatar shop read.
 
 Tokens are no longer accepted in avatar URLs. `/api/verify` still accepts a body token as a deprecated compatibility fallback, but new callers should use the Authorization header.
 

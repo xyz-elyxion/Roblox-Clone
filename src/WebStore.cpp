@@ -774,6 +774,18 @@ bool Store::spendCoins(int userId, long long amount) {
     return true;
 }
 
+bool Store::grantCoins(int userId, long long amount) {
+    if (userId <= 0 || amount <= 0) {
+        return false;
+    }
+    StatsRecord* record = findOrCreateStats(userId);
+    if (record == nullptr) {
+        return false;
+    }
+    record->coins += amount;
+    return true;
+}
+
 long long Store::coinsFor(int userId) const {
     for (const StatsRecord& record : stats_) {
         if (record.userId == userId) {

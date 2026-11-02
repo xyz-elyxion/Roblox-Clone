@@ -709,6 +709,34 @@ void testHttp() {
     check(outsider != nullptr, "the second account exists");
     const std::string outsiderId = std::to_string(outsider != nullptr ? outsider->id : 0);
 
+    // Coins are earned by playtime, which is why the dashboard hands them out
+    // rather than editing the balance. The grant writes the same balance a hat is
+    // bought from, so it is checked here: refused for a normal account, a missing
+    // account and an amount that is not a positive whole number, then read back by
+    // the account and from the data file.
+    checkStatus(app, "POST", "/api/admin/users/" + outsiderId + "/coins",
+                "{\"amount\":250}", outsiderToken, 403,
+                "a normal account cannot give coins");
+    checkStatus(app, "POST", "/api/admin/users/999999/coins", "{\"amount\":10}", token, 404,
+                "coins cannot be given to a missing account");
+    checkStatus(app, "POST", "/api/admin/users/" + outsiderId + "/coins",
+                "{\"amount\":0}", token, 400, "a grant of zero coins is refused");
+    checkStatus(app, "POST", "/api/admin/users/" + outsiderId + "/coins",
+                "{\"amount\":-5}", token, 400, "a grant only ever adds coins");
+    checkStatus(app, "POST", "/api/admin/users/" + outsiderId + "/coins",
+                "{\"amount\":250}", token, 200, "an admin gives coins", &body);
+    checkContains(body, "\"coins\":250", "the new balance is reported back");
+    checkStatus(app, "GET", "/api/me/social", std::string(), outsiderToken, 200,
+                "the account reads its own profile", &body);
+    checkContains(body, "\"coins\":250", "the account sees the coins it was given");
+    {
+        rblx::web::Store reloaded(config.dataPath);
+        std::string loadError;
+        check(reloaded.load(&loadError), "the grant reaches the data file");
+        check(reloaded.coinsFor(outsider != nullptr ? outsider->id : 0) == 250,
+              "the granted coins survive a restart");
+    }
+
     checkStatus(app, "POST", "/api/admin/users/" + outsiderId + "/moderation",
                 "{\"action\":\"ban\"}", outsiderToken, 403,
                 "a normal account cannot moderate anybody");

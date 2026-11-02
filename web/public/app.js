@@ -1843,6 +1843,34 @@ function initAdminPage() {
         }
     }
 
+    // The balance is earned by playtime, so the dashboard reads it and offers a
+    // small box to give coins on top of it rather than an editable number.
+    async function giveCoins(user, input, button) {
+        const amount = Math.trunc(Number(input.value));
+        if (!Number.isFinite(amount) || amount <= 0) {
+            setStatus(status, 'Enter a whole number of coins to give.', 'error');
+            return;
+        }
+        button.disabled = true;
+        try {
+            const response = await fetch(`/api/admin/users/${user.id}/coins`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${getToken()}`
+                },
+                body: JSON.stringify({ amount })
+            });
+            const data = await response.json();
+            if (!response.ok || !data.success) throw new Error(data.error || 'Could not give coins.');
+            await load();
+            setStatus(status, data.message || `Gave ${amount} coins to "${user.username}".`, 'success');
+        } catch (error) {
+            setStatus(status, error.message || 'Could not give coins.', 'error');
+            button.disabled = false;
+        }
+    }
+
     function renderUsers(users) {
         if (!usersBody) return;
         usersBody.innerHTML = '';
@@ -1873,13 +1901,29 @@ function initAdminPage() {
             });
             cell.append(stateText, button);
 
+            const coinCell = document.createElement('div');
+            const balance = document.createElement('span');
+            balance.textContent = String(user.coins ?? 0);
+            const grant = document.createElement('input');
+            grant.type = 'number';
+            grant.className = 'input coin-grant-input';
+            grant.min = '1';
+            grant.max = '100000';
+            grant.value = '10';
+            grant.setAttribute('aria-label', `Coins to give ${user.username}`);
+            const giveButton = makeButton('Give', 'button secondary small', () => {});
+            giveButton.addEventListener('click', () => {
+                giveCoins(user, grant, giveButton).catch(() => {});
+            });
+            coinCell.append(balance, grant, giveButton);
+
             usersBody.appendChild(adminRow([
                 user.id,
                 name,
                 user.isAdmin ? 'Admin' : 'Player',
                 user.gameCount,
                 user.friendCount,
-                user.coins ?? 0,
+                coinCell,
                 formatPlaytime(user.playtimeSeconds),
                 formatDate(user.createdAt),
                 user.clientDetections ?? 0,

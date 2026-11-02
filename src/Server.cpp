@@ -461,7 +461,8 @@ std::vector<ModerationOutcome> moderationOutcomes;
 const int kCorrectionsPerReport = 60;
 const int kFlightCorrectionsPerReport = 30;
 
-void reportCheatingToWebsite(int playerId, const std::string& username, const std::string& reason) {
+void reportCheatingToWebsite(int playerId, const std::string& username, const std::string& reason,
+                             const std::string& proof, const std::string& expected) {
     if (gameInstanceId.empty() || gameInstanceToken.empty() || username.empty()) {
         // A server started by hand has no launch token, so the website has no way
         // to know the report is ours. Skipping it beats sending an unsigned one
@@ -472,9 +473,9 @@ void reportCheatingToWebsite(int playerId, const std::string& username, const st
     const std::string instanceId = gameInstanceId;
     const std::string instanceToken = gameInstanceToken;
     const std::string webUrl = webServerUrl;
-    enqueueTelemetry([playerId, username, reason, instanceId, instanceToken, webUrl]() {
-        const CheatReportResult result =
-            ServerAuth::reportCheating(instanceId, instanceToken, username, reason, webUrl);
+    enqueueTelemetry([playerId, username, reason, proof, expected, instanceId, instanceToken, webUrl]() {
+        const CheatReportResult result = ServerAuth::reportCheating(
+            instanceId, instanceToken, username, reason, proof, expected, webUrl);
         if (!result.reported) {
             std::cerr << "Could not report cheating for player " << playerId << std::endl;
             return;
@@ -1747,9 +1748,18 @@ static int runServer(int argc, char** argv) {
                                                                : kCorrectionsPerReport;
                             if (corrections - player.reportedCorrections >= needed) {
                                 player.reportedCorrections = corrections;
+                                // The frame that earned the strike travels with it,
+                                // beside the rule it broke. An admin judging an appeal
+                                // reads what the server measured against what the game
+                                // allows, instead of a label nobody can check.
+                                std::string proof =
+                                    rblx::movement::describeProof(movement.evidence);
+                                proof += ", correction " + std::to_string(corrections) +
+                                         " this session";
                                 reportCheatingToWebsite(
                                     id, PacketProtocol::fixedString(player.username, sizeof(player.username)),
-                                    movement.flight ? "flying" : "moving faster than allowed");
+                                    movement.flight ? "flying" : "moving faster than allowed",
+                                    proof, rblx::movement::describeExpectation(movement.evidence));
                             }
 
                             // Snap the client back, otherwise it keeps

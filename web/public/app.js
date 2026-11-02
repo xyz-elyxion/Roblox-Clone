@@ -2006,6 +2006,20 @@ function initAdminPage() {
                     ` — appeals a ${appeal.infractionKind}: ${appeal.infractionReason || 'no reason recorded'}`;
                 message.append(target);
             }
+            // The measurement and the rule it broke, so the decision rests on what
+            // the server saw rather than on the label alone.
+            if (appeal.infractionProof) {
+                const proof = document.createElement('span');
+                proof.className = 'admin-reason';
+                proof.textContent = ` — proof: ${appeal.infractionProof}`;
+                message.append(proof);
+            }
+            if (appeal.infractionExpected) {
+                const expected = document.createElement('span');
+                expected.className = 'admin-reason';
+                expected.textContent = ` — expected: ${appeal.infractionExpected}`;
+                message.append(expected);
+            }
             const state = document.createElement('span');
             state.textContent = appeal.status === 'open'
                 ? 'Open'

@@ -2049,6 +2049,10 @@ static Json adminInfractionJson(const InfractionRecord& entry) {
     Json out = infractionJson(entry);
     out.set("reason", entry.reason);
     out.set("detections", entry.detections);
+    // The proof and the gameplay it was held against. Both are empty for an action
+    // an admin took by hand, which rests on a report rather than a measurement.
+    out.set("proof", entry.proof);
+    out.set("expected", entry.expected);
     return out;
 }
 
@@ -3535,7 +3539,10 @@ int WebsiteApp::applyBanWaves() {
             continue;
         }
 
-        const std::string reason = record->pendingDetections.back().reason;
+        // The newest detection is the one the action is labelled with, and its
+        // evidence is the evidence the record keeps.
+        const PendingDetection& newest = record->pendingDetections.back();
+        const std::string reason = newest.reason;
         const int held = static_cast<int>(record->pendingDetections.size());
         const rblx::moderation::Decision decision =
             rblx::moderation::applyStrike(&state, config_.moderation, now, reason);
@@ -3546,7 +3553,8 @@ int WebsiteApp::applyBanWaves() {
             // The account keeps its session: it is told what happened, reads the
             // action in Settings and appeals that action there.
             store_.addInfraction(userId, infractionKindOf(decision.action), reason, true,
-                                 state.strikes, suspensionExpiry(state, now), createdAt, held);
+                                 state.strikes, suspensionExpiry(state, now), createdAt, held,
+                                 newest.proof, newest.expected);
         }
         store_.clearPendingDetections(userId);
         ++acted;
@@ -3622,7 +3630,7 @@ bool WebsiteApp::handleClientDetection(Request& request, Response& response) {
     const long long now = nowMilliseconds();
     const std::string createdAt = nowIso();
     store_.recordClientDetection(record->id, createdAt);
-    store_.addPendingDetection(record->id, "client anti-cheat: " + detail, now);
+    store_.addPendingDetection(record->id, "client anti-cheat: " + detail, "", "", now);
     std::string saveError;
     if (!store_.save(&saveError)) {
         std::fprintf(stderr, "Could not save the data file: %s\n", saveError.c_str());
@@ -3677,6 +3685,17 @@ bool WebsiteApp::handleInstanceModeration(Request& request, Response& response) 
     if (reason.size() > 80) {
         reason.resize(80);
     }
+    // What the guard measured and the rule it broke. The instance is the only
+    // caller that can send these, and it is signed, so they are recorded as given
+    // rather than reconstructed here.
+    std::string proof = trimCopy(body.member("proof").asString());
+    std::string expected = trimCopy(body.member("expected").asString());
+    if (proof.size() > 400) {
+        proof.resize(400);
+    }
+    if (expected.size() > 400) {
+        expected.resize(400);
+    }
 
     const UserRecord* record = username.empty() ? nullptr : store_.findUserByName(username);
     if (record == nullptr) {
@@ -3689,7 +3708,7 @@ bool WebsiteApp::handleInstanceModeration(Request& request, Response& response) 
     // Held for the wave like a client report: the game server is told the
     // detection was accepted, and the account is answered along with everyone else
     // the wave catches rather than the instant it was seen.
-    store_.addPendingDetection(record->id, reason, now);
+    store_.addPendingDetection(record->id, reason, proof, expected, now);
     std::string saveError;
     if (!store_.save(&saveError)) {
         std::fprintf(stderr, "Could not save the data file: %s\n", saveError.c_str());
@@ -4187,6 +4206,8 @@ bool WebsiteApp::handleAdminOverview(Request& request, Response& response) {
                 entry.set("infractionKind", infraction.kind);
                 entry.set("infractionReason", infraction.reason);
                 entry.set("infractionDetections", infraction.detections);
+                entry.set("infractionProof", infraction.proof);
+                entry.set("infractionExpected", infraction.expected);
                 break;
             }
         }

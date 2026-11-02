@@ -140,6 +140,8 @@ bool Store::load(std::string* error) {
             PendingDetection pending;
             pending.atMs = saved.member("atMs").asInteger(0);
             pending.reason = saved.member("reason").asString();
+            pending.proof = saved.member("proof").asString();
+            pending.expected = saved.member("expected").asString();
             if (pending.reason.empty()) {
                 continue;
             }
@@ -155,6 +157,8 @@ bool Store::load(std::string* error) {
             infraction.strikes = static_cast<int>(saved.member("strikes").asInteger(0));
             infraction.automatic = saved.member("automatic").asBool(false);
             infraction.detections = static_cast<int>(saved.member("detections").asInteger(0));
+            infraction.proof = saved.member("proof").asString();
+            infraction.expected = saved.member("expected").asString();
             if (infraction.id <= 0 || infraction.kind.empty()) {
                 continue;
             }
@@ -333,6 +337,8 @@ bool Store::save(std::string* error) const {
             saved.set("strikes", infraction.strikes);
             saved.set("automatic", infraction.automatic);
             saved.set("detections", infraction.detections);
+            saved.set("proof", infraction.proof);
+            saved.set("expected", infraction.expected);
             infractions.push(saved);
         }
         entry.set("infractions", infractions);
@@ -342,6 +348,8 @@ bool Store::save(std::string* error) const {
             Json saved = Json::makeObject();
             saved.set("atMs", detection.atMs);
             saved.set("reason", detection.reason);
+            saved.set("proof", detection.proof);
+            saved.set("expected", detection.expected);
             pending.push(saved);
         }
         entry.set("pendingDetections", pending);
@@ -927,7 +935,8 @@ std::vector<const ReportRecord*> Store::recentReports(std::size_t limit) const {
 
 bool Store::addInfraction(int id, const std::string& kind, const std::string& reason,
                           bool automatic, int strikes, const std::string& expiresAt,
-                          const std::string& nowIso, int detections) {
+                          const std::string& nowIso, int detections,
+                          const std::string& proof, const std::string& expected) {
     for (UserRecord& user : users_) {
         if (user.id != id) {
             continue;
@@ -941,6 +950,8 @@ bool Store::addInfraction(int id, const std::string& kind, const std::string& re
         entry.strikes = strikes > 0 ? strikes : 0;
         entry.automatic = automatic;
         entry.detections = detections > 0 ? detections : 0;
+        entry.proof = proof;
+        entry.expected = expected;
         user.infractions.push_back(entry);
         // The record is a history, not an archive: the oldest entries fall off so
         // one account cannot grow the data file without end.
@@ -965,7 +976,8 @@ const std::vector<InfractionRecord>& Store::infractionsFor(int userId) const {
     return empty;
 }
 
-bool Store::addPendingDetection(int id, const std::string& reason, long long atMs) {
+bool Store::addPendingDetection(int id, const std::string& reason, const std::string& proof,
+                                const std::string& expected, long long atMs) {
     for (UserRecord& user : users_) {
         if (user.id != id) {
             continue;
@@ -973,6 +985,8 @@ bool Store::addPendingDetection(int id, const std::string& reason, long long atM
         PendingDetection pending;
         pending.atMs = atMs;
         pending.reason = reason;
+        pending.proof = proof;
+        pending.expected = expected;
         user.pendingDetections.push_back(pending);
         // The newest are the ones a wave acts on, so the oldest fall off first.
         if (user.pendingDetections.size() > kMaxPendingDetections) {

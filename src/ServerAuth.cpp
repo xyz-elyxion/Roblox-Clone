@@ -125,6 +125,8 @@ CheatReportResult ServerAuth::reportCheating(const std::string& instanceId,
                                             const std::string& managerToken,
                                             const std::string& username,
                                             const std::string& reason,
+                                            const std::string& proof,
+                                            const std::string& expected,
                                             const std::string& serverUrl) {
     CheatReportResult result;
     if (instanceId.empty() || managerToken.empty() || username.empty()) {
@@ -133,7 +135,16 @@ CheatReportResult ServerAuth::reportCheating(const std::string& instanceId,
 
     std::ostringstream body;
     body << "{\"username\":\"" << jsonSafe(username, 32) << "\",\"reason\":\""
-         << jsonSafe(reason, 80) << "\"}";
+         << jsonSafe(reason, 80) << "\"";
+    // The evidence and the rule it broke go with the report, so they are on record
+    // where an admin reads them rather than only in the server's console.
+    if (!proof.empty()) {
+        body << ",\"proof\":\"" << jsonSafe(proof, 400) << "\"";
+    }
+    if (!expected.empty()) {
+        body << ",\"expected\":\"" << jsonSafe(expected, 400) << "\"";
+    }
+    body << "}";
 
     const std::string response = postJson(
         serverUrl + "/api/game-instances/" + instanceId + "/moderation",

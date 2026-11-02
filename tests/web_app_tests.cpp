@@ -312,6 +312,37 @@ void testStore() {
     const auto search = reloaded.searchUsers("uild", 5);
     check(search.size() == 1 && search[0]->username == "Builder",
           "store searches usernames case-insensitively");
+
+    // The proof a server detection carries and the gameplay it was held against
+    // travel with it: held until the wave, kept on the action the wave files, and
+    // still there after a reload.
+    const int watcher = store.createUser("Watcher", "hash-four", "2026-01-05T00:00:00Z");
+    const std::string proof =
+        "claimed 0.00, 40.00, 0.00 from 0.00, 0.00, 0.00 after 250.00 ms: 0.00 units "
+        "horizontal, 40.00 units of climb";
+    const std::string expected =
+        "walking is 30.00 units/s with 0.40 units of slack, so at most 7.90 units this "
+        "frame; a jump rises 14.00 units/s with 0.75 units of slack, so at most 4.25 "
+        "units, against 22.00 units of climb budget";
+    store.addPendingDetection(watcher, "flying", proof, expected, 1000);
+    const auto& held = store.pendingDetectionsFor(watcher);
+    check(held.size() == 1 && held[0].proof == proof,
+          "store keeps the proof with a held detection");
+    store.addInfraction(watcher, "warning", "flying", true, 1, std::string(),
+                        "2026-01-05T00:00:00Z", 1, proof, expected);
+    check(store.infractionsFor(watcher).size() == 1 &&
+              store.infractionsFor(watcher)[0].expected == expected,
+          "store keeps the expectation on the action a detection filed");
+
+    check(store.save(&error), "store writes the record with its proof");
+    rblx::web::Store proofReloaded(path);
+    check(proofReloaded.load(&error), "the record with proof reloads");
+    check(proofReloaded.pendingDetectionsFor(watcher).size() == 1 &&
+              proofReloaded.pendingDetectionsFor(watcher)[0].expected == expected,
+          "the expectation survives a reload with the held detection");
+    check(proofReloaded.infractionsFor(watcher).size() == 1 &&
+              proofReloaded.infractionsFor(watcher)[0].proof == proof,
+          "the proof survives a reload on the action");
 }
 
 // ---------------------------------------------------------------------------

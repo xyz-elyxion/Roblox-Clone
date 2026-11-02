@@ -608,7 +608,7 @@ static std::wstring SignerFromEmbeddedSignature(__in const std::wstring& filePat
 
     // Get program name and publisher information from 
     // signer info structure.
-    if (GetProgAndPublisherInfo(pSignerInfo, &ProgPubInfo))
+    if (Authenticode::GetProgAndPublisherInfo(pSignerInfo, &ProgPubInfo))
     {
         //if (ProgPubInfo.lpszProgramName != NULL) //uncomment if you want to print any additional information
         //{
@@ -646,7 +646,7 @@ static std::wstring SignerFromEmbeddedSignature(__in const std::wstring& filePat
         return {};
     }
 
-    std::wstring SubjectCert = GetCertificateSubject(pCertContext);
+    std::wstring SubjectCert = Authenticode::GetCertificateSubject(pCertContext);
 
     //// Get the timestamp certificate signerinfo structure.
     //if (GetTimeStampSignerInfo(pSignerInfo, &pCounterSignerInfo))

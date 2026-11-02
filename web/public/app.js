@@ -1999,6 +1999,13 @@ function initAdminPage() {
             const message = document.createElement('span');
             message.className = 'admin-reason';
             message.textContent = appeal.message || '';
+            if (appeal.infractionKind) {
+                const target = document.createElement('span');
+                target.className = 'admin-reason';
+                target.textContent =
+                    ` — appeals a ${appeal.infractionKind}: ${appeal.infractionReason || 'no reason recorded'}`;
+                message.append(target);
+            }
             const state = document.createElement('span');
             state.textContent = appeal.status === 'open'
                 ? 'Open'
@@ -2100,15 +2107,38 @@ function initStanding() {
     const appealList = panel.querySelector('[data-standing-appeals]');
     const appealForm = panel.querySelector('[data-appeal-form]');
     const appealStatus = panel.querySelector('[data-appeal-status]');
+    const appealTarget = panel.querySelector('[data-appeal-infraction]');
+    const appealTargetLabel = panel.querySelector('[data-appeal-target]');
 
     function row(cells) {
         const element = document.createElement('tr');
         for (const value of cells) {
             const cell = document.createElement('td');
-            cell.textContent = value;
+            if (value instanceof Node) {
+                cell.appendChild(value);
+            } else {
+                cell.textContent = value;
+            }
             element.appendChild(cell);
         }
         return element;
+    }
+
+    // An appeal is about one action, so the button that starts one names it. The
+    // action id rides in a hidden field; the form stays out of the way until a row
+    // is chosen.
+    function chooseAppeal(entry) {
+        if (!appealForm || !appealTarget) return;
+        appealTarget.value = String(entry.id);
+        if (appealTargetLabel) {
+            appealTargetLabel.hidden = false;
+            appealTargetLabel.textContent =
+                `Appealing the ${infractionLabel(entry.kind).toLowerCase()} from ${formatDateTime(entry.createdAt)}.`;
+        }
+        appealForm.hidden = false;
+        appealForm.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        const message = panel.querySelector('#appeal-message');
+        if (message) message.focus();
     }
 
     function render(data) {
@@ -2135,11 +2165,22 @@ function initStanding() {
                 rows.appendChild(row(['—', 'Nothing recorded', '', '']));
             }
             for (const entry of infractions) {
+                let appealCell = '—';
+                if (entry.appealStatus) {
+                    appealCell = `Appealed (${entry.appealStatus})`;
+                } else if (entry.canAppeal) {
+                    const button = document.createElement('button');
+                    button.type = 'button';
+                    button.className = 'button secondary small';
+                    button.textContent = 'Appeal';
+                    button.addEventListener('click', () => chooseAppeal(entry));
+                    appealCell = button;
+                }
                 rows.appendChild(row([
                     formatDateTime(entry.createdAt),
                     `${infractionLabel(entry.kind)}${entry.automatic ? ' (detection)' : ''}`,
-                    entry.reason || '—',
-                    entry.expiresAt ? formatDateTime(entry.expiresAt) : '—'
+                    entry.expiresAt ? formatDateTime(entry.expiresAt) : '—',
+                    appealCell
                 ]));
             }
         }
@@ -2173,7 +2214,11 @@ function initStanding() {
             }
         }
 
-        if (appealForm) appealForm.hidden = !data.canAppeal;
+        if (appealForm && !data.canAppeal) {
+            appealForm.hidden = true;
+            if (appealTarget) appealTarget.value = '';
+            if (appealTargetLabel) appealTargetLabel.hidden = true;
+        }
         if (appealStatus) {
             if (data.hasOpenAppeal) {
                 setStatus(appealStatus, 'An appeal is waiting for an admin.', '');
@@ -2200,6 +2245,7 @@ function initStanding() {
         setStatus(appealStatus, '', '');
         try {
             const { response, data } = await postJson('/api/account/appeal', {
+                infractionId: Number(appealTarget ? appealTarget.value : 0),
                 message: appealForm.querySelector('#appeal-message').value.trim()
             }, token);
             if (!response.ok || !data.success) throw new Error(data.error || 'Could not send the appeal.');

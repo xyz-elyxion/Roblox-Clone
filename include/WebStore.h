@@ -26,6 +26,11 @@ const int kAvatarSlotCount = 6;
 // stays readable.
 const std::size_t kMaxInfractionsPerUser = 50;
 
+// How many detections are held for one account between waves. A wave turns
+// whatever it holds into one action, so a longer queue adds nothing but a bigger
+// data file.
+const std::size_t kMaxPendingDetections = 20;
+
 // How much playtime earns one coin. The game server reports playtime in
 // one-minute chunks, so a minute played is one coin earned.
 const long long kSecondsPerCoin = 60;
@@ -59,6 +64,15 @@ struct InfractionRecord {
     int strikes = 0;
     // True when a detection filed it rather than an admin.
     bool automatic = false;
+    // How many detections the wave folded into this one action. Read by the
+    // dashboard; never sent to the account.
+    int detections = 0;
+};
+
+// One detection waiting for the next wave.
+struct PendingDetection {
+    long long atMs = 0;
+    std::string reason;
 };
 
 // A player asking for a restriction to be looked at again, and what an admin made
@@ -66,6 +80,8 @@ struct InfractionRecord {
 struct AppealRecord {
     int id = 0;
     int userId = 0;
+    // The action this appeal is about. One action can be appealed once, ever.
+    int infractionId = 0;
     std::string username;
     std::string message;
     std::string status = "open";
@@ -111,6 +127,9 @@ struct UserRecord {
     // Moderation's record of this account, oldest first. The newest
     // kMaxInfractionsPerUser entries are kept.
     std::vector<InfractionRecord> infractions;
+    // Detections that have arrived since the last wave. Nothing acts on one of
+    // these on its own: the wave sweep turns everything held into one step.
+    std::vector<PendingDetection> pendingDetections;
 };
 
 struct AvatarRecord {
@@ -213,11 +232,19 @@ public:
                        const std::string& reason, const std::string& nowIso);
     // Appends one entry to the account's record and keeps the newest
     // kMaxInfractionsPerUser of them; false when the id is unknown.
+    // `detections` is how many held detections the action covers; it is what the
+    // dashboard reads and is never part of the account's own view.
     bool addInfraction(int id, const std::string& kind, const std::string& reason,
                        bool automatic, int strikes, const std::string& expiresAt,
-                       const std::string& nowIso);
+                       const std::string& nowIso, int detections = 0);
     // Empty for an account that does not exist.
     const std::vector<InfractionRecord>& infractionsFor(int userId) const;
+    // Holds one detection for the next wave; false when the id is unknown.
+    bool addPendingDetection(int id, const std::string& reason, long long atMs);
+    // Empty for an account that does not exist.
+    const std::vector<PendingDetection>& pendingDetectionsFor(int userId) const;
+    // Drops what the last wave acted on.
+    void clearPendingDetections(int userId);
     // Counts one detection reported by the account's own client.
     bool recordClientDetection(int id, const std::string& nowIso);
     bool setRecoveryHash(int id, const std::string& recoveryHash);
@@ -261,8 +288,12 @@ public:
     // appeals
     int addAppeal(const AppealRecord& record);
     const AppealRecord* findAppeal(int id) const;
-    // The appeal still waiting for an admin, if any. An account may only have one.
+    // The appeal still waiting for an admin, if any. Used for the badge; an
+    // account may hold one open appeal per action it appeals.
     const AppealRecord* openAppealFor(int userId) const;
+    // The appeal filed against one action, in any state. This is what limits an
+    // account to one appeal per action.
+    const AppealRecord* appealForInfraction(int infractionId) const;
     std::vector<const AppealRecord*> appealsFor(int userId) const;
     std::vector<const AppealRecord*> recentAppeals(std::size_t limit) const;
     std::size_t openAppealCount() const;

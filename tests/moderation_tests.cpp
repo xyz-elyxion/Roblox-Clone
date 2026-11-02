@@ -29,7 +29,10 @@ int main() {
     check(first.action == Action::Warned, "the first strike is a warning");
     check(first.strikes == 1 && state.strikes == 1, "the strike is recorded");
     check(contains(first.message, "Warning 1 of 2"), "the warning numbers itself");
-    check(contains(first.message, "moving faster than allowed"), "the warning names the detection");
+    check(!contains(first.message, "moving faster than allowed"),
+          "the warning does not say what was detected");
+    check(contains(first.detection, "moving faster than allowed"),
+          "the detection is kept for the record instead");
     check(!isRestricted(state, now), "a warning leaves the account playing");
     check(state.suspendedUntilMs == 0, "a warning sets no suspension");
 

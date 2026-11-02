@@ -32,6 +32,10 @@ struct Config {
     // running beside the website use the same endpoints over loopback.
     long long rateLimitWindowMs = 60 * 1000;
     int rateLimitMax = 600;
+    // Detections are acted on in waves. An account climbs one step once its
+    // oldest held detection is this old, so everyone caught in the same window is
+    // answered together and a burst on one account is one step, not a climb.
+    long long banWaveWindowMs = 5 * 60 * 1000;
     std::size_t jsonBodyLimitBytes = 2 * 1024 * 1024;
     std::string repoRoot;
     std::string webRoot;
@@ -266,6 +270,10 @@ private:
     void stopInstance(const std::string& instanceId, const std::string& reason);
     void tickInstances();
     void refreshInstances();
+    // One wave: gives every account whose oldest held detection has waited out
+    // `banWaveWindowMs` exactly one more step, then clears the evidence it used.
+    // The caller holds `mutex_`. Returns how many accounts were acted on.
+    int applyBanWaves();
     std::vector<std::string> activeInstanceIds(int gameId);
     struct SpawnedProcess {
         long pid = 0;

@@ -51,8 +51,13 @@ struct Decision {
     int strikes = 0;
     long long suspendedUntilMs = 0;
     bool banned = false;
-    // What the player is told, or empty for Action::None.
+    // What the account is told, or empty for Action::None. It never names the
+    // detection: a message that says which check fired tells a cheat which check
+    // to get around next time.
     std::string message;
+    // What was detected, for the record a moderator reads. Never sent to the
+    // account it was taken from.
+    std::string detection;
 };
 
 inline const char* actionName(Action action) {
@@ -155,16 +160,20 @@ inline Decision applyStrike(State* state, const Policy& policy, long long nowMs,
         decision.strikes = state->strikes;
         decision.suspendedUntilMs = state->suspendedUntilMs;
         decision.message = restrictionMessage(*state, nowMs);
+        decision.detection = reason;
         return decision;
     }
 
     ++state->strikes;
     const std::string detail = reason.empty() ? std::string("cheating") : reason;
+    // The detail goes to the record, not to the account: it names the check that
+    // fired, which is exactly what the next attempt would avoid.
+    decision.detection = detail;
 
     decision.strikes = state->strikes;
     if (state->strikes <= policy.warnings) {
         decision.action = Action::Warned;
-        decision.message = "Cheating detected (" + detail + "). Warning " +
+        decision.message = "A cheating detection was confirmed on this account. Warning " +
                            std::to_string(state->strikes) + " of " +
                            std::to_string(policy.warnings) + ".";
         if (state->strikes == policy.warnings) {
@@ -177,13 +186,14 @@ inline Decision applyStrike(State* state, const Policy& policy, long long nowMs,
             state->suspendedUntilMs = nowMs + hours * 3600000;
             decision.action = Action::Suspended;
             decision.suspendedUntilMs = state->suspendedUntilMs;
-            decision.message = "Cheating detected (" + detail + "). This account is suspended for " +
-                               describeHours(hours) + ".";
+            decision.message = "A cheating detection was confirmed on this account. "
+                               "It is suspended for " + describeHours(hours) + ".";
         } else {
             state->banned = true;
             decision.action = Action::Banned;
             decision.banned = true;
-            decision.message = "Cheating detected (" + detail + "). This account is now banned.";
+            decision.message = "A cheating detection was confirmed on this account. "
+                               "It is now banned.";
         }
     }
 

@@ -136,6 +136,15 @@ bool Store::load(std::string* error) {
         user.moderatedAt = entry.member("moderatedAt").asString();
         user.clientDetections = static_cast<int>(entry.member("clientDetections").asInteger(0));
         user.lastClientDetectionAt = entry.member("lastClientDetectionAt").asString();
+        for (const Json& saved : entry.member("pendingDetections").elements()) {
+            PendingDetection pending;
+            pending.atMs = saved.member("atMs").asInteger(0);
+            pending.reason = saved.member("reason").asString();
+            if (pending.reason.empty()) {
+                continue;
+            }
+            user.pendingDetections.push_back(pending);
+        }
         for (const Json& saved : entry.member("infractions").elements()) {
             InfractionRecord infraction;
             infraction.id = static_cast<int>(saved.member("id").asInteger(0));
@@ -145,6 +154,7 @@ bool Store::load(std::string* error) {
             infraction.expiresAt = saved.member("expiresAt").asString();
             infraction.strikes = static_cast<int>(saved.member("strikes").asInteger(0));
             infraction.automatic = saved.member("automatic").asBool(false);
+            infraction.detections = static_cast<int>(saved.member("detections").asInteger(0));
             if (infraction.id <= 0 || infraction.kind.empty()) {
                 continue;
             }
@@ -280,6 +290,7 @@ bool Store::load(std::string* error) {
         record.reviewedAt = entry.member("reviewedAt").asString();
         record.reviewer = entry.member("reviewer").asString();
         record.reviewNote = entry.member("reviewNote").asString();
+        record.infractionId = static_cast<int>(entry.member("infractionId").asInteger(0));
         if (record.id <= 0 || record.userId <= 0 || record.status.empty()) {
             continue;
         }
@@ -321,9 +332,19 @@ bool Store::save(std::string* error) const {
             saved.set("expiresAt", infraction.expiresAt);
             saved.set("strikes", infraction.strikes);
             saved.set("automatic", infraction.automatic);
+            saved.set("detections", infraction.detections);
             infractions.push(saved);
         }
         entry.set("infractions", infractions);
+
+        Json pending = Json::makeArray();
+        for (const PendingDetection& detection : user.pendingDetections) {
+            Json saved = Json::makeObject();
+            saved.set("atMs", detection.atMs);
+            saved.set("reason", detection.reason);
+            pending.push(saved);
+        }
+        entry.set("pendingDetections", pending);
         users.push(entry);
     }
     document.set("users", users);
@@ -436,6 +457,7 @@ bool Store::save(std::string* error) const {
         entry.set("reviewedAt", record.reviewedAt);
         entry.set("reviewer", record.reviewer);
         entry.set("reviewNote", record.reviewNote);
+        entry.set("infractionId", record.infractionId);
         appeals.push(entry);
     }
     document.set("appeals", appeals);
@@ -905,7 +927,7 @@ std::vector<const ReportRecord*> Store::recentReports(std::size_t limit) const {
 
 bool Store::addInfraction(int id, const std::string& kind, const std::string& reason,
                           bool automatic, int strikes, const std::string& expiresAt,
-                          const std::string& nowIso) {
+                          const std::string& nowIso, int detections) {
     for (UserRecord& user : users_) {
         if (user.id != id) {
             continue;
@@ -918,6 +940,7 @@ bool Store::addInfraction(int id, const std::string& kind, const std::string& re
         entry.expiresAt = expiresAt;
         entry.strikes = strikes > 0 ? strikes : 0;
         entry.automatic = automatic;
+        entry.detections = detections > 0 ? detections : 0;
         user.infractions.push_back(entry);
         // The record is a history, not an archive: the oldest entries fall off so
         // one account cannot grow the data file without end.
@@ -942,6 +965,47 @@ const std::vector<InfractionRecord>& Store::infractionsFor(int userId) const {
     return empty;
 }
 
+bool Store::addPendingDetection(int id, const std::string& reason, long long atMs) {
+    for (UserRecord& user : users_) {
+        if (user.id != id) {
+            continue;
+        }
+        PendingDetection pending;
+        pending.atMs = atMs;
+        pending.reason = reason;
+        user.pendingDetections.push_back(pending);
+        // The newest are the ones a wave acts on, so the oldest fall off first.
+        if (user.pendingDetections.size() > kMaxPendingDetections) {
+            user.pendingDetections.erase(
+                user.pendingDetections.begin(),
+                user.pendingDetections.begin() +
+                    static_cast<std::ptrdiff_t>(user.pendingDetections.size() -
+                                                kMaxPendingDetections));
+        }
+        return true;
+    }
+    return false;
+}
+
+const std::vector<PendingDetection>& Store::pendingDetectionsFor(int userId) const {
+    static const std::vector<PendingDetection> empty;
+    for (const UserRecord& user : users_) {
+        if (user.id == userId) {
+            return user.pendingDetections;
+        }
+    }
+    return empty;
+}
+
+void Store::clearPendingDetections(int userId) {
+    for (UserRecord& user : users_) {
+        if (user.id == userId) {
+            user.pendingDetections.clear();
+            return;
+        }
+    }
+}
+
 int Store::addAppeal(const AppealRecord& record) {
     AppealRecord stored = record;
     stored.id = nextAppealId_++;
@@ -952,6 +1016,18 @@ int Store::addAppeal(const AppealRecord& record) {
 const AppealRecord* Store::findAppeal(int id) const {
     for (const AppealRecord& record : appeals_) {
         if (record.id == id) {
+            return &record;
+        }
+    }
+    return nullptr;
+}
+
+const AppealRecord* Store::appealForInfraction(int infractionId) const {
+    if (infractionId <= 0) {
+        return nullptr;
+    }
+    for (const AppealRecord& record : appeals_) {
+        if (record.infractionId == infractionId) {
             return &record;
         }
     }

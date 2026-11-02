@@ -1059,6 +1059,8 @@ bool loadConfigFromEnvironment(Config* config, std::string* error) {
     loaded.rateLimitWindowMs =
         static_cast<long long>(parsePositiveInt(envString("RATE_LIMIT_WINDOW_MS"), 60000));
     loaded.rateLimitMax = parsePositiveInt(envString("RATE_LIMIT_MAX"), 600);
+    loaded.banWaveWindowMs =
+        static_cast<long long>(parsePositiveInt(envString("BAN_WAVE_WINDOW_MS"), 300000));
     loaded.jsonBodyLimitBytes = static_cast<std::size_t>(
         parsePositiveInt(envString("JSON_BODY_LIMIT_BYTES"), 2 * 1024 * 1024));
 
@@ -1481,6 +1483,10 @@ HttpServer::Handler WebsiteApp::guard(HttpServer::Handler handler) {
             bool limited = false;
             {
                 std::lock_guard<std::mutex> lock(mutex_);
+                // Waves land on wall-clock time, so the sweep rides on traffic:
+                // every call is the chance for the accounts caught since the last
+                // one to be answered together.
+                applyBanWaves();
                 limited = isRequestRateLimited(request.remoteAddress, &retryAfterSeconds);
             }
             if (limited) {
@@ -2019,11 +2025,13 @@ static std::string suspensionExpiry(const rblx::moderation::State& state, long l
     return isoFromTime(static_cast<std::time_t>(state.suspendedUntilMs / 1000));
 }
 
+// The account's own view of one action: what was done and when. It does not carry
+// the reason, because the reason names the check that fired, and that is a map for
+// the next attempt. The dashboard reads adminInfractionJson instead.
 static Json infractionJson(const InfractionRecord& entry) {
     Json out = Json::makeObject();
     out.set("id", entry.id);
     out.set("kind", entry.kind);
-    out.set("reason", entry.reason);
     out.set("createdAt", entry.createdAt);
     out.set("strikes", entry.strikes);
     out.set("automatic", entry.automatic);
@@ -2035,11 +2043,27 @@ static Json infractionJson(const InfractionRecord& entry) {
     return out;
 }
 
+// The same entry as the dashboard reads it, where the reason and the amount of
+// evidence behind it are the whole point.
+static Json adminInfractionJson(const InfractionRecord& entry) {
+    Json out = infractionJson(entry);
+    out.set("reason", entry.reason);
+    out.set("detections", entry.detections);
+    return out;
+}
+
+// One action may be appealed; a pardon is already the answer, and a note is not a
+// restriction to argue with.
+static bool isAppealable(const InfractionRecord& entry) {
+    return entry.kind == "warning" || entry.kind == "suspension" || entry.kind == "ban";
+}
+
 static Json appealJson(const AppealRecord& entry) {
     Json out = Json::makeObject();
     out.set("id", entry.id);
     out.set("userId", entry.userId);
     out.set("username", entry.username);
+    out.set("infractionId", entry.infractionId);
     out.set("message", entry.message);
     out.set("status", entry.status);
     out.set("createdAt", entry.createdAt);
@@ -3472,6 +3496,75 @@ bool WebsiteApp::handleClientReport(Request& request, Response& response) {
     return true;
 }
 
+// One wave: every account holding a detection older than the window climbs one
+// step, and the evidence behind it is cleared.
+//
+// Two things come out of acting in a wave instead of per report. An account that
+// trips four checks in a minute is answered once, the way the record already
+// treats the lines of one scan, so a noisy machine cannot climb the ladder on a
+// single launch. And the answer lands with everyone else caught in the same
+// window rather than minutes after the detection that caused it, so nothing about
+// the timing tells a banned cheat which check it failed.
+int WebsiteApp::applyBanWaves() {
+    const long long now = nowMilliseconds();
+
+    // Collected first: acting on an account edits the list this is read from.
+    std::vector<int> due;
+    for (const UserRecord& account : store_.users()) {
+        if (account.pendingDetections.empty()) {
+            continue;
+        }
+        if (now - account.pendingDetections.front().atMs < config_.banWaveWindowMs) {
+            continue;
+        }
+        due.push_back(account.id);
+    }
+
+    int acted = 0;
+    for (int userId : due) {
+        const UserRecord* record = store_.findUserById(userId);
+        if (record == nullptr || record->pendingDetections.empty()) {
+            continue;
+        }
+
+        // A banned account has nothing left to take. Its evidence is dropped so a
+        // later pardon does not start life with a queue of old detections.
+        rblx::moderation::State state = moderationStateOf(*record);
+        if (state.banned) {
+            store_.clearPendingDetections(userId);
+            continue;
+        }
+
+        const std::string reason = record->pendingDetections.back().reason;
+        const int held = static_cast<int>(record->pendingDetections.size());
+        const rblx::moderation::Decision decision =
+            rblx::moderation::applyStrike(&state, config_.moderation, now, reason);
+        const std::string createdAt = nowIso();
+        store_.setModeration(userId, state.strikes, state.suspendedUntilMs, state.banned,
+                             reason, createdAt);
+        if (decision.action != rblx::moderation::Action::None) {
+            // The account keeps its session: it is told what happened, reads the
+            // action in Settings and appeals that action there.
+            store_.addInfraction(userId, infractionKindOf(decision.action), reason, true,
+                                 state.strikes, suspensionExpiry(state, now), createdAt, held);
+        }
+        store_.clearPendingDetections(userId);
+        ++acted;
+
+        std::fprintf(stdout, "  ban wave [%s] %s, %d detection(s) held\n",
+                     record->username.c_str(), rblx::moderation::actionName(decision.action),
+                     held);
+    }
+
+    if (acted > 0) {
+        std::string saveError;
+        if (!store_.save(&saveError)) {
+            std::fprintf(stderr, "Could not save the data file: %s\n", saveError.c_str());
+        }
+    }
+    return acted;
+}
+
 bool WebsiteApp::handleClientDetection(Request& request, Response& response) {
     std::lock_guard<std::mutex> lock(mutex_);
     // Only the account the client is signed in as can file a detection, and only
@@ -3521,48 +3614,37 @@ bool WebsiteApp::handleClientDetection(Request& request, Response& response) {
     }
     clientReports_.push_back(report);
 
-    // The report carries this account's token, so it is attributable and climbs
-    // the same ladder a server-side detection does. A report without a token
-    // never reaches here at all: with no account behind it there is nobody to
-    // punish, and a client that could name somebody else's account would be a
-    // griefing tool.
+    // The report carries this account's token, so it is attributable. It does not
+    // act here: the detection is held for the next wave, which is what keeps one
+    // noisy launch from climbing the ladder and the timing from telling a cheat
+    // which check it failed.
     rblx::moderation::State state = moderationStateOf(*record);
     const long long now = nowMilliseconds();
-    const rblx::moderation::Decision decision = rblx::moderation::applyStrike(
-        &state, config_.moderation, now, "client anti-cheat: " + detail);
-
     const std::string createdAt = nowIso();
-    const std::string reason = "client anti-cheat: " + detail;
-    store_.setModeration(record->id, state.strikes, state.suspendedUntilMs, state.banned,
-                         reason, createdAt);
     store_.recordClientDetection(record->id, createdAt);
-    if (decision.action != rblx::moderation::Action::None) {
-        // The session is deliberately left alone: the account is told what
-        // happened, can read it in Settings and can appeal it there.
-        store_.addInfraction(record->id, infractionKindOf(decision.action), reason, true,
-                             state.strikes, suspensionExpiry(state, now), createdAt);
-    }
+    store_.addPendingDetection(record->id, "client anti-cheat: " + detail, now);
     std::string saveError;
     if (!store_.save(&saveError)) {
         std::fprintf(stderr, "Could not save the data file: %s\n", saveError.c_str());
     }
 
-    std::fprintf(stdout, "  anti-cheat detection [%s] %s, %s\n", user.username.c_str(),
-                 report.reason.c_str(), rblx::moderation::actionName(decision.action));
+    const std::size_t held = store_.pendingDetectionsFor(record->id).size();
+    std::fprintf(stdout, "  anti-cheat detection [%s] %s, held for the next wave (%zu)\n",
+                 user.username.c_str(), report.reason.c_str(), held);
 
     const UserRecord* updated = store_.findUserById(user.id);
     Json result = Json::makeObject();
     result.set("success", true);
-    result.set("action", rblx::moderation::actionName(decision.action));
+    result.set("queued", true);
+    result.set("pending", static_cast<long long>(held));
+    result.set("action", "none");
     result.set("strikes", state.strikes);
     result.set("banned", state.banned);
     result.set("clientDetections", updated != nullptr ? updated->clientDetections : 0);
-    // The client reads this: restricted means it stops playing rather than
-    // waiting for the account to be refused at its next sign-in.
+    // The answer still carries the standing the account is under right now, so a
+    // client that an earlier wave suspended stops playing.
     result.set("restricted", rblx::moderation::isRestricted(state, now));
-    result.set("message", decision.message.empty()
-                              ? rblx::moderation::restrictionMessage(state, now)
-                              : decision.message);
+    result.set("message", rblx::moderation::restrictionMessage(state, now));
     sendJson(response, 200, result);
     return true;
 }
@@ -3604,35 +3686,27 @@ bool WebsiteApp::handleInstanceModeration(Request& request, Response& response) 
 
     rblx::moderation::State state = moderationStateOf(*record);
     const long long now = nowMilliseconds();
-    const rblx::moderation::Decision decision =
-        rblx::moderation::applyStrike(&state, config_.moderation, now, reason);
-    if (decision.action != rblx::moderation::Action::None) {
-        const std::string createdAt = nowIso();
-        store_.setModeration(record->id, state.strikes, state.suspendedUntilMs, state.banned,
-                             reason, createdAt);
-        // No session is revoked. The account keeps its place on the site so it can
-        // read what it was accused of and appeal; the game server refuses its next
-        // join with this same reason.
-        store_.addInfraction(record->id, infractionKindOf(decision.action), reason, true,
-                             state.strikes, suspensionExpiry(state, now), createdAt);
-        std::string saveError;
-        if (!store_.save(&saveError)) {
-            std::fprintf(stderr, "Could not save the data file: %s\n", saveError.c_str());
-        }
+    // Held for the wave like a client report: the game server is told the
+    // detection was accepted, and the account is answered along with everyone else
+    // the wave catches rather than the instant it was seen.
+    store_.addPendingDetection(record->id, reason, now);
+    std::string saveError;
+    if (!store_.save(&saveError)) {
+        std::fprintf(stderr, "Could not save the data file: %s\n", saveError.c_str());
     }
 
-    std::fprintf(stdout, "  anti-cheat [%s] %s, %s: %s\n", record->username.c_str(),
-                 reason.c_str(), rblx::moderation::actionName(decision.action),
-                 decision.message.c_str());
+    const std::size_t held = store_.pendingDetectionsFor(record->id).size();
+    std::fprintf(stdout, "  anti-cheat [%s] %s, held for the next wave (%zu)\n",
+                 record->username.c_str(), reason.c_str(), held);
 
     Json result = Json::makeObject();
     result.set("success", true);
-    result.set("action", rblx::moderation::actionName(decision.action));
+    result.set("queued", true);
+    result.set("pending", static_cast<long long>(held));
+    result.set("action", "none");
     result.set("strikes", state.strikes);
     result.set("banned", state.banned);
-    result.set("message", decision.message.empty()
-                              ? rblx::moderation::restrictionMessage(state, now)
-                              : decision.message);
+    result.set("message", rblx::moderation::restrictionMessage(state, now));
     if (state.suspendedUntilMs > now) {
         result.set("suspendedUntil",
                    isoFromTime(static_cast<std::time_t>(state.suspendedUntilMs / 1000)));
@@ -3785,16 +3859,29 @@ bool WebsiteApp::handleAccountStanding(Request& request, Response& response) {
         result.setNull("suspendedUntil");
         result.set("suspendedHoursRemaining", 0);
     }
-    // One open appeal at a time: a second one would only make the first slower to
-    // read, and an admin cannot decide two accounts of the same events.
-    result.set("canAppeal", restricted && openAppeal == nullptr);
+    // An appeal is filed against one action and each action can be appealed once,
+    // so what matters per row is whether that row is still open to one.
     result.set("hasOpenAppeal", openAppeal != nullptr);
+    result.set("pendingDetections",
+               static_cast<long long>(store_.pendingDetectionsFor(user.id).size()));
 
+    bool anyAppealable = false;
     Json infractions = Json::makeArray();
     const std::vector<InfractionRecord>& entries = store_.infractionsFor(user.id);
     for (auto entry = entries.rbegin(); entry != entries.rend(); ++entry) {
-        infractions.push(infractionJson(*entry));
+        Json json = infractionJson(*entry);
+        const AppealRecord* appeal = store_.appealForInfraction(entry->id);
+        const bool appealable = isAppealable(*entry) && appeal == nullptr;
+        json.set("canAppeal", appealable);
+        if (appeal == nullptr) {
+            json.setNull("appealStatus");
+        } else {
+            json.set("appealStatus", appeal->status);
+        }
+        anyAppealable = anyAppealable || appealable;
+        infractions.push(json);
     }
+    result.set("canAppeal", anyAppealable);
     result.set("infractions", infractions);
 
     Json appeals = Json::makeArray();
@@ -3826,15 +3913,22 @@ bool WebsiteApp::handleAccountAppeal(Request& request, Response& response) {
         return true;
     }
 
-    const long long now = nowMilliseconds();
-    if (!rblx::moderation::isRestricted(moderationStateOf(*record), now)) {
-        errorJson(response, 400,
-                  "This account is not restricted, so there is nothing to appeal.");
+    // The appeal names the action it is about, and an action can be appealed once
+    // and only once: a second appeal about it is the same argument again, and an
+    // admin who answered it does not need to read it twice.
+    const int infractionId = static_cast<int>(body.member("infractionId").asInteger(0));
+    const InfractionRecord* action = nullptr;
+    for (const InfractionRecord& entry : store_.infractionsFor(user.id)) {
+        if (entry.id == infractionId) {
+            action = &entry;
+        }
+    }
+    if (action == nullptr || !isAppealable(*action)) {
+        errorJson(response, 400, "Choose which action on this account to appeal.");
         return true;
     }
-    if (store_.openAppealFor(user.id) != nullptr) {
-        errorJson(response, 409,
-                  "An appeal from this account is already waiting for an admin.");
+    if (store_.appealForInfraction(action->id) != nullptr) {
+        errorJson(response, 409, "That action has already been appealed.");
         return true;
     }
 
@@ -3851,6 +3945,7 @@ bool WebsiteApp::handleAccountAppeal(Request& request, Response& response) {
     AppealRecord appeal;
     appeal.userId = user.id;
     appeal.username = user.username;
+    appeal.infractionId = action->id;
     appeal.message = message;
     appeal.status = "open";
     appeal.createdAt = nowIso();
@@ -4017,6 +4112,16 @@ bool WebsiteApp::handleAdminOverview(Request& request, Response& response) {
         entry.set("moderationReason", record.moderationReason);
         entry.set("standing", rblx::moderation::standingName(rblx::moderation::standingOf(
                                   moderationStateOf(record), nowMilliseconds())));
+        // The account's whole record with the reasons it is not shown, so an admin
+        // can read what a wave acted on and on how much evidence.
+        Json recordEntries = Json::makeArray();
+        const std::vector<InfractionRecord>& entries = store_.infractionsFor(record.id);
+        for (auto item = entries.rbegin(); item != entries.rend(); ++item) {
+            recordEntries.push(adminInfractionJson(*item));
+        }
+        entry.set("infractions", recordEntries);
+        entry.set("pendingDetections",
+                  static_cast<long long>(store_.pendingDetectionsFor(record.id).size()));
         entry.set("openAppeal", store_.openAppealFor(record.id) != nullptr);
         // An expired suspension is reported as no suspension, so the dashboard
         // never shows a restriction the site is not enforcing.
@@ -4074,7 +4179,18 @@ bool WebsiteApp::handleAdminOverview(Request& request, Response& response) {
     // place one can be answered.
     Json appealList = Json::makeArray();
     for (const AppealRecord* appeal : store_.recentAppeals(100)) {
-        appealList.push(appealJson(*appeal));
+        Json entry = appealJson(*appeal);
+        // An admin is being asked to overturn one action, so the action and the
+        // reason behind it travel with the appeal.
+        for (const InfractionRecord& infraction : store_.infractionsFor(appeal->userId)) {
+            if (infraction.id == appeal->infractionId) {
+                entry.set("infractionKind", infraction.kind);
+                entry.set("infractionReason", infraction.reason);
+                entry.set("infractionDetections", infraction.detections);
+                break;
+            }
+        }
+        appealList.push(entry);
     }
     result.set("appeals", appealList);
 

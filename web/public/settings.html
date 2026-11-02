@@ -77,8 +77,8 @@
                                 <tr>
                                     <th scope="col">When</th>
                                     <th scope="col">What</th>
-                                    <th scope="col">Reason</th>
                                     <th scope="col">Ends</th>
+                                    <th scope="col">Appeal</th>
                                 </tr>
                             </thead>
                             <tbody data-standing-infractions></tbody>
@@ -87,6 +87,8 @@
                     <h3>Appeals</h3>
                     <div class="standing-appeals" data-standing-appeals></div>
                     <form class="form" data-appeal-form hidden>
+                        <input type="hidden" id="appeal-infraction" name="infractionId" value="" data-appeal-infraction>
+                        <p class="admin-reason" data-appeal-target hidden></p>
                         <div class="field">
                             <label for="appeal-message">Why should this be reviewed?</label>
                             <textarea class="input" id="appeal-message" name="message" rows="4" minlength="20" maxlength="1000" required></textarea>
@@ -215,6 +217,6 @@
             </nav>
         </footer>
     </div>
-    <script src="/app.js?v=standing-1" defer></script>
+    <script src="/app.js?v=standing-2" defer></script>
 </body>
 </html>

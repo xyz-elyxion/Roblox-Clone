@@ -463,6 +463,9 @@ void testHttp() {
     config.authRateLimitMax = 1000;
     // The suite deliberately hammers the endpoints over loopback.
     config.rateLimitMax = 100000;
+    // Zero: the wave lands on the next request, which keeps these checks immediate
+    // while still going through the queue a real install uses.
+    config.banWaveWindowMs = 0;
     config.dataPath = webRoot + "/data.json";
     config.webRoot = webRoot;
     config.repoRoot = webRoot;
@@ -735,33 +738,48 @@ void testHttp() {
     checkContains(body, "\"kind\":\"ban\"", "the earlier ban is in the record");
     checkContains(body, "\"canAppeal\":true", "a suspended account may appeal");
 
-    // An appeal only exists for a restriction, has to say something an admin can
-    // judge, and only one of them waits at a time.
+    // An appeal is about one named action, so the record's own ids are what the
+    // account sends back.
+    int suspensionAction = 0;
+    const rblx::web::Json standingAfterBan = rblx::web::Json::parse(body, &error);
+    for (const rblx::web::Json& entry : standingAfterBan.member("infractions").elements()) {
+        if (entry.member("kind").asString() == "suspension") {
+            suspensionAction = static_cast<int>(entry.member("id").asInteger(0));
+            break;
+        }
+    }
+    check(suspensionAction > 0, "the record names the action that suspended the account");
+
+    // An appeal names one action, has to say something an admin can judge, and
+    // that action can be appealed once.
+    const std::string appealTo = "{\"infractionId\":" + std::to_string(suspensionAction) + ",";
     checkStatus(app, "POST", "/api/account/appeal",
-                "{\"message\":\"This account has done nothing wrong at all.\"}", token, 400,
-                "an unrestricted account cannot appeal");
-    checkStatus(app, "POST", "/api/account/appeal", "{\"message\":\"too short\"}",
-                outsiderToken, 400, "a one-line appeal is refused");
+                appealTo + "\"message\":\"This account has done nothing wrong at all.\"}",
+                token, 400, "an account cannot appeal an action that is not its own");
     checkStatus(app, "POST", "/api/account/appeal",
-                "{\"message\":\"The detection was a false positive from a stutter.\"}",
-                outsiderToken, 201, "a suspended account files an appeal", &body);
+                appealTo + "\"message\":\"too short\"}", outsiderToken, 400,
+                "a one-line appeal is refused");
+    checkStatus(app, "POST", "/api/account/appeal",
+                appealTo + "\"message\":\"The detection was a false positive from a stutter.\"}",
+                outsiderToken, 201, "a suspended account appeals the action it is under", &body);
     checkContains(body, "\"status\":\"open\"", "the appeal starts open");
     int appealId = static_cast<int>(
         rblx::web::Json::parse(body, &error).member("appeal").member("id").asInteger(0));
     check(appealId > 0, "the filed appeal has an id");
     checkStatus(app, "POST", "/api/account/appeal",
-                "{\"message\":\"A second appeal about the same detection.\"}", outsiderToken,
-                409, "a second appeal waits for the first");
+                appealTo + "\"message\":\"A second appeal about the same action.\"}",
+                outsiderToken, 409, "the same action cannot be appealed twice");
     checkStatus(app, "GET", "/api/account/standing", std::string(), outsiderToken, 200,
                 "the standing shows the waiting appeal", &body);
     checkContains(body, "\"hasOpenAppeal\":true", "the appeal is flagged as waiting");
-    checkContains(body, "\"canAppeal\":false", "no second appeal is offered");
+    checkContains(body, "\"appealStatus\":\"open\"", "the action it appeals is marked");
 
     // An admin reviews it from the dashboard. Accepting is a pardon, and the
     // record keeps who lifted it and why.
     checkStatus(app, "GET", "/api/admin/overview", std::string(), token, 200,
                 "the dashboard loads with an appeal waiting", &body);
     checkContains(body, "\"appeals\":[", "the dashboard lists appeals");
+    checkContains(body, "\"infractionReason\":", "the dashboard reads the reason behind the appeal");
     checkContains(body, "false positive from a stutter", "the appeal text reaches the admin");
     checkStatus(app, "POST", "/api/admin/appeals/" + std::to_string(appealId),
                 "{\"action\":\"accept\"}", outsiderToken, 403,
@@ -792,6 +810,8 @@ void testHttp() {
                 "the standing reflects the accepted appeal", &body);
     checkContains(body, "\"standing\":\"clear\"", "the account is clear after the appeal");
     checkContains(body, "\"kind\":\"pardon\"", "the record shows the restriction was lifted");
+    checkContains(body, "\"appealStatus\":\"accepted\"",
+                  "the action shows its appeal was accepted");
 
     // The client's own anti-cheat reports what it finds inside the process. That
     // report can only be filed by the account it runs under, and it is counted
@@ -804,7 +824,7 @@ void testHttp() {
                 "{\"flag\":\"anticheat\",\"detail\":\"Module was modified\"}", token, 200,
                 "a signed-in client files a detection", &body);
     checkContains(body, "\"clientDetections\":1", "the detection is counted on the account");
-    checkContains(body, "\"action\":\"warned\"", "a token-bearing detection is punished");
+    checkContains(body, "\"queued\":true", "a token-bearing detection is held for the wave");
     checkContains(body, "\"restricted\":false", "a warning does not end the session");
     checkStatus(app, "POST", "/api/client-detections", "{\"detail\":\"  \"}", token, 400,
                 "a detection without a detail is refused");
@@ -813,6 +833,8 @@ void testHttp() {
                 "the overview loads after a detection", &body);
     checkContains(body, "\"clientDetections\":1", "the dashboard counts client detections");
     checkContains(body, "\"cheatStrikes\":1", "a client detection adds a strike");
+    checkContains(body, "client anti-cheat: Module was modified",
+                  "the dashboard reads what the detection was");
     checkContains(body, "\"stage\":\"anticheat\"", "the detection is listed for the dashboard");
 
     {
@@ -837,17 +859,25 @@ void testHttp() {
 
     checkStatus(app, "POST", "/api/client-detections",
                 "{\"flag\":\"anticheat\",\"detail\":\"Debugger attached\"}", cheaterToken, 200,
-                "the first detection on a fresh account is a warning", &body);
+                "the first detection on a fresh account is held", &body);
     checkContains(body, "\"restricted\":false", "one detection leaves the account playing");
     checkStatus(app, "POST", "/api/client-detections",
                 "{\"flag\":\"anticheat\",\"detail\":\"Thread was hijacked\"}", cheaterToken,
-                200, "the second detection is still a warning", &body);
+                200, "the second detection is held too", &body);
     checkStatus(app, "POST", "/api/client-detections",
                 "{\"flag\":\"anticheat\",\"detail\":\"Module was modified\"}", cheaterToken,
-                200, "the third detection suspends the account", &body);
-    checkContains(body, "\"action\":\"suspended\"", "the third detection suspends");
-    checkContains(body, "\"restricted\":true", "the client is told the session is over");
-    checkContains(body, "suspended for", "the client gets the reason to show the player");
+                200, "the third detection is held", &body);
+    // The next request is the wave: it spends the one step still held and lands the
+    // third strike, so the ladder is climbed by waves rather than by reports.
+    checkStatus(app, "GET", "/api/account/standing", std::string(), cheaterToken, 200,
+                "the wave answers the ladder account", &body);
+    checkContains(body, "\"strikes\":3", "three detections climbed three steps");
+    checkContains(body, "\"standing\":\"suspended\"", "the third strike suspends the account");
+    checkContains(body, "\"pendingDetections\":0", "the wave clears what it acted on");
+    checkContains(body, "\"restricted\":true", "the account is restricted after the wave");
+    check(body.find("\"reason\":") == std::string::npos,
+          "the account's own record does not say what was detected");
+    checkContains(body, "suspended for", "the standing says how long is left");
 
     checkStatus(app, "POST", "/api/login",
                 "{\"username\":\"Cheater\",\"password\":\"long-enough-password\"," +
@@ -968,6 +998,76 @@ void testStarterSeeding() {
 
 // The site-wide budget: every /api/ call counts per address, a refusal is not
 // counted as another call, and a page request is not part of the budget.
+// Detections are held and acted on in waves: a report on its own changes nothing,
+// two reports inside one window are one step, and the dashboard is the only place
+// the reason and the evidence count are readable.
+void testBanWaves() {
+    const std::string webRoot = testWebRoot();
+
+    rblx::web::Config config;
+    config.nodeEnv = "test";
+    config.passwordIterations = 800;
+    config.authRateLimitMax = 1000;
+    config.rateLimitMax = 100000;
+    config.dataPath = webRoot + "/banwave.json";
+    config.webRoot = webRoot;
+    config.repoRoot = webRoot;
+    config.gameWorldsDir = webRoot + "/game-worlds";
+    config.port = 0;
+    config.gameInstanceEmptyGraceMs = 0;
+    config.publicBaseUrl = "http://127.0.0.1:3000";
+    // Long enough that two reports in a row are certainly inside one window.
+    config.banWaveWindowMs = 2000;
+    config.adminUsernames = {"WavePilot"};
+
+    rblx::web::WebsiteApp app(config);
+    std::string error;
+    check(app.initialize(&error), "ban wave: app initialises: " + error);
+    app.installRoutes();
+    check(app.start(&error), "ban wave: app listens: " + error);
+    if (app.server().port() <= 0) {
+        return;
+    }
+
+    std::string body;
+    checkStatus(app, "POST", "/api/signup",
+                "{\"username\":\"WavePilot\",\"password\":\"long-enough-password\"," +
+                    machineCaptcha(app) + "}",
+                std::string(), 201, "ban wave: the account signs up", &body);
+    const std::string token = rblx::web::Json::parse(body, &error).member("token").asString();
+
+    checkStatus(app, "POST", "/api/client-detections",
+                "{\"flag\":\"anticheat\",\"detail\":\"Debugger attached\"}", token, 200,
+                "ban wave: the first detection is held", &body);
+    checkContains(body, "\"pending\":1", "ban wave: the detection is counted as held");
+    checkStatus(app, "POST", "/api/client-detections",
+                "{\"flag\":\"anticheat\",\"detail\":\"Thread was hijacked\"}", token, 200,
+                "ban wave: a second detection in the window is held too", &body);
+
+    checkStatus(app, "GET", "/api/account/standing", std::string(), token, 200,
+                "ban wave: the account reads its standing", &body);
+    checkContains(body, "\"strikes\":0", "ban wave: nothing is acted on before the window ends");
+    checkContains(body, "\"pendingDetections\":2", "ban wave: both detections are still held");
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(2100));
+
+    checkStatus(app, "GET", "/api/account/standing", std::string(), token, 200,
+                "ban wave: the wave acts once the window has run out", &body);
+    checkContains(body, "\"strikes\":1", "ban wave: two detections in one window cost one step");
+    checkContains(body, "\"standing\":\"warned\"", "ban wave: the account lands on a warning");
+    checkContains(body, "\"pendingDetections\":0", "ban wave: the wave clears its evidence");
+    check(body.find("\"reason\":") == std::string::npos,
+          "ban wave: the account is not shown what was detected");
+
+    checkStatus(app, "GET", "/api/admin/overview", std::string(), token, 200,
+                "ban wave: the dashboard loads", &body);
+    checkContains(body, "client anti-cheat: Thread was hijacked",
+                  "ban wave: the dashboard reads the reason");
+    checkContains(body, "\"detections\":2", "ban wave: the dashboard sees the evidence count");
+
+    app.stop();
+}
+
 void testRateLimit() {
     const std::string webRoot = testWebRoot();
 
@@ -1029,6 +1129,7 @@ int main() {
     testStarterSeeding();
     testHttp();
     testRateLimit();
+    testBanWaves();
 
     if (failures == 0) {
         std::printf("\nAll native web app checks passed.\n");

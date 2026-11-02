@@ -142,6 +142,13 @@ std::map<int, glm::vec3> lastBroadcastPositions;
 std::size_t announcedPartCount = 0;
 std::vector<uint8_t> announcedPartRemovals;
 
+// How each announced part looked when the clients were last told about it. A
+// script can repaint a part it never built - the Doors hotel turns its lobby
+// lights red before the entity comes - and a colour is not a position, so
+// WORLD_UPDATE would never carry it. A part whose appearance changed is
+// announced again in full, which a client applies to the part it already has.
+std::vector<PartData> announcedPartLooks;
+
 // The driving game's car. A part named "Car" in the world is the vehicle: the
 // server integrates it and every client follows the packets, so the car cannot
 // be teleported by a modified client any more than a character can.
@@ -735,9 +742,26 @@ PartData makePartData(const Part& part) {
 // of that is in the snapshot: the rooms ahead have to be announced or a client
 // walks into parts it never received, and the rooms behind have to be announced
 // gone or a client keeps colliding with a hotel that no longer exists.
+// Position and rotation travel in WORLD_UPDATE, one packet for every part that
+// moved, so comparing them here would re-announce the moving car every tick.
+// Everything else in the part is what a renderer draws, and that is what a
+// script changes when it repaints something.
+bool samePartLook(const PartData& a, const PartData& b) {
+    PartData left = a;
+    PartData right = b;
+    left.position = glm::vec3(0.0f);
+    right.position = glm::vec3(0.0f);
+    left.rotation = glm::vec3(0.0f);
+    right.rotation = glm::vec3(0.0f);
+    return std::memcmp(&left, &right, sizeof(PartData)) == 0;
+}
+
 void broadcastPartChanges() {
     while (announcedPartRemovals.size() < serverParts.size()) {
         announcedPartRemovals.push_back(0);
+    }
+    while (announcedPartLooks.size() < announcedPartCount) {
+        announcedPartLooks.emplace_back();
     }
 
     for (std::size_t i = 0; i < serverParts.size(); ++i) {
@@ -753,7 +777,25 @@ void broadcastPartChanges() {
         state.partIndex = static_cast<int>(i);
         state.data = makePartData(serverParts[i]);
         broadcastPacket(PacketProtocol::buildStructPacket(PacketType::PART_STATE, state), -1, true);
+        announcedPartLooks.push_back(state.data);
         lastBroadcastPositions[i] = serverParts[i].position;
+    }
+
+    // Parts the clients already have can still change how they look. The Doors
+    // hotel turns its lobby lights red a few seconds before the entity comes,
+    // and that warning has to be visible from inside the hotel, so a part whose
+    // appearance no longer matches what was announced is announced again.
+    for (std::size_t i = 0; i < announcedPartCount && i < serverParts.size(); ++i) {
+        if (serverParts[i].deleted) continue;
+        const PartData look = makePartData(serverParts[i]);
+        if (samePartLook(look, announcedPartLooks[i])) continue;
+
+        PacketPartState state;
+        std::memset(&state, 0, sizeof(state));
+        state.partIndex = static_cast<int>(i);
+        state.data = look;
+        broadcastPacket(PacketProtocol::buildStructPacket(PacketType::PART_STATE, state), -1, true);
+        announcedPartLooks[i] = look;
     }
 
     announcedPartCount = serverParts.size();
@@ -1166,6 +1208,10 @@ static int runServer(int argc, char** argv) {
     // in the join snapshot a client receives, so only what comes later has to be
     // announced part by part.
     announcedPartCount = serverParts.size();
+    announcedPartLooks.clear();
+    for (const Part& part : serverParts) {
+        announcedPartLooks.push_back(makePartData(part));
+    }
 
     prepareVehicle();
 

@@ -55,10 +55,41 @@ local CLOSET_STAND_Y = 5
 
 local WOOD_COLOR = Vector3.new(0.34, 0.22, 0.12)
 local LAMP_COLOR = Vector3.new(0.92, 0.88, 0.72)
+local WARN_COLOR = Vector3.new(1, 0.1, 0.1)
 local OPEN_DOOR_Y = 14.25
 
 local rush = workspace:FindFirstChild("Rush")
 local sign = workspace:FindFirstChild("HotelSign")
+
+-- The warning is the lights above the lobby door: the hotel's sign and the
+-- lobby's own lamp. They go red a few seconds before the entity comes and back
+-- to their own colour once it has passed. A script's colour change reaches the
+-- clients, so the warning is visible from inside the hotel and not only in the
+-- server's console.
+local signColor = Vector3.new(0.9, 0.75, 0.35)
+if sign ~= nil then
+    signColor = sign.Color
+end
+local lobbyLight = nil
+local lobbyColor = LAMP_COLOR
+
+local setLights = function(color)
+    if sign ~= nil then
+        sign.Color = color
+    end
+    if lobbyLight ~= nil then
+        lobbyLight.Color = color
+    end
+end
+
+local clearLights = function()
+    if sign ~= nil then
+        sign.Color = signColor
+    end
+    if lobbyLight ~= nil then
+        lobbyLight.Color = lobbyColor
+    end
+end
 
 -- The seed is mixed with the room number instead of drawn from a stream, so a
 -- room looks the same whether the player reached it now or in an hour, and the
@@ -386,8 +417,9 @@ local buildLobby = function()
                          Vector3.new(1, 12, length), Vector3.new(0.17, 0.16, 0.18))
     workspace:CreatePart("LobbyBackWall", Vector3.new(0, 6, LOBBY_END_Z + 0.5),
                          Vector3.new(28, 12, 1), Vector3.new(0.17, 0.16, 0.18))
-    workspace:CreatePart("LobbyLight", Vector3.new(0, 11.6, 8),
-                         Vector3.new(8, 0.3, 0.8), LAMP_COLOR)
+    lobbyLight = workspace:CreatePart("LobbyLight", Vector3.new(0, 11.6, 8),
+                                     Vector3.new(8, 0.3, 0.8), LAMP_COLOR)
+    lobbyColor = lobbyLight.Color
     workspace:CreatePart("ElevatorBackWall", Vector3.new(0, 6, END_Z - 0.5),
                          Vector3.new(28, 12, 1), Vector3.new(0.17, 0.16, 0.18))
     workspace:CreatePart("ElevatorLight", Vector3.new(0, 11.6, END_Z + 6),
@@ -465,17 +497,13 @@ RunService.Heartbeat:Connect(function(dt)
             if rush ~= nil then
                 rush.Position = Vector3.new(0, RUSH_PARK_Y, RUSH_PARK_Z)
             end
-            if sign ~= nil then
-                sign.Color = Vector3.new(0.9, 0.75, 0.35)
-            end
+            clearLights()
         end
     else
         cooldown = cooldown - dt
         if cooldown < 3 and not warned then
             warned = true
-            if sign ~= nil then
-                sign.Color = Vector3.new(1, 0.1, 0.1)
-            end
+            setLights(WARN_COLOR)
             print("The lights above the lobby door turn red")
         end
         if cooldown <= 0 then

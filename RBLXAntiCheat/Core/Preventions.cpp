@@ -295,9 +295,13 @@ void Preventions::EnableProcessMitigations(__in const bool useDEP, __in const bo
         }
     }
 
-    PROCESS_MITIGATION_BINARY_SIGNATURE_POLICY signaturePolicy = { 0 };     // Binary Signature Policy
-    signaturePolicy.MicrosoftSignedOnly = 1;
-    SetProcessMitigationPolicy(ProcessSignaturePolicy, &signaturePolicy, sizeof(signaturePolicy));
+    // A Binary Signature Policy with MicrosoftSignedOnly was tried here and taken out:
+    // the loader enforces it, so every DLL that is not signed by Microsoft - Discord's
+    // DiscordHook64.dll, the Steam and NVIDIA overlays - is refused with 0xC0000428
+    // and the process stops on a "Bad Image" dialog in the middle of a match. What it
+    // bought was an unsigned-module ban the detection engine already reports by
+    // scanning the loaded modules, so the game is not broken for anyone who runs an
+    // overlay. The image load policy below keeps the injection-attack half of it.
 
     PROCESS_MITIGATION_IMAGE_LOAD_POLICY imageLoadPolicy = { 0 };     //Image Load Policy, a few useful ones in here
     imageLoadPolicy.NoRemoteImages = 1;

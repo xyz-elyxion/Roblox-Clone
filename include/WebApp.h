@@ -27,6 +27,11 @@ struct Config {
     std::vector<std::string> corsOrigins;
     long long authRateLimitWindowMs = 15 * 60 * 1000;
     int authRateLimitMax = 20;
+    // Every /api/ request counts against this window. The budget is loose on
+    // purpose: one page load makes a handful of calls, and the game servers
+    // running beside the website use the same endpoints over loopback.
+    long long rateLimitWindowMs = 60 * 1000;
+    int rateLimitMax = 600;
     std::size_t jsonBodyLimitBytes = 2 * 1024 * 1024;
     std::string repoRoot;
     std::string webRoot;
@@ -170,6 +175,9 @@ private:
     HttpServer::Handler guard(HttpServer::Handler handler);
     bool isOriginAllowed(const std::string& origin) const;
     bool isRateLimited(const std::string& remoteAddress);
+    // Counts one request from `remoteAddress` against the site-wide budget.
+    // Returns true when it is spent, handing back how long to wait.
+    bool isRequestRateLimited(const std::string& remoteAddress, int* retryAfterSeconds);
 
     bool parseJsonBody(const Request& request, Json* body, Response& response) const;
     bool requireAuth(const Request& request, Response& response, AuthUser* user);
@@ -288,6 +296,7 @@ private:
     std::map<std::string, GameInstance> instances_;
     std::deque<ClientReport> clientReports_;
     std::map<std::string, std::vector<long long>> authAttempts_;
+    std::map<std::string, std::deque<long long>> requestHits_;
     std::map<std::string, CaptchaChallenge> captchas_;
     std::thread ticker_;
     bool tickerRunning_ = false;

@@ -190,12 +190,15 @@ Configuration comes from the environment:
 - `PASSWORD_ITERATIONS` - PBKDF2-SHA256 rounds, default `120000`.
 - `CORS_ORIGIN` - comma-separated allowed origins; same-origin requests are always allowed.
 - `AUTH_RATE_LIMIT_WINDOW_MS` / `AUTH_RATE_LIMIT_MAX` - auth throttling.
+- `RATE_LIMIT_WINDOW_MS` / `RATE_LIMIT_MAX` - API throttling per client address, default `60000` / `600`.
 - `GAME_WORLDS_DIR` - where published `.world` files are written.
 - `GAME_SERVER_HOST` / `GAME_SERVER_BASE_PORT` - local game-server address, default `127.0.0.1:7777`.
 - `GAME_INSTANCE_EMPTY_GRACE_MS` - how long an empty game instance stays up, default `30000`.
 - `SERVER_EXECUTABLE_PATH` / `CLIENT_EXECUTABLE_PATH` - binaries launched when a game is played.
 - `PUBLIC_BASE_URL` - URL handed to the native server/client for web auth.
 - `ADMIN_USERNAMES` - comma-separated extra accounts allowed into `/admin`; the install owner is always allowed.
+
+Every `/api/` request is counted per client address in a fixed window (`RATE_LIMIT_WINDOW_MS`, default one minute) with a budget of `RATE_LIMIT_MAX` calls (default `600`). Over budget the site answers `429` with a `Retry-After` header in seconds, and the refusal is not counted as another call, so waiting out the window is enough to come back. The budget is loose on purpose: one page load makes a handful of calls, and a game server running beside the website calls the same endpoints over loopback. The account endpoints keep their own tighter limit on top, and pages and assets are read from disk without being counted.
 
 Passwords are stored as PBKDF2-SHA256 hashes and sessions are HS256 JWTs.
 

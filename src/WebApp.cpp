@@ -1056,6 +1056,9 @@ bool loadConfigFromEnvironment(Config* config, std::string* error) {
     loaded.authRateLimitWindowMs =
         static_cast<long long>(parsePositiveInt(envString("AUTH_RATE_LIMIT_WINDOW_MS"), 900000));
     loaded.authRateLimitMax = parsePositiveInt(envString("AUTH_RATE_LIMIT_MAX"), 20);
+    loaded.rateLimitWindowMs =
+        static_cast<long long>(parsePositiveInt(envString("RATE_LIMIT_WINDOW_MS"), 60000));
+    loaded.rateLimitMax = parsePositiveInt(envString("RATE_LIMIT_MAX"), 600);
     loaded.jsonBodyLimitBytes = static_cast<std::size_t>(
         parsePositiveInt(envString("JSON_BODY_LIMIT_BYTES"), 2 * 1024 * 1024));
 
@@ -1390,6 +1393,26 @@ bool WebsiteApp::isOriginAllowed(const std::string& origin) const {
            config_.corsOrigins.end();
 }
 
+namespace {
+
+// Drops windows that have gone quiet, so a long run with many distinct client
+// addresses does not keep an entry for every one of them forever.
+template <typename Table>
+void trimQuietWindows(Table* table, long long windowMs, long long now) {
+    if (table->size() <= 1024) {
+        return;
+    }
+    for (auto entry = table->begin(); entry != table->end();) {
+        if (entry->second.empty() || now - entry->second.back() > windowMs) {
+            entry = table->erase(entry);
+        } else {
+            ++entry;
+        }
+    }
+}
+
+}  // namespace
+
 bool WebsiteApp::isRateLimited(const std::string& remoteAddress) {
     const long long now = nowMilliseconds();
     std::vector<long long>& attempts = authAttempts_[remoteAddress];
@@ -1397,9 +1420,30 @@ bool WebsiteApp::isRateLimited(const std::string& remoteAddress) {
         attempts.erase(attempts.begin());
     }
     if (static_cast<int>(attempts.size()) >= config_.authRateLimitMax) {
+        // A refusal does not extend the window: waiting it out is enough.
         return true;
     }
     attempts.push_back(now);
+    trimQuietWindows(&authAttempts_, config_.authRateLimitWindowMs, now);
+    return false;
+}
+
+bool WebsiteApp::isRequestRateLimited(const std::string& remoteAddress,
+                                      int* retryAfterSeconds) {
+    const long long now = nowMilliseconds();
+    std::deque<long long>& hits = requestHits_[remoteAddress];
+    while (!hits.empty() && now - hits.front() > config_.rateLimitWindowMs) {
+        hits.pop_front();
+    }
+    if (static_cast<int>(hits.size()) >= config_.rateLimitMax) {
+        if (retryAfterSeconds != nullptr) {
+            const long long waitMs = config_.rateLimitWindowMs - (now - hits.front());
+            *retryAfterSeconds = static_cast<int>(waitMs > 0 ? (waitMs + 999) / 1000 : 1);
+        }
+        return true;
+    }
+    hits.push_back(now);
+    trimQuietWindows(&requestHits_, config_.rateLimitWindowMs, now);
     return false;
 }
 
@@ -1427,6 +1471,25 @@ HttpServer::Handler WebsiteApp::guard(HttpServer::Handler handler) {
                 "GET,POST,PUT,PATCH,DELETE,OPTIONS";
             response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization";
             return true;
+        }
+
+        // Every API call counts per client address. That is the part of the site
+        // that reads and writes the store, so it gets a budget instead of being
+        // free to hammer; pages and assets come off disk and are not counted.
+        if (request.path.compare(0, 5, "/api/") == 0) {
+            int retryAfterSeconds = 1;
+            bool limited = false;
+            {
+                std::lock_guard<std::mutex> lock(mutex_);
+                limited = isRequestRateLimited(request.remoteAddress, &retryAfterSeconds);
+            }
+            if (limited) {
+                response.headers["Retry-After"] = std::to_string(retryAfterSeconds);
+                errorJson(response, 429,
+                          "Too many requests from this address. Try again in " +
+                              std::to_string(retryAfterSeconds) + " seconds.");
+                return true;
+            }
         }
 
         const bool mutating = request.method == "POST" || request.method == "PUT" ||

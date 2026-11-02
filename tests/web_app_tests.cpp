@@ -461,6 +461,8 @@ void testHttp() {
     config.jwtSecret = "test-secret-that-is-long-enough-for-hs256";
     config.passwordIterations = 800;
     config.authRateLimitMax = 1000;
+    // The suite deliberately hammers the endpoints over loopback.
+    config.rateLimitMax = 100000;
     config.dataPath = webRoot + "/data.json";
     config.webRoot = webRoot;
     config.repoRoot = webRoot;
@@ -963,6 +965,59 @@ void testStarterSeeding() {
     }
 }
 
+
+// The site-wide budget: every /api/ call counts per address, a refusal is not
+// counted as another call, and a page request is not part of the budget.
+void testRateLimit() {
+    const std::string webRoot = testWebRoot();
+
+    rblx::web::Config config;
+    config.nodeEnv = "test";
+    config.passwordIterations = 800;
+    config.authRateLimitMax = 1000;
+    config.rateLimitMax = 3;
+    config.rateLimitWindowMs = 60 * 1000;
+    config.dataPath = webRoot + "/ratelimit.json";
+    config.webRoot = webRoot;
+    config.repoRoot = webRoot;
+    config.gameWorldsDir = webRoot + "/game-worlds";
+    config.port = 0;
+    config.gameInstanceEmptyGraceMs = 0;
+    config.publicBaseUrl = "http://127.0.0.1:3000";
+
+    rblx::web::WebsiteApp app(config);
+    std::string error;
+    check(app.initialize(&error), "rate limit: app initialises: " + error);
+    app.installRoutes();
+    check(app.start(&error), "rate limit: app listens: " + error);
+    if (app.server().port() <= 0) {
+        return;
+    }
+
+    checkStatus(app, "GET", "/api/games", std::string(), std::string(), 200,
+                "rate limit: the first call is allowed");
+    checkStatus(app, "GET", "/api/games", std::string(), std::string(), 200,
+                "rate limit: the second call is allowed");
+    checkStatus(app, "GET", "/api/games", std::string(), std::string(), 200,
+                "rate limit: the budget is spent exactly");
+
+    std::thread serverThread([&app]() { app.server().serveOneConnection(); });
+    const std::string response = sendRaw(
+        app.server().port(),
+        buildRequest("GET", "/api/games", std::string(), std::string(), "application/json"));
+    serverThread.join();
+    checkEqual(std::to_string(statusOf(response)), "429",
+               "rate limit: the next call in the window is refused");
+    checkContains(bodyOf(response), "Too many requests", "rate limit: the refusal says why");
+    checkContains(response, "Retry-After:", "rate limit: the refusal says how long to wait");
+
+    checkStatus(app, "GET", "/api/games", std::string(), std::string(), 429,
+                "rate limit: a refusal does not extend the window");
+
+    checkStatus(app, "GET", "/", std::string(), std::string(), 200,
+                "rate limit: pages are not counted");
+}
+
 }  // namespace
 
 int main() {
@@ -973,6 +1028,7 @@ int main() {
     testStore();
     testStarterSeeding();
     testHttp();
+    testRateLimit();
 
     if (failures == 0) {
         std::printf("\nAll native web app checks passed.\n");

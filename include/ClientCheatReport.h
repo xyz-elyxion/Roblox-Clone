@@ -80,6 +80,24 @@ inline bool namesOurOwnProcesses(const std::string& detail) {
     return false;
 }
 
+// True for a detection that names a module an overlay injected into the client.
+// Discord's hook is loaded into every game process that runs while Discord is
+// open and hooks the frame the client presents, so both the module scan and the
+// IAT scan have something to say about it on a machine that has never cheated.
+// The publisher is allowed by the module signature check; this keeps the rest of
+// the family - a checksum that reads different, an IAT entry that points into it
+// - off the ladder too. It matches the module Discord actually injects by name,
+// not a pattern a file could be renamed to fit.
+inline bool namesOverlayModules(const std::string& detail) {
+    static const char* const modules[] = {"DiscordHook64.dll", "DiscordHook32.dll", "discord_hook"};
+    for (const char* name : modules) {
+        if (detail.find(name) != std::string::npos) {
+            return true;
+        }
+    }
+    return false;
+}
+
 // What a detection is filed as. One open-handle scan logs the handle, the process
 // that owns it and the scan's own summary - three lines about one event. Filing
 // them separately would let a single scan climb the whole warning-and-suspension

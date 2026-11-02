@@ -496,6 +496,14 @@ namespace {
             // WebApp.exe starts this client and keeps the handle it waits on, so
             // the library's handle scan reports the project's own launcher as an
             // intruder on a clean machine. That is a normal launch, not tampering.
+            // Discord's overlay is loaded into the client without the player
+            // asking for it and hooks the frame it presents; that is not cheating
+            // and the account must not climb the ladder over it.
+            if (rblx::anticheat::namesOverlayModules(detail)) {
+                std::cout << RBLX_OBF("Ignored a detection about a Discord module.") << std::endl;
+                continue;
+            }
+
             if (rblx::anticheat::namesOurOwnProcesses(detail)) {
                 std::cout << RBLX_OBF("Ignored a detection about this project's own processes.")
                           << std::endl;

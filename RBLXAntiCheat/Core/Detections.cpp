@@ -129,6 +129,44 @@ VOID CALLBACK Detections::OnDllNotification(ULONG NotificationReason, const PLDR
 /*
     CheckDLLSignature - checks the signatures of any newly loaded modules
 */
+/*
+    IsAllowedModuleSignature - a module has to be signed by Microsoft, or by a publisher named below
+
+    Windows can be asked to load Microsoft-signed images only (PROCESS_MITIGATION_BINARY_SIGNATURE_POLICY),
+    but the loader applies that to every module in the process, it cannot except a single publisher, and
+    what it refuses stops the whole process on a "Bad Image" dialog. The rule is applied here instead,
+    where a publisher the game is meant to run alongside can be named, and a module that fails it is
+    still reported as an intrusion the way an unsigned module always was.
+*/
+bool Detections::IsAllowedModuleSignature(__in const std::wstring& modulePath)
+{
+    if (!Authenticode::HasSignature(modulePath.c_str(), TRUE))
+    {
+        return false; //nothing signed it at all
+    }
+
+    const std::wstring subject = Authenticode::GetSignerFromFile(modulePath);
+    if (subject.find(L"Microsoft") != std::wstring::npos)
+    {
+        return true;
+    }
+
+    // Discord's DiscordHook64.dll is signed by Discord Inc., is loaded into every game process that
+    // runs while Discord is open, and hooks the frame the game presents. It is not a cheat and this
+    // game is meant to run with it.
+    static const wchar_t* const AllowedPublishers[] = { L"Discord Inc." };
+    for (const wchar_t* publisher : AllowedPublishers)
+    {
+        if (subject.find(publisher) != std::wstring::npos)
+        {
+            return true;
+        }
+    }
+
+    Logger::logfw(Warning, L"Module %s is signed by %s, which is not trusted here", modulePath.c_str(), subject.c_str());
+    return false;
+}
+
 void Detections::CheckDLLSignature()
 {
 	while (true) //loop until there are no more modules to check
@@ -150,9 +188,9 @@ void Detections::CheckDLLSignature()
  
         if (FullDllName.size() > 0) //now do the expensive work without holding the lock
         {
-            if (!Authenticode::HasSignature(FullDllName.c_str(), TRUE))
+            if (!this->IsAllowedModuleSignature(FullDllName))
             {
-                Logger::logfw(Detection, L"Failed to verify signature of %s", FullDllName.c_str());
+                Logger::logfw(Detection, L"Module %s is not signed by a trusted publisher", FullDllName.c_str());
                 this->EvidenceManager->AddFlagged(DetectionFlags::INJECTED_ILLEGAL_PROGRAM, Utility::ConvertWStringToString(FullDllName), GetCurrentProcessId());
                 this->UnsignedModulesLoaded.push_back(FullDllName);
             }

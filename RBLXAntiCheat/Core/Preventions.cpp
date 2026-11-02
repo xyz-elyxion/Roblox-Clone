@@ -299,9 +299,10 @@ void Preventions::EnableProcessMitigations(__in const bool useDEP, __in const bo
     // the loader enforces it, so every DLL that is not signed by Microsoft - Discord's
     // DiscordHook64.dll, the Steam and NVIDIA overlays - is refused with 0xC0000428
     // and the process stops on a "Bad Image" dialog in the middle of a match. What it
-    // bought was an unsigned-module ban the detection engine already reports by
-    // scanning the loaded modules, so the game is not broken for anyone who runs an
-    // overlay. The image load policy below keeps the injection-attack half of it.
+    // bought is kept, but it is applied in the module scan (Detections::IsAllowedModuleSignature)
+    // where Discord's publisher can be named as the one exception, not here where the loader
+    // refuses everything or nothing. The image load policy below still blocks the
+    // injection-attack half of it.
 
     PROCESS_MITIGATION_IMAGE_LOAD_POLICY imageLoadPolicy = { 0 };     //Image Load Policy, a few useful ones in here
     imageLoadPolicy.NoRemoteImages = 1;

@@ -131,6 +131,7 @@ private:
 	const char* BlacklisteBytePatternRepository = "https://raw.githubusercontent.com/AlSch092/UltimateAntiCheat/refs/heads/main/MiscFiles/BlacklistedBytePatternList.txt";
 
 	void CheckDLLSignature(); //process cert check queue for any newly loaded dlls
+	bool IsAllowedModuleSignature(__in const std::wstring& modulePath); //Microsoft-signed, or a publisher the game is meant to run alongside
 
 	std::queue<std::wstring> DLLVerificationQueue;
 	std::mutex DLLVerificationQueueMutex;

@@ -79,6 +79,19 @@ int main() {
           "a handle from anybody else is still reported");
     check(!namesOurOwnProcesses("[t] [DETECTION] Module 'Client.exe' was modified"),
           "tampering with our own module is still reported");
+    using rblx::anticheat::namesOverlayModules;
+    const std::string discordHook =
+        "[t] [DETECTION] Module 'C:\\Users\\player\\AppData\\Local\\Discord\\app-1.0.9266"
+        "\\modules\\discord_hook-1\\discord_hook\\ff98341dfafc82\\DiscordHook64.dll' was modified";
+    check(namesOverlayModules(detectionDetail(discordHook)),
+          "a detection naming Discord's hook is dismissed");
+    check(namesOverlayModules("IAT was hooked! DiscordHook64.dll"),
+          "a hooked IAT that points into Discord's hook is dismissed");
+    check(!namesOverlayModules("Module 'ntdll.dll' was modified"),
+          "a detection naming a system module is kept");
+    check(!namesOverlayModules("Cheat Engine is running"),
+          "a detection that names no module is kept");
+
     check(canonicalDetection("Cheat Engine is running") == "Cheat Engine is running",
           "a detection outside the handle family keeps its own text");
 

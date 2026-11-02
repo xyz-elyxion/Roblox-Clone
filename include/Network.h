@@ -27,7 +27,9 @@ enum class PacketType : uint8_t {
     RESPAWN_REQUEST = 11,
     VEHICLE_STATE = 12,
     VEHICLE_INPUT = 13,
-    VEHICLE_TOGGLE = 14
+    VEHICLE_TOGGLE = 14,
+    PART_STATE = 15,
+    PART_REMOVE = 16
 };
 
 #pragma pack(push, 1)
@@ -139,7 +141,7 @@ struct PartData {
     int shape;
     char name[64];
     int parentIndex;
-    uint8_t flags; // isFolder (bit 0), isCamera (bit 1), isSpawn (bit 2)
+    uint8_t flags; // isFolder (bit 0), isCamera (bit 1), isSpawn (bit 2), deleted (bit 3)
     glm::vec3 position;
     glm::vec3 size;
     glm::vec3 color;
@@ -152,13 +154,27 @@ struct PartData {
     char texture[64]; // Optional image path, relative to textures/
 };
 
+// 9. Part State (Server -> Client): a part the script built after this client
+// joined, described exactly like a world snapshot entry. The index is the
+// server's, which is the index the snapshot gave the parts before it.
+struct PacketPartState {
+    int partIndex;
+    PartData data;
+};
+
+// 10. Part Remove (Server -> Client): a part the script destroyed. The index
+// stays taken so the parts after it keep theirs.
+struct PacketPartRemove {
+    int partIndex;
+};
+
 #pragma pack(pop)
 
 namespace PacketProtocol {
     // Bumped whenever a packet layout or its meaning changes. Sent in the
     // handshake next to `kPacketLayoutSignature` so two differently built
     // binaries fail with an explanation instead of silently misparsing.
-    constexpr uint16_t kProtocolRevision = 7;
+    constexpr uint16_t kProtocolRevision = 8;
 
     constexpr uint16_t packetLayoutSignature() {
         return static_cast<uint16_t>(sizeof(PacketConnect) * 31u + sizeof(PacketWelcome) * 17u +
@@ -219,6 +235,8 @@ namespace PacketProtocol {
             case PacketType::VEHICLE_STATE:
             case PacketType::VEHICLE_INPUT:
             case PacketType::VEHICLE_TOGGLE:
+            case PacketType::PART_STATE:
+            case PacketType::PART_REMOVE:
                 return true;
             default:
                 return false;
@@ -248,6 +266,10 @@ namespace PacketProtocol {
                 return payloadSize == sizeof(PacketVehicleInput);
             case PacketType::VEHICLE_TOGGLE:
                 return payloadSize == 0;
+            case PacketType::PART_STATE:
+                return payloadSize == sizeof(PacketPartState);
+            case PacketType::PART_REMOVE:
+                return payloadSize == sizeof(PacketPartRemove);
             case PacketType::PLAYER_JOIN:
                 return payloadSize == sizeof(PacketPlayerJoin);
             case PacketType::PLAYER_LEAVE:

@@ -1166,6 +1166,39 @@ int main(int argc, char** argv) {
 
         std::deque<Part> parts;
 
+        // Server part index -> index in `parts`. The two are the same number
+        // until a character appends its own parts to this deque, so they drift
+        // apart right after the join. A part the script builds later still has
+        // to land where the renderer and the physics world can find it.
+        std::vector<int> serverPartToClient;
+
+        // One place that turns a PartData packet into the part this client
+        // renders, so a snapshot entry and a part built later cannot disagree.
+        const auto partFromData = [](const PartData& data) {
+            Part p;
+            p.shape = (ShapeType)data.shape;
+            p.name = std::string(data.name);
+            p.parentIndex = data.parentIndex;
+            p.isFolder = (data.flags & 1) != 0;
+            p.isCamera = (data.flags & 2) != 0;
+            p.isSpawn = (data.flags & 4) != 0;
+            p.deleted = (data.flags & 8) != 0;
+            p.position = data.position;
+            p.size = data.size;
+            p.color = data.color;
+            p.rotation = data.rotation;
+            p.transparency = data.transparency;
+            p.reflectance = data.reflectance;
+            p.anchored = (data.physicsFlags & 1) != 0;
+            p.canCollide = (data.physicsFlags & 2) != 0;
+            p.mass = data.mass;
+            p.material = data.material < kMaterialCount
+                             ? static_cast<Material>(data.material)
+                             : Material::Plastic;
+            p.texture = PacketProtocol::fixedString(data.texture, sizeof(data.texture));
+            return p;
+        };
+
         Network::init();
         std::cout << "Network Initialized." << std::endl;
         
@@ -1841,6 +1874,7 @@ int main(int argc, char** argv) {
                             std::cout << "Resetting physics world" << std::endl;
                             physicsWorld.reset();
                             parts.clear();
+                            serverPartToClient.clear();
                             std::cout << "Physics world reset complete" << std::endl;
                             
                             // Read all parts
@@ -1875,12 +1909,17 @@ int main(int argc, char** argv) {
                                                  ? static_cast<Material>(data.material)
                                                  : Material::Plastic;
                                 p.texture = PacketProtocol::fixedString(data.texture, sizeof(data.texture));
-                                p.deleted = false;
+                                // Bit 3 marks a part a script destroyed before this
+                                // client joined: the snapshot keeps its index so the
+                                // parts after it keep theirs, but it is not a room.
+                                p.deleted = (data.flags & 8) != 0;
                                 
+                                serverPartToClient.push_back(static_cast<int>(parts.size()));
                                 parts.push_back(p);
                                 
-                                // Add to physics world if not a folder
-                                if (!p.isFolder) {
+                                // Add to physics world if not a folder, and not a
+                                // part the hotel has already taken away.
+                                if (!p.isFolder && !p.deleted) {
                                     physicsWorld.addPart(&parts.back());
                                 }
                             }
@@ -1941,8 +1980,17 @@ int main(int argc, char** argv) {
                             float now = (float)glfwGetTime();
                             for(int i=0; i<numUpdates; ++i) {
                                 PartUpdate& up = updates[i];
-                                if (up.partIndex >= 0 && up.partIndex < parts.size()) {
-                                    Part& p = parts[up.partIndex];
+                                // The server numbers its own parts; a character's
+                                // parts sit after the world's in this deque, so ask
+                                // the map rather than trusting the number.
+                                int updateIndex = up.partIndex;
+                                if (updateIndex >= 0 &&
+                                    updateIndex < static_cast<int>(serverPartToClient.size()) &&
+                                    serverPartToClient[updateIndex] >= 0) {
+                                    updateIndex = serverPartToClient[updateIndex];
+                                }
+                                if (updateIndex >= 0 && updateIndex < static_cast<int>(parts.size())) {
+                                    Part& p = parts[updateIndex];
                                     
                                     // SAFETY: Validate server position
                                     if (std::isnan(up.position.x) || std::isnan(up.position.y) || std::isnan(up.position.z) ||
@@ -1989,11 +2037,79 @@ int main(int argc, char** argv) {
                                     target.position = up.position; 
                                     target.rotation = up.rotation; 
                                     target.timestamp = now;
-                                    targetTransforms[up.partIndex] = target;
+                                    targetTransforms[updateIndex] = target;
                                 }
                             }
                         }
                         
+                        // Parts the script built for this player. The join
+                        // snapshot only describes the world as it was then, so a
+                        // hotel that builds its rooms as the player walks sends
+                        // each new one on its own.
+                        if (header->type == PacketType::PART_STATE) {
+                            if (header->size != sizeof(PacketPartState)) {
+                                std::cerr << "ERROR: Invalid PART_STATE packet size" << std::endl;
+                            } else {
+                                const PacketPartState* pkt =
+                                    (const PacketPartState*)(packetBuffer + offset + sizeof(PacketHeader));
+                                const int serverIndex = pkt->partIndex;
+                                const Part built = partFromData(pkt->data);
+
+                                int clientIndex = -1;
+                                if (serverIndex >= 0 &&
+                                    serverIndex < static_cast<int>(serverPartToClient.size())) {
+                                    clientIndex = serverPartToClient[serverIndex];
+                                }
+
+                                if (clientIndex >= 0 && clientIndex < static_cast<int>(parts.size())) {
+                                    // A part that replaced one at the same index.
+                                    Part& existing = parts[clientIndex];
+                                    if (existing.physicsBody) {
+                                        physicsWorld.removePart(&existing);
+                                    }
+                                    existing = built;
+                                    if (!existing.isFolder && !existing.deleted) {
+                                        physicsWorld.addPart(&existing);
+                                    }
+                                } else if (serverIndex >= 0) {
+                                    while (static_cast<int>(serverPartToClient.size()) <= serverIndex) {
+                                        serverPartToClient.push_back(-1);
+                                    }
+                                    serverPartToClient[serverIndex] = static_cast<int>(parts.size());
+                                    parts.push_back(built);
+                                    if (!built.isFolder && !built.deleted) {
+                                        physicsWorld.addPart(&parts.back());
+                                    }
+                                }
+                            }
+                        }
+
+                        // A room the script took away behind the player. Its index
+                        // stays taken so the rooms in front keep theirs.
+                        if (header->type == PacketType::PART_REMOVE) {
+                            if (header->size != sizeof(PacketPartRemove)) {
+                                std::cerr << "ERROR: Invalid PART_REMOVE packet size" << std::endl;
+                            } else {
+                                const PacketPartRemove* pkt =
+                                    (const PacketPartRemove*)(packetBuffer + offset + sizeof(PacketHeader));
+                                const int serverIndex = pkt->partIndex;
+                                if (serverIndex >= 0 &&
+                                    serverIndex < static_cast<int>(serverPartToClient.size())) {
+                                    const int clientIndex = serverPartToClient[serverIndex];
+                                    if (clientIndex >= 0 && clientIndex < static_cast<int>(parts.size())) {
+                                        Part& gone = parts[clientIndex];
+                                        if (gone.physicsBody) {
+                                            physicsWorld.removePart(&gone);
+                                        }
+                                        gone.deleted = true;
+                                        gone.transparency = 1.0f;
+                                        gone.anchored = true;
+                                        gone.canCollide = false;
+                                    }
+                                }
+                            }
+                        }
+
                         offset += packetSize; // Use calculated packetSize
                     }
                 } 

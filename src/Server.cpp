@@ -135,6 +135,13 @@ std::unique_ptr<rblx::script::Interpreter> gameScriptInterpreter;
 std::unique_ptr<rblx::worldscript::WorldRuntime> gameScriptRuntime;
 std::map<int, glm::vec3> lastBroadcastPositions;
 
+// What the clients already know about the world: every part that was in the join
+// snapshot, then each part a script built, then each one it destroyed. A script
+// that builds its level as it goes needs this, because the snapshot only ever
+// describes the world as it was when a player arrived.
+std::size_t announcedPartCount = 0;
+std::vector<uint8_t> announcedPartRemovals;
+
 // The driving game's car. A part named "Car" in the world is the vehicle: the
 // server integrates it and every client follows the packets, so the car cannot
 // be teleported by a modified client any more than a character can.
@@ -679,6 +686,79 @@ void teleportPlayer(const std::string& username, const glm::vec3& position) {
     }
 }
 
+// One part as it goes over the wire. The join snapshot fills the same structure
+// in place; a part a script builds later is described here.
+PartData makePartData(const Part& part) {
+    PartData data;
+    std::memset(&data, 0, sizeof(data));
+    data.shape = static_cast<int>(part.shape);
+    copyFixedString(data.name, sizeof(data.name), part.name);
+    data.parentIndex = part.parentIndex;
+
+    data.flags = 0;
+    if (part.isFolder) data.flags |= 1;
+    if (part.isCamera) data.flags |= 2;
+    if (part.isSpawn) data.flags |= 4;
+    if (part.deleted) data.flags |= 8;
+
+    if (part.physicsBody) {
+        rp3d::RigidBody* body = static_cast<rp3d::RigidBody*>(part.physicsBody);
+        const rp3d::Transform t = body->getTransform();
+        const rp3d::Vector3 pos = t.getPosition();
+        const rp3d::Quaternion rot = t.getOrientation();
+        data.position = glm::vec3(pos.x, pos.y, pos.z);
+
+        const glm::quat q(rot.w, rot.x, rot.y, rot.z);
+        data.rotation = glm::degrees(glm::eulerAngles(q));
+    } else {
+        data.position = part.position;
+        data.rotation = part.rotation;
+    }
+
+    data.size = part.size;
+    data.color = part.color;
+    data.transparency = part.transparency;
+    data.reflectance = part.reflectance;
+
+    data.physicsFlags = 0;
+    if (part.anchored) data.physicsFlags |= 1;
+    if (part.canCollide) data.physicsFlags |= 2;
+
+    data.mass = part.mass;
+    data.material = static_cast<uint8_t>(part.material);
+    copyFixedString(data.texture, sizeof(data.texture), part.texture);
+    return data;
+}
+
+// The join snapshot is the world as it was when a player arrived. A script can
+// build the world after that and delete it again as the player moves, and none
+// of that is in the snapshot: the rooms ahead have to be announced or a client
+// walks into parts it never received, and the rooms behind have to be announced
+// gone or a client keeps colliding with a hotel that no longer exists.
+void broadcastPartChanges() {
+    while (announcedPartRemovals.size() < serverParts.size()) {
+        announcedPartRemovals.push_back(0);
+    }
+
+    for (std::size_t i = 0; i < serverParts.size(); ++i) {
+        if (!serverParts[i].deleted || announcedPartRemovals[i]) continue;
+        announcedPartRemovals[i] = 1;
+        PacketPartRemove remove = { static_cast<int>(i) };
+        broadcastPacket(PacketProtocol::buildStructPacket(PacketType::PART_REMOVE, remove), -1, true);
+    }
+
+    for (std::size_t i = announcedPartCount; i < serverParts.size(); ++i) {
+        PacketPartState state;
+        std::memset(&state, 0, sizeof(state));
+        state.partIndex = static_cast<int>(i);
+        state.data = makePartData(serverParts[i]);
+        broadcastPacket(PacketProtocol::buildStructPacket(PacketType::PART_STATE, state), -1, true);
+        lastBroadcastPositions[i] = serverParts[i].position;
+    }
+
+    announcedPartCount = serverParts.size();
+}
+
 void broadcastWorldUpdate() {
     // Dynamic parts are sent every tick. Anchored parts are sent only when a
     // script moved them, which keeps scripted platforms in sync without
@@ -1082,6 +1162,11 @@ static int runServer(int argc, char** argv) {
         }
     }
 
+    // Everything the world file and the script's opening build put in place is
+    // in the join snapshot a client receives, so only what comes later has to be
+    // announced part by part.
+    announcedPartCount = serverParts.size();
+
     prepareVehicle();
 
     // Bind only now that the world and its scripts are in place. The website
@@ -1179,6 +1264,9 @@ static int runServer(int argc, char** argv) {
             if (gameScriptRuntime) {
                 gameScriptRuntime->heartbeat(networkAccumulator);
             }
+            // What the script built or destroyed during that tick goes out before
+            // the positions of the parts that already existed.
+            broadcastPartChanges();
             broadcastWorldUpdate();
             networkAccumulator = 0.0f;
         }
@@ -1467,6 +1555,7 @@ static int runServer(int argc, char** argv) {
                             if (p.isFolder) data.flags |= 1;
                             if (p.isCamera) data.flags |= 2;
                             if (p.isSpawn) data.flags |= 4;
+                            if (p.deleted) data.flags |= 8;
 
                             if (p.physicsBody) {
                                 rp3d::RigidBody* body = (rp3d::RigidBody*)p.physicsBody;

@@ -1217,11 +1217,13 @@ bool WebsiteApp::seedStarterGames(std::string* error) {
          "server and the lap counter is a .rbx script.",
          "games/turbo-circuit.world", "games/turbo-circuit.rbx"},
         {"Doors Hotel",
-         "A horror run in the style of Doors: the script generates 100 rooms down a dark "
+         "A horror run in the style of Doors: the script builds 100 rooms down a dark "
          "corridor, each with a door that slides up when you walk into its pad and a "
          "wardrobe to hide in, while something runs past and kills anyone still standing "
-         "in the open. Reach the elevator past door 100 to survive. Driven by a .rbx "
-         "script.",
+         "in the open. The rooms are seeded, so the wardrobe side, lighting and furniture "
+         "differ from room to room but a run is the same every time, and they are built "
+         "ahead of you and taken away behind you as you go. Reach the elevator past door "
+         "100 to survive. Driven by a .rbx script.",
          "games/doors-hotel.world", "games/doors-hotel.rbx"}
     };
 

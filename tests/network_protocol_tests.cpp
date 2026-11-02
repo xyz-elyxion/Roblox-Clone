@@ -109,6 +109,27 @@ int main() {
     assert(parsed.payloadSize == 0);
     assert(!PacketProtocol::validatePayload(PacketType::VEHICLE_INPUT, nullptr, 0));
 
+    // A part the script builds after a client joined, and one it destroys there.
+    PacketPartState partState{};
+    partState.partIndex = 1512;
+    partState.data.flags = 8;
+    partState.data.size = glm::vec3(1.0f, 2.0f, 3.0f);
+    std::vector<char> partStatePacket =
+        PacketProtocol::buildStructPacket(PacketType::PART_STATE, partState);
+    assert(PacketProtocol::tryReadFrame(partStatePacket, parsed) == PacketProtocol::ParseStatus::Complete);
+    assert(parsed.type == PacketType::PART_STATE);
+    assert(parsed.payloadSize == sizeof(PacketPartState));
+    assert(!PacketProtocol::validatePayload(PacketType::PART_STATE, nullptr, 0));
+
+    PacketPartRemove partRemove{};
+    partRemove.partIndex = 7;
+    std::vector<char> partRemovePacket =
+        PacketProtocol::buildStructPacket(PacketType::PART_REMOVE, partRemove);
+    assert(PacketProtocol::tryReadFrame(partRemovePacket, parsed) == PacketProtocol::ParseStatus::Complete);
+    assert(parsed.type == PacketType::PART_REMOVE);
+    assert(parsed.payloadSize == sizeof(PacketPartRemove));
+    assert(!PacketProtocol::validatePayload(PacketType::PART_REMOVE, nullptr, 0));
+
     // A world snapshot is one frame, and the largest legal world has to fit in
     // it. A script that builds a hundred rooms sends a few hundred parts' worth
     // of data in one go, so a frame the size of a single datagram is not enough.

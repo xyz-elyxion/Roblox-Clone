@@ -98,13 +98,25 @@ inline bool namesOverlayModules(const std::string& detail) {
     return false;
 }
 
+// True for the module scan's verdict on one loaded module. Every module a process
+// loads is checked the moment it arrives, and a start-up loads dozens of them, so
+// one launch writes one line per module the scan distrusts. Filed separately,
+// six of those are already the whole ladder and a ban; they are one finding.
+inline bool isModuleSignatureDetection(const std::string& detail) {
+    return detail.find("is not signed by a trusted publisher") != std::string::npos;
+}
+
 // What a detection is filed as. One open-handle scan logs the handle, the process
 // that owns it and the scan's own summary - three lines about one event. Filing
 // them separately would let a single scan climb the whole warning-and-suspension
-// ladder, so the whole family is reported under the summary.
+// ladder, so the whole family is reported under the summary. The module scan is
+// filed the same way for the same reason.
 inline std::string canonicalDetection(const std::string& detail) {
     if (isHandleDetection(detail)) {
         return "Found open process handles to our process from other processes";
+    }
+    if (isModuleSignatureDetection(detail)) {
+        return "Loaded a module that is not signed by a trusted publisher";
     }
     return detail;
 }

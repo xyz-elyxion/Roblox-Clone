@@ -93,7 +93,23 @@ int main() {
           "a detection that names no module is kept");
 
     check(canonicalDetection("Cheat Engine is running") == "Cheat Engine is running",
-          "a detection outside the handle family keeps its own text");
+          "a detection outside the handle and module families keeps its own text");
+
+    // The module scan writes one line per module it distrusts, all at start-up.
+    const std::string firstModule =
+        "[t] [DETECTION] Module C:\\WINDOWS\\system32\\wbem\\wbemprox.dll is not signed "
+        "by a trusted publisher";
+    const std::string secondModule =
+        "[t] [DETECTION] Module C:\\WINDOWS\\SYSTEM32\\GLU32.dll is not signed by a "
+        "trusted publisher";
+    check(canonicalDetection(detectionDetail(firstModule)) ==
+              canonicalDetection(detectionDetail(secondModule)),
+          "two modules from one scan are filed as one detection");
+    check(canonicalDetection(detectionDetail(firstModule)) != detectionDetail(firstModule),
+          "the module family does not keep the path of the module it names");
+    check(canonicalDetection("Module 'ntdll.dll' was modified") ==
+              "Module 'ntdll.dll' was modified",
+          "a modified module is still its own detection");
 
     std::string longLine = "[t] [DETECTION] ";
     longLine.append(400, 'x');

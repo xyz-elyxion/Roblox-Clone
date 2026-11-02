@@ -535,16 +535,16 @@ end:
 }
 
 /*
- * @brief Retrieves the signer information from a signed file
+ * @brief Retrieves the signer of a file's embedded PKCS7 signature
  *
  * @param filePath The path to the signed file
  *
- * @return A wide string containing the subject name of the signer certificate, or an empty string if an error occurs
+ * @return A wide string containing the subject name of the signer certificate, or an empty string if the file carries no embedded signature
  *
  * @usage
- * wstring signer = Authenticode::GetSignerFromFile(L"myfile.exe");
+ * wstring signer = SignerFromEmbeddedSignature(L"myfile.exe");
  */
-std::wstring Authenticode::GetSignerFromFile(__in const std::wstring& filePath)
+static std::wstring SignerFromEmbeddedSignature(__in const std::wstring& filePath)
 {
     WCHAR szFileName[MAX_PATH];
     HCERTSTORE hStore = NULL;
@@ -690,3 +690,91 @@ std::wstring Authenticode::GetSignerFromFile(__in const std::wstring& filePath)
 
     return SubjectCert;
 }
+/*
+ * @brief Retrieves the signer of a file's catalog signature
+ *
+ * Most of the modules Windows itself loads carry no embedded certificate: the
+ * hash of the file is signed inside a .cat file under System32\CatRoot, and the
+ * file on disk has nothing to read. Asking only for the embedded signature
+ * therefore finds nothing for uxtheme.dll, GLU32.dll and the wbem*.dll set even
+ * though every one of them is signed by Microsoft, which is what made a clean
+ * machine look tampered with.
+ *
+ * @param filePath The path to the file
+ *
+ * @return The subject name of the catalog's signer, or an empty string when no
+ *         catalog lists the file at all
+ */
+static std::wstring SignerFromCatalogSignature(__in const std::wstring& filePath)
+{
+    HANDLE hFile = CreateFileW(filePath.c_str(), GENERIC_READ,
+        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, OPEN_EXISTING,
+        FILE_ATTRIBUTE_NORMAL, NULL);
+    if (hFile == INVALID_HANDLE_VALUE)
+    {
+        Logger::logfw(LogType::Err, L"Could not open file: %s @ SignerFromCatalogSignature", filePath.c_str());
+        return {};
+    }
+
+    HCATADMIN hCatAdmin = NULL;
+    if (!CryptCATAdminAcquireContext(&hCatAdmin, NULL, 0))
+    {
+        Logger::logf(LogType::Err, "CryptCATAdminAcquireContext failed with %x @ SignerFromCatalogSignature", GetLastError());
+        CloseHandle(hFile);
+        return {};
+    }
+
+    BYTE pbHash[100];
+    DWORD cbHash = sizeof(pbHash);
+    std::wstring signer;
+
+    if (CryptCATAdminCalcHashFromFileHandle(hFile, &cbHash, pbHash, 0))
+    {
+        HCATINFO hCatInfo = CryptCATAdminEnumCatalogFromHash(hCatAdmin, pbHash, cbHash, 0, NULL);
+        if (hCatInfo != NULL)
+        {
+            CATALOG_INFO CatInfo;
+            memset(&CatInfo, 0, sizeof(CatInfo));
+            CatInfo.cbStruct = sizeof(CATALOG_INFO);
+
+            if (CryptCATCatalogInfoFromContext(hCatInfo, &CatInfo, 0))
+            {
+                // A .cat file is itself a signed PKCS7 document, so the publisher
+                // of whatever Windows checked for this module is its signer.
+                signer = SignerFromEmbeddedSignature(std::wstring(CatInfo.wszCatalogFile));
+            }
+
+            CryptCATAdminReleaseCatalogContext(hCatAdmin, hCatInfo, 0);
+        }
+    }
+
+    CryptCATAdminReleaseContext(hCatAdmin, 0);
+    CloseHandle(hFile);
+
+    return signer;
+}
+
+/*
+ * @brief Retrieves the signer information from a signed file
+ *
+ * @param filePath The path to the signed file
+ *
+ * @return A wide string containing the subject name of the signer certificate,
+ *         or an empty string if the file is not signed at all
+ *
+ * @usage
+ * wstring signer = Authenticode::GetSignerFromFile(L"myfile.exe");
+ */
+std::wstring Authenticode::GetSignerFromFile(__in const std::wstring& filePath)
+{
+    std::wstring subject = SignerFromEmbeddedSignature(filePath);
+    if (!subject.empty())
+    {
+        return subject;
+    }
+
+    // No certificate inside the file means Windows signed it through a catalog,
+    // which is how most of the operating system's own modules are signed.
+    return SignerFromCatalogSignature(filePath);
+}
+

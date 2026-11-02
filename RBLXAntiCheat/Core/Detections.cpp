@@ -130,7 +130,43 @@ VOID CALLBACK Detections::OnDllNotification(ULONG NotificationReason, const PLDR
     CheckDLLSignature - checks the signatures of any newly loaded modules
 */
 /*
-    IsAllowedModuleSignature - a module has to be signed by Microsoft, or by a publisher named below
+    IsUnderWindowsDirectory - true for a module Windows itself put on the disk
+
+    Only an administrator and Windows Update can write under %SystemRoot%, and the graphics, audio and
+    chipset vendors install their own user-mode libraries there: opengl32.dll pulls the card's driver
+    out of DriverStore into every process that presents a frame. Those carry the vendor's signature
+    (AMD, Intel, NVIDIA, Realtek), not Microsoft's, so a machine with any of that hardware would be
+    reported for having a driver unless the directory is taken into account.
+*/
+static bool IsUnderWindowsDirectory(__in const std::wstring& modulePath)
+{
+    wchar_t WindowsDirectory[MAX_PATH] = { 0 };
+    const UINT Length = GetWindowsDirectoryW(WindowsDirectory, MAX_PATH);
+    if (Length == 0 || Length >= MAX_PATH)
+    {
+        return false;
+    }
+
+    std::wstring Prefix(WindowsDirectory, Length);
+    if (Prefix.back() != L'\\')
+    {
+        Prefix.push_back(L'\\'); //the trailing separator keeps C:\Windows.old from matching
+    }
+
+    if (modulePath.size() < Prefix.size())
+    {
+        return false;
+    }
+
+    //CompareStringOrdinal is the one comparison that takes the length and ignores case, so a
+    //module whose path the loader wrote in another case still counts as being in the directory
+    return CompareStringOrdinal(modulePath.c_str(), static_cast<int>(Prefix.size()),
+        Prefix.c_str(), static_cast<int>(Prefix.size()), TRUE) == CSTR_EQUAL;
+}
+
+/*
+    IsAllowedModuleSignature - a module has to be signed by Microsoft, by a publisher named below, or by
+    its vendor if it came out of the Windows directory
 
     Windows can be asked to load Microsoft-signed images only (PROCESS_MITIGATION_BINARY_SIGNATURE_POLICY),
     but the loader applies that to every module in the process, it cannot except a single publisher, and
@@ -161,6 +197,15 @@ bool Detections::IsAllowedModuleSignature(__in const std::wstring& modulePath)
         {
             return true;
         }
+    }
+
+    // A signature that is valid but belongs to somebody else is the normal state of a driver vendor's
+    // library, and every one of those lives under the Windows directory. Anywhere else the publisher
+    // still has to be Microsoft or one named above, so a signed cheat injected from a temp or game
+    // folder is still reported. An unsigned module is refused above whatever directory it sits in.
+    if (IsUnderWindowsDirectory(modulePath))
+    {
+        return true;
     }
 
     Logger::logfw(Warning, L"Module %s is signed by %s, which is not trusted here", modulePath.c_str(), subject.c_str());

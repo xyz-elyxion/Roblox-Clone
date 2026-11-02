@@ -29,7 +29,8 @@ enum class PacketType : uint8_t {
     VEHICLE_INPUT = 13,
     VEHICLE_TOGGLE = 14,
     PART_STATE = 15,
-    PART_REMOVE = 16
+    PART_REMOVE = 16,
+    WORLD_ENVIRONMENT = 17
 };
 
 #pragma pack(push, 1)
@@ -168,19 +169,31 @@ struct PacketPartRemove {
     int partIndex;
 };
 
+// 11. World Environment (Server -> Client): how the world's air looks. The
+// client never reads a .world file - it joins a server and is given the parts -
+// so fog has to be sent the same way. Sent once, next to the welcome.
+//
+// The colour is sRGB like a part colour, and the density is per stud: the haze
+// thickens until it is 1 - exp(-(distance * density)^2), so 0 is no fog at all.
+struct PacketWorldEnvironment {
+    glm::vec3 fogColor;
+    float fogDensity;
+};
+
 #pragma pack(pop)
 
 namespace PacketProtocol {
     // Bumped whenever a packet layout or its meaning changes. Sent in the
     // handshake next to `kPacketLayoutSignature` so two differently built
     // binaries fail with an explanation instead of silently misparsing.
-    constexpr uint16_t kProtocolRevision = 8;
+    constexpr uint16_t kProtocolRevision = 9;
 
     constexpr uint16_t packetLayoutSignature() {
         return static_cast<uint16_t>(sizeof(PacketConnect) * 31u + sizeof(PacketWelcome) * 17u +
                                      sizeof(PacketPlayerState) * 13u +
                                      sizeof(PacketPlayerJoin) * 7u + sizeof(PacketChat) * 3u +
                                      sizeof(PacketPlayerHealth) * 11u +
+                                     sizeof(PacketWorldEnvironment) * 3u +
                                      sizeof(PacketVehicleState) * 13u +
                                      sizeof(PacketVehicleInput) * 7u +
                                      sizeof(PlayerInfo) * 5u);
@@ -237,6 +250,7 @@ namespace PacketProtocol {
             case PacketType::VEHICLE_TOGGLE:
             case PacketType::PART_STATE:
             case PacketType::PART_REMOVE:
+            case PacketType::WORLD_ENVIRONMENT:
                 return true;
             default:
                 return false;
@@ -270,6 +284,8 @@ namespace PacketProtocol {
                 return payloadSize == sizeof(PacketPartState);
             case PacketType::PART_REMOVE:
                 return payloadSize == sizeof(PacketPartRemove);
+            case PacketType::WORLD_ENVIRONMENT:
+                return payloadSize == sizeof(PacketWorldEnvironment);
             case PacketType::PLAYER_JOIN:
                 return payloadSize == sizeof(PacketPlayerJoin);
             case PacketType::PLAYER_LEAVE:

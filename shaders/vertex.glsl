@@ -17,6 +17,7 @@ out float Alpha;
 out vec3 LocalPos; // Pass local position to fragment shader
 out vec3 LocalNormal; // Pass local normal for stud detection
 out mat3 LocalBasis; // Local axes in world space, for stud normals
+out float FogDepth; // How far this vertex is from the eye, in studs
 
 void main() {
     LocalPos = aPos; // Store local position before model transform
@@ -28,4 +29,5 @@ void main() {
     gl_Position = projection * view * vec4(FragPos, 1.0);
     PartColor = color;
     Alpha = 1.0 - transparency;
+    FogDepth = length((view * vec4(FragPos, 1.0)).xyz);
 }

@@ -130,6 +130,20 @@ int main() {
     assert(parsed.payloadSize == sizeof(PacketPartRemove));
     assert(!PacketProtocol::validatePayload(PacketType::PART_REMOVE, nullptr, 0));
 
+    // The world's air, which the client cannot read from a .world file because
+    // it is only ever given the parts, so the server sends it on join.
+    PacketWorldEnvironment environment{};
+    environment.fogColor = glm::vec3(0.04f, 0.04f, 0.05f);
+    environment.fogDensity = 0.032f;
+    std::vector<char> environmentPacket =
+        PacketProtocol::buildStructPacket(PacketType::WORLD_ENVIRONMENT, environment);
+    assert(PacketProtocol::tryReadFrame(environmentPacket, parsed) == PacketProtocol::ParseStatus::Complete);
+    assert(parsed.type == PacketType::WORLD_ENVIRONMENT);
+    assert(parsed.payloadSize == sizeof(PacketWorldEnvironment));
+    assert(!PacketProtocol::validatePayload(PacketType::WORLD_ENVIRONMENT, nullptr, 0));
+    assert(!PacketProtocol::validatePayload(PacketType::WORLD_ENVIRONMENT, environmentPacket.data(),
+                                            static_cast<uint32_t>(sizeof(PacketWorldEnvironment) - 1)));
+
     // A world snapshot is one frame, and the largest legal world has to fit in
     // it. A script that builds a hundred rooms sends a few hundred parts' worth
     // of data in one go, so a frame the size of a single datagram is not enough.

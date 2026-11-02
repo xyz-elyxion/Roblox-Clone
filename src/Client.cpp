@@ -961,6 +961,12 @@ std::string openFileDialog(GLFWwindow* window) {
 #endif
 }
 
+// The air of the world this client is in. The server sends it on join, because a
+// client is only ever given parts and never the .world file they were read from.
+// A density of 0 means the world has no fog.
+glm::vec3 fogColor(0.0f);
+float fogDensity = 0.0f;
+
 void copyArgument(char* destination, size_t destinationSize, const char* value) {
     if (!destination || destinationSize == 0 || !value) return;
     std::memset(destination, 0, destinationSize);
@@ -2050,6 +2056,19 @@ int main(int argc, char** argv) {
                             }
                         }
                         
+                        // How the world's air looks. Sent with the welcome, so
+                        // it is here before the first part is drawn.
+                        if (header->type == PacketType::WORLD_ENVIRONMENT) {
+                            if (header->size != sizeof(PacketWorldEnvironment)) {
+                                std::cerr << "ERROR: Invalid WORLD_ENVIRONMENT packet size" << std::endl;
+                            } else {
+                                const PacketWorldEnvironment* environment =
+                                    (const PacketWorldEnvironment*)(packetBuffer + offset + sizeof(PacketHeader));
+                                fogColor = glm::vec3(glm::clamp(environment->fogColor, glm::vec3(0.0f), glm::vec3(1.0f)));
+                                fogDensity = std::clamp(environment->fogDensity, 0.0f, 0.2f);
+                            }
+                        }
+
                         // Parts the script built for this player. The join
                         // snapshot only describes the world as it was then, so a
                         // hotel that builds its rooms as the player walks sends
@@ -2420,6 +2439,8 @@ int main(int argc, char** argv) {
                  renderer.shader->use();
                  renderer.shader->setInt("skybox", 0); 
                  renderer.shader->setVec3("lightPos", lightPos);
+                 renderer.shader->setVec3("fogColor", fogColor);
+                 renderer.shader->setFloat("fogDensity", fogDensity);
             }
 
             // Only render if we have parts and camera is valid

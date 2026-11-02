@@ -9,6 +9,7 @@ in float Alpha;
 in vec3 LocalPos;
 in vec3 LocalNormal;
 in mat3 LocalBasis;
+in float FogDepth;
 
 uniform vec3 viewPos;
 uniform float reflectance;
@@ -22,6 +23,11 @@ uniform float isCamera;  // Flag for camera part visualization
 uniform float material;  // Material enum value, see Material in include/Part.h
 uniform sampler2D partTexture; // Tiled image, when the part names one
 uniform float hasPartTexture;
+
+// The world's air, sent by the server with the world. The density is per stud and
+// zero in a world that has no fog, which leaves every part exactly as it was.
+uniform vec3 fogColor;
+uniform float fogDensity;
 
 // Material ids, mirroring the Material enum.
 const float MAT_PLASTIC = 0.0;
@@ -300,6 +306,14 @@ void main() {
             }
         }
     }
+
+    // --- Fog ---
+    // Distance haze, mixed in linear light like the rest of the lighting so a
+    // dark room fades into the colour the world asked for instead of into a
+    // grey that depends on the sky. Zero density is a no-op, which is what keeps
+    // every other game unchanged.
+    float fogFactor = clamp(1.0 - exp(-pow(FogDepth * fogDensity, 2.0)), 0.0, 1.0);
+    finalColor = mix(finalColor, toLinear(fogColor), fogFactor);
 
     FragColor = vec4(clamp(toSrgb(finalColor), 0.0, 1.0), Alpha);
 }

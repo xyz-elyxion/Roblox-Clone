@@ -31,7 +31,8 @@ bool isBlankLine(const std::string& line) {
 }
 } // namespace
 
-void WorldLoader::loadWorld(const std::string& filename, std::deque<Part>& parts, PhysicsWorld& physicsWorld) {
+void WorldLoader::loadWorld(const std::string& filename, std::deque<Part>& parts, PhysicsWorld& physicsWorld,
+                            WorldEnvironment* environment) {
     std::ifstream in(filename);
     if (!in.is_open()) {
         std::cerr << "Failed to open world file: " << filename << std::endl;
@@ -50,12 +51,34 @@ void WorldLoader::loadWorld(const std::string& filename, std::deque<Part>& parts
     }
 
     std::size_t count = 0;
+    glm::vec3 headerFogColor(0.0f);
+    float headerFogDensity = 0.0f;
     {
         std::istringstream headerStream(headerLine);
         if (!(headerStream >> count)) {
             std::cerr << "Malformed world file header: " << filename << std::endl;
             return;
         }
+
+        // Optional trailing fields on the header line: the fog colour and how
+        // thick it is per stud. A world with no fog stops after the count, so
+        // the old header keeps its old meaning.
+        if (headerStream >> headerFogColor.x >> headerFogColor.y >> headerFogColor.z >>
+                headerFogDensity) {
+            if (std::isfinite(headerFogColor.x) && std::isfinite(headerFogColor.y) &&
+                std::isfinite(headerFogColor.z) && std::isfinite(headerFogDensity)) {
+                headerFogColor = glm::clamp(headerFogColor, glm::vec3(0.0f), glm::vec3(1.0f));
+                headerFogDensity = std::clamp(headerFogDensity, 0.0f, 0.2f);
+            } else {
+                headerFogColor = glm::vec3(0.0f);
+                headerFogDensity = 0.0f;
+            }
+        }
+    }
+
+    if (environment) {
+        environment->fogColor = headerFogColor;
+        environment->fogDensity = headerFogDensity;
     }
 
     if (count > kMaxParts) {

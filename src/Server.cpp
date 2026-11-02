@@ -149,6 +149,10 @@ std::vector<uint8_t> announcedPartRemovals;
 // announced again in full, which a client applies to the part it already has.
 std::vector<PartData> announcedPartLooks;
 
+// The world's air. It belongs to the world, but the client never sees a .world
+// file, so it is sent to every player as part of joining.
+WorldEnvironment serverEnvironment;
+
 // The driving game's car. A part named "Car" in the world is the vehicle: the
 // server integrates it and every client follows the packets, so the car cannot
 // be teleported by a modified client any more than a character can.
@@ -1100,6 +1104,14 @@ void updateVehicle(float dt, uint64_t nowMs) {
     broadcastVehicleState();
 }
 
+static void sendWorldEnvironment(ConnectedPlayer& player) {
+    PacketWorldEnvironment environment;
+    std::memset(&environment, 0, sizeof(environment));
+    environment.fogColor = serverEnvironment.fogColor;
+    environment.fogDensity = serverEnvironment.fogDensity;
+    sendToPlayer(player, PacketProtocol::buildStructPacket(PacketType::WORLD_ENVIRONMENT, environment), true);
+}
+
 static int runServer(int argc, char** argv) {
     // The website redirects this output into game-server-<port>.log. Without this
     // the C runtime buffers it, so the file stays empty until the process exits
@@ -1151,8 +1163,12 @@ static int runServer(int argc, char** argv) {
     // building physics bodies and cannot answer anything.
 
     // Load Server World
-    WorldLoader::loadWorld(worldPath, serverParts, serverPhysicsWorld);
-    std::cout << "Loaded ServerWorld with " << serverParts.size() << " parts." << std::endl;
+    WorldLoader::loadWorld(worldPath, serverParts, serverPhysicsWorld, &serverEnvironment);
+    std::cout << "Loaded ServerWorld with " << serverParts.size() << " parts";
+    if (serverEnvironment.fogDensity > 0.0f) {
+        std::cout << " and fog at density " << serverEnvironment.fogDensity;
+    }
+    std::cout << "." << std::endl;
 
     if (!scriptPath.empty()) {
         std::ifstream scriptFile(scriptPath, std::ios::binary);
@@ -1461,6 +1477,7 @@ static int runServer(int argc, char** argv) {
                                 id, PacketProtocol::kProtocolRevision,
                                 PacketProtocol::packetLayoutSignature() };
                             sendToPlayer(player, PacketProtocol::buildStructPacket(PacketType::WELCOME, repeatedWelcome), true);
+                            sendWorldEnvironment(player);
                             continue;
                         }
 
@@ -1585,6 +1602,10 @@ static int runServer(int argc, char** argv) {
                             shouldDisconnect = true;
                             break;
                         }
+
+                        // Before the snapshot, so the first frame drawn is
+                        // already looking through the world's air.
+                        sendWorldEnvironment(player);
 
                         std::vector<PartData> worldData;
                         worldData.reserve(std::min<size_t>(serverParts.size(), PacketProtocol::MAX_WORLD_PARTS));

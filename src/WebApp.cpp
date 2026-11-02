@@ -92,6 +92,10 @@ namespace web {
 namespace {
 
 const char* kDefaultGameIcon = "/assets/games/default-game-icon.png";
+
+// A game's script is source a person writes, so it stays small; the cap keeps a
+// paste from filling the install's disk, and the editor reads it to show the limit.
+const std::size_t kMaxGameScriptBytes = 256 * 1024;
 const char* kDefaultGameBanner = "/assets/games/default-game-banner.png";
 const long long kMaxWorldBytes = 2 * 1024 * 1024;
 
@@ -786,6 +790,9 @@ std::string pageFileForPath(const std::string& path) {
     }
     if (path == "/create") {
         return "create.html";
+    }
+    if (path == "/editor") {
+        return "editor.html";
     }
     if (path == "/profile") {
         return "profile.html";
@@ -1836,6 +1843,14 @@ void WebsiteApp::installRoutes() {
                   }));
     server_.route("PUT", "/api/games/:id", guard([this](Request& request, Response& response) {
                       return handleUpdateGame(request, response);
+                  }));
+    server_.route("GET", "/api/games/:id/script",
+                  guard([this](Request& request, Response& response) {
+                      return handleGetGameScript(request, response);
+                  }));
+    server_.route("PUT", "/api/games/:id/script",
+                  guard([this](Request& request, Response& response) {
+                      return handlePutGameScript(request, response);
                   }));
     server_.route("POST", "/api/games/:id/play",
                   guard([this](Request& request, Response& response) {
@@ -3250,6 +3265,99 @@ bool WebsiteApp::handleUpdateGame(Request& request, Response& response) {
     Json result = Json::makeObject();
     result.set("success", true);
     result.set("game", gameJson(updated, true));
+    sendJson(response, 200, result);
+    return true;
+}
+
+// The script a game runs is a .rbx file on disk, seeded beside the world for the
+// bundled games and written here for a game somebody published. The website edits
+// that same file, so a save is what the game server loads on the next run and the
+// owner never has to re-upload a game to change one line of it.
+bool WebsiteApp::handleGetGameScript(Request& request, Response& response) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    AuthUser user;
+    if (!requireAuth(request, response, &user)) {
+        return true;
+    }
+    const int gameId = parseUserId(request.param("id"));
+    const GameRecord* game = gameId > 0 ? store_.findGame(gameId) : nullptr;
+    // Another account gets the same answer as a game that does not exist: a
+    // private game's script should not be discoverable through this route.
+    if (game == nullptr || game->ownerId != user.id) {
+        errorJson(response, 404, "Game not found.");
+        return true;
+    }
+
+    std::string text;
+    if (!game->scriptPath.empty()) {
+        readWholeFile(game->scriptPath, &text);
+    }
+
+    Json result = Json::makeObject();
+    result.set("success", true);
+    result.set("gameId", game->id);
+    result.set("title", game->title);
+    result.set("text", text);
+    result.set("limit", static_cast<long long>(kMaxGameScriptBytes));
+    sendJson(response, 200, result);
+    return true;
+}
+
+bool WebsiteApp::handlePutGameScript(Request& request, Response& response) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    AuthUser user;
+    if (!requireAuth(request, response, &user)) {
+        return true;
+    }
+    const int gameId = parseUserId(request.param("id"));
+    const GameRecord* game = gameId > 0 ? store_.findGame(gameId) : nullptr;
+    if (game == nullptr || game->ownerId != user.id) {
+        errorJson(response, 404, "Game not found.");
+        return true;
+    }
+
+    Json body;
+    if (!parseJsonBody(request, &body, response)) {
+        return true;
+    }
+    const std::string text = body.member("text").asString();
+    if (text.size() > kMaxGameScriptBytes) {
+        errorJson(response, 413, "A script can be at most 256 KB.");
+        return true;
+    }
+    if (text.find('\0') != std::string::npos) {
+        errorJson(response, 400, "A script is text, so it cannot hold a null byte.");
+        return true;
+    }
+
+    GameRecord record = *game;
+    // The first save names the file after the game; later saves rewrite that same
+    // path, so the argument a running game server was launched with stays valid.
+    if (record.scriptPath.empty()) {
+        makeDirectories(config_.gameWorldsDir);
+        record.scriptPath =
+            joinPath(config_.gameWorldsDir, "game-" + std::to_string(record.id) + ".rbx");
+    }
+    if (!writeWholeFile(record.scriptPath, text)) {
+        errorJson(response, 500, "Could not write the script file.");
+        return true;
+    }
+    record.updatedAt = nowIso();
+    store_.updateGame(record);
+    std::string saveError;
+    if (!store_.save(&saveError)) {
+        errorJson(response, 500, saveError.empty() ? "Could not save the change." : saveError);
+        return true;
+    }
+
+    std::fprintf(stdout, "  script [%s] %zu bytes saved by %s\n", record.title.c_str(),
+                 text.size(), user.username.c_str());
+
+    Json result = Json::makeObject();
+    result.set("success", true);
+    result.set("gameId", record.id);
+    result.set("bytes", static_cast<long long>(text.size()));
+    result.set("savedAt", record.updatedAt);
     sendJson(response, 200, result);
     return true;
 }

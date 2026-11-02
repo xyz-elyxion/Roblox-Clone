@@ -219,6 +219,10 @@ private:
     bool handlePublishGame(Request& request, Response& response);
     bool handleGetGame(Request& request, Response& response);
     bool handleUpdateGame(Request& request, Response& response);
+    // The .rbx script the game server loads beside the world, as the website's
+    // code editor reads and saves it.
+    bool handleGetGameScript(Request& request, Response& response);
+    bool handlePutGameScript(Request& request, Response& response);
     bool handleGameServers(Request& request, Response& response);
     bool handlePlayGame(Request& request, Response& response);
     bool handleClientReport(Request& request, Response& response);

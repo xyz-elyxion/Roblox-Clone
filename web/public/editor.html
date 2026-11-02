@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Code editor - RBLX Clone</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <div class="page" data-editor-page>
+        <header class="topbar">
+            <a class="brand" href="/" aria-label="RBLX Clone home">
+                <span>RBLX Clone</span>
+            </a>
+            <nav class="nav" aria-label="Primary">
+                <a href="/dashboard" data-nav-user hidden>Home</a>
+                <a href="/games">Games</a>
+                <a href="/create" data-nav-user hidden>Create</a>
+                <a href="/editor" data-nav-user hidden>Code</a>
+                <a href="/dashboard#search" data-nav-user hidden>Search</a>
+                <a href="/avatar" data-nav-user hidden>Avatar</a>
+                <a href="/profile" data-nav-user hidden>Profile</a>
+                <a href="/settings" data-nav-user hidden>Settings</a>
+                <a href="/admin" data-admin-only data-nav-user hidden>Admin</a>
+                <a href="/login" data-nav-guest>Login</a>
+                <a href="/signup" data-nav-guest>Sign up</a>
+                <button class="button danger" type="button" data-logout data-nav-user hidden>Logout</button>
+            </nav>
+        </header>
+
+        <main id="main">
+            <div class="dashboard-head">
+                <div>
+                    <p class="label">Code</p>
+                    <h1 class="page-title" data-editor-title>Script editor</h1>
+                </div>
+                <div class="editor-actions">
+                    <button class="button secondary" type="button" data-editor-reload>Reload</button>
+                    <button class="button" type="button" data-editor-save>Save</button>
+                </div>
+            </div>
+
+            <p class="lede">
+                This page edits the <code>.rbx</code> script your game runs, the same file the game server
+                loads beside its world. Saving writes that file, so the next run plays what you saved. It is
+                not the Studio: running and debugging a script still happen there.
+            </p>
+
+            <section class="panel editor-panel">
+                <div class="editor-bar">
+                    <label class="editor-picker">
+                        <span>Game</span>
+                        <select class="input" data-editor-game aria-label="Game to edit"></select>
+                    </label>
+                    <span class="editor-meta" data-editor-cursor>Ln 1, Col 1</span>
+                    <span class="editor-meta" data-editor-state data-dirty="false">Saved</span>
+                    <span class="editor-meta" data-editor-limit></span>
+                </div>
+                <div class="status" data-editor-status aria-live="polite"></div>
+                <div class="code-editor">
+                    <pre class="code-gutter" data-editor-gutter aria-hidden="true">1</pre>
+                    <textarea class="code-input" data-editor-text wrap="off" spellcheck="false"
+                        autocapitalize="off" autocomplete="off" aria-label="Game script"></textarea>
+                </div>
+                <p class="editor-hint">
+                    Tab indents two spaces, Enter keeps the line's indentation, Ctrl+S (or Cmd+S) saves.
+                    256 KB limit.
+                </p>
+            </section>
+        </main>
+        <footer class="legal-footer">
+            <span>RBLX Clone · local prototype</span>
+            <nav aria-label="Legal">
+                <a href="/privacy">Privacy</a>
+                <a href="/terms">Terms</a>
+            </nav>
+        </footer>
+    </div>
+    <script src="/app.js?v=standing-2" defer></script>
+</body>
+</html>

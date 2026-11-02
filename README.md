@@ -309,6 +309,24 @@ The catalog is `include/AvatarItems.h`, so the shop, the web preview and the 3D 
 from the same size, colour and offset. In the client the hat is a posed part that follows the head
 every frame, so it moves with the walk and breathing animation. The hat travels in the player list the game server sends, so the other players in your game see it too; an id this build's catalog does not know is dropped rather than drawn.
 
+## Script Editor
+
+`/editor` is the website's code editor for a game's `.rbx` script - the file the game server loads
+beside the world, which is what makes a game's parts move. It is for game code rather than the engine's
+own sources, and it is not a second Studio: running and debugging a script still happen in the desktop
+Studio, while this page opens the file a published game will run. It has a game picker, line numbers,
+`Tab` indentation, `Enter` that keeps the current indentation, `Ctrl+S` (or `Cmd+S`) to save, the line
+and column under the cursor, and the size limit; an unsaved buffer is marked and leaving the page with
+one asks first. The creator page links straight to it, with the game already selected.
+
+`GET /api/games/:id/script` returns the owner's script text and the limit, and
+`PUT /api/games/:id/script` with `{ "text": "..." }` writes it back in place. The first save names the
+file after the game (`game-<id>.rbx` in the game-worlds directory) and stores that path on the game;
+later saves rewrite the same path, so the file a game server was launched with never changes under it.
+A script is capped at 256 KB, both routes are owner-only (anybody else gets `404`, so a private game's
+existence is not revealed through them), and a game seeded from a starter game keeps its own copy of
+the script, so editing it never touches the bundled original.
+
 ## Admin Dashboard
 
 `/admin` shows the local install at a glance: account, game, live server, launch and playtime totals,
@@ -394,6 +412,8 @@ Games:
 
 - `GET /api/games` lists public games for the games page.
 - `GET /api/games/:id` returns game details, world stats, and active local instances.
+- `GET /api/games/:id/script` with the owner's token returns the game's `.rbx` script and the 256 KB limit.
+- `PUT /api/games/:id/script` with `{ "text": "..." }` (owner only) saves the script to the file the game server loads.
 - `GET /api/games/mine` with `Authorization: Bearer <token>` lists your published games.
 - `POST /api/games` with `Authorization: Bearer <token>` and `{ "title": "...", "description": "...", "isPublic": true, "worldText": "..." }` publishes a world file.
 - `GET /api/account/standing` returns the caller's own standing, its infraction record and its appeals; `POST /api/account/appeal` with `{ "message": "..." }` files one while the account is restricted.

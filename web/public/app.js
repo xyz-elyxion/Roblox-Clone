@@ -1515,7 +1515,14 @@ function createMyGameRow(game) {
     meta.textContent = `${game.isPublic ? 'Public' : 'Private'} - ${formatGameCount(game.stats?.partsCount, 'part', 'parts')} - Updated ${formatDate(game.updatedAt)}`;
     text.append(title, meta);
 
-    row.append(icon, text);
+    // The script is what makes a game move, so the creator's own list is the
+    // shortest way into the website's editor.
+    const code = document.createElement('a');
+    code.className = 'game-code-link';
+    code.href = `/editor?game=${game.id}`;
+    code.textContent = 'Code';
+
+    row.append(icon, text, code);
     return row;
 }
 
@@ -1589,6 +1596,211 @@ function initCreateGamePage() {
             submit.textContent = 'Publish game';
         }
     });
+}
+
+// The website's editor edits the .rbx script a game runs, not the engine's own
+// sources: it loads the file the game server is launched with and saves back to
+// it, so a fix lands in the next run without opening the desktop Studio.
+function initEditorPage() {
+    const root = document.querySelector('[data-editor-page]');
+    if (!root) return;
+
+    const picker = document.querySelector('[data-editor-game]');
+    const text = document.querySelector('[data-editor-text]');
+    const gutter = document.querySelector('[data-editor-gutter]');
+    const status = document.querySelector('[data-editor-status]');
+    const cursor = document.querySelector('[data-editor-cursor]');
+    const state = document.querySelector('[data-editor-state]');
+    const limit = document.querySelector('[data-editor-limit]');
+    const title = document.querySelector('[data-editor-title]');
+    const saveButton = document.querySelector('[data-editor-save]');
+    const reloadButton = document.querySelector('[data-editor-reload]');
+
+    let current = 0;
+    let dirty = false;
+    let maxBytes = 0;
+
+    function setDirty(value) {
+        dirty = value;
+        if (!state) return;
+        state.textContent = value ? 'Unsaved changes' : 'Saved';
+        state.dataset.dirty = value ? 'true' : 'false';
+    }
+
+    function renderCursor() {
+        if (!cursor) return;
+        const before = text.value.slice(0, text.selectionStart);
+        const lines = before.split('\n');
+        cursor.textContent = `Ln ${lines.length}, Col ${lines[lines.length - 1].length + 1}`;
+    }
+
+    // The gutter is its own element so the line numbers stay aligned while the
+    // text scrolls; the textarea does not wrap, which is what keeps them honest.
+    function renderGutter() {
+        if (!gutter) return;
+        const count = text.value.split('\n').length;
+        let numbers = '';
+        for (let line = 1; line <= count; line += 1) numbers += `${line}\n`;
+        gutter.textContent = numbers;
+        gutter.scrollTop = text.scrollTop;
+    }
+
+    function render() {
+        renderGutter();
+        renderCursor();
+    }
+
+    async function loadScript(gameId) {
+        if (!gameId) {
+            text.value = '';
+            render();
+            return;
+        }
+        setStatus(status, 'Loading script', '');
+        const { response, data } = await getJson(`/api/games/${gameId}/script`, getToken());
+        if (!response.ok || !data.success) {
+            setStatus(status, data.error || 'Could not load the script.', 'error');
+            return;
+        }
+        current = data.gameId;
+        text.value = data.text || '';
+        maxBytes = Number(data.limit) || 0;
+        if (title) title.textContent = data.title;
+        if (limit) limit.textContent = maxBytes ? `${Math.round(maxBytes / 1024)} KB limit` : '';
+        setDirty(false);
+        render();
+        setStatus(status, text.value
+            ? 'Loaded from the server.'
+            : 'This game has no script yet; saving makes one.', '');
+    }
+
+    async function saveScript() {
+        if (!current) return;
+        if (maxBytes && text.value.length > maxBytes) {
+            setStatus(status, `This script is over the ${Math.round(maxBytes / 1024)} KB limit.`, 'error');
+            return;
+        }
+        saveButton.disabled = true;
+        saveButton.textContent = 'Saving';
+        try {
+            const response = await fetch(`/api/games/${current}/script`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${getToken()}`
+                },
+                body: JSON.stringify({ text: text.value })
+            });
+            const data = await response.json();
+            if (!response.ok || !data.success) throw new Error(data.error || 'Could not save the script.');
+            setDirty(false);
+            setStatus(status, `Saved ${formatGameCount(data.bytes, 'byte', 'bytes')}.`, 'success');
+        } catch (error) {
+            setStatus(status, error.message || 'Could not save the script.', 'error');
+        } finally {
+            saveButton.disabled = false;
+            saveButton.textContent = 'Save';
+        }
+    }
+
+    function discardConfirmed() {
+        return !dirty || window.confirm('Discard the unsaved changes?');
+    }
+
+    picker.addEventListener('change', () => {
+        if (!discardConfirmed()) {
+            picker.value = String(current);
+            return;
+        }
+        loadScript(Number(picker.value)).catch((error) => {
+            setStatus(status, error.message || 'Could not load the script.', 'error');
+        });
+        window.history.replaceState(null, '', `/editor?game=${picker.value}`);
+    });
+
+    text.addEventListener('input', () => {
+        setDirty(true);
+        render();
+    });
+    text.addEventListener('scroll', () => {
+        if (gutter) gutter.scrollTop = text.scrollTop;
+    });
+    for (const event of ['click', 'keyup', 'select']) {
+        text.addEventListener(event, renderCursor);
+    }
+    text.addEventListener('keydown', (event) => {
+        if (event.key === 'Tab') {
+            event.preventDefault();
+            text.setRangeText('  ', text.selectionStart, text.selectionEnd, 'end');
+            setDirty(true);
+            render();
+            return;
+        }
+        if (event.key === 'Enter') {
+            const start = text.selectionStart;
+            const lineStart = text.value.lastIndexOf('\n', start - 1) + 1;
+            const match = text.value.slice(lineStart, start).match(/^[ \t]*/);
+            const indent = match ? match[0] : '';
+            if (indent) {
+                event.preventDefault();
+                text.setRangeText(`\n${indent}`, start, text.selectionEnd, 'end');
+                setDirty(true);
+                render();
+            }
+            return;
+        }
+        if (event.key === 's' && (event.ctrlKey || event.metaKey)) {
+            event.preventDefault();
+            saveScript().catch(() => {});
+        }
+    });
+
+    saveButton.addEventListener('click', () => {
+        saveScript().catch(() => {});
+    });
+    reloadButton.addEventListener('click', () => {
+        if (!discardConfirmed()) return;
+        loadScript(current).catch((error) => {
+            setStatus(status, error.message || 'Could not load the script.', 'error');
+        });
+    });
+    window.addEventListener('beforeunload', (event) => {
+        if (!dirty) return;
+        event.preventDefault();
+        event.returnValue = '';
+    });
+
+    requireSession()
+        .then(async (session) => {
+            if (!session) return;
+            const { response, data } = await getJson('/api/games/mine', getToken());
+            if (!response.ok || !data.success) {
+                throw new Error(data.error || 'Could not load your games.');
+            }
+            const games = data.games || [];
+            picker.innerHTML = '';
+            for (const game of games) {
+                const option = document.createElement('option');
+                option.value = String(game.id);
+                option.textContent = game.title;
+                picker.appendChild(option);
+            }
+            if (games.length === 0) {
+                picker.disabled = true;
+                text.disabled = true;
+                saveButton.disabled = true;
+                reloadButton.disabled = true;
+                setStatus(status, 'Publish a game first; its script can be edited here after that.', '');
+                return;
+            }
+            const requested = Number(new URLSearchParams(window.location.search).get('game'));
+            const chosen = games.some((game) => game.id === requested) ? requested : games[0].id;
+            picker.value = String(chosen);
+            await loadScript(chosen);
+        })
+        .catch((error) => {
+            setStatus(status, error.message || 'Could not load the editor.', 'error');
+        });
 }
 
 function selectedGameId() {
@@ -2722,6 +2934,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initAvatar();
     initGamesPage();
     initCreateGamePage();
+    initEditorPage();
     initGamePage();
     initAdminPage();
     initSettings();

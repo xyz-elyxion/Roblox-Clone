@@ -798,6 +798,105 @@ input {
     padding: 0.15rem 0.35rem;
 }
 
+/* The website's script editor. The gutter is a separate element from the
+   textarea, so both keep the same monospace line height and no wrapping. */
+.editor-panel {
+    padding: var(--space-3);
+}
+
+.editor-actions {
+    display: flex;
+    gap: var(--space-2);
+}
+
+.editor-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-3);
+    margin-bottom: var(--space-2);
+}
+
+.editor-picker {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+    font-weight: 800;
+}
+
+.editor-picker .input {
+    width: auto;
+    min-width: 12rem;
+    padding: 0.35rem 0.5rem;
+}
+
+.editor-meta {
+    color: var(--muted);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.85rem;
+}
+
+.editor-meta[data-dirty="true"] {
+    color: var(--danger);
+    font-weight: 800;
+}
+
+.code-editor {
+    display: flex;
+    height: 60vh;
+    min-height: 22rem;
+    border: 2px solid var(--line);
+    background: var(--panel-alt);
+    overflow: hidden;
+}
+
+.code-gutter {
+    margin: 0;
+    padding: 0.75rem 0.6rem;
+    border-right: 2px solid var(--soft-line);
+    color: var(--muted);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.9rem;
+    line-height: 1.5;
+    text-align: right;
+    user-select: none;
+    overflow: hidden;
+}
+
+.code-input {
+    flex: 1;
+    min-width: 0;
+    margin: 0;
+    padding: 0.75rem 0.9rem;
+    border: 0;
+    resize: none;
+    background: var(--panel);
+    color: var(--fg);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.9rem;
+    line-height: 1.5;
+    tab-size: 2;
+    white-space: pre;
+    overflow: auto;
+}
+
+.code-input:focus {
+    outline: 2px solid var(--line);
+    outline-offset: -2px;
+}
+
+.editor-hint {
+    margin: var(--space-1) 0 0;
+    color: var(--muted);
+    font-size: 0.85rem;
+}
+
+.game-code-link {
+    margin-left: auto;
+    font-weight: 800;
+    white-space: nowrap;
+}
+
 .game-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -991,6 +1090,12 @@ input {
 
 .server-row {
     grid-template-columns: minmax(0, 1fr) auto;
+}
+
+/* A creator's row ends with the Code link into the script editor, so its grid
+   needs a third column for it. The narrow-screen rule below still stacks it. */
+.my-game-row {
+    grid-template-columns: auto minmax(0, 1fr) auto;
 }
 
 .server-row strong,

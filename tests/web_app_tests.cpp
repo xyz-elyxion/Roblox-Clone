@@ -76,6 +76,10 @@ std::string testWebRoot() {
                         std::ios::binary | std::ios::trunc);
     admin << "<!doctype html><title>admin</title><div data-admin-page></div>";
     admin.close();
+    std::ofstream editor((directory / "public" / "editor.html").string().c_str(),
+                         std::ios::binary | std::ios::trunc);
+    editor << "<!doctype html><title>editor</title><div data-editor-page></div>";
+    editor.close();
     return directory.string();
 }
 
@@ -672,6 +676,52 @@ void testHttp() {
         rblx::web::Json::parse(body, &error).member("token").asString();
     checkStatus(app, "GET", "/api/admin/overview", std::string(), outsiderToken, 403,
                 "the admin overview rejects a normal account");
+
+    // The website's code editor loads and saves the .rbx script the game server
+    // launches with. It is the owner's file, so another account is told the game
+    // does not exist, and what is saved is what the next run plays.
+    const std::string scriptRoute = "/api/games/" + std::to_string(gameId) + "/script";
+    checkStatus(app, "GET", scriptRoute, std::string(), std::string(), 401,
+                "reading a script needs a token");
+    checkStatus(app, "GET", scriptRoute, std::string(), outsiderToken, 404,
+                "another account cannot read the script");
+    checkStatus(app, "PUT", scriptRoute, "{\"text\":\"-- nope\"}", outsiderToken, 404,
+                "another account cannot save the script");
+    checkStatus(app, "GET", scriptRoute, std::string(), token, 200, "the owner reads the script",
+                &body);
+    checkContains(body, "\"text\":\"\"", "a game without a script reads as empty");
+    checkContains(body, "\"limit\":262144", "the editor is told the size limit");
+
+    const std::string editorScript = "-- saved from the website\nprint(\"hello\")\n";
+    checkStatus(app, "PUT", scriptRoute,
+                "{\"text\":\"-- saved from the website\\nprint(\\\"hello\\\")\\n\"}", token, 200,
+                "the owner saves a script", &body);
+    checkContains(body, "\"bytes\":" + std::to_string(editorScript.size()),
+                  "the saved size is reported");
+    checkStatus(app, "GET", scriptRoute, std::string(), token, 200, "the script reads back",
+                &body);
+    checkContains(body, "saved from the website", "the saved text is what the editor reads");
+    checkContains(body, "hello", "the whole script is returned");
+
+    {
+        rblx::web::Store reloaded(config.dataPath);
+        std::string loadError;
+        check(reloaded.load(&loadError), "the script path reaches the data file");
+        const rblx::web::GameRecord* saved = reloaded.findGame(gameId);
+        check(saved != nullptr && !saved->scriptPath.empty(),
+              "the game remembers where its script is");
+        check(saved != nullptr && std::filesystem::file_size(saved->scriptPath) ==
+                                     editorScript.size(),
+              "the script file holds what the editor saved");
+    }
+
+    const std::string oversize(300 * 1024, 'a');
+    checkStatus(app, "PUT", scriptRoute, "{\"text\":\"" + oversize + "\"}", token, 413,
+                "an oversized script is refused");
+
+    checkStatus(app, "GET", "/editor", std::string(), std::string(), 200,
+                "the editor page is served", &body);
+    checkContains(body, "data-editor-page", "the editor page markup is returned");
 
     checkStatus(app, "POST", "/api/verify", "{}", token, 200, "verify reports the admin flag",
                 &body);

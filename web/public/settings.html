@@ -61,6 +61,42 @@
                     <a class="button secondary" href="/profile">Open profile</a>
                 </article>
 
+                <article class="panel" id="standing" data-standing-panel>
+                    <div class="panel-heading">
+                        <div>
+                            <p class="label">Moderation</p>
+                            <h2>Account standing</h2>
+                        </div>
+                        <span class="standing-badge clear" data-standing-badge>Clear</span>
+                    </div>
+                    <p class="lede" data-standing-summary>Checking this account's record.</p>
+                    <div class="status" data-standing-status aria-live="polite"></div>
+                    <div class="admin-table-wrap">
+                        <table class="admin-table">
+                            <thead>
+                                <tr>
+                                    <th scope="col">When</th>
+                                    <th scope="col">What</th>
+                                    <th scope="col">Reason</th>
+                                    <th scope="col">Ends</th>
+                                </tr>
+                            </thead>
+                            <tbody data-standing-infractions></tbody>
+                        </table>
+                    </div>
+                    <h3>Appeals</h3>
+                    <div class="standing-appeals" data-standing-appeals></div>
+                    <form class="form" data-appeal-form hidden>
+                        <div class="field">
+                            <label for="appeal-message">Why should this be reviewed?</label>
+                            <textarea class="input" id="appeal-message" name="message" rows="4" minlength="20" maxlength="1000" required></textarea>
+                            <small>20 to 1000 characters. An admin reads this, so say what happened.</small>
+                        </div>
+                        <div class="status" data-appeal-status aria-live="polite"></div>
+                        <button class="button full" type="submit">Send appeal</button>
+                    </form>
+                </article>
+
                 <article class="panel">
                     <div class="panel-heading">
                         <div>
@@ -179,6 +215,6 @@
             </nav>
         </footer>
     </div>
-    <script src="/app.js?v=captcha-1" defer></script>
+    <script src="/app.js?v=standing-1" defer></script>
 </body>
 </html>

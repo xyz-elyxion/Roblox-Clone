@@ -21,6 +21,11 @@ enum class AvatarSlot {
 
 const int kAvatarSlotCount = 6;
 
+// How much of an account's moderation record is kept. Long enough to cover a
+// whole climb of the ladder with room to spare, short enough that a data file
+// stays readable.
+const std::size_t kMaxInfractionsPerUser = 50;
+
 // How much playtime earns one coin. The game server reports playtime in
 // one-minute chunks, so a minute played is one coin earned.
 const long long kSecondsPerCoin = 60;
@@ -37,6 +42,37 @@ struct Avatar {
     std::string faceId = "classic";
     // Equipped hat id; empty when the character wears none.
     std::string hatId;
+};
+
+// One thing moderation did to an account. The account reads these in Settings so
+// a strike is a row with a reason and a date rather than a number, and so an
+// appeal has something specific to point at.
+struct InfractionRecord {
+    int id = 0;
+    // "warning", "suspension", "ban", "pardon" or "detection".
+    std::string kind;
+    std::string reason;
+    std::string createdAt;
+    // End of a suspension; empty for every other kind.
+    std::string expiresAt;
+    // Strikes the account held after this entry, so the record reads as a ladder.
+    int strikes = 0;
+    // True when a detection filed it rather than an admin.
+    bool automatic = false;
+};
+
+// A player asking for a restriction to be looked at again, and what an admin made
+// of it. `status` is "open", "accepted" or "denied".
+struct AppealRecord {
+    int id = 0;
+    int userId = 0;
+    std::string username;
+    std::string message;
+    std::string status = "open";
+    std::string createdAt;
+    std::string reviewedAt;
+    std::string reviewer;
+    std::string reviewNote;
 };
 
 struct UserRecord {
@@ -72,6 +108,9 @@ struct UserRecord {
     // them is the one being cheated, so they never move the ladder on their own.
     int clientDetections = 0;
     std::string lastClientDetectionAt;
+    // Moderation's record of this account, oldest first. The newest
+    // kMaxInfractionsPerUser entries are kept.
+    std::vector<InfractionRecord> infractions;
 };
 
 struct AvatarRecord {
@@ -172,6 +211,13 @@ public:
     // Writes the moderation state of an account; false when the id is unknown.
     bool setModeration(int id, int strikeCount, long long suspendedUntilMs, bool banned,
                        const std::string& reason, const std::string& nowIso);
+    // Appends one entry to the account's record and keeps the newest
+    // kMaxInfractionsPerUser of them; false when the id is unknown.
+    bool addInfraction(int id, const std::string& kind, const std::string& reason,
+                       bool automatic, int strikes, const std::string& expiresAt,
+                       const std::string& nowIso);
+    // Empty for an account that does not exist.
+    const std::vector<InfractionRecord>& infractionsFor(int userId) const;
     // Counts one detection reported by the account's own client.
     bool recordClientDetection(int id, const std::string& nowIso);
     bool setRecoveryHash(int id, const std::string& recoveryHash);
@@ -212,6 +258,17 @@ public:
     void removeFriendship(int friendshipId);
     void removeFriendshipsBetween(int firstUserId, int secondUserId);
 
+    // appeals
+    int addAppeal(const AppealRecord& record);
+    const AppealRecord* findAppeal(int id) const;
+    // The appeal still waiting for an admin, if any. An account may only have one.
+    const AppealRecord* openAppealFor(int userId) const;
+    std::vector<const AppealRecord*> appealsFor(int userId) const;
+    std::vector<const AppealRecord*> recentAppeals(std::size_t limit) const;
+    std::size_t openAppealCount() const;
+    bool reviewAppeal(int id, const std::string& status, const std::string& reviewer,
+                      const std::string& note, const std::string& nowIso);
+
     // reports
     int addReport(const ReportRecord& record);
     std::vector<const ReportRecord*> recentReports(std::size_t limit) const;
@@ -250,11 +307,14 @@ private:
     std::vector<GameRecord> games_;
     std::vector<ReportRecord> reports_;
     std::vector<BlockRecord> blocks_;
+    std::vector<AppealRecord> appeals_;
     int nextUserId_ = 1;
     int nextFriendshipId_ = 1;
     int nextGameId_ = 1;
     int nextReportId_ = 1;
     int nextBlockId_ = 1;
+    int nextInfractionId_ = 1;
+    int nextAppealId_ = 1;
 };
 
 }  // namespace web

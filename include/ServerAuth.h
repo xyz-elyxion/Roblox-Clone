@@ -7,7 +7,8 @@ struct VerifiedUser {
     int userId = -1;
     std::string username;
     // Set when the website refused the token for a reason the player should read,
-    // such as a suspension or a ban. Empty for an ordinary bad token.
+    // such as a suspension or a ban (which stops a join but not the website
+    // login). Empty for an ordinary bad token.
     std::string reason;
 };
 

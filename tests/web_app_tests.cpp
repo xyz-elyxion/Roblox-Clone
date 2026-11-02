@@ -679,16 +679,19 @@ void testHttp() {
                 "the overview still loads after a ban", &body);
     checkContains(body, "\"banned\":true", "the dashboard shows the ban");
 
-    // The ban has to be felt, not just recorded. The ban raises the account's
-    // token version, so the token it already holds dies with it, and the password
-    // path is refused with the reason the player should read.
+    // The ban is shown, not used to close the site: the account signs in, keeps
+    // the session it already held, and can read what happened and appeal it. The
+    // game is the door that stays shut, and the game server reads `restricted`
+    // from this same answer to shut it.
     checkStatus(app, "POST", "/api/login",
                 "{\"username\":\"Outsider\",\"password\":\"long-enough-password\"," +
                     machineCaptcha(app) + "}",
-                std::string(), 403, "a banned account cannot sign in", &body);
-    checkContains(body, "banned for cheating", "the sign-in refusal says why");
-    checkStatus(app, "POST", "/api/verify", "{}", outsiderToken, 401,
-                "a banned account loses the session it already held");
+                std::string(), 200, "a banned account can still sign in", &body);
+    checkStatus(app, "POST", "/api/verify", "{}", outsiderToken, 200,
+                "a banned account keeps the session it already held", &body);
+    checkContains(body, "\"restricted\":true", "the session says the account is restricted");
+    checkContains(body, "\"standing\":\"banned\"", "the session names the standing");
+    checkContains(body, "\"banned\":true", "the session carries the ban");
 
     checkStatus(app, "POST", "/api/admin/users/" + outsiderId + "/moderation",
                 "{\"action\":\"pardon\"}", token, 200, "an admin pardons the account", &body);
@@ -720,6 +723,73 @@ void testHttp() {
         check(saved != nullptr && saved->suspendedUntilMs > 0,
               "the suspension survives a restart");
     }
+
+    // Standing: the account reads its own record, so the punishment is a reason
+    // and a date it can argue with instead of a door that will not open.
+    checkStatus(app, "GET", "/api/account/standing", std::string(), outsiderToken, 200,
+                "a suspended account can read its standing", &body);
+    checkContains(body, "\"standing\":\"suspended\"", "the standing names the suspension");
+    checkContains(body, "\"infractions\":[", "the record lists what led here");
+    checkContains(body, "\"kind\":\"ban\"", "the earlier ban is in the record");
+    checkContains(body, "\"canAppeal\":true", "a suspended account may appeal");
+
+    // An appeal only exists for a restriction, has to say something an admin can
+    // judge, and only one of them waits at a time.
+    checkStatus(app, "POST", "/api/account/appeal",
+                "{\"message\":\"This account has done nothing wrong at all.\"}", token, 400,
+                "an unrestricted account cannot appeal");
+    checkStatus(app, "POST", "/api/account/appeal", "{\"message\":\"too short\"}",
+                outsiderToken, 400, "a one-line appeal is refused");
+    checkStatus(app, "POST", "/api/account/appeal",
+                "{\"message\":\"The detection was a false positive from a stutter.\"}",
+                outsiderToken, 201, "a suspended account files an appeal", &body);
+    checkContains(body, "\"status\":\"open\"", "the appeal starts open");
+    int appealId = static_cast<int>(
+        rblx::web::Json::parse(body, &error).member("appeal").member("id").asInteger(0));
+    check(appealId > 0, "the filed appeal has an id");
+    checkStatus(app, "POST", "/api/account/appeal",
+                "{\"message\":\"A second appeal about the same detection.\"}", outsiderToken,
+                409, "a second appeal waits for the first");
+    checkStatus(app, "GET", "/api/account/standing", std::string(), outsiderToken, 200,
+                "the standing shows the waiting appeal", &body);
+    checkContains(body, "\"hasOpenAppeal\":true", "the appeal is flagged as waiting");
+    checkContains(body, "\"canAppeal\":false", "no second appeal is offered");
+
+    // An admin reviews it from the dashboard. Accepting is a pardon, and the
+    // record keeps who lifted it and why.
+    checkStatus(app, "GET", "/api/admin/overview", std::string(), token, 200,
+                "the dashboard loads with an appeal waiting", &body);
+    checkContains(body, "\"appeals\":[", "the dashboard lists appeals");
+    checkContains(body, "false positive from a stutter", "the appeal text reaches the admin");
+    checkStatus(app, "POST", "/api/admin/appeals/" + std::to_string(appealId),
+                "{\"action\":\"accept\"}", outsiderToken, 403,
+                "a normal account cannot answer an appeal");
+    checkStatus(app, "POST", "/api/admin/appeals/" + std::to_string(appealId),
+                "{\"action\":\"accept\"}", token, 200, "an admin accepts the appeal", &body);
+    checkContains(body, "\"status\":\"accepted\"", "the decision is reported back");
+    checkContains(body, "\"banned\":false", "accepting lifts the restriction");
+    checkStatus(app, "POST", "/api/admin/appeals/" + std::to_string(appealId),
+                "{\"action\":\"deny\"}", token, 409,
+                "a reviewed appeal cannot be answered twice");
+
+    {
+        rblx::web::Store reloaded(config.dataPath);
+        std::string loadError;
+        check(reloaded.load(&loadError), "the appeal reaches the data file");
+        const rblx::web::AppealRecord* saved = reloaded.findAppeal(appealId);
+        check(saved != nullptr && saved->status == "accepted",
+              "the accepted appeal survives a restart");
+        const rblx::web::UserRecord* account = reloaded.findUserByName("Outsider");
+        check(account != nullptr && !account->banned && account->suspendedUntilMs == 0,
+              "the pardon survives a restart");
+        check(account != nullptr && account->infractions.size() >= 3,
+              "the account's whole record survives a restart");
+    }
+
+    checkStatus(app, "GET", "/api/account/standing", std::string(), outsiderToken, 200,
+                "the standing reflects the accepted appeal", &body);
+    checkContains(body, "\"standing\":\"clear\"", "the account is clear after the appeal");
+    checkContains(body, "\"kind\":\"pardon\"", "the record shows the restriction was lifted");
 
     // The client's own anti-cheat reports what it finds inside the process. That
     // report can only be filed by the account it runs under, and it is counted
@@ -780,8 +850,11 @@ void testHttp() {
     checkStatus(app, "POST", "/api/login",
                 "{\"username\":\"Cheater\",\"password\":\"long-enough-password\"," +
                     machineCaptcha(app) + "}",
-                std::string(), 403, "a suspended detection account cannot sign in", &body);
-    checkContains(body, "suspended for cheating", "the sign-in refusal says why");
+                std::string(), 200, "a suspended account can still sign in", &body);
+    checkStatus(app, "POST", "/api/verify", "{}", cheaterToken, 200,
+                "a suspended account keeps its session", &body);
+    checkContains(body, "\"restricted\":true", "the session names the restriction");
+    checkContains(body, "suspended for cheating", "the session carries the reason");
 
     checkStatus(app, "GET", "/does-not-exist", std::string(), std::string(), 404,
                 "unknown paths return 404");

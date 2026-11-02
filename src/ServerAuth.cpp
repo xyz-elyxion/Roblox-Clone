@@ -70,6 +70,18 @@ VerifiedUser ServerAuth::verifyToken(const std::string& token, const std::string
         return user;
     }
 
+    // A suspension or a ban no longer refuses the website login: the site keeps
+    // the player signed in so they can read their record and appeal it. Joining a
+    // game is a different door, and it is still shut - with the reason to read.
+    if (jsonBoolTrue(reply.body, "restricted")) {
+        user.reason = jsonString(reply.body, "message");
+        if (user.reason.empty()) {
+            user.reason = "This account is suspended or banned, so it cannot join a game. "
+                          "Its standing is on the website under Settings.";
+        }
+        return user;
+    }
+
     user.userId = jsonInt(reply.body, "userId");
     user.username = jsonString(reply.body, "username");
     user.success = user.userId > 0 && !user.username.empty() && user.username.size() < 32;

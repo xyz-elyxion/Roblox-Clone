@@ -93,6 +93,39 @@ inline bool isRestricted(const State& state, long long nowMs) {
     return state.banned || state.suspendedUntilMs > nowMs;
 }
 
+// Where the account stands, as the player is shown it. The site keeps the
+// account signed in and says this on every page instead of closing the door: a
+// player who cannot read their own record cannot appeal what is in it.
+enum class Standing {
+    Clear = 0,
+    Warned,
+    Suspended,
+    Banned
+};
+
+inline Standing standingOf(const State& state, long long nowMs) {
+    if (state.banned) {
+        return Standing::Banned;
+    }
+    if (state.suspendedUntilMs > nowMs) {
+        return Standing::Suspended;
+    }
+    if (state.strikes > 0) {
+        return Standing::Warned;
+    }
+    return Standing::Clear;
+}
+
+inline const char* standingName(Standing standing) {
+    switch (standing) {
+        case Standing::Warned: return "warned";
+        case Standing::Suspended: return "suspended";
+        case Standing::Banned: return "banned";
+        case Standing::Clear:
+        default: return "clear";
+    }
+}
+
 // What a refused player is told, on the site and over the chat channel.
 inline std::string restrictionMessage(const State& state, long long nowMs) {
     if (state.banned) {

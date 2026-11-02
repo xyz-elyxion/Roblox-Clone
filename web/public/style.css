@@ -1304,3 +1304,71 @@ html.reduce-motion *::after {
 .captcha-row .button {
     width: auto;
 }
+
+/* The standing notice sits under the top bar on every page, so a suspended or
+   banned account cannot miss what happened or where to appeal it. */
+.standing-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin: 0 0 18px;
+    padding: 12px 16px;
+    border: 1px solid #2a2f3a;
+    border-radius: 12px;
+    font-size: 0.92rem;
+}
+
+.standing-banner p {
+    margin: 0;
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.standing-banner strong {
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 0.75rem;
+}
+
+.standing-banner.warned { background: rgba(240, 190, 60, 0.12); border-color: rgba(240, 190, 60, 0.45); }
+.standing-banner.suspended { background: rgba(235, 130, 40, 0.14); border-color: rgba(235, 130, 40, 0.5); }
+.standing-banner.banned { background: rgba(220, 70, 70, 0.14); border-color: rgba(220, 70, 70, 0.5); }
+
+.standing-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    border: 1px solid currentColor;
+}
+
+.standing-badge.clear { color: #4ade80; }
+.standing-badge.warned { color: #f0be3c; }
+.standing-badge.suspended { color: #eb8228; }
+.standing-badge.banned { color: #dc4646; }
+
+.standing-appeals {
+    display: grid;
+    gap: 10px;
+    margin: 10px 0 14px;
+}
+
+.standing-appeal {
+    padding: 10px 12px;
+    border: 1px solid #2a2f3a;
+    border-radius: 10px;
+}
+
+.standing-appeal p {
+    margin: 0 0 4px;
+}
+
+textarea.input {
+    min-height: 96px;
+    resize: vertical;
+}

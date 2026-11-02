@@ -114,6 +114,17 @@ function formatDate(value) {
     return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
+function formatDateTime(value) {
+    const date = value ? new Date(value) : null;
+    if (!date || Number.isNaN(date.getTime())) return 'an unknown date';
+    return date.toLocaleString(undefined, {
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+}
+
 function profileHref(user) {
     return `/profile/${user.id}`;
 }
@@ -369,6 +380,61 @@ function initNavAuth() {
             })
             .catch(() => {});
     }
+}
+
+// The site keeps a restricted account signed in: it has to be able to read its
+// own record and appeal it. The restriction is therefore a notice on every page
+// rather than a login that refuses, drawn from the same session answer the nav
+// already fetches.
+function standingLabel(session) {
+    if (session.banned) return 'Banned';
+    if (session.suspendedUntil) return 'Suspended';
+    return 'Warned';
+}
+
+function standingSentence(session) {
+    if (session.banned) {
+        return ' - this account is banned and cannot join games. Its record and an appeal are in Settings.';
+    }
+    if (session.suspendedUntil) {
+        return ` - suspended until ${formatDateTime(session.suspendedUntil)}. Its record and an appeal are in Settings.`;
+    }
+    const strikes = Number(session.strikes || 0);
+    return ` - ${strikes} strike${strikes === 1 ? '' : 's'} recorded. The next confirmed detection suspends this account.`;
+}
+
+function renderStandingBanner(session) {
+    if (!session || (!session.restricted && !Number(session.strikes || 0))) return;
+    if (document.querySelector('[data-standing-banner]')) return;
+    const topbar = document.querySelector('.page > .topbar');
+    if (!topbar) return;
+
+    const banner = document.createElement('div');
+    banner.className = `standing-banner ${session.standing || 'warned'}`;
+    banner.dataset.standingBanner = '';
+    banner.setAttribute('role', 'status');
+
+    const text = document.createElement('p');
+    const label = document.createElement('strong');
+    label.textContent = standingLabel(session);
+    const detail = document.createElement('span');
+    detail.textContent = standingSentence(session);
+    text.append(label, detail);
+
+    const link = document.createElement('a');
+    link.className = 'button small';
+    link.href = '/settings#standing';
+    link.textContent = session.openAppeal ? 'Appeal sent' : 'Account standing';
+
+    banner.append(text, link);
+    topbar.insertAdjacentElement('afterend', banner);
+}
+
+function initStandingNotice() {
+    if (!getToken()) return;
+    verifySession()
+        .then((session) => renderStandingBanner(session))
+        .catch(() => {});
 }
 
 function initLogoutButtons() {
@@ -1665,6 +1731,7 @@ function initAdminPage() {
     const instancesBody = document.querySelector('[data-admin-instances]');
     const reportsBody = document.querySelector('[data-admin-reports]');
     const userReportsBody = document.querySelector('[data-admin-user-reports]');
+    const appealsBody = document.querySelector('[data-admin-appeals]');
     const status = document.querySelector('[data-admin-status]');
     const refreshButton = document.querySelector('[data-admin-refresh]');
 
@@ -1731,7 +1798,8 @@ function initAdminPage() {
             statTile('Public games', String(stats.publicGameCount)),
             statTile('Live servers', String(stats.instanceCount)),
             statTile('Launches', String(stats.launchCount)),
-            statTile('Playtime', formatPlaytime(stats.playtimeSeconds))
+            statTile('Playtime', formatPlaytime(stats.playtimeSeconds)),
+            statTile('Open appeals', String(stats.openAppealCount ?? 0))
         );
     }
 
@@ -1899,6 +1967,62 @@ function initAdminPage() {
         }
     }
 
+    async function reviewAppeal(appeal, action, button) {
+        button.disabled = true;
+        try {
+            const response = await fetch(`/api/admin/appeals/${appeal.id}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${getToken()}`
+                },
+                body: JSON.stringify({ action })
+            });
+            const data = await response.json();
+            if (!response.ok || !data.success) throw new Error(data.error || 'Could not answer the appeal.');
+            setStatus(status, data.message || 'Appeal answered.', 'success');
+            await load();
+        } catch (error) {
+            setStatus(status, error.message || 'Could not answer the appeal.', 'error');
+            button.disabled = false;
+        }
+    }
+
+    function renderAppeals(appeals) {
+        if (!appealsBody) return;
+        appealsBody.innerHTML = '';
+        if (!appeals || appeals.length === 0) {
+            adminEmptyRow(appealsBody, 5, 'No appeals filed.');
+            return;
+        }
+        for (const appeal of appeals) {
+            const message = document.createElement('span');
+            message.className = 'admin-reason';
+            message.textContent = appeal.message || '';
+            const state = document.createElement('span');
+            state.textContent = appeal.status === 'open'
+                ? 'Open'
+                : `${appeal.status} by ${appeal.reviewer || 'an admin'}`;
+            const actions = document.createElement('div');
+            if (appeal.status === 'open') {
+                const accept = makeButton('Accept', 'button small', () => {});
+                accept.addEventListener('click', () => reviewAppeal(appeal, 'accept', accept));
+                const deny = makeButton('Deny', 'button danger small', () => {});
+                deny.addEventListener('click', () => reviewAppeal(appeal, 'deny', deny));
+                actions.append(accept, deny);
+            } else {
+                actions.textContent = '—';
+            }
+            appealsBody.appendChild(adminRow([
+                formatDate(appeal.createdAt),
+                appeal.username || appeal.userId,
+                message,
+                state,
+                actions
+            ]));
+        }
+    }
+
     async function load() {
         setStatus(status, 'Loading site data', '');
         if (refreshButton) refreshButton.disabled = true;
@@ -1915,6 +2039,7 @@ function initAdminPage() {
             renderInstances(data.instances);
             renderReports(data.clientReports);
             renderUserReports(data.reports);
+            renderAppeals(data.appeals);
             setStatus(status, '', '');
         } catch (error) {
             setStatus(status, error.message || 'Could not load admin data.', 'error');
@@ -1949,9 +2074,155 @@ function applyDisplayPreferences() {
     return reduced;
 }
 
+// Account standing: the account's own moderation record, from the same store the
+// admins read. An appeal is offered only while the account is actually restricted
+// and has nothing already waiting.
+function infractionLabel(kind) {
+    switch (kind) {
+        case 'warning': return 'Warning';
+        case 'suspension': return 'Suspension';
+        case 'ban': return 'Ban';
+        case 'pardon': return 'Lifted';
+        case 'detection': return 'Detection';
+        default: return 'Note';
+    }
+}
+
+function initStanding() {
+    const panel = document.querySelector('[data-standing-panel]');
+    const token = getToken();
+    if (!panel || !token) return;
+
+    const badge = panel.querySelector('[data-standing-badge]');
+    const summary = panel.querySelector('[data-standing-summary]');
+    const status = panel.querySelector('[data-standing-status]');
+    const rows = panel.querySelector('[data-standing-infractions]');
+    const appealList = panel.querySelector('[data-standing-appeals]');
+    const appealForm = panel.querySelector('[data-appeal-form]');
+    const appealStatus = panel.querySelector('[data-appeal-status]');
+
+    function row(cells) {
+        const element = document.createElement('tr');
+        for (const value of cells) {
+            const cell = document.createElement('td');
+            cell.textContent = value;
+            element.appendChild(cell);
+        }
+        return element;
+    }
+
+    function render(data) {
+        const strikes = Number(data.strikes || 0);
+        const label = data.banned ? 'Banned' : data.suspendedUntil ? 'Suspended' : strikes > 0 ? 'Warned' : 'Clear';
+        if (badge) {
+            badge.textContent = label;
+            badge.className = `standing-badge ${data.standing || 'clear'}`;
+        }
+        if (summary) {
+            summary.textContent = data.banned
+                ? 'This account is banned: it can still use the site but cannot join a game. Every entry that led here is below.'
+                : data.suspendedUntil
+                    ? `Suspended until ${formatDateTime(data.suspendedUntil)}${data.suspendedHoursRemaining ? `, about ${data.suspendedHoursRemaining}h left` : ''}. It can be appealed below.`
+                    : strikes > 0
+                        ? `${strikes} strike${strikes === 1 ? '' : 's'} recorded. The next confirmed detection suspends this account.`
+                        : 'Nothing is recorded against this account.';
+        }
+
+        if (rows) {
+            rows.innerHTML = '';
+            const infractions = data.infractions || [];
+            if (infractions.length === 0) {
+                rows.appendChild(row(['—', 'Nothing recorded', '', '']));
+            }
+            for (const entry of infractions) {
+                rows.appendChild(row([
+                    formatDateTime(entry.createdAt),
+                    `${infractionLabel(entry.kind)}${entry.automatic ? ' (detection)' : ''}`,
+                    entry.reason || '—',
+                    entry.expiresAt ? formatDateTime(entry.expiresAt) : '—'
+                ]));
+            }
+        }
+
+        if (appealList) {
+            appealList.innerHTML = '';
+            const appeals = data.appeals || [];
+            if (appeals.length === 0) {
+                appealList.appendChild(emptyMessage('No appeals filed.'));
+            }
+            for (const appeal of appeals) {
+                const card = document.createElement('div');
+                card.className = 'standing-appeal';
+                const head = document.createElement('p');
+                head.textContent = `${formatDateTime(appeal.createdAt)} - ${appeal.status}`;
+                const message = document.createElement('p');
+                message.textContent = appeal.message;
+                card.append(head, message);
+                if (appeal.reviewNote) {
+                    const note = document.createElement('p');
+                    note.className = 'admin-reason';
+                    note.textContent = `Admin: ${appeal.reviewNote}`;
+                    card.appendChild(note);
+                } else if (appeal.reviewer) {
+                    const note = document.createElement('p');
+                    note.className = 'admin-reason';
+                    note.textContent = `Reviewed by ${appeal.reviewer}`;
+                    card.appendChild(note);
+                }
+                appealList.appendChild(card);
+            }
+        }
+
+        if (appealForm) appealForm.hidden = !data.canAppeal;
+        if (appealStatus) {
+            if (data.hasOpenAppeal) {
+                setStatus(appealStatus, 'An appeal is waiting for an admin.', '');
+            } else if (!data.canAppeal) {
+                setStatus(appealStatus, '', '');
+            }
+        }
+    }
+
+    async function load() {
+        try {
+            const { response, data } = await getJson('/api/account/standing', token);
+            if (!response.ok || !data.success) throw new Error(data.error || 'Could not load account standing.');
+            render(data);
+        } catch (error) {
+            setStatus(status, error.message || 'Could not load account standing.', 'error');
+        }
+    }
+
+    appealForm?.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const submit = appealForm.querySelector('button[type="submit"]');
+        submit.disabled = true;
+        setStatus(appealStatus, '', '');
+        try {
+            const { response, data } = await postJson('/api/account/appeal', {
+                message: appealForm.querySelector('#appeal-message').value.trim()
+            }, token);
+            if (!response.ok || !data.success) throw new Error(data.error || 'Could not send the appeal.');
+            appealForm.reset();
+            setStatus(appealStatus, data.message || 'Appeal sent.', 'success');
+            await load();
+        } catch (error) {
+            setStatus(appealStatus, error.message || 'Could not send the appeal.', 'error');
+        } finally {
+            submit.disabled = false;
+        }
+    });
+
+    load().catch(() => {});
+}
+
 function initSettings() {
     const root = document.querySelector('[data-settings]');
     if (!root) return;
+
+    // The standing panel stands on its own: the rest of the page needs the
+    // password form, this does not.
+    initStanding();
 
     const reducedToggle = document.querySelector('[data-reduce-motion]');
     if (reducedToggle) {
@@ -2212,6 +2483,7 @@ function initReportGame() {
 document.addEventListener('DOMContentLoaded', () => {
     applyDisplayPreferences();
     initNavAuth();
+    initStandingNotice();
     initLogoutButtons();
     initLogin();
     initSignup();

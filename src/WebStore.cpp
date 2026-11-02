@@ -90,11 +90,14 @@ void Store::clear() {
     games_.clear();
     reports_.clear();
     blocks_.clear();
+    appeals_.clear();
     nextUserId_ = 1;
     nextFriendshipId_ = 1;
     nextGameId_ = 1;
     nextReportId_ = 1;
     nextBlockId_ = 1;
+    nextInfractionId_ = 1;
+    nextAppealId_ = 1;
 }
 
 bool Store::load(std::string* error) {
@@ -133,6 +136,21 @@ bool Store::load(std::string* error) {
         user.moderatedAt = entry.member("moderatedAt").asString();
         user.clientDetections = static_cast<int>(entry.member("clientDetections").asInteger(0));
         user.lastClientDetectionAt = entry.member("lastClientDetectionAt").asString();
+        for (const Json& saved : entry.member("infractions").elements()) {
+            InfractionRecord infraction;
+            infraction.id = static_cast<int>(saved.member("id").asInteger(0));
+            infraction.kind = saved.member("kind").asString();
+            infraction.reason = saved.member("reason").asString();
+            infraction.createdAt = saved.member("createdAt").asString();
+            infraction.expiresAt = saved.member("expiresAt").asString();
+            infraction.strikes = static_cast<int>(saved.member("strikes").asInteger(0));
+            infraction.automatic = saved.member("automatic").asBool(false);
+            if (infraction.id <= 0 || infraction.kind.empty()) {
+                continue;
+            }
+            user.infractions.push_back(infraction);
+            nextInfractionId_ = std::max(nextInfractionId_, infraction.id + 1);
+        }
         if (user.id > 0 && !user.username.empty()) {
             users_.push_back(user);
             nextUserId_ = std::max(nextUserId_, user.id + 1);
@@ -251,6 +269,24 @@ bool Store::load(std::string* error) {
         nextBlockId_ = std::max(nextBlockId_, record.id + 1);
     }
 
+    for (const Json& entry : document.member("appeals").elements()) {
+        AppealRecord record;
+        record.id = static_cast<int>(entry.member("id").asInteger(0));
+        record.userId = static_cast<int>(entry.member("userId").asInteger(0));
+        record.username = entry.member("username").asString();
+        record.message = entry.member("message").asString();
+        record.status = entry.member("status").asString("open");
+        record.createdAt = entry.member("createdAt").asString();
+        record.reviewedAt = entry.member("reviewedAt").asString();
+        record.reviewer = entry.member("reviewer").asString();
+        record.reviewNote = entry.member("reviewNote").asString();
+        if (record.id <= 0 || record.userId <= 0 || record.status.empty()) {
+            continue;
+        }
+        appeals_.push_back(record);
+        nextAppealId_ = std::max(nextAppealId_, record.id + 1);
+    }
+
     resolveOwnerNames();
     return true;
 }
@@ -275,6 +311,19 @@ bool Store::save(std::string* error) const {
         entry.set("moderatedAt", user.moderatedAt);
         entry.set("clientDetections", user.clientDetections);
         entry.set("lastClientDetectionAt", user.lastClientDetectionAt);
+        Json infractions = Json::makeArray();
+        for (const InfractionRecord& infraction : user.infractions) {
+            Json saved = Json::makeObject();
+            saved.set("id", infraction.id);
+            saved.set("kind", infraction.kind);
+            saved.set("reason", infraction.reason);
+            saved.set("createdAt", infraction.createdAt);
+            saved.set("expiresAt", infraction.expiresAt);
+            saved.set("strikes", infraction.strikes);
+            saved.set("automatic", infraction.automatic);
+            infractions.push(saved);
+        }
+        entry.set("infractions", infractions);
         users.push(entry);
     }
     document.set("users", users);
@@ -374,6 +423,22 @@ bool Store::save(std::string* error) const {
         blocks.push(entry);
     }
     document.set("blocks", blocks);
+
+    Json appeals = Json::makeArray();
+    for (const AppealRecord& record : appeals_) {
+        Json entry = Json::makeObject();
+        entry.set("id", record.id);
+        entry.set("userId", record.userId);
+        entry.set("username", record.username);
+        entry.set("message", record.message);
+        entry.set("status", record.status);
+        entry.set("createdAt", record.createdAt);
+        entry.set("reviewedAt", record.reviewedAt);
+        entry.set("reviewer", record.reviewer);
+        entry.set("reviewNote", record.reviewNote);
+        appeals.push(entry);
+    }
+    document.set("appeals", appeals);
 
     return writeFileAtomically(path_, document.dump(), error);
 }
@@ -534,6 +599,11 @@ bool Store::removeUser(int id) {
                                       return isUser(record.reporterId);
                                   }),
                    reports_.end());
+    appeals_.erase(std::remove_if(appeals_.begin(), appeals_.end(),
+                                  [&](const AppealRecord& record) {
+                                      return isUser(record.userId);
+                                  }),
+                   appeals_.end());
     return true;
 }
 
@@ -831,6 +901,113 @@ std::vector<const ReportRecord*> Store::recentReports(std::size_t limit) const {
         out.push_back(&*entry);
     }
     return out;
+}
+
+bool Store::addInfraction(int id, const std::string& kind, const std::string& reason,
+                          bool automatic, int strikes, const std::string& expiresAt,
+                          const std::string& nowIso) {
+    for (UserRecord& user : users_) {
+        if (user.id != id) {
+            continue;
+        }
+        InfractionRecord entry;
+        entry.id = nextInfractionId_++;
+        entry.kind = kind;
+        entry.reason = reason;
+        entry.createdAt = nowIso;
+        entry.expiresAt = expiresAt;
+        entry.strikes = strikes > 0 ? strikes : 0;
+        entry.automatic = automatic;
+        user.infractions.push_back(entry);
+        // The record is a history, not an archive: the oldest entries fall off so
+        // one account cannot grow the data file without end.
+        if (user.infractions.size() > kMaxInfractionsPerUser) {
+            user.infractions.erase(
+                user.infractions.begin(),
+                user.infractions.begin() + static_cast<std::ptrdiff_t>(
+                                             user.infractions.size() - kMaxInfractionsPerUser));
+        }
+        return true;
+    }
+    return false;
+}
+
+const std::vector<InfractionRecord>& Store::infractionsFor(int userId) const {
+    static const std::vector<InfractionRecord> empty;
+    for (const UserRecord& user : users_) {
+        if (user.id == userId) {
+            return user.infractions;
+        }
+    }
+    return empty;
+}
+
+int Store::addAppeal(const AppealRecord& record) {
+    AppealRecord stored = record;
+    stored.id = nextAppealId_++;
+    appeals_.push_back(stored);
+    return stored.id;
+}
+
+const AppealRecord* Store::findAppeal(int id) const {
+    for (const AppealRecord& record : appeals_) {
+        if (record.id == id) {
+            return &record;
+        }
+    }
+    return nullptr;
+}
+
+const AppealRecord* Store::openAppealFor(int userId) const {
+    for (const AppealRecord& record : appeals_) {
+        if (record.userId == userId && record.status == "open") {
+            return &record;
+        }
+    }
+    return nullptr;
+}
+
+std::vector<const AppealRecord*> Store::appealsFor(int userId) const {
+    std::vector<const AppealRecord*> out;
+    for (auto entry = appeals_.rbegin(); entry != appeals_.rend(); ++entry) {
+        if (entry->userId == userId) {
+            out.push_back(&*entry);
+        }
+    }
+    return out;
+}
+
+std::vector<const AppealRecord*> Store::recentAppeals(std::size_t limit) const {
+    std::vector<const AppealRecord*> out;
+    for (auto entry = appeals_.rbegin(); entry != appeals_.rend() && out.size() < limit; ++entry) {
+        out.push_back(&*entry);
+    }
+    return out;
+}
+
+std::size_t Store::openAppealCount() const {
+    std::size_t count = 0;
+    for (const AppealRecord& record : appeals_) {
+        if (record.status == "open") {
+            ++count;
+        }
+    }
+    return count;
+}
+
+bool Store::reviewAppeal(int id, const std::string& status, const std::string& reviewer,
+                         const std::string& note, const std::string& nowIso) {
+    for (AppealRecord& record : appeals_) {
+        if (record.id != id) {
+            continue;
+        }
+        record.status = status;
+        record.reviewer = reviewer;
+        record.reviewNote = note;
+        record.reviewedAt = nowIso;
+        return true;
+    }
+    return false;
 }
 
 bool Store::addBlock(int blockerId, int blockedId, const std::string& nowIso) {

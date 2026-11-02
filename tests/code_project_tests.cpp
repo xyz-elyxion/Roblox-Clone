@@ -1,5 +1,6 @@
 #include "CodeProject.h"
 
+#include <chrono>
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
@@ -279,13 +280,18 @@ void testPaths() {
     check(fileNameOf("src\\main.cpp") == "main.cpp", "a backslash separates it too");
     check(fileNameOf("main.cpp") == "main.cpp", "a bare name is its own file name");
 
-    const std::string root = fs::temp_directory_path().string();
-    check(joinProjectPath(root, "src/main.cpp") == root + "/src/main.cpp",
+    // A fixed root rather than the temporary directory: Windows hands back a path
+    // that already ends in a backslash, so a temp-directory root would make these
+    // assertions about the temporary directory's shape rather than about joining.
+    const std::string root = "checkout";
+    check(joinProjectPath(root, "src/main.cpp") == "checkout/src/main.cpp",
           "a project path is joined onto the root");
-    check(joinProjectPath(root + "/", "src/main.cpp") == root + "/src/main.cpp",
+    check(joinProjectPath(root + "/", "src/main.cpp") == "checkout/src/main.cpp",
           "a root that already ends in a slash is not doubled");
-    check(joinProjectPath(root, "src\\main.cpp") == root + "/src/main.cpp",
+    check(joinProjectPath(root, "src\\main.cpp") == "checkout/src/main.cpp",
           "a Windows path opens on a POSIX build");
+    check(joinProjectPath("C:\\checkout\\", "src/main.cpp") == "C:\\checkout\\src/main.cpp",
+          "a Windows root that ends in a backslash is not doubled either");
     check(joinProjectPath("", "src/main.cpp") == "src/main.cpp",
           "an empty root leaves the path alone");
 

@@ -324,12 +324,16 @@ void testStore() {
         "walking is 30.00 units/s with 0.40 units of slack, so at most 7.90 units this "
         "frame; a jump rises 14.00 units/s with 0.75 units of slack, so at most 4.25 "
         "units, against 22.00 units of climb budget";
-    store.addPendingDetection(watcher, "flying", proof, expected, 1000);
+    const std::string clip =
+        "1000:0.0,40.0,0.0:0.0,5.0,0.0|1016:1010.0,40.0,0.0:0.9,5.0,0.0";
+    store.addPendingDetection(watcher, "flying", proof, expected, clip, 1000);
     const auto& held = store.pendingDetectionsFor(watcher);
     check(held.size() == 1 && held[0].proof == proof,
           "store keeps the proof with a held detection");
+    check(store.pendingDetectionsFor(watcher)[0].replay == clip,
+          "store keeps the clip with a held detection");
     store.addInfraction(watcher, "warning", "flying", true, 1, std::string(),
-                        "2026-01-05T00:00:00Z", 1, proof, expected);
+                        "2026-01-05T00:00:00Z", 1, proof, expected, clip);
     check(store.infractionsFor(watcher).size() == 1 &&
               store.infractionsFor(watcher)[0].expected == expected,
           "store keeps the expectation on the action a detection filed");
@@ -343,6 +347,8 @@ void testStore() {
     check(proofReloaded.infractionsFor(watcher).size() == 1 &&
               proofReloaded.infractionsFor(watcher)[0].proof == proof,
           "the proof survives a reload on the action");
+    check(proofReloaded.infractionsFor(watcher)[0].replay == clip,
+          "the clip survives a reload on the action");
 }
 
 // ---------------------------------------------------------------------------
@@ -1099,6 +1105,96 @@ void testBanWaves() {
     app.stop();
 }
 
+// The recording behind an action is pulled by an admin when an appeal is judged,
+// so the clip a detection carried has to reach the dashboard intact.
+void testAdminReplay() {
+    const std::string webRoot = testWebRoot();
+
+    rblx::web::Config config;
+    config.nodeEnv = "test";
+    config.passwordIterations = 800;
+    config.authRateLimitMax = 1000;
+    config.rateLimitMax = 100000;
+    config.dataPath = webRoot + "/replay.json";
+    config.webRoot = webRoot;
+    config.repoRoot = webRoot;
+    config.gameWorldsDir = webRoot + "/game-worlds";
+    config.port = 0;
+    config.gameInstanceEmptyGraceMs = 0;
+    config.publicBaseUrl = "http://127.0.0.1:3000";
+    config.banWaveWindowMs = 0;
+    config.adminUsernames = {"ReplayPilot"};
+
+    rblx::web::WebsiteApp app(config);
+    std::string error;
+    check(app.initialize(&error), "replay: app initialises: " + error);
+    app.installRoutes();
+    check(app.start(&error), "replay: app listens: " + error);
+    if (app.server().port() <= 0) {
+        return;
+    }
+
+    std::string body;
+    checkStatus(app, "POST", "/api/signup",
+                "{\"username\":\"ReplayPilot\",\"password\":\"long-enough-password\"," +
+                    machineCaptcha(app) + "}",
+                std::string(), 201, "replay: the admin signs up", &body);
+    app.stop();
+
+    // The clip is filed by the game server, which has no account here, so the
+    // action is written the way a wave writes one: into the data file.
+    const std::string clip =
+        "1000:10.0,5.0,-2.0:10.0,5.0,-2.0|1016:60.0,5.0,-2.0:10.6,5.0,-2.0";
+    int actionId = 0;
+    {
+        rblx::web::Store store(config.dataPath);
+        check(store.load(&error), "replay: the data file loads: " + error);
+        const rblx::web::UserRecord* pilot = store.findUserByName("ReplayPilot");
+        check(pilot != nullptr, "replay: the admin is in the data file");
+        if (pilot != nullptr) {
+            store.addInfraction(pilot->id, "warning", "flying", true, 1, std::string(),
+                                "2026-01-07T00:00:00Z", 1,
+                                "claimed 60.00, 5.00, -2.00 from 10.00, 5.00, -2.00 after 16.00 ms",
+                                "a jump rises 14.00 units/s with 0.75 units of slack", clip);
+            actionId = store.infractionsFor(pilot->id).front().id;
+            check(actionId > 0, "replay: the action has an id");
+            check(store.save(&error), "replay: the action with its clip is written: " + error);
+        }
+    }
+
+    rblx::web::WebsiteApp restarted(config);
+    check(restarted.initialize(&error), "replay: the app restarts: " + error);
+    restarted.installRoutes();
+    check(restarted.start(&error), "replay: the restarted app listens: " + error);
+    if (restarted.server().port() <= 0) {
+        return;
+    }
+
+    checkStatus(restarted, "POST", "/api/login",
+                "{\"username\":\"ReplayPilot\",\"password\":\"long-enough-password\"," +
+                    machineCaptcha(restarted) + "}",
+                std::string(), 200, "replay: the admin signs in", &body);
+    const std::string token = rblx::web::Json::parse(body, &error).member("token").asString();
+    check(!token.empty(), "replay: the login returns a token");
+
+    const std::string route = "/api/admin/infractions/" + std::to_string(actionId) + "/replay";
+    checkStatus(restarted, "GET", route, std::string(), token, 200,
+                "replay: the admin reads the clip", &body);
+    checkContains(body, "\"frames\":[{", "replay: the clip is a list of frames");
+    checkContains(body, "\"scale\":100", "replay: the frames say what to divide by");
+    checkContains(body, "\"proof\":\"claimed 60.00", "replay: the proof travels with the clip");
+    checkContains(body, "\"ax\":1060", "replay: a frame carries the position the server accepted");
+    checkContains(body, "\"x\":6000", "replay: a frame carries the position the client claimed");
+    checkContains(body, "\"username\":\"ReplayPilot\"", "replay: the clip names the account");
+
+    checkStatus(restarted, "GET", "/api/admin/infractions/999999/replay", std::string(), token, 404,
+                "replay: an unknown action has no clip");
+    checkStatus(restarted, "GET", route, std::string(), std::string(), 401,
+                "replay: a signed-out request is refused");
+
+    restarted.stop();
+}
+
 void testRateLimit() {
     const std::string webRoot = testWebRoot();
 
@@ -1161,6 +1257,7 @@ int main() {
     testHttp();
     testRateLimit();
     testBanWaves();
+    testAdminReplay();
 
     if (failures == 0) {
         std::printf("\nAll native web app checks passed.\n");

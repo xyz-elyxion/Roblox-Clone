@@ -142,6 +142,7 @@ bool Store::load(std::string* error) {
             pending.reason = saved.member("reason").asString();
             pending.proof = saved.member("proof").asString();
             pending.expected = saved.member("expected").asString();
+            pending.replay = saved.member("replay").asString();
             if (pending.reason.empty()) {
                 continue;
             }
@@ -159,6 +160,7 @@ bool Store::load(std::string* error) {
             infraction.detections = static_cast<int>(saved.member("detections").asInteger(0));
             infraction.proof = saved.member("proof").asString();
             infraction.expected = saved.member("expected").asString();
+            infraction.replay = saved.member("replay").asString();
             if (infraction.id <= 0 || infraction.kind.empty()) {
                 continue;
             }
@@ -339,6 +341,7 @@ bool Store::save(std::string* error) const {
             saved.set("detections", infraction.detections);
             saved.set("proof", infraction.proof);
             saved.set("expected", infraction.expected);
+            saved.set("replay", infraction.replay);
             infractions.push(saved);
         }
         entry.set("infractions", infractions);
@@ -350,6 +353,7 @@ bool Store::save(std::string* error) const {
             saved.set("reason", detection.reason);
             saved.set("proof", detection.proof);
             saved.set("expected", detection.expected);
+            saved.set("replay", detection.replay);
             pending.push(saved);
         }
         entry.set("pendingDetections", pending);
@@ -936,7 +940,8 @@ std::vector<const ReportRecord*> Store::recentReports(std::size_t limit) const {
 bool Store::addInfraction(int id, const std::string& kind, const std::string& reason,
                           bool automatic, int strikes, const std::string& expiresAt,
                           const std::string& nowIso, int detections,
-                          const std::string& proof, const std::string& expected) {
+                          const std::string& proof, const std::string& expected,
+                          const std::string& replay) {
     for (UserRecord& user : users_) {
         if (user.id != id) {
             continue;
@@ -952,6 +957,7 @@ bool Store::addInfraction(int id, const std::string& kind, const std::string& re
         entry.detections = detections > 0 ? detections : 0;
         entry.proof = proof;
         entry.expected = expected;
+        entry.replay = replay;
         user.infractions.push_back(entry);
         // The record is a history, not an archive: the oldest entries fall off so
         // one account cannot grow the data file without end.
@@ -976,8 +982,27 @@ const std::vector<InfractionRecord>& Store::infractionsFor(int userId) const {
     return empty;
 }
 
+const InfractionRecord* Store::findInfraction(int id, int* ownerId) const {
+    if (id <= 0) {
+        return nullptr;
+    }
+    for (const UserRecord& user : users_) {
+        for (const InfractionRecord& entry : user.infractions) {
+            if (entry.id != id) {
+                continue;
+            }
+            if (ownerId != nullptr) {
+                *ownerId = user.id;
+            }
+            return &entry;
+        }
+    }
+    return nullptr;
+}
+
 bool Store::addPendingDetection(int id, const std::string& reason, const std::string& proof,
-                                const std::string& expected, long long atMs) {
+                                const std::string& expected, const std::string& replay,
+                                long long atMs) {
     for (UserRecord& user : users_) {
         if (user.id != id) {
             continue;
@@ -987,6 +1012,7 @@ bool Store::addPendingDetection(int id, const std::string& reason, const std::st
         pending.reason = reason;
         pending.proof = proof;
         pending.expected = expected;
+        pending.replay = replay;
         user.pendingDetections.push_back(pending);
         // The newest are the ones a wave acts on, so the oldest fall off first.
         if (user.pendingDetections.size() > kMaxPendingDetections) {

@@ -31,12 +31,14 @@ public:
     // launch token signs it, because the player cannot be trusted to report
     // themselves and another client cannot be trusted to report them either.
     // `proof` is the frame the guard measured and `expected` the rule it broke;
-    // both are stored with the detection so the site can show them to an admin.
+    // `replay` is the last seconds of packets around it. All three are stored with
+    // the detection so the site can show them to an admin.
     static CheatReportResult reportCheating(const std::string& instanceId,
                                             const std::string& managerToken,
                                             const std::string& username,
                                             const std::string& reason,
                                             const std::string& proof = std::string(),
                                             const std::string& expected = std::string(),
+                                            const std::string& replay = std::string(),
                                             const std::string& serverUrl = "http://localhost:3000");
 };

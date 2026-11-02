@@ -2,6 +2,7 @@
 // these run without a socket, a physics world or a running server.
 
 #include "MovementGuard.h"
+#include "ReplayRecorder.h"
 
 #include <algorithm>
 #include <cmath>
@@ -185,6 +186,44 @@ void testEvidenceOnAcceptedStep() {
           "evidence: an accepted step still records its distance");
 }
 
+// The clip a detection carries: bounded, ordered, and readable back into frames.
+void testReplayRecorder() {
+    rblx::replay::Recorder recorder;
+    const int sent = 120;
+    for (int i = 0; i < sent; ++i) {
+        const float x = static_cast<float>(i);
+        recorder.add(static_cast<uint64_t>(i) * 16, rblx::replay::Point{x, 5.0f, -2.0f},
+                     rblx::replay::Point{x, 5.0f, -2.0f});
+    }
+    check(recorder.frames().size() == rblx::replay::kMaxFrames,
+          "replay: the recording is bounded");
+    check(recorder.frames().back().atMs == static_cast<uint64_t>(sent - 1) * 16,
+          "replay: the newest frame is kept");
+    check(recorder.frames().front().atMs ==
+              static_cast<uint64_t>(sent - rblx::replay::kMaxFrames) * 16,
+          "replay: the run-up to the detection is what stays");
+
+    const std::string encoded = recorder.encode();
+    const std::vector<rblx::replay::Frame> decoded = rblx::replay::decode(encoded);
+    check(decoded.size() == recorder.frames().size(), "replay: a clip survives encoding");
+    check(decoded.back().claimed.x == recorder.frames().back().claimed.x,
+          "replay: the claimed position survives encoding");
+    check(decoded.back().accepted.z == recorder.frames().back().accepted.z,
+          "replay: the accepted position survives encoding");
+    check(decoded.front().atMs == recorder.frames().front().atMs,
+          "replay: the timing survives encoding");
+
+    const std::vector<rblx::replay::Frame> cut =
+        rblx::replay::decode(encoded.substr(0, encoded.size() - 3));
+    check(cut.size() + 1 == decoded.size(),
+          "replay: a clip cut short loses only its last frame");
+    check(rblx::replay::decode(std::string()).empty(), "replay: an empty clip decodes to nothing");
+
+    recorder.reset();
+    check(recorder.empty() && recorder.encode().empty(),
+          "replay: a server repositioning starts the clip again");
+}
+
 } // namespace
 
 int main() {
@@ -199,6 +238,7 @@ int main() {
     testEvidenceRecordsProof();
     testEvidenceRecordsExpectation();
     testEvidenceOnAcceptedStep();
+    testReplayRecorder();
 
     if (failures == 0) {
         std::cout << "MovementGuardTests: all checks passed" << std::endl;

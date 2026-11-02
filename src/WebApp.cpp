@@ -1,4 +1,5 @@
 #include "AvatarItems.h"
+#include "ReplayRecorder.h"
 #include "Moderation.h"
 #include "WebApp.h"
 #include "WebCaptcha.h"
@@ -1874,6 +1875,10 @@ void WebsiteApp::installRoutes() {
                   guard([this](Request& request, Response& response) {
                       return handleAdminAppeals(request, response);
                   }));
+    server_.route("GET", "/api/admin/infractions/:id/replay",
+                  guard([this](Request& request, Response& response) {
+                      return handleAdminInfractionReplay(request, response);
+                  }));
     server_.route("GET", "/api/avatar", guard([this](Request& request, Response& response) {
                       return handleGetAvatar(request, response);
                   }));
@@ -2053,6 +2058,9 @@ static Json adminInfractionJson(const InfractionRecord& entry) {
     // an admin took by hand, which rests on a report rather than a measurement.
     out.set("proof", entry.proof);
     out.set("expected", entry.expected);
+    // A clip is far too large to paste into the overview for every entry, so the
+    // dashboard is told there is one and fetches it when it is asked for.
+    out.set("hasReplay", !entry.replay.empty());
     return out;
 }
 
@@ -3554,7 +3562,7 @@ int WebsiteApp::applyBanWaves() {
             // action in Settings and appeals that action there.
             store_.addInfraction(userId, infractionKindOf(decision.action), reason, true,
                                  state.strikes, suspensionExpiry(state, now), createdAt, held,
-                                 newest.proof, newest.expected);
+                                 newest.proof, newest.expected, newest.replay);
         }
         store_.clearPendingDetections(userId);
         ++acted;
@@ -3630,7 +3638,7 @@ bool WebsiteApp::handleClientDetection(Request& request, Response& response) {
     const long long now = nowMilliseconds();
     const std::string createdAt = nowIso();
     store_.recordClientDetection(record->id, createdAt);
-    store_.addPendingDetection(record->id, "client anti-cheat: " + detail, "", "", now);
+    store_.addPendingDetection(record->id, "client anti-cheat: " + detail, "", "", "", now);
     std::string saveError;
     if (!store_.save(&saveError)) {
         std::fprintf(stderr, "Could not save the data file: %s\n", saveError.c_str());
@@ -3696,6 +3704,12 @@ bool WebsiteApp::handleInstanceModeration(Request& request, Response& response) 
     if (expected.size() > 400) {
         expected.resize(400);
     }
+    // The clip the instance recorded around the detection. It is bounded by the
+    // recorder, and cut here too so one report cannot fill the data file.
+    std::string replay = trimCopy(body.member("replay").asString());
+    if (replay.size() > 4000) {
+        replay.resize(4000);
+    }
 
     const UserRecord* record = username.empty() ? nullptr : store_.findUserByName(username);
     if (record == nullptr) {
@@ -3708,7 +3722,7 @@ bool WebsiteApp::handleInstanceModeration(Request& request, Response& response) 
     // Held for the wave like a client report: the game server is told the
     // detection was accepted, and the account is answered along with everyone else
     // the wave catches rather than the instant it was seen.
-    store_.addPendingDetection(record->id, reason, proof, expected, now);
+    store_.addPendingDetection(record->id, reason, proof, expected, replay, now);
     std::string saveError;
     if (!store_.save(&saveError)) {
         std::fprintf(stderr, "Could not save the data file: %s\n", saveError.c_str());
@@ -3735,6 +3749,60 @@ bool WebsiteApp::handleInstanceModeration(Request& request, Response& response) 
     // What the game server acts on: a restricted account is dropped, a warning
     // is read out in chat and the player keeps playing.
     result.set("restricted", rblx::moderation::isRestricted(state, now));
+    sendJson(response, 200, result);
+    return true;
+}
+
+// The recording behind one action. It is a separate request from the overview
+// because a clip is ninety frames of numbers: pasting it into every entry of every
+// account would make the dashboard's one request enormous.
+bool WebsiteApp::handleAdminInfractionReplay(Request& request, Response& response) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    AuthUser user;
+    if (!requireAuth(request, response, &user)) {
+        return true;
+    }
+    if (!isAdminUser(user)) {
+        errorJson(response, 403, adminDeniedMessage(user));
+        return true;
+    }
+
+    int ownerId = 0;
+    const InfractionRecord* entry =
+        store_.findInfraction(std::atoi(request.param("id").c_str()), &ownerId);
+    if (entry == nullptr) {
+        errorJson(response, 404, "No action matches that id.");
+        return true;
+    }
+    const UserRecord* owner = store_.findUserById(ownerId);
+
+    // Positions are sent in hundredths of a unit so the dashboard can draw them
+    // without depending on how the JSON writer formats a float, and `scale` says
+    // what to divide by.
+    Json frames = Json::makeArray();
+    for (const rblx::replay::Frame& frame : rblx::replay::decode(entry->replay)) {
+        Json point = Json::makeObject();
+        point.set("atMs", static_cast<long long>(frame.atMs));
+        point.set("x", static_cast<long long>(std::lround(frame.claimed.x * 100.0f)));
+        point.set("y", static_cast<long long>(std::lround(frame.claimed.y * 100.0f)));
+        point.set("z", static_cast<long long>(std::lround(frame.claimed.z * 100.0f)));
+        point.set("ax", static_cast<long long>(std::lround(frame.accepted.x * 100.0f)));
+        point.set("ay", static_cast<long long>(std::lround(frame.accepted.y * 100.0f)));
+        point.set("az", static_cast<long long>(std::lround(frame.accepted.z * 100.0f)));
+        frames.push(point);
+    }
+
+    Json result = Json::makeObject();
+    result.set("success", true);
+    result.set("id", entry->id);
+    result.set("username", owner != nullptr ? owner->username : std::string());
+    result.set("kind", entry->kind);
+    result.set("reason", entry->reason);
+    result.set("proof", entry->proof);
+    result.set("expected", entry->expected);
+    result.set("createdAt", entry->createdAt);
+    result.set("scale", 100);
+    result.set("frames", frames);
     sendJson(response, 200, result);
     return true;
 }
@@ -4208,6 +4276,7 @@ bool WebsiteApp::handleAdminOverview(Request& request, Response& response) {
                 entry.set("infractionDetections", infraction.detections);
                 entry.set("infractionProof", infraction.proof);
                 entry.set("infractionExpected", infraction.expected);
+                entry.set("infractionHasReplay", !infraction.replay.empty());
                 break;
             }
         }

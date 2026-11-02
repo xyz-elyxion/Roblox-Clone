@@ -13,6 +13,7 @@
 #include <deque>
 #include <limits>
 #include "Network.h"
+#include "ReplayRecorder.h"
 #include "MovementGuard.h"
 #include "Part.h"
 #include "PhysicsWorld.h"
@@ -69,6 +70,9 @@ struct ConnectedPlayer {
     // Corrections already reported to the website, so one long episode earns
     // one strike rather than one per packet.
     int reportedCorrections = 0;
+    // The last couple of seconds of packets, so a report carries the run-up to
+    // what it accuses the player of rather than a single frame.
+    rblx::replay::Recorder replay;
     // Health, death and the respawn timer are the server's, not the client's.
     rblx::health::State health;
     // Where a death puts this player back: the world's SpawnLocation.
@@ -461,8 +465,15 @@ std::vector<ModerationOutcome> moderationOutcomes;
 const int kCorrectionsPerReport = 60;
 const int kFlightCorrectionsPerReport = 30;
 
+// The recorder keeps plain numbers, so the server's vectors are handed over here
+// rather than inside a header the website also reads.
+rblx::replay::Point replayPoint(const glm::vec3& value) {
+    return rblx::replay::Point{value.x, value.y, value.z};
+}
+
 void reportCheatingToWebsite(int playerId, const std::string& username, const std::string& reason,
-                             const std::string& proof, const std::string& expected) {
+                             const std::string& proof, const std::string& expected,
+                             const std::string& replay) {
     if (gameInstanceId.empty() || gameInstanceToken.empty() || username.empty()) {
         // A server started by hand has no launch token, so the website has no way
         // to know the report is ours. Skipping it beats sending an unsigned one
@@ -473,9 +484,10 @@ void reportCheatingToWebsite(int playerId, const std::string& username, const st
     const std::string instanceId = gameInstanceId;
     const std::string instanceToken = gameInstanceToken;
     const std::string webUrl = webServerUrl;
-    enqueueTelemetry([playerId, username, reason, proof, expected, instanceId, instanceToken, webUrl]() {
+    enqueueTelemetry([playerId, username, reason, proof, expected, replay, instanceId, instanceToken,
+                      webUrl]() {
         const CheatReportResult result = ServerAuth::reportCheating(
-            instanceId, instanceToken, username, reason, proof, expected, webUrl);
+            instanceId, instanceToken, username, reason, proof, expected, replay, webUrl);
         if (!result.reported) {
             std::cerr << "Could not report cheating for player " << playerId << std::endl;
             return;
@@ -693,6 +705,7 @@ void teleportPlayer(const std::string& username, const glm::vec3& position) {
         // A script moved this player: that position is the server's own, so it
         // becomes the baseline the next packet is measured against.
         player.movement.teleport(position, steadyMilliseconds());
+        player.replay.reset();
         sendToPlayer(player, PacketProtocol::buildStructPacket(PacketType::TELEPORT, player.state), true);
         return;
     }
@@ -929,6 +942,8 @@ void respawnPlayer(ConnectedPlayer& player, int id, uint64_t nowMs) {
     }
 
     player.movement.teleport(player.spawnPosition, nowMs);
+
+    player.replay.reset();
     broadcastPacket(PacketProtocol::buildStructPacket(PacketType::TELEPORT, player.state), -1, true);
     broadcastPlayerHealth(id, player.health, nowMs);
     std::cout << "Player " << id << " respawned at " << player.spawnPosition.x << ", "
@@ -991,6 +1006,7 @@ void seatPlayer(ConnectedPlayer& player, int id, uint64_t nowMs) {
     player.state.position = vehicle.state.seatPosition(vehicle.seatHeight);
     player.state.rotationY = vehicle.state.yawDegrees;
     player.movement.teleport(player.state.position, nowMs);
+    player.replay.reset();
     sendToPlayer(player, PacketProtocol::buildStructPacket(PacketType::TELEPORT, player.state), true);
     broadcastVehicleState();
 
@@ -1010,6 +1026,7 @@ void unseatPlayer(ConnectedPlayer& player, int id, uint64_t nowMs, bool placeBes
         const glm::vec3 right(-std::sin(yaw), 0.0f, std::cos(yaw));
         player.state.position = vehicle.state.position + right * 3.0f + glm::vec3(0.0f, 2.0f, 0.0f);
         player.movement.teleport(player.state.position, nowMs);
+        player.replay.reset();
         sendToPlayer(player, PacketProtocol::buildStructPacket(PacketType::TELEPORT, player.state), true);
     }
 
@@ -1099,6 +1116,7 @@ void updateVehicle(float dt, uint64_t nowMs) {
     driver.state.isJumping = false;
     driver.state.health = driver.health.health;
     driver.movement.teleport(driver.state.position, nowMs);
+    driver.replay.reset();
 
     broadcastPacket(PacketProtocol::buildStructPacket(PacketType::PLAYER_STATE, driver.state),
                     vehicle.driverId);
@@ -1595,6 +1613,7 @@ static int runServer(int argc, char** argv) {
                         player.state.position = player.spawnPosition;
                         player.state.health = player.health.health;
                         player.movement.teleport(player.spawnPosition, nowMs);
+                        player.replay.reset();
 
                         PacketWelcome welcome = {
                             id, PacketProtocol::kProtocolRevision,
@@ -1728,8 +1747,14 @@ static int runServer(int argc, char** argv) {
                         // position is a claim. Hold it against the last one the
                         // server accepted and clamp anything a player could not
                         // have walked, jumped or fallen into.
+                        // Where the client said it was, before the guard touches
+                        // it: a replay is only worth watching if it shows the claim
+                        // rather than the correction.
+                        const glm::vec3 claimedState = player.state.position;
                         const rblx::movement::Correction movement =
                             player.movement.validate(player.state.position, nowMs);
+                        player.replay.add(nowMs, replayPoint(claimedState),
+                                          replayPoint(movement.position));
                         if (movement.corrected) {
                             player.state.position = movement.position;
                             if (movement.flight || player.movement.corrections() <= 3 ||
@@ -1759,7 +1784,8 @@ static int runServer(int argc, char** argv) {
                                 reportCheatingToWebsite(
                                     id, PacketProtocol::fixedString(player.username, sizeof(player.username)),
                                     movement.flight ? "flying" : "moving faster than allowed",
-                                    proof, rblx::movement::describeExpectation(movement.evidence));
+                                    proof, rblx::movement::describeExpectation(movement.evidence),
+                                    player.replay.encode());
                             }
 
                             // Snap the client back, otherwise it keeps

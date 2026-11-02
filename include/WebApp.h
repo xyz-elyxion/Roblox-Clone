@@ -241,6 +241,9 @@ private:
     bool handleAccountAppeal(Request& request, Response& response);
     // An admin accepts or denies one appeal.
     bool handleAdminAppeals(Request& request, Response& response);
+    // The recording behind one action, so an admin judging an appeal can watch
+    // what the server saw rather than take the label on trust.
+    bool handleAdminInfractionReplay(Request& request, Response& response);
     bool handleGetAvatar(Request& request, Response& response);
     bool handleSetAvatar(Request& request, Response& response);
     bool handleChangePassword(Request& request, Response& response);

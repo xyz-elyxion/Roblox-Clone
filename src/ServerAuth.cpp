@@ -127,6 +127,7 @@ CheatReportResult ServerAuth::reportCheating(const std::string& instanceId,
                                             const std::string& reason,
                                             const std::string& proof,
                                             const std::string& expected,
+                                            const std::string& replay,
                                             const std::string& serverUrl) {
     CheatReportResult result;
     if (instanceId.empty() || managerToken.empty() || username.empty()) {
@@ -143,6 +144,11 @@ CheatReportResult ServerAuth::reportCheating(const std::string& instanceId,
     }
     if (!expected.empty()) {
         body << ",\"expected\":\"" << jsonSafe(expected, 400) << "\"";
+    }
+    // A full clip is about ninety frames, so it gets the room the numbers do not
+    // need; the engine's own record is bounded well below this.
+    if (!replay.empty()) {
+        body << ",\"replay\":\"" << jsonSafe(replay, 3600) << "\"";
     }
     body << "}";
 

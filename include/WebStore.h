@@ -72,6 +72,9 @@ struct InfractionRecord {
     // check caught it and by how much.
     std::string proof;
     std::string expected;
+    // The packets around the detection, as the game server recorded them. Read by
+    // the dashboard, which draws them; never sent to the account.
+    std::string replay;
 };
 
 // One detection waiting for the next wave.
@@ -82,6 +85,7 @@ struct PendingDetection {
     // detection whose reason already names what it saw.
     std::string proof;
     std::string expected;
+    std::string replay;
 };
 
 // A player asking for a restriction to be looked at again, and what an admin made
@@ -247,12 +251,16 @@ public:
                        bool automatic, int strikes, const std::string& expiresAt,
                        const std::string& nowIso, int detections = 0,
                        const std::string& proof = std::string(),
-                       const std::string& expected = std::string());
+                       const std::string& expected = std::string(),
+                       const std::string& replay = std::string());
     // Empty for an account that does not exist.
     const std::vector<InfractionRecord>& infractionsFor(int userId) const;
+    // The action with this id, or nullptr. `ownerId` receives the account it
+    // belongs to, so the caller can name it without a second search.
+    const InfractionRecord* findInfraction(int id, int* ownerId = nullptr) const;
     // Holds one detection for the next wave; false when the id is unknown.
     bool addPendingDetection(int id, const std::string& reason, const std::string& proof,
-                             const std::string& expected, long long atMs);
+                             const std::string& expected, const std::string& replay, long long atMs);
     // Empty for an account that does not exist.
     const std::vector<PendingDetection>& pendingDetectionsFor(int userId) const;
     // Drops what the last wave acted on.

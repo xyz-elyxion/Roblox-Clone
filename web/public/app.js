@@ -1732,6 +1732,12 @@ function initAdminPage() {
     const reportsBody = document.querySelector('[data-admin-reports]');
     const userReportsBody = document.querySelector('[data-admin-user-reports]');
     const appealsBody = document.querySelector('[data-admin-appeals]');
+    const replayPanel = document.querySelector('[data-admin-replay-panel]');
+    const replayTitle = document.querySelector('[data-admin-replay-title]');
+    const replayNote = document.querySelector('[data-admin-replay-note]');
+    const replayStage = document.querySelector('[data-admin-replay-stage]');
+    const replayPlay = document.querySelector('[data-admin-replay-play]');
+    const replayClose = document.querySelector('[data-admin-replay-close]');
     const status = document.querySelector('[data-admin-status]');
     const refreshButton = document.querySelector('[data-admin-refresh]');
 
@@ -1988,6 +1994,118 @@ function initAdminPage() {
         }
     }
 
+    // The recording behind an action, drawn from above: the path the client
+    // claimed in one line, the path the server accepted in another. A hop, a climb
+    // or an honest run all look different here, which is what an appeal turns on.
+    let replayClip = null;
+    let replayMarker = null;
+    let replayTimer = 0;
+
+    function replayPath(frames, keyX, keyZ, bounds) {
+        return frames
+            .map((frame, index) => {
+                const x = ((frame[keyX] / 100) - bounds.minX) / bounds.width * 100;
+                const z = ((frame[keyZ] / 100) - bounds.minZ) / bounds.depth * 100;
+                return `${index === 0 ? 'M' : 'L'}${x.toFixed(2)},${z.toFixed(2)}`;
+            })
+            .join(' ');
+    }
+
+    function moveReplayMarker(index) {
+        if (!replayClip || !replayMarker) return;
+        const frame = replayClip.frames[index];
+        if (!frame) return;
+        const bounds = replayClip.bounds;
+        replayMarker.setAttribute('cx', String(((frame.x / 100) - bounds.minX) / bounds.width * 100));
+        replayMarker.setAttribute('cy', String(((frame.z / 100) - bounds.minZ) / bounds.depth * 100));
+        replayMarker.setAttribute('r', '2.4');
+    }
+
+    function playReplay() {
+        if (!replayClip || replayClip.frames.length === 0) return;
+        cancelAnimationFrame(replayTimer);
+        const frames = replayClip.frames;
+        const startedAt = performance.now() - frames[0].atMs;
+        replayPlay.textContent = 'Pause';
+        const step = (now) => {
+            const elapsed = now - startedAt;
+            let index = 0;
+            while (index + 1 < frames.length && frames[index + 1].atMs <= elapsed) index += 1;
+            moveReplayMarker(index);
+            if (index + 1 < frames.length) {
+                replayTimer = requestAnimationFrame(step);
+            } else {
+                replayPlay.textContent = 'Play';
+            }
+        };
+        replayTimer = requestAnimationFrame(step);
+    }
+
+    async function showReplay(appeal) {
+        if (!replayPanel || !replayStage) return;
+        try {
+            const response = await fetch(`/api/admin/infractions/${appeal.infractionId}/replay`, {
+                headers: { Authorization: `Bearer ${getToken()}` }
+            });
+            const data = await response.json();
+            if (!response.ok || !data.success) throw new Error(data.error || 'Could not load the replay.');
+            const frames = data.frames || [];
+            if (frames.length === 0) throw new Error('This action has no recording.');
+
+            const xs = frames.map((frame) => frame.x / 100).concat(frames.map((frame) => frame.ax / 100));
+            const zs = frames.map((frame) => frame.z / 100).concat(frames.map((frame) => frame.az / 100));
+            const minX = Math.min(...xs);
+            const minZ = Math.min(...zs);
+            const bounds = {
+                minX,
+                minZ,
+                width: Math.max(Math.max(...xs) - minX, 1),
+                depth: Math.max(Math.max(...zs) - minZ, 1)
+            };
+            replayClip = { frames, bounds };
+
+            replayStage.innerHTML = '';
+            const canvas = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            canvas.setAttribute('viewBox', '0 0 100 100');
+            canvas.setAttribute('class', 'replay-canvas');
+            const claimed = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            claimed.setAttribute('d', replayPath(frames, 'x', 'z', bounds));
+            claimed.setAttribute('class', 'replay-claimed');
+            const accepted = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            accepted.setAttribute('d', replayPath(frames, 'ax', 'az', bounds));
+            accepted.setAttribute('class', 'replay-accepted');
+            replayMarker = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            replayMarker.setAttribute('class', 'replay-marker');
+            canvas.append(accepted, claimed, replayMarker);
+            replayStage.appendChild(canvas);
+
+            replayTitle.textContent = `Replay: ${data.username} - ${data.kind}`;
+            replayNote.textContent = [data.proof, data.expected].filter(Boolean).join(' | ');
+            replayPanel.hidden = false;
+            moveReplayMarker(0);
+            playReplay();
+        } catch (error) {
+            setStatus(status, error.message || 'Could not load the replay.', 'error');
+        }
+    }
+
+    if (replayClose) {
+        replayClose.addEventListener('click', () => {
+            cancelAnimationFrame(replayTimer);
+            replayPanel.hidden = true;
+        });
+    }
+    if (replayPlay) {
+        replayPlay.addEventListener('click', () => {
+            if (replayPlay.textContent === 'Pause') {
+                cancelAnimationFrame(replayTimer);
+                replayPlay.textContent = 'Play';
+            } else {
+                playReplay();
+            }
+        });
+    }
+
     function renderAppeals(appeals) {
         if (!appealsBody) return;
         appealsBody.innerHTML = '';
@@ -2025,13 +2143,18 @@ function initAdminPage() {
                 ? 'Open'
                 : `${appeal.status} by ${appeal.reviewer || 'an admin'}`;
             const actions = document.createElement('div');
+            if (appeal.infractionHasReplay) {
+                const replayButton = makeButton('Replay', 'button secondary small', () => {});
+                replayButton.addEventListener('click', () => showReplay(appeal));
+                actions.append(replayButton);
+            }
             if (appeal.status === 'open') {
                 const accept = makeButton('Accept', 'button small', () => {});
                 accept.addEventListener('click', () => reviewAppeal(appeal, 'accept', accept));
                 const deny = makeButton('Deny', 'button danger small', () => {});
                 deny.addEventListener('click', () => reviewAppeal(appeal, 'deny', deny));
                 actions.append(accept, deny);
-            } else {
+            } else if (!appeal.infractionHasReplay) {
                 actions.textContent = '—';
             }
             appealsBody.appendChild(adminRow([

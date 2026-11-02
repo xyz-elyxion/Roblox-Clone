@@ -4,7 +4,7 @@ RBLX Clone is an early prototype of a Roblox-style client, game server, Studio e
 
 ## Current Status
 
-- Client, Server, and Studio are C++17 targets.
+- Client, Server, Studio and RBLXCode are C++17 targets.
 - Client and Server build on Windows, Linux and macOS. Socket calls go through `include/Network.h` and website calls through `include/HttpClient.h`, each of which has a WinSock/WinHTTP-facing Windows branch and a POSIX branch, so the game code itself has no platform split. The anti-cheat library is Windows-only and is skipped on other platforms.
 - Client.exe embeds **RBLXAntiCheat**, a usermode anti-cheat compiled into the client process (vendored from [UltimateAntiCheat](https://github.com/AlSch092/UltimateAntiCheat) and renamed, GNU AGPL v3 — see `RBLXAntiCheat/LICENSE`). It starts with the client, writes `RBLXAntiCheat.log`, and a failed start is logged instead of stopping the game. Configure with `-DRBLX_BUILD_ANTICHEAT=OFF` to leave it out of the build. Its identifying strings (log name, startup messages, accepted parent processes) are stored XOR-masked at compile time through `include/Obfuscated.h` so they do not show up in `strings`, and MSVC Release builds link the client with control-flow guard, full ASLR and identical-code folding. That raises the cost of finding and patching the checks; it is not a security boundary, which is why the rules that matter (movement, world contents) are enforced by the server.
 - Cheating costs the account, not just the packet. The game server's movement guard is the only thing that can prove it, because the client's anti-cheat runs inside the client process and a modified client can simply not run it; a confirmed speed hack or fly hack is reported to the website, which keeps the account's strikes. The first two strikes are warnings shown to the player in game, the next three are suspensions of a day, three days and a week, and the strike after that is a ban. A detection is not acted on where it is reported: it is held, and a wave gives every account whose oldest held detection has waited out `BAN_WAVE_WINDOW_MS` (five minutes by default) exactly one more step, so everyone caught in the same window is answered together, a burst of detections on one account is one step rather than a climb, and nothing about the timing tells a cheater which check it failed. A suspended or banned account keeps its place on the site: it stays signed in and is told where it stands, because a door that will not open is not something a player can argue with. Every page carries the standing - warned, suspended until a time, or banned - and Settings has an Account standing panel listing every entry that led there: what it cost, when, and when a suspension ends. It does not repeat what was detected, because that names the check that fired and is a map for the next attempt; the reason and the number of detections behind an action are read in the admin dashboard only. A server detection carries its proof with it: the frame the guard measured - the claimed position, the position the server had accepted, the gap between the packets, and the horizontal travel and climb claimed in that gap - beside the gameplay it was held against, which is the walk and jump speeds, the slack they get and the climb budget left. Both are stored with the detection, the wave copies them onto the action it files, and the dashboard shows them with the appeal, because a correction an admin cannot check is a guess. The game server also keeps the last ninety packets of every player - where the client claimed to be and where the server put it - and sends that clip with a report; it is stored with the detection beside the numbers, and an admin can draw it from the appeal it led to, with the claimed path and the accepted path from above. A server-side repositioning, such as a spawn or a respawn, starts the clip again, because a teleport the server chose is not something the player did. From that panel an account appeals one action at a time and only once per action: every warning, suspension and ban in the record carries its own Appeal button, the appeal names the action it is about, and a second appeal about the same action is refused. The dashboard lists appeals with Accept and Deny, and with the action and reason behind each; accepting one is the same pardon the dashboard already offers, and the record keeps who lifted the restriction and why. Only joining a game is still refused, and the game server reads that refusal from the login check it already makes. The ladder itself is `include/Moderation.h`, so an install tunes it in one place, and the admin dashboard lists each account's strikes and can pardon or ban by hand. The client's own anti-cheat is wired into the same ladder: what it detects inside the process is sent to `POST /api/client-detections` with the player's token, and a report that carries a valid token is attributable to that account and climbs the ladder like a server detection would. Without a token there is nobody to punish, so a guest's client has its log and nothing else, and the endpoint only ever files against the caller's own account. The dashboard counts those client detections beside the strikes. Two things keep that honest: a handle detection naming one of this project's own executables is dropped before it is reported, because the site launcher starts the client with `CreateProcess` and keeps the handle it waits on, so a clean launch always leaves one; and the three lines a single open-handle scan writes (the handle, the process behind it, the scan's summary) are filed as the one detection they describe, so one scan cannot climb the whole ladder on its own, and the module scan is filed the same way, one report however many modules it names, because a single start-up loads dozens of them. Every loaded module still has to be signed by Microsoft, but that rule is applied by the module scan and not by the loader: the loader-level `MicrosoftSignedOnly` policy applies to the whole process, cannot except one publisher, and answers a refused DLL with a `Bad Image` dialog that hangs the client mid-run. `Detections::IsAllowedModuleSignature` holds each module to a Microsoft signature, read from the file's embedded signature or from the catalog Windows signs it through, whichever holds it; Discord's publisher is the one named exception, and a module under `%SystemRoot%` is held to a valid signature from its own vendor instead, since the graphics, audio and chipset drivers install their libraries there and sign them with AMD's, Intel's or NVIDIA's name; Discord's `DiscordHook64.dll` is loaded into every game running beside Discord and hooks the frame the client presents; the client also drops detections that name that module, the way it drops handle detections about its own launcher.
@@ -123,13 +123,15 @@ After building Release with the preset:
 
 ```powershell
 .\build\windows-release\Release\Studio.exe
+.\build\windows-release\Release\RBLXCode.exe
 .\build\windows-release\Release\Server.exe
 .\build\windows-release\Release\Client.exe
 .\build\windows-release\Release\WebApp.exe
 ```
 
-On Linux and macOS the same four executables land directly in `build/linux-release` and
-`build/macos-release`.
+On Linux and macOS the same executables land directly in `build/linux-release` and
+`build/macos-release`, and `./build/linux-release/RBLXCode .` opens the source editor on the
+checkout it is launched from.
 
 Start the web backend before using authenticated Client login.
 
@@ -437,6 +439,36 @@ The game server reports authenticated player sessions to `/api/me/playtime` whil
 - `Esc`: open the in-game menu with Resume, Reset Character, Settings and Leave Game; `Esc` again resumes.
 - Settings holds shift lock, mouse sensitivity, invert mouse Y, field of view, chat and player list toggles, the debug overlay and a reset to defaults button.
 - `F3`: toggle the debug overlay without opening the menu.
+
+## Source Editor
+
+`RBLXCode` is the code editor for this repository, the way VS Code is the editor for its own
+sources. It is not the Studio: Studio edits a world and runs a script, this edits the C++,
+shaders, website and `.rbx` scripts that make up RBLX Clone itself, and saves them in place.
+Launch it from the checkout (`RBLXCode.exe` on Windows, `./RBLXCode .` elsewhere), or name the
+folder to open, and it walks that folder for source files.
+
+It has a project tree on the left, tabs across the top (a `*` marks unsaved work), the ImGui
+colour text editor Studio's Script panel uses in the middle, and a status bar under it with the
+line and column, the language, the line count and whether the file is saved. C++ and headers are
+coloured as C++, `.glsl`/`.vert`/`.frag` as GLSL, `.rbx` as RBLX Script (a Lua-shaped language,
+so the Lua definition is the right one), and anything the widget has no definition for opens as
+plain text with its real name in the status bar instead of being coloured wrongly.
+
+- `Ctrl+P` quick open: type part of a path, `Enter` opens the first match.
+- `Ctrl+F` focuses search: a case-insensitive substring across the project, one row per matching
+  line, and clicking a row opens the file on that line.
+- `Ctrl+G` goes to a line, `Ctrl+S` saves the file in front, `Ctrl+Shift+S` saves every open file,
+  `Ctrl+R` reloads it from disk, `Ctrl+W` closes it. Undo, redo, cut, copy and paste belong to the
+  text widget and work as usual.
+- Closing a tab with unsaved changes asks whether to save it first.
+
+Line endings are preserved: a file is shown with plain newlines but saved back with the CRLF or LF
+it arrived with, because this repository is not uniform (the anti-cheat sources are CRLF) and an
+editor that rewrote every line would bury a one-line fix in a whole-file diff. Build trees,
+`.git`, `node_modules`, vendored dependencies and the packaged `GameRelease` folder are left out
+of the tree, images and models are never offered, and a file with a NUL byte or one larger than
+4 MB is refused with the reason in the status bar rather than opened.
 
 ## Studio Controls
 

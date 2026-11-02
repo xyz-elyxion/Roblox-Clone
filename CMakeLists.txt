@@ -17,6 +17,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 option(RBLX_BUILD_STUDIO "Build the Studio editor target" ON)
+option(RBLX_BUILD_CODEEDITOR "Build the RBLXCode source editor target" ON)
 option(RBLX_BUILD_CLIENT "Build the game client target" ON)
 option(RBLX_BUILD_SERVER "Build the game server target" ON)
 option(RBLX_BUILD_TESTS "Build C++ test targets" ON)
@@ -187,6 +188,30 @@ if(RBLX_BUILD_STUDIO)
     endif()
 endif()
 
+if(RBLX_BUILD_CODEEDITOR)
+    # The source editor for this project: a window, a project tree, tabs and the
+    # same text widget Studio's script panel uses, with CodeProject doing the
+    # scanning, reading, saving and searching. It has no renderer and no physics,
+    # so it builds on a machine that cannot run the game, and it is a separate
+    # executable because editing C++ and playing a level are different jobs.
+    add_executable(RBLXCode
+        src/CodeMain.cpp
+        src/CodeProject.cpp
+        src/Window.cpp
+        ${imguicolortextedit_SOURCE_DIR}/TextEditor.cpp
+        ${IMGUI_SOURCES}
+    )
+    configure_rblx_target(RBLXCode)
+    target_include_directories(RBLXCode PRIVATE ${imguicolortextedit_SOURCE_DIR})
+    target_link_libraries(RBLXCode PRIVATE glfw glad)
+    if(NOT WIN32)
+        # glad reaches GL through GLFW at runtime, but the loader still needs
+        # dlopen.
+        find_package(Threads REQUIRED)
+        target_link_libraries(RBLXCode PRIVATE Threads::Threads ${CMAKE_DL_LIBS})
+    endif()
+endif()
+
 # RBLXAntiCheat is compiled straight into the client (see its CMakeLists): the
 # checks have to run inside the process they watch, so there is no separate
 # executable to launch or ship.
@@ -314,6 +339,12 @@ if(RBLX_BUILD_TESTS)
     add_executable(ScriptTests tests/rblx_script_tests.cpp src/RblxScript.cpp)
     target_include_directories(ScriptTests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
     add_test(NAME ScriptTests COMMAND ScriptTests)
+
+    # The source editor's file handling is headless, so its checks run without a
+    # display or the graphics dependencies.
+    add_executable(CodeProjectTests tests/code_project_tests.cpp src/CodeProject.cpp)
+    target_include_directories(CodeProjectTests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+    add_test(NAME CodeProjectTests COMMAND CodeProjectTests)
 
     add_executable(NetworkProtocolTests tests/network_protocol_tests.cpp)
     target_include_directories(NetworkProtocolTests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)

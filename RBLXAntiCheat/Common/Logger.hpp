@@ -216,7 +216,22 @@ public:
     template<typename... Args>
     static bool LogErrorAndReturn(const char* format, Args... args)
     {
-		logf(Err, format, args...);
+        if (format == NULL)
+        {
+            return false;
+        }
+
+        if constexpr (sizeof...(args) == 0)
+        {
+            // Treat as plain message when no format arguments are provided.
+            // This avoids using runtime-controlled text as a format string.
+            log(Err, std::string(format));
+        }
+        else
+        {
+            logf(Err, format, args...);
+        }
+
         return false;
     }
 

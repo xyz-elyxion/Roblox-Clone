@@ -456,7 +456,7 @@ World API available to scripts:
 - `Vector3.new(x, y, z)`.
 
 Run a script against a world with `Server.exe --world games/sky-platformer.world --script games/sky-platformer.rbx`.
-Studio has a **Script** panel for loading, editing, saving, running and stopping scripts; the
+Studio has a **Script** panel for loading, editing, saving, running and stopping scripts in a VS Code-style editor with line numbers, syntax highlighting, undo and a cursor status bar; the
 world view updates live while a script runs. The seeded **Sky Platformer** game uses
 `games/sky-platformer.world` and `games/sky-platformer.rbx`, and published starter games get
 their script copied next to the world file and passed to the server with `--script`. The seeded

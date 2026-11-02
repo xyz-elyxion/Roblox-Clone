@@ -5,6 +5,7 @@
 #include "Renderer.h"
 #include "Camera.h"
 #include "Editor.h"
+#include "TextEditor.h"
 #include "Part.h"
 #include "PhysicsWorld.h"
 #include "Raycaster.h"
@@ -284,7 +285,6 @@ int main() {
         std::string publishStatus = "Sign in to publish";
 
         char scriptPath[260] = "games/sky-platformer.rbx";
-        char scriptSource[32768] = "-- Press Load to open a .rbx script, or write one here.\n";
         std::string scriptStatus = "No script running";
         std::unique_ptr<rblx::script::Interpreter> scriptInterpreter;
         std::unique_ptr<rblx::worldscript::WorldRuntime> scriptRuntime;
@@ -398,15 +398,36 @@ int main() {
             ImGui::End();
 
             ImGui::Begin("Script");
+
+            // Studio's script panel is a code editor rather than a text box: line
+            // numbers, syntax highlighting, selection, undo and the dark palette
+            // VS Code uses. RBLX Script is Lua-shaped, so the Lua definition is
+            // the one that colours it correctly. It is created on first use, once
+            // the ImGui context exists, and it holds the script itself - Save and
+            // Run read it back instead of a fixed buffer that would cut a long
+            // script short.
+            static std::unique_ptr<TextEditor> codeEditor;
+            if (!codeEditor) {
+                codeEditor = std::make_unique<TextEditor>();
+                codeEditor->SetLanguageDefinition(TextEditor::LanguageDefinition::Lua());
+                codeEditor->SetPalette(TextEditor::GetDarkPalette());
+                codeEditor->SetTabSize(4);
+                codeEditor->SetShowWhitespaces(false);
+                codeEditor->SetText("-- Press Load to open a .rbx script, or write one here.\n");
+            }
+
             ImGui::InputText("Script file", scriptPath, sizeof(scriptPath));
-            ImGui::InputTextMultiline("##scriptEditor", scriptSource, sizeof(scriptSource),
-                                      ImVec2(-1.0f, 240.0f));
+
+            // Everything the panel has, apart from the button row and the status
+            // bar under it, belongs to the code.
+            const float footerHeight = ImGui::GetFrameHeightWithSpacing() * 2.0f;
+            codeEditor->Render("##scriptEditor", ImVec2(0.0f, -footerHeight), true);
             if (ImGui::Button("Load")) {
                 const std::string text = readTextFile(scriptPath);
                 if (text.empty()) {
                     scriptStatus = std::string("Could not read ") + scriptPath;
                 } else {
-                    std::snprintf(scriptSource, sizeof(scriptSource), "%s", text.c_str());
+                    codeEditor->SetText(text);
                     scriptStatus = std::string("Loaded ") + scriptPath;
                 }
             }
@@ -414,7 +435,7 @@ int main() {
             if (ImGui::Button("Save")) {
                 std::ofstream out(scriptPath, std::ios::binary);
                 if (out.is_open()) {
-                    out << scriptSource;
+                    out << codeEditor->GetText();
                     scriptStatus = std::string("Saved ") + scriptPath;
                 } else {
                     scriptStatus = std::string("Could not save ") + scriptPath;
@@ -433,7 +454,7 @@ int main() {
                 scriptRuntime = std::make_unique<rblx::worldscript::WorldRuntime>(
                     parts, &physicsWorld, *scriptInterpreter);
                 std::string scriptError;
-                if (scriptRuntime->runScript(scriptSource, scriptPath, scriptError)) {
+                if (scriptRuntime->runScript(codeEditor->GetText(), scriptPath, scriptError)) {
                     scriptRunning = true;
                     scriptStatus = std::string("Running ") + scriptPath;
                 } else {
@@ -446,7 +467,9 @@ int main() {
                 if (scriptRuntime) scriptRuntime->stop();
                 scriptStatus = "Stopped";
             }
-            ImGui::TextWrapped("%s", scriptStatus.c_str());
+            const TextEditor::Coordinates cursor = codeEditor->GetCursorPosition();
+            ImGui::TextDisabled("%s   Ln %d, Col %d   Lua   |   %s", scriptPath,
+                                cursor.mLine + 1, cursor.mColumn + 1, scriptStatus.c_str());
             ImGui::End();
 
             ImGui::Begin("Explorer");

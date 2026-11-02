@@ -64,6 +64,20 @@ if(NOT imguizmo_POPULATED)
     FetchContent_Populate(imguizmo)
 endif()
 
+# Studio's script panel is a code editor with line numbers, syntax highlighting,
+# selection and undo. ImGui has no widget for that, so it comes from the editor
+# everybody embeds in ImGui apps; it is two files and builds against the pinned
+# ImGui above.
+FetchContent_Declare(
+    imguicolortextedit
+    GIT_REPOSITORY https://github.com/BalazsJako/ImGuiColorTextEdit
+    GIT_TAG ca2f9f1462e3b60e56351bc466acda448c5ea50d
+)
+FetchContent_GetProperties(imguicolortextedit)
+if(NOT imguicolortextedit_POPULATED)
+    FetchContent_Populate(imguicolortextedit)
+endif()
+
 FetchContent_Declare(
     rp3d
     GIT_REPOSITORY https://github.com/DanielChappuis/reactphysics3d
@@ -156,6 +170,7 @@ if(RBLX_BUILD_STUDIO)
         src/WebJson.cpp
         src/WebCrypto.cpp
         src/Editor.cpp
+        ${imguicolortextedit_SOURCE_DIR}/TextEditor.cpp
         src/RblxScript.cpp
         src/WorldScript.cpp
         ${SHARED_SOURCES}
@@ -163,6 +178,7 @@ if(RBLX_BUILD_STUDIO)
         ${IMGUIZMO_SOURCES}
     )
     configure_rblx_target(Studio)
+    target_include_directories(Studio PRIVATE ${imguicolortextedit_SOURCE_DIR})
     target_link_libraries(Studio PRIVATE glfw glm reactphysics3d glad)
     if(WIN32)
         # HttpClient is the only transport left (the website calls used to go

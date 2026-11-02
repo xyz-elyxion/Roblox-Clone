@@ -158,7 +158,7 @@ namespace PacketProtocol {
     // Bumped whenever a packet layout or its meaning changes. Sent in the
     // handshake next to `kPacketLayoutSignature` so two differently built
     // binaries fail with an explanation instead of silently misparsing.
-    constexpr uint16_t kProtocolRevision = 6;
+    constexpr uint16_t kProtocolRevision = 7;
 
     constexpr uint16_t packetLayoutSignature() {
         return static_cast<uint16_t>(sizeof(PacketConnect) * 31u + sizeof(PacketWelcome) * 17u +
@@ -170,10 +170,24 @@ namespace PacketProtocol {
                                      sizeof(PlayerInfo) * 5u);
     }
 
-    constexpr uint32_t MAX_PAYLOAD_SIZE = 64 * 1024;
+    // A snapshot of the world is one frame, so this is the size of the largest
+    // world a server can hand to a client, not the size of a datagram. The
+    // transport fragments a frame into datagrams and reassembles it (see
+    // rblx::net::kMaxMessageSize in UdpTransport.h), and the sockets are given
+    // multi-megabyte buffers for the burst, so the only real limit is this one.
+    // It used to be 64 KB - one datagram - which was enough for a painted world
+    // of a few hundred parts and silently too small for a script that builds a
+    // hundred rooms: the client rejected the frame as malformed, dropped the
+    // connection and went back to the menu with nothing drawn.
+    constexpr uint32_t MAX_PAYLOAD_SIZE = 1024 * 1024;
     constexpr uint32_t MAX_PLAYERS = 128;
     constexpr uint32_t MAX_WORLD_PARTS = 4096;
     constexpr uint32_t MAX_WORLD_UPDATES = 4096;
+
+    static_assert(sizeof(uint32_t) + MAX_WORLD_PARTS * sizeof(PartData) <= MAX_PAYLOAD_SIZE,
+                  "a full world snapshot has to fit in one frame");
+    static_assert(MAX_WORLD_UPDATES * sizeof(PartUpdate) <= MAX_PAYLOAD_SIZE,
+                  "a full world update has to fit in one frame");
 
     enum class ParseStatus {
         Complete,

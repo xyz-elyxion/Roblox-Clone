@@ -1,4 +1,5 @@
 #include "Network.h"
+#include "UdpTransport.h"
 
 #include <cassert>
 #include <cstring>
@@ -107,6 +108,30 @@ int main() {
     assert(parsed.type == PacketType::VEHICLE_TOGGLE);
     assert(parsed.payloadSize == 0);
     assert(!PacketProtocol::validatePayload(PacketType::VEHICLE_INPUT, nullptr, 0));
+
+    // A world snapshot is one frame, and the largest legal world has to fit in
+    // it. A script that builds a hundred rooms sends a few hundred parts' worth
+    // of data in one go, so a frame the size of a single datagram is not enough.
+    // Nothing carries a frame larger than the transport's message limit either.
+    static_assert(PacketProtocol::MAX_PAYLOAD_SIZE <= rblx::net::kMaxMessageSize,
+                  "a frame has to fit in one transport message");
+
+    std::vector<char> snapshot(sizeof(uint32_t) + PacketProtocol::MAX_WORLD_PARTS * sizeof(PartData), 0);
+    const uint32_t snapshotParts = PacketProtocol::MAX_WORLD_PARTS;
+    std::memcpy(snapshot.data(), &snapshotParts, sizeof(snapshotParts));
+    assert(PacketProtocol::validatePayload(PacketType::WORLD_STATE, snapshot.data(),
+                                           static_cast<uint32_t>(snapshot.size())));
+
+    std::vector<char> snapshotFrame = PacketProtocol::buildPacket(
+        PacketType::WORLD_STATE, snapshot.data(), static_cast<uint32_t>(snapshot.size()));
+    assert(PacketProtocol::tryReadFrame(snapshotFrame, parsed) == PacketProtocol::ParseStatus::Complete);
+    assert(parsed.type == PacketType::WORLD_STATE);
+    assert(parsed.payloadSize == snapshot.size());
+
+    // The same one-frame rule for a script that moves every part at once.
+    std::vector<char> updatePayload(PacketProtocol::MAX_WORLD_UPDATES * sizeof(PartUpdate), 0);
+    assert(PacketProtocol::validatePayload(PacketType::WORLD_UPDATE, updatePayload.data(),
+                                           static_cast<uint32_t>(updatePayload.size())));
 
     PacketHeader badHeader{PacketType::WORLD_STATE, PacketProtocol::MAX_PAYLOAD_SIZE + 1};
     std::vector<char> bad(sizeof(PacketHeader));

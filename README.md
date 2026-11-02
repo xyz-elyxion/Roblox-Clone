@@ -139,21 +139,22 @@ Start the web backend before using authenticated Client login.
 
 The `Build` workflow runs on every push and packages the Release build into a folder you can
 unzip and run. Open the latest run under **Actions** and download `rblx-windows-release`; the
-macOS job uploads its four binaries as `rblx-macos-release`, and the Linux job builds and runs
+macOS job uploads its five binaries as `rblx-macos-release`, and the Linux job builds and runs
 the tests:
 
 ```
 rblx-windows-release/
-  WebApp.exe  Server.exe  Client.exe  Studio.exe
+  WebApp.exe  Server.exe  Client.exe  Studio.exe  RBLXCode.exe
   web/public/  web/seed-worlds/
   shaders/  ServerWorld.world  face*.png  face_hex.txt
-  start-website.bat  start-studio.bat  start-client.bat
+  start-website.bat  start-studio.bat  start-client.bat  start-code.bat
   README.txt
 ```
 
 Double-click `start-website.bat`: it starts `WebApp.exe` from that folder, points it at the
 `Server.exe` and `Client.exe` beside it, and opens <http://localhost:3000> in your browser.
-Pressing Play on a game page then launches the client from the same folder.
+Pressing Play on a game page then launches the client from the same folder. `start-studio.bat`
+opens the world editor and `start-code.bat` the source editor.
 
 Nothing else needs to be installed. The executables link the C++ runtime statically, so
 neither Visual Studio nor the VC++ redistributable is required at runtime; keep the folder
@@ -469,6 +470,10 @@ editor that rewrote every line would bury a one-line fix in a whole-file diff. B
 `.git`, `node_modules`, vendored dependencies and the packaged `GameRelease` folder are left out
 of the tree, images and models are never offered, and a file with a NUL byte or one larger than
 4 MB is refused with the reason in the status bar rather than opened.
+
+The Windows package ships it as `start-code.bat`, which opens it on the package folder (the
+shaders, website and example games); the C++ sources are not in that package, so for those run
+`RBLXCode.exe` from a checkout or pass the clone's path.
 
 ## Studio Controls
 

@@ -185,6 +185,7 @@ jobs:
           name: rblx-macos-release
           path: |
             build/macos-release/Studio
+            build/macos-release/RBLXCode
             build/macos-release/Server
             build/macos-release/Client
             build/macos-release/WebApp

@@ -45,7 +45,7 @@ try {
     $exeDir = Join-Path $BuildDir $Configuration
     $found = @()
     $missing = @()
-    foreach ($name in @('WebApp', 'Server', 'Client', 'Studio', 'AiTrainer')) {
+    foreach ($name in @('WebApp', 'Server', 'Client', 'Studio', 'RBLXCode', 'AiTrainer')) {
         $exePath = Join-Path $exeDir "$name.exe"
         if (Test-Path -LiteralPath $exePath) {
             Copy-Item -LiteralPath $exePath -Destination $Output
@@ -153,6 +153,29 @@ try {
     ) -join $crlf
     [System.IO.File]::WriteAllText((Join-Path $Output 'start-client.bat'), $clientBat + $crlf, $encoding)
 
+    # The source editor opens the folder it is started in, so the launcher runs it
+    # from this folder: shaders/, web/public and games/ are all editable here, and
+    # pointing it at a source checkout is a command-line argument away.
+    $codeBat = @(
+        '@echo off'
+        'rem Opens the RBLXCode source editor on this folder.'
+        'setlocal'
+        'cd /d "%~dp0"'
+        'if not exist "RBLXCode.exe" ('
+        '    echo RBLXCode.exe is not in this package.'
+        '    pause'
+        '    exit /b 1'
+        ')'
+        'rem A folder given on the command line wins over this one.'
+        'if "%~1"=="" ('
+        '    RBLXCode.exe "%~dp0"'
+        ') else ('
+        '    RBLXCode.exe "%~1"'
+        ')'
+        'if errorlevel 1 pause'
+    ) -join $crlf
+    [System.IO.File]::WriteAllText((Join-Path $Output 'start-code.bat'), $codeBat + $crlf, $encoding)
+
     $readmeLines = @(
         "RBLX Clone - Windows $Configuration build"
         ''
@@ -160,7 +183,9 @@ try {
         '  WebApp.exe    website backend: pages, accounts, avatars, games, game-server launch'
         '  Server.exe    game server, started by WebApp.exe when a game is played'
         '  Client.exe    game client, started by WebApp.exe when you press Play'
-        '  Studio.exe    world editor'
+        '  Studio.exe    world editor for levels and their scripts'
+        '  RBLXCode.exe  source editor for the files in this folder: project tree, tabs,'
+        '                C++/GLSL/RBLX script highlighting, search, save'
         '  AiTrainer.exe headless trainer: learns and replays a policy for a world, no window'
         '  web/          website assets (public/ pages and API scripts, seed-worlds/)'
         '  games/        example worlds and their .rbx scripts (Sky Platformer)'
@@ -170,8 +195,16 @@ try {
         'HOW TO RUN'
         '  start-website.bat   starts WebApp.exe, then opens http://localhost:3000'
         '  start-studio.bat    opens the Studio editor'
+        '  start-code.bat      opens the RBLXCode source editor on this folder'
         '  start-client.bat    opens the client directly (the website normally does this)'
         '  AiTrainer.exe       headless trainer, run it from this folder with the flags below'
+        ''
+        'SOURCE EDITOR (RBLXCode.exe)'
+        '  RBLXCode.exe                edits this folder: shaders/, web/public/, games/'
+        '  RBLXCode.exe D:\Roblox-Clone  edits a source clone, including the C++ files'
+        '  Ctrl+P opens a file by name, Ctrl+F searches the folder, Ctrl+G goes to a line,'
+        '  Ctrl+S saves. It writes the file back with the line endings it already had.'
+        '  This package does not contain the C++ sources; for those, point it at a clone.'
         ''
         'AI TRAINER (AiTrainer.exe)'
         '  AiTrainer.exe --world games\turbo-circuit.world --goal FinishLine --generations 60'

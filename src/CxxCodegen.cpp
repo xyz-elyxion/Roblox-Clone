@@ -732,11 +732,20 @@ private:
         }
         for (std::size_t i = 0; i < expression.args.size(); ++i) {
             const detail::ExprPtr& argument = expression.args[i];
-            genValue(*argument);
             detail::TypePtr type = argument->type;
             if (declaration && i + hidden < parameterCount) {
                 type = declaration->parameters[i + hidden].type;
-                convert(argument->type, type);
+            }
+            // A reference parameter receives the address of its argument, so a
+            // pointer travels where a value would have.
+            const bool reference = type && type->isReference;
+            if (reference) {
+                genAddress(*argument);
+            } else {
+                genValue(*argument);
+            }
+            if (declaration && i + hidden < parameterCount) {
+                if (!reference) convert(argument->type, type);
             } else if (declaration && declaration->variadic && isFloating(argument->type) &&
                        argument->type->kind == detail::TypeKind::Float) {
                 // The default argument promotion: printf reads a double.
@@ -796,6 +805,35 @@ private:
 
     // ---------------------------------------------------------- statements ----
 
+    // `int a[3] = {1, 2, 3};` and `struct P p = {1, 2};`: the elements or fields
+    // are filled in order, and `{}` zeroes the whole object.
+    void bracedInit(const detail::LocalDecl& declaration) {
+        const detail::TypePtr& type = declaration.type;
+        if (declaration.inits.empty()) {
+            emit("leaq " + std::to_string(declaration.offset) + "(%rbp), %rdi");
+            emit("xorl %eax, %eax");
+            emit("movl $" + std::to_string(std::max(type->size, 1)) + ", %ecx");
+            emit("rep stosb");
+            return;
+        }
+        for (std::size_t i = 0; i < declaration.inits.size(); ++i) {
+            int offset = declaration.offset;
+            detail::TypePtr target = type;
+            if (type->isArray()) {
+                target = type->element;
+                offset += static_cast<int>(i) * std::max(type->element->size, 1);
+            } else {
+                if (i >= type->fields.size()) break;
+                offset += type->fields[i].offset;
+                target = type->fields[i].type;
+            }
+            genValue(*declaration.inits[i]);
+            convert(declaration.inits[i]->type, target);
+            emit("leaq " + std::to_string(offset) + "(%rbp), %rcx");
+            storeValue(target);
+        }
+    }
+
     void genStatement(const detail::Stmt& statement) {
         annotate(statement.line);
         switch (statement.kind) {
@@ -808,7 +846,17 @@ private:
 
             case detail::StmtKind::Declaration:
                 for (const detail::LocalDecl& declaration : statement.declarations) {
+                    if (declaration.braced) {
+                        bracedInit(declaration);
+                        continue;
+                    }
                     if (!declaration.init) continue;
+                    if (declaration.type->isReference) {
+                        // A reference is the address of what it names.
+                        genAddress(*declaration.init);
+                        emit("movq %rax, " + std::to_string(declaration.offset) + "(%rbp)");
+                        continue;
+                    }
                     if (declaration.type->isStruct()) {
                         genValue(*declaration.init);
                         emit("movq %rax, %rsi");
@@ -1235,10 +1283,11 @@ Result compile(const std::string& source, const Options& options) {
 std::string supportedSummary() {
     return
         "Types: void, bool, char, short, int, long (64-bit) and their unsigned forms,\n"
-        "float, double, pointers, arrays, structs/classes/unions by pointer, enum and\n"
-        "typedef.\n"
-        "Statements: blocks, declarations, if/else, while, do/while, for, switch/case/\n"
-        "default, goto and labels, return, break, continue, static_assert, auto.\n"
+        "float, double, pointers, arrays, structs/classes/unions by pointer, enum,\n"
+        "typedef, references (int&) and decltype.\n"
+        "Statements: blocks, declarations with braced initialisers, if/else, while,\n"
+        "do/while, for, switch/case/default, goto and labels, return, break, continue,\n"
+        "static_assert, auto; namespaces are flattened.\n"
         "Expressions: arithmetic, comparisons, && || !, ?:, casts, sizeof, ++/--, compound\n"
         "assignment, calls, subscripts and field access.\n"
         "Member functions: declared or defined in a struct, or defined as Rect::area();\n"
@@ -1247,9 +1296,10 @@ std::string supportedSummary() {
         "#if/#elif/#else/#endif over constant expressions, #include (\"...\" beside the\n"
         "source or on -I, <...> on -I) and #pragma once.\n"
         "Storage: globals, static locals and static functions.\n"
-        "Not supported yet: inheritance, virtual functions, constructors, templates,\n"
-        "exceptions, long double, scoped enums, structs or arrays by value, function\n"
-        "pointers.";
+        "Not supported yet: inheritance, virtual functions, constructors, destructors,\n"
+        "operator overloading, templates, exceptions, long double, scoped enums,\n"
+        "range-for, qualified names, returning a reference, structs or arrays by value,\n"
+        "function pointers.";
 }
 
 }  // namespace cxx

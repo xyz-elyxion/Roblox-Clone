@@ -23,7 +23,7 @@ bool isTypeKeyword(const std::string& text) {
                                    "short",       "signed", "unsigned", "struct",  "const",
                                    "volatile",    "static", "extern",  "auto",    "register",
                                    "float",       "double", "typedef", "class",   "enum",
-                                   "union",       "template"};
+                                   "union",       "template", "decltype"};
     for (const char* word : kWords) {
         if (text == word) return true;
     }
@@ -195,6 +195,16 @@ private:
                 advance();
                 continue;
             }
+            if (word == "decltype") {
+                if (haveType) break;
+                advance();
+                expect("(", "after decltype");
+                ExprPtr operand = parseAssignment();
+                expect(")", "after the decltype expression");
+                specifiers.type = operand->type;
+                haveType = true;
+                continue;
+            }
             auto alias = typedefs_.find(word);
             if (alias != typedefs_.end()) {
                 if (haveType) break;
@@ -284,7 +294,17 @@ private:
         if (!at("{")) {
             auto existing = structs_.find(tag);
             if (existing == structs_.end()) {
-                fail("struct '" + tag + "' must be defined before it is used");
+                // `struct Node;` promises a definition later: a pointer to it can
+                // exist now, a value of it cannot.
+                auto forward = std::make_shared<Type>();
+                forward->kind = TypeKind::Struct;
+                forward->name = tag;
+                forward->isUnion = isUnion;
+                forward->complete = false;
+                forward->size = 0;
+                forward->align = 1;
+                structs_[tag] = forward;
+                return forward;
             }
             // A union is not a struct: naming it with the wrong keyword is a
             // mistake the language refuses, so it is refused here too.
@@ -300,6 +320,14 @@ private:
         type->kind = TypeKind::Struct;
         type->name = tag;
         type->isUnion = isUnion;
+        // A forward declaration is filled in where it is defined, so a pointer
+        // stored earlier already points at the finished type.
+        auto known = structs_.find(tag);
+        if (known != structs_.end() && !known->second->complete) {
+            type = known->second;
+            type->fields.clear();
+        }
+        type->complete = true;
         // Registered before the body is read so a field can point back at the
         // struct being defined - the next pointer of a list node.
         if (tag != "anonymous") structs_[tag] = type;
@@ -319,12 +347,16 @@ private:
                 continue;
             }
             if (current().text == "virtual") fail("virtual functions are not supported yet");
+            if (at("~")) fail("destructors are not supported yet");
             if (current().kind == TokenKind::Identifier && current().text == tag &&
                 look(1).is("(")) {
                 fail("constructors are not supported yet; give the struct a plain init function");
             }
             Specifiers fieldSpecifiers = parseSpecifiers();
             if (!fieldSpecifiers.type) fail("a struct field needs a type");
+            // `int operator+(...)` keeps its return type in front, so the operator
+            // keyword only appears after the specifiers have been read.
+            if (current().is("operator")) fail("operator overloading is not supported yet");
             if (fieldSpecifiers.isTypedef) {
                 fail("a typedef inside a struct is not supported yet; write it at file scope");
             }
@@ -340,6 +372,9 @@ private:
                 }
                 first = false;
                 if (fieldType->isVoid()) fail("a struct field cannot be void");
+                if (fieldType->isReference) {
+                    fail("a struct field cannot be a reference; use a pointer");
+                }
                 if (fieldType->isStruct()) {
                     fail("a struct cannot hold a struct by value; use a pointer");
                 }
@@ -372,6 +407,13 @@ private:
     TypePtr parseDeclarator(const TypePtr& base, std::string& name, bool allowAbstract) {
         TypePtr type = base;
         while (accept("*")) type = pointerType(type);
+        // `int& name` is a reference: a pointer the compiler dereferences for you.
+        if (accept("&")) {
+            if (at("&")) fail("an rvalue reference (&&) is not supported yet");
+            TypePtr reference = pointerType(type);
+            reference->isReference = true;
+            type = reference;
+        }
 
         if (current().kind == TokenKind::Identifier && !isTypeKeyword(current().text)) {
             name = advance().text;
@@ -450,6 +492,21 @@ private:
             parseStaticAssert();
             return;
         }
+        if (at("namespace")) {
+            // Namespaces are flattened: every name inside becomes visible outside
+            // under its own name, and a qualified name is refused rather than
+            // quietly resolving to the wrong thing.
+            advance();
+            if (current().kind == TokenKind::Identifier) advance();
+            if (!at("{")) fail("a namespace needs a body of braces");
+            advance();
+            while (!at("}")) {
+                if (current().kind == TokenKind::End) fail("the namespace body never closes");
+                topLevel();
+            }
+            advance();  // }
+            return;
+        }
         Specifiers specifiers = parseSpecifiers();
         if (specifiers.isAuto) fail("auto is only for locals; write the type of a global");
         if (!specifiers.type) fail("expected a declaration");
@@ -497,6 +554,11 @@ private:
 
     void parseGlobal(const Specifiers& specifiers, const std::string& name, const TypePtr& type) {
         if (type->isVoid()) fail("'" + name + "' cannot be void");
+        if (type->isReference) fail("a global reference is not supported yet; use a pointer");
+        if (type->isStruct() && !type->complete) {
+            fail("'" + name + "' has incomplete type struct " + type->name +
+                 "; define the struct first");
+        }
         if (globals_.find(name) != globals_.end()) fail("'" + name + "' is already declared");
 
         GlobalDef definition;
@@ -592,6 +654,9 @@ private:
     // parameter named `this`, and the body may name fields directly.
     void parseFunction(const Specifiers& specifiers, const std::string& name, const TypePtr& result,
                        const TypePtr& owner = nullptr) {
+        if (result->isReference) {
+            fail("returning a reference is not supported yet; return a pointer");
+        }
         advance();  // (
         // A member symbol carries its struct the way a compiler mangles the class
         // into the name. Nothing outside RBLXCC links against it.
@@ -802,6 +867,9 @@ private:
             parseStaticAssert();
             return makeStatement(StmtKind::Empty);
         }
+        if (at("try") || at("throw") || at("catch")) {
+            fail("exceptions are not supported yet");
+        }
         if (at("return")) return parseReturn();
         if (at("break") || at("continue")) {
             StmtPtr statement = makeStatement(at("break") ? StmtKind::Break : StmtKind::Continue);
@@ -875,6 +943,10 @@ private:
             std::string name;
             TypePtr type = parseDeclarator(specifiers.type, name, false);
             if (type->isVoid()) fail("'" + name + "' cannot be void");
+            if (type->isStruct() && !type->complete) {
+                fail("'" + name + "' has incomplete type struct " + type->name +
+                     "; define the struct first");
+            }
 
             LocalDecl declaration;
             declaration.name = name;
@@ -882,9 +954,20 @@ private:
             declaration.offset = allocateLocal(type);
 
             if (accept("=")) {
-                ExprPtr initialiser = parseAssignment();
-                checkAssignment(type, initialiser, "'" + name + "'");
-                declaration.init = std::move(initialiser);
+                if (type->isReference) {
+                    // A reference is bound to a variable, not to a value.
+                    ExprPtr initialiser = parseAssignment();
+                    if (!initialiser->lvalue) {
+                        fail("a reference must be bound to a variable, not to a value");
+                    }
+                    declaration.init = std::move(initialiser);
+                } else if (at("{")) {
+                    parseBracedInitialiser(type, declaration);
+                } else {
+                    ExprPtr initialiser = parseAssignment();
+                    checkAssignment(type, initialiser, "'" + name + "'");
+                    declaration.init = std::move(initialiser);
+                }
             }
             declareLocal(name, type, declaration.offset);
             statement.declarations.push_back(std::move(declaration));
@@ -906,6 +989,9 @@ private:
             std::string name;
             TypePtr type = parseDeclarator(specifiers.type, name, false);
             if (type->isVoid()) fail("'" + name + "' cannot be void");
+            if (type->isReference) {
+                fail("a static local cannot be a reference; use a pointer");
+            }
 
             const std::string symbol =
                 (currentFunction_ ? currentFunction_->name : "static") + "_" + name + "_" +
@@ -960,6 +1046,43 @@ private:
             program_->globals.push_back(definition);
         } while (accept(","));
         expect(";", "after the declaration");
+    }
+
+    // `{1, 2, 3}` for an array, `{1, 2}` for a struct: one value per element or
+    // field, in order. `{}` is allowed and zeroes the whole object.
+    void parseBracedInitialiser(const TypePtr& type, LocalDecl& declaration) {
+        if (!type->isArray() && !type->isStruct()) {
+            fail("only an array or a struct can be initialised with braces");
+        }
+        advance();  // {
+        declaration.braced = true;
+        if (accept("}")) return;
+        std::size_t index = 0;
+        while (!at("}")) {
+            if (current().kind == TokenKind::End) fail("the initialiser never closes");
+            if (at("{")) fail("nested braces are not supported yet; fill the inner part separately");
+            ExprPtr value = parseAssignment();
+            TypePtr target;
+            if (type->isArray()) {
+                if (static_cast<long long>(index) >= type->elements) {
+                    fail("there are more initialisers than elements");
+                }
+                target = type->element;
+            } else {
+                if (index >= type->fields.size()) {
+                    fail("there are more initialisers than fields");
+                }
+                target = type->fields[index].type;
+            }
+            if (!target->isScalar()) {
+                fail("only a number or a pointer can be given here; fill the field at run time");
+            }
+            checkAssignment(target, value, "the initialiser");
+            declaration.inits.push_back(std::move(value));
+            ++index;
+            if (!accept(",")) break;
+        }
+        expect("}", "to close the initialiser");
     }
 
     // `static_assert(condition, "message");` has to hold before the program runs,
@@ -1069,6 +1192,17 @@ private:
     StmtPtr parseFor() {
         advance();
         expect("(", "after for");
+        // `for (auto v : a)` is a range-for. A ':' before the first ';' gives it
+        // away, unless a ternary has already used one.
+        bool sawQuestion = false;
+        for (int ahead = 0; ahead < 16; ++ahead) {
+            const Token& token = look(ahead);
+            if (token.kind == TokenKind::End || token.is(";") || token.is(")")) break;
+            if (token.is("?")) sawQuestion = true;
+            if (token.is(":") && !sawQuestion) {
+                fail("range-for is not supported yet; write the indices out");
+            }
+        }
         StmtPtr statement = makeStatement(StmtKind::For);
         scopes_.push_back(std::map<std::string, Variable>());
         if (at(";")) {
@@ -1473,6 +1607,9 @@ private:
             ExprPtr operand = parseUnary();
             target = operand->type;
         }
+        if (target->isStruct() && !target->complete) {
+            fail("sizeof needs a complete struct; define '" + target->name + "' first");
+        }
         auto expression = makeExpr(ExprKind::SizeOf);
         expression->type = primitiveType(TypeKind::Long);
         expression->number = target->size;
@@ -1524,6 +1661,11 @@ private:
                 }
                 for (std::size_t i = 0; i < expected; ++i) {
                     const Parameter& parameter = declaration->parameters[i + hidden];
+                    if (parameter.type->isReference && !call->args[i]->lvalue) {
+                        fail("argument " + std::to_string(i + 1) + " of '" +
+                             declaration->displayName + "' is a reference, so it needs a variable "
+                             "rather than a value");
+                    }
                     if (parameter.type->isPointer() && parameter.type->element->isScalar() &&
                         call->args[i]->type->isInteger() &&
                         call->args[i]->kind == ExprKind::Integer &&
@@ -1631,6 +1773,12 @@ private:
 
     ExprPtr parsePrimary() {
         const Token& token = current();
+        if (token.kind == TokenKind::Identifier && look(1).is("::")) {
+            // Namespaces are flattened, so `n::v` has no meaning here. Saying so is
+            // better than resolving `n` and complaining about `::`.
+            fail("qualified names are not supported yet; a name inside a namespace is visible "
+                 "without it");
+        }
         if (token.kind == TokenKind::Number && token.floating) {
             auto expression = makeExpr(ExprKind::Floating);
             expression->real = token.real;
@@ -1746,6 +1894,19 @@ private:
             // A static local is stored under a symbol of its own, so the source
             // name is translated here and nowhere else.
             if (!variable->symbol.empty()) expression->text = variable->symbol;
+            if (variable->type->isReference) {
+                // Naming a reference means its referent, so the expression becomes
+                // *pointer, which is code the back end already understands.
+                auto dereference = ExprPtr(new Expr());
+                dereference->kind = ExprKind::Unary;
+                dereference->text = "*";
+                dereference->line = expression->line;
+                dereference->column = expression->column;
+                dereference->type = variable->type->element;
+                dereference->lvalue = true;
+                dereference->a = std::move(expression);
+                return dereference;
+            }
             return expression;
         }
         if (token.is("(")) {

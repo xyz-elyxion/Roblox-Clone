@@ -72,6 +72,8 @@ struct Type {
     long long elements = 0;  // array length
     std::string name;        // struct tag
     bool isUnion = false;    // every field sits at offset 0
+    bool complete = true;    // a forward declaration is not
+    bool isReference = false;  // int&: a pointer the compiler dereferences for you
     std::vector<Field> fields;
     // Member function name -> the symbol it is emitted under. The object is not
     // stored in the type: there is no vtable, because there is no inheritance.
@@ -167,6 +169,10 @@ struct LocalDecl {
     TypePtr type;
     int offset = 0;
     ExprPtr init;
+    // `int a[3] = {1, 2, 3};` keeps its elements here; an empty list with braced
+    // set zeroes the whole object.
+    std::vector<ExprPtr> inits;
+    bool braced = false;
 };
 
 enum class StmtKind {

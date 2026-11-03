@@ -81,8 +81,8 @@ void diagnosticsTests() {
     // the default, which nothing reads.
     expectCompiles("classes", "class Thing { public: int value; }; "
                               "int main() { class Thing t; t.value = 2; return t.value; }");
-    expectError("class without a body", "class Thing; int main() { return 0; }",
-                "must be defined before it is used");
+    expectCompiles("class forward declaration",
+                   "class Thing; int main() { class Thing* none = 0; return none == 0; }");
     expectError("templates", "template<int N> int f() { return N; } int main() { return 0; }",
                 "template is not supported");
     expectError("inheritance", "struct A { int x; }; struct B : A { int y; }; int main() { return 0; }",
@@ -112,6 +112,23 @@ void diagnosticsTests() {
     expectError("duplicate case",
                 "int main() { switch (1) { case 1: return 0; case 1: return 1; } return 2; }",
                 "has two case labels");
+    expectError("range-for", "int main() { int a[2] = {1, 2}; for (auto v : a) { } return 0; }",
+                "range-for is not supported");
+    expectError("operator overloading",
+                "struct P { int x; int operator+(int o) { return x + o; } }; "
+                "int main() { return 0; }",
+                "operator overloading is not supported");
+    expectError("destructors", "struct P { int x; ~P() { } }; int main() { return 0; }",
+                "destructors are not supported");
+    expectError("exceptions", "int main() { try { return 0; } catch (...) { return 1; } }",
+                "exceptions are not supported");
+    expectError("qualified name", "namespace n { int v; } int main() { return n::v; }",
+                "qualified names are not supported");
+    expectError("incomplete struct by value",
+                "struct Node; int main() { struct Node node; return 0; }",
+                "has incomplete type struct Node");
+    expectError("reference to a value", "int f(int& r); int main() { return f(1); }",
+                "needs a variable");
     expectError("missing include", "#include \"nope.h\"\nint main() { return 0; }",
                 "cannot find header 'nope.h'");
 
@@ -850,6 +867,62 @@ again:
 }
 )CPP",
      "10 10 30 0\n6\ntwo\nthree\n3\n"},
+
+    // References are pointers the compiler dereferences, a forward declaration is
+    // filled in where the struct is defined, and braces initialise an array or a
+    // struct element by element.
+    {"references, forward declarations, decltype, namespaces and braces",
+     R"CPP(
+struct Node;
+struct Node {
+    int value;
+    struct Node* next;
+};
+struct Pair { int first; int second; };
+namespace shapes {
+    int side = 4;
+    int area() { return side * side; }
+}
+int bump(int& cell) {
+    cell = cell + 1;
+    return cell;
+}
+int swapSum(int& a, int& b) {
+    int t = a;
+    a = b;
+    b = t;
+    return a * 10 + b;
+}
+int main() {
+    int x = 1;
+    int& alias = x;
+    alias = 7;
+    printf("%d\n", alias);
+    printf("%d\n", bump(alias));
+    int p = 3;
+    int q = 4;
+    int sum = swapSum(p, q);
+    printf("%d %d %d\n", sum, p, q);
+    int values[3] = {1, 2, 3};
+    printf("%d\n", values[0] + values[1] + values[2]);
+    struct Node a;
+    a.value = 5;
+    a.next = 0;
+    struct Node b;
+    b.value = 6;
+    b.next = &a;
+    printf("%d\n", b.next->value);
+    printf("%d\n", area());
+    struct Pair pair = {3, 4};
+    printf("%d\n", pair.first + pair.second);
+    decltype(x) copy = 9;
+    printf("%d\n", copy);
+    int zeroed[2] = {};
+    printf("%d %d\n", zeroed[0], zeroed[1]);
+    return 0;
+}
+)CPP",
+     "7\n8\n43 4 3\n6\n5\n16\n7\n9\n0 0\n"},
 };
 
 #if defined(_WIN32)

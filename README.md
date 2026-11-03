@@ -221,11 +221,14 @@ What it takes:
   and pointers to them, including a struct pointing at itself; `class` and `union`
   as well as `struct` (a class is a struct, since access is never enforced, and a
   union puts every field at offset 0); `enum` with explicit values, under the name
-  of an `int`; and `typedef`, including one that names an anonymous struct.
+  of an `int`; `typedef`, including one that names an anonymous struct; references
+  (`int&`, as a parameter or a local alias); `decltype`; and a forward declaration
+  (`struct Node;`) whose pointer works before the definition arrives.
 - Declarations: globals with constant initialisers, functions with parameters and
   `...`, prototypes, `static` for file-local symbols and for locals that outlive
   the call, `auto` for a local whose type is that of its initialiser, `extern` for
-  a symbol defined elsewhere.
+  a symbol defined elsewhere, and braced initialisers (`int a[3] = {1, 2, 3};`,
+  `struct P p = {1, 2};`, `{}` to zero).
 - Statements: blocks, `if`/`else`, `while`, `do`/`while`, `for`,
   `switch`/`case`/`default` with real fallthrough, `goto` and labels, `return`,
   `break`, `continue`, and `static_assert` (checked while compiling).
@@ -252,6 +255,9 @@ What it takes:
   can name it, because each one gets a symbol of its own. Its initialiser has to
   be a constant, which is what a data section can hold; anything else is refused
   instead of run at the wrong time.
+- Namespaces: `namespace x { ... }` is parsed and flattened, so the names inside
+  are visible without the prefix. A qualified name (`x::y`) is refused rather than
+  resolved to the wrong thing.
 
 Every integer is 64-bit in a register and truncated back to its declared width and
 signedness on store, so an `int` wraps at 32 bits and a `long` does not, and an
@@ -271,9 +277,10 @@ register. Structs and arrays are handled by address rather than copied into
 registers, which is why they are passed as pointers.
 
 What it refuses, with a diagnostic that says so instead of miscompiling:
-inheritance, virtual functions, constructors and destructors, templates,
-exceptions, `long double`, scoped enumerations, variadic macros, structs or
-arrays passed or returned by value, and function pointers.
+inheritance, virtual functions, constructors and destructors, operator
+overloading, templates, exceptions, `long double`, scoped enumerations, variadic
+macros, range-`for`, returning a reference, structs or arrays passed or returned
+by value, and function pointers.
 
 `tests/cxx_compiler_tests.cpp` runs the pipeline twice over: once as a library
 (diagnostics and the shape of the emitted assembly) and once end to end, where

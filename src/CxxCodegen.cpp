@@ -858,6 +858,14 @@ Result compile(const std::string& source, const Options& options) {
         return result;
     }
 
+    if (options.requireEntryPoint &&
+        parsed.program->functions.find("main") == parsed.program->functions.end()) {
+        Diagnostic diagnostic;
+        diagnostic.message = "no main function: a program needs int main()";
+        result.diagnostics.push_back(diagnostic);
+        return result;
+    }
+
     detail::GenerateResult generated = detail::generate(*parsed.program, options);
     result.diagnostics = generated.diagnostics;
     result.assembly = generated.assembly;

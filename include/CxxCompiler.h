@@ -46,6 +46,11 @@ struct Options {
     // Call functions outside this file through the procedure linkage table, the
     // ELF convention. Mach-O has no PLT, so the driver turns this off on macOS.
     bool usePlt = true;
+
+    // Reject a translation unit with no int main(). True for a program built
+    // straight from source; the driver turns it off, because one file of several
+    // is not expected to hold main and the link step decides.
+    bool requireEntryPoint = true;
 };
 
 struct Result {

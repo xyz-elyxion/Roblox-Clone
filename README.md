@@ -142,11 +142,42 @@ lets `cc` (or `$RBLX_CC`) assemble and link it against the C runtime, which is
 what calls `main` and what makes `printf` work.
 
 ```bash
-RBLXCC hello.cpp -o hello      # compile, assemble and link
-RBLXCC hello.cpp -S            # stop at assembly: hello.s
-RBLXCC hello.cpp -c            # object file only
-RBLXCC hello.cpp --keep-asm    # leave the .s beside the program
+RBLXCC hello.cpp -o hello             # compile, assemble and link
+RBLXCC main.cpp totals.cpp -o app     # several files, one program
+RBLXCC main.o more.cpp -lm -o app     # objects and linker flags pass through
+RBLXCC hello.cpp -S                   # stop at assembly: hello.s
+RBLXCC hello.cpp -c                   # object file only
+RBLXCC hello.cpp --keep-asm           # keep the .s and .o files it generated
 ```
+
+It drives a build the way a C compiler does: every source is compiled and
+assembled on its own, and the objects are linked together with anything else on
+the command line, so two files may each define their own `static` helper.
+Intermediate objects go in `<program>.objs/`, which a successful link removes.
+
+**CMake delegates a target to it.** `examples/rblxcc/` is a two-file program that
+CMake does not compile: CMake builds `RBLXCC` with the host compiler, and then
+`RBLXCCExample` is built by RBLXCC itself, in a custom command, and run by ctest,
+which checks its output. That is the wiring that matters: the same target graph,
+the same dependency on the compiler, no `add_executable` compiling the sources.
+
+**Why the six shipped executables are still compiled by the host toolchain.**
+Not for lack of wiring: their sources use things RBLXCC does not implement. The
+counts below are `std::` uses, `float`/`double` and classes in the current tree:
+
+| target | files | `std::` uses | float/double |
+| --- | --- | --- | --- |
+| WebApp | 5354 + web sources | 538 | 10 |
+| Client | 2517 | 286 | 26 |
+| Server | 1919 | 257 | 17 |
+| RBLXCode | 1538 + 1332 | 403 | 12 |
+| AiTrainer | 737 | 124 | 58 |
+
+Compiling them with RBLXCC means implementing the standard library, classes,
+templates, exceptions and floating point first, and the headers of GLFW, GLM,
+ImGui and reactphysics3d are C++ that only a full compiler accepts. Until then the
+delegation above is the honest version of "our compiler builds the program": one
+target, built end to end by RBLXCC, with the rest waiting on the language.
 
 A program it accepts:
 

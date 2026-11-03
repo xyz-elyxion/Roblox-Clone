@@ -318,6 +318,40 @@ if(RBLX_BUILD_CC)
         src/CxxCodegen.cpp
     )
     configure_rblx_target(RBLXCC)
+
+    # CMake builds the compiler once, and the compiler builds this program: two
+    # translation units, each compiled on its own and linked into one executable
+    # by RBLXCC instead of add_executable. MSVC is skipped because the back end
+    # writes AT&T assembly, which only an assembler like cc's understands.
+    #
+    # The real targets are not here because of the language, not the wiring: they
+    # use std::string, std::vector, threads, floating point, classes and templates,
+    # plus GLFW, GLM, ImGui and reactphysics3d headers. RBLXCC implements the C++
+    # that plain programs need; until it grows those features, CMake keeps
+    # compiling them.
+    if(NOT MSVC)
+        set(RBLXCC_EXAMPLE_SOURCES
+            ${CMAKE_CURRENT_SOURCE_DIR}/examples/rblxcc/main.cpp
+            ${CMAKE_CURRENT_SOURCE_DIR}/examples/rblxcc/totals.cpp
+        )
+        set(RBLXCC_EXAMPLE_PROGRAM
+            ${CMAKE_CURRENT_BINARY_DIR}/RBLXCCExample${CMAKE_EXECUTABLE_SUFFIX}
+        )
+        add_custom_command(
+            OUTPUT ${RBLXCC_EXAMPLE_PROGRAM}
+            COMMAND $<TARGET_FILE:RBLXCC> ${RBLXCC_EXAMPLE_SOURCES} -o ${RBLXCC_EXAMPLE_PROGRAM}
+            DEPENDS RBLXCC ${RBLXCC_EXAMPLE_SOURCES}
+            COMMENT "Compiling RBLXCCExample with RBLXCC"
+            VERBATIM
+        )
+        # The target and the file it produces cannot share a name, or make reports a
+        # circular dependency between them.
+        add_custom_target(BuildRBLXCCExample ALL DEPENDS ${RBLXCC_EXAMPLE_PROGRAM})
+        if(RBLX_BUILD_TESTS)
+            add_test(NAME RBLXCCExample COMMAND ${RBLXCC_EXAMPLE_PROGRAM})
+            set_tests_properties(RBLXCCExample PROPERTIES PASS_REGULAR_EXPRESSION "total=10")
+        endif()
+    endif()
 endif()
 
 set(WEB_SOURCES
@@ -440,5 +474,11 @@ if(RBLX_BUILD_TESTS)
         src/CxxCodegen.cpp
     )
     target_include_directories(CxxCompilerTests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
-    add_test(NAME CxxCompilerTests COMMAND CxxCompilerTests)
+    if(TARGET RBLXCC)
+        # The suite also drives the compiler the way a user does: several source
+        # files in, one linked program out.
+        add_test(NAME CxxCompilerTests COMMAND CxxCompilerTests $<TARGET_FILE:RBLXCC>)
+    else()
+        add_test(NAME CxxCompilerTests COMMAND CxxCompilerTests)
+    endif()
 endif()

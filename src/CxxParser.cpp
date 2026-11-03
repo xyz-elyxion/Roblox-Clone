@@ -41,9 +41,6 @@ public:
             if (accept(";")) continue;
             topLevel();
         }
-        if (program_->functions.find("main") == program_->functions.end()) {
-            fail("no main function: a program needs int main()");
-        }
         return std::move(program_);
     }
 

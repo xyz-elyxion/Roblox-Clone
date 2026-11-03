@@ -663,12 +663,107 @@ void endToEndTests() {
     std::filesystem::remove_all(directory, ignored);
 }
 
+std::string quoted(const std::string& path) { return "\"" + path + "\""; }
+
+std::string runAndCapture(const std::string& command) {
+    std::string output;
+    FILE* pipe = RBLX_POPEN(command.c_str(), "r");
+    if (!pipe) return output;
+    char buffer[512];
+    std::size_t read = 0;
+    while ((read = std::fread(buffer, 1, sizeof(buffer), pipe)) > 0) {
+        output.append(buffer, read);
+    }
+    RBLX_PCLOSE(pipe);
+    return output;
+}
+
+bool writeText(const std::filesystem::path& path, const std::string& text) {
+    std::ofstream file(path, std::ios::binary | std::ios::trunc);
+    if (!file) return false;
+    file << text;
+    return true;
+}
+
+// A program is normally more than one file, so the driver has to compile each
+// translation unit on its own and link the objects. These tests drive the real
+// binary, which is also the only way to check that two files may each define
+// their own `static` helper without the linker complaining.
+void driverTests(const std::string& driver) {
+    if (driver.empty()) {
+        std::printf(
+            "cxx_compiler_tests: no RBLXCC path given, so the multi-file driver tests were not "
+            "run\n");
+        return;
+    }
+    if (hostCCompiler().empty()) {
+        std::printf("cxx_compiler_tests: no cc/gcc/clang on PATH, so the driver tests were not run\n");
+        return;
+    }
+
+    std::filesystem::path directory =
+        std::filesystem::temp_directory_path() / "rblxcc-driver-tests";
+    std::error_code ignored;
+    std::filesystem::remove_all(directory, ignored);
+    std::filesystem::create_directories(directory, ignored);
+
+    const std::filesystem::path first = directory / "first.cpp";
+    const std::filesystem::path second = directory / "second.cpp";
+    writeText(first,
+              "int printf(char* format, ...);\n"
+              "int second(int value);\n"
+              "static int helper(int value) { return value + 1; }\n"
+              "int main() {\n"
+              "    printf(\"first=%d second=%d\\n\", helper(1), second(2));\n"
+              "    return 0;\n"
+              "}\n");
+    writeText(second,
+              "static int helper(int value) { return value * 10; }\n"
+              "int second(int value) { return helper(value); }\n");
+
+#if defined(_WIN32)
+    const std::filesystem::path program = directory / "linked.exe";
+#else
+    const std::filesystem::path program = directory / "linked";
+#endif
+
+    const std::string link = quoted(driver) + " " + quoted(first.string()) + " " +
+                             quoted(second.string()) + " -o " + quoted(program.string());
+    CHECK(std::system(link.c_str()) == 0);
+    CHECK(runAndCapture(quoted(program.string())) == "first=2 second=20\n");
+
+    const std::filesystem::path assembly = directory / "second.s";
+    const std::string assemblyOnly =
+        quoted(driver) + " " + quoted(second.string()) + " -S -o " + quoted(assembly.string());
+    CHECK(std::system(assemblyOnly.c_str()) == 0);
+    CHECK(std::filesystem::exists(assembly));
+    {
+        std::string text;
+        std::ifstream file(assembly, std::ios::binary);
+        std::string line;
+        while (std::getline(file, line)) text += line + "\n";
+        CHECK(contains(text, "second:"));
+        // A translator has no main, so nothing here may claim to be one.
+        CHECK(!contains(text, ".globl main"));
+    }
+
+    const std::filesystem::path object = directory / "second.o";
+    const std::string objectOnly =
+        quoted(driver) + " " + quoted(second.string()) + " -c -o " + quoted(object.string());
+    CHECK(std::system(objectOnly.c_str()) == 0);
+    CHECK(std::filesystem::exists(object));
+    CHECK(std::filesystem::exists(object) && std::filesystem::file_size(object) > 0);
+
+    std::filesystem::remove_all(directory, ignored);
+}
+
 }  // namespace
 
-int main() {
+int main(int argc, char** argv) {
     diagnosticsTests();
     assemblyTests();
     endToEndTests();
+    driverTests(argc > 1 ? std::string(argv[1]) : std::string());
 
     std::printf("cxx_compiler_tests: %d checks, %d failures\n", checks, failures);
     return failures == 0 ? 0 : 1;

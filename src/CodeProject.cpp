@@ -2,6 +2,8 @@
 
 #include <algorithm>
 #include <cctype>
+#include <chrono>
+#include <cstdint>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
@@ -1316,8 +1318,13 @@ std::string fileStamp(const std::string& path) {
     if (sizeError || timeError) {
         return std::string();
     }
+    // libc++ counts file times in an extended integer type that has no stream
+    // inserter (and libstdc++ counts them in a plain 64-bit one), so the count
+    // is narrowed to a fixed type before it is written out. Nanoseconds since
+    // the epoch do not come close to the end of a 64-bit integer.
+    const std::int64_t ticks = static_cast<std::int64_t>(time.time_since_epoch().count());
     std::ostringstream out;
-    out << size << ':' << time.time_since_epoch().count();
+    out << size << ':' << ticks;
     return out.str();
 }
 

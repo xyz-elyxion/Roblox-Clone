@@ -809,6 +809,12 @@ std::string pageFileForPath(const std::string& path) {
     if (path == "/admin") {
         return "admin.html";
     }
+    // The guided tour of the whole project. It is a page rather than a separate
+    // program because the website is already running when somebody reads it, so
+    // each step can check itself against the live API.
+    if (path == "/welcome" || path == "/onboarding") {
+        return "onboarding.html";
+    }
     if (path.compare(0, 7, "/games/") == 0 || path.compare(0, 9, "/profile/") == 0) {
         return path.compare(0, 7, "/games/") == 0 ? "game.html" : "profile.html";
     }

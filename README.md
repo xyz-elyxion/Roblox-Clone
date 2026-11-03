@@ -155,7 +155,10 @@ rblx-windows-release/
 
 Double-click `start-website.bat`: it starts `WebApp.exe` from that folder, points it at the
 `Server.exe` and `Client.exe` beside it, and opens <http://localhost:3000> in your browser.
-Pressing Play on a game page then launches the client from the same folder. `start-studio.bat`
+Pressing Play on a game page then launches the client from the same folder. On a freshly unzipped copy the first launch opens the guided tour at
+<http://localhost:3000/welcome> instead: nine steps through the website, the client and
+game servers, Studio, RBLXCode and the trainer, each one checking itself against the
+running site where it can. **Tour** in the site navigation reopens it. `start-studio.bat`
 opens the world editor and `start-code.bat` the source editor.
 
 Nothing else needs to be installed. The executables link the C++ runtime statically, so

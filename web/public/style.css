@@ -1485,3 +1485,256 @@ textarea.input {
     min-height: 96px;
     resize: vertical;
 }
+
+/* Onboarding: the guided tour of the whole project, served at /welcome. Each
+   step is a details element so it collapses, works from the keyboard and reads
+   as a list to a screen reader without extra scripting. */
+.onboarding-head {
+    border: 2px solid var(--line);
+    background: var(--panel);
+    padding: var(--space-4);
+    margin-bottom: var(--space-4);
+}
+
+.onboarding-head .lede {
+    max-width: 62ch;
+}
+
+.onboarding-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    margin-top: var(--space-3);
+}
+
+.onboarding-progress {
+    margin-top: var(--space-4);
+    height: 14px;
+    border: 2px solid var(--line);
+    background: var(--panel-alt);
+}
+
+.onboarding-progress-bar {
+    display: block;
+    width: 0;
+    height: 100%;
+    background: var(--fg);
+    transition: width 220ms ease;
+}
+
+.onboarding-progress-text {
+    margin: var(--space-2) 0 0;
+    font-weight: 700;
+}
+
+.onboarding-track {
+    margin-bottom: var(--space-4);
+}
+
+.onboarding-track-title {
+    margin: 0 0 var(--space-2);
+    font-size: 0.82rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+}
+
+.onboarding-steps {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: var(--space-2);
+}
+
+.onboarding-step {
+    border: 2px solid var(--line);
+    background: var(--panel);
+}
+
+.onboarding-step[data-state="done"] {
+    background: var(--panel-alt);
+}
+
+.onboarding-summary {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-3);
+    cursor: pointer;
+    list-style: none;
+}
+
+.onboarding-summary::-webkit-details-marker {
+    display: none;
+}
+
+.onboarding-summary:focus-visible {
+    outline: 3px solid var(--fg);
+    outline-offset: -3px;
+}
+
+.onboarding-index {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border: 2px solid var(--line);
+    font-weight: 800;
+}
+
+.onboarding-step[data-state="done"] .onboarding-index {
+    background: var(--fg);
+    color: var(--bg);
+}
+
+.onboarding-title {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.onboarding-name {
+    font-weight: 800;
+}
+
+.onboarding-hint {
+    font-size: 0.9rem;
+    color: var(--muted);
+}
+
+.onboarding-state {
+    border: 2px solid var(--line);
+    padding: 0.25rem 0.6rem;
+    font-size: 0.7rem;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.onboarding-state.done {
+    background: var(--fg);
+    color: var(--bg);
+}
+
+.onboarding-state.blocked {
+    border-style: dashed;
+}
+
+.onboarding-state.error {
+    border-color: var(--danger);
+    color: var(--danger);
+}
+
+.onboarding-body {
+    display: grid;
+    gap: var(--space-2);
+    padding: 0 var(--space-3) var(--space-3);
+}
+
+.onboarding-body p {
+    margin: 0;
+}
+
+.onboarding-check {
+    border-left: 4px solid var(--soft-line);
+    padding-left: var(--space-2);
+    color: var(--muted);
+    font-size: 0.92rem;
+}
+
+.onboarding-step[data-state="done"] .onboarding-check {
+    border-left-color: var(--success);
+}
+
+.onboarding-step[data-state="error"] .onboarding-check {
+    border-left-color: var(--danger);
+    color: var(--danger);
+}
+
+.onboarding-body code,
+.onboarding-table code {
+    background: var(--panel-alt);
+    border: 1px solid var(--soft-line);
+    padding: 0 0.25rem;
+    font-size: 0.92em;
+}
+
+.onboarding-body kbd {
+    border: 2px solid var(--line);
+    padding: 0 0.3rem;
+    font-family: inherit;
+    font-size: 0.85em;
+    font-weight: 700;
+}
+
+.onboarding-complete {
+    border: 2px solid var(--line);
+    background: var(--panel-alt);
+    box-shadow: var(--shadow);
+    padding: var(--space-4);
+    margin: var(--space-4) 0;
+}
+
+.onboarding-complete h2 {
+    margin-top: 0;
+}
+
+.onboarding-reference {
+    margin-top: var(--space-5);
+}
+
+.onboarding-table-wrap {
+    overflow-x: auto;
+    border: 2px solid var(--line);
+}
+
+.onboarding-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--panel);
+}
+
+.onboarding-table th,
+.onboarding-table td {
+    text-align: left;
+    padding: var(--space-2);
+    border-bottom: 1px solid var(--soft-line);
+    vertical-align: top;
+}
+
+.onboarding-table th {
+    background: var(--panel-alt);
+    font-size: 0.78rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
+
+.onboarding-table tr:last-child td {
+    border-bottom: 0;
+}
+
+.onboarding-note {
+    color: var(--muted);
+    font-size: 0.92rem;
+}
+
+.onboarding-actions .button.small {
+    min-height: 38px;
+    padding: 0 0.7rem;
+    font-size: 0.9rem;
+}
+
+@media (max-width: 640px) {
+    .onboarding-summary {
+        grid-template-columns: auto 1fr;
+    }
+
+    .onboarding-state {
+        grid-column: 1 / -1;
+        justify-self: start;
+    }
+}

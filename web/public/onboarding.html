@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Onboarding - RBLX Clone</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <div class="page" data-onboarding>
+        <header class="topbar">
+            <a class="brand" href="/" aria-label="RBLX Clone home">
+                <span>RBLX Clone</span>
+            </a>
+            <nav class="nav" aria-label="Primary">
+                <a href="/dashboard" data-nav-user hidden>Home</a>
+                <a href="/games">Games</a>
+                <a href="/create" data-nav-user hidden>Create</a>
+                <a href="/dashboard#search" data-nav-user hidden>Search</a>
+                <a href="/avatar" data-nav-user hidden>Avatar</a>
+                <a href="/profile" data-nav-user hidden>Profile</a>
+                <a href="/settings" data-nav-user hidden>Settings</a>
+                <a href="/admin" data-admin-only data-nav-user hidden>Admin</a>
+                <a href="/login" data-nav-guest>Login</a>
+                <a href="/signup" data-nav-guest>Sign up</a>
+                <button class="button danger" type="button" data-logout data-nav-user hidden>Logout</button>
+            </nav>
+        </header>
+
+        <main id="main">
+            <div class="onboarding-head">
+                <p class="label">Onboarding</p>
+                <h1 class="page-title">Get to know the whole build</h1>
+                <p class="lede">
+                    Nine short steps through everything this project ships: the website, the client and
+                    the game servers, Studio, RBLXCode and the trainer. The steps the site can verify check
+                    themselves; the rest you tick off as you do them. Progress is remembered in this browser.
+                </p>
+                <div class="onboarding-actions">
+                    <a class="button" href="/signup">Create an account</a>
+                    <a class="button secondary" href="/games">Browse games</a>
+                    <button class="button secondary" type="button" data-onboarding-reset>Start over</button>
+                </div>
+                <div class="onboarding-progress" role="progressbar" aria-label="Onboarding progress"
+                     aria-valuemin="0" aria-valuemax="9" aria-valuenow="0" data-onboarding-progress>
+                    <span class="onboarding-progress-bar" data-onboarding-bar></span>
+                </div>
+                <p class="onboarding-progress-text" data-onboarding-summary aria-live="polite">Checking your setup…</p>
+            </div>
+
+            <section class="onboarding-track" aria-labelledby="onboarding-setup">
+                <h2 class="onboarding-track-title" id="onboarding-setup">A · Setup</h2>
+                <ol class="onboarding-steps">
+                    <li class="onboarding-step" data-step="website" data-check="website">
+                        <details open>
+                            <summary class="onboarding-summary">
+                                <span class="onboarding-index" aria-hidden="true">1</span>
+                                <span class="onboarding-title">
+                                    <span class="onboarding-name">Start the website</span>
+                                    <span class="onboarding-hint">WebApp.exe serves this very page</span>
+                                </span>
+                                <span class="onboarding-state" data-step-state>Checking</span>
+                            </summary>
+                            <div class="onboarding-body">
+                                <p>
+                                    You are already here, so this one is done. <code>WebApp.exe</code> is the
+                                    website: pages, accounts, avatars, published games, and the launch button
+                                    that starts a game server.
+                                </p>
+                                <p>
+                                    It opens a console window with the live log, every running game server and
+                                    that server's output. The default address is <code>http://localhost:3000</code>;
+                                    set <code>PORT</code> to change it. Closing the console stops the site and its servers.
+                                </p>
+                                <p class="onboarding-check" data-step-check aria-live="polite">Contacting the website…</p>
+                                <div class="onboarding-actions">
+                                    <button class="button secondary small" type="button" data-recheck="website">Check again</button>
+                                </div>
+                            </div>
+                        </details>
+                    </li>
+
+                    <li class="onboarding-step" data-step="account" data-check="account">
+                        <details>
+                            <summary class="onboarding-summary">
+                                <span class="onboarding-index" aria-hidden="true">2</span>
+                                <span class="onboarding-title">
+                                    <span class="onboarding-name">Make an account</span>
+                                    <span class="onboarding-hint">One login for the site, the client and Studio</span>
+                                </span>
+                                <span class="onboarding-state" data-step-state>Checking</span>
+                            </summary>
+                            <div class="onboarding-body">
+                                <p>
+                                    Accounts live in <code>web/users.json</code>. The website signs you in with
+                                    it, the client uses the same token to join a game, and Studio uses it to
+                                    publish. Nothing is sent anywhere else: this is a local build.
+                                </p>
+                                <p>
+                                    Signing up solves a captcha, which is what keeps the automated-cheat reporting
+                                    honest and proves a real person is creating the account.
+                                </p>
+                                <p class="onboarding-check" data-step-check aria-live="polite">Checking for a session…</p>
+                                <div class="onboarding-actions">
+                                    <a class="button" href="/signup">Sign up</a>
+                                    <a class="button secondary" href="/login">Log in</a>
+                                    <button class="button secondary small" type="button" data-recheck="account">Check again</button>
+                                </div>
+                            </div>
+                        </details>
+                    </li>
+
+                    <li class="onboarding-step" data-step="avatar" data-check="avatar">
+                        <details>
+                            <summary class="onboarding-summary">
+                                <span class="onboarding-index" aria-hidden="true">3</span>
+                                <span class="onboarding-title">
+                                    <span class="onboarding-name">Change your avatar</span>
+                                    <span class="onboarding-hint">Faces and hats travel to the client and the server</span>
+                                </span>
+                                <span class="onboarding-state" data-step-state>Checking</span>
+                            </summary>
+                            <div class="onboarding-body">
+                                <p>
+                                    The avatar is stored on the account, so it follows you into every game: the
+                                    server sends the face and hat to the other players, and the client draws the
+                                    same character. Coins come from playtime, and the shop spends them.
+                                </p>
+                                <p class="onboarding-check" data-step-check aria-live="polite">Checking your avatar…</p>
+                                <div class="onboarding-actions">
+                                    <a class="button" href="/avatar">Open avatar</a>
+                                    <button class="button secondary small" type="button" data-recheck="avatar">Check again</button>
+                                </div>
+                            </div>
+                        </details>
+                    </li>
+                </ol>
+            </section>
+
+            <section class="onboarding-track" aria-labelledby="onboarding-play">
+                <h2 class="onboarding-track-title" id="onboarding-play">B · Play</h2>
+                <ol class="onboarding-steps">
+                    <li class="onboarding-step" data-step="play" data-check="play">
+                        <details>
+                            <summary class="onboarding-summary">
+                                <span class="onboarding-index" aria-hidden="true">4</span>
+                                <span class="onboarding-title">
+                                    <span class="onboarding-name">Join a game</span>
+                                    <span class="onboarding-hint">Play starts Server.exe and Client.exe for you</span>
+                                </span>
+                                <span class="onboarding-state" data-step-state>Checking</span>
+                            </summary>
+                            <div class="onboarding-body">
+                                <p>
+                                    Open a game page and press <strong>Play</strong>. The website starts a
+                                    <code>Server.exe</code> for that world on its own port, then launches
+                                    <code>Client.exe</code>. The console window lists that server with its port,
+                                    players and output, and the client's Play button is the same page.
+                                </p>
+                                <p>
+                                    If Play fails, the reason is in <code>web/game-server-logs/</code>. Playtime is
+                                    reported back to the site every minute, which is how this step checks itself.
+                                </p>
+                                <p class="onboarding-check" data-step-check aria-live="polite">Checking for recorded playtime…</p>
+                                <div class="onboarding-actions">
+                                    <a class="button" href="/games">Browse games</a>
+                                    <button class="button secondary small" type="button" data-recheck="play">Check again</button>
+                                </div>
+                            </div>
+                        </details>
+                    </li>
+
+                    <li class="onboarding-step" data-step="friends" data-check="friends">
+                        <details>
+                            <summary class="onboarding-summary">
+                                <span class="onboarding-index" aria-hidden="true">5</span>
+                                <span class="onboarding-title">
+                                    <span class="onboarding-name">Add someone</span>
+                                    <span class="onboarding-hint">Friends, requests and presence</span>
+                                </span>
+                                <span class="onboarding-state" data-step-state>Checking</span>
+                            </summary>
+                            <div class="onboarding-body">
+                                <p>
+                                    The dashboard has friends, requests and a user search. Presence is live while a
+                                    browser tab is open, and the search is also how you find someone's profile.
+                                </p>
+                                <p>
+                                    This is the one step that needs a second account: sign up in a private window,
+                                    then send a request between the two.
+                                </p>
+                                <p class="onboarding-check" data-step-check aria-live="polite">Checking for friends…</p>
+                                <div class="onboarding-actions">
+                                    <a class="button" href="/dashboard#search">Find people</a>
+                                    <button class="button secondary small" type="button" data-recheck="friends">Check again</button>
+                                </div>
+                            </div>
+                        </details>
+                    </li>
+                </ol>
+            </section>
+
+            <section class="onboarding-track" aria-labelledby="onboarding-create">
+                <h2 class="onboarding-track-title" id="onboarding-create">C · Create</h2>
+                <ol class="onboarding-steps">
+                    <li class="onboarding-step" data-step="studio">
+                        <details>
+                            <summary class="onboarding-summary">
+                                <span class="onboarding-index" aria-hidden="true">6</span>
+                                <span class="onboarding-title">
+                                    <span class="onboarding-name">Open Studio</span>
+                                    <span class="onboarding-hint">The world editor: parts, scripts, lighting</span>
+                                </span>
+                                <span class="onboarding-state" data-step-state>To do</span>
+                            </summary>
+                            <div class="onboarding-body">
+                                <p>
+                                    <code>start-studio.bat</code> opens <code>Studio.exe</code>, the world editor.
+                                    It works on <code>ServerWorld.world</code> and on the example worlds in
+                                    <code>games/</code>, and its script panel highlights the project's own
+                                    <code>.rbx</code> language.
+                                </p>
+                                <p>
+                                    A world is a text file, so everything you build in Studio is diff-able and
+                                    editable by hand.
+                                </p>
+                                <p class="onboarding-check">Open Studio from the package folder and save a world.</p>
+                                <div class="onboarding-actions">
+                                    <button class="button secondary small" type="button" data-manual-toggle="studio">Mark as done</button>
+                                </div>
+                            </div>
+                        </details>
+                    </li>
+
+                    <li class="onboarding-step" data-step="publish" data-check="publish">
+                        <details>
+                            <summary class="onboarding-summary">
+                                <span class="onboarding-index" aria-hidden="true">7</span>
+                                <span class="onboarding-title">
+                                    <span class="onboarding-name">Publish a world</span>
+                                    <span class="onboarding-hint">Your games, your account, your page</span>
+                                </span>
+                                <span class="onboarding-state" data-step-state>Checking</span>
+                            </summary>
+                            <div class="onboarding-body">
+                                <p>
+                                    Publish from Studio's publish dialog or from the website's
+                                    <a href="/create">Create</a> page. The site checks the world before accepting
+                                    it, then gives it a page you can play from like any other game.
+                                </p>
+                                <p class="onboarding-check" data-step-check aria-live="polite">Checking your published games…</p>
+                                <div class="onboarding-actions">
+                                    <a class="button" href="/create">Publish a world</a>
+                                    <button class="button secondary small" type="button" data-recheck="publish">Check again</button>
+                                </div>
+                            </div>
+                        </details>
+                    </li>
+                </ol>
+            </section>
+
+            <section class="onboarding-track" aria-labelledby="onboarding-extend">
+                <h2 class="onboarding-track-title" id="onboarding-extend">D · Extend</h2>
+                <ol class="onboarding-steps">
+                    <li class="onboarding-step" data-step="code">
+                        <details>
+                            <summary class="onboarding-summary">
+                                <span class="onboarding-index" aria-hidden="true">8</span>
+                                <span class="onboarding-title">
+                                    <span class="onboarding-name">Edit the project in RBLXCode</span>
+                                    <span class="onboarding-hint">The editor built for this repository</span>
+                                </span>
+                                <span class="onboarding-state" data-step-state>To do</span>
+                            </summary>
+                            <div class="onboarding-body">
+                                <p>
+                                    <code>start-code.bat</code> opens <code>RBLXCode.exe</code> on the folder it is
+                                    in, so <code>shaders/</code>, <code>web/public/</code> and <code>games/</code>
+                                    are all editable. Point it at a source clone to edit the C++ as well.
+                                </p>
+                                <p>
+                                    Its shortcuts are the ones you would expect: <kbd>Ctrl</kbd>+<kbd>P</kbd> opens a
+                                    file by name, <kbd>Ctrl</kbd>+<kbd>F</kbd> finds and replaces,
+                                    <kbd>Ctrl</kbd>+<kbd>G</kbd> goes to a line, <kbd>Ctrl</kbd>+<kbd>S</kbd> saves
+                                    with the line endings the file already had. It also has an outline panel,
+                                    <kbd>Ctrl</kbd>+<kbd>Tab</kbd> cycle, <kbd>Alt</kbd>+<kbd>Left</kbd>/<kbd>Right</kbd>
+                                    history and reloads a file that changed on disk.
+                                </p>
+                                <p class="onboarding-check">Open RBLXCode, edit a script and save it.</p>
+                                <div class="onboarding-actions">
+                                    <button class="button secondary small" type="button" data-manual-toggle="code">Mark as done</button>
+                                    <button class="button secondary small" type="button" data-copy="RBLXCode.exe D:\Roblox-Clone">Copy clone command</button>
+                                </div>
+                            </div>
+                        </details>
+                    </li>
+
+                    <li class="onboarding-step" data-step="trainer">
+                        <details>
+                            <summary class="onboarding-summary">
+                                <span class="onboarding-index" aria-hidden="true">9</span>
+                                <span class="onboarding-title">
+                                    <span class="onboarding-name">Train a bot</span>
+                                    <span class="onboarding-hint">AiTrainer.exe learns a route, headless</span>
+                                </span>
+                                <span class="onboarding-state" data-step-state>To do</span>
+                            </summary>
+                            <div class="onboarding-body">
+                                <p>
+                                    <code>AiTrainer.exe</code> drives the same character and physics the game uses,
+                                    without a window or a GPU. It learns a policy for one world and writes it to
+                                    <code>models\&lt;world&gt;.policy</code>, then replays it.
+                                </p>
+                                <p class="onboarding-check">Run the trainer from the package folder against one of the example worlds.</p>
+                                <div class="onboarding-actions">
+                                    <button class="button secondary small" type="button" data-manual-toggle="trainer">Mark as done</button>
+                                    <button class="button secondary small" type="button"
+                                            data-copy="AiTrainer.exe --world games\turbo-circuit.world --goal FinishLine --generations 60">Copy training command</button>
+                                    <button class="button secondary small" type="button"
+                                            data-copy="AiTrainer.exe --world games\turbo-circuit.world --goal FinishLine --replay --watch">Copy replay command</button>
+                                </div>
+                            </div>
+                        </details>
+                    </li>
+                </ol>
+            </section>
+
+            <section class="onboarding-complete" data-onboarding-complete hidden aria-live="polite">
+                <h2>That is the whole build</h2>
+                <p>
+                    Nine steps done. The site, the client, the game servers, Studio, RBLXCode and the trainer
+                    are all in the same repository, and each one is a small program you can read and change.
+                </p>
+                <div class="onboarding-actions">
+                    <a class="button" href="/dashboard">Go to your dashboard</a>
+                    <a class="button secondary" href="/games">Play something</a>
+                    <a class="button secondary" href="/editor">Open the web editor</a>
+                    <button class="button secondary" type="button" data-onboarding-reset>Start over</button>
+                </div>
+            </section>
+
+            <section class="onboarding-reference" aria-labelledby="onboarding-map">
+                <h2 class="onboarding-track-title" id="onboarding-map">The project at a glance</h2>
+                <div class="onboarding-table-wrap">
+                    <table class="onboarding-table">
+                        <thead>
+                            <tr><th scope="col">Program</th><th scope="col">What it does</th><th scope="col">Start it with</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr><td><code>WebApp.exe</code></td><td>Website backend: pages, accounts, avatars, games, server launch</td><td><code>start-website.bat</code></td></tr>
+                            <tr><td><code>Server.exe</code></td><td>Game server for one world; authoritative physics and scripting</td><td>Started by Play</td></tr>
+                            <tr><td><code>Client.exe</code></td><td>Game client: renders the world, sends your input</td><td>Started by Play, or <code>start-client.bat</code></td></tr>
+                            <tr><td><code>Studio.exe</code></td><td>World editor: parts, scripts, lighting, saving, publishing</td><td><code>start-studio.bat</code></td></tr>
+                            <tr><td><code>RBLXCode.exe</code></td><td>Source editor: project tree, search, outline, save</td><td><code>start-code.bat</code></td></tr>
+                            <tr><td><code>AiTrainer.exe</code></td><td>Headless trainer that learns and replays a policy</td><td>Run it from the folder</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <p class="onboarding-note">
+                    Warping, physics, scripting and the anti-cheat checks all run on the server; the client is a
+                    view and an input device. That is why a modified client cannot simply fly.
+                </p>
+            </section>
+        </main>
+
+        <footer class="legal-footer">
+            <span>RBLX Clone · local prototype</span>
+            <nav aria-label="Legal">
+                <a href="/privacy">Privacy</a>
+                <a href="/terms">Terms</a>
+            </nav>
+        </footer>
+    </div>
+    <script src="/app.js?v=standing-2" defer></script>
+    <script src="/onboarding.js?v=welcome-1" defer></script>
+</body>
+</html>

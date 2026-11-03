@@ -23,6 +23,7 @@ option(RBLX_BUILD_SERVER "Build the game server target" ON)
 option(RBLX_BUILD_TESTS "Build C++ test targets" ON)
 option(RBLX_BUILD_WEBAPP "Build the native website backend target" ON)
 option(RBLX_BUILD_TRAINER "Build the headless AI trainer target" ON)
+option(RBLX_BUILD_CC "Build the RBLXCC C++ compiler target" ON)
 option(RBLX_BUILD_ANTICHEAT "Embed the vendored RBLXAntiCheat library in the game client (Windows only)" ON)
 option(RBLX_ENABLE_WARNINGS "Enable stricter compiler warnings" ON)
 
@@ -305,6 +306,20 @@ if(RBLX_BUILD_TRAINER)
     endif()
 endif()
 
+if(RBLX_BUILD_CC)
+    # RBLXCC is the project's own C++ compiler: a lexer and preprocessor, a
+    # recursive-descent parser that type-checks as it parses, and an x86-64 back
+    # end that writes assembly. It has no dependencies beyond the standard
+    # library, so nothing here is fetched or linked.
+    add_executable(RBLXCC
+        src/CxxMain.cpp
+        src/CxxLexer.cpp
+        src/CxxParser.cpp
+        src/CxxCodegen.cpp
+    )
+    configure_rblx_target(RBLXCC)
+endif()
+
 set(WEB_SOURCES
     src/WebApp.cpp
     src/WebHttp.cpp
@@ -414,4 +429,16 @@ if(RBLX_BUILD_TESTS)
         target_link_libraries(WebAppTests PRIVATE Threads::Threads)
     endif()
     add_test(NAME WebAppTests COMMAND WebAppTests)
+
+    # The compiler is driven through its public API: source in, diagnostics and
+    # assembly out. Half of these tests go further and assemble, link and run the
+    # programs they compile with the host C compiler.
+    add_executable(CxxCompilerTests
+        tests/cxx_compiler_tests.cpp
+        src/CxxLexer.cpp
+        src/CxxParser.cpp
+        src/CxxCodegen.cpp
+    )
+    target_include_directories(CxxCompilerTests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+    add_test(NAME CxxCompilerTests COMMAND CxxCompilerTests)
 endif()

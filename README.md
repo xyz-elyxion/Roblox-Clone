@@ -449,20 +449,41 @@ shaders, website and `.rbx` scripts that make up RBLX Clone itself, and saves th
 Launch it from the checkout (`RBLXCode.exe` on Windows, `./RBLXCode .` elsewhere), or name the
 folder to open, and it walks that folder for source files.
 
-It has a project tree on the left, tabs across the top (a `*` marks unsaved work), the ImGui
-colour text editor Studio's Script panel uses in the middle, and a status bar under it with the
-line and column, the language, the line count and whether the file is saved. C++ and headers are
-coloured as C++, `.glsl`/`.vert`/`.frag` as GLSL, `.rbx` as RBLX Script (a Lua-shaped language,
-so the Lua definition is the right one), and anything the widget has no definition for opens as
-plain text with its real name in the status bar instead of being coloured wrongly.
+It has a project tree on the left, an outline of the file in front on the right, tabs across the
+top (a `*` marks unsaved work), the ImGui colour text editor Studio's Script panel uses in the
+middle, and a status bar under it with the line and column, the language, the line count, whether
+the file is saved and the branch of the checkout. C++ and headers are coloured as C++, `.glsl`,
+`.vert` and `.frag` as GLSL, `.rbx` as RBLX Script (a Lua-shaped language, so the Lua definition
+is the right one), and anything the widget has no definition for opens as plain text with its
+real name in the status bar instead of being coloured wrongly.
 
-- `Ctrl+P` quick open: type part of a path, `Enter` opens the first match.
-- `Ctrl+F` focuses search: a case-insensitive substring across the project, one row per matching
-  line, and clicking a row opens the file on that line.
-- `Ctrl+G` goes to a line, `Ctrl+S` saves the file in front, `Ctrl+Shift+S` saves every open file,
-  `Ctrl+R` reloads it from disk, `Ctrl+W` closes it. Undo, redo, cut, copy and paste belong to the
-  text widget and work as usual.
+- `Ctrl+P` quick open: type an abbreviation of a path (`cmain` finds `src/CodeMain.cpp`, not the
+  other files that merely contain those letters) and `Enter` opens the best match.
+- `Ctrl+Shift+O` goes to a symbol in the open file. The outline panel on the right lists what the
+  file declares — functions, classes, structs, enums and namespaces in C++ and GLSL, functions and
+  handlers in RBLX Script and JavaScript, rules in CSS, headings in Markdown and keys in JSON —
+  and a click jumps to it. Declarations without a body are left out, and the outline is rebuilt
+  only when the buffer changes.
+- `Ctrl+F` finds in the file in front, with match case and whole word, a `3 of 12` count and
+  `Enter`/`Shift+Enter` or `F3`/`Shift+F3` to walk the matches. `Ctrl+H` adds the replace row, where
+  `Replace` takes one match and `Replace all` rewrites the buffer.
+- `Ctrl+Shift+F` focuses the project search: a case-insensitive substring across the project, one
+  row per matching line, and clicking a row opens the file on that line.
+- `Ctrl+G` goes to a line, `Ctrl+/` comments or uncomments the line under the caret (with the
+  marker the language uses: `//` or `--`), `Ctrl+]` jumps to the bracket that pairs with the one at
+  the caret — brackets inside strings and comments are ignored.
+- `Alt+Left` and `Alt+Right` walk back and forward through the places you jumped from, and
+  `Ctrl+Tab`/`Ctrl+Shift+Tab` switch tabs.
+- `Ctrl+S` saves the file in front, `Ctrl+Shift+S` saves every open file, `Ctrl+R` reloads it from
+  disk, `Ctrl+W` closes it. Undo, redo, cut, copy and paste belong to the text widget and work as
+  usual; `Ctrl+Z` also takes back a single replace and a comment toggle.
+- The View menu sets the tab width (2, 4 or 8), shows whitespace, switches to the light palette and
+  hides the outline panel; the change applies to the already open files too.
 - Closing a tab with unsaved changes asks whether to save it first.
+
+A file that changes on disk while it is open is picked up on its own when the buffer has no edits.
+When it does have edits the editor leaves them alone and shows a warning row with a choice between
+reloading from disk and keeping what is in the buffer, instead of overwriting either side.
 
 Line endings are preserved: a file is shown with plain newlines but saved back with the CRLF or LF
 it arrived with, because this repository is not uniform (the anti-cheat sources are CRLF) and an

@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <iterator>
@@ -85,6 +86,26 @@ const char* languageName(Language language) {
         case Language::Plain: break;
     }
     return "Text";
+}
+
+const char* lineCommentPrefix(Language language) {
+    switch (language) {
+        case Language::Cpp:
+        case Language::Glsl:
+        case Language::JavaScript:
+            return "//";
+        case Language::Lua:
+            return "--";
+        case Language::Html:
+        case Language::Css:
+        case Language::Markdown:
+        case Language::Json:
+        case Language::Plain:
+            break;
+    }
+    // HTML, CSS, Markdown and JSON only have block comments here, and inserting
+    // half a block would break the file, so those report that they have none.
+    return "";
 }
 
 bool isIgnoredDirectory(const std::string& name) {
@@ -481,6 +502,823 @@ std::string joinProjectPath(const std::string& root, const std::string& relative
     }
     const bool needsSeparator = root.back() != '/' && root.back() != '\\';
     return root + (needsSeparator ? "/" : "") + relative;
+}
+
+// ---------------------------------------------------------------------------
+// Find and replace
+// ---------------------------------------------------------------------------
+
+std::vector<TextMatch> findInText(const std::string& text, const std::string& needle,
+                                  const FindOptions& options, std::size_t maxMatches) {
+    std::vector<TextMatch> matches;
+    if (needle.empty() || maxMatches == 0 || needle.size() > text.size()) {
+        return matches;
+    }
+
+    const auto isWord = [](unsigned char c) { return std::isalnum(c) != 0 || c == '_'; };
+    const auto sameAt = [&](std::size_t at) {
+        for (std::size_t i = 0; i < needle.size(); ++i) {
+            unsigned char left = static_cast<unsigned char>(text[at + i]);
+            unsigned char right = static_cast<unsigned char>(needle[i]);
+            if (!options.caseSensitive) {
+                left = static_cast<unsigned char>(std::tolower(left));
+                right = static_cast<unsigned char>(std::tolower(right));
+            }
+            if (left != right) {
+                return false;
+            }
+        }
+        return true;
+    };
+
+    int line = 1;
+    int column = 1;
+    std::size_t at = 0;
+    while (at + needle.size() <= text.size()) {
+        bool hit = sameAt(at);
+        if (hit && options.wholeWord) {
+            if (at > 0 && isWord(static_cast<unsigned char>(text[at - 1]))) {
+                hit = false;
+            }
+            if (hit && at + needle.size() < text.size() &&
+                isWord(static_cast<unsigned char>(text[at + needle.size()]))) {
+                hit = false;
+            }
+        }
+        if (hit) {
+            TextMatch match;
+            match.offset = at;
+            match.length = needle.size();
+            match.line = line;
+            match.column = column;
+            matches.push_back(match);
+            if (matches.size() >= maxMatches) {
+                break;
+            }
+            // Walking past the whole match is what keeps hits from overlapping,
+            // so "aa" in "aaaa" is two matches and a replace-all terminates.
+            for (std::size_t i = 0; i < needle.size(); ++i) {
+                if (text[at + i] == '\n') {
+                    ++line;
+                    column = 1;
+                } else {
+                    ++column;
+                }
+            }
+            at += needle.size();
+            continue;
+        }
+        if (text[at] == '\n') {
+            ++line;
+            column = 1;
+        } else {
+            ++column;
+        }
+        ++at;
+    }
+    return matches;
+}
+
+bool findNextInText(const std::string& text, const std::string& needle,
+                    const FindOptions& options, std::size_t fromOffset, bool forward,
+                    TextMatch* match) {
+    const std::vector<TextMatch> matches = findInText(text, needle, options);
+    if (matches.empty()) {
+        return false;
+    }
+
+    const TextMatch* chosen = nullptr;
+    if (forward) {
+        for (const TextMatch& candidate : matches) {
+            if (candidate.offset >= fromOffset) {
+                chosen = &candidate;
+                break;
+            }
+        }
+        if (chosen == nullptr) {
+            chosen = &matches.front();
+        }
+    } else {
+        for (auto it = matches.rbegin(); it != matches.rend(); ++it) {
+            if (it->offset < fromOffset) {
+                chosen = &(*it);
+                break;
+            }
+        }
+        if (chosen == nullptr) {
+            chosen = &matches.back();
+        }
+    }
+    if (match != nullptr) {
+        *match = *chosen;
+    }
+    return true;
+}
+
+std::size_t replaceAllInText(std::string* text, const std::string& needle,
+                             const std::string& replacement, const FindOptions& options) {
+    if (text == nullptr) {
+        return 0;
+    }
+    const std::vector<TextMatch> matches = findInText(*text, needle, options);
+    if (matches.empty()) {
+        return 0;
+    }
+
+    std::string out;
+    out.reserve(text->size());
+    std::size_t copied = 0;
+    for (const TextMatch& match : matches) {
+        out.append(*text, copied, match.offset - copied);
+        out += replacement;
+        copied = match.offset + match.length;
+    }
+    out.append(*text, copied, std::string::npos);
+    *text = std::move(out);
+    return matches.size();
+}
+
+// ---------------------------------------------------------------------------
+// Outline
+// ---------------------------------------------------------------------------
+
+namespace {
+
+std::string trimCopy(const std::string& value) {
+    std::size_t begin = 0;
+    std::size_t end = value.size();
+    while (begin < end && (value[begin] == ' ' || value[begin] == '\t' || value[begin] == '\r')) {
+        ++begin;
+    }
+    while (end > begin &&
+           (value[end - 1] == ' ' || value[end - 1] == '\t' || value[end - 1] == '\r')) {
+        --end;
+    }
+    return value.substr(begin, end - begin);
+}
+
+std::vector<std::string> splitLines(const std::string& text) {
+    std::vector<std::string> lines;
+    std::size_t start = 0;
+    while (true) {
+        const std::size_t end = text.find('\n', start);
+        if (end == std::string::npos) {
+            lines.push_back(text.substr(start));
+            break;
+        }
+        lines.push_back(text.substr(start, end - start));
+        start = end + 1;
+    }
+    return lines;
+}
+
+bool isIdentifierChar(char c) {
+    return std::isalnum(static_cast<unsigned char>(c)) != 0 || c == '_';
+}
+
+bool startsWithWordAt(const std::string& line, std::size_t at, const char* word) {
+    const std::size_t length = std::strlen(word);
+    if (at >= line.size() || line.compare(at, length, word) != 0) {
+        return false;
+    }
+    const std::size_t after = at + length;
+    return after >= line.size() || !isIdentifierChar(line[after]);
+}
+
+std::string firstWordAfter(const std::string& line, std::size_t at) {
+    while (at < line.size() && (line[at] == ' ' || line[at] == '\t')) {
+        ++at;
+    }
+    const std::size_t begin = at;
+    while (at < line.size() && isIdentifierChar(line[at])) {
+        ++at;
+    }
+    return line.substr(begin, at - begin);
+}
+
+// RBLX Script and JavaScript name their functions the way they are called:
+// `M.shop:open`, not just `open`.
+std::string qualifiedNameAfter(const std::string& line, std::size_t at) {
+    while (at < line.size() && (line[at] == ' ' || line[at] == '\t')) {
+        ++at;
+    }
+    const std::size_t begin = at;
+    while (at < line.size() &&
+           (isIdentifierChar(line[at]) || line[at] == '.' || line[at] == ':')) {
+        ++at;
+    }
+    return line.substr(begin, at - begin);
+}
+
+// The code on a line with comments and string literals blanked out, so a symbol
+// scan is not fooled by `// void gone() {` or by a brace inside a string. The
+// block-comment state is carried between lines by the caller.
+std::string codeOnly(const std::string& line, bool* inBlock) {
+    std::string out;
+    out.reserve(line.size());
+    for (std::size_t i = 0; i < line.size(); ++i) {
+        if (*inBlock) {
+            if (line[i] == '*' && i + 1 < line.size() && line[i + 1] == '/') {
+                *inBlock = false;
+                ++i;
+            }
+            continue;
+        }
+        if (line[i] == '/' && i + 1 < line.size() && line[i + 1] == '/') {
+            break;
+        }
+        if (line[i] == '/' && i + 1 < line.size() && line[i + 1] == '*') {
+            *inBlock = true;
+            ++i;
+            continue;
+        }
+        if (line[i] == '"' || line[i] == '\'') {
+            const char quote = line[i];
+            out.push_back(' ');
+            for (++i; i < line.size(); ++i) {
+                if (line[i] == '\\') {
+                    ++i;
+                    continue;
+                }
+                if (line[i] == quote) {
+                    break;
+                }
+            }
+            continue;
+        }
+        out.push_back(line[i]);
+    }
+    return out;
+}
+
+std::string nameBeforeParen(const std::string& line, std::size_t paren) {
+    std::size_t end = paren;
+    while (end > 0 && (line[end - 1] == ' ' || line[end - 1] == '\t')) {
+        --end;
+    }
+    if (end == 0) {
+        return std::string();
+    }
+    if (isIdentifierChar(line[end - 1])) {
+        std::size_t begin = end;
+        while (begin > 0 && isIdentifierChar(line[begin - 1])) {
+            --begin;
+        }
+        return line.substr(begin, end - begin);
+    }
+    // `operator==(` and the like: the name is the punctuation before the paren.
+    std::size_t begin = end;
+    while (begin > 0 && line[begin - 1] != ' ' && line[begin - 1] != '\t') {
+        --begin;
+    }
+    return line.substr(begin, end - begin);
+}
+
+bool isControlWord(const std::string& word) {
+    static const char* const words[] = {
+        "if",     "else",     "for",       "while",     "switch", "return",
+        "catch",  "do",       "sizeof",    "new",       "delete", "using",
+        "typedef", "template", "static_assert", "namespace", "case",  "default",
+        "decltype", "assert",  "throw",     "goto",      "try",    "defined"
+    };
+    for (const char* entry : words) {
+        if (word == entry) {
+            return true;
+        }
+    }
+    return false;
+}
+
+std::string shorten(const std::string& line) {
+    const std::string trimmed = trimCopy(line);
+    if (trimmed.size() <= 96) {
+        return trimmed;
+    }
+    return trimmed.substr(0, 93) + "...";
+}
+
+void addSymbol(std::vector<OutlineSymbol>* out, const std::string& kind, const std::string& name,
+               const std::string& detail, int line, int depth) {
+    if (name.empty()) {
+        return;
+    }
+    OutlineSymbol symbol;
+    symbol.kind = kind;
+    symbol.name = name;
+    symbol.detail = detail;
+    symbol.line = line;
+    symbol.depth = std::max(0, depth);
+    out->push_back(std::move(symbol));
+}
+
+void outlineBraces(const std::string& text, std::vector<OutlineSymbol>* out) {
+    const std::vector<std::string> lines = splitLines(text);
+    bool inBlock = false;
+    int depth = 0;
+    for (std::size_t index = 0; index < lines.size(); ++index) {
+        const std::string code = codeOnly(lines[index], &inBlock);
+        const std::string trimmed = trimCopy(code);
+        if (!trimmed.empty() && trimmed[0] != '#' && trimmed[0] != '{' && trimmed[0] != '}' &&
+            trimmed[0] != ')' && trimmed[0] != ';') {
+            std::string kind;
+            std::string name;
+            if (startsWithWordAt(trimmed, 0, "namespace")) {
+                kind = "namespace";
+                name = firstWordAfter(trimmed, 9);
+            } else if (startsWithWordAt(trimmed, 0, "class")) {
+                kind = "class";
+                name = firstWordAfter(trimmed, 5);
+            } else if (startsWithWordAt(trimmed, 0, "struct")) {
+                kind = "struct";
+                name = firstWordAfter(trimmed, 6);
+            } else if (startsWithWordAt(trimmed, 0, "union")) {
+                kind = "union";
+                name = firstWordAfter(trimmed, 5);
+            } else if (startsWithWordAt(trimmed, 0, "enum")) {
+                kind = "enum";
+                name = firstWordAfter(trimmed, 4);
+                if (name == "class" || name == "struct") {
+                    name = firstWordAfter(trimmed, trimmed.find(name) + name.size());
+                }
+            } else {
+                const std::size_t paren = trimmed.find('(');
+                const bool hasParens =
+                    paren != std::string::npos && trimmed.find(')', paren) != std::string::npos;
+                const char last = trimmed.back();
+                // A line that ends in a semicolon or a comma is a declaration or a
+                // parameter list, not a body to jump into.
+                if (hasParens && last != ';' && last != ',' && last != '=' &&
+                    !isControlWord(firstWordAfter(trimmed, 0))) {
+                    kind = "function";
+                    name = nameBeforeParen(trimmed, paren);
+                }
+            }
+            addSymbol(out, kind, name, shorten(trimmed), static_cast<int>(index) + 1, depth);
+        }
+        for (const char c : code) {
+            if (c == '{') {
+                ++depth;
+            } else if (c == '}') {
+                depth = std::max(0, depth - 1);
+            }
+        }
+    }
+}
+
+void outlineScript(const std::string& text, std::vector<OutlineSymbol>* out) {
+    const std::vector<std::string> lines = splitLines(text);
+    bool inBlock = false;
+    int depth = 0;
+    for (std::size_t index = 0; index < lines.size(); ++index) {
+        const std::string code = codeOnly(lines[index], &inBlock);
+        const std::string trimmed = trimCopy(code);
+        if (!trimmed.empty()) {
+            std::string kind;
+            std::string name;
+            if (startsWithWordAt(trimmed, 0, "function")) {
+                kind = "function";
+                name = qualifiedNameAfter(trimmed, std::strlen("function"));
+            } else if (startsWithWordAt(trimmed, 0, "class")) {
+                kind = "class";
+                name = firstWordAfter(trimmed, 5);
+            } else if (startsWithWordAt(trimmed, 0, "const") || startsWithWordAt(trimmed, 0, "let") ||
+                       startsWithWordAt(trimmed, 0, "var")) {
+                const std::size_t space = trimmed.find(' ');
+                if (space != std::string::npos &&
+                    (trimmed.find("=>", space) != std::string::npos ||
+                     trimmed.find("= function", space) != std::string::npos)) {
+                    kind = "function";
+                    name = firstWordAfter(trimmed, space);
+                }
+            }
+            addSymbol(out, kind, name, shorten(trimmed), static_cast<int>(index) + 1, depth);
+        }
+        for (const char c : code) {
+            if (c == '{') {
+                ++depth;
+            } else if (c == '}') {
+                depth = std::max(0, depth - 1);
+            }
+        }
+    }
+}
+
+void outlineStyle(const std::string& text, std::vector<OutlineSymbol>* out) {
+    const std::vector<std::string> lines = splitLines(text);
+    bool inBlock = false;
+    int depth = 0;
+    for (std::size_t index = 0; index < lines.size(); ++index) {
+        const std::string code = codeOnly(lines[index], &inBlock);
+        const std::string trimmed = trimCopy(code);
+        if (!trimmed.empty() && trimmed.back() == '{' && trimmed[0] != '}') {
+            const std::string selector = trimCopy(trimmed.substr(0, trimmed.size() - 1));
+            addSymbol(out, selector.empty() || selector[0] != '@' ? "rule" : "at-rule", selector,
+                      shorten(trimmed), static_cast<int>(index) + 1, depth);
+        }
+        for (const char c : code) {
+            if (c == '{') {
+                ++depth;
+            } else if (c == '}') {
+                depth = std::max(0, depth - 1);
+            }
+        }
+    }
+}
+
+void outlineLua(const std::string& text, std::vector<OutlineSymbol>* out) {
+    const std::vector<std::string> lines = splitLines(text);
+    for (std::size_t index = 0; index < lines.size(); ++index) {
+        std::string line = lines[index];
+        const std::size_t comment = line.find("--");
+        if (comment != std::string::npos) {
+            line.erase(comment);
+        }
+        const std::string trimmed = trimCopy(line);
+        if (trimmed.empty()) {
+            continue;
+        }
+        std::string kind;
+        std::string name;
+        std::size_t localFunction = std::string::npos;
+        if (startsWithWordAt(trimmed, 0, "local")) {
+            const std::size_t space = trimmed.find(' ');
+            if (space != std::string::npos) {
+                std::size_t at = space;
+                while (at < trimmed.size() && trimmed[at] == ' ') {
+                    ++at;
+                }
+                if (startsWithWordAt(trimmed, at, "function")) {
+                    localFunction = at + std::strlen("function");
+                }
+            }
+        }
+        if (localFunction != std::string::npos) {
+            kind = "function";
+            name = qualifiedNameAfter(trimmed, localFunction);
+        } else if (startsWithWordAt(trimmed, 0, "function")) {
+            kind = "function";
+            name = qualifiedNameAfter(trimmed, std::strlen("function"));
+        } else {
+            // `M.onTouch = function(other)` and `local handler = function()`
+            const std::size_t assign = trimmed.find("= function");
+            if (assign != std::string::npos) {
+                std::string left = trimCopy(trimmed.substr(0, assign));
+                if (left.compare(0, 6, "local ") == 0) {
+                    left = trimCopy(left.substr(6));
+                }
+                kind = "handler";
+                name = left;
+            }
+        }
+        addSymbol(out, kind, name, shorten(trimmed), static_cast<int>(index) + 1, 0);
+    }
+}
+
+void outlineMarkdown(const std::string& text, std::vector<OutlineSymbol>* out) {
+    const std::vector<std::string> lines = splitLines(text);
+    bool inFence = false;
+    for (std::size_t index = 0; index < lines.size(); ++index) {
+        const std::string trimmed = trimCopy(lines[index]);
+        if (trimmed.compare(0, 3, "```") == 0) {
+            inFence = !inFence;
+            continue;
+        }
+        if (inFence || trimmed.empty() || trimmed[0] != '#') {
+            continue;
+        }
+        std::size_t hashes = 0;
+        while (hashes < trimmed.size() && trimmed[hashes] == '#') {
+            ++hashes;
+        }
+        if (hashes > 6 || (hashes < trimmed.size() && trimmed[hashes] != ' ')) {
+            continue;
+        }
+        addSymbol(out, "heading", trimCopy(trimmed.substr(hashes)), shorten(trimmed),
+                  static_cast<int>(index) + 1, static_cast<int>(hashes) - 1);
+    }
+}
+
+void outlineJson(const std::string& text, std::vector<OutlineSymbol>* out) {
+    const std::vector<std::string> lines = splitLines(text);
+    int depth = 0;
+    for (std::size_t index = 0; index < lines.size(); ++index) {
+        const std::string trimmed = trimCopy(lines[index]);
+        if (trimmed.size() >= 3 && trimmed[0] == '"') {
+            const std::size_t close = trimmed.find('"', 1);
+            if (close != std::string::npos) {
+                std::size_t after = close + 1;
+                while (after < trimmed.size() && trimmed[after] == ' ') {
+                    ++after;
+                }
+                if (after < trimmed.size() && trimmed[after] == ':') {
+                    addSymbol(out, "key", trimmed.substr(1, close - 1), shorten(trimmed),
+                              static_cast<int>(index) + 1, depth);
+                }
+            }
+        }
+        for (const char c : trimmed) {
+            if (c == '{') {
+                ++depth;
+            } else if (c == '}') {
+                depth = std::max(0, depth - 1);
+            }
+        }
+    }
+}
+
+}  // namespace
+
+std::vector<OutlineSymbol> outlineSymbols(const std::string& text, Language language) {
+    std::vector<OutlineSymbol> symbols;
+    switch (language) {
+        case Language::Cpp:
+        case Language::Glsl:
+            outlineBraces(text, &symbols);
+            break;
+        case Language::JavaScript:
+            outlineScript(text, &symbols);
+            break;
+        case Language::Css:
+            outlineStyle(text, &symbols);
+            break;
+        case Language::Lua:
+            outlineLua(text, &symbols);
+            break;
+        case Language::Markdown:
+            outlineMarkdown(text, &symbols);
+            break;
+        case Language::Json:
+            outlineJson(text, &symbols);
+            break;
+        case Language::Html:
+        case Language::Plain:
+            break;
+    }
+    return symbols;
+}
+
+// ---------------------------------------------------------------------------
+// Editing helpers
+// ---------------------------------------------------------------------------
+
+std::size_t matchingBracket(const std::string& text, std::size_t offset) {
+    static const char* const opens = "([{";
+    static const char* const closes = ")]}";
+    if (offset >= text.size()) {
+        return std::string::npos;
+    }
+
+    const std::string openSet(opens);
+    const std::string closeSet(closes);
+    const std::size_t openAt = openSet.find(text[offset]);
+    const std::size_t closeAt = closeSet.find(text[offset]);
+    if (openAt == std::string::npos && closeAt == std::string::npos) {
+        return std::string::npos;
+    }
+
+    const bool forward = openAt != std::string::npos;
+    const char open = forward ? openSet[openAt] : openSet[closeAt];
+    const char close = forward ? closeSet[openAt] : closeSet[closeAt];
+
+    if (forward) {
+        int depth = 0;
+        char quote = '\0';
+        for (std::size_t i = offset; i < text.size(); ++i) {
+            const char c = text[i];
+            if (quote != '\0') {
+                if (c == '\\') {
+                    ++i;
+                    continue;
+                }
+                if (c == quote) {
+                    quote = '\0';
+                }
+                continue;
+            }
+            if (c == '"' || c == '\'') {
+                quote = c;
+                continue;
+            }
+            if (c == '/' && i + 1 < text.size() && text[i + 1] == '/') {
+                const std::size_t end = text.find('\n', i);
+                if (end == std::string::npos) {
+                    return std::string::npos;
+                }
+                i = end;
+                continue;
+            }
+            if (c == '/' && i + 1 < text.size() && text[i + 1] == '*') {
+                const std::size_t end = text.find("*/", i + 2);
+                if (end == std::string::npos) {
+                    return std::string::npos;
+                }
+                i = end + 1;
+                continue;
+            }
+            if (c == open) {
+                ++depth;
+            } else if (c == close) {
+                --depth;
+                if (depth == 0) {
+                    return i;
+                }
+            }
+        }
+        return std::string::npos;
+    }
+
+    // A closing bracket: walk forward with a stack so strings and comments are
+    // skipped exactly as they are in the other direction.
+    std::vector<std::size_t> stack;
+    char quote = '\0';
+    for (std::size_t i = 0; i < text.size(); ++i) {
+        const char c = text[i];
+        if (quote != '\0') {
+            if (c == '\\') {
+                ++i;
+                continue;
+            }
+            if (c == quote) {
+                quote = '\0';
+            }
+            continue;
+        }
+        if (c == '"' || c == '\'') {
+            quote = c;
+            continue;
+        }
+        if (c == '/' && i + 1 < text.size() && text[i + 1] == '/') {
+            const std::size_t end = text.find('\n', i);
+            if (end == std::string::npos) {
+                return std::string::npos;
+            }
+            i = end;
+            continue;
+        }
+        if (c == '/' && i + 1 < text.size() && text[i + 1] == '*') {
+            const std::size_t end = text.find("*/", i + 2);
+            if (end == std::string::npos) {
+                return std::string::npos;
+            }
+            i = end + 1;
+            continue;
+        }
+        if (i == offset) {
+            if (stack.empty() || openSet.find(text[stack.back()]) != closeAt) {
+                return std::string::npos;
+            }
+            return stack.back();
+        }
+        if (openSet.find(c) != std::string::npos) {
+            stack.push_back(i);
+        } else if (closeSet.find(c) != std::string::npos) {
+            if (!stack.empty()) {
+                stack.pop_back();
+            }
+        }
+    }
+    return std::string::npos;
+}
+
+int displayColumn(const std::string& line, std::size_t byteOffset, int tabSize) {
+    if (tabSize < 1) {
+        tabSize = 1;
+    }
+    int column = 0;
+    for (std::size_t i = 0; i < byteOffset && i < line.size(); ++i) {
+        if (line[i] == '\t') {
+            column += tabSize - (column % tabSize);
+        } else {
+            ++column;
+        }
+    }
+    return column;
+}
+
+std::size_t byteOffsetOfColumn(const std::string& line, int column, int tabSize) {
+    if (column <= 0) {
+        return 0;
+    }
+    if (tabSize < 1) {
+        tabSize = 1;
+    }
+    int current = 0;
+    std::size_t i = 0;
+    while (i < line.size() && current < column) {
+        if (line[i] == '\t') {
+            current += tabSize - (current % tabSize);
+        } else {
+            ++current;
+        }
+        ++i;
+    }
+    return i;
+}
+
+bool lineHasComment(const std::string& line, const std::string& prefix,
+                    std::size_t* markerOffset) {
+    if (prefix.empty()) {
+        return false;
+    }
+    std::size_t at = 0;
+    while (at < line.size() && (line[at] == ' ' || line[at] == '\t')) {
+        ++at;
+    }
+    if (line.compare(at, prefix.size(), prefix) != 0) {
+        return false;
+    }
+    if (markerOffset != nullptr) {
+        *markerOffset = at;
+    }
+    return true;
+}
+
+int fuzzyScore(const std::string& candidate, const std::string& query) {
+    if (query.empty()) {
+        return 0;
+    }
+
+    int score = 0;
+    std::size_t at = 0;
+    int lastMatch = -1;
+    for (const char raw : query) {
+        const unsigned char wanted = static_cast<unsigned char>(std::tolower(
+            static_cast<unsigned char>(raw)));
+        bool found = false;
+        while (at < candidate.size()) {
+            const unsigned char current = static_cast<unsigned char>(
+                std::tolower(static_cast<unsigned char>(candidate[at])));
+            if (current == wanted) {
+                found = true;
+                break;
+            }
+            ++at;
+        }
+        if (!found) {
+            return -1;
+        }
+
+        // A letter that starts a word or a path segment is the one somebody
+        // meant when they typed an abbreviation, so it is worth more than one
+        // found in the middle of a word.
+        const char previous = at == 0 ? '\0' : candidate[at - 1];
+        const bool boundary = at == 0 || previous == '/' || previous == '\\' || previous == '_' ||
+                              previous == '-' || previous == '.' || previous == ' ';
+        const bool camel = std::islower(static_cast<unsigned char>(previous)) != 0 &&
+                           std::isupper(static_cast<unsigned char>(candidate[at])) != 0;
+        score += boundary ? 8 : (camel ? 6 : 2);
+        if (lastMatch >= 0 && static_cast<int>(at) == lastMatch + 1) {
+            score += 4;
+        }
+        lastMatch = static_cast<int>(at);
+        ++at;
+    }
+
+    // Shorter names read as closer matches, and a shorter path is easier to aim at.
+    score -= static_cast<int>(candidate.size() / 8);
+    return score;
+}
+
+std::string gitBranchOf(const std::string& root) {
+    if (root.empty()) {
+        return std::string();
+    }
+    std::ifstream stream(fs::path(root) / ".git" / "HEAD", std::ios::binary);
+    if (!stream) {
+        return std::string();
+    }
+    std::string line((std::istreambuf_iterator<char>(stream)),
+                     std::istreambuf_iterator<char>());
+    while (!line.empty() && (line.back() == '\n' || line.back() == '\r' || line.back() == ' ')) {
+        line.pop_back();
+    }
+
+    const std::string heads = "ref: refs/heads/";
+    if (line.compare(0, heads.size(), heads) == 0) {
+        return line.substr(heads.size());
+    }
+    if (line.compare(0, 5, "ref: ") == 0) {
+        const std::size_t slash = line.find_last_of('/');
+        return slash == std::string::npos ? line.substr(5) : line.substr(slash + 1);
+    }
+    // A detached HEAD holds a commit hash; the short form is what a person reads.
+    if (line.size() >= 7) {
+        return line.substr(0, 7);
+    }
+    return std::string();
+}
+
+std::string fileStamp(const std::string& path) {
+    std::error_code sizeError;
+    const std::uintmax_t size = fs::file_size(path, sizeError);
+    std::error_code timeError;
+    const fs::file_time_type time = fs::last_write_time(path, timeError);
+    if (sizeError || timeError) {
+        return std::string();
+    }
+    std::ostringstream out;
+    out << size << ':' << time.time_since_epoch().count();
+    return out.str();
 }
 
 }  // namespace code

@@ -5,8 +5,9 @@
 #include <vector>
 
 // The parts of the source editor that do not need a window: what the project
-// tree holds, which file is which language, how a file is read and written, and
-// how a search finds the line it names. They live here so a headless test can
+// tree holds, which file is which language, how a file is read and written, how
+// a search finds the line it names, and the small pieces of editor behaviour
+// that are worth testing on their own. They live here so a headless test can
 // exercise them; `src/CodeMain.cpp` is only the drawing.
 namespace rblx {
 namespace code {
@@ -28,6 +29,9 @@ enum class Language {
 Language languageForPath(const std::string& path);
 // Short name for the status bar: "C++", "GLSL", "RBLX script".
 const char* languageName(Language language);
+// The marker that comments out one line of this language, or "" when the
+// language has no single-line comment the editor can toggle.
+const char* lineCommentPrefix(Language language);
 
 // Directories that are never part of the source a person edits. Matched by name
 // at any depth, because a dependency checkout can carry its own build folder and
@@ -87,6 +91,74 @@ struct SearchHit {
 std::vector<SearchHit> searchProject(const std::string& root,
                                      const std::vector<FileEntry>& entries,
                                      const std::string& query, std::size_t maxHits = 200);
+
+// Find and replace inside one file. The widget has no search of its own, so the
+// match list is built here and the window only walks it.
+struct FindOptions {
+    bool caseSensitive = false;
+    bool wholeWord = false;
+};
+
+struct TextMatch {
+    std::size_t offset = 0;  // byte offset in the text
+    std::size_t length = 0;  // bytes, so a needle may span lines
+    int line = 1;            // 1-based, for the status label
+    int column = 1;          // 1-based byte column
+};
+
+// Every match in reading order. Matches never overlap, so "aa" in "aaaa" is two
+// hits and replacing them both cannot loop.
+std::vector<TextMatch> findInText(const std::string& text, const std::string& needle,
+                                  const FindOptions& options = FindOptions(),
+                                  std::size_t maxMatches = 5000);
+// The next match at or after `fromOffset`, or the previous one before it. Both
+// directions wrap, which is what makes one key walk the whole file.
+bool findNextInText(const std::string& text, const std::string& needle,
+                    const FindOptions& options, std::size_t fromOffset, bool forward,
+                    TextMatch* match);
+// Replaces every match and returns how many were replaced.
+std::size_t replaceAllInText(std::string* text, const std::string& needle,
+                             const std::string& replacement,
+                             const FindOptions& options = FindOptions());
+
+// A symbol panel or a Go to Symbol list, taken from the shape of the language:
+// braces and declaration keywords in C++ and GLSL, `function` in RBLX Script and
+// JavaScript, headings in Markdown and keys in JSON.
+struct OutlineSymbol {
+    std::string kind;    // "function", "class", "heading", "key"...
+    std::string name;
+    std::string detail;  // the declaration line, shortened
+    int line = 1;        // 1-based
+    int depth = 0;       // nesting the symbol sits at, for indenting the list
+};
+std::vector<OutlineSymbol> outlineSymbols(const std::string& text, Language language);
+
+// The bracket that pairs with the one at `offset`, or npos when that byte is not
+// a bracket or has no partner. Brackets inside strings and comments are ignored,
+// so a character in a literal does not send the cursor across the file.
+std::size_t matchingBracket(const std::string& text, std::size_t offset);
+
+// The widget counts a tab as the spaces it draws, so a column in its coordinates
+// has to be converted to and from a byte offset in the line.
+int displayColumn(const std::string& line, std::size_t byteOffset, int tabSize);
+std::size_t byteOffsetOfColumn(const std::string& line, int column, int tabSize);
+
+// Whether a line already carries a comment marker, and where the marker starts.
+bool lineHasComment(const std::string& line, const std::string& prefix,
+                    std::size_t* markerOffset);
+
+// How well `query` reads as an abbreviation of `candidate`, for ranking the
+// quick open list. -1 when some character of the query is not there at all, so a
+// file that cannot match never appears; higher is a better match.
+int fuzzyScore(const std::string& candidate, const std::string& query);
+
+// The branch a checkout is on, from `.git/HEAD`: "main", a short hash when HEAD
+// is detached, or "" when the folder is not a checkout.
+std::string gitBranchOf(const std::string& root);
+// Which version of a file is on disk, as a value that changes when it does. The
+// window keeps one per open tab so it can notice an edit made outside the editor
+// instead of overwriting it on the next save. "" when the file cannot be read.
+std::string fileStamp(const std::string& path);
 
 // Byte offset <-> line arithmetic, both counted from one where a reader counts
 // from one. The status bar and a search hit share it, so a jump lands on the line

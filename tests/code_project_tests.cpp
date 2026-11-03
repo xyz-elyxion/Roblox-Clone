@@ -301,6 +301,209 @@ void testPaths() {
     check(formatBytes(3 * 1024 * 1024) == "3 MB", "megabytes are shown for large files");
 }
 
+const OutlineSymbol* findSymbol(const std::vector<OutlineSymbol>& symbols, const std::string& name) {
+    for (const OutlineSymbol& symbol : symbols) {
+        if (symbol.name == name) {
+            return &symbol;
+        }
+    }
+    return nullptr;
+}
+
+bool hasMatchAt(const std::vector<TextMatch>& matches, int line, int column) {
+    for (const TextMatch& match : matches) {
+        if (match.line == line && match.column == column) {
+            return true;
+        }
+    }
+    return false;
+}
+
+void testFindReplace() {
+    const std::string text = "int alpha = 1;\nint Beta = 2;\n// alpha beta\n";
+
+    const std::vector<TextMatch> loose = findInText(text, "alpha");
+    check(loose.size() == 2, "find ignores case by default");
+    check(hasMatchAt(loose, 1, 5), "a match reports the line and column it starts at");
+    check(hasMatchAt(loose, 3, 4), "a match on a later line reports that line");
+
+    FindOptions exact;
+    exact.caseSensitive = true;
+    check(findInText(text, "alpha", exact).size() == 2,
+          "a case-sensitive find keeps both spellings apart");
+    check(findInText(text, "ALPHA", exact).empty(), "a case-sensitive find misses the other case");
+
+    FindOptions whole;
+    whole.wholeWord = true;
+    check(findInText(text, "alpha", whole).size() == 2, "a whole word is found on its own");
+    check(findInText(text, "alph", whole).empty(), "a prefix is not a whole word");
+    check(findInText("alpha1 alpha", "alpha", whole).size() == 1,
+          "a word glued to a digit is not a whole word");
+    check(findInText("aaaa", "aa").size() == 2, "matches never overlap");
+    check(findInText(text, "").empty(), "an empty needle matches nothing");
+    check(findInText(text, "zzz").empty(), "a missing needle matches nothing");
+    check(findInText(text, "a", FindOptions(), 3).size() == 3, "the match cap is honoured");
+
+    TextMatch match;
+    check(findNextInText(text, "alpha", exact, 0, true, &match) && match.line == 1,
+          "find next starts at the caret");
+    check(findNextInText(text, "alpha", exact, 6, true, &match) && match.line == 3,
+          "find next skips the match under the caret");
+    check(findNextInText(text, "alpha", exact, text.size(), true, &match) && match.line == 1,
+          "find next wraps to the first match");
+    check(findNextInText(text, "alpha", exact, 6, false, &match) && match.line == 1,
+          "find previous walks back");
+    check(findNextInText(text, "alpha", exact, 0, false, &match) && match.line == 3,
+          "find previous wraps to the last match");
+    check(!findNextInText(text, "zzz", exact, 0, true, &match), "find next reports a miss");
+
+    std::string replaced = text;
+    check(replaceAllInText(&replaced, "alpha", "omega") == 2,
+          "replace all counts the matches it changed");
+    check(contains(replaced, "int omega = 1;"), "replace all rewrites every match");
+    check(!contains(replaced, "alpha"), "replace all leaves none behind");
+
+    std::string cased = text;
+    check(replaceAllInText(&cased, "Beta", "gamma", exact) == 1,
+          "replace all follows the case rule");
+    check(contains(cased, "int gamma = 2;"), "replace all keeps the rest of the line");
+    check(replaceAllInText(&cased, "", "x") == 0, "an empty needle replaces nothing");
+}
+
+void testOutline() {
+    const std::string cpp =
+        "namespace rblx {\n"
+        "class Part {\n"
+        "public:\n"
+        "    void draw() const;\n"
+        "    bool save() {\n"
+        "        return true;\n"
+        "    }\n"
+        "};\n"
+        "struct Loader {\n"
+        "};\n"
+        "enum class Kind { A, B };\n"
+        "// void hidden() {\n"
+        "}\n"
+        "}  // namespace\n";
+    const std::vector<OutlineSymbol> symbols = outlineSymbols(cpp, Language::Cpp);
+
+    check(!symbols.empty(), "a C++ file has an outline");
+    const OutlineSymbol* name = findSymbol(symbols, "rblx");
+    check(name != nullptr && name->kind == "namespace", "a namespace is in the outline");
+    check(name != nullptr && name->line == 1, "a symbol knows its line");
+    const OutlineSymbol* part = findSymbol(symbols, "Part");
+    check(part != nullptr && part->kind == "class", "a class is in the outline");
+    check(part != nullptr && part->depth == 1, "a class inside a namespace is indented");
+    const OutlineSymbol* save = findSymbol(symbols, "save");
+    check(save != nullptr && save->kind == "function", "a function body is in the outline");
+    check(save != nullptr && save->line == 5, "the function's line is the line it starts on");
+    check(findSymbol(symbols, "Loader") != nullptr, "a struct is in the outline");
+    check(findSymbol(symbols, "Kind") != nullptr, "an enum is in the outline");
+    check(findSymbol(symbols, "draw") == nullptr, "a declaration without a body is left out");
+    check(findSymbol(symbols, "hidden") == nullptr, "a commented-out function is left out");
+
+    const std::string lua =
+        "-- script\n"
+        "local function tick(dt)\n"
+        "end\n"
+        "function M:start()\n"
+        "end\n"
+        "M.onTouch = function(other)\n"
+        "end\n";
+    const std::vector<OutlineSymbol> script = outlineSymbols(lua, Language::Lua);
+    check(findSymbol(script, "tick") != nullptr, "a local function is in the outline");
+    check(findSymbol(script, "M:start") != nullptr, "a method keeps its table name");
+    const OutlineSymbol* handler = findSymbol(script, "M.onTouch");
+    check(handler != nullptr && handler->kind == "handler", "an assigned handler is in the outline");
+
+    const std::string markdown =
+        "# Title\n## Section\ntext\n### Deep\n```\n# not a heading\n```\n";
+    const std::vector<OutlineSymbol> headings = outlineSymbols(markdown, Language::Markdown);
+    check(headings.size() == 3, "headings are the markdown outline");
+    const OutlineSymbol* deep = findSymbol(headings, "Deep");
+    check(deep != nullptr && deep->depth == 2, "a deeper heading is indented further");
+    check(findSymbol(headings, "not a heading") == nullptr,
+          "a hash inside a code fence is not a heading");
+
+    const std::string json = "{\n  \"name\": \"city\",\n  \"parts\": {\n    \"head\": 1\n  }\n}\n";
+    const std::vector<OutlineSymbol> keys = outlineSymbols(json, Language::Json);
+    check(findSymbol(keys, "name") != nullptr, "a JSON key is in the outline");
+    const OutlineSymbol* head = findSymbol(keys, "head");
+    check(head != nullptr && head->depth == 2, "a nested key is indented");
+
+    const std::string js = "function boot() {\n}\nconst update = (dt) => {\n};\n";
+    const std::vector<OutlineSymbol> jsSymbols = outlineSymbols(js, Language::JavaScript);
+    check(findSymbol(jsSymbols, "boot") != nullptr, "a JavaScript function is in the outline");
+    check(findSymbol(jsSymbols, "update") != nullptr, "an arrow function is in the outline");
+
+    const std::string css = ".panel {\n}\n@media (max-width: 600px) {\n}\n";
+    const std::vector<OutlineSymbol> selectors = outlineSymbols(css, Language::Css);
+    check(findSymbol(selectors, ".panel") != nullptr, "a CSS rule is in the outline");
+    const OutlineSymbol* media = findSymbol(selectors, "@media (max-width: 600px)");
+    check(media != nullptr && media->kind == "at-rule", "an at-rule is named as one");
+
+    check(outlineSymbols("just text\n", Language::Plain).empty(), "plain text has no outline");
+}
+
+void testEditingHelpers() {
+    const std::string text = "void f() {\n    if (x) {\n        g(x);\n    }\n}\n";
+    check(matchingBracket(text, text.find('{')) == text.rfind('}'), "a brace finds its partner");
+    check(matchingBracket(text, text.find('(')) == text.find(')'),
+          "a parenthesis finds its partner");
+    check(matchingBracket(text, text.find(')')) == text.find('('),
+          "a closing bracket finds the opener before it");
+    check(matchingBracket(text, 0) == std::string::npos, "a letter has no bracket to pair with");
+
+    const std::string commented = "{\n  // )\n}\n";
+    check(matchingBracket(commented, 0) == 9, "a bracket inside a comment is ignored");
+    const std::string quoted = "if (call(\")\")) {\n}\n";
+    check(matchingBracket(quoted, 3) == 13, "a bracket inside a string is ignored");
+
+    const std::string tabbed = "\tint x;";
+    check(displayColumn(tabbed, 1, 4) == 4, "a tab counts as the columns it draws");
+    check(byteOffsetOfColumn(tabbed, 4, 4) == 1, "a column maps back to the byte");
+    check(byteOffsetOfColumn(tabbed, 0, 4) == 0, "column zero is the start of the line");
+    check(displayColumn("abc", 3, 4) == 3, "plain characters count one column each");
+    check(byteOffsetOfColumn("abc", 99, 4) == 3, "a column past the end stops at the end");
+
+    std::size_t marker = 0;
+    check(lineHasComment("    // note", "//", &marker) && marker == 4,
+          "a commented line is recognised");
+    check(!lineHasComment("int x = 1;", "//", &marker), "a plain line is not commented");
+    check(!lineHasComment("// note", "", &marker), "a language with no line comment never matches");
+    check(std::string(lineCommentPrefix(Language::Cpp)) == "//", "C++ comments with two slashes");
+    check(std::string(lineCommentPrefix(Language::Lua)) == "--",
+          "RBLX Script comments with two dashes");
+    check(std::string(lineCommentPrefix(Language::Css)).empty(),
+          "CSS has no line comment to toggle");
+
+    check(fuzzyScore("src/CodeMain.cpp", "cmain") >= 0, "an abbreviation matches a path");
+    check(fuzzyScore("src/CodeMain.cpp", "zzz") < 0, "a letter that is not there does not match");
+    check(fuzzyScore("src/CodeMain.cpp", "") == 0, "an empty filter matches everything");
+    check(fuzzyScore("main.cpp", "main") > fuzzyScore("domain.cpp", "main"),
+          "a match at the start of a name ranks higher");
+    check(fuzzyScore("ab", "abc") < 0, "a filter longer than the name does not match");
+}
+
+void testWorkspaceHelpers(const fs::path& root) {
+    writeFile(root / ".git" / "HEAD", "ref: refs/heads/feature-editor\n");
+    check(gitBranchOf(root.string()) == "feature-editor", "the branch is read from HEAD");
+
+    writeFile(root / ".git" / "HEAD", "0123456789abcdef0123456789abcdef01234567\n");
+    check(gitBranchOf(root.string()) == "0123456", "a detached HEAD shows the short hash");
+    check(gitBranchOf((root / "no-checkout").string()).empty(),
+          "a folder without a checkout has no branch");
+
+    const fs::path stamped = root / "stamp.txt";
+    writeFile(stamped, "one\n");
+    const std::string before = fileStamp(stamped.string());
+    check(!before.empty(), "a file has a stamp");
+    writeFile(stamped, "one\ntwo\n");
+    check(fileStamp(stamped.string()) != before, "the stamp changes when the file changes");
+    check(fileStamp((root / "missing.txt").string()).empty(), "a missing file has no stamp");
+}
+
 }  // namespace
 
 int main() {
@@ -317,6 +520,10 @@ int main() {
     testSearch(root, entries);
     testOffsets();
     testPaths();
+    testFindReplace();
+    testOutline();
+    testEditingHelpers();
+    testWorkspaceHelpers(root);
 
     std::error_code cleanupError;
     fs::remove_all(root, cleanupError);

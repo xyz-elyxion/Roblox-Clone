@@ -134,8 +134,9 @@ The driver prefixes symbols with `_` and skips the ELF procedure linkage table o
 macOS, because that is what Mach-O expects.
 
 It runs as three stages, which the tests drive separately: a lexer with a small
-preprocessor (object-like `#define`, `#undef`, `#ifdef`/`#ifndef`/`#else`/`#endif`
-and `#include`), a recursive-descent parser that
+preprocessor (`#define` with or without parameters, `#undef`, `#ifdef`/`#ifndef`,
+`#if`/`#elif`/`#else`/`#endif`, `#include`, `#pragma once`), a recursive-descent
+parser that
 type-checks as it builds the tree, and an x86-64 back end that writes AT&T
 assembly. The compiler never runs an assembler itself: it writes the `.s` file and
 lets `cc` (or `$RBLX_CC`) assemble and link it against the C runtime, which is
@@ -217,7 +218,10 @@ What it takes:
 - Types: `void`, `bool`, `char`, `short`, `int`, `long` (64-bit), each integer
   in a `signed` and an `unsigned` form, `float`, `double` and pointers to them;
   arrays, including multi-dimensional locals; `struct` definitions with fields
-  and pointers to them, including a struct pointing at itself.
+  and pointers to them, including a struct pointing at itself; `class` and `union`
+  as well as `struct` (a class is a struct, since access is never enforced, and a
+  union puts every field at offset 0); `enum` with explicit values, under the name
+  of an `int`; and `typedef`, including one that names an anonymous struct.
 - Declarations: globals with constant initialisers, functions with parameters and
   `...`, prototypes, `static` for file-local symbols and for locals that outlive
   the call, `extern` for a symbol defined elsewhere.
@@ -266,8 +270,8 @@ registers, which is why they are passed as pointers.
 
 What it refuses, with a diagnostic that says so instead of miscompiling:
 inheritance, virtual functions, constructors and destructors, templates,
-exceptions, `long double`, structs or arrays passed or returned by value,
-function pointers and `typedef`.
+exceptions, `long double`, scoped enumerations, variadic macros, structs or
+arrays passed or returned by value, and function pointers.
 
 `tests/cxx_compiler_tests.cpp` runs the pipeline twice over: once as a library
 (diagnostics and the shape of the emitted assembly) and once end to end, where

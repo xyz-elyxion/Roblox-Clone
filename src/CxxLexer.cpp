@@ -45,6 +45,9 @@ struct Conditional {
     bool parentActive = true;
     bool active = true;
     bool elseSeen = false;
+    // Some branch of this #if has already been taken, which is what decides
+    // whether an #elif or #else is live.
+    bool takenAny = false;
     int line = 0;
 };
 
@@ -63,6 +66,13 @@ public:
           file_(std::move(file)),
           includeDepth_(includeDepth),
           once_(once) {}
+
+    // A function-like macro's expansion is shared by every file that is lexed, so
+    // the driver hands the same table to each header it pulls in.
+    void shareFunctionMacros(
+        std::map<std::string, std::pair<std::vector<std::string>, std::string>>* table) {
+        functionMacros_ = table;
+    }
 
     void run(int depth) {
         if (depth > 16) {
@@ -220,10 +230,48 @@ private:
                 return;
             }
             if (nameEnd < rest.size() && rest[nameEnd] == '(') {
-                error("function-like macros are not supported; write the steps out instead",
-                      directiveLine, 1);
+                std::vector<std::string> parameters;
+                std::size_t cursor = nameEnd + 1;
+                bool closed = false;
+                while (cursor < rest.size()) {
+                    const char c = rest[cursor];
+                    if (c == ' ' || c == '\t' || c == ',') {
+                        ++cursor;
+                        continue;
+                    }
+                    if (c == ')') {
+                        closed = true;
+                        ++cursor;
+                        break;
+                    }
+                    if (rest.compare(cursor, 3, "...") == 0) {
+                        error("variadic macros are not supported yet; write the call out",
+                              directiveLine, 1);
+                        return;
+                    }
+                    if (!isIdentifierStart(c)) {
+                        error("a macro parameter must be a name", directiveLine, 1);
+                        return;
+                    }
+                    std::size_t paramStart = cursor;
+                    while (cursor < rest.size() && isIdentifierPart(rest[cursor])) ++cursor;
+                    parameters.push_back(rest.substr(paramStart, cursor - paramStart));
+                }
+                if (!closed) {
+                    error("the parameter list of a macro needs a ')'", directiveLine, 1);
+                    return;
+                }
+                std::string body = rest.substr(cursor);
+                while (!body.empty() && (body.front() == ' ' || body.front() == '\t')) {
+                    body.erase(body.begin());
+                }
+                if (functionMacros_) {
+                    (*functionMacros_)[name] = std::make_pair(parameters, body);
+                }
                 return;
             }
+            // A name cannot be both: the newer definition wins.
+            if (functionMacros_) functionMacros_->erase(name);
             std::string value = rest.substr(nameEnd);
             while (!value.empty() && (value.front() == ' ' || value.front() == '\t')) {
                 value.erase(value.begin());
@@ -234,6 +282,7 @@ private:
         if (word == "undef") {
             if (!active()) return;
             macros_->erase(rest);
+            if (functionMacros_) functionMacros_->erase(rest);
             return;
         }
         if (word == "ifdef" || word == "ifndef") {
@@ -242,6 +291,7 @@ private:
             bool defined = macros_->find(rest) != macros_->end();
             bool wanted = (word == "ifdef") ? defined : !defined;
             frame.active = frame.parentActive && wanted;
+            frame.takenAny = wanted;
             frame.line = directiveLine;
             conditionals_.push_back(frame);
             return;
@@ -254,7 +304,8 @@ private:
             Conditional& frame = conditionals_.back();
             if (frame.elseSeen) error("a second #else in one #if", directiveLine, 1);
             frame.elseSeen = true;
-            frame.active = frame.parentActive && !frame.active;
+            frame.active = frame.parentActive && !frame.takenAny;
+            frame.takenAny = true;
             return;
         }
         if (word == "endif") {
@@ -265,8 +316,37 @@ private:
             conditionals_.pop_back();
             return;
         }
-        if (word == "if") {
-            error("#if is not supported; use #ifdef or #ifndef", directiveLine, 1);
+        if (word == "if" || word == "elif") {
+            if (word == "elif") {
+                if (conditionals_.empty()) {
+                    error("#elif without #if", directiveLine, 1);
+                    return;
+                }
+                Conditional& open = conditionals_.back();
+                if (open.elseSeen) {
+                    error("#elif after #else", directiveLine, 1);
+                    return;
+                }
+                bool wanted = false;
+                if (open.parentActive && !open.takenAny) {
+                    if (!evaluateIfExpression(rest, wanted, directiveLine)) return;
+                }
+                open.active = open.parentActive && !open.takenAny && wanted;
+                open.takenAny = open.takenAny || wanted;
+                return;
+            }
+            Conditional frame;
+            frame.parentActive = active();
+            frame.line = directiveLine;
+            bool wanted = false;
+            // A branch that is already dead is not evaluated, the way a real
+            // preprocessor skips it.
+            if (frame.parentActive) {
+                if (!evaluateIfExpression(rest, wanted, directiveLine)) return;
+            }
+            frame.active = frame.parentActive && wanted;
+            frame.takenAny = wanted;
+            conditionals_.push_back(frame);
             return;
         }
         if (word == "include") {
@@ -342,7 +422,421 @@ private:
         }
         Lexer nested(text, 1, macros_, tokens_, diagnostics_, options_, path, includeDepth_ + 1,
                      once_);
+        nested.shareFunctionMacros(functionMacros_);
         nested.run(0);
+    }
+
+    // ------------------------------------------------------- function macros ----
+
+    static std::string trimSpaces(const std::string& text) {
+        std::size_t begin = 0;
+        std::size_t end = text.size();
+        while (begin < end && (text[begin] == ' ' || text[begin] == '\t')) ++begin;
+        while (end > begin && (text[end - 1] == ' ' || text[end - 1] == '\t')) --end;
+        return text.substr(begin, end - begin);
+    }
+
+    // Collects the arguments of a macro call: everything between the matching
+    // parentheses, split at commas that are not inside another pair. Strings and
+    // character literals are copied through, and a call cannot span a line.
+    bool collectArguments(std::size_t& cursor, const std::string& name,
+                          std::vector<std::string>& arguments, int tokenLine, int tokenColumn) {
+        std::size_t position = cursor + 1;  // past '('
+        int depth = 1;
+        std::string current;
+        bool any = false;
+        while (position < source_.size()) {
+            const char c = source_[position];
+            if (c == '\n') break;
+            if (c == '"' || c == '\'') {
+                const char quote = c;
+                current += c;
+                ++position;
+                while (position < source_.size() && source_[position] != '\n') {
+                    current += source_[position];
+                    if (source_[position] == '\\' && position + 1 < source_.size()) {
+                        ++position;
+                        current += source_[position];
+                        ++position;
+                        continue;
+                    }
+                    if (source_[position] == quote) {
+                        ++position;
+                        break;
+                    }
+                    ++position;
+                }
+                any = true;
+                continue;
+            }
+            if (c == '(') {
+                ++depth;
+                current += c;
+                any = true;
+                ++position;
+                continue;
+            }
+            if (c == ')') {
+                --depth;
+                if (depth == 0) {
+                    ++position;
+                    if (any || !current.empty()) arguments.push_back(trimSpaces(current));
+                    column_ += static_cast<int>(position - position_);
+                    position_ = position;
+                    return true;
+                }
+                current += c;
+                any = true;
+                ++position;
+                continue;
+            }
+            if (c == ',' && depth == 1) {
+                arguments.push_back(trimSpaces(current));
+                current.clear();
+                any = true;  // an empty argument is still an argument
+                ++position;
+                continue;
+            }
+            current += c;
+            any = true;
+            ++position;
+        }
+        error("the call to '" + name + "' does not close before the end of the line", tokenLine,
+              tokenColumn);
+        return false;
+    }
+
+    // Replaces each parameter in the body with its argument, parenthesised so that
+    // `SQUARE(x + 1)` is not read as `x + 1 * x + 1`.
+    std::string substituteArguments(const std::vector<std::string>& parameters,
+                                    const std::string& body,
+                                    const std::vector<std::string>& arguments,
+                                    const std::string& name, int tokenLine, int tokenColumn) {
+        if (parameters.size() != arguments.size()) {
+            error("'" + name + "' takes " + std::to_string(parameters.size()) + " argument" +
+                      (parameters.size() == 1 ? "" : "s") + " but was given " +
+                      std::to_string(arguments.size()),
+                  tokenLine, tokenColumn);
+            return std::string();
+        }
+        std::string out;
+        std::size_t i = 0;
+        while (i < body.size()) {
+            const char c = body[i];
+            if (c == '"' || c == '\'') {
+                // A literal is copied whole: a parameter name inside it is text.
+                const char quote = c;
+                out += c;
+                ++i;
+                while (i < body.size()) {
+                    out += body[i];
+                    if (body[i] == '\\' && i + 1 < body.size()) {
+                        ++i;
+                        out += body[i];
+                        ++i;
+                        continue;
+                    }
+                    if (body[i] == quote) {
+                        ++i;
+                        break;
+                    }
+                    ++i;
+                }
+                continue;
+            }
+            if (isIdentifierStart(c)) {
+                const std::size_t start = i;
+                while (i < body.size() && isIdentifierPart(body[i])) ++i;
+                const std::string word = body.substr(start, i - start);
+                bool replaced = false;
+                for (std::size_t p = 0; p < parameters.size(); ++p) {
+                    if (parameters[p] == word) {
+                        out += "(" + arguments[p] + ")";
+                        replaced = true;
+                        break;
+                    }
+                }
+                if (!replaced) out += word;
+                continue;
+            }
+            out += c;
+            ++i;
+        }
+        return out;
+    }
+
+    // -------------------------------------------------------------- #if ----
+
+    struct IfExpression {
+        std::string text;
+        std::size_t cursor = 0;
+        int depth = 0;
+    };
+
+    void skipIfSpace(IfExpression& expression) const {
+        while (expression.cursor < expression.text.size() &&
+               (expression.text[expression.cursor] == ' ' ||
+                expression.text[expression.cursor] == '\t')) {
+            ++expression.cursor;
+        }
+    }
+
+    bool acceptIfText(IfExpression& expression, const char* spelling) const {
+        skipIfSpace(expression);
+        const std::string text(spelling);
+        if (expression.text.compare(expression.cursor, text.size(), text) != 0) return false;
+        expression.cursor += text.size();
+        return true;
+    }
+
+    bool evaluateIfExpression(const std::string& text, bool& value, int line) {
+        IfExpression expression;
+        expression.text = text;
+        long long result = 0;
+        if (!evaluateIfOr(expression, result, line)) return false;
+        skipIfSpace(expression);
+        if (expression.cursor < expression.text.size()) {
+            error("unexpected '" + expression.text.substr(expression.cursor, 1) +
+                      "' in the #if expression",
+                  line, 1);
+            return false;
+        }
+        value = result != 0;
+        return true;
+    }
+
+    bool evaluateIfOr(IfExpression& expression, long long& value, int line) {
+        long long left = 0;
+        if (!evaluateIfAnd(expression, left, line)) return false;
+        while (acceptIfText(expression, "||")) {
+            long long right = 0;
+            if (!evaluateIfAnd(expression, right, line)) return false;
+            left = (left != 0 || right != 0) ? 1 : 0;
+        }
+        value = left;
+        return true;
+    }
+
+    bool evaluateIfAnd(IfExpression& expression, long long& value, int line) {
+        long long left = 0;
+        if (!evaluateIfEquality(expression, left, line)) return false;
+        while (acceptIfText(expression, "&&")) {
+            long long right = 0;
+            if (!evaluateIfEquality(expression, right, line)) return false;
+            left = (left != 0 && right != 0) ? 1 : 0;
+        }
+        value = left;
+        return true;
+    }
+
+    bool evaluateIfEquality(IfExpression& expression, long long& value, int line) {
+        long long left = 0;
+        if (!evaluateIfRelational(expression, left, line)) return false;
+        for (;;) {
+            if (acceptIfText(expression, "==")) {
+                long long right = 0;
+                if (!evaluateIfRelational(expression, right, line)) return false;
+                left = left == right ? 1 : 0;
+                continue;
+            }
+            if (acceptIfText(expression, "!=")) {
+                long long right = 0;
+                if (!evaluateIfRelational(expression, right, line)) return false;
+                left = left != right ? 1 : 0;
+                continue;
+            }
+            break;
+        }
+        value = left;
+        return true;
+    }
+
+    bool evaluateIfRelational(IfExpression& expression, long long& value, int line) {
+        long long left = 0;
+        if (!evaluateIfAdditive(expression, left, line)) return false;
+        for (;;) {
+            if (acceptIfText(expression, "<=")) {
+                long long right = 0;
+                if (!evaluateIfAdditive(expression, right, line)) return false;
+                left = left <= right ? 1 : 0;
+                continue;
+            }
+            if (acceptIfText(expression, ">=")) {
+                long long right = 0;
+                if (!evaluateIfAdditive(expression, right, line)) return false;
+                left = left >= right ? 1 : 0;
+                continue;
+            }
+            if (acceptIfText(expression, "<")) {
+                long long right = 0;
+                if (!evaluateIfAdditive(expression, right, line)) return false;
+                left = left < right ? 1 : 0;
+                continue;
+            }
+            if (acceptIfText(expression, ">")) {
+                long long right = 0;
+                if (!evaluateIfAdditive(expression, right, line)) return false;
+                left = left > right ? 1 : 0;
+                continue;
+            }
+            break;
+        }
+        value = left;
+        return true;
+    }
+
+    bool evaluateIfAdditive(IfExpression& expression, long long& value, int line) {
+        long long left = 0;
+        if (!evaluateIfMultiplicative(expression, left, line)) return false;
+        for (;;) {
+            if (acceptIfText(expression, "+")) {
+                long long right = 0;
+                if (!evaluateIfMultiplicative(expression, right, line)) return false;
+                left += right;
+                continue;
+            }
+            if (acceptIfText(expression, "-")) {
+                long long right = 0;
+                if (!evaluateIfMultiplicative(expression, right, line)) return false;
+                left -= right;
+                continue;
+            }
+            break;
+        }
+        value = left;
+        return true;
+    }
+
+    bool evaluateIfMultiplicative(IfExpression& expression, long long& value, int line) {
+        long long left = 0;
+        if (!evaluateIfPrimary(expression, left, line)) return false;
+        for (;;) {
+            if (acceptIfText(expression, "*")) {
+                long long right = 0;
+                if (!evaluateIfPrimary(expression, right, line)) return false;
+                left *= right;
+                continue;
+            }
+            if (acceptIfText(expression, "/")) {
+                long long right = 0;
+                if (!evaluateIfPrimary(expression, right, line)) return false;
+                left = right == 0 ? 0 : left / right;
+                continue;
+            }
+            if (acceptIfText(expression, "%")) {
+                long long right = 0;
+                if (!evaluateIfPrimary(expression, right, line)) return false;
+                left = right == 0 ? 0 : left % right;
+                continue;
+            }
+            break;
+        }
+        value = left;
+        return true;
+    }
+
+    bool evaluateIfPrimary(IfExpression& expression, long long& value, int line) {
+        skipIfSpace(expression);
+        if (acceptIfText(expression, "(")) {
+            long long inner = 0;
+            if (!evaluateIfOr(expression, inner, line)) return false;
+            if (!acceptIfText(expression, ")")) {
+                error("expected ')' in the #if expression", line, 1);
+                return false;
+            }
+            value = inner;
+            return true;
+        }
+        if (acceptIfText(expression, "!")) {
+            long long inner = 0;
+            if (!evaluateIfPrimary(expression, inner, line)) return false;
+            value = inner == 0 ? 1 : 0;
+            return true;
+        }
+        if (acceptIfText(expression, "~")) {
+            long long inner = 0;
+            if (!evaluateIfPrimary(expression, inner, line)) return false;
+            value = ~inner;
+            return true;
+        }
+        if (acceptIfText(expression, "-")) {
+            long long inner = 0;
+            if (!evaluateIfPrimary(expression, inner, line)) return false;
+            value = -inner;
+            return true;
+        }
+        if (acceptIfText(expression, "+")) {
+            return evaluateIfPrimary(expression, value, line);
+        }
+        skipIfSpace(expression);
+        if (expression.text.compare(expression.cursor, 7, "defined") == 0 &&
+            (expression.cursor + 7 >= expression.text.size() ||
+             !isIdentifierPart(expression.text[expression.cursor + 7]))) {
+            expression.cursor += 7;
+            const bool parenthesised = acceptIfText(expression, "(");
+            skipIfSpace(expression);
+            const std::size_t start = expression.cursor;
+            while (expression.cursor < expression.text.size() &&
+                   isIdentifierPart(expression.text[expression.cursor])) {
+                ++expression.cursor;
+            }
+            if (start == expression.cursor) {
+                error("defined needs a name", line, 1);
+                return false;
+            }
+            const std::string name = expression.text.substr(start, expression.cursor - start);
+            if (parenthesised && !acceptIfText(expression, ")")) {
+                error("expected ')' after defined", line, 1);
+                return false;
+            }
+            value = macros_->find(name) != macros_->end() ? 1 : 0;
+            return true;
+        }
+        skipIfSpace(expression);
+        if (expression.cursor < expression.text.size() &&
+            std::isdigit(static_cast<unsigned char>(expression.text[expression.cursor]))) {
+            const char* begin = expression.text.c_str() + expression.cursor;
+            char* end = nullptr;
+            value = std::strtoll(begin, &end, 0);
+            expression.cursor += static_cast<std::size_t>(end - begin);
+            // 4u and 4L are still 4. The signedness of a #if is not interesting.
+            while (expression.cursor < expression.text.size() &&
+                   (expression.text[expression.cursor] == 'u' ||
+                    expression.text[expression.cursor] == 'U' ||
+                    expression.text[expression.cursor] == 'l' ||
+                    expression.text[expression.cursor] == 'L')) {
+                ++expression.cursor;
+            }
+            return true;
+        }
+        // A name: its macro value, or 0 when it is not defined, as in any
+        // preprocessor.
+        const std::size_t start = expression.cursor;
+        while (expression.cursor < expression.text.size() &&
+               isIdentifierPart(expression.text[expression.cursor])) {
+            ++expression.cursor;
+        }
+        if (start == expression.cursor) {
+            error("#if needs an expression", line, 1);
+            return false;
+        }
+        const std::string word = expression.text.substr(start, expression.cursor - start);
+        auto macro = macros_->find(word);
+        if (macro == macros_->end() || macro->second.empty()) {
+            value = 0;
+            return true;
+        }
+        if (expression.depth >= 8) {
+            error("#if macro expansion nests too deeply", line, 1);
+            return false;
+        }
+        IfExpression nested;
+        nested.text = macro->second;
+        nested.depth = expression.depth + 1;
+        long long substituted = 0;
+        if (!evaluateIfOr(nested, substituted, line)) return false;
+        value = substituted;
+        return true;
     }
 
     void identifier(int tokenLine, int tokenColumn, int depth) {
@@ -358,9 +852,40 @@ private:
         for (const std::string& pending : expanding_) {
             if (pending == name) expanding = true;
         }
+        // A function-like macro expands only where it is called: the name on its
+        // own is just an identifier.
+        if (functionMacros_ && !expanding) {
+            auto function = functionMacros_->find(name);
+            if (function != functionMacros_->end()) {
+                std::size_t scan = position_;
+                while (scan < source_.size() && (source_[scan] == ' ' || source_[scan] == '\t')) {
+                    ++scan;
+                }
+                if (scan < source_.size() && source_[scan] == '(') {
+                    std::vector<std::string> arguments;
+                    if (!collectArguments(scan, name, arguments, tokenLine, tokenColumn)) return;
+                    const std::string text =
+                        substituteArguments(function->second.first, function->second.second,
+                                            arguments, name, tokenLine, tokenColumn);
+                    if (text.empty()) return;
+                    expanding_.push_back(name);
+                    Lexer nested(text, tokenLine, macros_, tokens_, diagnostics_, options_, file_,
+                                 includeDepth_, once_);
+                    nested.shareFunctionMacros(functionMacros_);
+                    nested.expanding_ = expanding_;
+                    nested.column_ = tokenColumn;
+                    nested.run(depth + 1);
+                    expanding_.pop_back();
+                    return;
+                }
+            }
+        }
         if (macro != macros_->end() && !expanding) {
             expanding_.push_back(name);
-            Lexer nested(macro->second, tokenLine, macros_, tokens_, diagnostics_);
+            Lexer nested(macro->second, tokenLine, macros_, tokens_, diagnostics_, options_, file_,
+                         includeDepth_, once_);
+            nested.shareFunctionMacros(functionMacros_);
+            nested.expanding_ = expanding_;
             nested.column_ = tokenColumn;
             nested.run(depth + 1);
             expanding_.pop_back();
@@ -627,6 +1152,8 @@ private:
     std::string file_;  // the header being lexed; empty for the file handed in
     int includeDepth_ = 0;
     std::set<std::string>* once_ = nullptr;  // headers that asked for #pragma once
+    std::map<std::string, std::pair<std::vector<std::string>, std::string>>* functionMacros_ =
+        nullptr;  // #define NAME(a, b) body
     std::vector<Conditional> conditionals_;
     std::vector<std::string> expanding_;
     std::size_t last_ = 0;
@@ -640,13 +1167,16 @@ LexResult lex(const std::string& source, const std::string& prelude, const Optio
     LexResult result;
     std::map<std::string, std::string> macros;
     std::set<std::string> once;
+    std::map<std::string, std::pair<std::vector<std::string>, std::string>> functionMacros;
 
     if (!prelude.empty()) {
         Lexer preludeLexer(prelude, 0, &macros, &result.tokens, &result.diagnostics, &options);
+        preludeLexer.shareFunctionMacros(&functionMacros);
         preludeLexer.run(0);
     }
     Lexer lexer(source, 1, &macros, &result.tokens, &result.diagnostics, &options, std::string(), 0,
                 &once);
+    lexer.shareFunctionMacros(&functionMacros);
     lexer.run(0);
 
     Token end;
@@ -776,7 +1306,7 @@ std::string typeName(const TypePtr& type) {
         case TypeKind::Pointer: return typeName(type->element) + "*";
         case TypeKind::Array:
             return typeName(type->element) + "[" + std::to_string(type->elements) + "]";
-        case TypeKind::Struct: return "struct " + type->name;
+        case TypeKind::Struct: return (type->isUnion ? "union " : "struct ") + type->name;
     }
     return "<unknown>";
 }

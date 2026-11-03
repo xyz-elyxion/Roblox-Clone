@@ -71,6 +71,7 @@ struct Type {
     TypePtr element;         // pointee or element type
     long long elements = 0;  // array length
     std::string name;        // struct tag
+    bool isUnion = false;    // every field sits at offset 0
     std::vector<Field> fields;
     // Member function name -> the symbol it is emitted under. The object is not
     // stored in the type: there is no vtable, because there is no inheritance.

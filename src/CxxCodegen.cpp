@@ -1184,17 +1184,20 @@ Result compile(const std::string& source, const Options& options) {
 std::string supportedSummary() {
     return
         "Types: void, bool, char, short, int, long (64-bit) and their unsigned forms,\n"
-        "float, double, pointers, arrays and structs by pointer.\n"
+        "float, double, pointers, arrays, structs/classes/unions by pointer, enum and\n"
+        "typedef.\n"
         "Statements: blocks, declarations, if/else, while, do/while, for, return, break, continue.\n"
         "Expressions: arithmetic, comparisons, && || !, ?:, casts, sizeof, ++/--, compound\n"
         "assignment, calls, subscripts and field access.\n"
         "Member functions: declared or defined in a struct, or defined as Rect::area();\n"
         "the object is passed as the hidden `this` argument.\n"
-        "Preprocessor: object-like #define, #undef, #ifdef/#ifndef/#else/#endif and #include\n"
-        "(\"...\" beside the source or on -I, <...> on -I, #pragma once).\n"
+        "Preprocessor: #define with or without parameters, #undef, #ifdef/#ifndef,\n"
+        "#if/#elif/#else/#endif over constant expressions, #include (\"...\" beside the\n"
+        "source or on -I, <...> on -I) and #pragma once.\n"
         "Storage: globals, static locals and static functions.\n"
         "Not supported yet: inheritance, virtual functions, constructors, templates,\n"
-        "exceptions, long double, structs or arrays by value, function pointers.";
+        "exceptions, long double, scoped enums, structs or arrays by value, function\n"
+        "pointers.";
 }
 
 }  // namespace cxx

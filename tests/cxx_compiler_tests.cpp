@@ -77,8 +77,12 @@ void diagnosticsTests() {
     expectError("undeclared variable", "int main() { return missing; }", "is not declared");
     expectError("undeclared call", "int main() { return helper(1); }", "is not declared");
     expectError("missing main", "int helper() { return 1; }", "no main function");
-    expectError("classes", "class Thing { }; int main() { return 0; }",
-                "class is not supported");
+    // A class is a struct here: access is not enforced, so the two differ only in
+    // the default, which nothing reads.
+    expectCompiles("classes", "class Thing { public: int value; }; "
+                              "int main() { class Thing t; t.value = 2; return t.value; }");
+    expectError("class without a body", "class Thing; int main() { return 0; }",
+                "must be defined before it is used");
     expectError("templates", "template<int N> int f() { return N; } int main() { return 0; }",
                 "template is not supported");
     expectError("inheritance", "struct A { int x; }; struct B : A { int y; }; int main() { return 0; }",
@@ -90,6 +94,12 @@ void diagnosticsTests() {
                 "virtual functions are not supported");
     expectError("static initialiser", "int f(); int main() { static int x = f(); return x; }",
                 "its initialiser must be a constant");
+    expectError("scoped enum", "enum class Color { RED }; int main() { return 0; }",
+                "scoped enumerations are not supported");
+    expectError("variadic macro", "#define LOG(...) printf(__VA_ARGS__)\nint main() { return 0; }",
+                "variadic macros are not supported");
+    expectError("union named as a struct", "union U { int i; }; struct U u; int main() { return 0; }",
+                "is a union, not a struct");
     expectError("missing include", "#include \"nope.h\"\nint main() { return 0; }",
                 "cannot find header 'nope.h'");
 
@@ -738,6 +748,57 @@ int main() {
 }
 )CPP",
      "3 12\n5.0\nheld\n"},
+
+    // The tier-one language additions read together: a macro that takes
+    // arguments, a #if that is evaluated, a typedef of an anonymous struct, an
+    // enum, a class and a union.
+    {"typedef, enum, union, class and function macros",
+     R"CPP(
+#define MAX(a, b) ((a) > (b) ? (a) : (b))
+#define SQUARE(x) ((x) * (x))
+#define LIMIT 3
+#if LIMIT > 2 && defined(LIMIT)
+int gate() { return 1; }
+#elif LIMIT == 2
+int gate() { return 2; }
+#else
+int gate() { return 3; }
+#endif
+typedef unsigned long Count;
+typedef struct { int x; int y; } Point;
+enum Color { RED, GREEN = 5, BLUE };
+class Counter {
+public:
+    int value;
+    void bump() { value = value + 1; }
+};
+union Bits { int whole; unsigned char bytes[4]; };
+int main() {
+    Count total = 0;
+    Point p;
+    p.x = 2;
+    p.y = 3;
+    total = p.x + p.y;
+    printf("%lu\n", total);
+    printf("%d %d %d\n", RED, GREEN, BLUE);
+    printf("%d\n", gate());
+    struct Counter c;
+    c.value = 0;
+    c.bump();
+    c.bump();
+    printf("%d\n", c.value);
+    union Bits bits;
+    bits.whole = 0;
+    bits.bytes[0] = 1;
+    bits.bytes[1] = 2;
+    printf("%d\n", bits.whole);
+    printf("%d %d\n", MAX(3, 7), SQUARE(LIMIT + 1));
+    enum Color color = GREEN;
+    printf("%d\n", color);
+    return 0;
+}
+)CPP",
+     "5\n0 5 6\n1\n2\n513\n7 16\n5\n"},
 };
 
 #if defined(_WIN32)

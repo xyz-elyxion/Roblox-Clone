@@ -94,10 +94,12 @@ private:
         TypePtr type;
         bool isStatic = false;
         bool isExtern = false;
+        bool isTypedef = false;
     };
 
     bool startsType() const {
-        return current().kind == TokenKind::Identifier && isTypeKeyword(current().text);
+        return current().kind == TokenKind::Identifier &&
+               (isTypeKeyword(current().text) || typedefs_.find(current().text) != typedefs_.end());
     }
 
     // The built-in type names, in any of the orders the language allows:
@@ -180,13 +182,29 @@ private:
                 advance();
                 continue;
             }
-            if (word == "typedef") fail("typedef is not supported yet");
-            if (word == "class" || word == "template" || word == "enum" || word == "union") {
-                fail(word + " is not supported yet");
+            if (word == "template") fail("template is not supported yet");
+            if (word == "typedef") {
+                specifiers.isTypedef = true;
+                advance();
+                continue;
             }
-            if (word == "struct") {
+            auto alias = typedefs_.find(word);
+            if (alias != typedefs_.end()) {
                 if (haveType) break;
-                specifiers.type = parseStruct();
+                specifiers.type = alias->second;
+                advance();
+                haveType = true;
+                continue;
+            }
+            if (word == "struct" || word == "class" || word == "union") {
+                if (haveType) break;
+                specifiers.type = parseStruct(word == "union");
+                haveType = true;
+                continue;
+            }
+            if (word == "enum") {
+                if (haveType) break;
+                specifiers.type = parseEnum();
                 haveType = true;
                 continue;
             }
@@ -201,14 +219,71 @@ private:
         return specifiers;
     }
 
-    TypePtr parseStruct() {
-        advance();  // struct
-        std::string tag = expectName("after struct");
+    // `enum Color { RED, GREEN = 5, BLUE };` under the name of an int. The tag
+    // becomes a type name too, so `enum Color c;` and `Color c;` both work, and
+    // each enumerator is folded to a constant where it is written.
+    TypePtr parseEnum() {
+        advance();  // enum
+        if (at("class") || at("struct")) {
+            fail("scoped enumerations are not supported yet; use a plain enum");
+        }
+        std::string tag;
+        if (current().kind == TokenKind::Identifier) tag = advance().text;
+        if (at(":")) fail("an enum with a fixed underlying type is not supported yet");
+        if (!at("{")) {
+            if (tag.empty() || typedefs_.find(tag) == typedefs_.end()) {
+                fail("enum '" + tag + "' must be defined before it is used");
+            }
+            return typedefs_[tag];
+        }
+        advance();  // {
+        long long next = 0;
+        while (!at("}")) {
+            if (current().kind == TokenKind::End) fail("the enum body never closes");
+            std::string name = expectName("in an enumerator list");
+            if (accept("=")) {
+                ExprPtr initialiser = parseAssignment();
+                bool constant = true;
+                next = fold(*initialiser, constant);
+                if (!constant) fail("the value of '" + name + "' must be a constant");
+            }
+            if (constants_.find(name) != constants_.end()) {
+                fail("'" + name + "' is already an enumerator");
+            }
+            constants_[name] = next;
+            ++next;
+            if (!accept(",")) break;
+        }
+        expect("}", "to close the enum");
+        TypePtr type = primitiveType(TypeKind::Int);
+        if (!tag.empty()) typedefs_[tag] = type;
+        return type;
+    }
+
+    // `struct`, `class` and `union` share a parser: a class is a struct, because
+    // access is not enforced, and a union lays every field at offset 0.
+    TypePtr parseStruct(bool isUnion = false) {
+        advance();  // struct, class or union
+        std::string tag;
+        if (current().kind == TokenKind::Identifier) {
+            tag = advance().text;
+        } else if (at("{")) {
+            // `typedef struct { ... } Point;` has no tag: the typedef names it.
+            tag = "anonymous";
+        } else {
+            fail("expected a name after 'struct'");
+        }
         if (at(":")) fail("inheritance is not supported yet; copy the fields you need");
         if (!at("{")) {
             auto existing = structs_.find(tag);
             if (existing == structs_.end()) {
                 fail("struct '" + tag + "' must be defined before it is used");
+            }
+            // A union is not a struct: naming it with the wrong keyword is a
+            // mistake the language refuses, so it is refused here too.
+            if (existing->second->isUnion != isUnion) {
+                fail("'" + tag + "' is a " + (existing->second->isUnion ? "union" : "struct") +
+                     ", not a " + (isUnion ? "union" : "struct"));
             }
             return existing->second;
         }
@@ -217,9 +292,10 @@ private:
         auto type = std::make_shared<Type>();
         type->kind = TypeKind::Struct;
         type->name = tag;
+        type->isUnion = isUnion;
         // Registered before the body is read so a field can point back at the
         // struct being defined - the next pointer of a list node.
-        structs_[tag] = type;
+        if (tag != "anonymous") structs_[tag] = type;
 
         int offset = 0;
         int alignment = 1;
@@ -242,6 +318,9 @@ private:
             }
             Specifiers fieldSpecifiers = parseSpecifiers();
             if (!fieldSpecifiers.type) fail("a struct field needs a type");
+            if (fieldSpecifiers.isTypedef) {
+                fail("a typedef inside a struct is not supported yet; write it at file scope");
+            }
             bool method = false;
             bool first = true;
             do {
@@ -266,9 +345,9 @@ private:
                 Field field;
                 field.name = fieldName;
                 field.type = fieldType;
-                field.offset = offset;
+                field.offset = isUnion ? 0 : offset;
                 type->fields.push_back(field);
-                offset += fieldType->size;
+                offset = isUnion ? std::max(offset, fieldType->size) : offset + fieldType->size;
                 alignment = std::max(alignment, fieldType->align);
             } while (accept(","));
             if (!method) expect(";", "after a struct field");
@@ -366,6 +445,16 @@ private:
 
         std::string name;
         TypePtr type = parseDeclarator(specifiers.type, name, false);
+        if (specifiers.isTypedef) {
+            typedefs_[name] = type;
+            while (accept(",")) {
+                std::string next;
+                TypePtr nextType = parseDeclarator(specifiers.type, next, false);
+                typedefs_[next] = nextType;
+            }
+            expect(";", "after the typedef");
+            return;
+        }
         if (at("::")) {
             // A member defined outside its struct: `int Rect::area() { ... }`.
             advance();
@@ -667,6 +756,19 @@ private:
     void parseLocalDeclaration(Stmt& statement) {
         Specifiers specifiers = parseSpecifiers();
         if (!specifiers.type) fail("expected a type");
+        if (specifiers.isTypedef) {
+            // A typedef inside a function is visible from here to the end of the
+            // file, which is looser than the language but never wrong about what
+            // the name means.
+            if (accept(";")) return;
+            do {
+                std::string name;
+                TypePtr type = parseDeclarator(specifiers.type, name, false);
+                typedefs_[name] = type;
+            } while (accept(","));
+            expect(";", "after the typedef");
+            return;
+        }
         if (specifiers.isStatic) {
             parseStaticDeclaration(specifiers);
             return;
@@ -1460,6 +1562,14 @@ private:
                         return expression;
                     }
                 }
+                // An enumerator is the constant it stands for.
+                auto constant = constants_.find(expression->text);
+                if (constant != constants_.end()) {
+                    expression->kind = ExprKind::Integer;
+                    expression->number = constant->second;
+                    expression->type = primitiveType(TypeKind::Int);
+                    return expression;
+                }
                 // A function name is only meaningful in front of its argument
                 // list; parsePostfix turns it into a call and refuses it
                 // anywhere else.
@@ -1648,6 +1758,8 @@ private:
     int loopDepth_ = 0;
     FunctionDecl* currentFunction_ = nullptr;
     TypePtr currentClass_;  // the struct whose member body is being parsed
+    std::map<std::string, TypePtr> typedefs_;      // typedef and enum tag -> type
+    std::map<std::string, long long> constants_;   // enumerator -> value
 };
 
 }  // namespace

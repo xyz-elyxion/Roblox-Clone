@@ -99,13 +99,73 @@ private:
         return current().kind == TokenKind::Identifier && isTypeKeyword(current().text);
     }
 
+    // The built-in type names, in any of the orders the language allows:
+    // `unsigned long int`, `long unsigned`, `short int`, and so on.
+    static bool startsBuiltinType(const std::string& word) {
+        return word == "void" || word == "bool" || word == "char" || word == "int" ||
+               word == "short" || word == "long" || word == "signed" || word == "unsigned" ||
+               word == "float" || word == "double";
+    }
+
+    TypePtr parseBuiltinType() {
+        bool isUnsigned = false;
+        bool isSigned = false;
+        bool isShort = false;
+        bool isChar = false;
+        bool isBool = false;
+        bool isVoid = false;
+        bool isFloat = false;
+        bool isDouble = false;
+        int longCount = 0;
+        while (current().kind == TokenKind::Identifier && startsBuiltinType(current().text)) {
+            const std::string word = advance().text;
+            if (word == "unsigned") isUnsigned = true;
+            else if (word == "signed") isSigned = true;
+            else if (word == "short") isShort = true;
+            else if (word == "long") ++longCount;
+            else if (word == "char") isChar = true;
+            else if (word == "bool") isBool = true;
+            else if (word == "void") isVoid = true;
+            else if (word == "float") isFloat = true;
+            else if (word == "double") isDouble = true;
+            // `int` only makes the declaration explicit: `unsigned` on its own
+            // already means `unsigned int`.
+        }
+
+        if (longCount > 2) fail("'long long long' is not a type");
+        if (isUnsigned && isSigned) fail("a type cannot be both signed and unsigned");
+        if ((isFloat || isDouble) && longCount > 0) {
+            fail("long double is not supported; use double");
+        }
+        const int named = (isVoid ? 1 : 0) + (isBool ? 1 : 0) + (isChar ? 1 : 0) +
+                          (isFloat ? 1 : 0) + (isDouble ? 1 : 0) + (isShort ? 1 : 0) +
+                          (longCount > 0 ? 1 : 0);
+        if (named > 1) fail("the declaration names more than one type");
+        if ((isUnsigned || isSigned || isShort || longCount > 0) && (isFloat || isDouble)) {
+            fail("floating point types are never signed or unsigned");
+        }
+        if ((isVoid || isBool) && (isUnsigned || isSigned || isShort || longCount > 0)) {
+            fail("void and bool cannot be signed, unsigned, short or long");
+        }
+
+        TypeKind kind = TypeKind::Int;
+        if (isVoid) kind = TypeKind::Void;
+        else if (isBool) kind = TypeKind::Bool;
+        else if (isChar) kind = TypeKind::Char;
+        else if (isFloat) kind = TypeKind::Float;
+        else if (isDouble) kind = TypeKind::Double;
+        else if (isShort) kind = TypeKind::Short;
+        else if (longCount > 0) kind = TypeKind::Long;
+        return integerType(kind, isUnsigned);
+    }
+
     Specifiers parseSpecifiers() {
         Specifiers specifiers;
         bool haveType = false;
         while (current().kind == TokenKind::Identifier) {
             const std::string word = current().text;
-            if (word == "const" || word == "volatile" || word == "auto" || word == "register" ||
-                word == "signed") {
+            if (word == "const" || word == "volatile" || word == "auto" ||
+                word == "register") {
                 advance();
                 continue;
             }
@@ -119,18 +179,6 @@ private:
                 advance();
                 continue;
             }
-            if (word == "unsigned") {
-                fail("unsigned types are not supported yet; every integer here is signed");
-            }
-            if (word == "short") fail("short is not supported; use int");
-            if (word == "float" || word == "double") {
-                if (haveType) break;
-                advance();
-                specifiers.type =
-                    primitiveType(word == "float" ? TypeKind::Float : TypeKind::Double);
-                haveType = true;
-                continue;
-            }
             if (word == "typedef") fail("typedef is not supported yet");
             if (word == "class" || word == "template" || word == "enum" || word == "union") {
                 fail(word + " is not supported yet");
@@ -141,34 +189,9 @@ private:
                 haveType = true;
                 continue;
             }
-            if (word == "void" || word == "bool" || word == "char" || word == "int" ||
-                word == "long") {
-                if (haveType) {
-                    if (word == "long" && specifiers.type->kind == TypeKind::Long) {
-                        advance();  // `long long` is one 64-bit integer
-                        continue;
-                    }
-                    if (word == "int" && specifiers.type->kind == TypeKind::Long) {
-                        advance();  // `long int`
-                        continue;
-                    }
-                    break;
-                }
-                advance();
-                if (word == "long") {
-                    specifiers.type = primitiveType(TypeKind::Long);
-                    if (at("long")) advance();
-                    if (at("int")) advance();
-                    if (at("double")) fail("long double is not supported; use double");
-                } else if (word == "void") {
-                    specifiers.type = primitiveType(TypeKind::Void);
-                } else if (word == "bool") {
-                    specifiers.type = primitiveType(TypeKind::Bool);
-                } else if (word == "char") {
-                    specifiers.type = primitiveType(TypeKind::Char);
-                } else {
-                    specifiers.type = primitiveType(TypeKind::Int);
-                }
+            if (startsBuiltinType(word)) {
+                if (haveType) break;
+                specifiers.type = parseBuiltinType();
                 haveType = true;
                 continue;
             }
@@ -816,14 +839,12 @@ private:
             } else {
                 expression->type = leftPointer ? left->type : right->type;
             }
-        } else if (left->type->kind == TypeKind::Double || right->type->kind == TypeKind::Double) {
-            expression->type = primitiveType(TypeKind::Double);
-        } else if (left->type->kind == TypeKind::Float || right->type->kind == TypeKind::Float) {
-            expression->type = primitiveType(TypeKind::Float);
-        } else if (left->type->kind == TypeKind::Long || right->type->kind == TypeKind::Long) {
-            expression->type = primitiveType(TypeKind::Long);
+        } else if (op == "<<" || op == ">>") {
+            // A shift keeps the promoted type of its left operand; the count is
+            // only ever read from %cl.
+            expression->type = promotedType(left->type);
         } else {
-            expression->type = primitiveType(TypeKind::Int);
+            expression->type = arithmeticType(left->type, right->type);
         }
 
         expression->a = std::move(left);
@@ -901,16 +922,7 @@ private:
         if (left->isPointer() || right->isPointer()) {
             return left->isPointer() ? left : right;
         }
-        if (left->kind == TypeKind::Double || right->kind == TypeKind::Double) {
-            return primitiveType(TypeKind::Double);
-        }
-        if (left->kind == TypeKind::Float || right->kind == TypeKind::Float) {
-            return primitiveType(TypeKind::Float);
-        }
-        if (left->kind == TypeKind::Long || right->kind == TypeKind::Long) {
-            return primitiveType(TypeKind::Long);
-        }
-        return primitiveType(TypeKind::Int);
+        return arithmeticType(left, right);
     }
 
     ExprPtr parseUnary() {
@@ -986,9 +998,8 @@ private:
             auto expression = ExprPtr(new Expr());
             expression->kind = ExprKind::Unary;
             expression->text = op;
-            expression->type = operand->type->kind == TypeKind::Long
-                                   ? operand->type
-                                   : primitiveType(TypeKind::Int);
+            // - and ~ work on the promoted operand: a char is negated as an int.
+            expression->type = promotedType(operand->type);
             expression->a = std::move(operand);
             return expression;
         }
@@ -1186,11 +1197,19 @@ private:
             auto expression = makeExpr(token.kind == TokenKind::Number ? ExprKind::Integer
                                                                       : ExprKind::Character);
             expression->number = token.number;
-            // A literal that fits in 32 bits is an int; anything larger is long.
+            // A literal that fits in 32 bits is an int and anything larger is a
+            // long - unless a u suffix says the value is unsigned, in which case
+            // it stays an int while it fits in 32 unsigned bits.
+            const bool unsignedLiteral =
+                token.kind == TokenKind::Number && token.unsignedLiteral;
+            const bool longLiteral = token.kind == TokenKind::Number && token.longLiteral;
             const bool fitsInt = token.number >= -2147483648LL && token.number <= 2147483647LL;
-            expression->type = primitiveType(token.kind == TokenKind::Number && !fitsInt
-                                                 ? TypeKind::Long
-                                                 : TypeKind::Int);
+            const bool fitsUnsignedInt = token.number >= 0 && token.number <= 4294967295LL;
+            TypeKind kind = TypeKind::Long;
+            if (!longLiteral && (unsignedLiteral ? fitsUnsignedInt : fitsInt)) {
+                kind = TypeKind::Int;
+            }
+            expression->type = integerType(kind, unsignedLiteral);
             advance();
             return expression;
         }
@@ -1311,22 +1330,38 @@ private:
                 long long right = fold(*expression.b, constant);
                 if (!constant) return 0;
                 const std::string& op = expression.text;
+                // The operands decide signedness here too, so a folded
+                // `0xFFFFFFFFu / 2u` and a folded `-1 / 2` cannot disagree with
+                // the code the same expression would generate at run time.
+                const bool isUnsigned =
+                    (expression.a->type && expression.a->type->isUnsigned) ||
+                    (expression.b->type && expression.b->type->isUnsigned);
+                const unsigned long long uleft = static_cast<unsigned long long>(left);
+                const unsigned long long uright = static_cast<unsigned long long>(right);
                 if (op == "+") return left + right;
                 if (op == "-") return left - right;
                 if (op == "*") return left * right;
-                if (op == "/") return right == 0 ? 0 : left / right;
-                if (op == "%") return right == 0 ? 0 : left % right;
+                if (op == "/") {
+                    if (right == 0) return 0;
+                    return isUnsigned ? static_cast<long long>(uleft / uright) : left / right;
+                }
+                if (op == "%") {
+                    if (right == 0) return 0;
+                    return isUnsigned ? static_cast<long long>(uleft % uright) : left % right;
+                }
                 if (op == "<<") return left << right;
-                if (op == ">>") return left >> right;
+                if (op == ">>") {
+                    return isUnsigned ? static_cast<long long>(uleft >> uright) : left >> right;
+                }
                 if (op == "&") return left & right;
                 if (op == "|") return left | right;
                 if (op == "^") return left ^ right;
-                if (op == "==") return left == right ? 1 : 0;
-                if (op == "!=") return left != right ? 1 : 0;
-                if (op == "<") return left < right ? 1 : 0;
-                if (op == ">") return left > right ? 1 : 0;
-                if (op == "<=") return left <= right ? 1 : 0;
-                if (op == ">=") return left >= right ? 1 : 0;
+                if (op == "==") return isUnsigned ? (uleft == uright) : (left == right);
+                if (op == "!=") return isUnsigned ? (uleft != uright) : (left != right);
+                if (op == "<") return isUnsigned ? (uleft < uright) : (left < right);
+                if (op == ">") return isUnsigned ? (uleft > uright) : (left > right);
+                if (op == "<=") return isUnsigned ? (uleft <= uright) : (left <= right);
+                if (op == ">=") return isUnsigned ? (uleft >= uright) : (left >= right);
                 if (op == "&&") return (left != 0 && right != 0) ? 1 : 0;
                 if (op == "||") return (left != 0 || right != 0) ? 1 : 0;
                 constant = false;

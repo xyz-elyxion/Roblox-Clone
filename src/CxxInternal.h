@@ -26,6 +26,8 @@ struct Token {
     double real = 0;       // value of a floating point literal
     bool floating = false;  // the literal had a fraction or an exponent
     bool floatSuffix = false;  // ... and an f suffix, so its type is float
+    bool unsignedLiteral = false;  // ... and a u suffix, so it is unsigned
+    bool longLiteral = false;      // ... and an l suffix, so it is long
     std::string string;  // decoded contents of a string literal
     int line = 0;
     int column = 0;
@@ -48,7 +50,7 @@ std::string defaultPreludeText();
 
 // ----------------------------------------------------------------- types ----
 
-enum class TypeKind { Void, Bool, Char, Int, Long, Float, Double, Pointer, Array, Struct };
+enum class TypeKind { Void, Bool, Char, Short, Int, Long, Float, Double, Pointer, Array, Struct };
 
 struct Type;
 using TypePtr = std::shared_ptr<Type>;
@@ -67,11 +69,17 @@ struct Type {
     std::vector<Field> fields;
     int size = 4;            // sizeof, in bytes
     int align = 4;           // alignment, in bytes
+    bool isUnsigned = false;  // an unsigned integer: char, short, int or long
 
     bool isVoid() const { return kind == TypeKind::Void; }
+    // Types narrower than int, which arithmetic promotes to int before it does
+    // anything else.
+    bool isSmallInteger() const {
+        return kind == TypeKind::Bool || kind == TypeKind::Char || kind == TypeKind::Short;
+    }
     bool isInteger() const {
-        return kind == TypeKind::Bool || kind == TypeKind::Char || kind == TypeKind::Int ||
-               kind == TypeKind::Long;
+        return kind == TypeKind::Bool || kind == TypeKind::Char || kind == TypeKind::Short ||
+               kind == TypeKind::Int || kind == TypeKind::Long;
     }
     bool isFloating() const { return kind == TypeKind::Float || kind == TypeKind::Double; }
     bool isPointer() const { return kind == TypeKind::Pointer; }
@@ -89,6 +97,11 @@ struct Type {
 };
 
 TypePtr primitiveType(TypeKind kind);
+TypePtr integerType(TypeKind kind, bool isUnsigned);
+// Integral promotion: char, short and bool become int.
+TypePtr promotedType(const TypePtr& type);
+// The usual arithmetic conversions: the type both operands are computed in.
+TypePtr arithmeticType(const TypePtr& left, const TypePtr& right);
 TypePtr pointerType(const TypePtr& element);
 TypePtr arrayType(const TypePtr& element, long long elements);
 std::string typeName(const TypePtr& type);

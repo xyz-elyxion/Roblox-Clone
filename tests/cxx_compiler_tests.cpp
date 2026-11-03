@@ -81,8 +81,13 @@ void diagnosticsTests() {
                 "class is not supported");
     expectError("templates", "template<int N> int f() { return N; } int main() { return 0; }",
                 "template is not supported");
-    expectError("unsigned", "int main() { unsigned int x = 1; return x; }",
-                "unsigned types are not supported");
+    expectCompiles("unsigned integers",
+                   "int main() { unsigned int x = 1; unsigned char c = 2; unsigned long l = 3; "
+                   "return x + c + (int)l; }");
+    expectError("unsigned floating point", "int main() { unsigned double d = 1.0; return 0; }",
+                "never signed or unsigned");
+    expectError("signed and unsigned", "int main() { signed unsigned int x = 1; return x; }",
+                "both signed and unsigned");
     expectCompiles("floating point", "int main() { double x = 1.5; return x > 1.0; }\n");
     expectError("remainder of floats",
                 "int main() { double a = 1.0; double b = 2.0; return a % b; }", "needs integers");
@@ -588,6 +593,49 @@ int main() {
 }
 )CPP",
      "3.00\n2 3.0\n2.0\n3 3.0\n4.0\n110\n1\nglobal\n"},
+
+    // Signedness is not cosmetic: it decides the division instruction, the shift
+    // and the comparison condition, so every line below would print a different
+    // answer if the type were read as signed.
+    {"unsigned and short",
+     R"CPP(
+unsigned int g = 3000000000u;
+unsigned int wrap(unsigned int value) { return value * 2u; }
+short half(short value) { return value / 2; }
+int main() {
+    printf("%u\n", g);
+    unsigned int a = 3000000000u;
+    printf("%u\n", a);
+    printf("%u\n", wrap(a));
+    unsigned char c = 250;
+    c = c + 10;
+    printf("%d\n", (int)c);
+    unsigned char wide = 200;
+    printf("%d\n", wide + 100);
+    short s = -5;
+    unsigned short us = 65535;
+    printf("%d %d\n", (int)s, (int)us);
+    us = us + 1;
+    printf("%d\n", (int)us);
+    unsigned int neg = 0;
+    neg = neg - 8;
+    printf("%u %u %u\n", neg, neg / 2u, neg % 10u);
+    printf("%u\n", neg >> 28);
+    printf("%d\n", neg > 2);
+    printf("%d %d\n", -1 < 1u, -1 > 1u);
+    int negative = -16;
+    printf("%d %d\n", negative >> 2, negative / 4);
+    unsigned long ul = 0;
+    ul = ul - 1;
+    printf("%lu\n", ul);
+    long l = -1;
+    printf("%d\n", l < 1ul);
+    printf("%d\n", half(-7) + (int)sizeof(unsigned short));
+    return 0;
+}
+)CPP",
+     "3000000000\n3000000000\n1705032704\n4\n300\n-5 65535\n0\n"
+     "4294967288 2147483644 8\n15\n1\n0 1\n-4 -4\n18446744073709551615\n0\n-1\n"},
 };
 
 #if defined(_WIN32)

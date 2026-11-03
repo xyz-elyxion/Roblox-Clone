@@ -389,11 +389,20 @@ private:
             digits = true;
             if (cursor == digitStart) ++cursor;
         }
-        // Integer suffixes say nothing this compiler needs: every integer is
-        // 64-bit in a register, and the declared type decides what is stored.
+        // A `u` suffix makes the literal unsigned. `l` and `L` change nothing,
+        // because every integer is held in a 64-bit register and the declared
+        // type decides what is stored.
+        bool unsignedLiteral = false;
+        bool longLiteral = false;
         while (cursor < source_.size()) {
             char c = source_[cursor];
-            if (c == 'u' || c == 'U' || c == 'l' || c == 'L') {
+            if (c == 'u' || c == 'U') {
+                unsignedLiteral = true;
+                ++cursor;
+                continue;
+            }
+            if (c == 'l' || c == 'L') {
+                longLiteral = true;
                 ++cursor;
                 continue;
             }
@@ -404,6 +413,8 @@ private:
         position_ = cursor;
         add(TokenKind::Number, tokenLine, tokenColumn);
         tokens_->back().number = value;
+        tokens_->back().unsignedLiteral = unsignedLiteral;
+        tokens_->back().longLiteral = longLiteral;
         tokens_->back().text = source_.substr(start, cursor - start);
     }
 
@@ -569,6 +580,10 @@ TypePtr primitiveType(TypeKind kind) {
             type->size = 1;
             type->align = 1;
             break;
+        case TypeKind::Short:
+            type->size = 2;
+            type->align = 2;
+            break;
         case TypeKind::Int:
             type->size = 4;
             type->align = 4;
@@ -591,6 +606,45 @@ TypePtr primitiveType(TypeKind kind) {
             break;
     }
     return type;
+}
+
+TypePtr integerType(TypeKind kind, bool isUnsigned) {
+    TypePtr type = primitiveType(kind);
+    type->isUnsigned = isUnsigned;
+    return type;
+}
+
+// Integral promotion: char, short and bool all fit in an int, so arithmetic on
+// them happens at int width and signedness - which is why `unsigned char` 200
+// plus 100 is 300 rather than 44.
+TypePtr promotedType(const TypePtr& type) {
+    if (!type) return type;
+    if (type->isSmallInteger()) return integerType(TypeKind::Int, false);
+    return type;
+}
+
+// The usual arithmetic conversions: the type both sides of a binary operation
+// are computed in. Signedness is part of the answer, which is what keeps
+// `4000000000u / 2u` from being read as a negative number.
+TypePtr arithmeticType(const TypePtr& left, const TypePtr& right) {
+    if (!left) return right;
+    if (!right) return left;
+    if (left->isFloating() || right->isFloating()) {
+        if (left->kind == TypeKind::Double || right->kind == TypeKind::Double) {
+            return primitiveType(TypeKind::Double);
+        }
+        return primitiveType(TypeKind::Float);
+    }
+    TypePtr promotedLeft = promotedType(left);
+    TypePtr promotedRight = promotedType(right);
+    if (promotedLeft->kind == TypeKind::Long || promotedRight->kind == TypeKind::Long) {
+        // A 64-bit signed long holds every unsigned int, so only an unsigned
+        // long makes the result unsigned.
+        const bool isUnsigned = (promotedLeft->kind == TypeKind::Long && promotedLeft->isUnsigned) ||
+                                (promotedRight->kind == TypeKind::Long && promotedRight->isUnsigned);
+        return integerType(TypeKind::Long, isUnsigned);
+    }
+    return integerType(TypeKind::Int, promotedLeft->isUnsigned || promotedRight->isUnsigned);
 }
 
 TypePtr pointerType(const TypePtr& element) {
@@ -618,9 +672,10 @@ std::string typeName(const TypePtr& type) {
     switch (type->kind) {
         case TypeKind::Void: return "void";
         case TypeKind::Bool: return "bool";
-        case TypeKind::Char: return "char";
-        case TypeKind::Int: return "int";
-        case TypeKind::Long: return "long";
+        case TypeKind::Char: return type->isUnsigned ? "unsigned char" : "char";
+        case TypeKind::Short: return type->isUnsigned ? "unsigned short" : "short";
+        case TypeKind::Int: return type->isUnsigned ? "unsigned int" : "int";
+        case TypeKind::Long: return type->isUnsigned ? "unsigned long" : "long";
         case TypeKind::Float: return "float";
         case TypeKind::Double: return "double";
         case TypeKind::Pointer: return typeName(type->element) + "*";

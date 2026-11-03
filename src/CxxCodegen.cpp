@@ -97,7 +97,13 @@ private:
     // cast and an argument all may have to.
     void convert(const detail::TypePtr& from, const detail::TypePtr& to) {
         if (!from || !to || from->isVoid() || to->isVoid()) return;
-        if (from->kind == to->kind) return;
+        if (from->kind == to->kind) {
+            // Same width, different signedness: the value has to be trimmed the
+            // way the target reads it, so -1 becomes 0xFFFFFFFF for an unsigned
+            // int instead of staying sign-extended.
+            if (from->isUnsigned != to->isUnsigned && to->isInteger()) narrow(to);
+            return;
+        }
         if (from->isFloating() && to->isFloating()) {
             if (from->kind == detail::TypeKind::Float) emit("cvtss2sd %xmm0, %xmm0");
             else emit("cvtsd2ss %xmm0, %xmm0");
@@ -152,9 +158,9 @@ private:
             return;
         }
         switch (type->size) {
-            case 1: emit("movsbq (%rax), %rax"); break;
-            case 2: emit("movswq (%rax), %rax"); break;
-            case 4: emit("movslq (%rax), %rax"); break;
+            case 1: emit(type->isUnsigned ? "movzbq (%rax), %rax" : "movsbq (%rax), %rax"); break;
+            case 2: emit(type->isUnsigned ? "movzwq (%rax), %rax" : "movswq (%rax), %rax"); break;
+            case 4: emit(type->isUnsigned ? "movl (%rax), %eax" : "movslq (%rax), %rax"); break;
             default: emit("movq (%rax), %rax"); break;
         }
     }
@@ -170,40 +176,45 @@ private:
             emit("cmpq $0, %rax");
             emit("setne %al");
             emit("movzbq %al, %rax");
-        }
-        switch (type->size) {
-            case 1:
-                emit("movb %al, (%rcx)");
-                emit("movsbq %al, %rax");
-                break;
-            case 2:
-                emit("movw %ax, (%rcx)");
-                emit("movswq %ax, %rax");
-                break;
-            case 4:
-                emit("movl %eax, (%rcx)");
-                emit("movslq %eax, %rax");
-                break;
-            default:
-                emit("movq %rax, (%rcx)");
-                break;
-        }
-    }
-
-    // Trims a computed value back to the width of its declared type.
-    void narrow(const detail::TypePtr& type) {
-        if (!type) return;
-        if (type->isFloating()) return;  // the value already has its own width
-        if (type->isBool()) {
-            emit("cmpq $0, %rax");
-            emit("setne %al");
-            emit("movzbq %al, %rax");
+            emit("movb %al, (%rcx)");
             return;
         }
-        if (type->kind == detail::TypeKind::Char) {
-            emit("movsbq %al, %rax");
-        } else if (type->kind == detail::TypeKind::Int) {
-            emit("movslq %eax, %rax");
+        switch (type->size) {
+            case 1: emit("movb %al, (%rcx)"); break;
+            case 2: emit("movw %ax, (%rcx)"); break;
+            case 4: emit("movl %eax, (%rcx)"); break;
+            default: emit("movq %rax, (%rcx)"); break;
+        }
+        // The assignment keeps the value, trimmed the way reading it back gives
+        // it: a store to an unsigned char leaves 0..255 in %rax.
+        narrow(type);
+    }
+
+    // Trims a computed value back to the width and signedness of its declared
+    // type. An unsigned value is zero-extended and a signed one sign-extended,
+    // which is why `unsigned char` 250 plus 10 lands on 4, and why an unsigned
+    // int never looks negative to a division or a comparison.
+    void narrow(const detail::TypePtr& type) {
+        if (!type || type->isFloating()) return;  // floating values carry their width
+        switch (type->kind) {
+            case detail::TypeKind::Bool:
+                emit("cmpq $0, %rax");
+                emit("setne %al");
+                emit("movzbq %al, %rax");
+                return;
+            case detail::TypeKind::Char:
+                emit(type->isUnsigned ? "movzbq %al, %rax" : "movsbq %al, %rax");
+                return;
+            case detail::TypeKind::Short:
+                emit(type->isUnsigned ? "movzwq %ax, %rax" : "movswq %ax, %rax");
+                return;
+            case detail::TypeKind::Int:
+                // movl %eax, %eax is the zero-extend: a 32-bit move clears the
+                // top half of the register.
+                emit(type->isUnsigned ? "movl %eax, %eax" : "movslq %eax, %rax");
+                return;
+            default:
+                return;  // long, pointers and aggregates already hold their width
         }
     }
 
@@ -538,16 +549,26 @@ private:
             }
         }
 
+        // Whether the operation is signed comes from the usual arithmetic
+        // conversions, not from the instruction: `divq` rather than `idivq` and
+        // `shrq` rather than `sarq` are the difference between 4000000000/2
+        // being 2000000000 and being -147483648.
+        const bool unsignedResult = detail::arithmeticType(left, right)->isUnsigned;
         if (op == "*") {
             emit("imulq %rcx, %rax");
         } else if (op == "/" || op == "%") {
-            emit("cqto");
-            emit("idivq %rcx");
+            if (unsignedResult) {
+                emit("xorl %edx, %edx");  // divq divides rdx:rax, so clear the top
+                emit("divq %rcx");
+            } else {
+                emit("cqto");
+                emit("idivq %rcx");
+            }
             if (op == "%") emit("movq %rdx, %rax");
         } else if (op == "<<") {
             emit("salq %cl, %rax");
         } else if (op == ">>") {
-            emit("sarq %cl, %rax");
+            emit(detail::promotedType(left)->isUnsigned ? "shrq %cl, %rax" : "sarq %cl, %rax");
         } else if (op == "&") {
             emit("andq %rcx, %rax");
         } else if (op == "|") {
@@ -559,10 +580,10 @@ private:
             emit("cmpq %rcx, %rax");
             if (op == "==") emit("sete %al");
             else if (op == "!=") emit("setne %al");
-            else if (op == "<") emit("setl %al");
-            else if (op == ">") emit("setg %al");
-            else if (op == "<=") emit("setle %al");
-            else emit("setge %al");
+            else if (op == "<") emit(unsignedResult ? "setb %al" : "setl %al");
+            else if (op == ">") emit(unsignedResult ? "seta %al" : "setg %al");
+            else if (op == "<=") emit(unsignedResult ? "setbe %al" : "setle %al");
+            else emit(unsignedResult ? "setae %al" : "setge %al");
             emit("movzbq %al, %rax");
             return;
         } else if (op == "+") {
@@ -609,10 +630,20 @@ private:
             return;
         }
 
+        // Both sides are computed in the type the usual arithmetic conversions
+        // pick. A pointer is never converted - pointer arithmetic scales the
+        // integer instead - so only plain integer operands take this path.
+        const bool pointerArithmetic =
+            expression.a->type->isPointerLike() || expression.b->type->isPointerLike();
+        const detail::TypePtr commonType =
+            pointerArithmetic ? nullptr
+                              : detail::arithmeticType(expression.a->type, expression.b->type);
         genValue(*expression.a);
+        if (commonType) convert(expression.a->type, commonType);
         int left = allocTemp();
         emit("movq %rax, " + tempAt(left));
         genValue(*expression.b);
+        if (commonType) convert(expression.b->type, commonType);
         emit("movq %rax, %rcx");
         emit("movq " + tempAt(left) + ", %rax");
         releaseTemps(1);
@@ -1136,15 +1167,15 @@ Result compile(const std::string& source, const Options& options) {
 
 std::string supportedSummary() {
     return
-        "Types: void, bool, char, int, long (64-bit), float, double, pointers, arrays and\n"
-        "structs by pointer.\n"
+        "Types: void, bool, char, short, int, long (64-bit) and their unsigned forms,\n"
+        "float, double, pointers, arrays and structs by pointer.\n"
         "Statements: blocks, declarations, if/else, while, do/while, for, return, break, continue.\n"
         "Expressions: arithmetic, comparisons, && || !, ?:, casts, sizeof, ++/--, compound\n"
         "assignment, calls, subscripts and field access.\n"
         "Preprocessor: object-like #define, #undef, #ifdef/#ifndef/#else/#endif; #include is\n"
         "ignored, so declare what you call.\n"
-        "Not supported yet: classes, templates, exceptions, unsigned, long double,\n"
-        "structs or arrays by value, function pointers, static locals.";
+        "Not supported yet: classes, templates, exceptions, long double, structs or\n"
+        "arrays by value, function pointers, static locals.";
 }
 
 }  // namespace cxx

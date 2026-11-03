@@ -214,10 +214,10 @@ int main() {
 
 What it takes:
 
-- Types: `void`, `bool`, `char`, `int`, `long` (64-bit), `float`, `double` and
-  pointers to them; arrays, including multi-dimensional locals; `struct`
-  definitions with fields and pointers to them, including a struct pointing at
-  itself.
+- Types: `void`, `bool`, `char`, `short`, `int`, `long` (64-bit), each integer
+  in a `signed` and an `unsigned` form, `float`, `double` and pointers to them;
+  arrays, including multi-dimensional locals; `struct` definitions with fields
+  and pointers to them, including a struct pointing at itself.
 - Declarations: globals with constant initialisers, functions with parameters and
   `...`, prototypes, `static` for file-local symbols, `extern` for a symbol defined
   elsewhere.
@@ -231,18 +231,26 @@ What it takes:
   registers, counted separately, and the rest on the stack - which is what
   `printf("%d %.1f", n, x)` needs, including the `%al` count of vector registers.
 
-Every integer is 64-bit in a register and truncated back to its declared width on
-store, so an `int` wraps at 32 bits and a `long` does not. Floating point values
-live in `%xmm0`, use `addsd`/`mulsd` (and the `ss` forms for `float`) and compare
-with `ucomisd`, which keeps NaN unequal to everything, itself included.
-Conversions are `cvtsi2sd` and `cvttsd2si`, so `(int)3.9` is 3. Literals live in
-`.rodata`, because no instruction loads an immediate double into an `%xmm`
+Every integer is 64-bit in a register and truncated back to its declared width and
+signedness on store, so an `int` wraps at 32 bits and a `long` does not, and an
+`unsigned char` holding 250 plus 10 is 4 rather than 260. Signedness comes from
+the usual arithmetic conversions: `char`, `short` and `bool` promote to `int`
+before anything happens, a 64-bit `long` absorbs an `unsigned int` because it can
+hold every value, and a result is unsigned only when an `unsigned long` or an
+`unsigned int` is still in it. That choice picks the instruction - `divq` rather
+than `idivq`, `shrq` rather than `sarq`, `setb` rather than `setl` - so
+`4000000000u / 2u` is 2000000000 and `-1 < 1u` is false.
+
+Floating point values live in `%xmm0`, use `addsd`/`mulsd` (and the `ss` forms for
+`float`) and compare with `ucomisd`, which keeps NaN unequal to everything, itself
+included. Conversions are `cvtsi2sd` and `cvttsd2si`, so `(int)3.9` is 3. Literals
+live in `.rodata`, because no instruction loads an immediate double into an `%xmm`
 register. Structs and arrays are handled by address rather than copied into
 registers, which is why they are passed as pointers.
 
 What it refuses, with a diagnostic that says so instead of miscompiling: classes,
-templates, exceptions, `unsigned` and `long double`, structs or arrays passed or
-returned by value, function pointers, `static` locals and `typedef`.
+templates, exceptions, `long double`, structs or arrays passed or returned by
+value, function pointers, `static` locals and `typedef`.
 
 `tests/cxx_compiler_tests.cpp` runs the pipeline twice over: once as a library
 (diagnostics and the shape of the emitted assembly) and once end to end, where

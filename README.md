@@ -230,6 +230,12 @@ What it takes:
   first six general registers, floating point values in the first eight `%xmm`
   registers, counted separately, and the rest on the stack - which is what
   `printf("%d %.1f", n, x)` needs, including the `%al` count of vector registers.
+- Member functions: declared or defined inside a `struct`, or defined outside it as
+  `int Rect::area() { ... }`, and called through an object or a pointer. The
+  object is passed as the first integer argument, `this` is that pointer, and a
+  field or another member named inside a body is reached through it. Access
+  labels are accepted and ignored; there is no inheritance, so there is nothing
+  for them to protect.
 
 Every integer is 64-bit in a register and truncated back to its declared width and
 signedness on store, so an `int` wraps at 32 bits and a `long` does not, and an
@@ -248,9 +254,10 @@ live in `.rodata`, because no instruction loads an immediate double into an `%xm
 register. Structs and arrays are handled by address rather than copied into
 registers, which is why they are passed as pointers.
 
-What it refuses, with a diagnostic that says so instead of miscompiling: classes,
-templates, exceptions, `long double`, structs or arrays passed or returned by
-value, function pointers, `static` locals and `typedef`.
+What it refuses, with a diagnostic that says so instead of miscompiling:
+inheritance, virtual functions, constructors and destructors, templates,
+exceptions, `long double`, structs or arrays passed or returned by value,
+function pointers, `static` locals and `typedef`.
 
 `tests/cxx_compiler_tests.cpp` runs the pipeline twice over: once as a library
 (diagnostics and the shape of the emitted assembly) and once end to end, where

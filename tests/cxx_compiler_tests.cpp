@@ -81,6 +81,13 @@ void diagnosticsTests() {
                 "class is not supported");
     expectError("templates", "template<int N> int f() { return N; } int main() { return 0; }",
                 "template is not supported");
+    expectError("inheritance", "struct A { int x; }; struct B : A { int y; }; int main() { return 0; }",
+                "inheritance is not supported");
+    expectError("constructors", "struct P { int x; P() { x = 1; } }; int main() { return 0; }",
+                "constructors are not supported");
+    expectError("virtual functions", "struct P { int x; virtual int get() { return x; } }; "
+                                     "int main() { return 0; }",
+                "virtual functions are not supported");
     expectCompiles("unsigned integers",
                    "int main() { unsigned int x = 1; unsigned char c = 2; unsigned long l = 3; "
                    "return x + c + (int)l; }");
@@ -636,6 +643,35 @@ int main() {
 )CPP",
      "3000000000\n3000000000\n1705032704\n4\n300\n-5 65535\n0\n"
      "4294967288 2147483644 8\n15\n1\n0 1\n-4 -4\n18446744073709551615\n0\n-1\n"},
+
+    // Member functions: the object travels as a hidden first argument, and a
+    // field or another member named inside a body is reached through it.
+    {"classes with methods",
+     R"CPP(
+struct Rect {
+    int width;
+    int height;
+    public:
+    int area();
+    int perimeter() { return 2 * (width + height); }
+    void grow(int by) { width = width + by; height = height + by; }
+};
+int Rect::area() { return width * height; }
+int main() {
+    struct Rect r;
+    r.width = 3;
+    r.height = 4;
+    printf("%d %d\n", r.area(), r.perimeter());
+    r.grow(1);
+    printf("%d %d\n", r.width, r.area());
+    struct Rect* p = &r;
+    printf("%d\n", p->area());
+    p->grow(2);
+    printf("%d\n", p->area());
+    return 0;
+}
+)CPP",
+     "12 14\n4 20\n20\n42\n"},
 };
 
 #if defined(_WIN32)

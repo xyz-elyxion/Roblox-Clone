@@ -499,7 +499,7 @@ private:
         static const char* kThree[] = {"<<=", ">>=", "..."};
         static const char* kTwo[] = {"==", "!=", "<=", ">=", "&&", "||", "++", "--", "+=",
                                      "-=", "*=", "/=", "%=", "&=", "|=", "^=", "<<", ">>",
-                                     "->"};
+                                     "->", "::"};
         for (const char* candidate : kThree) {
             if (source_.compare(position_, 3, candidate) == 0) {
                 position_ += 3;

@@ -711,12 +711,27 @@ private:
         };
         std::vector<Argument> arguments;
         const std::size_t parameterCount = declaration ? declaration->parameters.size() : 0;
+        // A member call passes the object as the hidden first argument, so it
+        // takes the first integer register and every other argument follows it.
+        const std::size_t hidden = expression.a ? 1 : 0;
+        if (expression.a) {
+            if (expression.a->type->isPointer()) {
+                genValue(*expression.a);
+            } else {
+                genAddress(*expression.a);
+            }
+            Argument self;
+            self.type = nullptr;
+            self.slot = allocTemp();
+            spill(nullptr, self.slot);
+            arguments.push_back(self);
+        }
         for (std::size_t i = 0; i < expression.args.size(); ++i) {
             const detail::ExprPtr& argument = expression.args[i];
             genValue(*argument);
             detail::TypePtr type = argument->type;
-            if (declaration && i < parameterCount) {
-                type = declaration->parameters[i].type;
+            if (declaration && i + hidden < parameterCount) {
+                type = declaration->parameters[i + hidden].type;
                 convert(argument->type, type);
             } else if (declaration && declaration->variadic && isFloating(argument->type) &&
                        argument->type->kind == detail::TypeKind::Float) {
@@ -1172,10 +1187,13 @@ std::string supportedSummary() {
         "Statements: blocks, declarations, if/else, while, do/while, for, return, break, continue.\n"
         "Expressions: arithmetic, comparisons, && || !, ?:, casts, sizeof, ++/--, compound\n"
         "assignment, calls, subscripts and field access.\n"
+        "Member functions: declared or defined in a struct, or defined as Rect::area();\n"
+        "the object is passed as the hidden `this` argument.\n"
         "Preprocessor: object-like #define, #undef, #ifdef/#ifndef/#else/#endif; #include is\n"
         "ignored, so declare what you call.\n"
-        "Not supported yet: classes, templates, exceptions, long double, structs or\n"
-        "arrays by value, function pointers, static locals.";
+        "Not supported yet: inheritance, virtual functions, constructors, templates,\n"
+        "exceptions, long double, structs or arrays by value, function pointers, static\n"
+        "locals.";
 }
 
 }  // namespace cxx

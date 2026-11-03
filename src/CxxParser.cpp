@@ -203,6 +203,7 @@ private:
     TypePtr parseStruct() {
         advance();  // struct
         std::string tag = expectName("after struct");
+        if (at(":")) fail("inheritance is not supported yet; copy the fields you need");
         if (!at("{")) {
             auto existing = structs_.find(tag);
             if (existing == structs_.end()) {
@@ -223,11 +224,34 @@ private:
         int alignment = 1;
         while (!at("}")) {
             if (current().kind == TokenKind::End) fail("the struct body never closes");
+            // Access labels are accepted and ignored: without inheritance there
+            // is nothing for access control to protect against.
+            if (current().kind == TokenKind::Identifier &&
+                (current().text == "public" || current().text == "private" ||
+                 current().text == "protected") &&
+                look(1).is(":")) {
+                advance();
+                advance();
+                continue;
+            }
+            if (current().text == "virtual") fail("virtual functions are not supported yet");
+            if (current().kind == TokenKind::Identifier && current().text == tag &&
+                look(1).is("(")) {
+                fail("constructors are not supported yet; give the struct a plain init function");
+            }
             Specifiers fieldSpecifiers = parseSpecifiers();
             if (!fieldSpecifiers.type) fail("a struct field needs a type");
+            bool method = false;
+            bool first = true;
             do {
                 std::string fieldName;
                 TypePtr fieldType = parseDeclarator(fieldSpecifiers.type, fieldName, false);
+                if (first && at("(")) {
+                    parseMethod(type, fieldType, fieldName);
+                    method = true;
+                    break;
+                }
+                first = false;
                 if (fieldType->isVoid()) fail("a struct field cannot be void");
                 if (fieldType->isStruct()) {
                     fail("a struct cannot hold a struct by value; use a pointer");
@@ -246,7 +270,7 @@ private:
                 offset += fieldType->size;
                 alignment = std::max(alignment, fieldType->align);
             } while (accept(","));
-            expect(";", "after a struct field");
+            if (!method) expect(";", "after a struct field");
         }
         expect("}", "to close the struct body");
 
@@ -338,6 +362,21 @@ private:
 
         std::string name;
         TypePtr type = parseDeclarator(specifiers.type, name, false);
+        if (at("::")) {
+            // A member defined outside its struct: `int Rect::area() { ... }`.
+            advance();
+            std::string method = expectName("after '::'");
+            auto owner = structs_.find(name);
+            if (owner == structs_.end()) {
+                fail("struct '" + name + "' must be defined before its members are");
+            }
+            if (owner->second->methods.find(method) == owner->second->methods.end()) {
+                fail("struct " + name + " has no member function named '" + method + "'");
+            }
+            if (!at("(")) fail("a member definition needs a parameter list");
+            parseFunction(specifiers, method, type, owner->second);
+            return;
+        }
         if (at("(")) {
             parseFunction(specifiers, name, type);
             return;
@@ -403,10 +442,58 @@ private:
         program_->globals.push_back(definition);
     }
 
-    void parseFunction(const Specifiers& specifiers, const std::string& name, const TypePtr& result) {
+    // The object a member body works on, as an ordinary pointer value.
+    ExprPtr makeThis() {
+        const Variable* self = lookup("this");
+        if (!self) fail("'this' is only available inside a member function");
+        auto expression = ExprPtr(new Expr());
+        expression->kind = ExprKind::Name;
+        expression->text = "this";
+        expression->type = self->type;
+        expression->offset = self->offset;
+        expression->line = current().line;
+        expression->column = current().column;
+        expression->lvalue = true;
+        return expression;
+    }
+
+    // A field named without an object inside a member body: this->field.
+    ExprPtr fieldThroughThis(const TypePtr& owner, std::size_t index) {
+        auto expression = ExprPtr(new Expr());
+        expression->kind = ExprKind::Member;
+        expression->text = owner->fields[index].name;
+        expression->line = current().line;
+        expression->column = current().column;
+        expression->arrow = true;
+        expression->memberIndex = static_cast<int>(index);
+        expression->type = owner->fields[index].type;
+        expression->lvalue = true;
+        expression->a = makeThis();
+        return expression;
+    }
+
+    void parseMethod(const TypePtr& owner, const TypePtr& result, const std::string& name) {
+        if (result->isStruct()) {
+            fail("a member function cannot return a struct by value; return a pointer");
+        }
+        if (owner->methods.find(name) != owner->methods.end()) {
+            fail("struct " + owner->name + " already has a member named '" + name + "'");
+        }
+        owner->methods[name] = owner->name + "_" + name;
+        parseFunction(Specifiers(), name, result, owner);
+    }
+
+    // `owner` is set for a member function: the object becomes a hidden first
+    // parameter named `this`, and the body may name fields directly.
+    void parseFunction(const Specifiers& specifiers, const std::string& name, const TypePtr& result,
+                       const TypePtr& owner = nullptr) {
         advance();  // (
+        // A member symbol carries its struct the way a compiler mangles the class
+        // into the name. Nothing outside RBLXCC links against it.
+        const std::string symbol = owner ? owner->name + "_" + name : name;
+        const std::string display = owner ? owner->name + "::" + name : name;
         FunctionDecl* declaration = nullptr;
-        auto existing = program_->functions.find(name);
+        auto existing = program_->functions.find(symbol);
         if (existing != program_->functions.end()) {
             declaration = existing->second.get();
             if (typeName(declaration->result) != typeName(result)) {
@@ -414,16 +501,23 @@ private:
             }
         } else {
             auto created = std::unique_ptr<FunctionDecl>(new FunctionDecl());
-            created->name = name;
+            created->name = symbol;
+            created->displayName = display;
             created->result = result;
             created->internal = specifiers.isStatic;
             created->line = current().line;
             declaration = created.get();
-            program_->functions[name] = std::move(created);
+            program_->functions[symbol] = std::move(created);
         }
 
         std::vector<Parameter> parameters;
         bool variadic = false;
+        if (owner) {
+            Parameter self;
+            self.name = "this";
+            self.type = pointerType(owner);
+            parameters.push_back(self);
+        }
         if (!at(")")) {
             if (at("void") && look(1).is(")")) {
                 advance();
@@ -481,6 +575,8 @@ private:
         loopDepth_ = 0;
         FunctionDecl* outerFunction = currentFunction_;
         currentFunction_ = declaration;
+        TypePtr outerClass = currentClass_;
+        currentClass_ = owner;
 
         scopes_.push_back(std::map<std::string, Variable>());
         for (Parameter& parameter : declaration->parameters) {
@@ -504,6 +600,7 @@ private:
         localBytes_ = outerBytes;
         loopDepth_ = outerLoops;
         currentFunction_ = outerFunction;
+        currentClass_ = outerClass;
     }
 
     // --------------------------------------------------------- statements ----
@@ -1065,6 +1162,9 @@ private:
                          expression->text + "(int value);");
                 }
                 call->text = expression->text;
+                // A member call already carries the object it was written with.
+                call->a = std::move(expression->a);
+                const std::size_t hidden = call->a ? 1 : 0;
                 while (!at(")")) {
                     ExprPtr argument = parseAssignment();
                     if (!argument->type->isScalar() && !argument->type->isArray()) {
@@ -1078,15 +1178,15 @@ private:
 
                 FunctionDecl* declaration = function->second.get();
                 std::size_t given = call->args.size();
-                std::size_t expected = declaration->parameters.size();
+                std::size_t expected = declaration->parameters.size() - hidden;
                 if (declaration->variadic ? given < expected : given != expected) {
-                    fail("'" + declaration->name + "' takes " +
+                    fail("'" + declaration->displayName + "' takes " +
                          std::to_string(expected) + " argument" + (expected == 1 ? "" : "s") +
                          (declaration->variadic ? " or more" : "") + " but was given " +
                          std::to_string(given));
                 }
                 for (std::size_t i = 0; i < expected; ++i) {
-                    const Parameter& parameter = declaration->parameters[i];
+                    const Parameter& parameter = declaration->parameters[i + hidden];
                     if (parameter.type->isPointer() && parameter.type->element->isScalar() &&
                         call->args[i]->type->isInteger() &&
                         call->args[i]->kind == ExprKind::Integer &&
@@ -1094,7 +1194,7 @@ private:
                         // Passing a whole number as a pointer is almost always a
                         // mistake, but 0 means null and is fine.
                         fail("argument " + std::to_string(i + 1) + " of '" +
-                             declaration->name + "' is a pointer, not a number");
+                             declaration->displayName + "' is a pointer, not a number");
                     }
                 }
                 call->type = declaration->result;
@@ -1139,7 +1239,21 @@ private:
                     if (base->fields[i].name == fieldName) index = static_cast<int>(i);
                 }
                 if (index < 0) {
-                    fail("struct " + base->name + " has no field named '" + fieldName + "'");
+                    auto method = base->methods.find(fieldName);
+                    if (method == base->methods.end()) {
+                        fail("struct " + base->name + " has no field named '" + fieldName + "'");
+                    }
+                    // A member function, not a field: the object it was written
+                    // with becomes the hidden argument, so `r.area()` is parsed
+                    // the way `Rect_area(&r)` would be.
+                    auto callee = ExprPtr(new Expr());
+                    callee->kind = ExprKind::Function;
+                    callee->text = method->second;
+                    callee->line = expression->line;
+                    callee->column = expression->column;
+                    callee->a = std::move(expression);
+                    expression = std::move(callee);
+                    continue;
                 }
                 auto member = ExprPtr(new Expr());
                 member->kind = ExprKind::Member;
@@ -1255,6 +1369,22 @@ private:
             advance();
             const Variable* variable = lookup(expression->text);
             if (!variable) {
+                // Inside a member body an unknown name may be a field or another
+                // member of the same struct, reached through the implicit `this`.
+                if (currentClass_) {
+                    for (std::size_t i = 0; i < currentClass_->fields.size(); ++i) {
+                        if (currentClass_->fields[i].name == expression->text) {
+                            return fieldThroughThis(currentClass_, i);
+                        }
+                    }
+                    auto method = currentClass_->methods.find(expression->text);
+                    if (method != currentClass_->methods.end()) {
+                        expression->kind = ExprKind::Function;
+                        expression->text = method->second;
+                        expression->a = makeThis();
+                        return expression;
+                    }
+                }
                 // A function name is only meaningful in front of its argument
                 // list; parsePostfix turns it into a call and refuses it
                 // anywhere else.
@@ -1438,6 +1568,7 @@ private:
     int localBytes_ = 0;
     int loopDepth_ = 0;
     FunctionDecl* currentFunction_ = nullptr;
+    TypePtr currentClass_;  // the struct whose member body is being parsed
 };
 
 }  // namespace

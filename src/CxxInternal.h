@@ -67,6 +67,9 @@ struct Type {
     long long elements = 0;  // array length
     std::string name;        // struct tag
     std::vector<Field> fields;
+    // Member function name -> the symbol it is emitted under. The object is not
+    // stored in the type: there is no vtable, because there is no inheritance.
+    std::map<std::string, std::string> methods;
     int size = 4;            // sizeof, in bytes
     int align = 4;           // alignment, in bytes
     bool isUnsigned = false;  // an unsigned integer: char, short, int or long
@@ -120,7 +123,7 @@ enum class ExprKind {
     Binary,
     Assign,      // text is = += -= *= /= %= &= |= ^= <<= >>=
     Conditional, // a ? b : c
-    Call,        // a is the callee, args the arguments
+    Call,        // text is the callee; a is the object of a member call
     Index,       // a[b]
     Member,      // a.text, or a->text when arrow
     Cast,        // (type)a
@@ -200,7 +203,8 @@ struct Parameter {
 };
 
 struct FunctionDecl {
-    std::string name;
+    std::string name;         // the symbol, which for a member is Owner_method
+    std::string displayName;  // how diagnostics spell it: Owner::method
     TypePtr result;
     std::vector<Parameter> parameters;
     bool variadic = false;

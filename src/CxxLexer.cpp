@@ -1307,6 +1307,7 @@ std::string typeName(const TypePtr& type) {
         case TypeKind::Array:
             return typeName(type->element) + "[" + std::to_string(type->elements) + "]";
         case TypeKind::Struct: return (type->isUnion ? "union " : "struct ") + type->name;
+        case TypeKind::Function: return "a function";
     }
     return "<unknown>";
 }

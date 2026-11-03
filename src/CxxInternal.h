@@ -55,7 +55,20 @@ std::string defaultPreludeText();
 
 // ----------------------------------------------------------------- types ----
 
-enum class TypeKind { Void, Bool, Char, Short, Int, Long, Float, Double, Pointer, Array, Struct };
+enum class TypeKind {
+    Void,
+    Bool,
+    Char,
+    Short,
+    Int,
+    Long,
+    Float,
+    Double,
+    Pointer,
+    Array,
+    Struct,
+    Function  // element is the return type, signature the parameters
+};
 
 struct Type;
 using TypePtr = std::shared_ptr<Type>;
@@ -74,6 +87,9 @@ struct Type {
     bool isUnion = false;    // every field sits at offset 0
     bool complete = true;    // a forward declaration is not
     bool isReference = false;  // int&: a pointer the compiler dereferences for you
+    bool isConst = false;      // const: assigning through it is refused
+    std::vector<TypePtr> signature;  // parameter types of a function type
+    bool variadic = false;           // a function type ending in ...
     std::vector<Field> fields;
     // Member function name -> the symbol it is emitted under. The object is not
     // stored in the type: there is no vtable, because there is no inheritance.
@@ -100,6 +116,11 @@ struct Type {
     // pointer arithmetic on them is scaled the same way.
     bool isPointerLike() const { return isPointer() || isArray(); }
     bool isStruct() const { return kind == TypeKind::Struct; }
+    bool isFunctionType() const { return kind == TypeKind::Function; }
+    // A pointer to a function, which is what a callable variable holds.
+    bool isFunctionPointer() const {
+        return isPointer() && element && element->kind == TypeKind::Function;
+    }
     // Anything that can be held in a register: integers, floating point values
     // and pointers.
     bool isScalar() const { return isInteger() || isFloating() || isPointer(); }
@@ -126,6 +147,7 @@ enum class ExprKind {
     String,
     Name,
     Function,    // a function name; only valid as the target of a call
+    FunctionAddress,  // &name: the address of a function, as a value
     Unary,       // text is the operator: - + ! ~ * & ++ --
     Postfix,     // text is ++ or --
     Binary,
@@ -252,6 +274,8 @@ struct GlobalDef {
     bool realInit = false;
     double realValue = 0;
     std::string stringLabel;
+    // A function pointer initialised with the address of one.
+    std::string addressInit;
     int line = 0;
 };
 

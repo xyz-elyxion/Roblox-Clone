@@ -222,8 +222,10 @@ What it takes:
   as well as `struct` (a class is a struct, since access is never enforced, and a
   union puts every field at offset 0); `enum` with explicit values, under the name
   of an `int`; `typedef`, including one that names an anonymous struct; references
-  (`int&`, as a parameter or a local alias); `decltype`; and a forward declaration
-  (`struct Node;`) whose pointer works before the definition arrives.
+  (`int&`, as a parameter or a local alias); `decltype`; `const`, which is enforced
+  rather than ignored; function pointers (`int (*fn)(int)`, assigned, passed and
+  called); and a forward declaration (`struct Node;`) whose pointer works before
+  the definition arrives.
 - Declarations: globals with constant initialisers, functions with parameters and
   `...`, prototypes, `static` for file-local symbols and for locals that outlive
   the call, `auto` for a local whose type is that of its initialiser, `extern` for
@@ -279,8 +281,8 @@ registers, which is why they are passed as pointers.
 What it refuses, with a diagnostic that says so instead of miscompiling:
 inheritance, virtual functions, constructors and destructors, operator
 overloading, templates, exceptions, `long double`, scoped enumerations, variadic
-macros, range-`for`, returning a reference, structs or arrays passed or returned
-by value, and function pointers.
+macros, range-`for`, returning a reference, and structs or arrays passed or
+returned by value.
 
 `tests/cxx_compiler_tests.cpp` runs the pipeline twice over: once as a library
 (diagnostics and the shape of the emitted assembly) and once end to end, where

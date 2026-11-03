@@ -341,12 +341,6 @@ private:
                 return;
             }
 
-            case detail::ExprKind::Function:
-                // The parser rejects an uncalled function name before code
-                // generation, so this is only reachable if that check regresses.
-                emit("xorl %eax, %eax");
-                return;
-
             case detail::ExprKind::Cast: {
                 genValue(*expression.a);
                 convert(expression.a->type, expression.type);
@@ -379,6 +373,31 @@ private:
                 genValue(*expression.c);
                 convert(expression.c->type, expression.type);
                 emitLabel(done);
+                return;
+            }
+
+            case detail::ExprKind::Function: {
+                // A function used as a value is its address.
+                auto found = program_.functions.find(expression.text);
+                const bool external =
+                    found == program_.functions.end() || !found->second->defined;
+                if (external && options_.usePlt) {
+                    emit("leaq " + symbol(expression.text) + "@GOTPCREL(%rip), %rax");
+                } else {
+                    emit("leaq " + symbol(expression.text) + "(%rip), %rax");
+                }
+                return;
+            }
+
+            case detail::ExprKind::FunctionAddress: {
+                auto found = program_.functions.find(expression.text);
+                const bool external =
+                    found == program_.functions.end() || !found->second->defined;
+                if (external && options_.usePlt) {
+                    emit("leaq " + symbol(expression.text) + "@GOTPCREL(%rip), %rax");
+                } else {
+                    emit("leaq " + symbol(expression.text) + "(%rip), %rax");
+                }
                 return;
             }
 
@@ -709,12 +728,25 @@ private:
         const detail::FunctionDecl* declaration =
             found == program_.functions.end() ? nullptr : found->second.get();
 
+        // An indirect call names no function: the pointer in expression.b is the
+        // callee, and it has to survive the argument evaluation.
+        const bool indirect = expression.b != nullptr;
+        int calleeSlot = -1;
+        if (indirect) {
+            genValue(*expression.b);
+            calleeSlot = allocTemp();
+            spill(nullptr, calleeSlot);
+        }
+        const detail::TypePtr calleeType = indirect ? expression.b->type->element : detail::TypePtr();
+
         struct Argument {
             int slot = 0;
             detail::TypePtr type;
         };
         std::vector<Argument> arguments;
-        const std::size_t parameterCount = declaration ? declaration->parameters.size() : 0;
+        const std::size_t parameterCount =
+            declaration ? declaration->parameters.size()
+                        : (calleeType ? calleeType->signature.size() : 0);
         // A member call passes the object as the hidden first argument, so it
         // takes the first integer register and every other argument follows it.
         const std::size_t hidden = expression.a ? 1 : 0;
@@ -735,6 +767,8 @@ private:
             detail::TypePtr type = argument->type;
             if (declaration && i + hidden < parameterCount) {
                 type = declaration->parameters[i + hidden].type;
+            } else if (calleeType && i < parameterCount) {
+                type = calleeType->signature[i];
             }
             // A reference parameter receives the address of its argument, so a
             // pointer travels where a value would have.
@@ -791,14 +825,19 @@ private:
         // printf and friends read this to know how many vector registers are live.
         emit("movb $" + std::to_string(floatArguments.size()) + ", %al");
 
-        const bool external = !declaration || !declaration->defined;
-        emit("call " + symbol(expression.text) + (external && options_.usePlt ? "@PLT" : ""));
+        if (indirect) {
+            emit("movq " + tempAt(calleeSlot) + ", %r11");
+            emit("call *%r11");
+        } else {
+            const bool external = !declaration || !declaration->defined;
+            emit("call " + symbol(expression.text) + (external && options_.usePlt ? "@PLT" : ""));
+        }
 
         const std::size_t stackCount = stackArguments.size();
         if (stackCount > 0 || pad) {
             emit("addq $" + std::to_string(8 * (stackCount + (pad ? 1 : 0))) + ", %rsp");
         }
-        releaseTemps(static_cast<int>(arguments.size()));
+        releaseTemps(static_cast<int>(arguments.size()) + (indirect ? 1 : 0));
 
         narrow(expression.type);
     }
@@ -1127,6 +1166,10 @@ private:
                          realText(definition.realValue) + "\n";
                 continue;
             }
+            if (!definition.addressInit.empty()) {
+                text_ += "    .quad " + symbol(definition.addressInit) + "\n";
+                continue;
+            }
             if (definition.stringInit) {
                 text_ += "    .quad .Lstring" + std::to_string(stringIndex(definition.stringLabel)) +
                          "\n";
@@ -1284,7 +1327,8 @@ std::string supportedSummary() {
     return
         "Types: void, bool, char, short, int, long (64-bit) and their unsigned forms,\n"
         "float, double, pointers, arrays, structs/classes/unions by pointer, enum,\n"
-        "typedef, references (int&) and decltype.\n"
+        "typedef, references (int&), decltype, const and function pointers\n"
+        "(int (*f)(int)).\n"
         "Statements: blocks, declarations with braced initialisers, if/else, while,\n"
         "do/while, for, switch/case/default, goto and labels, return, break, continue,\n"
         "static_assert, auto; namespaces are flattened.\n"
@@ -1298,8 +1342,7 @@ std::string supportedSummary() {
         "Storage: globals, static locals and static functions.\n"
         "Not supported yet: inheritance, virtual functions, constructors, destructors,\n"
         "operator overloading, templates, exceptions, long double, scoped enums,\n"
-        "range-for, qualified names, returning a reference, structs or arrays by value,\n"
-        "function pointers.";
+        "range-for, qualified names, returning a reference, structs or arrays by value.";
 }
 
 }  // namespace cxx

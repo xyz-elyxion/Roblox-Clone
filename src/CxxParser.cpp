@@ -96,6 +96,7 @@ private:
         bool isExtern = false;
         bool isTypedef = false;
         bool isAuto = false;
+        bool isConst = false;
     };
 
     bool startsType() const {
@@ -175,7 +176,12 @@ private:
                 advance();
                 continue;
             }
-            if (word == "const" || word == "volatile" || word == "register") {
+            if (word == "const") {
+                specifiers.isConst = true;
+                advance();
+                continue;
+            }
+            if (word == "volatile" || word == "register") {
                 advance();
                 continue;
             }
@@ -232,6 +238,13 @@ private:
                 continue;
             }
             break;
+        }
+        if (specifiers.isConst && specifiers.type) {
+            // const belongs to this declaration, so it gets a type object of its
+            // own: one use of a typedef must not mark every other use const.
+            auto qualified = std::make_shared<Type>(*specifiers.type);
+            qualified->isConst = true;
+            specifiers.type = qualified;
         }
         return specifiers;
     }
@@ -404,7 +417,54 @@ private:
     }
 
     // Declarator tail: pointer stars, the name, then array dimensions.
+    // The type of a declared function, so a pointer can be made to it.
+    static TypePtr functionTypeOf(const FunctionDecl& declaration) {
+        auto function = std::make_shared<Type>();
+        function->kind = TypeKind::Function;
+        function->element = declaration.result;
+        function->variadic = declaration.variadic;
+        function->size = 8;
+        function->align = 8;
+        for (const Parameter& parameter : declaration.parameters) {
+            function->signature.push_back(parameter.type);
+        }
+        return function;
+    }
+
     TypePtr parseDeclarator(const TypePtr& base, std::string& name, bool allowAbstract) {
+        if (at("(") && look(1).is("*")) {
+            // `int (*name)(int)`: a pointer to a function.
+            advance();  // (
+            advance();  // *
+            std::string pointerName = expectName("after '*' in a function pointer");
+            expect(")", "after the function pointer name");
+            expect("(", "to open the parameter list of the function pointer");
+            auto function = std::make_shared<Type>();
+            function->kind = TypeKind::Function;
+            function->element = base;  // the return type
+            function->size = 8;
+            function->align = 8;
+            if (!at(")")) {
+                do {
+                    if (accept("...")) {
+                        function->variadic = true;
+                        break;
+                    }
+                    Specifiers parameterSpecifiers = parseSpecifiers();
+                    if (!parameterSpecifiers.type) fail("a parameter needs a type");
+                    std::string ignored;
+                    TypePtr parameterType =
+                        parseDeclarator(parameterSpecifiers.type, ignored, true);
+                    if (parameterType->isStruct()) {
+                        fail("pass a struct by pointer rather than by value");
+                    }
+                    function->signature.push_back(parameterType);
+                } while (accept(","));
+            }
+            expect(")", "to close the function pointer parameters");
+            name = pointerName;
+            return pointerType(function);
+        }
         TypePtr type = base;
         while (accept("*")) type = pointerType(type);
         // `int& name` is a reference: a pointer the compiler dereferences for you.
@@ -575,7 +635,11 @@ private:
             }
             ExprPtr initialiser = parseAssignment();
             definition.hasInit = true;
-            if (initialiser->kind == ExprKind::String && type->isPointer()) {
+            if (initialiser->kind == ExprKind::FunctionAddress) {
+                // A global function pointer holds the function's address in the
+                // data section, which is a relocation the assembler can fill in.
+                definition.addressInit = initialiser->text;
+            } else if (initialiser->kind == ExprKind::String && type->isPointer()) {
                 if (!initialiser->type->isPointer() || initialiser->type->element->kind != TypeKind::Char) {
                     fail("a string can only initialise a char pointer");
                 }
@@ -1315,6 +1379,9 @@ private:
                 checkAssignment(left->type, right, "this variable");
             }
 
+            if (left->type->isConst) {
+                fail("a const value cannot be assigned to");
+            }
             auto expression = ExprPtr(new Expr());
             expression->kind = ExprKind::Assign;
             expression->text = op;
@@ -1541,6 +1608,20 @@ private:
                 return expression;
             }
             if (op == "&") {
+                if (operand->kind == ExprKind::Function) {
+                    // `&step`: the address of the function itself.
+                    auto found = program_->functions.find(operand->text);
+                    if (found == program_->functions.end()) {
+                        fail("'" + operand->text + "' is not declared");
+                    }
+                    auto address = ExprPtr(new Expr());
+                    address->kind = ExprKind::FunctionAddress;
+                    address->text = operand->text;
+                    address->line = operand->line;
+                    address->column = operand->column;
+                    address->type = pointerType(functionTypeOf(*found->second));
+                    return address;
+                }
                 if (!operand->lvalue) fail("'&' needs a variable, an element or a field");
                 auto expression = ExprPtr(new Expr());
                 expression->kind = ExprKind::Unary;
@@ -1576,6 +1657,7 @@ private:
             std::string op = advance().text;
             ExprPtr operand = parseUnary();
             if (!operand->lvalue) fail("'" + op + "' needs a variable, an element or a field");
+            if (operand->type->isConst) fail("a const value cannot be changed with '" + op + "'");
             if (!operand->type->isScalar()) fail("'" + op + "' needs a number or a pointer");
             auto expression = ExprPtr(new Expr());
             expression->kind = ExprKind::Unary;
@@ -1625,22 +1707,50 @@ private:
                 call->kind = ExprKind::Call;
                 call->line = expression->line;
                 call->column = expression->column;
-                if (expression->kind != ExprKind::Function) {
-                    fail("only a named function can be called; declare it first");
+                const bool indirect = expression->kind == ExprKind::Name &&
+                                      expression->type && expression->type->isFunctionPointer();
+                if (expression->kind != ExprKind::Function && !indirect) {
+                    fail("only a function or a function pointer can be called");
                 }
-                auto function = program_->functions.find(expression->text);
-                if (function == program_->functions.end()) {
-                    fail("'" + expression->text +
-                         "' is not declared; declare it before calling it, e.g. "
-                         "int " +
-                         expression->text + "(int value);");
+                FunctionDecl* declaration = nullptr;
+                TypePtr calleeType;
+                std::string calleeName = "a function pointer";
+                if (indirect) {
+                    // Calling through a variable: the pointer is the callee.
+                    calleeType = expression->type->element;
+                    call->b = std::move(expression);
+                    call->a = nullptr;
+                } else {
+                    auto function = program_->functions.find(expression->text);
+                    if (function == program_->functions.end()) {
+                        fail("'" + expression->text +
+                             "' is not declared; declare it before calling it, e.g. "
+                             "int " +
+                             expression->text + "(int value);");
+                    }
+                    declaration = function->second.get();
+                    calleeName = declaration->displayName;
+                    call->text = expression->text;
+                    // A member call already carries the object it was written with.
+                    call->a = std::move(expression->a);
                 }
-                call->text = expression->text;
-                // A member call already carries the object it was written with.
-                call->a = std::move(expression->a);
                 const std::size_t hidden = call->a ? 1 : 0;
                 while (!at(")")) {
                     ExprPtr argument = parseAssignment();
+                    if (argument->kind == ExprKind::Function) {
+                        // A bare function name as an argument is its address.
+                        auto found = program_->functions.find(argument->text);
+                        if (found == program_->functions.end()) {
+                            fail("'" + argument->text + "' is not declared");
+                        }
+                        auto address = ExprPtr(new Expr());
+                        address->kind = ExprKind::FunctionAddress;
+                        address->text = argument->text;
+                        address->line = argument->line;
+                        address->column = argument->column;
+                        address->type = pointerType(functionTypeOf(*found->second));
+                        argument = std::move(address);
+                    }
                     if (!argument->type->isScalar() && !argument->type->isArray()) {
                         fail("declare the parameter as a pointer rather than passing " +
                              typeName(argument->type) + " by value");
@@ -1650,21 +1760,24 @@ private:
                 }
                 expect(")", "to close the call");
 
-                FunctionDecl* declaration = function->second.get();
                 std::size_t given = call->args.size();
-                std::size_t expected = declaration->parameters.size() - hidden;
-                if (declaration->variadic ? given < expected : given != expected) {
-                    fail("'" + declaration->displayName + "' takes " +
-                         std::to_string(expected) + " argument" + (expected == 1 ? "" : "s") +
-                         (declaration->variadic ? " or more" : "") + " but was given " +
-                         std::to_string(given));
+                const std::size_t expected =
+                    declaration ? declaration->parameters.size() - hidden
+                                : (calleeType ? calleeType->signature.size() : 0);
+                const bool variadic = declaration ? declaration->variadic
+                                                  : (calleeType ? calleeType->variadic : false);
+                if (variadic ? given < expected : given != expected) {
+                    fail("'" + calleeName + "' takes " + std::to_string(expected) + " argument" +
+                         (expected == 1 ? "" : "s") + (variadic ? " or more" : "") +
+                         " but was given " + std::to_string(given));
                 }
                 for (std::size_t i = 0; i < expected; ++i) {
-                    const Parameter& parameter = declaration->parameters[i + hidden];
+                    const Parameter parameter =
+                        declaration ? declaration->parameters[i + hidden]
+                                    : Parameter{"", calleeType->signature[i], 0};
                     if (parameter.type->isReference && !call->args[i]->lvalue) {
-                        fail("argument " + std::to_string(i + 1) + " of '" +
-                             declaration->displayName + "' is a reference, so it needs a variable "
-                             "rather than a value");
+                        fail("argument " + std::to_string(i + 1) + " of '" + calleeName +
+                             "' is a reference, so it needs a variable rather than a value");
                     }
                     if (parameter.type->isPointer() && parameter.type->element->isScalar() &&
                         call->args[i]->type->isInteger() &&
@@ -1672,11 +1785,11 @@ private:
                         call->args[i]->number != 0) {
                         // Passing a whole number as a pointer is almost always a
                         // mistake, but 0 means null and is fine.
-                        fail("argument " + std::to_string(i + 1) + " of '" +
-                             declaration->displayName + "' is a pointer, not a number");
+                        fail("argument " + std::to_string(i + 1) + " of '" + calleeName +
+                             "' is a pointer, not a number");
                     }
                 }
-                call->type = declaration->result;
+                call->type = declaration ? declaration->result : calleeType->element;
                 expression = std::move(call);
                 continue;
             }
@@ -1765,9 +1878,8 @@ private:
             }
             break;
         }
-        if (expression->kind == ExprKind::Function) {
-            fail("'" + expression->text + "' is a function; call it with () to use its result");
-        }
+        // A function name left over here is its own address, which is a value.
+
         return expression;
     }
 
@@ -1881,8 +1993,12 @@ private:
                 // A function name is only meaningful in front of its argument
                 // list; parsePostfix turns it into a call and refuses it
                 // anywhere else.
-                if (program_->functions.find(expression->text) != program_->functions.end()) {
+                auto declared = program_->functions.find(expression->text);
+                if (declared != program_->functions.end()) {
                     expression->kind = ExprKind::Function;
+                    // A function name is its address when it is not being called:
+                    // the language decays a function to a pointer.
+                    expression->type = pointerType(functionTypeOf(*declared->second));
                     return expression;
                 }
                 fail("'" + expression->text + "' is not declared");

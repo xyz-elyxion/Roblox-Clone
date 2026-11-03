@@ -129,6 +129,11 @@ void diagnosticsTests() {
                 "has incomplete type struct Node");
     expectError("reference to a value", "int f(int& r); int main() { return f(1); }",
                 "needs a variable");
+    expectError("assign to const", "int main() { const int x = 1; x = 2; return x; }",
+                "a const value cannot be assigned to");
+    expectError("increment const", "int main() { const int x = 1; ++x; return x; }",
+                "a const value cannot be changed");
+    expectCompiles("const read", "int main() { const int x = 3; return x; }");
     expectError("missing include", "#include \"nope.h\"\nint main() { return 0; }",
                 "cannot find header 'nope.h'");
 
@@ -187,8 +192,11 @@ void diagnosticsTests() {
     expectError("array assignment", "int main() { int a[3]; int b[3]; a = b; return 0; }",
                 "an array cannot be assigned");
     expectError("break outside a loop", "int main() { break; return 0; }", "'break' outside a loop");
-    expectError("function as a value", "int helper() { return 1; } int main() { int x = helper; return x; }",
-                "call it with ()");
+    // A function name is its own address now, so it can be a pointer but not a
+    // number without a cast.
+    expectError("function pointer into an int",
+                "int helper() { return 1; } int main() { int x = helper; return x; }",
+                "cannot put a pointer into int without a cast");
     expectError("wrong argument count",
                 "int add(int a, int b) { return a + b; } int main() { return add(1); }",
                 "takes 2 arguments");
@@ -923,6 +931,27 @@ int main() {
 }
 )CPP",
      "7\n8\n43 4 3\n6\n5\n16\n7\n9\n0 0\n"},
+
+    // A function pointer is a variable holding an address, and calling it is an
+    // indirect call through that address.
+    {"function pointers",
+     R"CPP(
+int step(int value) { return value + 1; }
+int twice(int value) { return value * 2; }
+int apply(int (*fn)(int), int value) { return fn(value); }
+int main() {
+    int (*op)(int) = &step;
+    printf("%d\n", op(4));
+    op = &twice;
+    printf("%d\n", op(4));
+    printf("%d\n", apply(step, 7));
+    printf("%d\n", apply(twice, 7));
+    int (*table)(int) = op;
+    printf("%d\n", table(10));
+    return 0;
+}
+)CPP",
+     "5\n8\n8\n14\n20\n"},
 };
 
 #if defined(_WIN32)

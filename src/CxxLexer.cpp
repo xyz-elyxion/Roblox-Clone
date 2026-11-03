@@ -285,8 +285,77 @@ private:
         tokens_->back().text = name;
     }
 
+    // A decimal literal with a fraction or an exponent is a floating point
+    // literal. Returns true and leaves `cursor` after the suffix when it is one.
+    bool scanFloat(std::size_t start, std::size_t& cursor, bool& floatSuffix) const {
+        if (start + 1 < source_.size() && source_[start] == '0' &&
+            (source_[start + 1] == 'x' || source_[start + 1] == 'X' || source_[start + 1] == 'b' ||
+             source_[start + 1] == 'B')) {
+            return false;  // a base-prefixed number is always an integer
+        }
+        std::size_t position = start;
+        bool digits = false;
+        while (position < source_.size() &&
+               std::isdigit(static_cast<unsigned char>(source_[position]))) {
+            digits = true;
+            ++position;
+        }
+        bool fraction = false;
+        if (position < source_.size() && source_[position] == '.' &&
+            source_.compare(position, 2, "..") != 0) {
+            fraction = true;
+            ++position;
+            while (position < source_.size() &&
+                   std::isdigit(static_cast<unsigned char>(source_[position]))) {
+                ++position;
+            }
+        }
+        bool exponent = false;
+        if (position < source_.size() && (source_[position] == 'e' || source_[position] == 'E')) {
+            std::size_t after = position + 1;
+            if (after < source_.size() && (source_[after] == '+' || source_[after] == '-')) ++after;
+            if (after < source_.size() &&
+                std::isdigit(static_cast<unsigned char>(source_[after]))) {
+                exponent = true;
+                position = after;
+                while (position < source_.size() &&
+                       std::isdigit(static_cast<unsigned char>(source_[position]))) {
+                    ++position;
+                }
+            }
+        }
+        if (!digits || (!fraction && !exponent)) return false;
+
+        floatSuffix = false;
+        if (position < source_.size() && (source_[position] == 'f' || source_[position] == 'F')) {
+            floatSuffix = true;
+            ++position;
+        }
+        cursor = position;
+        return true;
+    }
+
     void number(int tokenLine, int tokenColumn) {
         std::size_t start = position_;
+        std::size_t floatEnd = 0;
+        bool floatSuffix = false;
+        if (scanFloat(start, floatEnd, floatSuffix)) {
+            if (floatEnd < source_.size() && (source_[floatEnd] == 'l' || source_[floatEnd] == 'L')) {
+                error("long double is not supported; use double", tokenLine, tokenColumn);
+                ++floatEnd;
+            }
+            const std::string spelling = source_.substr(start, floatEnd - start);
+            const double value = std::strtod(spelling.c_str(), nullptr);
+            column_ += static_cast<int>(floatEnd - position_);
+            position_ = floatEnd;
+            add(TokenKind::Number, tokenLine, tokenColumn);
+            tokens_->back().real = value;
+            tokens_->back().floating = true;
+            tokens_->back().floatSuffix = floatSuffix;
+            tokens_->back().text = spelling;
+            return;
+        }
+
         int base = 10;
         std::size_t cursor = position_;
 
@@ -329,11 +398,6 @@ private:
                 continue;
             }
             break;
-        }
-        if (cursor < source_.size() && (source_[cursor] == '.' || source_[cursor] == 'e' ||
-                                        source_[cursor] == 'E')) {
-            error("floating point literals are not supported; use whole numbers", tokenLine,
-                  tokenColumn);
         }
 
         column_ += static_cast<int>(cursor - position_);
@@ -513,6 +577,14 @@ TypePtr primitiveType(TypeKind kind) {
             type->size = 8;
             type->align = 8;
             break;
+        case TypeKind::Float:
+            type->size = 4;
+            type->align = 4;
+            break;
+        case TypeKind::Double:
+            type->size = 8;
+            type->align = 8;
+            break;
         default:
             type->size = 8;
             type->align = 8;
@@ -549,6 +621,8 @@ std::string typeName(const TypePtr& type) {
         case TypeKind::Char: return "char";
         case TypeKind::Int: return "int";
         case TypeKind::Long: return "long";
+        case TypeKind::Float: return "float";
+        case TypeKind::Double: return "double";
         case TypeKind::Pointer: return typeName(type->element) + "*";
         case TypeKind::Array:
             return typeName(type->element) + "[" + std::to_string(type->elements) + "]";

@@ -23,6 +23,9 @@ struct Token {
     TokenKind kind = TokenKind::End;
     std::string text;    // spelling for identifiers and punctuation
     long long number = 0;  // value of an integer or character literal
+    double real = 0;       // value of a floating point literal
+    bool floating = false;  // the literal had a fraction or an exponent
+    bool floatSuffix = false;  // ... and an f suffix, so its type is float
     std::string string;  // decoded contents of a string literal
     int line = 0;
     int column = 0;
@@ -45,7 +48,7 @@ std::string defaultPreludeText();
 
 // ----------------------------------------------------------------- types ----
 
-enum class TypeKind { Void, Bool, Char, Int, Long, Pointer, Array, Struct };
+enum class TypeKind { Void, Bool, Char, Int, Long, Float, Double, Pointer, Array, Struct };
 
 struct Type;
 using TypePtr = std::shared_ptr<Type>;
@@ -70,6 +73,7 @@ struct Type {
         return kind == TypeKind::Bool || kind == TypeKind::Char || kind == TypeKind::Int ||
                kind == TypeKind::Long;
     }
+    bool isFloating() const { return kind == TypeKind::Float || kind == TypeKind::Double; }
     bool isPointer() const { return kind == TypeKind::Pointer; }
     bool isArray() const { return kind == TypeKind::Array; }
     bool isBool() const { return kind == TypeKind::Bool; }
@@ -77,8 +81,9 @@ struct Type {
     // pointer arithmetic on them is scaled the same way.
     bool isPointerLike() const { return isPointer() || isArray(); }
     bool isStruct() const { return kind == TypeKind::Struct; }
-    // Anything that can be held in a register: integers and pointers.
-    bool isScalar() const { return isInteger() || isPointer(); }
+    // Anything that can be held in a register: integers, floating point values
+    // and pointers.
+    bool isScalar() const { return isInteger() || isFloating() || isPointer(); }
     // Arrays and structs name storage; the rest are values.
     bool isAggregate() const { return isArray() || isStruct(); }
 };
@@ -92,6 +97,7 @@ std::string typeName(const TypePtr& type);
 
 enum class ExprKind {
     Integer,
+    Floating,  // number is the index into Program::reals
     Character,
     String,
     Name,
@@ -117,6 +123,7 @@ struct Expr {
     int column = 0;
 
     long long number = 0;  // integer/character literal value, sizeof result
+    double real = 0;       // floating point literal value
     std::string text;      // operator, name, member name
     std::string string;    // string literal contents, pooled in Program::strings
 
@@ -206,8 +213,17 @@ struct GlobalDef {
     bool external = false;
     bool stringInit = false;
     long long intInit = 0;
+    bool realInit = false;
+    double realValue = 0;
     std::string stringLabel;
     int line = 0;
+};
+
+// A floating point literal, pooled because there is no instruction that loads an
+// immediate double into an %xmm register: it has to come from .rodata.
+struct RealLiteral {
+    double value = 0;
+    bool isFloat = false;  // an f suffix: stored and loaded as a 4-byte float
 };
 
 struct Program {
@@ -215,6 +231,7 @@ struct Program {
     std::vector<FunctionDef> definitions;
     std::vector<GlobalDef> globals;
     std::vector<std::string> strings;  // string literal pool, index = label number
+    std::vector<RealLiteral> reals;    // floating point literal pool
 };
 
 struct ParseResult {

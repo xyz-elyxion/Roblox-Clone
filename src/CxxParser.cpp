@@ -124,7 +124,12 @@ private:
             }
             if (word == "short") fail("short is not supported; use int");
             if (word == "float" || word == "double") {
-                fail("floating point is not supported yet; use int or long");
+                if (haveType) break;
+                advance();
+                specifiers.type =
+                    primitiveType(word == "float" ? TypeKind::Float : TypeKind::Double);
+                haveType = true;
+                continue;
             }
             if (word == "typedef") fail("typedef is not supported yet");
             if (word == "class" || word == "template" || word == "enum" || word == "union") {
@@ -154,6 +159,7 @@ private:
                     specifiers.type = primitiveType(TypeKind::Long);
                     if (at("long")) advance();
                     if (at("int")) advance();
+                    if (at("double")) fail("long double is not supported; use double");
                 } else if (word == "void") {
                     specifiers.type = primitiveType(TypeKind::Void);
                 } else if (word == "bool") {
@@ -346,10 +352,21 @@ private:
                 }
                 definition.stringInit = true;
                 definition.stringLabel = "Lstr" + std::to_string(initialiser->number);
+            } else if (type->isFloating()) {
+                bool constant = true;
+                definition.realValue = foldReal(*initialiser, constant);
+                if (!constant) {
+                    fail("a global initialiser must be a constant; assign it inside main instead");
+                }
+                definition.realInit = true;
             } else {
                 if (!type->isScalar()) fail("a global must hold a number or a pointer");
                 bool constant = true;
-                definition.intInit = fold(*initialiser, constant);
+                if (initialiser->type && initialiser->type->isFloating()) {
+                    definition.intInit = static_cast<long long>(foldReal(*initialiser, constant));
+                } else {
+                    definition.intInit = fold(*initialiser, constant);
+                }
                 if (!constant) {
                     fail("a global initialiser must be a constant; assign it inside main instead");
                 }
@@ -679,6 +696,12 @@ private:
         if (to->isInteger() && value->type->isPointer()) {
             fail(std::string("cannot put a pointer into ") + typeName(to) + " without a cast");
         }
+        if (to->isFloating() && value->type->isPointer()) {
+            fail(std::string("cannot put a pointer into ") + typeName(to) + " without a cast");
+        }
+        if (to->isPointer() && value->type->isFloating()) {
+            fail(std::string("cannot put ") + typeName(value->type) + " into a pointer");
+        }
     }
 
     ExprPtr parseAssignment() {
@@ -793,6 +816,10 @@ private:
             } else {
                 expression->type = leftPointer ? left->type : right->type;
             }
+        } else if (left->type->kind == TypeKind::Double || right->type->kind == TypeKind::Double) {
+            expression->type = primitiveType(TypeKind::Double);
+        } else if (left->type->kind == TypeKind::Float || right->type->kind == TypeKind::Float) {
+            expression->type = primitiveType(TypeKind::Float);
         } else if (left->type->kind == TypeKind::Long || right->type->kind == TypeKind::Long) {
             expression->type = primitiveType(TypeKind::Long);
         } else {
@@ -815,10 +842,22 @@ private:
         // as a pointer to their first element; every other operator rejects them
         // through the integer checks.
 
-        if (op == "*" || op == "/" || op == "%" || op == "<<" || op == ">>" || op == "&" ||
-            op == "|" || op == "^") {
-            if (!left->isInteger() || !right->isInteger()) {
+        if (op == "*" || op == "/") {
+            // IEEE 754 gives both of these a meaning for floating point, so only
+            // pointers are out of place.
+            if (!left->isInteger() && !left->isFloating()) {
                 fail("'" + op + "' needs numbers on both sides, not " + typeName(left) + " and " +
+                     typeName(right));
+            }
+            if (!right->isInteger() && !right->isFloating()) {
+                fail("'" + op + "' needs numbers on both sides, not " + typeName(left) + " and " +
+                     typeName(right));
+            }
+            return;
+        }
+        if (op == "%" || op == "<<" || op == ">>" || op == "&" || op == "|" || op == "^") {
+            if (!left->isInteger() || !right->isInteger()) {
+                fail("'" + op + "' needs integers on both sides, not " + typeName(left) + " and " +
                      typeName(right));
             }
             return;
@@ -842,7 +881,8 @@ private:
                 }
                 return;
             }
-            if (!left->isInteger() || !right->isInteger()) {
+            if ((!left->isInteger() && !left->isFloating()) ||
+                (!right->isInteger() && !right->isFloating())) {
                 fail("'" + op + "' needs numbers on both sides");
             }
             return;
@@ -860,6 +900,12 @@ private:
         if (!right) return left;
         if (left->isPointer() || right->isPointer()) {
             return left->isPointer() ? left : right;
+        }
+        if (left->kind == TypeKind::Double || right->kind == TypeKind::Double) {
+            return primitiveType(TypeKind::Double);
+        }
+        if (left->kind == TypeKind::Float || right->kind == TypeKind::Float) {
+            return primitiveType(TypeKind::Float);
         }
         if (left->kind == TypeKind::Long || right->kind == TypeKind::Long) {
             return primitiveType(TypeKind::Long);
@@ -881,6 +927,12 @@ private:
             if (!target->isScalar()) fail("a cast can only target a number or a pointer");
             if (!operand->type->isScalar()) {
                 fail("cannot cast " + typeName(operand->type) + " with a cast");
+            }
+            if (target->isFloating() && operand->type->isPointer()) {
+                fail("a pointer cannot become a floating point value");
+            }
+            if (target->isPointer() && operand->type->isFloating()) {
+                fail("a floating point value cannot become a pointer");
             }
             auto expression = ExprPtr(new Expr());
             expression->kind = ExprKind::Cast;
@@ -1117,6 +1169,19 @@ private:
 
     ExprPtr parsePrimary() {
         const Token& token = current();
+        if (token.kind == TokenKind::Number && token.floating) {
+            auto expression = makeExpr(ExprKind::Floating);
+            expression->real = token.real;
+            expression->type =
+                primitiveType(token.floatSuffix ? TypeKind::Float : TypeKind::Double);
+            RealLiteral literal;
+            literal.value = token.real;
+            literal.isFloat = token.floatSuffix;
+            program_->reals.push_back(literal);
+            expression->number = static_cast<long long>(program_->reals.size()) - 1;
+            advance();
+            return expression;
+        }
         if (token.kind == TokenKind::Number || token.kind == TokenKind::Character) {
             auto expression = makeExpr(token.kind == TokenKind::Number ? ExprKind::Integer
                                                                       : ExprKind::Character);
@@ -1264,6 +1329,60 @@ private:
                 if (op == ">=") return left >= right ? 1 : 0;
                 if (op == "&&") return (left != 0 && right != 0) ? 1 : 0;
                 if (op == "||") return (left != 0 || right != 0) ? 1 : 0;
+                constant = false;
+                return 0;
+            }
+            default:
+                constant = false;
+                return 0;
+        }
+    }
+
+    // Compile-time value of a floating point initialiser.
+    double foldReal(const Expr& expression, bool& constant) const {
+        switch (expression.kind) {
+            case ExprKind::Floating:
+                return expression.real;
+            case ExprKind::Integer:
+            case ExprKind::Character:
+                return static_cast<double>(expression.number);
+            case ExprKind::Cast: {
+                if (!expression.a) {
+                    constant = false;
+                    return 0;
+                }
+                if (expression.type && expression.type->isInteger()) {
+                    const long long value = fold(*expression.a, constant);
+                    return static_cast<double>(value);
+                }
+                return foldReal(*expression.a, constant);
+            }
+            case ExprKind::Unary: {
+                if (!expression.a) {
+                    constant = false;
+                    return 0;
+                }
+                const double value = foldReal(*expression.a, constant);
+                if (!constant) return 0;
+                if (expression.text == "-") return -value;
+                if (expression.text == "+") return value;
+                constant = false;
+                return 0;
+            }
+            case ExprKind::Binary: {
+                if (!expression.a || !expression.b) {
+                    constant = false;
+                    return 0;
+                }
+                const double left = foldReal(*expression.a, constant);
+                if (!constant) return 0;
+                const double right = foldReal(*expression.b, constant);
+                if (!constant) return 0;
+                const std::string& op = expression.text;
+                if (op == "+") return left + right;
+                if (op == "-") return left - right;
+                if (op == "*") return left * right;
+                if (op == "/") return right == 0 ? 0 : left / right;
                 constant = false;
                 return 0;
             }

@@ -30,6 +30,7 @@ public:
         }
         globals();
         strings();
+        reals();
 #if !defined(__APPLE__)
         // Without this the linker warns that the program needs an executable
         // stack, which it does not: nothing here writes to the stack.
@@ -66,6 +67,79 @@ private:
     }
     void releaseTemps(int count) { tempDepth_ -= count; }
 
+    // ------------------------------------------------------- conversions ----
+
+    // Integers and pointers travel in %rax; floating point values in %xmm0.
+    static bool isFloating(const detail::TypePtr& type) { return type && type->isFloating(); }
+
+    // The instruction suffix for a floating point type: ss is float, sd is double.
+    static std::string floatOp(const detail::TypePtr& type) {
+        return type && type->kind == detail::TypeKind::Float ? "ss" : "sd";
+    }
+
+    // The moves spell it out: movss and movsd, not movs + ss.
+    static std::string moveOp(const detail::TypePtr& type) {
+        return type && type->kind == detail::TypeKind::Float ? "movss" : "movsd";
+    }
+
+    // The type both sides of a binary operation are computed in.
+    static detail::TypePtr common(const detail::TypePtr& left, const detail::TypePtr& right) {
+        if (left && left->kind == detail::TypeKind::Double) return left;
+        if (right && right->kind == detail::TypeKind::Double) return right;
+        if (left && left->kind == detail::TypeKind::Float) return left;
+        if (right && right->kind == detail::TypeKind::Float) return right;
+        if (left && left->kind == detail::TypeKind::Long) return left;
+        if (right && right->kind == detail::TypeKind::Long) return right;
+        return left;
+    }
+
+    // Converts the value in %rax/%xmm0 between types, the way an assignment, a
+    // cast and an argument all may have to.
+    void convert(const detail::TypePtr& from, const detail::TypePtr& to) {
+        if (!from || !to || from->isVoid() || to->isVoid()) return;
+        if (from->kind == to->kind) return;
+        if (from->isFloating() && to->isFloating()) {
+            if (from->kind == detail::TypeKind::Float) emit("cvtss2sd %xmm0, %xmm0");
+            else emit("cvtsd2ss %xmm0, %xmm0");
+            return;
+        }
+        if (from->isFloating()) {
+            if (from->kind == detail::TypeKind::Float) emit("cvttss2siq %xmm0, %rax");
+            else emit("cvttsd2siq %xmm0, %rax");
+            narrow(to);
+            return;
+        }
+        if (to->isFloating()) {
+            if (to->kind == detail::TypeKind::Float) emit("cvtsi2ssq %rax, %xmm0");
+            else emit("cvtsi2sdq %rax, %xmm0");
+            return;
+        }
+        narrow(to);
+    }
+
+    // Turns the value in %xmm0 into 0 or 1 in %rax. NaN is true, like every other
+    // value that is not zero.
+    void toBool(const detail::TypePtr& type) {
+        if (!isFloating(type)) return;
+        const std::string suffix = floatOp(type);
+        emit("xorpd %xmm1, %xmm1");
+        emit("ucomi" + suffix + " %xmm1, %xmm0");
+        emit("setne %al");
+        emit("setp %cl");
+        emit("orb %cl, %al");
+        emit("movzbq %al, %rax");
+    }
+
+    void spill(const detail::TypePtr& type, int slot) {
+        if (isFloating(type)) emit(moveOp(type) + " %xmm0, " + tempAt(slot));
+        else emit("movq %rax, " + tempAt(slot));
+    }
+
+    void fillValue(const detail::TypePtr& type, int slot) {
+        if (isFloating(type)) emit(moveOp(type) + " " + tempAt(slot) + ", %xmm0");
+        else emit("movq " + tempAt(slot) + ", %rax");
+    }
+
     // ------------------------------------------------------- load / store ----
 
     // Value is at the address in %rax.
@@ -73,6 +147,10 @@ private:
         if (!type) return;
         if (type->isVoid()) return;
         if (type->isAggregate()) return;  // aggregates are handled by address
+        if (type->isFloating()) {
+            emit(moveOp(type) + " (%rax), %xmm0");
+            return;
+        }
         switch (type->size) {
             case 1: emit("movsbq (%rax), %rax"); break;
             case 2: emit("movswq (%rax), %rax"); break;
@@ -81,8 +159,13 @@ private:
         }
     }
 
-    // Value in %rax, address in %rcx; the value is left in %rax afterwards.
+    // Value in %rax (or %xmm0 for a floating point type), address in %rcx; the
+    // value is left where it was afterwards.
     void storeValue(const detail::TypePtr& type) {
+        if (type->isFloating()) {
+            emit(moveOp(type) + " %xmm0, (%rcx)");
+            return;
+        }
         if (type->isBool()) {
             emit("cmpq $0, %rax");
             emit("setne %al");
@@ -110,6 +193,7 @@ private:
     // Trims a computed value back to the width of its declared type.
     void narrow(const detail::TypePtr& type) {
         if (!type) return;
+        if (type->isFloating()) return;  // the value already has its own width
         if (type->isBool()) {
             emit("cmpq $0, %rax");
             emit("setne %al");
@@ -125,6 +209,10 @@ private:
 
     void storeAt(const detail::TypePtr& type, int offset) {
         std::string memory = std::to_string(offset) + "(%rbp)";
+        if (type->isFloating()) {
+            emit(moveOp(type) + " %xmm0, " + memory);
+            return;
+        }
         switch (type->size) {
             case 1: emit("movb %al, " + memory); break;
             case 2: emit("movw %ax, " + memory); break;
@@ -216,6 +304,14 @@ private:
                 emit("movq $" + std::to_string(expression.number) + ", %rax");
                 return;
 
+            case detail::ExprKind::Floating: {
+                const detail::RealLiteral& literal =
+                    program_.reals[static_cast<std::size_t>(expression.number)];
+                emit(std::string(literal.isFloat ? "movss" : "movsd") + " .Lreal" +
+                     std::to_string(expression.number) + "(%rip), %xmm0");
+                return;
+            }
+
             case detail::ExprKind::SizeOf:
                 emit("movq $" + std::to_string(expression.number) + ", %rax");
                 return;
@@ -238,7 +334,7 @@ private:
 
             case detail::ExprKind::Cast: {
                 genValue(*expression.a);
-                narrow(expression.type);
+                convert(expression.a->type, expression.type);
                 return;
             }
 
@@ -258,12 +354,15 @@ private:
                 std::string other = freshLabel("cond");
                 std::string done = freshLabel("end");
                 genValue(*expression.a);
+                toBool(expression.a->type);
                 emit("cmpq $0, %rax");
                 emit("je " + other);
                 genValue(*expression.b);
+                convert(expression.b->type, expression.type);
                 emit("jmp " + done);
                 emitLabel(other);
                 genValue(*expression.c);
+                convert(expression.c->type, expression.type);
                 emitLabel(done);
                 return;
             }
@@ -300,6 +399,20 @@ private:
             return;
         }
         genValue(*expression.a);
+        if (op == "!" && isFloating(expression.a->type)) {
+            toBool(expression.a->type);
+            emit("cmpq $0, %rax");
+            emit("sete %al");
+            emit("movzbq %al, %rax");
+            return;
+        }
+        if (op == "-" && isFloating(expression.type)) {
+            // Zero minus the value flips the sign, including for zero itself.
+            emit("xorpd %xmm1, %xmm1");
+            emit("sub" + floatOp(expression.type) + " %xmm0, %xmm1");
+            emit("movapd %xmm1, %xmm0");
+            return;
+        }
         if (op == "-") {
             emit("negq %rax");
             narrow(expression.type);
@@ -316,6 +429,12 @@ private:
 
     // Steps the value at the address in %rax by one element.
     void step(const detail::TypePtr& type, bool forward) {
+        if (isFloating(type)) {
+            const std::string suffix = floatOp(type);
+            emit(moveOp(type) + " .Lone" + (suffix == "ss" ? "f" : "") + "(%rip), %xmm1");
+            emit(std::string(forward ? "add" : "sub") + suffix + " %xmm1, %xmm0");
+            return;
+        }
         int size = type->isPointer() ? type->element->size : 1;
         if (size <= 0) size = 1;
         emit(std::string(forward ? "addq $" : "subq $") + std::to_string(size) + ", %rax");
@@ -339,12 +458,12 @@ private:
             return;
         }
         int previous = allocTemp();
-        emit("movq %rax, " + tempAt(previous));
+        spill(type, previous);
         step(type, forward);
         narrow(type);
         emit("movq " + tempAt(address) + ", %rcx");
         storeValue(type);
-        emit("movq " + tempAt(previous) + ", %rax");
+        fillValue(type, previous);
         releaseTemps(2);
     }
 
@@ -353,6 +472,46 @@ private:
         const std::string& op = expression.text;
         const detail::TypePtr& left = expression.a->type;
         const detail::TypePtr& right = expression.b->type;
+
+        if (isFloating(left) || isFloating(right) || isFloating(expression.type)) {
+            // Floating point operands arrive as the common type in %xmm0 (left)
+            // and %xmm1 (right).
+            const std::string suffix = floatOp(common(left, right));
+            if (op == "==" || op == "!=" || op == "<" || op == ">" || op == "<=" ||
+                op == ">=") {
+                // ucomi sets the parity flag for NaN, which is unequal to
+                // everything, including itself.
+                emit("ucomi" + suffix + " %xmm1, %xmm0");
+                if (op == "==") {
+                    emit("sete %al");
+                    emit("setnp %cl");
+                    emit("andb %cl, %al");
+                } else if (op == "!=") {
+                    emit("setne %al");
+                    emit("setp %cl");
+                    emit("orb %cl, %al");
+                } else if (op == "<") {
+                    emit("setb %al");
+                    emit("setnp %cl");
+                    emit("andb %cl, %al");
+                } else if (op == "<=") {
+                    emit("setbe %al");
+                    emit("setnp %cl");
+                    emit("andb %cl, %al");
+                } else if (op == ">") {
+                    emit("seta %al");
+                } else {
+                    emit("setae %al");
+                }
+                emit("movzbq %al, %rax");
+                return;
+            }
+            if (op == "+") emit("add" + suffix + " %xmm1, %xmm0");
+            else if (op == "-") emit("sub" + suffix + " %xmm1, %xmm0");
+            else if (op == "*") emit("mul" + suffix + " %xmm1, %xmm0");
+            else if (op == "/") emit("div" + suffix + " %xmm1, %xmm0");
+            return;
+        }
 
         if (op == "+" || op == "-") {
             if (left->isPointerLike() && right->isPointerLike()) {
@@ -420,9 +579,11 @@ private:
             std::string shortCircuit = freshLabel("sc");
             std::string done = freshLabel("scend");
             genValue(*expression.a);
+            toBool(expression.a->type);
             emit("cmpq $0, %rax");
             emit(op == "&&" ? "je " + shortCircuit : "jne " + shortCircuit);
             genValue(*expression.b);
+            toBool(expression.b->type);
             emit("cmpq $0, %rax");
             emit(op == "&&" ? "je " + shortCircuit : "jne " + shortCircuit);
             emit(op == "&&" ? "movl $1, %eax" : "xorl %eax, %eax");
@@ -430,6 +591,21 @@ private:
             emitLabel(shortCircuit);
             emit(op == "&&" ? "xorl %eax, %eax" : "movl $1, %eax");
             emitLabel(done);
+            return;
+        }
+
+        if (isFloating(expression.a->type) || isFloating(expression.b->type)) {
+            const detail::TypePtr commonType = common(expression.a->type, expression.b->type);
+            genValue(*expression.a);
+            convert(expression.a->type, commonType);
+            const int left = allocTemp();
+            spill(commonType, left);
+            genValue(*expression.b);
+            convert(expression.b->type, commonType);
+            emit("movapd %xmm0, %xmm1");
+            fillValue(commonType, left);
+            releaseTemps(1);
+            combine(expression);
             return;
         }
 
@@ -462,13 +638,20 @@ private:
 
         if (expression.text == "=") {
             genValue(*expression.b);
+            convert(expression.b->type, type);
         } else {
             loadValue(type);
             int previous = allocTemp();
-            emit("movq %rax, " + tempAt(previous));
+            spill(type, previous);
             genValue(*expression.b);
-            emit("movq %rax, %rcx");
-            emit("movq " + tempAt(previous) + ", %rax");
+            convert(expression.b->type, type);
+            if (isFloating(type)) {
+                emit("movapd %xmm0, %xmm1");
+                fillValue(type, previous);
+            } else {
+                emit("movq %rax, %rcx");
+                emit("movq " + tempAt(previous) + ", %rax");
+            }
             releaseTemps(1);
 
             detail::Expr operation;
@@ -477,7 +660,7 @@ private:
             operation.a = std::unique_ptr<detail::Expr>(new detail::Expr());
             operation.a->type = type;
             operation.b = std::unique_ptr<detail::Expr>(new detail::Expr());
-            operation.b->type = expression.b->type;
+            operation.b->type = type;
             combine(operation);
         }
 
@@ -491,49 +674,74 @@ private:
         const detail::FunctionDecl* declaration =
             found == program_.functions.end() ? nullptr : found->second.get();
 
-        std::vector<int> arguments;
-        for (const detail::ExprPtr& argument : expression.args) {
+        struct Argument {
+            int slot = 0;
+            detail::TypePtr type;
+        };
+        std::vector<Argument> arguments;
+        const std::size_t parameterCount = declaration ? declaration->parameters.size() : 0;
+        for (std::size_t i = 0; i < expression.args.size(); ++i) {
+            const detail::ExprPtr& argument = expression.args[i];
             genValue(*argument);
-            int slot = allocTemp();
-            emit("movq %rax, " + tempAt(slot));
-            arguments.push_back(slot);
+            detail::TypePtr type = argument->type;
+            if (declaration && i < parameterCount) {
+                type = declaration->parameters[i].type;
+                convert(argument->type, type);
+            } else if (declaration && declaration->variadic && isFloating(argument->type) &&
+                       argument->type->kind == detail::TypeKind::Float) {
+                // The default argument promotion: printf reads a double.
+                emit("cvtss2sd %xmm0, %xmm0");
+                type = detail::primitiveType(detail::TypeKind::Double);
+            }
+            Argument stored;
+            stored.type = type;
+            stored.slot = allocTemp();
+            spill(type, stored.slot);
+            arguments.push_back(stored);
         }
 
-        const std::size_t count = arguments.size();
-        const std::size_t stackCount = count > 6 ? count - 6 : 0;
-        const bool pad = (stackCount % 2) != 0;
-        if (pad) emit("subq $8, %rsp");
-        for (std::size_t i = count; i-- > 6;) {
-            emit("pushq " + tempAt(arguments[i]));
-        }
+        // The System V calling convention: integers and pointers travel in
+        // %rdi..%r9, floating point values in %xmm0..%xmm7, each counted
+        // separately, and whatever does not fit goes on the stack in order.
         static const char* kRegisters[] = {"%rdi", "%rsi", "%rdx", "%rcx", "%r8", "%r9"};
-        const std::size_t registerCount = std::min<std::size_t>(count, 6);
-        for (std::size_t i = 0; i < registerCount; ++i) {
-            emit("movq " + tempAt(arguments[i]) + ", " + kRegisters[i]);
+        std::vector<Argument> integerArguments;
+        std::vector<Argument> floatArguments;
+        std::vector<Argument> stackArguments;
+        for (const Argument& argument : arguments) {
+            if (isFloating(argument.type)) {
+                if (floatArguments.size() < 8) floatArguments.push_back(argument);
+                else stackArguments.push_back(argument);
+            } else {
+                if (integerArguments.size() < 6) integerArguments.push_back(argument);
+                else stackArguments.push_back(argument);
+            }
         }
-        // printf and friends read this to know whether to touch the vector
-        // registers; zero is always safe.
-        emit("movb $0, %al");
+
+        const bool pad = (stackArguments.size() % 2) != 0;
+        if (pad) emit("subq $8, %rsp");
+        for (std::size_t i = stackArguments.size(); i-- > 0;) {
+            emit("pushq " + tempAt(stackArguments[i].slot));
+        }
+        for (std::size_t i = 0; i < integerArguments.size(); ++i) {
+            emit("movq " + tempAt(integerArguments[i].slot) + ", " + kRegisters[i]);
+        }
+        for (std::size_t i = 0; i < floatArguments.size(); ++i) {
+            emit(moveOp(floatArguments[i].type) + " " + tempAt(floatArguments[i].slot) + ", %xmm" +
+                 std::to_string(i));
+        }
+        // printf and friends read this to know how many vector registers are live.
+        emit("movb $" + std::to_string(floatArguments.size()) + ", %al");
 
         const bool external = !declaration || !declaration->defined;
         emit("call " + symbol(expression.text) + (external && options_.usePlt ? "@PLT" : ""));
 
+        const std::size_t stackCount = stackArguments.size();
         if (stackCount > 0 || pad) {
             emit("addq $" + std::to_string(8 * (stackCount + (pad ? 1 : 0))) + ", %rsp");
         }
-        releaseTemps(static_cast<int>(count));
+        releaseTemps(static_cast<int>(arguments.size()));
 
-        if (expression.type && !expression.type->isVoid()) {
-            if (expression.type->isBool()) {
-                emit("cmpq $0, %rax");
-                emit("setne %al");
-                emit("movzbq %al, %rax");
-            } else if (expression.type->kind == detail::TypeKind::Char) {
-                emit("movsbq %al, %rax");
-            } else if (expression.type->kind == detail::TypeKind::Int) {
-                emit("movslq %eax, %rax");
-            }
-        }
+        narrow(expression.type);
     }
 
     // ---------------------------------------------------------- statements ----
@@ -559,6 +767,7 @@ private:
                         continue;
                     }
                     genValue(*declaration.init);
+                    convert(declaration.init->type, declaration.type);
                     emit("leaq " + std::to_string(declaration.offset) + "(%rbp), %rcx");
                     storeValue(declaration.type);
                 }
@@ -572,6 +781,7 @@ private:
                 std::string other = freshLabel("else");
                 std::string done = freshLabel("endif");
                 genValue(*statement.expr);
+                toBool(statement.expr->type);
                 emit("cmpq $0, %rax");
                 emit("je " + (statement.elseBranch ? other : done));
                 genStatement(*statement.thenBranch);
@@ -589,6 +799,7 @@ private:
                 std::string done = freshLabel("endwhile");
                 emitLabel(top);
                 genValue(*statement.expr);
+                toBool(statement.expr->type);
                 emit("cmpq $0, %rax");
                 emit("je " + done);
                 breakLabels_.push_back(done);
@@ -613,6 +824,7 @@ private:
                 continueLabels_.pop_back();
                 emitLabel(test);
                 genValue(*statement.expr);
+                toBool(statement.expr->type);
                 emit("cmpq $0, %rax");
                 emit("jne " + top);
                 emitLabel(done);
@@ -627,6 +839,7 @@ private:
                 emitLabel(top);
                 if (statement.expr) {
                     genValue(*statement.expr);
+                    toBool(statement.expr->type);
                     emit("cmpq $0, %rax");
                     emit("je " + done);
                 }
@@ -645,16 +858,7 @@ private:
             case detail::StmtKind::Return: {
                 if (statement.expr) {
                     genValue(*statement.expr);
-                    const detail::TypePtr& result = function_->declaration->result;
-                    if (result->isBool()) {
-                        emit("cmpq $0, %rax");
-                        emit("setne %al");
-                        emit("movzbq %al, %rax");
-                    } else if (result->kind == detail::TypeKind::Char) {
-                        emit("movsbq %al, %rax");
-                    } else if (result->kind == detail::TypeKind::Int) {
-                        emit("movslq %eax, %rax");
-                    }
+                    convert(statement.expr->type, function_->declaration->result);
                 }
                 emit("jmp " + returnLabel_);
                 return;
@@ -675,15 +879,41 @@ private:
     void storeParameters(const detail::FunctionDef& definition) {
         static const char* kRegisters[] = {"%rdi", "%rsi", "%rdx", "%rcx", "%r8", "%r9"};
         const std::vector<detail::Parameter>& parameters = definition.declaration->parameters;
-        for (std::size_t i = 0; i < parameters.size(); ++i) {
-            const detail::Parameter& parameter = parameters[i];
-            if (parameter.name.empty()) continue;
-            if (i < 6) {
-                emit("movq " + std::string(kRegisters[i]) + ", %rax");
-            } else {
-                emit("movq " + std::to_string(16 + 8 * static_cast<int>(i - 6)) + "(%rbp), %rax");
+        std::size_t integerIndex = 0;
+        std::size_t floatIndex = 0;
+        std::size_t stackIndex = 0;
+        for (const detail::Parameter& parameter : parameters) {
+            const bool floating = isFloating(parameter.type);
+            const std::string memory =
+                std::to_string(16 + 8 * static_cast<int>(stackIndex)) + "(%rbp)";
+            if (floating && floatIndex < 8) {
+                if (!parameter.name.empty()) {
+                    emit(moveOp(parameter.type) + " %xmm" + std::to_string(floatIndex) + ", " +
+                         std::to_string(parameter.offset) + "(%rbp)");
+                }
+                ++floatIndex;
+                continue;
             }
-            storeAt(parameter.type, parameter.offset);
+            if (!floating && integerIndex < 6) {
+                if (!parameter.name.empty()) {
+                    emit("movq " + std::string(kRegisters[integerIndex]) + ", %rax");
+                    storeAt(parameter.type, parameter.offset);
+                }
+                ++integerIndex;
+                continue;
+            }
+            // Out of registers: the value is on the stack, in argument order.
+            if (!parameter.name.empty()) {
+                if (floating) {
+                    emit(moveOp(parameter.type) + " " + memory + ", %xmm0");
+                    emit(moveOp(parameter.type) + " %xmm0, " +
+                         std::to_string(parameter.offset) + "(%rbp)");
+                } else {
+                    emit("movq " + memory + ", %rax");
+                    storeAt(parameter.type, parameter.offset);
+                }
+            }
+            ++stackIndex;
         }
     }
 
@@ -746,6 +976,12 @@ private:
                 text_ += "    .zero " + std::to_string(std::max(size, 1)) + "\n";
                 continue;
             }
+            if (definition.realInit) {
+                text_ += std::string("    ") +
+                         (definition.type->kind == detail::TypeKind::Float ? ".float " : ".double ") +
+                         realText(definition.realValue) + "\n";
+                continue;
+            }
             if (definition.stringInit) {
                 text_ += "    .quad .Lstring" + std::to_string(stringIndex(definition.stringLabel)) +
                          "\n";
@@ -775,6 +1011,31 @@ private:
             text_ += ".Lstring" + std::to_string(i) + ":\n";
             text_ += "    .string \"" + escape(program_.strings[i]) + "\"\n";
         }
+    }
+
+    // A floating point constant has to be spelled so the assembler keeps it a
+    // floating point value: `1` is an integer, `1.0` is a double.
+    static std::string realText(double value) {
+        char buffer[64];
+        std::snprintf(buffer, sizeof(buffer), "%.17g", value);
+        std::string text = buffer;
+        if (text.find('.') == std::string::npos && text.find('e') == std::string::npos &&
+            text.find("inf") == std::string::npos && text.find("nan") == std::string::npos) {
+            text += ".0";
+        }
+        return text;
+    }
+
+    void reals() {
+        text_ += "\n    .section .rodata\n";
+        for (std::size_t i = 0; i < program_.reals.size(); ++i) {
+            const detail::RealLiteral& literal = program_.reals[i];
+            text_ += ".Lreal" + std::to_string(i) + ":\n";
+            text_ += std::string("    ") + (literal.isFloat ? ".float " : ".double ") +
+                     realText(literal.value) + "\n";
+        }
+        // ++ and -- on a floating point value add and subtract one.
+        text_ += ".Lone:\n    .double 1.0\n.Lonef:\n    .float 1.0\n";
     }
 
     static std::string escape(const std::string& text) {
@@ -875,13 +1136,14 @@ Result compile(const std::string& source, const Options& options) {
 
 std::string supportedSummary() {
     return
-        "Types: void, bool, char, int, long (64-bit), pointers, arrays and structs by pointer.\n"
+        "Types: void, bool, char, int, long (64-bit), float, double, pointers, arrays and\n"
+        "structs by pointer.\n"
         "Statements: blocks, declarations, if/else, while, do/while, for, return, break, continue.\n"
         "Expressions: arithmetic, comparisons, && || !, ?:, casts, sizeof, ++/--, compound\n"
         "assignment, calls, subscripts and field access.\n"
         "Preprocessor: object-like #define, #undef, #ifdef/#ifndef/#else/#endif; #include is\n"
         "ignored, so declare what you call.\n"
-        "Not supported yet: classes, templates, exceptions, unsigned and floating point,\n"
+        "Not supported yet: classes, templates, exceptions, unsigned, long double,\n"
         "structs or arrays by value, function pointers, static locals.";
 }
 

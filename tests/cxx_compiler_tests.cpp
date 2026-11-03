@@ -83,8 +83,16 @@ void diagnosticsTests() {
                 "template is not supported");
     expectError("unsigned", "int main() { unsigned int x = 1; return x; }",
                 "unsigned types are not supported");
-    expectError("floating point", "int main() { float x = 1.5; return 0; }\n",
-                "floating point");
+    expectCompiles("floating point", "int main() { double x = 1.5; return x > 1.0; }\n");
+    expectError("remainder of floats",
+                "int main() { double a = 1.0; double b = 2.0; return a % b; }", "needs integers");
+    expectError("bits of floats", "int main() { double a = 1.0; return a << 1; }",
+                "needs integers");
+    expectError("long double", "int main() { long double x = 1.0; return 0; }",
+                "long double is not supported");
+    expectError("pointer from double",
+                "int main() { double d = 1.0; int* p = (int*)d; return 0; }",
+                "cannot become a pointer");
     expectError("struct by value parameter",
                 "struct P { int x; }; int take(struct P p) { return p.x; } int main() { return 0; }",
                 "pass a struct by pointer");
@@ -551,6 +559,35 @@ int main() {
 }
 )CPP",
      "chosen=20\nx=15\n"},
+
+    // Floats are a separate register class, so this checks the parts that only
+    // show up once a real program runs: printf reading a double from %xmm0, the
+    // %al vector count, conversions, comparisons and ++ on a double.
+    {"floating point",
+     R"CPP(
+double g = 2.5;
+double scale(double x, int n) { return x * n; }
+int main() {
+    double a = 1.5;
+    double b = 2.0;
+    double c = a * b;
+    printf("%.2f\n", c);
+    printf("%d %.1f\n", 2, scale(1.5, 2));
+    float f = 1.5f;
+    f = f + 0.5f;
+    printf("%.1f\n", (double)f);
+    int i = (int)3.9;
+    double d = i;
+    printf("%d %.1f\n", i, d);
+    d++;
+    printf("%.1f\n", d);
+    printf("%d%d%d\n", 1.5 < 2.0, 2.5 == 2.5, 2.5 != 2.5);
+    printf("%d\n", !0.0);
+    if (g > 2.0) printf("global\n");
+    return c == 3.0 ? 0 : 1;
+}
+)CPP",
+     "3.00\n2 3.0\n2.0\n3 3.0\n4.0\n110\n1\nglobal\n"},
 };
 
 #if defined(_WIN32)

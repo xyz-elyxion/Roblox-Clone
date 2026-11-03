@@ -173,11 +173,13 @@ counts below are `std::` uses, `float`/`double` and classes in the current tree:
 | RBLXCode | 1538 + 1332 | 403 | 12 |
 | AiTrainer | 737 | 124 | 58 |
 
-Compiling them with RBLXCC means implementing the standard library, classes,
-templates, exceptions and floating point first, and the headers of GLFW, GLM,
-ImGui and reactphysics3d are C++ that only a full compiler accepts. Until then the
-delegation above is the honest version of "our compiler builds the program": one
-target, built end to end by RBLXCC, with the rest waiting on the language.
+Compiling them with RBLXCC means implementing the standard library, classes and
+templates first, and the headers of GLFW, GLM, ImGui and reactphysics3d are C++
+that only a full compiler accepts. Floating point is no longer on that list - the
+compiler handles `float` and `double` now - but `std::string`, `std::vector`,
+threads and `glm::vec3` still are. Until then the delegation above is the honest
+version of "our compiler builds the program": one target, built end to end by
+RBLXCC, with the rest waiting on the language.
 
 A program it accepts:
 
@@ -212,9 +214,10 @@ int main() {
 
 What it takes:
 
-- Types: `void`, `bool`, `char`, `int`, `long` (64-bit) and pointers to them;
-  arrays, including multi-dimensional locals; `struct` definitions with fields and
-  pointers to them, including a struct pointing at itself.
+- Types: `void`, `bool`, `char`, `int`, `long` (64-bit), `float`, `double` and
+  pointers to them; arrays, including multi-dimensional locals; `struct`
+  definitions with fields and pointers to them, including a struct pointing at
+  itself.
 - Declarations: globals with constant initialisers, functions with parameters and
   `...`, prototypes, `static` for file-local symbols, `extern` for a symbol defined
   elsewhere.
@@ -223,17 +226,22 @@ What it takes:
 - Expressions: the arithmetic, comparison and bitwise sets with C++ precedence,
   `&&`/`||` with real short-circuit evaluation, `?:`, casts, `sizeof`, `++`/`--`,
   compound assignment, calls, subscripts, `.` and `->`.
-- The first six arguments travel in registers and the rest on the stack, so
-  functions with more than six parameters and libc calls with more than six
-  arguments work.
+- Arguments follow the x86-64 System V convention: integers and pointers in the
+  first six general registers, floating point values in the first eight `%xmm`
+  registers, counted separately, and the rest on the stack - which is what
+  `printf("%d %.1f", n, x)` needs, including the `%al` count of vector registers.
 
 Every integer is 64-bit in a register and truncated back to its declared width on
-store, so an `int` wraps at 32 bits and a `long` does not. Structs and arrays are
-handled by address rather than copied into registers, which is why they are
-passed as pointers.
+store, so an `int` wraps at 32 bits and a `long` does not. Floating point values
+live in `%xmm0`, use `addsd`/`mulsd` (and the `ss` forms for `float`) and compare
+with `ucomisd`, which keeps NaN unequal to everything, itself included.
+Conversions are `cvtsi2sd` and `cvttsd2si`, so `(int)3.9` is 3. Literals live in
+`.rodata`, because no instruction loads an immediate double into an `%xmm`
+register. Structs and arrays are handled by address rather than copied into
+registers, which is why they are passed as pointers.
 
 What it refuses, with a diagnostic that says so instead of miscompiling: classes,
-templates, exceptions, `unsigned` and floating point, structs or arrays passed or
+templates, exceptions, `unsigned` and `long double`, structs or arrays passed or
 returned by value, function pointers, `static` locals and `typedef`.
 
 `tests/cxx_compiler_tests.cpp` runs the pipeline twice over: once as a library

@@ -45,7 +45,7 @@ try {
     $exeDir = Join-Path $BuildDir $Configuration
     $found = @()
     $missing = @()
-    foreach ($name in @('WebApp', 'Server', 'Client', 'Studio', 'RBLXCode', 'AiTrainer')) {
+    foreach ($name in @('WebApp', 'Server', 'Client', 'Studio', 'RBLXCode', 'AiTrainer', 'RBLXCC')) {
         $exePath = Join-Path $exeDir "$name.exe"
         if (Test-Path -LiteralPath $exePath) {
             Copy-Item -LiteralPath $exePath -Destination $Output
@@ -195,6 +195,7 @@ try {
         '  RBLXCode.exe  source editor for the files in this folder: project tree, tabs,'
         '                C++/GLSL/RBLX script highlighting, search, save'
         '  AiTrainer.exe headless trainer: learns and replays a policy for a world, no window'
+        '  RBLXCC.exe    our own C++ compiler: compiles a C++ subset to x86-64 assembly'
         '  web/          website assets (public/ pages and API scripts, seed-worlds/)'
         '  games/        example worlds and their .rbx scripts (Sky Platformer)'
         '  shaders/      OpenGL shaders used by Client and Studio'
@@ -220,6 +221,14 @@ try {
         '  Ctrl+P opens a file by name, Ctrl+F searches the folder, Ctrl+G goes to a line,'
         '  Ctrl+S saves. It writes the file back with the line endings it already had.'
         '  This package does not contain the C++ sources; for those, point it at a clone.'
+        ''
+        'C++ COMPILER (RBLXCC.exe)'
+        '  RBLXCC.exe hello.cpp -o hello.exe      compile, assemble and link'
+        '  RBLXCC.exe hello.cpp -S                stop at assembly: hello.s'
+        '  It writes assembly and lets a C compiler on your PATH (cc, or $env:RBLX_CC)'
+        '  assemble and link it, so a MinGW or clang toolchain has to be installed for'
+        '  the last step; -S works with nothing else installed. See README.md for what'
+        '  the language subset covers.'
         ''
         'AI TRAINER (AiTrainer.exe)'
         '  AiTrainer.exe --world games\turbo-circuit.world --goal FinishLine --generations 60'

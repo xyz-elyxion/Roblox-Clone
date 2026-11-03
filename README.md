@@ -233,14 +233,14 @@ Start the web backend before using authenticated Client login.
 
 The `Build` workflow runs on every push and packages the Release build into a folder you can
 unzip and run. Open the latest run under **Actions** and download `rblx-windows-release`; the
-Linux and macOS jobs build, run the tests and upload their five binaries as
+Linux and macOS jobs build, run the tests and upload their six binaries as
 `rblx-linux-release` and `rblx-macos-release`. Only the Windows artifact is a package folder
 ready to unzip and start; the other two are the bare executables, which expect to be run from
 the checkout's build directory beside their assets:
 
 ```
 rblx-windows-release/
-  WebApp.exe  Server.exe  Client.exe  Studio.exe  RBLXCode.exe
+  WebApp.exe  Server.exe  Client.exe  Studio.exe  RBLXCode.exe  RBLXCC.exe
   web/public/  web/seed-worlds/
   shaders/  ServerWorld.world  face*.png  face_hex.txt
   start-website.bat  start-studio.bat  start-client.bat  start-code.bat

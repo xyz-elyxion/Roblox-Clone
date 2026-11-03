@@ -94,8 +94,13 @@ void diagnosticsTests() {
                 "virtual functions are not supported");
     expectError("static initialiser", "int f(); int main() { static int x = f(); return x; }",
                 "its initialiser must be a constant");
-    expectError("scoped enum", "enum class Color { RED }; int main() { return 0; }",
-                "scoped enumerations are not supported");
+    expectCompiles("scoped enum", "enum class Color { RED, GREEN }; "
+                                  "int main() { Color c = Color::GREEN; return (int)c; }");
+    expectError("unknown scoped enumerator",
+                "enum class Color { RED }; int main() { return (int)Color::BLUE; }",
+                "has no enumerator named");
+    expectCompiles("enum with an underlying type",
+                   "enum Small : unsigned char { SA, SB }; int main() { return (int)SB; }");
     expectError("variadic macro", "#define LOG(...) printf(__VA_ARGS__)\nint main() { return 0; }",
                 "variadic macros are not supported");
     expectError("union named as a struct", "union U { int i; }; struct U u; int main() { return 0; }",
@@ -112,8 +117,14 @@ void diagnosticsTests() {
     expectError("duplicate case",
                 "int main() { switch (1) { case 1: return 0; case 1: return 1; } return 2; }",
                 "has two case labels");
-    expectError("range-for", "int main() { int a[2] = {1, 2}; for (auto v : a) { } return 0; }",
-                "range-for is not supported");
+    expectCompiles("range-for", "int main() { int a[2] = {1, 2}; int t = 0; "
+                                "for (auto v : a) { t = t + v; } return t; }");
+    expectError("range-for over a pointer",
+                "int main() { int* p = 0; for (auto v : p) { } return 0; }", "needs an array");
+    expectCompiles("returning a reference",
+                   "int g = 4; int& pick() { return g; } int main() { pick() = 7; return g; }");
+    expectError("returning a reference to a value", "int& pick() { return 3; } int main() { return 0; }",
+                "must be returned from a variable");
     expectError("operator overloading",
                 "struct P { int x; int operator+(int o) { return x + o; } }; "
                 "int main() { return 0; }",

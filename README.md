@@ -231,9 +231,10 @@ What it takes:
   the call, `auto` for a local whose type is that of its initialiser, `extern` for
   a symbol defined elsewhere, and braced initialisers (`int a[3] = {1, 2, 3};`,
   `struct P p = {1, 2};`, `{}` to zero).
-- Statements: blocks, `if`/`else`, `while`, `do`/`while`, `for`,
-  `switch`/`case`/`default` with real fallthrough, `goto` and labels, `return`,
-  `break`, `continue`, and `static_assert` (checked while compiling).
+- Statements: blocks, `if`/`else`, `while`, `do`/`while`, `for` and
+  `for (int v : array)`, `switch`/`case`/`default` with real fallthrough, `goto`
+  and labels, `return`, `break`, `continue`, and `static_assert` (checked while
+  compiling).
 - Expressions: the arithmetic, comparison and bitwise sets with C++ precedence,
   `&&`/`||` with real short-circuit evaluation, `?:`, casts, `sizeof`, `++`/`--`,
   compound assignment, calls, subscripts, `.` and `->`.
@@ -260,6 +261,15 @@ What it takes:
 - Namespaces: `namespace x { ... }` is parsed and flattened, so the names inside
   are visible without the prefix. A qualified name (`x::y`) is refused rather than
   resolved to the wrong thing.
+- Scoped enumerations: `enum class Color { RED };` keeps its values behind the
+  tag, so `Color::RED` names one and a bare `RED` is not declared at all. `enum
+  Small : unsigned char` fixes the underlying type instead of defaulting to `int`.
+- References: `int&` names a variable rather than copying it. A function may
+  return one too, so `int& larger(int& a, int& b)` makes `larger(a, b) = 42`
+  assign through to whichever argument the call chose.
+- Range-`for`: `for (int v : values)` walks an array by index, so `break` and
+  `continue` mean what they say and the loop variable is a copy per pass. The
+  source has to be an array: a pointer does not carry its length.
 
 Every integer is 64-bit in a register and truncated back to its declared width and
 signedness on store, so an `int` wraps at 32 bits and a `long` does not, and an
@@ -280,9 +290,8 @@ registers, which is why they are passed as pointers.
 
 What it refuses, with a diagnostic that says so instead of miscompiling:
 inheritance, virtual functions, constructors and destructors, operator
-overloading, templates, exceptions, `long double`, scoped enumerations, variadic
-macros, range-`for`, returning a reference, and structs or arrays passed or
-returned by value.
+overloading, templates, exceptions, `long double`, variadic macros, qualified
+names from a namespace, and structs or arrays passed or returned by value.
 
 `tests/cxx_compiler_tests.cpp` runs the pipeline twice over: once as a library
 (diagnostics and the shape of the emitted assembly) and once end to end, where

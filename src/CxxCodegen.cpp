@@ -1039,10 +1039,50 @@ private:
                 emitLabel(userLabel(statement.text));
                 return;
 
+            case detail::StmtKind::RangeFor: {
+                const detail::LocalDecl& variable = statement.declarations.front();
+                const detail::TypePtr& source = statement.expr->type;
+                const long long count = source->elements;
+                const int elementSize = std::max(source->element->size, 1);
+                genAddress(*statement.expr);
+                const int base = allocTemp();
+                emit("movq %rax, " + tempAt(base));
+                const int index = allocTemp();
+                emit("movq $0, " + tempAt(index));
+                const std::string top = freshLabel("rangefor");
+                const std::string stepLabel = freshLabel("rangestep");
+                const std::string done = freshLabel("endrange");
+                emitLabel(top);
+                emit("cmpq $" + std::to_string(count) + ", " + tempAt(index));
+                emit("jge " + done);
+                emit("movq " + tempAt(index) + ", %rax");
+                emit("imulq $" + std::to_string(elementSize) + ", %rax");
+                emit("addq " + tempAt(base) + ", %rax");
+                loadValue(source->element);
+                convert(source->element, variable.type);
+                emit("leaq " + std::to_string(variable.offset) + "(%rbp), %rcx");
+                storeValue(variable.type);
+                breakLabels_.push_back(done);
+                continueLabels_.push_back(stepLabel);
+                genStatement(*statement.thenBranch);
+                breakLabels_.pop_back();
+                continueLabels_.pop_back();
+                emitLabel(stepLabel);
+                emit("addq $1, " + tempAt(index));
+                emit("jmp " + top);
+                emitLabel(done);
+                releaseTemps(2);
+                return;
+            }
+
             case detail::StmtKind::Return: {
                 if (statement.expr) {
-                    genValue(*statement.expr);
-                    convert(statement.expr->type, function_->declaration->result);
+                    if (function_->declaration->result->isReference) {
+                        genAddress(*statement.expr);
+                    } else {
+                        genValue(*statement.expr);
+                        convert(statement.expr->type, function_->declaration->result);
+                    }
                 }
                 emit("jmp " + returnLabel_);
                 return;
@@ -1326,12 +1366,13 @@ Result compile(const std::string& source, const Options& options) {
 std::string supportedSummary() {
     return
         "Types: void, bool, char, short, int, long (64-bit) and their unsigned forms,\n"
-        "float, double, pointers, arrays, structs/classes/unions by pointer, enum,\n"
-        "typedef, references (int&), decltype, const and function pointers\n"
+        "float, double, pointers, arrays, structs/classes/unions by pointer, enum\n"
+        "(plain, scoped, or with an underlying type), typedef, references (int&,\n"
+        "also as a result type), decltype, const and function pointers\n"
         "(int (*f)(int)).\n"
         "Statements: blocks, declarations with braced initialisers, if/else, while,\n"
-        "do/while, for, switch/case/default, goto and labels, return, break, continue,\n"
-        "static_assert, auto; namespaces are flattened.\n"
+        "do/while, for and range-for, switch/case/default, goto and labels, return,\n"
+        "break, continue, static_assert, auto; namespaces are flattened.\n"
         "Expressions: arithmetic, comparisons, && || !, ?:, casts, sizeof, ++/--, compound\n"
         "assignment, calls, subscripts and field access.\n"
         "Member functions: declared or defined in a struct, or defined as Rect::area();\n"
@@ -1341,8 +1382,8 @@ std::string supportedSummary() {
         "source or on -I, <...> on -I) and #pragma once.\n"
         "Storage: globals, static locals and static functions.\n"
         "Not supported yet: inheritance, virtual functions, constructors, destructors,\n"
-        "operator overloading, templates, exceptions, long double, scoped enums,\n"
-        "range-for, qualified names, returning a reference, structs or arrays by value.";
+        "operator overloading, templates, exceptions, long double, variadic macros,\n"
+        "qualified names, structs or arrays by value.";
 }
 
 }  // namespace cxx

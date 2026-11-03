@@ -210,6 +210,7 @@ enum class StmtKind {
     Break,
     Continue,
     Switch,  // expr is the value, thenBranch the block holding the cases
+    RangeFor,  // declarations[0] is the loop variable, expr the array
     Case,    // number is the value, or text is "default"
     Goto,    // text is the label name
     Label    // text is the label name

@@ -254,18 +254,27 @@ private:
     // each enumerator is folded to a constant where it is written.
     TypePtr parseEnum() {
         advance();  // enum
+        bool scoped = false;
         if (at("class") || at("struct")) {
-            fail("scoped enumerations are not supported yet; use a plain enum");
+            scoped = true;
+            advance();
         }
         std::string tag;
         if (current().kind == TokenKind::Identifier) tag = advance().text;
-        if (at(":")) fail("an enum with a fixed underlying type is not supported yet");
+        // The underlying type is what the values are stored as; int by default.
+        TypePtr type = primitiveType(TypeKind::Int);
+        if (accept(":")) {
+            Specifiers underlying = parseSpecifiers();
+            if (!underlying.type) fail("an enum needs a type after ':'");
+            type = underlying.type;
+        }
         if (!at("{")) {
             if (tag.empty() || typedefs_.find(tag) == typedefs_.end()) {
                 fail("enum '" + tag + "' must be defined before it is used");
             }
             return typedefs_[tag];
         }
+        if (scoped && tag.empty()) fail("a scoped enum needs a tag");
         advance();  // {
         long long next = 0;
         while (!at("}")) {
@@ -277,16 +286,24 @@ private:
                 next = fold(*initialiser, constant);
                 if (!constant) fail("the value of '" + name + "' must be a constant");
             }
-            if (constants_.find(name) != constants_.end()) {
+            // A scoped enumerator is only reachable through its tag, so that is
+            // part of the name it is stored under.
+            const std::string key = scoped ? tag + "::" + name : name;
+            if (constants_.find(key) != constants_.end()) {
                 fail("'" + name + "' is already an enumerator");
             }
-            constants_[name] = next;
+            constants_[key] = next;
             ++next;
             if (!accept(",")) break;
         }
         expect("}", "to close the enum");
-        TypePtr type = primitiveType(TypeKind::Int);
-        if (!tag.empty()) typedefs_[tag] = type;
+        if (!tag.empty()) {
+            // The tag names the underlying type; a scoped enum also answers only
+            // to qualified names.
+            auto named = std::make_shared<Type>(*type);
+            typedefs_[tag] = named;
+            if (scoped) scopedEnums_[tag] = true;
+        }
         return type;
     }
 
@@ -718,9 +735,7 @@ private:
     // parameter named `this`, and the body may name fields directly.
     void parseFunction(const Specifiers& specifiers, const std::string& name, const TypePtr& result,
                        const TypePtr& owner = nullptr) {
-        if (result->isReference) {
-            fail("returning a reference is not supported yet; return a pointer");
-        }
+        // A reference result is a pointer the caller dereferences for you.
         advance();  // (
         // A member symbol carries its struct the way a compiler mangles the class
         // into the name. Nothing outside RBLXCC links against it.
@@ -1253,6 +1268,42 @@ private:
         return statement;
     }
 
+    // `for (auto value : values)`: one index and one element copy per pass. The
+    // source has to be an array, because an array is what carries its length.
+    StmtPtr parseRangeFor() {
+        StmtPtr statement = makeStatement(StmtKind::RangeFor);
+        scopes_.push_back(std::map<std::string, Variable>());
+        Specifiers specifiers = parseSpecifiers();
+        std::string name;
+        TypePtr type = specifiers.type;
+        if (specifiers.isAuto) {
+            name = expectName("after auto");
+        } else {
+            if (!type) fail("a range-for needs a type or auto");
+            type = parseDeclarator(type, name, false);
+        }
+        expect(":", "after the range-for variable");
+        ExprPtr source = parseAssignment();
+        if (!source->type || !source->type->isArray()) {
+            fail("range-for needs an array; a pointer does not carry its length");
+        }
+        if (!type) type = source->type->element;
+        if (type->isReference) fail("a reference loop variable is not supported yet");
+        LocalDecl variable;
+        variable.name = name;
+        variable.type = type;
+        variable.offset = allocateLocal(type);
+        declareLocal(name, type, variable.offset);
+        statement->declarations.push_back(std::move(variable));
+        expect(")", "after the range-for source");
+        statement->expr = std::move(source);
+        ++loopDepth_;
+        statement->thenBranch = parseStatement();
+        --loopDepth_;
+        scopes_.pop_back();
+        return statement;
+    }
+
     StmtPtr parseFor() {
         advance();
         expect("(", "after for");
@@ -1263,9 +1314,7 @@ private:
             const Token& token = look(ahead);
             if (token.kind == TokenKind::End || token.is(";") || token.is(")")) break;
             if (token.is("?")) sawQuestion = true;
-            if (token.is(":") && !sawQuestion) {
-                fail("range-for is not supported yet; write the indices out");
-            }
+            if (token.is(":") && !sawQuestion) return parseRangeFor();
         }
         StmtPtr statement = makeStatement(StmtKind::For);
         scopes_.push_back(std::map<std::string, Variable>());
@@ -1308,7 +1357,14 @@ private:
         if (!currentFunction_) fail("return outside a function");
         if (currentFunction_->result->isVoid()) fail("this function is void; return nothing");
         statement->expr = parseAssignment();
-        checkAssignment(currentFunction_->result, statement->expr, "the return value");
+        if (currentFunction_->result->isReference) {
+            // Returning a reference returns the address of what it names.
+            if (!statement->expr->lvalue) {
+                fail("a reference must be returned from a variable, not from a value");
+            }
+        } else {
+            checkAssignment(currentFunction_->result, statement->expr, "the return value");
+        }
         expect(";", "after the return value");
         return statement;
     }
@@ -1790,6 +1846,20 @@ private:
                     }
                 }
                 call->type = declaration ? declaration->result : calleeType->element;
+                if (call->type->isReference) {
+                    // The callee returned an address, so naming the call means the
+                    // referent: it becomes *pointer, like a reference variable.
+                    auto dereference = ExprPtr(new Expr());
+                    dereference->kind = ExprKind::Unary;
+                    dereference->text = "*";
+                    dereference->line = call->line;
+                    dereference->column = call->column;
+                    dereference->type = call->type->element;
+                    dereference->lvalue = true;
+                    dereference->a = std::move(call);
+                    expression = std::move(dereference);
+                    continue;
+                }
                 expression = std::move(call);
                 continue;
             }
@@ -1886,6 +1956,20 @@ private:
     ExprPtr parsePrimary() {
         const Token& token = current();
         if (token.kind == TokenKind::Identifier && look(1).is("::")) {
+            // Only a scoped enum's tag may be qualified here.
+            if (scopedEnums_.find(token.text) != scopedEnums_.end()) {
+                const std::string tag = advance().text;
+                advance();  // ::
+                const std::string member = expectName("after '::'");
+                auto constant = constants_.find(tag + "::" + member);
+                if (constant == constants_.end()) {
+                    fail("'" + tag + "' has no enumerator named '" + member + "'");
+                }
+                auto expression = makeExpr(ExprKind::Integer);
+                expression->number = constant->second;
+                expression->type = primitiveType(TypeKind::Int);
+                return expression;
+            }
             // Namespaces are flattened, so `n::v` has no meaning here. Saying so is
             // better than resolving `n` and complaining about `::`.
             fail("qualified names are not supported yet; a name inside a namespace is visible "
@@ -2197,6 +2281,7 @@ private:
     TypePtr currentClass_;  // the struct whose member body is being parsed
     std::map<std::string, TypePtr> typedefs_;      // typedef and enum tag -> type
     std::map<std::string, long long> constants_;   // enumerator -> value
+    std::map<std::string, bool> scopedEnums_;      // enum class tags
     int switchDepth_ = 0;
     std::map<std::string, bool> labels_;  // labels seen in the function being parsed
     std::vector<std::string> gotos_;      // goto targets waiting for their label

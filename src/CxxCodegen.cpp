@@ -1138,6 +1138,7 @@ GenerateResult generate(const Program& program, const Options& options) {
 std::string Result::report() const {
     std::string text;
     for (const Diagnostic& diagnostic : diagnostics) {
+        if (!diagnostic.file.empty()) text += diagnostic.file + ":";
         text += std::to_string(diagnostic.line) + ":" + std::to_string(diagnostic.column) + ": " +
                 diagnostic.message + "\n";
     }
@@ -1147,8 +1148,8 @@ std::string Result::report() const {
 Result compile(const std::string& source, const Options& options) {
     Result result;
 
-    detail::LexResult lexed =
-        detail::lex(source, options.includePrelude ? detail::defaultPreludeText() : std::string());
+    detail::LexResult lexed = detail::lex(
+        source, options.includePrelude ? detail::defaultPreludeText() : std::string(), options);
     if (!lexed.diagnostics.empty()) {
         result.diagnostics = lexed.diagnostics;
         return result;
@@ -1189,11 +1190,11 @@ std::string supportedSummary() {
         "assignment, calls, subscripts and field access.\n"
         "Member functions: declared or defined in a struct, or defined as Rect::area();\n"
         "the object is passed as the hidden `this` argument.\n"
-        "Preprocessor: object-like #define, #undef, #ifdef/#ifndef/#else/#endif; #include is\n"
-        "ignored, so declare what you call.\n"
+        "Preprocessor: object-like #define, #undef, #ifdef/#ifndef/#else/#endif and #include\n"
+        "(\"...\" beside the source or on -I, <...> on -I, #pragma once).\n"
+        "Storage: globals, static locals and static functions.\n"
         "Not supported yet: inheritance, virtual functions, constructors, templates,\n"
-        "exceptions, long double, structs or arrays by value, function pointers, static\n"
-        "locals.";
+        "exceptions, long double, structs or arrays by value, function pointers.";
 }
 
 }  // namespace cxx

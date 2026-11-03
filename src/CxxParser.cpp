@@ -78,6 +78,7 @@ private:
         error.diagnostic.line = current().line;
         error.diagnostic.column = current().column;
         error.diagnostic.message = message;
+        error.diagnostic.file = current().file;
         throw error;
     }
     std::string expectName(const char* what) {
@@ -324,6 +325,9 @@ private:
         TypePtr type;
         bool global = false;
         int offset = 0;
+        // A static local is stored under a symbol of its own, because two
+        // functions may each have a local called `count`. Empty otherwise.
+        std::string symbol;
     };
 
     const Variable* lookup(const std::string& name) const {
@@ -664,7 +668,8 @@ private:
         Specifiers specifiers = parseSpecifiers();
         if (!specifiers.type) fail("expected a type");
         if (specifiers.isStatic) {
-            fail("static locals are not supported yet; use a global");
+            parseStaticDeclaration(specifiers);
+            return;
         }
         if (specifiers.isExtern) fail("extern is only allowed at file scope");
         if (accept(";")) return;  // `struct Point { int x; int y; };` declares only a type
@@ -685,6 +690,76 @@ private:
             }
             declareLocal(name, type, declaration.offset);
             statement.declarations.push_back(std::move(declaration));
+        } while (accept(","));
+        expect(";", "after the declaration");
+    }
+
+    static std::string staticInitialiserMessage(const std::string& name) {
+        return "'" + name + "' is a static local, so its initialiser must be a constant; "
+               "initialise it in an init function, or assign it on first use";
+    }
+
+    // `static int calls = 0;` inside a function: the variable lives as long as
+    // the program, but only that function can name it. It becomes a global with
+    // a symbol no other function will collide with.
+    void parseStaticDeclaration(const Specifiers& specifiers) {
+        if (accept(";")) return;  // `static struct S { ... };` declares only a type
+        do {
+            std::string name;
+            TypePtr type = parseDeclarator(specifiers.type, name, false);
+            if (type->isVoid()) fail("'" + name + "' cannot be void");
+
+            const std::string symbol =
+                (currentFunction_ ? currentFunction_->name : "static") + "_" + name + "_" +
+                std::to_string(++staticCounter_);
+
+            GlobalDef definition;
+            definition.name = symbol;
+            definition.type = type;
+            definition.internal = true;
+            definition.line = current().line;
+
+            if (accept("=")) {
+                if (type->isAggregate()) {
+                    fail("a static local array or struct cannot be initialised with '='; "
+                         "fill it at run time");
+                }
+                ExprPtr initialiser = parseAssignment();
+                definition.hasInit = true;
+                if (initialiser->kind == ExprKind::String && type->isPointer()) {
+                    if (!initialiser->type->isPointer() ||
+                        initialiser->type->element->kind != TypeKind::Char) {
+                        fail("a string can only initialise a char pointer");
+                    }
+                    definition.stringInit = true;
+                    definition.stringLabel = "Lstr" + std::to_string(initialiser->number);
+                } else if (type->isFloating()) {
+                    bool constant = true;
+                    definition.realValue = foldReal(*initialiser, constant);
+                    if (!constant) fail(staticInitialiserMessage(name));
+                    definition.realInit = true;
+                } else {
+                    if (!type->isScalar()) fail("'" + name + "' must hold a number or a pointer");
+                    bool constant = true;
+                    if (initialiser->type && initialiser->type->isFloating()) {
+                        definition.intInit =
+                            static_cast<long long>(foldReal(*initialiser, constant));
+                    } else {
+                        definition.intInit = fold(*initialiser, constant);
+                    }
+                    if (!constant) fail(staticInitialiserMessage(name));
+                }
+            }
+
+            if (scopes_.back().find(name) != scopes_.back().end()) {
+                fail("'" + name + "' is already declared in this scope");
+            }
+            Variable variable;
+            variable.type = type;
+            variable.global = true;
+            variable.symbol = symbol;
+            scopes_.back()[name] = variable;
+            program_->globals.push_back(definition);
         } while (accept(","));
         expect(";", "after the declaration");
     }
@@ -1398,6 +1473,9 @@ private:
             expression->globalRef = variable->global;
             expression->offset = variable->offset;
             expression->lvalue = true;
+            // A static local is stored under a symbol of its own, so the source
+            // name is translated here and nowhere else.
+            if (!variable->symbol.empty()) expression->text = variable->symbol;
             return expression;
         }
         if (token.is("(")) {
@@ -1566,6 +1644,7 @@ private:
     std::map<std::string, Variable> globals_;
     std::vector<std::map<std::string, Variable>> scopes_;
     int localBytes_ = 0;
+    int staticCounter_ = 0;
     int loopDepth_ = 0;
     FunctionDecl* currentFunction_ = nullptr;
     TypePtr currentClass_;  // the struct whose member body is being parsed

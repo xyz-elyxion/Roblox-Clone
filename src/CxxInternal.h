@@ -31,6 +31,9 @@ struct Token {
     std::string string;  // decoded contents of a string literal
     int line = 0;
     int column = 0;
+    // The header a token came from, so a diagnostic can point into it. Empty for
+    // the file the compiler was handed.
+    std::string file;
 
     bool is(const char* value) const { return text == value; }
     bool isKind(TokenKind kindValue) const { return kind == kindValue; }
@@ -43,7 +46,9 @@ struct LexResult {
 
 // `prelude` is lexed first with line 0, so a diagnostic that points into it is
 // recognisable as the compiler's own doing rather than the user's.
-LexResult lex(const std::string& source, const std::string& prelude);
+// `options` supplies the include search path; an #include is lexed in place, so
+// the tokens of a header land where the directive was.
+LexResult lex(const std::string& source, const std::string& prelude, const Options& options);
 
 // The C library declarations the compiler knows about (printf and friends).
 std::string defaultPreludeText();

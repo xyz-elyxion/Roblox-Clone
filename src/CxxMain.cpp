@@ -37,6 +37,7 @@ const char* kUsage =
     "  --keep-asm    keep the generated .s and .o files beside the output\n"
     "  --no-prelude  do not declare printf and the other C library functions\n"
     "  --prefix <s>  prefix every symbol with <s> (\"_\" on macOS; guessed here)\n"
+    "  -I <dir>      add <dir> to the search path for #include\n"
     "  -h, --help    this text\n"
     "\n"
     "Every source file is compiled on its own and the results are linked into\n"
@@ -144,7 +145,10 @@ bool compileSource(const std::string& path, const rblx::cxx::Options& options,
     const rblx::cxx::Result result = rblx::cxx::compile(source, unitOptions);
     if (!result.ok) {
         for (const rblx::cxx::Diagnostic& diagnostic : result.diagnostics) {
-            std::cerr << name << ":" << diagnostic.line << ":" << diagnostic.column
+            // A diagnostic from a header names the header, not the file it was
+            // included from.
+            const std::string where = diagnostic.file.empty() ? name : diagnostic.file;
+            std::cerr << where << ":" << diagnostic.line << ":" << diagnostic.column
                       << ": error: " << diagnostic.message << "\n";
         }
         return false;
@@ -176,6 +180,7 @@ int main(int argc, char** argv) {
     bool objectOnly = false;
     bool keepIntermediate = false;
     bool includePrelude = true;
+    std::vector<std::string> includePaths;
     std::string prefix = hostSymbolPrefix();
 
     for (int i = 1; i < argc; ++i) {
@@ -206,6 +211,14 @@ int main(int argc, char** argv) {
         }
         if (argument == "--prefix" && i + 1 < argc) {
             prefix = argv[++i];
+            continue;
+        }
+        if (argument == "-I" && i + 1 < argc) {
+            includePaths.push_back(argv[++i]);
+            continue;
+        }
+        if (argument.size() > 2 && argument.compare(0, 2, "-I") == 0) {
+            includePaths.push_back(argument.substr(2));
             continue;
         }
         if (argument == "-") {
@@ -258,6 +271,7 @@ int main(int argc, char** argv) {
 
     rblx::cxx::Options options;
     options.includePrelude = includePrelude;
+    options.includePaths = includePaths;
     options.symbolPrefix = prefix;
 #if defined(__APPLE__)
     options.usePlt = false;  // Mach-O has no PLT; symbols are called directly

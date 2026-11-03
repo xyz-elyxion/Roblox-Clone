@@ -88,6 +88,43 @@ void diagnosticsTests() {
     expectError("virtual functions", "struct P { int x; virtual int get() { return x; } }; "
                                      "int main() { return 0; }",
                 "virtual functions are not supported");
+    expectError("static initialiser", "int f(); int main() { static int x = f(); return x; }",
+                "its initialiser must be a constant");
+    expectError("missing include", "#include \"nope.h\"\nint main() { return 0; }",
+                "cannot find header 'nope.h'");
+
+    // A quoted include is found beside the source or on the search path, and
+    // #pragma once keeps a header from being lexed twice.
+    {
+        std::error_code ignored;
+        const std::filesystem::path directory =
+            std::filesystem::temp_directory_path() / "rblxcc-include-case";
+        std::filesystem::remove_all(directory, ignored);
+        std::filesystem::create_directories(directory, ignored);
+        {
+            std::ofstream header(directory / "shapes.h");
+            header << "#pragma once\nstruct Box { int side; };\nint box_area(struct Box* box);\n";
+        }
+        {
+            std::ofstream header(directory / "legacy.h");
+            header << "#ifndef LEGACY_H\n#define LEGACY_H\n#include \"shapes.h\"\n#endif\n";
+        }
+        rblx::cxx::Options options;
+        options.sourceName = (directory / "main.cpp").string();
+        options.includePaths.push_back(directory.string());
+        const std::string source =
+            "#include \"shapes.h\"\n"
+            "#include \"shapes.h\"\n"
+            "#include \"legacy.h\"\n"
+            "int box_area(struct Box* box) { return box->side * box->side; }\n"
+            "int main() { struct Box b; b.side = 3; printf(\"%d\\n\", box_area(&b)); return 0; }\n";
+        const rblx::cxx::Result compiled = rblx::cxx::compile(source, options);
+        ++checks;
+        if (!compiled.ok) {
+            ++failures;
+            std::printf("FAIL include: %s\n", firstMessage(compiled).c_str());
+        }
+    }
     expectCompiles("unsigned integers",
                    "int main() { unsigned int x = 1; unsigned char c = 2; unsigned long l = 3; "
                    "return x + c + (int)l; }");
@@ -672,6 +709,35 @@ int main() {
 }
 )CPP",
      "12 14\n4 20\n20\n42\n"},
+
+    // A static local lives as long as the program but only its function can name
+    // it, so two functions may each have a `calls` and neither can see the other.
+    {"static locals",
+     R"CPP(
+int bump() {
+    static int calls = 0;
+    calls = calls + 1;
+    return calls;
+}
+int other() {
+    static int calls = 10;
+    calls = calls + 1;
+    return calls;
+}
+int main() {
+    bump();
+    bump();
+    other();
+    printf("%d %d\n", bump(), other());
+    static double scale = 2.5;
+    scale = scale * 2.0;
+    printf("%.1f\n", scale);
+    static char* label = "held";
+    printf("%s\n", label);
+    return 0;
+}
+)CPP",
+     "3 12\n5.0\nheld\n"},
 };
 
 #if defined(_WIN32)

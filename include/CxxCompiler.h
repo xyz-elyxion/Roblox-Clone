@@ -6,8 +6,8 @@
 // build it. This is our own compiler for the subset of C++ the project's own
 // small tools are written in: it lexes, preprocesses, parses, type-checks and
 // emits x86-64 assembly that an assembler and the system linker turn into a
-// runnable program. It is deliberately a subset - no templates, classes,
-// exceptions or floating point - and the README says exactly what it takes.
+// runnable program. It is deliberately a subset - no templates, exceptions or
+// standard library - and the README says exactly what it takes.
 //
 // The API is a pure function so the tests can drive the whole pipeline without
 // touching the disk: hand it source, get assembly and diagnostics back.
@@ -23,6 +23,9 @@ struct Diagnostic {
     int line = 0;
     int column = 0;
     std::string message;
+    // The header a diagnostic came from, when it did not come from the file being
+    // compiled. Empty means the file the compiler was handed.
+    std::string file;
 };
 
 struct Options {
@@ -34,6 +37,13 @@ struct Options {
     // that declares them itself is unaffected, and turning this off makes the
     // compiler accept nothing it was not told about.
     bool includePrelude = true;
+
+    // Where `#include "..."` and `#include <...>` are looked for, in order; the
+    // driver fills this in from -I. A quoted include is also looked for beside
+    // the file that wrote it. With no paths, an angle include is ignored rather
+    // than refused: there are no system headers here, and the prelude already
+    // declares the C library functions a small program calls.
+    std::vector<std::string> includePaths;
 
     // "_" on macOS, where the assembler prefixes every C symbol. Empty on
     // Linux and other ELF targets, where symbols are used as written.

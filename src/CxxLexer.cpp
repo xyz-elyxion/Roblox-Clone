@@ -2,6 +2,9 @@
 
 #include <cctype>
 #include <cstdlib>
+#include <fstream>
+#include <set>
+#include <sstream>
 #include <utility>
 
 namespace rblx {
@@ -48,8 +51,18 @@ struct Conditional {
 class Lexer {
 public:
     Lexer(const std::string& text, int firstLine, std::map<std::string, std::string>* macros,
-          std::vector<Token>* tokens, std::vector<Diagnostic>* diagnostics)
-        : source_(text), line_(firstLine), macros_(macros), tokens_(tokens), diagnostics_(diagnostics) {}
+          std::vector<Token>* tokens, std::vector<Diagnostic>* diagnostics,
+          const Options* options = nullptr, std::string file = std::string(),
+          int includeDepth = 0, std::set<std::string>* once = nullptr)
+        : source_(text),
+          line_(firstLine),
+          macros_(macros),
+          tokens_(tokens),
+          diagnostics_(diagnostics),
+          options_(options),
+          file_(std::move(file)),
+          includeDepth_(includeDepth),
+          once_(once) {}
 
     void run(int depth) {
         if (depth > 16) {
@@ -139,6 +152,7 @@ private:
         diagnostic.line = line;
         diagnostic.column = column;
         diagnostic.message = message;
+        diagnostic.file = file_;
         diagnostics_->push_back(diagnostic);
     }
 
@@ -147,6 +161,7 @@ private:
         token.kind = kind;
         token.line = line;
         token.column = column;
+        token.file = file_;
         tokens_->push_back(std::move(token));
         last_ = tokens_->size() - 1;
     }
@@ -254,9 +269,80 @@ private:
             error("#if is not supported; use #ifdef or #ifndef", directiveLine, 1);
             return;
         }
-        // #include, #pragma and the rest: there is no header search path here, so
-        // they are ignored rather than refused. The prelude already declares the
-        // C library functions a small program needs.
+        if (word == "include") {
+            if (!active()) return;
+            include(rest, directiveLine);
+            return;
+        }
+        if (word == "pragma") {
+            // #pragma once is the only pragma that means anything here.
+            if (active() && rest == "once" && !file_.empty() && once_) once_->insert(file_);
+            return;
+        }
+        // Anything else is ignored: there is nothing else to configure.
+    }
+
+    // The directory a file lives in, which a quoted include is looked in first.
+    static std::string directoryOf(const std::string& path) {
+        std::size_t slash = path.find_last_of("/\\");
+        return slash == std::string::npos ? std::string() : path.substr(0, slash + 1);
+    }
+
+    bool readHeader(const std::string& name, bool angled, std::string& path,
+                    std::string& text) const {
+        std::vector<std::string> candidates;
+        if (!angled) {
+            // "..." is looked for beside the file that wrote it, which is the
+            // file being lexed, or the one the compiler was handed.
+            const std::string from = !file_.empty() ? file_
+                                                    : (options_ ? options_->sourceName
+                                                                : std::string());
+            candidates.push_back(directoryOf(from) + name);
+        }
+        if (options_) {
+            for (const std::string& directory : options_->includePaths) {
+                candidates.push_back(directory + "/" + name);
+            }
+        }
+        for (const std::string& candidate : candidates) {
+            std::ifstream header(candidate, std::ios::binary);
+            if (!header) continue;
+            std::ostringstream buffer;
+            buffer << header.rdbuf();
+            text = buffer.str();
+            path = candidate;
+            return true;
+        }
+        return false;
+    }
+
+    // A header is lexed where the directive stands, so its tokens land in the
+    // place the declarations are needed and include guards work as written.
+    void include(const std::string& spec, int directiveLine) {
+        const bool angled = !spec.empty() && spec.front() == '<';
+        const char closing = angled ? '>' : '"';
+        if (spec.size() < 3 || spec.back() != closing) {
+            error("#include needs a header name in \"...\" or <...>", directiveLine, 1);
+            return;
+        }
+        const std::string name = spec.substr(1, spec.size() - 2);
+        std::string path;
+        std::string text;
+        if (!readHeader(name, angled, path, text)) {
+            // There are no system headers here, so an angle include that is not on
+            // the search path is ignored: the prelude already declares libc.
+            if (!angled) error("cannot find header '" + name + "'", directiveLine, 1);
+            return;
+        }
+        if (once_ && once_->find(path) != once_->end()) return;
+        if (includeDepth_ >= 32) {
+            error("#include is more than 32 files deep; a header is probably including itself",
+                  directiveLine, 1);
+            return;
+        }
+        Lexer nested(text, 1, macros_, tokens_, diagnostics_, options_, path, includeDepth_ + 1,
+                     once_);
+        nested.run(0);
     }
 
     void identifier(int tokenLine, int tokenColumn, int depth) {
@@ -537,6 +623,10 @@ private:
     std::map<std::string, std::string>* macros_;
     std::vector<Token>* tokens_;
     std::vector<Diagnostic>* diagnostics_;
+    const Options* options_ = nullptr;
+    std::string file_;  // the header being lexed; empty for the file handed in
+    int includeDepth_ = 0;
+    std::set<std::string>* once_ = nullptr;  // headers that asked for #pragma once
     std::vector<Conditional> conditionals_;
     std::vector<std::string> expanding_;
     std::size_t last_ = 0;
@@ -546,21 +636,26 @@ private:
 
 std::string defaultPreludeText() { return std::string(kPrelude); }
 
-LexResult lex(const std::string& source, const std::string& prelude) {
+LexResult lex(const std::string& source, const std::string& prelude, const Options& options) {
     LexResult result;
     std::map<std::string, std::string> macros;
+    std::set<std::string> once;
 
     if (!prelude.empty()) {
-        Lexer preludeLexer(prelude, 0, &macros, &result.tokens, &result.diagnostics);
+        Lexer preludeLexer(prelude, 0, &macros, &result.tokens, &result.diagnostics, &options);
         preludeLexer.run(0);
     }
-    Lexer lexer(source, 1, &macros, &result.tokens, &result.diagnostics);
+    Lexer lexer(source, 1, &macros, &result.tokens, &result.diagnostics, &options, std::string(), 0,
+                &once);
     lexer.run(0);
 
     Token end;
     end.kind = TokenKind::End;
     end.line = 0;
     end.column = 0;
+    // An error at the end of the tokens belongs to the file the last one came
+    // from, which is a header when the source ends inside one.
+    if (!result.tokens.empty()) end.file = result.tokens.back().file;
     result.tokens.push_back(end);
     return result;
 }

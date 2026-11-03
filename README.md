@@ -134,8 +134,8 @@ The driver prefixes symbols with `_` and skips the ELF procedure linkage table o
 macOS, because that is what Mach-O expects.
 
 It runs as three stages, which the tests drive separately: a lexer with a small
-preprocessor (object-like `#define`, `#undef`, `#ifdef`/`#ifndef`/`#else`/`#endif`;
-`#include` is ignored, so declare what you call), a recursive-descent parser that
+preprocessor (object-like `#define`, `#undef`, `#ifdef`/`#ifndef`/`#else`/`#endif`
+and `#include`), a recursive-descent parser that
 type-checks as it builds the tree, and an x86-64 back end that writes AT&T
 assembly. The compiler never runs an assembler itself: it writes the `.s` file and
 lets `cc` (or `$RBLX_CC`) assemble and link it against the C runtime, which is
@@ -219,8 +219,8 @@ What it takes:
   arrays, including multi-dimensional locals; `struct` definitions with fields
   and pointers to them, including a struct pointing at itself.
 - Declarations: globals with constant initialisers, functions with parameters and
-  `...`, prototypes, `static` for file-local symbols, `extern` for a symbol defined
-  elsewhere.
+  `...`, prototypes, `static` for file-local symbols and for locals that outlive
+  the call, `extern` for a symbol defined elsewhere.
 - Statements: blocks, `if`/`else`, `while`, `do`/`while`, `for`, `return`,
   `break`, `continue`.
 - Expressions: the arithmetic, comparison and bitwise sets with C++ precedence,
@@ -236,6 +236,16 @@ What it takes:
   field or another member named inside a body is reached through it. Access
   labels are accepted and ignored; there is no inheritance, so there is nothing
   for them to protect.
+- Headers: `#include "shapes.h"` is looked for beside the file that writes it and
+  then on the `-I` paths; `#include <...>` only on the `-I` paths, and ignored when
+  it is not there, because there are no system headers to find - the prelude
+  already declares the C library. A header is lexed where the directive stands, so
+  include guards and `#pragma once` behave as written, and a diagnostic inside one
+  names the header rather than the file that included it.
+- Statics: a `static` local keeps its value between calls and only its function
+  can name it, because each one gets a symbol of its own. Its initialiser has to
+  be a constant, which is what a data section can hold; anything else is refused
+  instead of run at the wrong time.
 
 Every integer is 64-bit in a register and truncated back to its declared width and
 signedness on store, so an `int` wraps at 32 bits and a `long` does not, and an
@@ -257,7 +267,7 @@ registers, which is why they are passed as pointers.
 What it refuses, with a diagnostic that says so instead of miscompiling:
 inheritance, virtual functions, constructors and destructors, templates,
 exceptions, `long double`, structs or arrays passed or returned by value,
-function pointers, `static` locals and `typedef`.
+function pointers and `typedef`.
 
 `tests/cxx_compiler_tests.cpp` runs the pipeline twice over: once as a library
 (diagnostics and the shape of the emitted assembly) and once end to end, where

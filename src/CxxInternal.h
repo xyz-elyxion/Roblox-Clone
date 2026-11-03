@@ -180,7 +180,11 @@ enum class StmtKind {
     For,
     Return,
     Break,
-    Continue
+    Continue,
+    Switch,  // expr is the value, thenBranch the block holding the cases
+    Case,    // number is the value, or text is "default"
+    Goto,    // text is the label name
+    Label    // text is the label name
 };
 
 struct Stmt;
@@ -190,6 +194,9 @@ struct Stmt {
     StmtKind kind = StmtKind::Empty;
     int line = 0;
     int column = 0;
+
+    std::string text;   // a label's name, or "default" for the default case
+    long long number = 0;  // the value of a case label
 
     std::vector<StmtPtr> body;      // Block
     std::vector<LocalDecl> declarations;  // Declaration

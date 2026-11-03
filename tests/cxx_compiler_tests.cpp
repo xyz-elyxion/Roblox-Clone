@@ -100,6 +100,18 @@ void diagnosticsTests() {
                 "variadic macros are not supported");
     expectError("union named as a struct", "union U { int i; }; struct U u; int main() { return 0; }",
                 "is a union, not a struct");
+    expectError("case outside a switch", "int main() { case 1: return 0; }",
+                "'case' outside a switch");
+    expectError("goto without a label", "int main() { goto nowhere; }",
+                "no label named 'nowhere'");
+    expectError("failed static_assert",
+                "static_assert(1 == 2, \"one is not two\"); int main() { return 0; }",
+                "static_assert failed: one is not two");
+    expectError("switch on a float", "int main() { switch (1.5) { case 1: return 0; } return 1; }",
+                "a switch needs an integer");
+    expectError("duplicate case",
+                "int main() { switch (1) { case 1: return 0; case 1: return 1; } return 2; }",
+                "has two case labels");
     expectError("missing include", "#include \"nope.h\"\nint main() { return 0; }",
                 "cannot find header 'nope.h'");
 
@@ -799,6 +811,45 @@ int main() {
 }
 )CPP",
      "5\n0 5 6\n1\n2\n513\n7 16\n5\n"},
+
+    // switch keeps its cases where they are, so one case falls into the next; goto
+    // jumps by name, auto takes the initialiser's type, and static_assert is
+    // decided while compiling.
+    {"switch, goto, auto and static_assert",
+     R"CPP(
+int classify(int n) {
+    switch (n) {
+        case 1:
+        case 2:
+            return 10;
+        case 3:
+            return 30;
+        default:
+            return 0;
+    }
+}
+int main() {
+    printf("%d %d %d %d\n", classify(1), classify(2), classify(3), classify(9));
+    int total = 0;
+    int i = 0;
+again:
+    total = total + i;
+    i = i + 1;
+    if (i < 4) goto again;
+    printf("%d\n", total);
+    switch (2) {
+        case 1: printf("one\n"); break;
+        case 2: printf("two\n");
+        case 3: printf("three\n"); break;
+        default: printf("other\n");
+    }
+    auto value = 3;
+    static_assert(sizeof(int) == 4, "int is four bytes");
+    printf("%d\n", value);
+    return 0;
+}
+)CPP",
+     "10 10 30 0\n6\ntwo\nthree\n3\n"},
 };
 
 #if defined(_WIN32)

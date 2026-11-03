@@ -53,6 +53,10 @@ private:
     std::string freshLabel(const char* prefix) {
         return std::string(".L") + prefix + std::to_string(labelCounter_++);
     }
+    // A label the program named itself, scoped to the function it is in.
+    std::string userLabel(const std::string& name) const {
+        return ".Luser_" + function_->declaration->name + "_" + name;
+    }
     std::string symbol(const std::string& name) const { return options_.symbolPrefix + name; }
 
     // ------------------------------------------------------------- temps ----
@@ -901,6 +905,53 @@ private:
                 return;
             }
 
+            case detail::StmtKind::Switch: {
+                genValue(*statement.expr);
+                const int slot = allocTemp();
+                emit("movq %rax, " + tempAt(slot));
+                const std::string done = freshLabel("endswitch");
+
+                // First pass: one compare and jump per case.
+                std::vector<std::string> labels;
+                for (const detail::StmtPtr& child : statement.thenBranch->body) {
+                    if (child->kind != detail::StmtKind::Case) continue;
+                    labels.push_back(freshLabel("case"));
+                    if (child->text == "default") continue;
+                    emit("cmpq $" + std::to_string(child->number) + ", " + tempAt(slot));
+                    emit("je " + labels.back());
+                }
+                // No case matched: skip the body, then resume after the switch.
+                emit("jmp " + done);
+
+                // Second pass: the body in order, with a label in front of each
+                // case, which is what makes falling into the next case work.
+                breakLabels_.push_back(done);
+                std::size_t next = 0;
+                for (const detail::StmtPtr& child : statement.thenBranch->body) {
+                    if (child->kind == detail::StmtKind::Case) {
+                        emitLabel(labels[next++]);
+                        continue;
+                    }
+                    genStatement(*child);
+                }
+                breakLabels_.pop_back();
+                emitLabel(done);
+                releaseTemps(1);
+                return;
+            }
+
+            case detail::StmtKind::Case:
+                // The label is emitted by the switch that owns this case.
+                return;
+
+            case detail::StmtKind::Goto:
+                emit("jmp " + userLabel(statement.text));
+                return;
+
+            case detail::StmtKind::Label:
+                emitLabel(userLabel(statement.text));
+                return;
+
             case detail::StmtKind::Return: {
                 if (statement.expr) {
                     genValue(*statement.expr);
@@ -1186,7 +1237,8 @@ std::string supportedSummary() {
         "Types: void, bool, char, short, int, long (64-bit) and their unsigned forms,\n"
         "float, double, pointers, arrays, structs/classes/unions by pointer, enum and\n"
         "typedef.\n"
-        "Statements: blocks, declarations, if/else, while, do/while, for, return, break, continue.\n"
+        "Statements: blocks, declarations, if/else, while, do/while, for, switch/case/\n"
+        "default, goto and labels, return, break, continue, static_assert, auto.\n"
         "Expressions: arithmetic, comparisons, && || !, ?:, casts, sizeof, ++/--, compound\n"
         "assignment, calls, subscripts and field access.\n"
         "Member functions: declared or defined in a struct, or defined as Rect::area();\n"

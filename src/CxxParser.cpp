@@ -95,6 +95,7 @@ private:
         bool isStatic = false;
         bool isExtern = false;
         bool isTypedef = false;
+        bool isAuto = false;
     };
 
     bool startsType() const {
@@ -167,8 +168,14 @@ private:
         bool haveType = false;
         while (current().kind == TokenKind::Identifier) {
             const std::string word = current().text;
-            if (word == "const" || word == "volatile" || word == "auto" ||
-                word == "register") {
+            if (word == "auto") {
+                // auto takes its type from the initialiser, which only a local
+                // declaration can supply.
+                specifiers.isAuto = true;
+                advance();
+                continue;
+            }
+            if (word == "const" || word == "volatile" || word == "register") {
                 advance();
                 continue;
             }
@@ -439,7 +446,12 @@ private:
     // ------------------------------------------------------------ symbols ----
 
     void topLevel() {
+        if (at("static_assert")) {
+            parseStaticAssert();
+            return;
+        }
         Specifiers specifiers = parseSpecifiers();
+        if (specifiers.isAuto) fail("auto is only for locals; write the type of a global");
         if (!specifiers.type) fail("expected a declaration");
         if (accept(";")) return;  // `struct S { ... };` is a type, not a variable
 
@@ -666,6 +678,12 @@ private:
         localBytes_ = 0;
         int outerLoops = loopDepth_;
         loopDepth_ = 0;
+        int outerSwitch = switchDepth_;
+        switchDepth_ = 0;
+        std::map<std::string, bool> outerLabels;
+        outerLabels.swap(labels_);
+        std::vector<std::string> outerGotos;
+        outerGotos.swap(gotos_);
         FunctionDecl* outerFunction = currentFunction_;
         currentFunction_ = declaration;
         TypePtr outerClass = currentClass_;
@@ -691,6 +709,18 @@ private:
         scopes_.clear();
         scopes_.swap(outerScopes);
         localBytes_ = outerBytes;
+        // A goto whose label is not in this function would otherwise become an
+        // assembler error, which is no use to anyone.
+        for (const std::string& name : gotos_) {
+            if (labels_.find(name) == labels_.end()) {
+                fail("no label named '" + name + "' in this function");
+            }
+        }
+        labels_.clear();
+        labels_.swap(outerLabels);
+        gotos_.clear();
+        gotos_.swap(outerGotos);
+        switchDepth_ = outerSwitch;
         loopDepth_ = outerLoops;
         currentFunction_ = outerFunction;
         currentClass_ = outerClass;
@@ -730,12 +760,57 @@ private:
         if (at("while")) return parseWhile();
         if (at("do")) return parseDoWhile();
         if (at("for")) return parseFor();
+        if (at("switch")) return parseSwitch();
+        if (at("case")) {
+            if (switchDepth_ == 0) fail("'case' outside a switch");
+            advance();
+            StmtPtr statement = makeStatement(StmtKind::Case);
+            ExprPtr value = parseAssignment();
+            bool constant = true;
+            statement->number = fold(*value, constant);
+            if (!constant) fail("a case value must be a constant");
+            expect(":", "after the case value");
+            return statement;
+        }
+        if (at("default")) {
+            if (switchDepth_ == 0) fail("'default' outside a switch");
+            advance();
+            StmtPtr statement = makeStatement(StmtKind::Case);
+            statement->text = "default";
+            expect(":", "after default");
+            return statement;
+        }
+        if (at("goto")) {
+            advance();
+            StmtPtr statement = makeStatement(StmtKind::Goto);
+            statement->text = expectName("after goto");
+            expect(";", "after the label");
+            gotos_.push_back(statement->text);
+            return statement;
+        }
+        if (current().kind == TokenKind::Identifier && look(1).is(":")) {
+            StmtPtr statement = makeStatement(StmtKind::Label);
+            statement->text = advance().text;
+            advance();  // :
+            if (labels_.find(statement->text) != labels_.end()) {
+                fail("the label '" + statement->text + "' appears twice in this function");
+            }
+            labels_[statement->text] = true;
+            return statement;
+        }
+        if (at("static_assert")) {
+            parseStaticAssert();
+            return makeStatement(StmtKind::Empty);
+        }
         if (at("return")) return parseReturn();
         if (at("break") || at("continue")) {
             StmtPtr statement = makeStatement(at("break") ? StmtKind::Break : StmtKind::Continue);
-            if (loopDepth_ == 0) {
-                fail(statement->kind == StmtKind::Break ? "'break' outside a loop"
-                                                        : "'continue' outside a loop");
+            // break leaves a loop or a switch; continue only makes sense in a
+            // loop, because a switch has no next iteration of its own.
+            if (statement->kind == StmtKind::Break) {
+                if (loopDepth_ == 0 && switchDepth_ == 0) fail("'break' outside a loop or switch");
+            } else if (loopDepth_ == 0) {
+                fail("'continue' outside a loop");
             }
             advance();
             expect(";", "after the statement");
@@ -755,7 +830,28 @@ private:
     // `int a = 1, b;` - consumes the trailing semicolon.
     void parseLocalDeclaration(Stmt& statement) {
         Specifiers specifiers = parseSpecifiers();
-        if (!specifiers.type) fail("expected a type");
+        if (!specifiers.type && !specifiers.isAuto) fail("expected a type");
+        if (specifiers.isAuto) {
+            // `auto x = value;` takes the type the initialiser already has.
+            do {
+                std::string name = expectName("after auto");
+                expect("=", "because auto takes its type from the initialiser");
+                ExprPtr initialiser = parseAssignment();
+                TypePtr inferred = initialiser->type;
+                if (initialiser->kind == ExprKind::String) {
+                    inferred = pointerType(primitiveType(TypeKind::Char));
+                }
+                LocalDecl declaration;
+                declaration.name = name;
+                declaration.type = inferred;
+                declaration.offset = allocateLocal(inferred);
+                declaration.init = std::move(initialiser);
+                declareLocal(name, inferred, declaration.offset);
+                statement.declarations.push_back(std::move(declaration));
+            } while (accept(","));
+            expect(";", "after the declaration");
+            return;
+        }
         if (specifiers.isTypedef) {
             // A typedef inside a function is visible from here to the end of the
             // file, which is looser than the language but never wrong about what
@@ -864,6 +960,70 @@ private:
             program_->globals.push_back(definition);
         } while (accept(","));
         expect(";", "after the declaration");
+    }
+
+    // `static_assert(condition, "message");` has to hold before the program runs,
+    // so a false one is a compile error and nothing is emitted.
+    void parseStaticAssert() {
+        advance();  // static_assert
+        expect("(", "after static_assert");
+        ExprPtr condition = parseAssignment();
+        bool constant = true;
+        const long long value = fold(*condition, constant);
+        std::string message;
+        if (accept(",")) {
+            if (current().kind == TokenKind::String) message = advance().string;
+        }
+        expect(")", "to close static_assert");
+        expect(";", "after static_assert");
+        if (!constant) fail("static_assert needs a constant condition");
+        if (value == 0) {
+            fail("static_assert failed" +
+                 (message.empty() ? std::string() : std::string(": ") + message));
+        }
+    }
+
+    // A switch is a dispatch on one integer. The cases stay where they are in the
+    // block, so falling from one into the next is what the code does anyway.
+    StmtPtr parseSwitch() {
+        advance();  // switch
+        expect("(", "after switch");
+        StmtPtr statement = makeStatement(StmtKind::Switch);
+        statement->expr = parseAssignment();
+        if (!statement->expr->type->isInteger()) {
+            fail("a switch needs an integer, not " + typeName(statement->expr->type));
+        }
+        expect(")", "after the switch value");
+        if (!at("{")) fail("a switch body needs braces");
+
+        auto body = makeStatement(StmtKind::Block);
+        advance();  // {
+        ++switchDepth_;
+        bool hasDefault = false;
+        std::vector<long long> values;
+        while (!at("}")) {
+            if (current().kind == TokenKind::End) fail("the switch body never closes");
+            StmtPtr child = parseStatement();
+            if (child->kind == StmtKind::Case) {
+                if (child->text == "default") {
+                    if (hasDefault) fail("a switch can have only one default");
+                    hasDefault = true;
+                } else {
+                    for (const long long seen : values) {
+                        if (seen == child->number) {
+                            fail("the value " + std::to_string(seen) +
+                                 " has two case labels");
+                        }
+                    }
+                    values.push_back(child->number);
+                }
+            }
+            body->body.push_back(std::move(child));
+        }
+        --switchDepth_;
+        expect("}", "to close the switch");
+        statement->thenBranch = std::move(body);
+        return statement;
     }
 
     StmtPtr parseIf() {
@@ -1760,6 +1920,9 @@ private:
     TypePtr currentClass_;  // the struct whose member body is being parsed
     std::map<std::string, TypePtr> typedefs_;      // typedef and enum tag -> type
     std::map<std::string, long long> constants_;   // enumerator -> value
+    int switchDepth_ = 0;
+    std::map<std::string, bool> labels_;  // labels seen in the function being parsed
+    std::vector<std::string> gotos_;      // goto targets waiting for their label
 };
 
 }  // namespace

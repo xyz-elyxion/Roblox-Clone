@@ -224,9 +224,11 @@ What it takes:
   of an `int`; and `typedef`, including one that names an anonymous struct.
 - Declarations: globals with constant initialisers, functions with parameters and
   `...`, prototypes, `static` for file-local symbols and for locals that outlive
-  the call, `extern` for a symbol defined elsewhere.
-- Statements: blocks, `if`/`else`, `while`, `do`/`while`, `for`, `return`,
-  `break`, `continue`.
+  the call, `auto` for a local whose type is that of its initialiser, `extern` for
+  a symbol defined elsewhere.
+- Statements: blocks, `if`/`else`, `while`, `do`/`while`, `for`,
+  `switch`/`case`/`default` with real fallthrough, `goto` and labels, `return`,
+  `break`, `continue`, and `static_assert` (checked while compiling).
 - Expressions: the arithmetic, comparison and bitwise sets with C++ precedence,
   `&&`/`||` with real short-circuit evaluation, `?:`, casts, `sizeof`, `++`/`--`,
   compound assignment, calls, subscripts, `.` and `->`.

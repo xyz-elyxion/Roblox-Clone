@@ -139,8 +139,10 @@ Start the web backend before using authenticated Client login.
 
 The `Build` workflow runs on every push and packages the Release build into a folder you can
 unzip and run. Open the latest run under **Actions** and download `rblx-windows-release`; the
-macOS job uploads its five binaries as `rblx-macos-release`, and the Linux job builds and runs
-the tests:
+Linux and macOS jobs build, run the tests and upload their five binaries as
+`rblx-linux-release` and `rblx-macos-release`. Only the Windows artifact is a package folder
+ready to unzip and start; the other two are the bare executables, which expect to be run from
+the checkout's build directory beside their assets:
 
 ```
 rblx-windows-release/

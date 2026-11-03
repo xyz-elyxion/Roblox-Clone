@@ -120,6 +120,21 @@ jobs:
       - name: Test
         run: ctest --test-dir build/linux-release --output-on-failure
 
+      - name: Upload binaries
+        # Same five executables the macOS job hands back. Runs even when the
+        # tests fail, so a red run still has the binaries that linked.
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rblx-linux-release
+          path: |
+            build/linux-release/Studio
+            build/linux-release/RBLXCode
+            build/linux-release/Server
+            build/linux-release/Client
+            build/linux-release/WebApp
+          if-no-files-found: warn
+
   macos:
     name: macOS Release (Clang)
     # macos-14 was retired on 2026-11-02 and jobs on it were browned out before

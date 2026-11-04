@@ -147,7 +147,9 @@ So this is a source snapshot to read, not a tree that configures and builds as
 upstream CMake: `add_subdirectory(Tests)` and the manual both expect the pruned
 directories back. Nothing in this project builds it either - the targets above are
 still configured by the `CMakeLists.txt` at the root, and nothing there builds,
-bootstraps or installs the vendored copy. Commit `62b91b06` still has the complete
+bootstraps or installs the vendored copy. See [RBLXBUILD.md](RBLXBUILD.md) for what it is for, what was pruned, the renamed
+commands and how it relates to the CMake this project actually builds with.
+Commit `62b91b06` still has the complete
 tree if any of it has to come back.
 ## Run C++ Targets
 

@@ -1434,26 +1434,26 @@ endif()
 configure_file(CPack/cmCPackConfigure.h.in CPack/cmCPackConfigure.h)
 
 
-# Build CMake executable
-add_executable(cmake cmakemain.cxx cmcmd.cxx cmcmd.h)
-target_link_libraries(cmake PRIVATE CMakeLib ManifestLib)
-list(APPEND _tools cmake)
+# Build the RBLXBuild executable
+add_executable(rblxbuild cmakemain.cxx cmcmd.cxx cmcmd.h)
+target_link_libraries(rblxbuild PRIVATE CMakeLib ManifestLib)
+list(APPEND _tools rblxbuild)
 
-# Build CTest executable
-add_executable(ctest ctest.cxx)
-target_link_libraries(ctest PRIVATE CTestLib ManifestLib)
-list(APPEND _tools ctest)
+# Build the RBLXTest executable
+add_executable(rblxtest ctest.cxx)
+target_link_libraries(rblxtest PRIVATE CTestLib ManifestLib)
+list(APPEND _tools rblxtest)
 
-# Build CPack executable
-add_executable(cpack CPack/cpack.cxx)
-target_link_libraries(cpack PRIVATE CPackLib ManifestLib)
-list(APPEND _tools cpack)
+# Build the RBLXPack executable
+add_executable(rblxpack CPack/cpack.cxx)
+target_link_libraries(rblxpack PRIVATE CPackLib ManifestLib)
+list(APPEND _tools rblxpack)
 
 if(MSVC)
-  # Many runs of these tools, such as most "cmake -E" commands, use none
+  # Many runs of these tools, such as most "rblxbuild -E" commands, use none
   # of these system libraries.  Load them on first use instead of at
   # start-up.
-  foreach(tool IN ITEMS cmake ctest cpack)
+  foreach(tool IN ITEMS rblxbuild rblxtest rblxpack)
     foreach(dll IN ITEMS bcrypt crypt32 dbghelp iphlpapi ole32 oleaut32
                          powrprof psapi secur32 shell32 user32 ws2_32)
       target_link_options(${tool} PRIVATE "-DELAYLOAD:${dll}.dll")

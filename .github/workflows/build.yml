@@ -90,9 +90,20 @@ jobs:
         run: ./build/rblxbuild-tool/bin/rblxbuild --build build/linux-release --parallel $(nproc)
 
       - name: Test
-        run: >-
-          ./build/rblxbuild-tool/bin/rblxtest
-          --test-dir build/linux-release --output-on-failure
+        # The tool built by bootstrap is the configure/build tool only: the
+        # fork's test runner (rblxtest) is a target in its own build file, which
+        # is not what bootstrap compiles, so build/rblxbuild-tool/bin has no
+        # rblxtest in it. The tests are plain executables that return non-zero
+        # on failure, so they run directly from the build directory - the same
+        # working directory ctest used - and one failure does not hide the rest.
+        run: |
+          cd build/linux-release
+          failed=0
+          for t in *Tests; do
+            echo "=== $t"
+            "./$t" || failed=1
+          done
+          exit $failed
 
       - name: Upload binaries
         # Runs even when the tests fail, so a red run still has what linked.
@@ -165,9 +176,16 @@ jobs:
         run: ./build/rblxbuild-tool/bin/rblxbuild --build build/macos-release --parallel $(sysctl -n hw.ncpu)
 
       - name: Test
-        run: >-
-          ./build/rblxbuild-tool/bin/rblxtest
-          --test-dir build/macos-release --output-on-failure
+        # See the Linux job: bootstrap produces the configure tool, not the test
+        # runner, so the test executables are run directly.
+        run: |
+          cd build/macos-release
+          failed=0
+          for t in *Tests; do
+            echo "=== $t"
+            "./$t" || failed=1
+          done
+          exit $failed
 
       - name: Upload binaries
         if: always()
@@ -240,9 +258,17 @@ jobs:
           --config Release --parallel $(nproc)
 
       - name: Test
-        run: >-
-          ./build/rblxbuild-tool/bin/rblxtest --test-dir build/windows-release
-          -C Release --output-on-failure
+        # See the Linux job: there is no rblxtest binary to run here. The Visual
+        # Studio generator drops the executables in Release\, and the working
+        # directory stays the build directory ctest used.
+        run: |
+          cd build/windows-release
+          failed=0
+          for t in Release/*Tests.exe; do
+            echo "=== $t"
+            "./$t" || failed=1
+          done
+          exit $failed
 
       - name: Package runnable folder
         # Runs even if the tests fail, so a red run still hands back whatever

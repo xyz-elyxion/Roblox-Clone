@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmQtAutoGenInitializer.h"
 
 #include <array>
@@ -62,7 +62,7 @@
 #include "cmTarget.h"
 #include "cmTargetTypes.h"
 #include "cmValue.h"
-#include "cmake.h"
+#include "rblxbuild.h"
 
 namespace {
 
@@ -181,7 +181,7 @@ std::vector<std::string> SearchPathSanitizer::operator()(
   return res;
 }
 
-/** @brief Writes a CMake info file.  */
+/** @brief Writes a RBLXBuild info file.  */
 class InfoWriter
 {
 public:
@@ -343,7 +343,7 @@ cmQtAutoGenInitializer::cmQtAutoGenInitializer(
   this->Rcc.Enabled = rccEnabled;
   this->Rcc.GlobalTarget = globalAutoRccTarget;
   this->CrossConfig =
-    !this->Makefile->GetSafeDefinition("CMAKE_CROSS_CONFIGS").empty();
+    !this->Makefile->GetSafeDefinition("RBLXBUILD_CROSS_CONFIGS").empty();
   this->UseBetterGraph =
     this->GenTarget->GetProperty("AUTOGEN_BETTER_GRAPH_MULTI_CONFIG").IsSet()
     ? this->GenTarget->GetProperty("AUTOGEN_BETTER_GRAPH_MULTI_CONFIG").IsOn()
@@ -393,7 +393,7 @@ bool cmQtAutoGenInitializer::InitCustomTargets()
   // Verbosity
   {
     std::string const def =
-      this->Makefile->GetSafeDefinition("CMAKE_AUTOGEN_VERBOSE");
+      this->Makefile->GetSafeDefinition("RBLXBUILD_AUTOGEN_VERBOSE");
     if (!def.empty()) {
       unsigned long iVerb = 0;
       if (cmStrToULong(def, &iVerb)) {
@@ -473,7 +473,7 @@ bool cmQtAutoGenInitializer::InitCustomTargets()
         std::string(),
         cmStrCat(this->GenTarget->GetSupportDirectory(idirkind), "/autogen"));
     } else {
-      infoDir = cmStrCat(cbd, "/CMakeFiles/", this->GenTarget->GetName(),
+      infoDir = cmStrCat(cbd, "/RBLXBuildFiles/", this->GenTarget->GetName(),
                          "_autogen.dir");
       buildDir = cmStrCat(cbd, '/', this->GenTarget->GetName(), "_autogen");
     }
@@ -616,12 +616,12 @@ bool cmQtAutoGenInitializer::InitCustomTargets()
         this->Moc.PathPrefix = true;
       }
 
-      // CMAKE_AUTOMOC_RELAXED_MODE
-      if (this->Makefile->IsOn("CMAKE_AUTOMOC_RELAXED_MODE")) {
+      // RBLXBUILD_AUTOMOC_RELAXED_MODE
+      if (this->Makefile->IsOn("RBLXBUILD_AUTOMOC_RELAXED_MODE")) {
         this->Moc.RelaxedMode = true;
         this->Makefile->IssueDiagnostic(
           cmDiagnostics::CMD_AUTHOR,
-          cmStrCat("AUTOMOC: CMAKE_AUTOMOC_RELAXED_MODE is "
+          cmStrCat("AUTOMOC: RBLXBUILD_AUTOMOC_RELAXED_MODE is "
                    "deprecated an will be removed in the future.  Consider "
                    "disabling it and converting the target ",
                    this->GenTarget->GetName(), " to regular mode."));
@@ -709,9 +709,9 @@ bool cmQtAutoGenInitializer::InitCustomTargets()
 
 bool cmQtAutoGenInitializer::IsMsvcAbi() const
 {
-  return this->Makefile->GetSafeDefinition("CMAKE_CXX_COMPILER_ID") ==
+  return this->Makefile->GetSafeDefinition("RBLXBUILD_CXX_COMPILER_ID") ==
     "MSVC" ||
-    this->Makefile->GetSafeDefinition("CMAKE_CXX_SIMULATE_ID") == "MSVC";
+    this->Makefile->GetSafeDefinition("RBLXBUILD_CXX_SIMULATE_ID") == "MSVC";
 }
 
 bool cmQtAutoGenInitializer::InitMoc()
@@ -735,7 +735,7 @@ bool cmQtAutoGenInitializer::InitMoc()
     // Command
     cmList::assign(
       this->Moc.PredefsCmd,
-      this->Makefile->GetDefinition("CMAKE_CXX_COMPILER_PREDEFINES_COMMAND"));
+      this->Makefile->GetDefinition("RBLXBUILD_CXX_COMPILER_PREDEFINES_COMMAND"));
     // Header
     if (!this->Moc.PredefsCmd.empty()) {
       this->ConfigFileNames(this->Moc.PredefsFile,
@@ -752,7 +752,7 @@ bool cmQtAutoGenInitializer::InitMoc()
       this->GenTarget->GetProperty("AUTOMOC_INCLUDE_DIRECTORIES");
     if (autoIncDirs) {
       cmListFileBacktrace lfbt = this->Makefile->GetBacktrace();
-      cmGeneratorExpression ge(*this->Makefile->GetCMakeInstance(), lfbt);
+      cmGeneratorExpression ge(*this->Makefile->GetRBLXBuildInstance(), lfbt);
       auto cge = ge.Parse(*autoIncDirs);
 
       // Build a single list of configs to iterate, whether single or multi
@@ -815,7 +815,7 @@ bool cmQtAutoGenInitializer::InitMoc()
     auto getDefs = [this](std::string const& cfg) -> std::set<std::string> {
       std::set<std::string> defines;
       this->LocalGen->GetTargetDefines(this->GenTarget, cfg, "CXX", defines);
-      if (this->Makefile->GetSafeDefinition("CMAKE_SYSTEM_NAME") ==
+      if (this->Makefile->GetSafeDefinition("RBLXBUILD_SYSTEM_NAME") ==
             "Windows" &&
           (this->Moc.PredefsCmd.empty() || this->IsMsvcAbi())) {
         // Add WIN32 definition if moc_predefs.h cannot supply it.  Targeting
@@ -968,7 +968,7 @@ bool cmQtAutoGenInitializer::InitRcc()
 
 bool cmQtAutoGenInitializer::InitScanFiles()
 {
-  cmake const* cm = this->Makefile->GetCMakeInstance();
+  rblxbuild const* cm = this->Makefile->GetRBLXBuildInstance();
   auto const& kw = this->GlobalInitializer->kw();
 
   auto makeMUFile = [this, &kw](cmSourceFile* sf, std::string const& fullPath,
@@ -1250,7 +1250,7 @@ bool cmQtAutoGenInitializer::InitScanFiles()
       this->Makefile->IssuePolicyWarning(
         cmPolicies::CMP0071, {},
         cmStrCat(
-          "For compatibility, CMake is excluding the GENERATED source "
+          "For compatibility, RBLXBuild is excluding the GENERATED source "
           "file(s):\n"_s,
           files, "from processing by "_s,
           cmQtAutoGen::Tools(this->Moc.Enabled, this->Uic.Enabled, false),
@@ -1281,7 +1281,7 @@ bool cmQtAutoGenInitializer::InitScanFiles()
     this->Makefile->IssuePolicyWarning(
       cmPolicies::CMP0100, {},
       cmStrCat(
-        "For compatibility, CMake is excluding the header file(s):\n"_s, files,
+        "For compatibility, RBLXBuild is excluding the header file(s):\n"_s, files,
         "from processing by "_s,
         cmQtAutoGen::Tools(this->Moc.Enabled, this->Uic.Enabled, false),
         ".  If any of the files should be processed, set CMP0100 to NEW.  "
@@ -1391,8 +1391,8 @@ bool cmQtAutoGenInitializer::InitScanFiles()
 
 bool cmQtAutoGenInitializer::InitAutogenTarget()
 {
-  // Register info file as generated by CMake
-  this->Makefile->AddCMakeOutputFile(this->AutogenTarget.InfoFile);
+  // Register info file as generated by RBLXBuild
+  this->Makefile->AddRBLXBuildOutputFile(this->AutogenTarget.InfoFile);
 
   // Determine whether to use a depfile for the AUTOGEN target.
   bool const useDepfile = [this]() -> bool {
@@ -1429,7 +1429,7 @@ bool cmQtAutoGenInitializer::InitAutogenTarget()
         // Make all mocs_compilation_<CONFIG>.cpp files byproducts of the
         // ${target}_autogen/timestamp custom command.
         // We cannot just use Moc.CompilationFileGenex here, because that
-        // custom command runs cmake_autogen for each configuration.
+        // custom command runs rblxbuild_autogen for each configuration.
         for (auto const& p : this->Moc.CompilationFile.Config) {
           timestampByproducts.push_back(p.second);
         }
@@ -1543,7 +1543,7 @@ bool cmQtAutoGenInitializer::InitAutogenTarget()
 
   bool constexpr stdPipesUTF8 = true;
   cmCustomCommandLines commandLines;
-  AddCMakeProcessToCommandLines(this->AutogenTarget.InfoFile, "cmake_autogen",
+  AddRBLXBuildProcessToCommandLines(this->AutogenTarget.InfoFile, "rblxbuild_autogen",
                                 commandLines);
 
   // Use PRE_BUILD on demand
@@ -1590,7 +1590,7 @@ bool cmQtAutoGenInitializer::InitAutogenTarget()
 
       // Add a step in the pre-build command to touch the timestamp file
       commandLines.push_back(
-        cmMakeCommandLine({ cmSystemTools::GetCMakeCommand(), "-E", "touch",
+        cmMakeCommandLine({ cmSystemTools::GetRBLXBuildCommand(), "-E", "touch",
                             timestampFileGenex }));
 
       // UIC needs to be re-run if any of the known UI files change or the
@@ -1714,7 +1714,7 @@ bool cmQtAutoGenInitializer::InitAutogenTarget()
       // Create the custom command that outputs the timestamp file.
       if (this->MultiConfig && this->UseBetterGraph) {
         // create timestamp file with $<CONFIG> in the name so that
-        // every cmake_autogen target has its own timestamp file
+        // every rblxbuild_autogen target has its own timestamp file
         std::string const configView = "$<CONFIG>";
         std::string const timestampFileWithoutConfig = "timestamp_";
         std::string const depFileWithoutConfig =
@@ -1726,7 +1726,7 @@ bool cmQtAutoGenInitializer::InitAutogenTarget()
           cmStrCat(depFileWithoutConfig, configView);
         depFile = depFileWithConfig;
         commandLines.push_back(cmMakeCommandLine(
-          { cmSystemTools::GetCMakeCommand(), "-E", "touch", outputFile }));
+          { cmSystemTools::GetRBLXBuildCommand(), "-E", "touch", outputFile }));
 
         ConfigString outputFileWithConfig;
         for (std::string const& config : this->ConfigsList) {
@@ -1748,7 +1748,7 @@ bool cmQtAutoGenInitializer::InitAutogenTarget()
         this->AutogenTarget.DepFileRuleName.Default =
           cmStrCat(this->Dir.RelativeBuild, '/', timestampFileName);
         commandLines.push_back(cmMakeCommandLine(
-          { cmSystemTools::GetCMakeCommand(), "-E", "touch", outputFile }));
+          { cmSystemTools::GetRBLXBuildCommand(), "-E", "touch", outputFile }));
         this->AddGeneratedSource(outputFile, this->Moc);
       }
       auto cc = cm::make_unique<cmCustomCommand>();
@@ -1825,7 +1825,7 @@ bool cmQtAutoGenInitializer::InitAutogenTarget()
   return true;
 }
 
-void cmQtAutoGenInitializer::AddCMakeProcessToCommandLines(
+void cmQtAutoGenInitializer::AddRBLXBuildProcessToCommandLines(
   std::string const& infoFile, std::string const& processName,
   cmCustomCommandLines& commandLines)
 {
@@ -1833,15 +1833,15 @@ void cmQtAutoGenInitializer::AddCMakeProcessToCommandLines(
   this->GlobalGen->GetQtAutoGenConfigs(autogenConfigs);
   if (this->CrossConfig && this->UseBetterGraph) {
     commandLines.push_back(cmMakeCommandLine(
-      { cmSystemTools::GetCMakeCommand(), "-E", processName, infoFile,
+      { cmSystemTools::GetRBLXBuildCommand(), "-E", processName, infoFile,
         "$<CONFIG>", "$<COMMAND_CONFIG:$<CONFIG>>" }));
   } else if ((this->MultiConfig && this->GlobalGen->IsXcode()) ||
              this->CrossConfig) {
     auto const& configs =
-      processName == "cmake_autorcc" ? this->ConfigsList : autogenConfigs;
+      processName == "rblxbuild_autorcc" ? this->ConfigsList : autogenConfigs;
     for (std::string const& config : configs) {
       commandLines.push_back(
-        cmMakeCommandLine({ cmSystemTools::GetCMakeCommand(), "-E",
+        cmMakeCommandLine({ cmSystemTools::GetRBLXBuildCommand(), "-E",
                             processName, infoFile, config }));
     }
   } else {
@@ -1852,7 +1852,7 @@ void cmQtAutoGenInitializer::AddCMakeProcessToCommandLines(
       autoInfoFileConfig = autogenConfigs[0];
     }
     commandLines.push_back(
-      cmMakeCommandLine({ cmSystemTools::GetCMakeCommand(), "-E", processName,
+      cmMakeCommandLine({ cmSystemTools::GetRBLXBuildCommand(), "-E", processName,
                           infoFile, autoInfoFileConfig }));
   }
 }
@@ -1860,8 +1860,8 @@ void cmQtAutoGenInitializer::AddCMakeProcessToCommandLines(
 bool cmQtAutoGenInitializer::InitRccTargets()
 {
   for (Qrc const& qrc : this->Rcc.Qrcs) {
-    // Register info file as generated by CMake
-    this->Makefile->AddCMakeOutputFile(qrc.InfoFile);
+    // Register info file as generated by RBLXBuild
+    this->Makefile->AddRBLXBuildOutputFile(qrc.InfoFile);
     // Register file at target
     this->AddGeneratedSource(qrc.OutputFile, this->Rcc);
 
@@ -1885,7 +1885,7 @@ bool cmQtAutoGenInitializer::InitRccTargets()
     std::vector<std::string> ccDepends{ qrc.QrcFile, qrc.InfoFile };
 
     cmCustomCommandLines commandLines;
-    AddCMakeProcessToCommandLines(qrc.InfoFile, "cmake_autorcc", commandLines);
+    AddRBLXBuildProcessToCommandLines(qrc.InfoFile, "rblxbuild_autorcc", commandLines);
 
     std::string const ccComment =
       cmStrCat("Automatic RCC for ",
@@ -1963,7 +1963,7 @@ bool cmQtAutoGenInitializer::InitRccTargets()
         this->LocalGen->AddCustomCommandToOutput(std::move(cc));
       }
       // Reconfigure when .qrc file changes
-      this->Makefile->AddCMakeDependFile(qrc.QrcFile);
+      this->Makefile->AddRBLXBuildDependFile(qrc.QrcFile);
     }
   }
 
@@ -2083,10 +2083,10 @@ bool cmQtAutoGenInitializer::SetupWriteAutogenInfo()
   info.SetUInt("VERBOSITY", this->Verbosity);
 
   // Directories
-  info.Set("CMAKE_SOURCE_DIR", MfDef("CMAKE_SOURCE_DIR"));
-  info.Set("CMAKE_BINARY_DIR", MfDef("CMAKE_BINARY_DIR"));
-  info.Set("CMAKE_CURRENT_SOURCE_DIR", MfDef("CMAKE_CURRENT_SOURCE_DIR"));
-  info.Set("CMAKE_CURRENT_BINARY_DIR", MfDef("CMAKE_CURRENT_BINARY_DIR"));
+  info.Set("RBLXBUILD_SOURCE_DIR", MfDef("RBLXBUILD_SOURCE_DIR"));
+  info.Set("RBLXBUILD_BINARY_DIR", MfDef("RBLXBUILD_BINARY_DIR"));
+  info.Set("RBLXBUILD_CURRENT_SOURCE_DIR", MfDef("RBLXBUILD_CURRENT_SOURCE_DIR"));
+  info.Set("RBLXBUILD_CURRENT_BINARY_DIR", MfDef("RBLXBUILD_CURRENT_BINARY_DIR"));
   info.Set("BUILD_DIR", this->Dir.Build);
   info.SetConfig("INCLUDE_DIR", this->Dir.Include);
 
@@ -2095,14 +2095,14 @@ bool cmQtAutoGenInitializer::SetupWriteAutogenInfo()
   info.SetConfig("QT_MOC_EXECUTABLE", this->Moc.Executable);
   info.SetConfig("QT_UIC_EXECUTABLE", this->Uic.Executable);
 
-  info.Set("CMAKE_EXECUTABLE", cmSystemTools::GetCMakeCommand());
+  info.Set("RBLXBUILD_EXECUTABLE", cmSystemTools::GetRBLXBuildCommand());
   info.SetConfig("SETTINGS_FILE", this->AutogenTarget.SettingsFile);
   info.SetConfig("PARSE_CACHE_FILE", this->AutogenTarget.ParseCacheFile);
   info.SetConfig("DEP_FILE", this->AutogenTarget.DepFile);
   info.SetConfig("DEP_FILE_RULE_NAME", this->AutogenTarget.DepFileRuleName);
-  info.SetArray("CMAKE_LIST_FILES", this->Makefile->GetListFiles());
+  info.SetArray("RBLXBUILD_LIST_FILES", this->Makefile->GetListFiles());
   info.SetArray("HEADER_EXTENSIONS",
-                this->Makefile->GetCMakeInstance()->GetHeaderExtensions());
+                this->Makefile->GetRBLXBuildInstance()->GetHeaderExtensions());
   auto cfgArray = [this](std::vector<size_t> const& configs) -> Json::Value {
     Json::Value value;
     if (!configs.empty()) {
@@ -2200,13 +2200,13 @@ bool cmQtAutoGenInitializer::SetupWriteAutogenInfo()
 
     if (!CompileOptionValue.empty()) {
       // Determine where to insert the compile option (e.g., -std=gnu++23).
-      // CMAKE_CXX_COMPILER_PREDEFINES_COMMAND is built as:
-      //   [CMAKE_CXX_COMPILER, CMAKE_CXX_COMPILER_ARG1, predefs_flags...]
+      // RBLXBUILD_CXX_COMPILER_PREDEFINES_COMMAND is built as:
+      //   [RBLXBUILD_CXX_COMPILER, RBLXBUILD_CXX_COMPILER_ARG1, predefs_flags...]
       // We need to insert after all compiler elements, before predefs flags.
-      size_t compilerElements = 1; // CMAKE_CXX_COMPILER
+      size_t compilerElements = 1; // RBLXBUILD_CXX_COMPILER
 
       cmValue compilerArg1 =
-        this->Makefile->GetDefinition("CMAKE_CXX_COMPILER_ARG1");
+        this->Makefile->GetDefinition("RBLXBUILD_CXX_COMPILER_ARG1");
       if (compilerArg1 && !compilerArg1->empty()) {
         std::vector<std::string> arg1List;
         cmSystemTools::ParseUnixCommandLine(compilerArg1->c_str(), arg1List);
@@ -2264,10 +2264,10 @@ bool cmQtAutoGenInitializer::SetupWriteRccInfo()
     info.SetConfig("SETTINGS_FILE", qrc.SettingsFile);
 
     // Directories
-    info.Set("CMAKE_SOURCE_DIR", MfDef("CMAKE_SOURCE_DIR"));
-    info.Set("CMAKE_BINARY_DIR", MfDef("CMAKE_BINARY_DIR"));
-    info.Set("CMAKE_CURRENT_SOURCE_DIR", MfDef("CMAKE_CURRENT_SOURCE_DIR"));
-    info.Set("CMAKE_CURRENT_BINARY_DIR", MfDef("CMAKE_CURRENT_BINARY_DIR"));
+    info.Set("RBLXBUILD_SOURCE_DIR", MfDef("RBLXBUILD_SOURCE_DIR"));
+    info.Set("RBLXBUILD_BINARY_DIR", MfDef("RBLXBUILD_BINARY_DIR"));
+    info.Set("RBLXBUILD_CURRENT_SOURCE_DIR", MfDef("RBLXBUILD_CURRENT_SOURCE_DIR"));
+    info.Set("RBLXBUILD_CURRENT_BINARY_DIR", MfDef("RBLXBUILD_CURRENT_BINARY_DIR"));
     info.Set("BUILD_DIR", this->Dir.Build);
     info.SetConfig("INCLUDE_DIR", this->Dir.Include);
 
@@ -2657,7 +2657,7 @@ bool cmQtAutoGenInitializer::GetQtExecutable(GenVarsT& genVars,
       // Evaluate generator expression
       {
         cmListFileBacktrace lfbt = this->Makefile->GetBacktrace();
-        cmGeneratorExpression ge(*this->Makefile->GetCMakeInstance(), lfbt);
+        cmGeneratorExpression ge(*this->Makefile->GetRBLXBuildInstance(), lfbt);
         std::unique_ptr<cmCompiledGeneratorExpression> cge = ge.Parse(val);
         if (this->MultiConfig && this->UseBetterGraph) {
           for (auto const& config : this->ConfigsList) {

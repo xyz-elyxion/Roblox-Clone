@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #pragma once
 
 #include "cmConfigure.h" // IWYU pragma: keep
@@ -43,7 +43,7 @@
 // will not compile without the complete type.
 #include "cmTarget.h" // IWYU pragma: keep
 
-#if !defined(CMAKE_BOOTSTRAP)
+#if !defined(RBLXBUILD_BOOTSTRAP)
 #  include "cmSourceGroup.h"
 #endif
 
@@ -67,7 +67,7 @@ class cmState;
 class cmTest;
 class cmTestGenerator;
 class cmVariableWatch;
-class cmake;
+class rblxbuild;
 
 namespace cm {
 enum class PolicyScope : bool
@@ -92,10 +92,10 @@ public:
 };
 
 /** \class cmMakefile
- * \brief Process the input CMakeLists.txt file.
+ * \brief Process the input RBLXBuildLists.txt file.
  *
- * Process and store into memory the input CMakeLists.txt file.
- * Each CMakeLists.txt file is parsed and the commands found there
+ * Process and store into memory the input RBLXBuildLists.txt file.
+ * Each RBLXBuildLists.txt file is parsed and the commands found there
  * are added into the build process.
  */
 class cmMakefile
@@ -137,7 +137,7 @@ public:
    */
   void AddFunctionBlocker(std::unique_ptr<cmFunctionBlocker> fb);
 
-  /// @return whether we are processing the top CMakeLists.txt file.
+  /// @return whether we are processing the top RBLXBuildLists.txt file.
   bool IsRootMakefile() const;
 
   /**
@@ -147,13 +147,13 @@ public:
   std::unique_ptr<cmFunctionBlocker> RemoveFunctionBlocker();
 
   /**
-   * Try running cmake and building a file. This is used for dynamically
+   * Try running rblxbuild and building a file. This is used for dynamically
    * loaded commands, not as part of the usual build process.
    */
   int TryCompile(std::string const& srcdir, std::string const& bindir,
                  std::string const& projectName, std::string const& targetName,
                  bool fast, int jobs,
-                 std::vector<std::string> const* cmakeArgs,
+                 std::vector<std::string> const* rblxbuildArgs,
                  std::string& output);
 
   bool GetIsSourceFileTryCompile() const;
@@ -166,7 +166,7 @@ public:
 
   enum class GeneratorActionWhen
   {
-    // Run after all CMake code has been parsed.
+    // Run after all RBLXBuild code has been parsed.
     AfterConfigure,
     // Run after generator targets have been constructed.
     AfterGeneratorTargets,
@@ -350,7 +350,7 @@ public:
 
   /**
    * Add a variable definition to the build. This variable
-   * can be used in CMake to refer to lists, directories, etc.
+   * can be used in RBLXBuild to refer to lists, directories, etc.
    */
   void AddDefinition(std::string const& name, cm::string_view value);
   void AddDefinition(std::string const& name, cmValue value)
@@ -361,7 +361,7 @@ public:
    * Add bool variable definition to the build.
    */
   void AddDefinitionBool(std::string const& name, bool);
-  //! Add a definition to this makefile and the global cmake cache.
+  //! Add a definition to this makefile and the global rblxbuild cache.
   void AddCacheDefinition(std::string const& name, cmValue value, cmValue doc,
                           cmStateEnums::CacheEntryType type,
                           bool force = false);
@@ -394,7 +394,7 @@ public:
    */
   void SetProjectName(std::string const& name);
 
-  void InitCMAKE_CONFIGURATION_TYPES(std::string const& genDefault);
+  void InitRBLXBUILD_CONFIGURATION_TYPES(std::string const& genDefault);
 
   /* Get the default configuration */
   std::string GetDefaultConfiguration() const;
@@ -421,7 +421,7 @@ public:
 
   //@{
   /**
-   * Set, Push, Pop policy values for CMake.
+   * Set, Push, Pop policy values for RBLXBuild.
    */
   bool SetPolicy(cmPolicies::PolicyID id, cmPolicies::PolicyStatus status);
   bool SetPolicy(char const* id, cmPolicies::PolicyStatus status);
@@ -434,7 +434,7 @@ public:
 
   //@{
   /**
-   * Set, Push, Pop diagnostics for CMake.
+   * Set, Push, Pop diagnostics for RBLXBuild.
    */
   bool SetDiagnostic(cmDiagnosticCategory category, cmDiagnosticAction action,
                      bool recursive = false);
@@ -446,7 +446,7 @@ public:
   void RecordDiagnostics(cmDiagnostics::DiagnosticMap& dm) const;
   //@}
 
-  /** Update CMAKE_PARENT_LIST_FILE based on CMP0198 policy status.  */
+  /** Update RBLXBUILD_PARENT_LIST_FILE based on CMP0198 policy status.  */
   void UpdateParentListFileVariable();
 
   /** Helper class to push and pop policies automatically.  */
@@ -497,12 +497,12 @@ public:
   std::string const& GetHomeOutputDirectory() const;
 
   /**
-   * Set CMAKE_SCRIPT_MODE_FILE variable when running a -P script.
+   * Set RBLXBUILD_SCRIPT_MODE_FILE variable when running a -P script.
    */
   void SetScriptModeFile(std::string const& scriptfile);
 
   /**
-   * Set CMAKE_ARGC, CMAKE_ARGV0 ... variables.
+   * Set RBLXBUILD_ARGC, RBLXBUILD_ARGV0 ... variables.
    */
   void SetArgcArgv(std::vector<std::string> const& args);
 
@@ -652,7 +652,7 @@ public:
     XRSimulator,
   };
 
-  /** What SDK type points CMAKE_OSX_SYSROOT to? */
+  /** What SDK type points RBLXBUILD_OSX_SYSROOT to? */
   AppleSDK GetAppleSDKType() const;
 
   /** Return whether the target platform is Apple iOS.  */
@@ -677,11 +677,11 @@ public:
   std::string GetDefineFlags() const { return this->DefineFlags; }
 
   /**
-   * Make sure CMake can write this file
+   * Make sure RBLXBuild can write this file
    */
   bool CanIWriteThisFile(std::string const& fileName) const;
 
-#if !defined(CMAKE_BOOTSTRAP)
+#if !defined(RBLXBUILD_BOOTSTRAP)
 
   /**
    * Resolve source group genex.
@@ -733,12 +733,12 @@ public:
   {
     return this->ListFiles;
   }
-  //! When the file changes cmake will be re-run from the build system.
-  void AddCMakeDependFile(std::string const& file)
+  //! When the file changes rblxbuild will be re-run from the build system.
+  void AddRBLXBuildDependFile(std::string const& file)
   {
     this->ListFiles.push_back(file);
   }
-  void AddCMakeDependFilesFromUser();
+  void AddRBLXBuildDependFilesFromUser();
 
   std::string FormatListFileStack() const;
 
@@ -759,7 +759,7 @@ public:
   {
     return this->OutputFiles;
   }
-  void AddCMakeOutputFile(std::string const& file)
+  void AddRBLXBuildOutputFile(std::string const& file)
   {
     this->OutputFiles.push_back(file);
   }
@@ -784,7 +784,7 @@ public:
   void RemoveVariablesInString(std::string& source, bool atOnly = false) const;
 
   /**
-   * Replace variables and #cmakedefine lines in the given string.
+   * Replace variables and #rblxbuilddefine lines in the given string.
    * See cmConfigureFileCommand for details.
    */
   void ConfigureString(std::string const& input, std::string& output,
@@ -816,7 +816,7 @@ public:
   void OnExecuteCommand(std::function<void()> callback);
 
   /**
-   * Execute a single CMake command.  Returns true if the command
+   * Execute a single RBLXBuild command.  Returns true if the command
    * succeeded or false if it failed.
    */
   bool ExecuteCommand(cmListFileFunction const& lff, cmExecutionStatus& status,
@@ -833,7 +833,7 @@ public:
  * Get the variable watch. This is used to determine when certain variables
  * are accessed.
  */
-#ifndef CMAKE_BOOTSTRAP
+#ifndef RBLXBUILD_BOOTSTRAP
   cmVariableWatch* GetVariableWatch() const;
 #endif
 
@@ -852,7 +852,7 @@ public:
   /**
    * Get the instance
    */
-  cmake* GetCMakeInstance() const;
+  rblxbuild* GetRBLXBuildInstance() const;
   cmMessenger* GetMessenger() const;
   cmGlobalGenerator* GetGlobalGenerator() const;
 
@@ -883,7 +883,7 @@ public:
   void GetTests(std::string const& config, std::vector<cmTest*>& tests) const;
 
   /**
-   * Return a location of a file in cmake or custom modules directory
+   * Return a location of a file in rblxbuild or custom modules directory
    */
   std::string GetModulesFile(cm::string_view name) const
   {
@@ -893,7 +893,7 @@ public:
   }
 
   /**
-   * Return a location of a file in cmake or custom modules directory
+   * Return a location of a file in rblxbuild or custom modules directory
    */
   std::string GetModulesFile(cm::string_view name, bool& system) const
   {
@@ -1130,7 +1130,7 @@ public:
   void AddExportBuildFileGenerator(
     std::unique_ptr<cmExportBuildFileGenerator> gen);
 
-#ifndef CMAKE_BOOTSTRAP
+#ifndef RBLXBUILD_BOOTSTRAP
   std::vector<std::unique_ptr<cmBuildSbomGenerator>> const&
   GetBuildSbomGenerators() const;
   void AddBuildSbomGenerator(std::unique_ptr<cmBuildSbomGenerator> gen);
@@ -1264,7 +1264,7 @@ protected:
   std::string ComplainFileRegularExpression;
   std::string DefineFlags;
 
-#if !defined(CMAKE_BOOTSTRAP)
+#if !defined(RBLXBUILD_BOOTSTRAP)
   SourceGroupVector SourceGroups;
   size_t ObjectLibrariesSourceGroupIndex;
 #endif
@@ -1322,7 +1322,7 @@ private:
   std::vector<std::unique_ptr<cmExportBuildFileGenerator>>
     ExportBuildFileGenerators;
 
-#ifndef CMAKE_BOOTSTRAP
+#ifndef RBLXBUILD_BOOTSTRAP
   std::vector<std::unique_ptr<cmBuildSbomGenerator>> BuildSbomGenerators;
 #endif
 
@@ -1342,13 +1342,13 @@ private:
   // Internal policy stack management.
   void PushPolicy(bool weak = false, cmPolicies::PolicyMap const& pm = {});
   void PopPolicy();
-  friend bool cmCMakePolicyCommand(std::vector<std::string> const& args,
+  friend bool cmRBLXBuildPolicyCommand(std::vector<std::string> const& args,
                                    cmExecutionStatus& status);
 
   // Internal diagnostic stack management.
   void PushDiagnostic(bool weak = false, cmDiagnostics::DiagnosticMap dm = {});
   void PopDiagnostic();
-  friend bool cmCMakeDiagnosticCommand(std::vector<std::string> const& args,
+  friend bool cmRBLXBuildDiagnosticCommand(std::vector<std::string> const& args,
                                        cmExecutionStatus& status);
 
   void PopSnapshot(bool reportError = true);

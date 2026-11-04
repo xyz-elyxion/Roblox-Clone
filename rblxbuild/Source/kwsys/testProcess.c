@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file Copyright.txt or https://cmake.org/licensing#kwsys for details.  */
+   file Copyright.txt or https://rblxbuild.org/licensing#kwsys for details.  */
 #if !defined(_WIN32) && !defined(__APPLE__) && !defined(__OpenBSD__)
 /* NOLINTNEXTLINE(bugprone-reserved-identifier) */
 #  define _XOPEN_SOURCE 600
@@ -8,7 +8,7 @@
 #include KWSYS_HEADER(Process.h)
 #include KWSYS_HEADER(Encoding.h)
 
-/* Work-around CMake dependency scanning limitation.  This must
+/* Work-around RBLXBuild dependency scanning limitation.  This must
    duplicate the above list of headers.  */
 #if 0
 #  include "Encoding.h.in"

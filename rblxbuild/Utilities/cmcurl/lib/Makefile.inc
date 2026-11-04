@@ -21,7 +21,7 @@
 # SPDX-License-Identifier: curl
 #
 ###########################################################################
-# Shared between CMakeLists.txt and Makefile.am
+# Shared between RBLXBuildLists.txt and Makefile.am
 
 LIB_CURLX_CFILES =      \
   curlx/base64.c        \

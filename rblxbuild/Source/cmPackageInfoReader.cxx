@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmPackageInfoReader.h"
 
 #include <algorithm>
@@ -40,7 +40,7 @@
 
 namespace {
 
-// Map of CPS language names to CMake language name.  Case insensitivity is
+// Map of CPS language names to RBLXBuild language name.  Case insensitivity is
 // achieved by converting the CPS value to lower case, so keys in this map must
 // be lower case.
 std::unordered_map<std::string, std::string> Languages = {
@@ -229,9 +229,9 @@ Json::Value GetExtensions(Json::Value const& data)
   if (data.isObject()) {
     Json::Value const& extensions = data["extensions"];
     if (extensions.isObject()) {
-      Json::Value const& cmake = extensions["cmake"];
-      if (cmake.isObject()) {
-        return cmake;
+      Json::Value const& rblxbuild = extensions["rblxbuild"];
+      if (rblxbuild.isObject()) {
+        return rblxbuild;
       }
     }
   }
@@ -344,7 +344,7 @@ void AddCompileFeature(cmMakefile* makefile, cmTarget* target,
       AppendProperty(makefile, target, "COMPILE_FEATURES"_s, {}, feature);
     }
   } else if (cmStrCaseEq(value, "gnu"_s)) {
-    // Not implemented in CMake at this time
+    // Not implemented in RBLXBuild at this time
   } else if (cmStrCaseEq(value, "threads"_s)) {
     AppendProperty(makefile, target, "LINK_LIBRARIES"_s, configuration,
                    "Threads::Threads");
@@ -894,7 +894,7 @@ void cmPackageInfoReader::ReadCxxModulesMetadata(
   cmMakefile* makefile, cmTarget* target, cm::string_view configuration,
   Json::Value const& object) const
 {
-#ifndef CMAKE_BOOTSTRAP
+#ifndef RBLXBUILD_BOOTSTRAP
   Json::Value const& path = object["cpp_module_metadata"];
 
   if (!path.isString()) {

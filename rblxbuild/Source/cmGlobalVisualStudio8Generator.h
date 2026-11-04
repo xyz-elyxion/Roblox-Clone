@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #pragma once
 
 #include <iosfwd>
@@ -13,7 +13,7 @@
 
 class cmGeneratorTarget;
 class cmMakefile;
-class cmake;
+class rblxbuild;
 struct cmIDEFlagTable;
 
 /** \class cmGlobalVisualStudio8Generator
@@ -51,7 +51,7 @@ public:
   }
 
 protected:
-  cmGlobalVisualStudio8Generator(cmake* cm, std::string const& name);
+  cmGlobalVisualStudio8Generator(rblxbuild* cm, std::string const& name);
 
   virtual bool ProcessGeneratorPlatformField(std::string const& key,
                                              std::string const& value);

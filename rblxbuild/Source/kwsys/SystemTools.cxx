@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file Copyright.txt or https://cmake.org/licensing#kwsys for details.  */
+   file Copyright.txt or https://rblxbuild.org/licensing#kwsys for details.  */
 #ifdef __osf__
 #  define _OSF_SOURCE
 #  define _POSIX_C_SOURCE 199506L
@@ -40,7 +40,7 @@
 #  include <unordered_map>
 #endif
 
-// Work-around CMake dependency scanning limitation.  This must
+// Work-around RBLXBuild dependency scanning limitation.  This must
 // duplicate the above list of headers.
 #if 0
 #  include "Directory.hxx.in"
@@ -2865,7 +2865,7 @@ std::string SystemTools::FindNameImpl(
   // Add the system search path to our path first
   std::vector<std::string> path;
   if (!no_system_path) {
-    SystemTools::GetPath(path, "CMAKE_FILE_PATH");
+    SystemTools::GetPath(path, "RBLXBUILD_FILE_PATH");
     SystemTools::GetPath(path);
   }
   // now add the additional paths
@@ -4639,7 +4639,7 @@ static unsigned int SystemToolsManagerCount;
 // SystemToolsManager should be included in any translation unit
 // that will use SystemTools or that implements the singleton
 // pattern. It makes sure that the SystemTools singleton is created
-// before and destroyed after all other singletons in CMake.
+// before and destroyed after all other singletons in RBLXBuild.
 
 SystemToolsManager::SystemToolsManager()
 {

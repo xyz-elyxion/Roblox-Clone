@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmCTestMemCheckHandler.h"
 
 #include <algorithm>
@@ -292,7 +292,7 @@ void cmCTestMemCheckHandler::GenerateCTestXML(cmXMLWriter& xml)
   if (!this->CTest->GetProduceXML()) {
     return;
   }
-  this->CTest->StartXML(xml, this->CMake, this->AppendXML);
+  this->CTest->StartXML(xml, this->RBLXBuild, this->AppendXML);
   this->CTest->GenerateSubprojectsOutput(xml);
   xml.StartElement("DynamicAnalysis");
   switch (this->MemoryTesterStyle) {
@@ -476,31 +476,31 @@ bool cmCTestMemCheckHandler::InitializeMemoryChecking()
   }
   if (this->CTest->GetCTestConfiguration("MemoryCheckType") ==
       "AddressSanitizer") {
-    this->MemoryTester = cmSystemTools::GetCMakeCommand();
+    this->MemoryTester = cmSystemTools::GetRBLXBuildCommand();
     this->MemoryTesterStyle = cmCTestMemCheckHandler::ADDRESS_SANITIZER;
     this->LogWithPID = true; // even if we give the log file the pid is added
   }
   if (this->CTest->GetCTestConfiguration("MemoryCheckType") ==
       "LeakSanitizer") {
-    this->MemoryTester = cmSystemTools::GetCMakeCommand();
+    this->MemoryTester = cmSystemTools::GetRBLXBuildCommand();
     this->MemoryTesterStyle = cmCTestMemCheckHandler::LEAK_SANITIZER;
     this->LogWithPID = true; // even if we give the log file the pid is added
   }
   if (this->CTest->GetCTestConfiguration("MemoryCheckType") ==
       "ThreadSanitizer") {
-    this->MemoryTester = cmSystemTools::GetCMakeCommand();
+    this->MemoryTester = cmSystemTools::GetRBLXBuildCommand();
     this->MemoryTesterStyle = cmCTestMemCheckHandler::THREAD_SANITIZER;
     this->LogWithPID = true; // even if we give the log file the pid is added
   }
   if (this->CTest->GetCTestConfiguration("MemoryCheckType") ==
       "MemorySanitizer") {
-    this->MemoryTester = cmSystemTools::GetCMakeCommand();
+    this->MemoryTester = cmSystemTools::GetRBLXBuildCommand();
     this->MemoryTesterStyle = cmCTestMemCheckHandler::MEMORY_SANITIZER;
     this->LogWithPID = true; // even if we give the log file the pid is added
   }
   if (this->CTest->GetCTestConfiguration("MemoryCheckType") ==
       "UndefinedBehaviorSanitizer") {
-    this->MemoryTester = cmSystemTools::GetCMakeCommand();
+    this->MemoryTester = cmSystemTools::GetRBLXBuildCommand();
     this->MemoryTesterStyle = cmCTestMemCheckHandler::UB_SANITIZER;
     this->LogWithPID = true; // even if we give the log file the pid is added
   }
@@ -695,7 +695,7 @@ bool cmCTestMemCheckHandler::InitializeMemoryChecking()
     case cmCTestMemCheckHandler::MEMORY_SANITIZER:
     case cmCTestMemCheckHandler::UB_SANITIZER: {
       // To pass arguments to ThreadSanitizer the environment variable
-      // TSAN_OPTIONS is used. This is done with the cmake -E env command.
+      // TSAN_OPTIONS is used. This is done with the rblxbuild -E env command.
       // The MemoryTesterDynamicOptions is setup with the -E env
       // Then the MemoryTesterEnvironmentVariable gets the
       // TSAN_OPTIONS string with the log_path in it.

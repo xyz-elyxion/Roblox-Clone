@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #pragma once
 
 #include <string>
@@ -34,10 +34,10 @@ public:
     // local-arguments["definitions"]
     std::vector<PreprocessorDefineData> Definitions;
 
-    // These are CMake vendor extensions
-    // local-arguments["vendor"]["cmake"]["compile-options"]
+    // These are RBLXBuild vendor extensions
+    // local-arguments["vendor"]["rblxbuild"]["compile-options"]
     std::vector<std::string> CompileOptions;
-    // local-arguments["vendor"]["cmake"]["compile-features"]
+    // local-arguments["vendor"]["rblxbuild"]["compile-features"]
     std::vector<std::string> CompileFeatures;
   };
 

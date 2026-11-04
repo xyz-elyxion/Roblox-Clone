@@ -1,180 +1,180 @@
 #!/bin/sh
 # Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-# file LICENSE.rst or https://cmake.org/licensing for details.
+# file LICENSE.rst or https://rblxbuild.org/licensing for details.
 
 die() {
   echo "$@" 1>&2 ; exit 1
 }
 
 # Compile flag extraction function.
-cmake_extract_standard_flags()
+rblxbuild_extract_standard_flags()
 {
   id="${1:-*}"
   lang="${2}"
   ver="${3}"
-  sed -n "s/ *set *( *CMAKE_${lang}${ver}_EXTENSION_COMPILE_OPTION *\"\{0,1\}\([^\")]*\).*/\1/p" \
-    "${cmake_source_dir}/Modules/Compiler/"${id}-${lang}.cmake \
+  sed -n "s/ *set *( *RBLXBUILD_${lang}${ver}_EXTENSION_COMPILE_OPTION *\"\{0,1\}\([^\")]*\).*/\1/p" \
+    "${rblxbuild_source_dir}/Modules/Compiler/"${id}-${lang}.rblxbuild \
     2>/dev/null | tr ';' ' '
   # Clang's CXX compiler flags are in the common module.
-  sed -n "s/ *set *( *CMAKE_\\\${lang}${ver}_EXTENSION_COMPILE_OPTION *\"\{0,1\}\([^\")]*\).*/\1/p" \
-    "${cmake_source_dir}/Modules/Compiler/Clang.cmake" \
+  sed -n "s/ *set *( *RBLXBUILD_\\\${lang}${ver}_EXTENSION_COMPILE_OPTION *\"\{0,1\}\([^\")]*\).*/\1/p" \
+    "${rblxbuild_source_dir}/Modules/Compiler/Clang.rblxbuild" \
     2>/dev/null | tr ';' ' '
 }
 
 # Version number extraction function.
-cmake_version_component()
+rblxbuild_version_component()
 {
   sed -n "
-/^set(CMake_VERSION_${1}/ {s/set(CMake_VERSION_${1} *\([0-9]*\)).*/\1/;p;}
-" "${cmake_source_dir}/Source/CMakeVersion.cmake"
+/^set(RBLXBuild_VERSION_${1}/ {s/set(RBLXBuild_VERSION_${1} *\([0-9]*\)).*/\1/;p;}
+" "${rblxbuild_source_dir}/Source/RBLXBuildVersion.rblxbuild"
 }
 
 # Install destination extraction function.
-cmake_install_dest_default()
+rblxbuild_install_dest_default()
 {
   sed -n '
-/^ *set(CMAKE_'"${1}"'_DIR_DEFAULT.*) # '"${2}"'$/ {
-  s/^ *set(CMAKE_'"${1}"'_DIR_DEFAULT *"\([^"]*\)").*$/\1/
-  s/${CMake_VERSION_MAJOR}/'"${cmake_version_major}"'/
-  s/${CMake_VERSION_MINOR}/'"${cmake_version_minor}"'/
-  s/${CMake_VERSION_PATCH}/'"${cmake_version_patch}"'/
+/^ *set(RBLXBUILD_'"${1}"'_DIR_DEFAULT.*) # '"${2}"'$/ {
+  s/^ *set(RBLXBUILD_'"${1}"'_DIR_DEFAULT *"\([^"]*\)").*$/\1/
+  s/${RBLXBuild_VERSION_MAJOR}/'"${rblxbuild_version_major}"'/
+  s/${RBLXBuild_VERSION_MINOR}/'"${rblxbuild_version_minor}"'/
+  s/${RBLXBuild_VERSION_PATCH}/'"${rblxbuild_version_patch}"'/
   p
   q
 }
-' "${cmake_source_dir}/Source/CMakeInstallDestinations.cmake"
+' "${rblxbuild_source_dir}/Source/RBLXBuildInstallDestinations.rblxbuild"
 }
 
-cmake_toupper()
+rblxbuild_toupper()
 {
     echo "$1" | tr '[a-z]' '[A-Z]'
 }
 
 # Detect system and directory information.
-cmake_system=`uname`
-cmake_source_dir=`cd "\`dirname \"$0\"\`";pwd`
-cmake_binary_dir=`pwd`
+rblxbuild_system=`uname`
+rblxbuild_source_dir=`cd "\`dirname \"$0\"\`";pwd`
+rblxbuild_binary_dir=`pwd`
 
 # Load version information.
-cmake_version_major="`cmake_version_component MAJOR`"
-cmake_version_minor="`cmake_version_component MINOR`"
-cmake_version_patch="`cmake_version_component PATCH`"
-cmake_version="${cmake_version_major}.${cmake_version_minor}.${cmake_version_patch}"
-cmake_version_rc="`cmake_version_component RC`"
-if test "$cmake_version_rc" != ""; then
-  cmake_version="${cmake_version}-rc${cmake_version_rc}"
+rblxbuild_version_major="`rblxbuild_version_component MAJOR`"
+rblxbuild_version_minor="`rblxbuild_version_component MINOR`"
+rblxbuild_version_patch="`rblxbuild_version_component PATCH`"
+rblxbuild_version="${rblxbuild_version_major}.${rblxbuild_version_minor}.${rblxbuild_version_patch}"
+rblxbuild_version_rc="`rblxbuild_version_component RC`"
+if test "$rblxbuild_version_rc" != ""; then
+  rblxbuild_version="${rblxbuild_version}-rc${rblxbuild_version_rc}"
 fi
 
-cmake_copyright="`grep '^Copyright .* Kitware' "${cmake_source_dir}/LICENSE.rst" |
+rblxbuild_copyright="`grep '^Copyright .* Kitware' "${rblxbuild_source_dir}/LICENSE.rst" |
                   sed 's/\`Contributors.*\`_/Contributors/'`"
 
-cmake_bin_dir_keyword="OTHER"
-cmake_data_dir_keyword="OTHER"
-cmake_doc_dir_keyword="OTHER"
-cmake_man_dir_keyword="OTHER"
-cmake_xdgdata_dir_keyword="OTHER"
-cmake_bin_dir=""
-cmake_data_dir=""
-cmake_doc_dir=""
-cmake_man_dir=""
-cmake_xdgdata_dir=""
-cmake_init_file=""
-cmake_bootstrap_system_libs=""
-cmake_bootstrap_qt_gui=""
-cmake_bootstrap_qt_qmake=""
-cmake_bootstrap_debugger=""
-cmake_sphinx_info=""
-cmake_sphinx_man=""
-cmake_sphinx_html=""
-cmake_sphinx_html_copybutton=""
-cmake_sphinx_qthelp=""
-cmake_sphinx_latexpdf=""
-cmake_sphinx_build=""
-cmake_sphinx_flags=""
+rblxbuild_bin_dir_keyword="OTHER"
+rblxbuild_data_dir_keyword="OTHER"
+rblxbuild_doc_dir_keyword="OTHER"
+rblxbuild_man_dir_keyword="OTHER"
+rblxbuild_xdgdata_dir_keyword="OTHER"
+rblxbuild_bin_dir=""
+rblxbuild_data_dir=""
+rblxbuild_doc_dir=""
+rblxbuild_man_dir=""
+rblxbuild_xdgdata_dir=""
+rblxbuild_init_file=""
+rblxbuild_bootstrap_system_libs=""
+rblxbuild_bootstrap_qt_gui=""
+rblxbuild_bootstrap_qt_qmake=""
+rblxbuild_bootstrap_debugger=""
+rblxbuild_sphinx_info=""
+rblxbuild_sphinx_man=""
+rblxbuild_sphinx_html=""
+rblxbuild_sphinx_html_copybutton=""
+rblxbuild_sphinx_qthelp=""
+rblxbuild_sphinx_latexpdf=""
+rblxbuild_sphinx_build=""
+rblxbuild_sphinx_flags=""
 
 # Determine whether this is a Cygwin environment.
-if echo "${cmake_system}" | grep CYGWIN >/dev/null 2>&1; then
-  cmake_system_cygwin=true
-  cmake_doc_dir_keyword="CYGWIN"
-  cmake_man_dir_keyword="CYGWIN"
+if echo "${rblxbuild_system}" | grep CYGWIN >/dev/null 2>&1; then
+  rblxbuild_system_cygwin=true
+  rblxbuild_doc_dir_keyword="CYGWIN"
+  rblxbuild_man_dir_keyword="CYGWIN"
 else
-  cmake_system_cygwin=false
+  rblxbuild_system_cygwin=false
 fi
 
 # Determine whether this is a MSYS environment.
-if echo "${cmake_system}" | grep MSYS >/dev/null 2>&1; then
-  cmake_system_msys=true
-  cmake_doc_dir_keyword="MSYS"
-  cmake_man_dir_keyword="MSYS"
+if echo "${rblxbuild_system}" | grep MSYS >/dev/null 2>&1; then
+  rblxbuild_system_msys=true
+  rblxbuild_doc_dir_keyword="MSYS"
+  rblxbuild_man_dir_keyword="MSYS"
 else
-  cmake_system_msys=false
+  rblxbuild_system_msys=false
 fi
 
 # Determine whether this is a MinGW environment.
-if echo "${cmake_system}" | grep 'MINGW' >/dev/null 2>&1; then
-  cmake_system_mingw=true
+if echo "${rblxbuild_system}" | grep 'MINGW' >/dev/null 2>&1; then
+  rblxbuild_system_mingw=true
 else
-  cmake_system_mingw=false
+  rblxbuild_system_mingw=false
 fi
 
 # Determine whether this is OS X
-if echo "${cmake_system}" | grep Darwin >/dev/null 2>&1; then
-  cmake_system_darwin=true
+if echo "${rblxbuild_system}" | grep Darwin >/dev/null 2>&1; then
+  rblxbuild_system_darwin=true
 else
-  cmake_system_darwin=false
+  rblxbuild_system_darwin=false
 fi
 
 # Determine whether this is BeOS
-if echo "${cmake_system}" | grep BeOS >/dev/null 2>&1; then
-  cmake_system_beos=true
-  cmake_doc_dir_keyword="HAIKU"
-  cmake_man_dir_keyword="HAIKU"
+if echo "${rblxbuild_system}" | grep BeOS >/dev/null 2>&1; then
+  rblxbuild_system_beos=true
+  rblxbuild_doc_dir_keyword="HAIKU"
+  rblxbuild_man_dir_keyword="HAIKU"
 else
-  cmake_system_beos=false
+  rblxbuild_system_beos=false
 fi
 
 # Determine whether this is Haiku
-if echo "${cmake_system}" | grep Haiku >/dev/null 2>&1; then
-  cmake_system_haiku=true
-  cmake_doc_dir_keyword="HAIKU"
-  cmake_man_dir_keyword="HAIKU"
+if echo "${rblxbuild_system}" | grep Haiku >/dev/null 2>&1; then
+  rblxbuild_system_haiku=true
+  rblxbuild_doc_dir_keyword="HAIKU"
+  rblxbuild_man_dir_keyword="HAIKU"
 else
-  cmake_system_haiku=false
+  rblxbuild_system_haiku=false
 fi
 
 # Determine whether this is OpenVMS
-if echo "${cmake_system}" | grep OpenVMS >/dev/null 2>&1; then
-  cmake_system_openvms=true
+if echo "${rblxbuild_system}" | grep OpenVMS >/dev/null 2>&1; then
+  rblxbuild_system_openvms=true
 else
-  cmake_system_openvms=false
+  rblxbuild_system_openvms=false
 fi
 
 # Determine whether this is HP-UX
-if echo "${cmake_system}" | grep HP-UX >/dev/null 2>&1; then
-  die 'CMake no longer compiles on HP-UX.  See
+if echo "${rblxbuild_system}" | grep HP-UX >/dev/null 2>&1; then
+  die 'RBLXBuild no longer compiles on HP-UX.  See
 
-  https://gitlab.kitware.com/cmake/cmake/-/issues/17137
+  https://gitlab.kitware.com/rblxbuild/rblxbuild/-/issues/17137
 
-Use CMake 3.9 or lower instead.'
+Use RBLXBuild 3.9 or lower instead.'
 fi
 
 # Determine whether this is AIX
-if echo "${cmake_system}" | grep AIX >/dev/null 2>&1; then
-  cmake_system_aix=true
+if echo "${rblxbuild_system}" | grep AIX >/dev/null 2>&1; then
+  rblxbuild_system_aix=true
 else
-  cmake_system_aix=false
+  rblxbuild_system_aix=false
 fi
 
 # Choose the generator to use for bootstrapping.
-if ${cmake_system_mingw}; then
+if ${rblxbuild_system_mingw}; then
   # Bootstrapping from an MSYS prompt.
-  cmake_bootstrap_generator="MSYS Makefiles"
+  rblxbuild_bootstrap_generator="MSYS Makefiles"
 else
   # Bootstrapping from a standard UNIX prompt.
-  cmake_bootstrap_generator="Unix Makefiles"
+  rblxbuild_bootstrap_generator="Unix Makefiles"
 fi
 
 # Choose tools and extensions for this platform.
-if ${cmake_system_openvms}; then
+if ${rblxbuild_system_openvms}; then
   _tmp="_tmp"
   _cmk="_cmk"
   _diff=`which diff`
@@ -185,18 +185,18 @@ else
 fi
 
 # Construct bootstrap directory name.
-cmake_bootstrap_dir="${cmake_binary_dir}/Bootstrap${_cmk}"
+rblxbuild_bootstrap_dir="${rblxbuild_binary_dir}/Bootstrap${_cmk}"
 
 # Helper function to fix windows paths.
-case "${cmake_system}" in
+case "${rblxbuild_system}" in
 *MINGW*)
-  cmake_fix_slashes()
+  rblxbuild_fix_slashes()
   {
     cmd //c echo "$(echo "$1" | sed 's/\\/\//g')" | sed 's/^"//;s/" *$//'
   }
   ;;
 *)
-  cmake_fix_slashes()
+  rblxbuild_fix_slashes()
   {
     echo "$1" | sed 's/\\/\//g'
   }
@@ -204,44 +204,44 @@ case "${cmake_system}" in
 esac
 
 # Choose the default install prefix.
-if ${cmake_system_mingw}; then
+if ${rblxbuild_system_mingw}; then
   if test "x${PROGRAMFILES}" != "x"; then
-    cmake_default_prefix=`cmake_fix_slashes "${PROGRAMFILES}/CMake"`
+    rblxbuild_default_prefix=`rblxbuild_fix_slashes "${PROGRAMFILES}/RBLXBuild"`
   elif test "x${ProgramFiles}" != "x"; then
-    cmake_default_prefix=`cmake_fix_slashes "${ProgramFiles}/CMake"`
+    rblxbuild_default_prefix=`rblxbuild_fix_slashes "${ProgramFiles}/RBLXBuild"`
   elif test "x${SYSTEMDRIVE}" != "x"; then
-    cmake_default_prefix=`cmake_fix_slashes "${SYSTEMDRIVE}/Program Files/CMake"`
+    rblxbuild_default_prefix=`rblxbuild_fix_slashes "${SYSTEMDRIVE}/Program Files/RBLXBuild"`
   elif test "x${SystemDrive}" != "x"; then
-    cmake_default_prefix=`cmake_fix_slashes "${SystemDrive}/Program Files/CMake"`
+    rblxbuild_default_prefix=`rblxbuild_fix_slashes "${SystemDrive}/Program Files/RBLXBuild"`
   else
-    cmake_default_prefix="c:/Program Files/CMake"
+    rblxbuild_default_prefix="c:/Program Files/RBLXBuild"
   fi
-elif ${cmake_system_haiku}; then
-  cmake_default_prefix=`finddir B_COMMON_DIRECTORY`
+elif ${rblxbuild_system_haiku}; then
+  rblxbuild_default_prefix=`finddir B_COMMON_DIRECTORY`
 else
-  cmake_default_prefix="/usr/local"
+  rblxbuild_default_prefix="/usr/local"
 fi
 
 # Lookup default install destinations.
-cmake_bin_dir_default="`cmake_install_dest_default BIN ${cmake_bin_dir_keyword}`"
-cmake_data_dir_default="`cmake_install_dest_default DATA ${cmake_data_dir_keyword}`"
-cmake_doc_dir_default="`cmake_install_dest_default DOC ${cmake_doc_dir_keyword}`"
-cmake_man_dir_default="`cmake_install_dest_default MAN ${cmake_man_dir_keyword}`"
-cmake_xdgdata_dir_default="`cmake_install_dest_default XDGDATA ${cmake_xdgdata_dir_keyword}`"
+rblxbuild_bin_dir_default="`rblxbuild_install_dest_default BIN ${rblxbuild_bin_dir_keyword}`"
+rblxbuild_data_dir_default="`rblxbuild_install_dest_default DATA ${rblxbuild_data_dir_keyword}`"
+rblxbuild_doc_dir_default="`rblxbuild_install_dest_default DOC ${rblxbuild_doc_dir_keyword}`"
+rblxbuild_man_dir_default="`rblxbuild_install_dest_default MAN ${rblxbuild_man_dir_keyword}`"
+rblxbuild_xdgdata_dir_default="`rblxbuild_install_dest_default XDGDATA ${rblxbuild_xdgdata_dir_keyword}`"
 
-CMAKE_KNOWN_C_COMPILERS="cc gcc clang xlc icx tcc"
-CMAKE_KNOWN_CXX_COMPILERS="aCC xlC CC g++ clang++ c++ icpx"
-CMAKE_KNOWN_MAKE_PROCESSORS="gmake make smake"
-CMAKE_KNOWN_NINJA_PROCESSORS="ninja-build ninja samu"
+RBLXBUILD_KNOWN_C_COMPILERS="cc gcc clang xlc icx tcc"
+RBLXBUILD_KNOWN_CXX_COMPILERS="aCC xlC CC g++ clang++ c++ icpx"
+RBLXBUILD_KNOWN_MAKE_PROCESSORS="gmake make smake"
+RBLXBUILD_KNOWN_NINJA_PROCESSORS="ninja-build ninja samu"
 
-CMAKE_PROBLEMATIC_FILES="\
-  CMakeCache.txt \
-  CMakeSystem.cmake \
-  CMakeCCompiler.cmake \
-  CMakeCXXCompiler.cmake \
-  */CMakeSystem.cmake \
-  */CMakeCCompiler.cmake \
-  */CMakeCXXCompiler.cmake \
+RBLXBUILD_PROBLEMATIC_FILES="\
+  RBLXBuildCache.txt \
+  RBLXBuildSystem.rblxbuild \
+  RBLXBuildCCompiler.rblxbuild \
+  RBLXBuildCXXCompiler.rblxbuild \
+  */RBLXBuildSystem.rblxbuild \
+  */RBLXBuildCCompiler.rblxbuild \
+  */RBLXBuildCXXCompiler.rblxbuild \
   Source/cmConfigure.h \
   Source/CTest/Curl/config.h \
   Utilities/cmThirdParty.h \
@@ -251,7 +251,7 @@ CMAKE_PROBLEMATIC_FILES="\
   Utilities/cmnghttp2/config.h \
   "
 
-CMAKE_UNUSED_SOURCES="\
+RBLXBUILD_UNUSED_SOURCES="\
   cmGlobalXCodeGenerator \
   cmLocalXCodeGenerator \
   cmXCodeObject \
@@ -259,7 +259,7 @@ CMAKE_UNUSED_SOURCES="\
   cmSourceGroup \
 "
 
-CMAKE_CXX_SOURCES="\
+RBLXBUILD_CXX_SOURCES="\
   cmAddCompileDefinitionsCommand \
   cmAddCustomCommandCommand \
   cmAddCustomRuleCommand \
@@ -286,14 +286,14 @@ CMAKE_CXX_SOURCES="\
   cmBreakCommand \
   cmBuildCommand \
   cmBuildDatabase \
-  cmCMakeLanguageCommand \
-  cmCMakeMinimumRequired \
+  cmRBLXBuildLanguageCommand \
+  cmRBLXBuildMinimumRequired \
   cmList \
-  cmCMakeDiagnosticCommand \
-  cmCMakePath \
-  cmCMakePathCommand \
-  cmCMakePolicyCommand \
-  cmCMakeString \
+  cmRBLXBuildDiagnosticCommand \
+  cmRBLXBuildPath \
+  cmRBLXBuildPathCommand \
+  cmRBLXBuildPolicyCommand \
+  cmRBLXBuildString \
   cmCPackPropertiesGenerator \
   cmCacheDocumentationTable \
   cmCacheManager \
@@ -332,11 +332,11 @@ CMAKE_CXX_SOURCES="\
   cmExecuteProcessCommand \
   cmExpandedCommandArgument \
   cmExperimental \
-  cmExportBuildCMakeConfigGenerator \
+  cmExportBuildRBLXBuildConfigGenerator \
   cmExportBuildFileGenerator \
-  cmExportCMakeConfigGenerator \
+  cmExportRBLXBuildConfigGenerator \
   cmExportFileGenerator \
-  cmExportInstallCMakeConfigGenerator \
+  cmExportInstallRBLXBuildConfigGenerator \
   cmExportInstallFileGenerator \
   cmExportSet \
   cmExportTryCompileFileGenerator \
@@ -386,7 +386,7 @@ CMAKE_CXX_SOURCES="\
   cmGeneratorTarget_Sources \
   cmGeneratorTarget_TransitiveProperty \
   cmGeneratorTarget_Wrappers \
-  cmGetCMakePropertyCommand \
+  cmGetRBLXBuildPropertyCommand \
   cmGetDirectoryPropertyCommand \
   cmGetFilenameComponentCommand \
   cmGetPipes \
@@ -404,7 +404,7 @@ CMAKE_CXX_SOURCES="\
   cmIncludeGuardCommand \
   cmIncludeDirectoryCommand \
   cmIncludeRegularExpressionCommand \
-  cmInstallCMakeConfigExportGenerator \
+  cmInstallRBLXBuildConfigExportGenerator \
   cmInstallCommand \
   cmInstallCommandArguments \
   cmInstallCxxModuleBmiGenerator \
@@ -523,31 +523,31 @@ CMAKE_CXX_SOURCES="\
   cmWindowsRegistry \
   cmWorkingDirectory \
   cmXcFramework \
-  cmake  \
-  cmakemain \
+  rblxbuild  \
+  rblxbuildmain \
   cmcmd  \
   cm_fileno \
 "
 
-if ${cmake_system_darwin}; then
-  CMAKE_CXX_SOURCES="${CMAKE_CXX_SOURCES}\
+if ${rblxbuild_system_darwin}; then
+  RBLXBUILD_CXX_SOURCES="${RBLXBUILD_CXX_SOURCES}\
     cmMachO \
   "
 fi
 
-if ${cmake_system_mingw}; then
-  CMAKE_CXX_SOURCES="${CMAKE_CXX_SOURCES}\
+if ${rblxbuild_system_mingw}; then
+  RBLXBUILD_CXX_SOURCES="${RBLXBUILD_CXX_SOURCES}\
     cmGlobalMSYSMakefileGenerator \
     cmGlobalMinGWMakefileGenerator \
     cmVSSetupHelper \
   "
 fi
 
-CMAKE_C_SOURCES="\
+RBLXBUILD_C_SOURCES="\
   cm_utf8 \
 "
 
-CMAKE_STD_CXX_HEADERS="\
+RBLXBUILD_STD_CXX_HEADERS="\
   filesystem \
   memory \
   optional \
@@ -555,7 +555,7 @@ CMAKE_STD_CXX_HEADERS="\
   string_view \
   utility \
 "
-CMAKE_STD_CXX_SOURCES="\
+RBLXBUILD_STD_CXX_SOURCES="\
   fs_path \
   string_view \
 "
@@ -570,7 +570,7 @@ LexerParser_C_SOURCES="\
   cmListFileLexer \
 "
 
-if ${cmake_system_mingw}; then
+if ${rblxbuild_system_mingw}; then
   KWSYS_C_SOURCES="\
     EncodingC \
     ProcessWin32 \
@@ -628,7 +628,7 @@ JSONCPP_CXX_SOURCES="\
   src/lib_json/json_writer.cpp \
   "
 
-if ${cmake_system_mingw}; then
+if ${rblxbuild_system_mingw}; then
   LIBUV_C_SOURCES="\
     src/fs-poll.c \
     src/idna.c
@@ -669,7 +669,7 @@ else
     src/strtok.c \
     src/timer.c \
     src/uv-common.c \
-    src/unix/cmake-bootstrap.c \
+    src/unix/rblxbuild-bootstrap.c \
     src/unix/core.c \
     src/unix/fs.c \
     src/unix/loop.c \
@@ -687,50 +687,50 @@ else
     "
 fi
 
-# Display CMake bootstrap usage
-cmake_usage()
+# Display RBLXBuild bootstrap usage
+rblxbuild_usage()
 {
 echo '
-Usage: '"$0"' [<options>...] [-- <cmake-options>...]
+Usage: '"$0"' [<options>...] [-- <rblxbuild-options>...]
 Options: [defaults in brackets after descriptions]
 Configuration:
   --help                  print this message
   --version               only print version information
   --verbose               display more information
-  --parallel=n            bootstrap cmake in parallel, where n is
+  --parallel=n            bootstrap rblxbuild in parallel, where n is
                           number of nodes [1]
   --generator=<generator> generator to use (MSYS Makefiles, Unix Makefiles,
                           or Ninja)
-  --enable-ccache         Enable ccache when building cmake
+  --enable-ccache         Enable ccache when building rblxbuild
   --init=FILE             load FILE as script to populate cache
   --system-libs           use all system-installed third-party libraries
                           (for use only by package maintainers)
-  --no-system-libs        use all cmake-provided third-party libraries
+  --no-system-libs        use all rblxbuild-provided third-party libraries
                           (default)
   --system-cppdap         use system-installed cppdap library
-  --no-system-cppdap      use cmake-provided cppdap library (default)
+  --no-system-cppdap      use rblxbuild-provided cppdap library (default)
   --system-curl           use system-installed curl library (default on macOS)
-  --no-system-curl        use cmake-provided curl library (default elsewhere)
+  --no-system-curl        use rblxbuild-provided curl library (default elsewhere)
   --system-expat          use system-installed expat library
-  --no-system-expat       use cmake-provided expat library (default)
+  --no-system-expat       use rblxbuild-provided expat library (default)
   --system-jsoncpp        use system-installed jsoncpp library
-  --no-system-jsoncpp     use cmake-provided jsoncpp library (default)
+  --no-system-jsoncpp     use rblxbuild-provided jsoncpp library (default)
   --system-zlib           use system-installed zlib library
-  --no-system-zlib        use cmake-provided zlib library (default)
+  --no-system-zlib        use rblxbuild-provided zlib library (default)
   --system-bzip2          use system-installed bzip2 library
-  --no-system-bzip2       use cmake-provided bzip2 library (default)
+  --no-system-bzip2       use rblxbuild-provided bzip2 library (default)
   --system-liblzma        use system-installed liblzma library
-  --no-system-liblzma     use cmake-provided liblzma library (default)
+  --no-system-liblzma     use rblxbuild-provided liblzma library (default)
   --system-nghttp2        use system-installed nghttp2 library
-  --no-system-nghttp2     use cmake-provided nghttp2 library (default)
+  --no-system-nghttp2     use rblxbuild-provided nghttp2 library (default)
   --system-zstd           use system-installed zstd library
-  --no-system-zstd        use cmake-provided zstd library (default)
+  --no-system-zstd        use rblxbuild-provided zstd library (default)
   --system-libarchive     use system-installed libarchive library
-  --no-system-libarchive  use cmake-provided libarchive library (default)
+  --no-system-libarchive  use rblxbuild-provided libarchive library (default)
   --system-librhash       use system-installed librhash library
-  --no-system-librhash    use cmake-provided librhash library (default)
+  --no-system-librhash    use rblxbuild-provided librhash library (default)
   --system-libuv          use system-installed libuv library
-  --no-system-libuv       use cmake-provided libuv library (default)
+  --no-system-libuv       use rblxbuild-provided libuv library (default)
 
   --bootstrap-system-libuv use system-installed libuv library for bootstrap
   --bootstrap-system-jsoncpp use system-installed jsoncpp library for bootstrap
@@ -754,45 +754,45 @@ Configuration:
 
 Directory and file names:
   --prefix=PREFIX         install files in tree rooted at PREFIX
-                          ['"${cmake_default_prefix}"']
+                          ['"${rblxbuild_default_prefix}"']
   --bindir=DIR            install binaries in PREFIX/DIR
-                          ['"${cmake_bin_dir_default}"']
+                          ['"${rblxbuild_bin_dir_default}"']
   --datadir=DIR           install data files in PREFIX/DIR
-                          ['"${cmake_data_dir_default}"']
+                          ['"${rblxbuild_data_dir_default}"']
   --docdir=DIR            install documentation files in PREFIX/DIR
-                          ['"${cmake_doc_dir_default}"']
+                          ['"${rblxbuild_doc_dir_default}"']
   --mandir=DIR            install man pages files in PREFIX/DIR/manN
-                          ['"${cmake_man_dir_default}"']
+                          ['"${rblxbuild_man_dir_default}"']
   --xdgdatadir=DIR        install XDG specific files in PREFIX/DIR
-                          ['"${cmake_xdgdata_dir_default}"']
+                          ['"${rblxbuild_xdgdata_dir_default}"']
 '
   exit 10
 }
 
-# Display CMake bootstrap usage
-cmake_version_display()
+# Display RBLXBuild bootstrap usage
+rblxbuild_version_display()
 {
-  echo "CMake ${cmake_version}, ${cmake_copyright}"
+  echo "RBLXBuild ${rblxbuild_version}, ${rblxbuild_copyright}"
 }
 
-# Display CMake bootstrap error, display the log file and exit
-cmake_error()
+# Display RBLXBuild bootstrap error, display the log file and exit
+rblxbuild_error()
 {
   res=$1
   shift 1
   echo "---------------------------------------------"
-  echo "Error when bootstrapping CMake:"
+  echo "Error when bootstrapping RBLXBuild:"
   echo "$*"
   echo "---------------------------------------------"
-  if test -f cmake_bootstrap.log; then
-    echo "Log of errors: `pwd`/cmake_bootstrap.log"
-    #cat cmake_bootstrap.log
+  if test -f rblxbuild_bootstrap.log; then
+    echo "Log of errors: `pwd`/rblxbuild_bootstrap.log"
+    #cat rblxbuild_bootstrap.log
     echo "---------------------------------------------"
   fi
   exit ${res}
 }
 
-cmake_generate_file_tmp ()
+rblxbuild_generate_file_tmp ()
 {
   OUTFILE="$1"
   TMPFILE="$2"
@@ -803,22 +803,22 @@ cmake_generate_file_tmp ()
   fi
 }
 
-cmake_generate_file ()
+rblxbuild_generate_file ()
 {
   OUTFILE="$1"
   CONTENT="$2"
   echo "$CONTENT" > "$OUTFILE.tmp"
-  cmake_generate_file_tmp "$OUTFILE" "$OUTFILE.tmp"
+  rblxbuild_generate_file_tmp "$OUTFILE" "$OUTFILE.tmp"
 }
 
 # Replace KWSYS_NAMESPACE with cmsys
-cmake_replace_string ()
+rblxbuild_replace_string ()
 {
   INFILE="$1"
   OUTFILE="$2"
   SEARCHFOR="$3"
   REPLACEWITH="$4"
-  if test -f "${INFILE}" || ${cmake_system_openvms}; then
+  if test -f "${INFILE}" || ${rblxbuild_system_openvms}; then
     sed "s/\@${SEARCHFOR}\@/${REPLACEWITH}/g" "${INFILE}" > "${OUTFILE}${_tmp}"
     if test -f "${OUTFILE}${_tmp}"; then
       if "${_diff}" "${OUTFILE}" "${OUTFILE}${_tmp}" > /dev/null 2> /dev/null ; then
@@ -829,17 +829,17 @@ cmake_replace_string ()
       fi
     fi
   else
-    cmake_error 1 "Cannot find file ${INFILE}"
+    rblxbuild_error 1 "Cannot find file ${INFILE}"
   fi
 }
 
-cmake_kwsys_config_replace_string ()
+rblxbuild_kwsys_config_replace_string ()
 {
   INFILE="$1"
   OUTFILE="$2"
   shift 2
   APPEND="$*"
-  if test -f "${INFILE}" || ${cmake_system_openvms}; then
+  if test -f "${INFILE}" || ${rblxbuild_system_openvms}; then
     echo "${APPEND}" > "${OUTFILE}${_tmp}"
     sed "/./ {s/\@KWSYS_NAMESPACE\@/cmsys/g;
               s/@KWSYS_BUILD_SHARED@/${KWSYS_BUILD_SHARED}/g;
@@ -857,11 +857,11 @@ cmake_kwsys_config_replace_string ()
       fi
     fi
   else
-    cmake_error 2 "Cannot find file ${INFILE}"
+    rblxbuild_error 2 "Cannot find file ${INFILE}"
   fi
 }
 # Write string into a file
-cmake_report ()
+rblxbuild_report ()
 {
   FILE=$1
   shift
@@ -869,9 +869,9 @@ cmake_report ()
 }
 
 # Escape spaces in strings for artifacts
-cmake_escape_artifact ()
+rblxbuild_escape_artifact ()
 {
-  if test "${cmake_bootstrap_generator}" = "Ninja"; then
+  if test "${rblxbuild_bootstrap_generator}" = "Ninja"; then
     echo $1 | sed "s/ /$ /g"
   else
     echo $1 | sed "s/ /\\\\ /g"
@@ -879,47 +879,47 @@ cmake_escape_artifact ()
 }
 
 # Escape spaces in strings for shell
-cmake_escape_shell ()
+rblxbuild_escape_shell ()
 {
   echo $1 | sed "s/ /\\\\ /g"
 }
 
 # Encode object file names.
-cmake_obj ()
+rblxbuild_obj ()
 {
   echo $1 | sed 's/\//-/g' | sed 's/$/\.o/'
 }
 
 # Strip prefix from argument
-cmake_arg ()
+rblxbuild_arg ()
 {
   echo "$1" | sed "s/^${2-[^=]*=}//"
 }
 
 # Write message to the log
-cmake_log ()
+rblxbuild_log ()
 {
-  echo "$*" >> cmake_bootstrap.log
+  echo "$*" >> rblxbuild_bootstrap.log
 }
 
 # Return temp file
-cmake_tmp_file ()
+rblxbuild_tmp_file ()
 {
-  echo "cmake_bootstrap_$$_test"
+  echo "rblxbuild_bootstrap_$$_test"
 }
 
 # Run a compiler test. First argument is compiler, second one are compiler
 # flags, third one is test source file to be compiled
-cmake_try_run ()
+rblxbuild_try_run ()
 {
   COMPILER=$1
   FLAGS=$2
   TESTFILE=$3
   if test ! -f "${TESTFILE}"; then
-    echo "Test file ${TESTFILE} missing. Please verify your CMake source tree."
+    echo "Test file ${TESTFILE} missing. Please verify your RBLXBuild source tree."
     exit 4
   fi
-  TMPFILE=`cmake_tmp_file`
+  TMPFILE=`rblxbuild_tmp_file`
   echo "Try: ${COMPILER}"
   echo "Line: ${COMPILER} ${FLAGS} ${TESTFILE} -o ${TMPFILE}"
   echo "----------  file   -----------------------"
@@ -947,7 +947,7 @@ cmake_try_run ()
 }
 
 # Run a make test. First argument is the make interpreter.
-cmake_try_make ()
+rblxbuild_try_make ()
 {
   MAKE_PROC="$1"
   MAKE_FLAGS="$2"
@@ -974,58 +974,58 @@ cmake_try_make ()
 }
 
 # Parse arguments
-cmake_verbose=
-cmake_parallel_make=
-cmake_ccache_enabled=
-cmake_prefix_dir="${cmake_default_prefix}"
+rblxbuild_verbose=
+rblxbuild_parallel_make=
+rblxbuild_ccache_enabled=
+rblxbuild_prefix_dir="${rblxbuild_default_prefix}"
 bootstrap_system_libuv=
 bootstrap_system_jsoncpp=
 bootstrap_system_librhash=
 while test $# != 0; do
   case "$1" in
-  --prefix=*) dir=`cmake_arg "$1"`
-              cmake_prefix_dir=`cmake_fix_slashes "$dir"` ;;
-  --parallel=*) cmake_parallel_make=`cmake_arg "$1"` ;;
-  --generator=*) cmake_bootstrap_generator=`cmake_arg "$1"` ;;
-  --bindir=*) cmake_bin_dir=`cmake_arg "$1"` ;;
-  --datadir=*) cmake_data_dir=`cmake_arg "$1"` ;;
-  --docdir=*) cmake_doc_dir=`cmake_arg "$1"` ;;
-  --mandir=*) cmake_man_dir=`cmake_arg "$1"` ;;
-  --xdgdatadir=*) cmake_xdgdata_dir=`cmake_arg "$1"` ;;
-  --init=*) cmake_init_file=`cmake_arg "$1"` ;;
-  --system-libs) cmake_bootstrap_system_libs="${cmake_bootstrap_system_libs} -DCMAKE_USE_SYSTEM_LIBRARIES=1" ;;
-  --no-system-libs) cmake_bootstrap_system_libs="${cmake_bootstrap_system_libs} -DCMAKE_USE_SYSTEM_LIBRARIES=0" ;;
+  --prefix=*) dir=`rblxbuild_arg "$1"`
+              rblxbuild_prefix_dir=`rblxbuild_fix_slashes "$dir"` ;;
+  --parallel=*) rblxbuild_parallel_make=`rblxbuild_arg "$1"` ;;
+  --generator=*) rblxbuild_bootstrap_generator=`rblxbuild_arg "$1"` ;;
+  --bindir=*) rblxbuild_bin_dir=`rblxbuild_arg "$1"` ;;
+  --datadir=*) rblxbuild_data_dir=`rblxbuild_arg "$1"` ;;
+  --docdir=*) rblxbuild_doc_dir=`rblxbuild_arg "$1"` ;;
+  --mandir=*) rblxbuild_man_dir=`rblxbuild_arg "$1"` ;;
+  --xdgdatadir=*) rblxbuild_xdgdata_dir=`rblxbuild_arg "$1"` ;;
+  --init=*) rblxbuild_init_file=`rblxbuild_arg "$1"` ;;
+  --system-libs) rblxbuild_bootstrap_system_libs="${rblxbuild_bootstrap_system_libs} -DRBLXBUILD_USE_SYSTEM_LIBRARIES=1" ;;
+  --no-system-libs) rblxbuild_bootstrap_system_libs="${rblxbuild_bootstrap_system_libs} -DRBLXBUILD_USE_SYSTEM_LIBRARIES=0" ;;
   --system-bzip2|--system-cppdap|--system-curl|--system-expat|--system-jsoncpp|--system-libarchive|--system-librhash|--system-zlib|--system-liblzma|--system-nghttp2|--system-zstd|--system-libuv)
-    lib=`cmake_arg "$1" "--system-"`
-    cmake_bootstrap_system_libs="${cmake_bootstrap_system_libs} -DCMAKE_USE_SYSTEM_LIBRARY_`cmake_toupper $lib`=1" ;;
+    lib=`rblxbuild_arg "$1" "--system-"`
+    rblxbuild_bootstrap_system_libs="${rblxbuild_bootstrap_system_libs} -DRBLXBUILD_USE_SYSTEM_LIBRARY_`rblxbuild_toupper $lib`=1" ;;
   --no-system-bzip2|--no-system-cppdap|--no-system-curl|--no-system-expat|--no-system-jsoncpp|--no-system-libarchive|--no-system-librhash|--no-system-zlib|--no-system-liblzma|--no-system-nghttp2|--no-system-zstd|--no-system-libuv)
-    lib=`cmake_arg "$1" "--no-system-"`
-    cmake_bootstrap_system_libs="${cmake_bootstrap_system_libs} -DCMAKE_USE_SYSTEM_LIBRARY_`cmake_toupper $lib`=0" ;;
+    lib=`rblxbuild_arg "$1" "--no-system-"`
+    rblxbuild_bootstrap_system_libs="${rblxbuild_bootstrap_system_libs} -DRBLXBUILD_USE_SYSTEM_LIBRARY_`rblxbuild_toupper $lib`=0" ;;
   --bootstrap-system-libuv) bootstrap_system_libuv="1" ;;
   --bootstrap-system-jsoncpp) bootstrap_system_jsoncpp="1" ;;
   --bootstrap-system-librhash) bootstrap_system_librhash="1" ;;
-  --qt-gui) cmake_bootstrap_qt_gui="1" ;;
-  --no-qt-gui) cmake_bootstrap_qt_gui="0" ;;
-  --qt-qmake=*) cmake_bootstrap_qt_qmake=`cmake_arg "$1"` ;;
-  --debugger) cmake_bootstrap_debugger="1" ;;
-  --no-debugger) cmake_bootstrap_debugger="0" ;;
-  --sphinx-info) cmake_sphinx_info="1" ;;
-  --sphinx-man) cmake_sphinx_man="1" ;;
-  --sphinx-html) cmake_sphinx_html="1" ;;
-  --sphinx-html-copybutton) cmake_sphinx_html_copybutton="1" ;;
-  --sphinx-qthelp) cmake_sphinx_qthelp="1" ;;
-  --sphinx-latexpdf) cmake_sphinx_latexpdf="1" ;;
-  --sphinx-build=*) cmake_sphinx_build=`cmake_arg "$1"` ;;
-  --sphinx-flags=*) cmake_sphinx_flags=`cmake_arg "$1"` ;;
-  --help) cmake_usage ;;
-  --version) cmake_version_display ; exit 2 ;;
-  --verbose) cmake_verbose=TRUE ;;
-  --enable-ccache) cmake_ccache_enabled=TRUE ;;
-  CC=*) CC=`cmake_arg "$1"` ;;
-  CXX=*) CXX=`cmake_arg "$1"` ;;
-  CFLAGS=*) CFLAGS=`cmake_arg "$1"` ;;
-  CXXFLAGS=*) CXXFLAGS=`cmake_arg "$1"` ;;
-  LDFLAGS=*) LDFLAGS=`cmake_arg "$1"` ;;
+  --qt-gui) rblxbuild_bootstrap_qt_gui="1" ;;
+  --no-qt-gui) rblxbuild_bootstrap_qt_gui="0" ;;
+  --qt-qmake=*) rblxbuild_bootstrap_qt_qmake=`rblxbuild_arg "$1"` ;;
+  --debugger) rblxbuild_bootstrap_debugger="1" ;;
+  --no-debugger) rblxbuild_bootstrap_debugger="0" ;;
+  --sphinx-info) rblxbuild_sphinx_info="1" ;;
+  --sphinx-man) rblxbuild_sphinx_man="1" ;;
+  --sphinx-html) rblxbuild_sphinx_html="1" ;;
+  --sphinx-html-copybutton) rblxbuild_sphinx_html_copybutton="1" ;;
+  --sphinx-qthelp) rblxbuild_sphinx_qthelp="1" ;;
+  --sphinx-latexpdf) rblxbuild_sphinx_latexpdf="1" ;;
+  --sphinx-build=*) rblxbuild_sphinx_build=`rblxbuild_arg "$1"` ;;
+  --sphinx-flags=*) rblxbuild_sphinx_flags=`rblxbuild_arg "$1"` ;;
+  --help) rblxbuild_usage ;;
+  --version) rblxbuild_version_display ; exit 2 ;;
+  --verbose) rblxbuild_verbose=TRUE ;;
+  --enable-ccache) rblxbuild_ccache_enabled=TRUE ;;
+  CC=*) CC=`rblxbuild_arg "$1"` ;;
+  CXX=*) CXX=`rblxbuild_arg "$1"` ;;
+  CFLAGS=*) CFLAGS=`rblxbuild_arg "$1"` ;;
+  CXXFLAGS=*) CXXFLAGS=`rblxbuild_arg "$1"` ;;
+  LDFLAGS=*) LDFLAGS=`rblxbuild_arg "$1"` ;;
   --) shift; break ;;
   *) die "Unknown option: $1" ;;
   esac
@@ -1033,90 +1033,90 @@ while test $# != 0; do
 done
 
 # Make sure the generator is valid
-case "${cmake_bootstrap_generator}" in
+case "${rblxbuild_bootstrap_generator}" in
   'MSYS Makefiles'|'Unix Makefiles'|'Ninja') ;;
-  *) cmake_error 10 "Invalid generator: ${cmake_bootstrap_generator}"
+  *) rblxbuild_error 10 "Invalid generator: ${rblxbuild_bootstrap_generator}"
 esac
 
 # If verbose, display some information about bootstrap
-if test -n "${cmake_verbose}"; then
+if test -n "${rblxbuild_verbose}"; then
   echo "---------------------------------------------"
-  echo "Source directory: ${cmake_source_dir}"
-  echo "Binary directory: ${cmake_binary_dir}"
-  echo "Prefix directory: ${cmake_prefix_dir}"
-  echo "System:           ${cmake_system}"
-  echo "Generator:        ${cmake_bootstrap_generator}"
-  if test "x${cmake_parallel_make}" != "x"; then
-    echo "Doing parallel make: ${cmake_parallel_make}"
+  echo "Source directory: ${rblxbuild_source_dir}"
+  echo "Binary directory: ${rblxbuild_binary_dir}"
+  echo "Prefix directory: ${rblxbuild_prefix_dir}"
+  echo "System:           ${rblxbuild_system}"
+  echo "Generator:        ${rblxbuild_bootstrap_generator}"
+  if test "x${rblxbuild_parallel_make}" != "x"; then
+    echo "Doing parallel make: ${rblxbuild_parallel_make}"
   fi
   echo ""
 fi
 
 echo "---------------------------------------------"
-# Get CMake version
-echo "`cmake_version_display`"
+# Get RBLXBuild version
+echo "`rblxbuild_version_display`"
 
 # Check for in-source build
-cmake_in_source_build=
-if test -f "${cmake_binary_dir}/Source/cmake.cxx" &&
-     test -f "${cmake_binary_dir}/Source/cmake.h"; then
-  if test -n "${cmake_verbose}"; then
+rblxbuild_in_source_build=
+if test -f "${rblxbuild_binary_dir}/Source/rblxbuild.cxx" &&
+     test -f "${rblxbuild_binary_dir}/Source/rblxbuild.h"; then
+  if test -n "${rblxbuild_verbose}"; then
     echo "Warning: This is an in-source build"
   fi
-  cmake_in_source_build=TRUE
+  rblxbuild_in_source_build=TRUE
 fi
 
 # If this is not an in-source build, then Bootstrap stuff should not exist.
-if test -z "${cmake_in_source_build}"; then
+if test -z "${rblxbuild_in_source_build}"; then
   # Did somebody bootstrap in the source tree?
-  if test -d "${cmake_source_dir}/Bootstrap${_cmk}"; then
-    cmake_error 10 "Found directory \"${cmake_source_dir}/Bootstrap${_cmk}\".
-Looks like somebody did bootstrap CMake in the source tree, but now you are
+  if test -d "${rblxbuild_source_dir}/Bootstrap${_cmk}"; then
+    rblxbuild_error 10 "Found directory \"${rblxbuild_source_dir}/Bootstrap${_cmk}\".
+Looks like somebody did bootstrap RBLXBuild in the source tree, but now you are
 trying to do bootstrap in the binary tree. Please remove Bootstrap${_cmk}
 directory from the source tree."
   fi
   # Is there a cache in the source tree?
-  for cmake_problematic_file in ${CMAKE_PROBLEMATIC_FILES}; do
-    if test -f "${cmake_source_dir}/${cmake_problematic_file}"; then
-      cmake_error 10 "Found \"${cmake_source_dir}/${cmake_problematic_file}\".
-Looks like somebody tried to build CMake in the source tree, but now you are
-trying to do bootstrap in the binary tree. Please remove \"${cmake_problematic_file}\"
+  for rblxbuild_problematic_file in ${RBLXBUILD_PROBLEMATIC_FILES}; do
+    if test -f "${rblxbuild_source_dir}/${rblxbuild_problematic_file}"; then
+      rblxbuild_error 10 "Found \"${rblxbuild_source_dir}/${rblxbuild_problematic_file}\".
+Looks like somebody tried to build RBLXBuild in the source tree, but now you are
+trying to do bootstrap in the binary tree. Please remove \"${rblxbuild_problematic_file}\"
 from the source tree."
     fi
   done
 fi
 
 # Make bootstrap directory
-test -d "${cmake_bootstrap_dir}" || mkdir "${cmake_bootstrap_dir}"
-if test ! -d "${cmake_bootstrap_dir}"; then
-  cmake_error 3 "Cannot create directory ${cmake_bootstrap_dir} to bootstrap CMake."
+test -d "${rblxbuild_bootstrap_dir}" || mkdir "${rblxbuild_bootstrap_dir}"
+if test ! -d "${rblxbuild_bootstrap_dir}"; then
+  rblxbuild_error 3 "Cannot create directory ${rblxbuild_bootstrap_dir} to bootstrap RBLXBuild."
 fi
-cd "${cmake_bootstrap_dir}"
+cd "${rblxbuild_bootstrap_dir}"
 
 test -d "cmsys" || mkdir "cmsys"
 if test ! -d "cmsys"; then
-  cmake_error 4 "Cannot create directory ${cmake_bootstrap_dir}/cmsys"
+  rblxbuild_error 4 "Cannot create directory ${rblxbuild_bootstrap_dir}/cmsys"
 fi
 
 # Delete all the bootstrap files
-rm -f "${cmake_bootstrap_dir}/cmake_bootstrap.log"
-rm -f "${cmake_bootstrap_dir}/cmConfigure.h${_tmp}"
-rm -f "${cmake_bootstrap_dir}/cmVersionConfig.h${_tmp}"
+rm -f "${rblxbuild_bootstrap_dir}/rblxbuild_bootstrap.log"
+rm -f "${rblxbuild_bootstrap_dir}/cmConfigure.h${_tmp}"
+rm -f "${rblxbuild_bootstrap_dir}/cmVersionConfig.h${_tmp}"
 
 # If building in-source, remove any cmConfigure.h that may
-# have been created by a previous run of the bootstrap cmake.
-if test -n "${cmake_in_source_build}"; then
-  rm -f "${cmake_source_dir}/Source/cmConfigure.h"
+# have been created by a previous run of the bootstrap rblxbuild.
+if test -n "${rblxbuild_in_source_build}"; then
+  rm -f "${rblxbuild_source_dir}/Source/cmConfigure.h"
 fi
 
 # If exist compiler flags, set them
-cmake_c_flags=${CFLAGS}
-cmake_cxx_flags=${CXXFLAGS}
-cmake_ld_flags=${LDFLAGS}
+rblxbuild_c_flags=${CFLAGS}
+rblxbuild_cxx_flags=${CXXFLAGS}
+rblxbuild_ld_flags=${LDFLAGS}
 
 # Add generator-specific files
-if test "${cmake_bootstrap_generator}" = "Ninja"; then
-  CMAKE_CXX_SOURCES="${CMAKE_CXX_SOURCES} \
+if test "${rblxbuild_bootstrap_generator}" = "Ninja"; then
+  RBLXBUILD_CXX_SOURCES="${RBLXBUILD_CXX_SOURCES} \
     cmFortranParserImpl \
     cmGlobalNinjaGenerator \
     cmLocalNinjaGenerator \
@@ -1132,7 +1132,7 @@ if test "${cmake_bootstrap_generator}" = "Ninja"; then
     cmFortranParser \
     "
 else
-  CMAKE_CXX_SOURCES="${CMAKE_CXX_SOURCES} \
+  RBLXBUILD_CXX_SOURCES="${RBLXBUILD_CXX_SOURCES} \
     cmDepends \
     cmDependsC \
     cmDependsCompiler \
@@ -1147,119 +1147,119 @@ else
 fi
 
 # Add Cygwin-specific flags
-if ${cmake_system_cygwin} || ${cmake_system_msys}; then
-  cmake_ld_flags="${LDFLAGS} -Wl,--enable-auto-import"
+if ${rblxbuild_system_cygwin} || ${rblxbuild_system_msys}; then
+  rblxbuild_ld_flags="${LDFLAGS} -Wl,--enable-auto-import"
 fi
 
 # Add CoreFoundation framework on Darwin
-if ${cmake_system_darwin}; then
-  cmake_ld_flags="${LDFLAGS} -framework CoreFoundation"
+if ${rblxbuild_system_darwin}; then
+  rblxbuild_ld_flags="${LDFLAGS} -framework CoreFoundation"
 fi
 
 # Add BeOS toolkits...
-if ${cmake_system_beos}; then
-  cmake_ld_flags="${LDFLAGS} -lroot -lbe"
+if ${rblxbuild_system_beos}; then
+  rblxbuild_ld_flags="${LDFLAGS} -lroot -lbe"
 fi
 
 # Add Haiku toolkits...
-if ${cmake_system_haiku}; then
-  cmake_ld_flags="${LDFLAGS} -lroot -lbe"
+if ${rblxbuild_system_haiku}; then
+  rblxbuild_ld_flags="${LDFLAGS} -lroot -lbe"
 fi
 
 # Add AIX arch-specific link flags.
-if ${cmake_system_aix}; then
+if ${rblxbuild_system_aix}; then
   if uname -p | grep powerpc >/dev/null 2>&1; then
-    cmake_ld_flags="${LDFLAGS} -Wl,-bbigtoc"
+    rblxbuild_ld_flags="${LDFLAGS} -Wl,-bbigtoc"
   fi
 fi
 
 #-----------------------------------------------------------------------------
 # Detect known toolchains on some platforms.
-cmake_toolchains=''
-case "${cmake_system}" in
-  *AIX*)   cmake_toolchains='XL GNU' ;;
-  *CYGWIN*) cmake_toolchains='GNU' ;;
-  *MSYS*) cmake_toolchains='GNU' ;;
-  *Darwin*) cmake_toolchains='Clang GNU' ;;
-  *Linux*) cmake_toolchains='GNU Clang XL PGI PathScale' ;;
-  *MINGW*) cmake_toolchains='GNU' ;;
+rblxbuild_toolchains=''
+case "${rblxbuild_system}" in
+  *AIX*)   rblxbuild_toolchains='XL GNU' ;;
+  *CYGWIN*) rblxbuild_toolchains='GNU' ;;
+  *MSYS*) rblxbuild_toolchains='GNU' ;;
+  *Darwin*) rblxbuild_toolchains='Clang GNU' ;;
+  *Linux*) rblxbuild_toolchains='GNU Clang XL PGI PathScale' ;;
+  *MINGW*) rblxbuild_toolchains='GNU' ;;
 esac
 
 # Toolchain compiler name table.
-cmake_toolchain_Clang_CC='clang'
-cmake_toolchain_Clang_CXX='clang++'
-cmake_toolchain_GNU_CC='gcc'
-cmake_toolchain_GNU_CXX='g++'
-cmake_toolchain_PGI_CC='pgcc'
-cmake_toolchain_PGI_CXX='pgCC'
-cmake_toolchain_PathScale_CC='pathcc'
-cmake_toolchain_PathScale_CXX='pathCC'
-cmake_toolchain_XL_CC='xlc'
-cmake_toolchain_XL_CXX='xlC'
+rblxbuild_toolchain_Clang_CC='clang'
+rblxbuild_toolchain_Clang_CXX='clang++'
+rblxbuild_toolchain_GNU_CC='gcc'
+rblxbuild_toolchain_GNU_CXX='g++'
+rblxbuild_toolchain_PGI_CC='pgcc'
+rblxbuild_toolchain_PGI_CXX='pgCC'
+rblxbuild_toolchain_PathScale_CC='pathcc'
+rblxbuild_toolchain_PathScale_CXX='pathCC'
+rblxbuild_toolchain_XL_CC='xlc'
+rblxbuild_toolchain_XL_CXX='xlC'
 
-cmake_toolchain_try()
+rblxbuild_toolchain_try()
 {
   tc="$1"
-  TMPFILE=`cmake_tmp_file`
+  TMPFILE=`rblxbuild_tmp_file`
 
-  eval "tc_CC=\${cmake_toolchain_${tc}_CC}"
+  eval "tc_CC=\${rblxbuild_toolchain_${tc}_CC}"
   echo 'int main() { return 0; }' > "${TMPFILE}.c"
-  cmake_try_run "$tc_CC" "" "${TMPFILE}.c" >> cmake_bootstrap.log 2>&1
+  rblxbuild_try_run "$tc_CC" "" "${TMPFILE}.c" >> rblxbuild_bootstrap.log 2>&1
   tc_result_CC="$?"
   rm -f "${TMPFILE}.c"
   test "${tc_result_CC}" = "0" || return 1
 
-  eval "tc_CXX=\${cmake_toolchain_${tc}_CXX}"
+  eval "tc_CXX=\${rblxbuild_toolchain_${tc}_CXX}"
   echo 'int main() { return 0; }' > "${TMPFILE}.cpp"
-  cmake_try_run "$tc_CXX" "" "${TMPFILE}.cpp" >> cmake_bootstrap.log 2>&1
+  rblxbuild_try_run "$tc_CXX" "" "${TMPFILE}.cpp" >> rblxbuild_bootstrap.log 2>&1
   tc_result_CXX="$?"
   rm -f "${TMPFILE}.cpp"
   test "${tc_result_CXX}" = "0" || return 1
 
-  cmake_toolchain="$tc"
+  rblxbuild_toolchain="$tc"
 }
 
-cmake_toolchain_detect()
+rblxbuild_toolchain_detect()
 {
-  cmake_toolchain=
-  for tc in ${cmake_toolchains}; do
-    echo "Checking for $tc toolchain" >> cmake_bootstrap.log 2>&1
-    cmake_toolchain_try "$tc" &&
+  rblxbuild_toolchain=
+  for tc in ${rblxbuild_toolchains}; do
+    echo "Checking for $tc toolchain" >> rblxbuild_bootstrap.log 2>&1
+    rblxbuild_toolchain_try "$tc" &&
     echo "Found $tc toolchain" &&
     break
   done
 }
 
 if test -z "${CC}" && test -z "${CXX}"; then
-  cmake_toolchain_detect
+  rblxbuild_toolchain_detect
 fi
 
 thread_flags=''
-case "${cmake_system}" in
+case "${rblxbuild_system}" in
   *AIX*)   thread_flags='-pthread' ;;
 esac
 
 #-----------------------------------------------------------------------------
 # Test C compiler
-cmake_c_compiler=
+rblxbuild_c_compiler=
 
 # If CC is set, use that for compiler, otherwise use list of known compilers
-if test -n "${cmake_toolchain}"; then
-  eval cmake_c_compilers="\${cmake_toolchain_${cmake_toolchain}_CC}"
+if test -n "${rblxbuild_toolchain}"; then
+  eval rblxbuild_c_compilers="\${rblxbuild_toolchain_${rblxbuild_toolchain}_CC}"
 else
-  cmake_c_compilers="${CMAKE_KNOWN_C_COMPILERS}"
+  rblxbuild_c_compilers="${RBLXBUILD_KNOWN_C_COMPILERS}"
 fi
 
-cmake_c_compiler_try_set()
+rblxbuild_c_compiler_try_set()
 {
   test_compiler="$1"
   test_thread_flags="$2"
 
   # Check if C compiler works
-  TMPFILE=`cmake_tmp_file`
+  TMPFILE=`rblxbuild_tmp_file`
   echo '
 #ifdef __cplusplus
-# error "The CMAKE_C_COMPILER is set to a C++ compiler"
+# error "The RBLXBUILD_C_COMPILER is set to a C++ compiler"
 #endif
 
 #if defined(_AIX) && defined(__GNUC__) && !defined(_THREAD_SAFE)
@@ -1283,14 +1283,14 @@ int main(int argc, char* argv[])
 }
 ' > "${TMPFILE}.c"
   for std in 11 99 90; do
-    std_flags="`cmake_extract_standard_flags \"${cmake_toolchain}\" C \"${std}\"`"
+    std_flags="`rblxbuild_extract_standard_flags \"${rblxbuild_toolchain}\" C \"${std}\"`"
     for std_flag in '' $std_flags; do
       for thread_flag in '' $test_thread_flags; do
-        echo "Checking whether '${test_compiler} ${cmake_c_flags} ${cmake_ld_flags} ${std_flag} ${thread_flag}' works." >> cmake_bootstrap.log 2>&1
-        if cmake_try_run "${test_compiler}" "${cmake_c_flags} ${cmake_ld_flags} ${std_flag} ${thread_flag}" \
-          "${TMPFILE}.c" >> cmake_bootstrap.log 2>&1; then
-          cmake_c_compiler="${test_compiler}"
-          cmake_c_flags="${cmake_c_flags} ${std_flag} ${thread_flag}"
+        echo "Checking whether '${test_compiler} ${rblxbuild_c_flags} ${rblxbuild_ld_flags} ${std_flag} ${thread_flag}' works." >> rblxbuild_bootstrap.log 2>&1
+        if rblxbuild_try_run "${test_compiler}" "${rblxbuild_c_flags} ${rblxbuild_ld_flags} ${std_flag} ${thread_flag}" \
+          "${TMPFILE}.c" >> rblxbuild_bootstrap.log 2>&1; then
+          rblxbuild_c_compiler="${test_compiler}"
+          rblxbuild_c_flags="${rblxbuild_c_flags} ${std_flag} ${thread_flag}"
           rm -f "${TMPFILE}.c"
           return 0
         fi
@@ -1302,43 +1302,43 @@ int main(int argc, char* argv[])
 }
 
 if test -n "${CC}"; then
-  cmake_c_compiler_try_set "${CC}" "${thread_flags}"
+  rblxbuild_c_compiler_try_set "${CC}" "${thread_flags}"
 else
-  for compiler in ${cmake_c_compilers}; do
-    if cmake_c_compiler_try_set "${compiler}" "${thread_flags}"; then
+  for compiler in ${rblxbuild_c_compilers}; do
+    if rblxbuild_c_compiler_try_set "${compiler}" "${thread_flags}"; then
       break
     fi
   done
 fi
 
-if test -z "${cmake_c_compiler}"; then
-  cmake_error 6 "Cannot find appropriate C compiler on this system.
+if test -z "${rblxbuild_c_compiler}"; then
+  rblxbuild_error 6 "Cannot find appropriate C compiler on this system.
 Please specify one using environment variable CC.
-See cmake_bootstrap.log for compilers attempted.
+See rblxbuild_bootstrap.log for compilers attempted.
 "
 fi
-echo "C compiler on this system is: ${cmake_c_compiler} ${cmake_c_flags}"
+echo "C compiler on this system is: ${rblxbuild_c_compiler} ${rblxbuild_c_flags}"
 
 #-----------------------------------------------------------------------------
 # Test CXX compiler
-cmake_cxx_compiler=
+rblxbuild_cxx_compiler=
 
 # On Mac OSX, CC is the same as cc, so make sure not to try CC as c++ compiler.
 
 # If CC is set, use that for compiler, otherwise use list of known compilers
-if test -n "${cmake_toolchain}"; then
-  eval cmake_cxx_compilers="\${cmake_toolchain_${cmake_toolchain}_CXX}"
+if test -n "${rblxbuild_toolchain}"; then
+  eval rblxbuild_cxx_compilers="\${rblxbuild_toolchain_${rblxbuild_toolchain}_CXX}"
 else
-  cmake_cxx_compilers="${CMAKE_KNOWN_CXX_COMPILERS}"
+  rblxbuild_cxx_compilers="${RBLXBUILD_KNOWN_CXX_COMPILERS}"
 fi
 
 # Check if C++ compiler works
-cmake_cxx_compiler_try_set()
+rblxbuild_cxx_compiler_try_set()
 {
   test_compiler="$1"
   test_thread_flags="$2"
 
-  TMPFILE=`cmake_tmp_file`
+  TMPFILE=`rblxbuild_tmp_file`
 echo '
 #include <iostream>
 #include <memory>
@@ -1418,14 +1418,14 @@ int main()
 }
 ' > "${TMPFILE}.cxx"
   for std in 17 14 11; do
-    std_flags="`cmake_extract_standard_flags \"${cmake_toolchain}\" CXX \"${std}\"`"
+    std_flags="`rblxbuild_extract_standard_flags \"${rblxbuild_toolchain}\" CXX \"${std}\"`"
     for std_flag in '' $std_flags; do
       for thread_flag in '' $test_thread_flags; do
-        echo "Checking whether '${test_compiler} ${cmake_cxx_flags} ${cmake_ld_flags} ${std_flag} ${thread_flag}' works." >> cmake_bootstrap.log 2>&1
-        if cmake_try_run "${test_compiler}" "${cmake_cxx_flags} ${cmake_ld_flags} ${std_flag} ${thread_flag}" \
-          "${TMPFILE}.cxx" >> cmake_bootstrap.log 2>&1; then
-          cmake_cxx_compiler="${test_compiler}"
-          cmake_cxx_flags="${cmake_cxx_flags} ${std_flag} ${thread_flag} "
+        echo "Checking whether '${test_compiler} ${rblxbuild_cxx_flags} ${rblxbuild_ld_flags} ${std_flag} ${thread_flag}' works." >> rblxbuild_bootstrap.log 2>&1
+        if rblxbuild_try_run "${test_compiler}" "${rblxbuild_cxx_flags} ${rblxbuild_ld_flags} ${std_flag} ${thread_flag}" \
+          "${TMPFILE}.cxx" >> rblxbuild_bootstrap.log 2>&1; then
+          rblxbuild_cxx_compiler="${test_compiler}"
+          rblxbuild_cxx_flags="${rblxbuild_cxx_flags} ${std_flag} ${thread_flag} "
           rm -f "${TMPFILE}.cxx"
           return 0
         fi
@@ -1437,122 +1437,122 @@ int main()
 }
 
 if test -n "${CXX}"; then
-  cmake_cxx_compiler_try_set "${CXX}" "${thread_flags}"
+  rblxbuild_cxx_compiler_try_set "${CXX}" "${thread_flags}"
 else
-  for compiler in ${cmake_cxx_compilers}; do
-    if cmake_cxx_compiler_try_set "${compiler}" "${thread_flags}"; then
+  for compiler in ${rblxbuild_cxx_compilers}; do
+    if rblxbuild_cxx_compiler_try_set "${compiler}" "${thread_flags}"; then
       break
     fi
   done
 fi
 
-if test -z "${cmake_cxx_compiler}"; then
-cmake_error 7 "Cannot find a C++ compiler that supports both C++11 and the specified C++ flags.
+if test -z "${rblxbuild_cxx_compiler}"; then
+rblxbuild_error 7 "Cannot find a C++ compiler that supports both C++11 and the specified C++ flags.
 Please specify one using environment variable CXX.
-The C++ flags are \"$cmake_cxx_flags\".
+The C++ flags are \"$rblxbuild_cxx_flags\".
 They can be changed using the environment variable CXXFLAGS.
-See cmake_bootstrap.log for compilers attempted."
+See rblxbuild_bootstrap.log for compilers attempted."
 fi
-echo "C++ compiler on this system is: ${cmake_cxx_compiler} ${cmake_cxx_flags}"
+echo "C++ compiler on this system is: ${rblxbuild_cxx_compiler} ${rblxbuild_cxx_flags}"
 
 #-----------------------------------------------------------------------------
 # Test CXX features
 
-cmake_cxx_features="make_unique filesystem"
+rblxbuild_cxx_features="make_unique filesystem"
 
-for feature in ${cmake_cxx_features}; do
-  eval "cmake_have_cxx_${feature}=0"
-  echo "Checking whether '${cmake_cxx_compiler} ${cmake_cxx_flags} ${cmake_ld_flags}' supports '${feature}'." >> cmake_bootstrap.log 2>&1
-  if cmake_try_run "${cmake_cxx_compiler}" "${cmake_cxx_flags} ${cmake_ld_flags}" \
-                   "${cmake_source_dir}/Source/Checks/cm_cxx_${feature}.cxx" >> cmake_bootstrap.log 2>&1; then
-    eval "cmake_have_cxx_${feature}=1"
+for feature in ${rblxbuild_cxx_features}; do
+  eval "rblxbuild_have_cxx_${feature}=0"
+  echo "Checking whether '${rblxbuild_cxx_compiler} ${rblxbuild_cxx_flags} ${rblxbuild_ld_flags}' supports '${feature}'." >> rblxbuild_bootstrap.log 2>&1
+  if rblxbuild_try_run "${rblxbuild_cxx_compiler}" "${rblxbuild_cxx_flags} ${rblxbuild_ld_flags}" \
+                   "${rblxbuild_source_dir}/Source/Checks/cm_cxx_${feature}.cxx" >> rblxbuild_bootstrap.log 2>&1; then
+    eval "rblxbuild_have_cxx_${feature}=1"
   fi
 done
 
-cmake_have_cxx_features=""
-for feature in ${cmake_cxx_features}; do
-  feature_variable="cmake_have_cxx_${feature}"
+rblxbuild_have_cxx_features=""
+for feature in ${rblxbuild_cxx_features}; do
+  feature_variable="rblxbuild_have_cxx_${feature}"
   eval "feature_value=\${${feature_variable}}"
   if test "${feature_value}" -eq "1"; then
-    cmake_have_cxx_features="${cmake_have_cxx_features} -DCMake_HAVE_CXX_`cmake_toupper ${feature}`=${feature_value}"
+    rblxbuild_have_cxx_features="${rblxbuild_have_cxx_features} -DRBLXBuild_HAVE_CXX_`rblxbuild_toupper ${feature}`=${feature_value}"
   fi
 done
 
-cmake_generate_file "${cmake_bootstrap_dir}/cmSTL.hxx" ""
+rblxbuild_generate_file "${rblxbuild_bootstrap_dir}/cmSTL.hxx" ""
 
 
 #-----------------------------------------------------------------------------
 # Test Make
 
-cmake_make_processor=
-cmake_make_flags=
+rblxbuild_make_processor=
+rblxbuild_make_flags=
 
 # If MAKE is set, use that for make processor, otherwise use list of known make
 if test -n "${MAKE}"; then
-  cmake_make_processors="${MAKE}"
-elif test "${cmake_bootstrap_generator}" = "Ninja"; then
-  cmake_make_processors="${CMAKE_KNOWN_NINJA_PROCESSORS}"
+  rblxbuild_make_processors="${MAKE}"
+elif test "${rblxbuild_bootstrap_generator}" = "Ninja"; then
+  rblxbuild_make_processors="${RBLXBUILD_KNOWN_NINJA_PROCESSORS}"
 else
-  cmake_make_processors="${CMAKE_KNOWN_MAKE_PROCESSORS}"
+  rblxbuild_make_processors="${RBLXBUILD_KNOWN_MAKE_PROCESSORS}"
 fi
 
 tab="`printf '\t'`"
-TMPFILE="`cmake_tmp_file`_dir"
-rm -rf "${cmake_bootstrap_dir}/${TMPFILE}"
-mkdir "${cmake_bootstrap_dir}/${TMPFILE}"
-cd "${cmake_bootstrap_dir}/${TMPFILE}"
-if test "${cmake_bootstrap_generator}" = "Ninja"; then
+TMPFILE="`rblxbuild_tmp_file`_dir"
+rm -rf "${rblxbuild_bootstrap_dir}/${TMPFILE}"
+mkdir "${rblxbuild_bootstrap_dir}/${TMPFILE}"
+cd "${rblxbuild_bootstrap_dir}/${TMPFILE}"
+if test "${rblxbuild_bootstrap_generator}" = "Ninja"; then
   echo '
 rule cc
-  command = '"${cmake_c_compiler}"' '"${cmake_ld_flags} ${cmake_c_flags}"' -o $out $in
+  command = '"${rblxbuild_c_compiler}"' '"${rblxbuild_ld_flags} ${rblxbuild_c_flags}"' -o $out $in
 build test: cc test.c
 '>"build.ninja"
 else
   echo '
 test: test.c
-'"${tab}${cmake_c_compiler}"' '"${cmake_ld_flags} ${cmake_c_flags}"' -o test test.c
+'"${tab}${rblxbuild_c_compiler}"' '"${rblxbuild_ld_flags} ${rblxbuild_c_flags}"' -o test test.c
 '>"Makefile"
 fi
 echo '
 #include <stdio.h>
 int main(){ printf("1%c", (char)0x0a); return 0; }
 ' > "test.c"
-cmake_original_make_flags="${cmake_make_flags}"
-if test "x${cmake_parallel_make}" != "x"; then
-  cmake_make_flags="${cmake_make_flags} -j ${cmake_parallel_make}"
+rblxbuild_original_make_flags="${rblxbuild_make_flags}"
+if test "x${rblxbuild_parallel_make}" != "x"; then
+  rblxbuild_make_flags="${rblxbuild_make_flags} -j ${rblxbuild_parallel_make}"
 fi
-for a in ${cmake_make_processors}; do
-  if test -z "${cmake_make_processor}" && cmake_try_make "${a}" "${cmake_make_flags}" >> ../cmake_bootstrap.log 2>&1; then
-    cmake_make_processor="${a}"
+for a in ${rblxbuild_make_processors}; do
+  if test -z "${rblxbuild_make_processor}" && rblxbuild_try_make "${a}" "${rblxbuild_make_flags}" >> ../rblxbuild_bootstrap.log 2>&1; then
+    rblxbuild_make_processor="${a}"
   fi
 done
-cmake_full_make_flags="${cmake_make_flags}"
-if test "x${cmake_original_make_flags}" != "x${cmake_make_flags}"; then
-  if test -z "${cmake_make_processor}"; then
-    cmake_make_flags="${cmake_original_make_flags}"
-    for a in ${cmake_make_processors}; do
-      if test -z "${cmake_make_processor}" && cmake_try_make "${a}" "${cmake_make_flags}" >> ../cmake_bootstrap.log 2>&1; then
-        cmake_make_processor="${a}"
+rblxbuild_full_make_flags="${rblxbuild_make_flags}"
+if test "x${rblxbuild_original_make_flags}" != "x${rblxbuild_make_flags}"; then
+  if test -z "${rblxbuild_make_processor}"; then
+    rblxbuild_make_flags="${rblxbuild_original_make_flags}"
+    for a in ${rblxbuild_make_processors}; do
+      if test -z "${rblxbuild_make_processor}" && rblxbuild_try_make "${a}" "${rblxbuild_make_flags}" >> ../rblxbuild_bootstrap.log 2>&1; then
+        rblxbuild_make_processor="${a}"
       fi
     done
   fi
 fi
-cd "${cmake_bootstrap_dir}"
+cd "${rblxbuild_bootstrap_dir}"
 
-if test "${cmake_bootstrap_generator}" = "Ninja"; then
+if test "${rblxbuild_bootstrap_generator}" = "Ninja"; then
   mf_str=Ninja
 else
   mf_str=Makefile
 fi
-if test -z "${cmake_make_processor}"; then
-  cmake_error 8 "Cannot find appropriate ${mf_str} processor on this system.
+if test -z "${rblxbuild_make_processor}"; then
+  rblxbuild_error 8 "Cannot find appropriate ${mf_str} processor on this system.
 Please specify one using environment variable MAKE."
 fi
-rm -rf "${cmake_bootstrap_dir}/${TMPFILE}"
-echo "${mf_str} processor on this system is: ${cmake_make_processor}"
-if test "x${cmake_full_make_flags}" != "x${cmake_make_flags}"; then
+rm -rf "${rblxbuild_bootstrap_dir}/${TMPFILE}"
+echo "${mf_str} processor on this system is: ${rblxbuild_make_processor}"
+if test "x${rblxbuild_full_make_flags}" != "x${rblxbuild_make_flags}"; then
   echo "---------------------------------------------"
-  echo "${mf_str} processor ${cmake_make_processor} does not support parallel build"
+  echo "${mf_str} processor ${rblxbuild_make_processor} does not support parallel build"
   echo "---------------------------------------------"
 fi
 
@@ -1568,70 +1568,70 @@ KWSYS_CXX_HAS_ENVIRON_IN_STDLIB_H=0
 KWSYS_CXX_HAS_UTIMENSAT=0
 KWSYS_CXX_HAS_UTIMES=0
 
-if cmake_try_run "${cmake_cxx_compiler}" \
-  "${cmake_cxx_flags} ${cmake_ld_flags} -DTEST_KWSYS_CXX_HAS_SETENV" \
-  "${cmake_source_dir}/Source/kwsys/kwsysPlatformTestsCXX.cxx" >> cmake_bootstrap.log 2>&1; then
+if rblxbuild_try_run "${rblxbuild_cxx_compiler}" \
+  "${rblxbuild_cxx_flags} ${rblxbuild_ld_flags} -DTEST_KWSYS_CXX_HAS_SETENV" \
+  "${rblxbuild_source_dir}/Source/kwsys/kwsysPlatformTestsCXX.cxx" >> rblxbuild_bootstrap.log 2>&1; then
   KWSYS_CXX_HAS_SETENV=1
-  echo "${cmake_cxx_compiler} has setenv"
+  echo "${rblxbuild_cxx_compiler} has setenv"
 else
-  echo "${cmake_cxx_compiler} does not have setenv"
+  echo "${rblxbuild_cxx_compiler} does not have setenv"
 fi
 
-if cmake_try_run "${cmake_cxx_compiler}" \
-  "${cmake_cxx_flags} ${cmake_ld_flags} -DTEST_KWSYS_CXX_HAS_UNSETENV" \
-  "${cmake_source_dir}/Source/kwsys/kwsysPlatformTestsCXX.cxx" >> cmake_bootstrap.log 2>&1; then
+if rblxbuild_try_run "${rblxbuild_cxx_compiler}" \
+  "${rblxbuild_cxx_flags} ${rblxbuild_ld_flags} -DTEST_KWSYS_CXX_HAS_UNSETENV" \
+  "${rblxbuild_source_dir}/Source/kwsys/kwsysPlatformTestsCXX.cxx" >> rblxbuild_bootstrap.log 2>&1; then
   KWSYS_CXX_HAS_UNSETENV=1
-  echo "${cmake_cxx_compiler} has unsetenv"
+  echo "${rblxbuild_cxx_compiler} has unsetenv"
 else
-  echo "${cmake_cxx_compiler} does not have unsetenv"
+  echo "${rblxbuild_cxx_compiler} does not have unsetenv"
 fi
 
-if cmake_try_run "${cmake_cxx_compiler}" \
-  "${cmake_cxx_flags} ${cmake_ld_flags} -DTEST_KWSYS_CXX_HAS_ENVIRON_IN_STDLIB_H" \
-  "${cmake_source_dir}/Source/kwsys/kwsysPlatformTestsCXX.cxx" >> cmake_bootstrap.log 2>&1; then
+if rblxbuild_try_run "${rblxbuild_cxx_compiler}" \
+  "${rblxbuild_cxx_flags} ${rblxbuild_ld_flags} -DTEST_KWSYS_CXX_HAS_ENVIRON_IN_STDLIB_H" \
+  "${rblxbuild_source_dir}/Source/kwsys/kwsysPlatformTestsCXX.cxx" >> rblxbuild_bootstrap.log 2>&1; then
   KWSYS_CXX_HAS_ENVIRON_IN_STDLIB_H=1
-  echo "${cmake_cxx_compiler} has environ in stdlib.h"
+  echo "${rblxbuild_cxx_compiler} has environ in stdlib.h"
 else
-  echo "${cmake_cxx_compiler} does not have environ in stdlib.h"
+  echo "${rblxbuild_cxx_compiler} does not have environ in stdlib.h"
 fi
 
-if cmake_try_run "${cmake_cxx_compiler}" \
-  "${cmake_cxx_flags} ${cmake_ld_flags} -DTEST_KWSYS_CXX_HAS_EXT_STDIO_FILEBUF_H" \
-  "${cmake_source_dir}/Source/kwsys/kwsysPlatformTestsCXX.cxx" >> cmake_bootstrap.log 2>&1; then
+if rblxbuild_try_run "${rblxbuild_cxx_compiler}" \
+  "${rblxbuild_cxx_flags} ${rblxbuild_ld_flags} -DTEST_KWSYS_CXX_HAS_EXT_STDIO_FILEBUF_H" \
+  "${rblxbuild_source_dir}/Source/kwsys/kwsysPlatformTestsCXX.cxx" >> rblxbuild_bootstrap.log 2>&1; then
   KWSYS_CXX_HAS_EXT_STDIO_FILEBUF_H=1
-  echo "${cmake_cxx_compiler} has <ext/stdio_filebuf.h>"
+  echo "${rblxbuild_cxx_compiler} has <ext/stdio_filebuf.h>"
 else
-  echo "${cmake_cxx_compiler} does not have <ext/stdio_filebuf.h>"
+  echo "${rblxbuild_cxx_compiler} does not have <ext/stdio_filebuf.h>"
 fi
 
-if test -n "${cmake_ccache_enabled}"; then
-  echo "Building CMake with ccache"
-  cmake_c_compiler="ccache ${cmake_c_compiler}"
-  cmake_cxx_compiler="ccache ${cmake_cxx_compiler}"
+if test -n "${rblxbuild_ccache_enabled}"; then
+  echo "Building RBLXBuild with ccache"
+  rblxbuild_c_compiler="ccache ${rblxbuild_c_compiler}"
+  rblxbuild_cxx_compiler="ccache ${rblxbuild_cxx_compiler}"
 fi
 
 # Just to be safe, let us store compiler and flags to the header file
 
-cmake_bootstrap_version='$Revision$'
-cmake_compiler_settings_comment="/*
- * Generated by ${cmake_source_dir}/bootstrap
- * Version:     ${cmake_bootstrap_version}
+rblxbuild_bootstrap_version='$Revision$'
+rblxbuild_compiler_settings_comment="/*
+ * Generated by ${rblxbuild_source_dir}/bootstrap
+ * Version:     ${rblxbuild_bootstrap_version}
  *
- * Source directory: ${cmake_source_dir}
- * Binary directory: ${cmake_bootstrap_dir}
+ * Source directory: ${rblxbuild_source_dir}
+ * Binary directory: ${rblxbuild_bootstrap_dir}
  *
- * C compiler:   ${cmake_c_compiler}
- * C flags:      ${cmake_c_flags}
+ * C compiler:   ${rblxbuild_c_compiler}
+ * C flags:      ${rblxbuild_c_flags}
  *
- * C++ compiler: ${cmake_cxx_compiler}
- * C++ flags:    ${cmake_cxx_flags}
+ * C++ compiler: ${rblxbuild_cxx_compiler}
+ * C++ flags:    ${rblxbuild_cxx_flags}
  *
- * Make:         ${cmake_make_processor}
+ * Make:         ${rblxbuild_make_processor}
  *
  * Sources:
- * ${CMAKE_CXX_SOURCES} ${CMAKE_C_SOURCES}
+ * ${RBLXBUILD_CXX_SOURCES} ${RBLXBUILD_C_SOURCES}
  * STD Sources:
- * ${CMAKE_STD_CXX_HEADERS} ${CMAKE_STD_CXX_SOURCES}
+ * ${RBLXBUILD_STD_CXX_HEADERS} ${RBLXBUILD_STD_CXX_SOURCES}
  * LexerParser Sources:
  * ${LexerParser_CXX_SOURCES} ${LexerParser_C_SOURCES}
  * kwSys Sources:
@@ -1645,47 +1645,47 @@ cmake_compiler_settings_comment="/*
  */
 "
 
-cmake_report cmConfigure.h${_tmp} "${cmake_compiler_settings_comment}"
+rblxbuild_report cmConfigure.h${_tmp} "${rblxbuild_compiler_settings_comment}"
 
 # When bootstrapping on MinGW with MSYS we must convert the source
 # directory to a windows path.
-if ${cmake_system_mingw}; then
-    CMAKE_BOOTSTRAP_SOURCE_DIR=`cd "${cmake_source_dir}"; pwd -W`
-    CMAKE_BOOTSTRAP_BINARY_DIR=`cd "${cmake_binary_dir}"; pwd -W`
+if ${rblxbuild_system_mingw}; then
+    RBLXBUILD_BOOTSTRAP_SOURCE_DIR=`cd "${rblxbuild_source_dir}"; pwd -W`
+    RBLXBUILD_BOOTSTRAP_BINARY_DIR=`cd "${rblxbuild_binary_dir}"; pwd -W`
 else
-    CMAKE_BOOTSTRAP_SOURCE_DIR="${cmake_source_dir}"
-    CMAKE_BOOTSTRAP_BINARY_DIR="${cmake_binary_dir}"
+    RBLXBUILD_BOOTSTRAP_SOURCE_DIR="${rblxbuild_source_dir}"
+    RBLXBUILD_BOOTSTRAP_BINARY_DIR="${rblxbuild_binary_dir}"
 fi
 
-# Write CMake version
-cmake_report cmVersionConfig.h${_tmp} "#define CMake_VERSION_MAJOR ${cmake_version_major}"
-cmake_report cmVersionConfig.h${_tmp} "#define CMake_VERSION_MINOR ${cmake_version_minor}"
-cmake_report cmVersionConfig.h${_tmp} "#define CMake_VERSION_PATCH ${cmake_version_patch}"
-cmake_report cmVersionConfig.h${_tmp} "#define CMake_VERSION \"${cmake_version}\""
-cmake_report cmConfigure.h${_tmp} "#define CMAKE_BOOTSTRAP_SOURCE_DIR \"${CMAKE_BOOTSTRAP_SOURCE_DIR}\""
-cmake_report cmConfigure.h${_tmp} "#define CMAKE_BOOTSTRAP_BINARY_DIR \"${CMAKE_BOOTSTRAP_BINARY_DIR}\""
-cmake_report cmConfigure.h${_tmp} "#define CMake_DEFAULT_RECURSION_LIMIT 400"
-cmake_report cmConfigure.h${_tmp} "#define CMAKE_BIN_DIR \"/bootstrap-not-installed\""
-cmake_report cmConfigure.h${_tmp} "#define CMAKE_DATA_DIR \"/bootstrap-not-installed\""
-cmake_report cmConfigure.h${_tmp} "#define CM_FALLTHROUGH"
+# Write RBLXBuild version
+rblxbuild_report cmVersionConfig.h${_tmp} "#define RBLXBuild_VERSION_MAJOR ${rblxbuild_version_major}"
+rblxbuild_report cmVersionConfig.h${_tmp} "#define RBLXBuild_VERSION_MINOR ${rblxbuild_version_minor}"
+rblxbuild_report cmVersionConfig.h${_tmp} "#define RBLXBuild_VERSION_PATCH ${rblxbuild_version_patch}"
+rblxbuild_report cmVersionConfig.h${_tmp} "#define RBLXBuild_VERSION \"${rblxbuild_version}\""
+rblxbuild_report cmConfigure.h${_tmp} "#define RBLXBUILD_BOOTSTRAP_SOURCE_DIR \"${RBLXBUILD_BOOTSTRAP_SOURCE_DIR}\""
+rblxbuild_report cmConfigure.h${_tmp} "#define RBLXBUILD_BOOTSTRAP_BINARY_DIR \"${RBLXBUILD_BOOTSTRAP_BINARY_DIR}\""
+rblxbuild_report cmConfigure.h${_tmp} "#define RBLXBuild_DEFAULT_RECURSION_LIMIT 400"
+rblxbuild_report cmConfigure.h${_tmp} "#define RBLXBUILD_BIN_DIR \"/bootstrap-not-installed\""
+rblxbuild_report cmConfigure.h${_tmp} "#define RBLXBUILD_DATA_DIR \"/bootstrap-not-installed\""
+rblxbuild_report cmConfigure.h${_tmp} "#define CM_FALLTHROUGH"
 
-if test "${cmake_bootstrap_generator}" = "Ninja"; then
-  cmake_report cmConfigure.h${_tmp} "#define CMAKE_BOOTSTRAP_NINJA"
+if test "${rblxbuild_bootstrap_generator}" = "Ninja"; then
+  rblxbuild_report cmConfigure.h${_tmp} "#define RBLXBUILD_BOOTSTRAP_NINJA"
 else
-  cmake_report cmConfigure.h${_tmp} "#define CMAKE_BOOTSTRAP_MAKEFILES"
+  rblxbuild_report cmConfigure.h${_tmp} "#define RBLXBUILD_BOOTSTRAP_MAKEFILES"
 fi
 
-if ${cmake_system_darwin}; then
-  cmake_report cmConfigure.h${_tmp} "#define CMake_USE_MACH_PARSER"
+if ${rblxbuild_system_darwin}; then
+  rblxbuild_report cmConfigure.h${_tmp} "#define RBLXBuild_USE_MACH_PARSER"
 fi
 
-if ${cmake_system_mingw}; then
-  cmake_report cmConfigure.h${_tmp} "#if defined(_WIN32) && !defined(NOMINMAX)"
-  cmake_report cmConfigure.h${_tmp} "#  define NOMINMAX"
-  cmake_report cmConfigure.h${_tmp} "#endif"
-  cmake_report cmConfigure.h${_tmp} "#if defined(_WIN32) && !defined(KWSYS_ENCODING_DEFAULT_CODEPAGE)"
-  cmake_report cmConfigure.h${_tmp} "#  define KWSYS_ENCODING_DEFAULT_CODEPAGE CP_UTF8"
-  cmake_report cmConfigure.h${_tmp} "#endif"
+if ${rblxbuild_system_mingw}; then
+  rblxbuild_report cmConfigure.h${_tmp} "#if defined(_WIN32) && !defined(NOMINMAX)"
+  rblxbuild_report cmConfigure.h${_tmp} "#  define NOMINMAX"
+  rblxbuild_report cmConfigure.h${_tmp} "#endif"
+  rblxbuild_report cmConfigure.h${_tmp} "#if defined(_WIN32) && !defined(KWSYS_ENCODING_DEFAULT_CODEPAGE)"
+  rblxbuild_report cmConfigure.h${_tmp} "#  define KWSYS_ENCODING_DEFAULT_CODEPAGE CP_UTF8"
+  rblxbuild_report cmConfigure.h${_tmp} "#endif"
 fi
 
 # Regenerate configured headers
@@ -1699,72 +1699,72 @@ done
 
 # Prepare KWSYS
 cmsys_header_files="cmsys/Configure.h cmsys/Configure.hxx"
-cmake_kwsys_config_replace_string \
-  "${cmake_source_dir}/Source/kwsys/Configure.hxx.in" \
-  "${cmake_bootstrap_dir}/cmsys/Configure.hxx" \
-  "${cmake_compiler_settings_comment}"
-cmake_kwsys_config_replace_string \
-  "${cmake_source_dir}/Source/kwsys/Configure.h.in" \
-  "${cmake_bootstrap_dir}/cmsys/Configure.h" \
-  "${cmake_compiler_settings_comment}"
+rblxbuild_kwsys_config_replace_string \
+  "${rblxbuild_source_dir}/Source/kwsys/Configure.hxx.in" \
+  "${rblxbuild_bootstrap_dir}/cmsys/Configure.hxx" \
+  "${rblxbuild_compiler_settings_comment}"
+rblxbuild_kwsys_config_replace_string \
+  "${rblxbuild_source_dir}/Source/kwsys/Configure.h.in" \
+  "${rblxbuild_bootstrap_dir}/cmsys/Configure.h" \
+  "${rblxbuild_compiler_settings_comment}"
 
 for a in ${KWSYS_FILES}; do
-  cmake_replace_string "${cmake_source_dir}/Source/kwsys/${a}.in" \
-     "${cmake_bootstrap_dir}/cmsys/${a}" KWSYS_NAMESPACE cmsys
+  rblxbuild_replace_string "${rblxbuild_source_dir}/Source/kwsys/${a}.in" \
+     "${rblxbuild_bootstrap_dir}/cmsys/${a}" KWSYS_NAMESPACE cmsys
   cmsys_header_files="${cmsys_header_files} cmsys/${a}"
 done
 
-echo "#pragma once" > "${cmake_bootstrap_dir}/cmThirdParty.h.tmp"
+echo "#pragma once" > "${rblxbuild_bootstrap_dir}/cmThirdParty.h.tmp"
 if test "x${bootstrap_system_libuv}" != "x"; then
-  echo "#define CMAKE_USE_SYSTEM_LIBUV" >> "${cmake_bootstrap_dir}/cmThirdParty.h.tmp"
+  echo "#define RBLXBUILD_USE_SYSTEM_LIBUV" >> "${rblxbuild_bootstrap_dir}/cmThirdParty.h.tmp"
 fi
 if test "x${bootstrap_system_jsoncpp}" != "x"; then
-  echo "#define CMAKE_USE_SYSTEM_JSONCPP" >> "${cmake_bootstrap_dir}/cmThirdParty.h.tmp"
+  echo "#define RBLXBUILD_USE_SYSTEM_JSONCPP" >> "${rblxbuild_bootstrap_dir}/cmThirdParty.h.tmp"
 fi
 if test "x${bootstrap_system_librhash}" != "x"; then
-  echo "#define CMAKE_USE_SYSTEM_LIBRHASH" >> "${cmake_bootstrap_dir}/cmThirdParty.h.tmp"
+  echo "#define RBLXBUILD_USE_SYSTEM_LIBRHASH" >> "${rblxbuild_bootstrap_dir}/cmThirdParty.h.tmp"
 fi
-cmake_generate_file_tmp "${cmake_bootstrap_dir}/cmThirdParty.h" "${cmake_bootstrap_dir}/cmThirdParty.h.tmp"
+rblxbuild_generate_file_tmp "${rblxbuild_bootstrap_dir}/cmThirdParty.h" "${rblxbuild_bootstrap_dir}/cmThirdParty.h.tmp"
 
 # Generate Makefile
 dep="cmConfigure.h ${cmsys_header_files}"
-for h in "${cmake_source_dir}"/Source/*.hxx; do
-  dep="${dep} `cmake_escape_artifact \"${h}\"`"
+for h in "${rblxbuild_source_dir}"/Source/*.hxx; do
+  dep="${dep} `rblxbuild_escape_artifact \"${h}\"`"
 done
-for h in "${cmake_source_dir}"/Source/*.h; do
-  dep="${dep} `cmake_escape_artifact \"${h}\"`"
+for h in "${rblxbuild_source_dir}"/Source/*.h; do
+  dep="${dep} `rblxbuild_escape_artifact \"${h}\"`"
 done
-for h in ${CMAKE_STD_CXX_HEADERS}; do
-  dep="${dep} `cmake_escape_artifact \"${cmake_source_dir}\"`/Utilities/std/cm/${h}"
+for h in ${RBLXBUILD_STD_CXX_HEADERS}; do
+  dep="${dep} `rblxbuild_escape_artifact \"${rblxbuild_source_dir}\"`/Utilities/std/cm/${h}"
 done
 objs=""
-for a in ${CMAKE_CXX_SOURCES} ${CMAKE_C_SOURCES} ${CMAKE_STD_CXX_SOURCES} ${LexerParser_CXX_SOURCES} ${LexerParser_C_SOURCES} ${KWSYS_CXX_SOURCES} ${KWSYS_C_SOURCES}; do
+for a in ${RBLXBUILD_CXX_SOURCES} ${RBLXBUILD_C_SOURCES} ${RBLXBUILD_STD_CXX_SOURCES} ${LexerParser_CXX_SOURCES} ${LexerParser_C_SOURCES} ${KWSYS_CXX_SOURCES} ${KWSYS_C_SOURCES}; do
   objs="${objs} ${a}.o"
 done
 if test "x${bootstrap_system_libuv}" = "x"; then
   for a in ${LIBUV_C_SOURCES}; do
-    objs="${objs} uv-`cmake_obj ${a}`"
+    objs="${objs} uv-`rblxbuild_obj ${a}`"
   done
 fi
 if test "x${bootstrap_system_librhash}" = "x"; then
   for a in ${LIBRHASH_C_SOURCES}; do
-    objs="${objs} rhash-`cmake_obj ${a}`"
+    objs="${objs} rhash-`rblxbuild_obj ${a}`"
   done
 fi
 if test "x${bootstrap_system_jsoncpp}" = "x"; then
   for a in ${JSONCPP_CXX_SOURCES}; do
-    objs="${objs} jsoncpp-`cmake_obj ${a}`"
+    objs="${objs} jsoncpp-`rblxbuild_obj ${a}`"
   done
 fi
 
 libs=""
 
 uv_c_flags=""
-if ${cmake_system_mingw}; then
+if ${rblxbuild_system_mingw}; then
   uv_c_flags="${uv_c_flags} -DWIN32_LEAN_AND_MEAN -D_WIN32_WINNT=0x0600"
   libs="${libs} -ladvapi32 -ldbghelp -liphlpapi -lole32 -loleaut32 -lpsapi -lshell32 -luser32 -luserenv -luuid -lws2_32"
 else
-  case "${cmake_system}" in
+  case "${rblxbuild_system}" in
     *AIX*)
       uv_c_flags="${uv_c_flags} -D_ALL_SOURCE -D_XOPEN_SOURCE=500 -D_LINUX_SOURCE_COMPAT"
       libs="${libs} -lperfstat"
@@ -1795,19 +1795,19 @@ else
   esac
 fi
 if test "x${bootstrap_system_libuv}" = "x"; then
-  uv_c_flags="${uv_c_flags} `cmake_escape_shell "-I${cmake_source_dir}/Utilities/cmlibuv/include"`"
-  if ${cmake_system_mingw}; then
-    uv_c_flags="${uv_c_flags} `cmake_escape_shell "-I${cmake_source_dir}/Utilities/cmlibuv/src/win"`"
+  uv_c_flags="${uv_c_flags} `rblxbuild_escape_shell "-I${rblxbuild_source_dir}/Utilities/cmlibuv/include"`"
+  if ${rblxbuild_system_mingw}; then
+    uv_c_flags="${uv_c_flags} `rblxbuild_escape_shell "-I${rblxbuild_source_dir}/Utilities/cmlibuv/src/win"`"
   else
-    uv_c_flags="${uv_c_flags} `cmake_escape_shell "-I${cmake_source_dir}/Utilities/cmlibuv/src/unix"`"
+    uv_c_flags="${uv_c_flags} `rblxbuild_escape_shell "-I${rblxbuild_source_dir}/Utilities/cmlibuv/src/unix"`"
   fi
-  uv_c_flags="${uv_c_flags} `cmake_escape_shell "-I${cmake_source_dir}/Utilities/cmlibuv/src"`"
+  uv_c_flags="${uv_c_flags} `rblxbuild_escape_shell "-I${rblxbuild_source_dir}/Utilities/cmlibuv/src"`"
 else
   if test `which pkg-config`; then
     use_uv_flags="`pkg-config --cflags libuv`"
     use_uv_ldflags="`pkg-config --libs libuv`"
-    cmake_c_flags="${cmake_c_flags} ${use_uv_flags}"
-    cmake_cxx_flags="${cmake_cxx_flags} ${use_uv_flags}"
+    rblxbuild_c_flags="${rblxbuild_c_flags} ${use_uv_flags}"
+    rblxbuild_cxx_flags="${rblxbuild_cxx_flags} ${use_uv_flags}"
   else
     use_uv_ldflags="-luv"
   fi
@@ -1819,8 +1819,8 @@ if test "x${bootstrap_system_librhash}" != "x"; then
   if test `which pkg-config`; then
     use_librhash_flags="`pkg-config --cflags librhash`"
     use_librhash_ldflags="`pkg-config --libs librhash`"
-    cmake_c_flags="${cmake_c_flags} ${use_librhash_flags}"
-    cmake_cxx_flags="${cmake_cxx_flags} ${use_librhash_flags}"
+    rblxbuild_c_flags="${rblxbuild_c_flags} ${use_librhash_flags}"
+    rblxbuild_cxx_flags="${rblxbuild_cxx_flags} ${use_librhash_flags}"
   else
     use_librhash_ldflags="-lrhash"
   fi
@@ -1829,38 +1829,38 @@ fi
 
 jsoncpp_cxx_flags=
 if test "x${bootstrap_system_jsoncpp}" = "x"; then
-  jsoncpp_cxx_flags="${jsoncpp_cxx_flags} `cmake_escape_shell "-I${cmake_source_dir}/Utilities/cmjsoncpp/include"`"
+  jsoncpp_cxx_flags="${jsoncpp_cxx_flags} `rblxbuild_escape_shell "-I${rblxbuild_source_dir}/Utilities/cmjsoncpp/include"`"
 else
   if test `which pkg-config`; then
     use_jsoncpp_flags="`pkg-config --cflags jsoncpp`"
     use_jsoncpp_ldflags="`pkg-config --libs jsoncpp`"
-    cmake_cxx_flags="${cmake_cxx_flags} ${use_jsoncpp_flags}"
+    rblxbuild_cxx_flags="${rblxbuild_cxx_flags} ${use_jsoncpp_flags}"
   else
     use_jsoncpp_ldflags="-ljsoncpp"
   fi
   libs="${libs} ${use_jsoncpp_ldflags}"
 fi
 
-if test "x${cmake_ansi_cxx_flags}" != "x"; then
-  cmake_cxx_flags="${cmake_ansi_cxx_flags} ${cmake_cxx_flags}"
+if test "x${rblxbuild_ansi_cxx_flags}" != "x"; then
+  rblxbuild_cxx_flags="${rblxbuild_ansi_cxx_flags} ${rblxbuild_cxx_flags}"
 fi
 
 system_flags=''
-case "${cmake_system}" in
+case "${rblxbuild_system}" in
   # Ensure filesystem access uses 64-bit offsets even on 32-bit hosts.
   *Linux*) system_flags='-D_FILE_OFFSET_BITS=64 -D_TIME_BITS=64' ;;
 esac
 if test "x${system_flags}" != "x"; then
-  cmake_c_flags="${cmake_c_flags} ${system_flags}"
-  cmake_cxx_flags="${cmake_cxx_flags} ${system_flags}"
+  rblxbuild_c_flags="${rblxbuild_c_flags} ${system_flags}"
+  rblxbuild_cxx_flags="${rblxbuild_cxx_flags} ${system_flags}"
 fi
 
-if test "x${cmake_c_flags}" != "x"; then
-  cmake_c_flags="${cmake_c_flags} "
+if test "x${rblxbuild_c_flags}" != "x"; then
+  rblxbuild_c_flags="${rblxbuild_c_flags} "
 fi
 
-if test "x${cmake_cxx_flags}" != "x"; then
-  cmake_cxx_flags="${cmake_cxx_flags} "
+if test "x${rblxbuild_cxx_flags}" != "x"; then
+  rblxbuild_cxx_flags="${rblxbuild_cxx_flags} "
 fi
 
 write_source_rule() {
@@ -1871,236 +1871,236 @@ write_source_rule() {
 
   if test "${lang}" = "c"; then
     ninja_rule=cc
-    compiler="${cmake_c_compiler}"
-    flags="${cmake_c_flags}"
+    compiler="${rblxbuild_c_compiler}"
+    flags="${rblxbuild_c_flags}"
   elif test "${lang}" = "cxx"; then
     ninja_rule=cxx
-    compiler="${cmake_cxx_compiler}"
-    flags="${cmake_cxx_flags}"
+    compiler="${rblxbuild_cxx_compiler}"
+    flags="${rblxbuild_cxx_flags}"
   fi
 
-  if test "${cmake_bootstrap_generator}" = "Ninja"; then
-    echo "build ${obj} : ${ninja_rule} ${src} | ${dep}" >> "${cmake_bootstrap_dir}/build.ninja"
-    echo "  srcflags = ${src_flags}" >> "${cmake_bootstrap_dir}/build.ninja"
+  if test "${rblxbuild_bootstrap_generator}" = "Ninja"; then
+    echo "build ${obj} : ${ninja_rule} ${src} | ${dep}" >> "${rblxbuild_bootstrap_dir}/build.ninja"
+    echo "  srcflags = ${src_flags}" >> "${rblxbuild_bootstrap_dir}/build.ninja"
   else
-    echo "${obj} : ${src} ${dep}" >> "${cmake_bootstrap_dir}/Makefile"
-    echo "${tab}${compiler} ${flags} ${src_flags} -c ${src} -o ${obj}" >> "${cmake_bootstrap_dir}/Makefile"
+    echo "${obj} : ${src} ${dep}" >> "${rblxbuild_bootstrap_dir}/Makefile"
+    echo "${tab}${compiler} ${flags} ${src_flags} -c ${src} -o ${obj}" >> "${rblxbuild_bootstrap_dir}/Makefile"
   fi
 }
 
-cmake_c_flags_String="-DKWSYS_STRING_C"
-if ${cmake_system_mingw}; then
-  cmake_c_flags_EncodingC="-DKWSYS_ENCODING_DEFAULT_CODEPAGE=CP_ACP"
-  cmake_cxx_flags_EncodingCXX="${cmake_c_flags_EncodingC}"
-  cmake_cxx_flags_cmProcessOutput="${cmake_c_flags_EncodingC}"
+rblxbuild_c_flags_String="-DKWSYS_STRING_C"
+if ${rblxbuild_system_mingw}; then
+  rblxbuild_c_flags_EncodingC="-DKWSYS_ENCODING_DEFAULT_CODEPAGE=CP_ACP"
+  rblxbuild_cxx_flags_EncodingCXX="${rblxbuild_c_flags_EncodingC}"
+  rblxbuild_cxx_flags_cmProcessOutput="${rblxbuild_c_flags_EncodingC}"
 fi
-cmake_cxx_flags_SystemTools="
+rblxbuild_cxx_flags_SystemTools="
   -DKWSYS_CXX_HAS_SETENV=${KWSYS_CXX_HAS_SETENV}
   -DKWSYS_CXX_HAS_UNSETENV=${KWSYS_CXX_HAS_UNSETENV}
   -DKWSYS_CXX_HAS_ENVIRON_IN_STDLIB_H=${KWSYS_CXX_HAS_ENVIRON_IN_STDLIB_H}
   -DKWSYS_CXX_HAS_UTIMENSAT=${KWSYS_CXX_HAS_UTIMENSAT}
   -DKWSYS_CXX_HAS_UTIMES=${KWSYS_CXX_HAS_UTIMES}
 "
-cmake_c_flags="${cmake_c_flags} \
-  -DCMAKE_BOOTSTRAP \
-  -I`cmake_escape_shell \"${cmake_bootstrap_dir}\"` \
-  -I`cmake_escape_shell \"${cmake_source_dir}/Source\"` \
-  -I`cmake_escape_shell \"${cmake_source_dir}/Source/LexerParser\"` \
-  -I`cmake_escape_shell \"${cmake_source_dir}/Utilities\"`"
-cmake_cxx_flags="${cmake_cxx_flags} \
-  -DCMAKE_BOOTSTRAP \
-  ${cmake_have_cxx_features} \
-  -I`cmake_escape_shell \"${cmake_bootstrap_dir}\"` \
-  -I`cmake_escape_shell \"${cmake_source_dir}/Source\"` \
-  -I`cmake_escape_shell \"${cmake_source_dir}/Source/LexerParser\"` \
-  -I`cmake_escape_shell \"${cmake_source_dir}/Utilities/std\"` \
-  -I`cmake_escape_shell \"${cmake_source_dir}/Utilities\"`"
-if test "${cmake_bootstrap_generator}" = "Ninja"; then
-  echo "cc = ${cmake_c_compiler}" > "${cmake_bootstrap_dir}/build.ninja"
-  echo "cxx = ${cmake_cxx_compiler}" >> "${cmake_bootstrap_dir}/build.ninja"
-  echo "cflags = ${cmake_c_flags}" >> "${cmake_bootstrap_dir}/build.ninja"
-  echo "cxxflags = ${cmake_cxx_flags}" >> "${cmake_bootstrap_dir}/build.ninja"
-  echo "ldflags = ${cmake_ld_flags}" >> "${cmake_bootstrap_dir}/build.ninja"
-  echo "rule cc" >> "${cmake_bootstrap_dir}/build.ninja"
-  echo "  command = \$cc \$cflags \$srcflags -c \$in -o \$out" >> "${cmake_bootstrap_dir}/build.ninja"
-  echo "rule cxx" >> "${cmake_bootstrap_dir}/build.ninja"
-  echo "  command = \$cxx \$cxxflags \$srcflags -c \$in -o \$out" >> "${cmake_bootstrap_dir}/build.ninja"
-  echo "rule link" >> "${cmake_bootstrap_dir}/build.ninja"
-  echo "  command = \$cxx \$ldflags \$cxxflags \$in \$libs -o \$out" >> "${cmake_bootstrap_dir}/build.ninja"
-  echo "build cmake: link ${objs}" >> "${cmake_bootstrap_dir}/build.ninja"
-  echo "  libs = ${libs}" >> "${cmake_bootstrap_dir}/build.ninja"
+rblxbuild_c_flags="${rblxbuild_c_flags} \
+  -DRBLXBUILD_BOOTSTRAP \
+  -I`rblxbuild_escape_shell \"${rblxbuild_bootstrap_dir}\"` \
+  -I`rblxbuild_escape_shell \"${rblxbuild_source_dir}/Source\"` \
+  -I`rblxbuild_escape_shell \"${rblxbuild_source_dir}/Source/LexerParser\"` \
+  -I`rblxbuild_escape_shell \"${rblxbuild_source_dir}/Utilities\"`"
+rblxbuild_cxx_flags="${rblxbuild_cxx_flags} \
+  -DRBLXBUILD_BOOTSTRAP \
+  ${rblxbuild_have_cxx_features} \
+  -I`rblxbuild_escape_shell \"${rblxbuild_bootstrap_dir}\"` \
+  -I`rblxbuild_escape_shell \"${rblxbuild_source_dir}/Source\"` \
+  -I`rblxbuild_escape_shell \"${rblxbuild_source_dir}/Source/LexerParser\"` \
+  -I`rblxbuild_escape_shell \"${rblxbuild_source_dir}/Utilities/std\"` \
+  -I`rblxbuild_escape_shell \"${rblxbuild_source_dir}/Utilities\"`"
+if test "${rblxbuild_bootstrap_generator}" = "Ninja"; then
+  echo "cc = ${rblxbuild_c_compiler}" > "${rblxbuild_bootstrap_dir}/build.ninja"
+  echo "cxx = ${rblxbuild_cxx_compiler}" >> "${rblxbuild_bootstrap_dir}/build.ninja"
+  echo "cflags = ${rblxbuild_c_flags}" >> "${rblxbuild_bootstrap_dir}/build.ninja"
+  echo "cxxflags = ${rblxbuild_cxx_flags}" >> "${rblxbuild_bootstrap_dir}/build.ninja"
+  echo "ldflags = ${rblxbuild_ld_flags}" >> "${rblxbuild_bootstrap_dir}/build.ninja"
+  echo "rule cc" >> "${rblxbuild_bootstrap_dir}/build.ninja"
+  echo "  command = \$cc \$cflags \$srcflags -c \$in -o \$out" >> "${rblxbuild_bootstrap_dir}/build.ninja"
+  echo "rule cxx" >> "${rblxbuild_bootstrap_dir}/build.ninja"
+  echo "  command = \$cxx \$cxxflags \$srcflags -c \$in -o \$out" >> "${rblxbuild_bootstrap_dir}/build.ninja"
+  echo "rule link" >> "${rblxbuild_bootstrap_dir}/build.ninja"
+  echo "  command = \$cxx \$ldflags \$cxxflags \$in \$libs -o \$out" >> "${rblxbuild_bootstrap_dir}/build.ninja"
+  echo "build rblxbuild: link ${objs}" >> "${rblxbuild_bootstrap_dir}/build.ninja"
+  echo "  libs = ${libs}" >> "${rblxbuild_bootstrap_dir}/build.ninja"
 else
-  echo "cmake: ${objs}" > "${cmake_bootstrap_dir}/Makefile"
-  echo "${tab}${cmake_cxx_compiler} ${cmake_ld_flags} ${cmake_cxx_flags} ${objs} ${libs} -o cmake" >> "${cmake_bootstrap_dir}/Makefile"
+  echo "rblxbuild: ${objs}" > "${rblxbuild_bootstrap_dir}/Makefile"
+  echo "${tab}${rblxbuild_cxx_compiler} ${rblxbuild_ld_flags} ${rblxbuild_cxx_flags} ${objs} ${libs} -o rblxbuild" >> "${rblxbuild_bootstrap_dir}/Makefile"
 fi
-for a in ${CMAKE_CXX_SOURCES}; do
-  src=`cmake_escape_artifact "${cmake_source_dir}/Source/${a}.cxx"`
-  src_flags=`eval echo \\${cmake_cxx_flags_\${a}}`
+for a in ${RBLXBUILD_CXX_SOURCES}; do
+  src=`rblxbuild_escape_artifact "${rblxbuild_source_dir}/Source/${a}.cxx"`
+  src_flags=`eval echo \\${rblxbuild_cxx_flags_\${a}}`
   write_source_rule "cxx" "${a}.o" "${src}" "${src_flags}"
 done
-for a in ${CMAKE_C_SOURCES}; do
-  src=`cmake_escape_artifact "${cmake_source_dir}/Source/${a}.c"`
+for a in ${RBLXBUILD_C_SOURCES}; do
+  src=`rblxbuild_escape_artifact "${rblxbuild_source_dir}/Source/${a}.c"`
   write_source_rule "c" "${a}.o" "${src}" ""
 done
-for a in ${CMAKE_STD_CXX_SOURCES}; do
-  src=`cmake_escape_artifact "${cmake_source_dir}/Utilities/std/cm/bits/${a}.cxx"`
-  src_flags=`eval echo \\${cmake_cxx_flags_\${a}}`
+for a in ${RBLXBUILD_STD_CXX_SOURCES}; do
+  src=`rblxbuild_escape_artifact "${rblxbuild_source_dir}/Utilities/std/cm/bits/${a}.cxx"`
+  src_flags=`eval echo \\${rblxbuild_cxx_flags_\${a}}`
   write_source_rule "cxx" "${a}.o" "${src}" "${src_flags}"
 done
 for a in ${LexerParser_CXX_SOURCES}; do
-  src=`cmake_escape_artifact "${cmake_source_dir}/Source/LexerParser/${a}.cxx"`
-  src_flags=`eval echo \\${cmake_cxx_flags_\${a}}`
+  src=`rblxbuild_escape_artifact "${rblxbuild_source_dir}/Source/LexerParser/${a}.cxx"`
+  src_flags=`eval echo \\${rblxbuild_cxx_flags_\${a}}`
   write_source_rule "cxx" "${a}.o" "${src}" "${src_flags}"
 done
 for a in ${LexerParser_C_SOURCES}; do
-  src=`cmake_escape_artifact "${cmake_source_dir}/Source/LexerParser/${a}.c"`
+  src=`rblxbuild_escape_artifact "${rblxbuild_source_dir}/Source/LexerParser/${a}.c"`
   write_source_rule "c" "${a}.o" "${src}" ""
 done
 for a in ${KWSYS_C_SOURCES}; do
-  src=`cmake_escape_artifact "${cmake_source_dir}/Source/kwsys/${a}.c"`
-  src_flags="`eval echo \\${cmake_c_flags_\${a}}` -DKWSYS_NAMESPACE=cmsys"
+  src=`rblxbuild_escape_artifact "${rblxbuild_source_dir}/Source/kwsys/${a}.c"`
+  src_flags="`eval echo \\${rblxbuild_c_flags_\${a}}` -DKWSYS_NAMESPACE=cmsys"
   write_source_rule "c" "${a}.o" "${src}" "${src_flags}"
 done
 for a in ${KWSYS_CXX_SOURCES}; do
-  src=`cmake_escape_artifact "${cmake_source_dir}/Source/kwsys/${a}.cxx"`
-  src_flags="`eval echo \\${cmake_cxx_flags_\${a}}` -DKWSYS_NAMESPACE=cmsys"
+  src=`rblxbuild_escape_artifact "${rblxbuild_source_dir}/Source/kwsys/${a}.cxx"`
+  src_flags="`eval echo \\${rblxbuild_cxx_flags_\${a}}` -DKWSYS_NAMESPACE=cmsys"
   write_source_rule "cxx" "${a}.o" "${src}" "${src_flags}"
 done
 if test "x${bootstrap_system_libuv}" = "x"; then
   for a in ${LIBUV_C_SOURCES}; do
-    src=`cmake_escape_artifact "${cmake_source_dir}/Utilities/cmlibuv/${a}"`
-    write_source_rule "c" "uv-`cmake_obj ${a}`" "${src}" "${uv_c_flags}"
+    src=`rblxbuild_escape_artifact "${rblxbuild_source_dir}/Utilities/cmlibuv/${a}"`
+    write_source_rule "c" "uv-`rblxbuild_obj ${a}`" "${src}" "${uv_c_flags}"
   done
 fi
 if test "x${bootstrap_system_librhash}" = "x"; then
   for a in ${LIBRHASH_C_SOURCES}; do
-    src=`cmake_escape_artifact "${cmake_source_dir}/Utilities/cmlibrhash/${a}"`
-    write_source_rule "c" "rhash-`cmake_obj ${a}`" "${src}" "${librhash_c_flags}"
+    src=`rblxbuild_escape_artifact "${rblxbuild_source_dir}/Utilities/cmlibrhash/${a}"`
+    write_source_rule "c" "rhash-`rblxbuild_obj ${a}`" "${src}" "${librhash_c_flags}"
   done
 fi
 if test "x${bootstrap_system_jsoncpp}" = "x"; then
   for a in ${JSONCPP_CXX_SOURCES}; do
-    src=`cmake_escape_artifact "${cmake_source_dir}/Utilities/cmjsoncpp/${a}"`
-    write_source_rule "cxx" "jsoncpp-`cmake_obj ${a}`" "${src}" "${jsoncpp_cxx_flags}"
+    src=`rblxbuild_escape_artifact "${rblxbuild_source_dir}/Utilities/cmjsoncpp/${a}"`
+    write_source_rule "cxx" "jsoncpp-`rblxbuild_obj ${a}`" "${src}" "${jsoncpp_cxx_flags}"
   done
 fi
-if test "${cmake_bootstrap_generator}" = "Ninja"; then
+if test "${rblxbuild_bootstrap_generator}" = "Ninja"; then
   echo "
 rule rebuild_cache
-  command = cd \"${cmake_binary_dir}\" && \"${cmake_source_dir}/bootstrap\" --generator=\"${cmake_bootstrap_generator}\"
+  command = cd \"${rblxbuild_binary_dir}\" && \"${rblxbuild_source_dir}/bootstrap\" --generator=\"${rblxbuild_bootstrap_generator}\"
   generator = 1
 build build.ninja : rebuild_cache
-" >> "${cmake_bootstrap_dir}/build.ninja"
+" >> "${rblxbuild_bootstrap_dir}/build.ninja"
 else
   echo "
 rebuild_cache:
-${tab}cd \"${cmake_binary_dir}\" && \"${cmake_source_dir}/bootstrap\" --generator=\"${cmake_bootstrap_generator}\"
-" >> "${cmake_bootstrap_dir}/Makefile"
+${tab}cd \"${rblxbuild_binary_dir}\" && \"${rblxbuild_source_dir}/bootstrap\" --generator=\"${rblxbuild_bootstrap_generator}\"
+" >> "${rblxbuild_bootstrap_dir}/Makefile"
 fi
 
-# Write our default settings to Bootstrap${_cmk}/InitialCacheFlags.cmake.
+# Write our default settings to Bootstrap${_cmk}/InitialCacheFlags.rblxbuild.
 echo '
-# Generated by '"${cmake_source_dir}"'/bootstrap
-# Default cmake settings.  These may be overridden any settings below.
-set (CMAKE_BUILD_TYPE "Release" CACHE STRING "Choose the type of build.") # not FORCE to preserve defaults specified elsewhere
-set (CMAKE_INSTALL_PREFIX "'"${cmake_prefix_dir}"'" CACHE PATH "Install path prefix, prepended onto install directories." FORCE)
-set (CMAKE_DOC_DIR "'"${cmake_doc_dir}"'" CACHE PATH "Install location for documentation (relative to prefix)." FORCE)
-set (CMAKE_MAN_DIR "'"${cmake_man_dir}"'" CACHE PATH "Install location for man pages (relative to prefix)." FORCE)
-set (CMAKE_BIN_DIR "'"${cmake_bin_dir}"'" CACHE PATH "Install location for binaries (relative to prefix)." FORCE)
-set (CMAKE_DATA_DIR "'"${cmake_data_dir}"'" CACHE PATH "Install location for data (relative to prefix)." FORCE)
-set (CMAKE_XDGDATA_DIR "'"${cmake_xdgdata_dir}"'" CACHE PATH "Install location for XDG specific files (relative to prefix)." FORCE)
-' > "${cmake_bootstrap_dir}/InitialCacheFlags.cmake"
+# Generated by '"${rblxbuild_source_dir}"'/bootstrap
+# Default rblxbuild settings.  These may be overridden any settings below.
+set (RBLXBUILD_BUILD_TYPE "Release" CACHE STRING "Choose the type of build.") # not FORCE to preserve defaults specified elsewhere
+set (RBLXBUILD_INSTALL_PREFIX "'"${rblxbuild_prefix_dir}"'" CACHE PATH "Install path prefix, prepended onto install directories." FORCE)
+set (RBLXBUILD_DOC_DIR "'"${rblxbuild_doc_dir}"'" CACHE PATH "Install location for documentation (relative to prefix)." FORCE)
+set (RBLXBUILD_MAN_DIR "'"${rblxbuild_man_dir}"'" CACHE PATH "Install location for man pages (relative to prefix)." FORCE)
+set (RBLXBUILD_BIN_DIR "'"${rblxbuild_bin_dir}"'" CACHE PATH "Install location for binaries (relative to prefix)." FORCE)
+set (RBLXBUILD_DATA_DIR "'"${rblxbuild_data_dir}"'" CACHE PATH "Install location for data (relative to prefix)." FORCE)
+set (RBLXBUILD_XDGDATA_DIR "'"${rblxbuild_xdgdata_dir}"'" CACHE PATH "Install location for XDG specific files (relative to prefix)." FORCE)
+' > "${rblxbuild_bootstrap_dir}/InitialCacheFlags.rblxbuild"
 
 # Add configuration settings given as command-line options.
-if test "x${cmake_bootstrap_qt_gui}" != "x"; then
+if test "x${rblxbuild_bootstrap_qt_gui}" != "x"; then
   echo '
-set (BUILD_QtDialog '"${cmake_bootstrap_qt_gui}"' CACHE BOOL "Build Qt dialog for CMake" FORCE)
-' >> "${cmake_bootstrap_dir}/InitialCacheFlags.cmake"
+set (BUILD_QtDialog '"${rblxbuild_bootstrap_qt_gui}"' CACHE BOOL "Build Qt dialog for RBLXBuild" FORCE)
+' >> "${rblxbuild_bootstrap_dir}/InitialCacheFlags.rblxbuild"
 fi
-if test "x${cmake_bootstrap_qt_qmake}" != "x"; then
+if test "x${rblxbuild_bootstrap_qt_qmake}" != "x"; then
   echo '
-set (QT_QMAKE_EXECUTABLE "'"${cmake_bootstrap_qt_qmake}"'" CACHE FILEPATH "Location of Qt qmake" FORCE)
-' >> "${cmake_bootstrap_dir}/InitialCacheFlags.cmake"
+set (QT_QMAKE_EXECUTABLE "'"${rblxbuild_bootstrap_qt_qmake}"'" CACHE FILEPATH "Location of Qt qmake" FORCE)
+' >> "${rblxbuild_bootstrap_dir}/InitialCacheFlags.rblxbuild"
 fi
-if test "x${cmake_bootstrap_debugger}" != "x"; then
+if test "x${rblxbuild_bootstrap_debugger}" != "x"; then
   echo '
-set (CMake_ENABLE_DEBUGGER '"${cmake_bootstrap_debugger}"' CACHE BOOL "Enable CMake debugger support" FORCE)
-' >> "${cmake_bootstrap_dir}/InitialCacheFlags.cmake"
+set (RBLXBuild_ENABLE_DEBUGGER '"${rblxbuild_bootstrap_debugger}"' CACHE BOOL "Enable RBLXBuild debugger support" FORCE)
+' >> "${rblxbuild_bootstrap_dir}/InitialCacheFlags.rblxbuild"
 fi
-if test "x${cmake_sphinx_html_copybutton}" != "x"; then
+if test "x${rblxbuild_sphinx_html_copybutton}" != "x"; then
   echo '
-set (SPHINX_HTML_COPYBUTTON "'"${cmake_sphinx_html_copybutton}"'" CACHE BOOL "Build html help with the sphinx-copybutton extension" FORCE)
-' >> "${cmake_bootstrap_dir}/InitialCacheFlags.cmake"
+set (SPHINX_HTML_COPYBUTTON "'"${rblxbuild_sphinx_html_copybutton}"'" CACHE BOOL "Build html help with the sphinx-copybutton extension" FORCE)
+' >> "${rblxbuild_bootstrap_dir}/InitialCacheFlags.rblxbuild"
 fi
-if test "x${cmake_sphinx_info}" != "x"; then
+if test "x${rblxbuild_sphinx_info}" != "x"; then
   echo '
-set (SPHINX_INFO "'"${cmake_sphinx_info}"'" CACHE BOOL "Build Info manual with Sphinx" FORCE)
-' >> "${cmake_bootstrap_dir}/InitialCacheFlags.cmake"
+set (SPHINX_INFO "'"${rblxbuild_sphinx_info}"'" CACHE BOOL "Build Info manual with Sphinx" FORCE)
+' >> "${rblxbuild_bootstrap_dir}/InitialCacheFlags.rblxbuild"
 fi
-if test "x${cmake_sphinx_man}" != "x"; then
+if test "x${rblxbuild_sphinx_man}" != "x"; then
   echo '
-set (SPHINX_MAN "'"${cmake_sphinx_man}"'" CACHE BOOL "Build man pages with Sphinx" FORCE)
-' >> "${cmake_bootstrap_dir}/InitialCacheFlags.cmake"
+set (SPHINX_MAN "'"${rblxbuild_sphinx_man}"'" CACHE BOOL "Build man pages with Sphinx" FORCE)
+' >> "${rblxbuild_bootstrap_dir}/InitialCacheFlags.rblxbuild"
 fi
-if test "x${cmake_sphinx_html}" != "x"; then
+if test "x${rblxbuild_sphinx_html}" != "x"; then
   echo '
-set (SPHINX_HTML "'"${cmake_sphinx_html}"'" CACHE BOOL "Build html help with Sphinx" FORCE)
-' >> "${cmake_bootstrap_dir}/InitialCacheFlags.cmake"
+set (SPHINX_HTML "'"${rblxbuild_sphinx_html}"'" CACHE BOOL "Build html help with Sphinx" FORCE)
+' >> "${rblxbuild_bootstrap_dir}/InitialCacheFlags.rblxbuild"
 fi
-if test "x${cmake_sphinx_qthelp}" != "x"; then
+if test "x${rblxbuild_sphinx_qthelp}" != "x"; then
   echo '
-set (SPHINX_QTHELP "'"${cmake_sphinx_qthelp}"'" CACHE BOOL "Build qch help with Sphinx" FORCE)
-' >> "${cmake_bootstrap_dir}/InitialCacheFlags.cmake"
+set (SPHINX_QTHELP "'"${rblxbuild_sphinx_qthelp}"'" CACHE BOOL "Build qch help with Sphinx" FORCE)
+' >> "${rblxbuild_bootstrap_dir}/InitialCacheFlags.rblxbuild"
 fi
-if test "x${cmake_sphinx_latexpdf}" != "x"; then
+if test "x${rblxbuild_sphinx_latexpdf}" != "x"; then
   echo '
-set (SPHINX_LATEXPDF "'"${cmake_sphinx_latexpdf}"'" CACHE BOOL "Build PDF help with Sphinx using LaTeX" FORCE)
-' >> "${cmake_bootstrap_dir}/InitialCacheFlags.cmake"
+set (SPHINX_LATEXPDF "'"${rblxbuild_sphinx_latexpdf}"'" CACHE BOOL "Build PDF help with Sphinx using LaTeX" FORCE)
+' >> "${rblxbuild_bootstrap_dir}/InitialCacheFlags.rblxbuild"
 fi
-if test "x${cmake_sphinx_build}" != "x"; then
+if test "x${rblxbuild_sphinx_build}" != "x"; then
   echo '
-set (SPHINX_EXECUTABLE "'"${cmake_sphinx_build}"'" CACHE FILEPATH "Location of Qt sphinx-build" FORCE)
-' >> "${cmake_bootstrap_dir}/InitialCacheFlags.cmake"
+set (SPHINX_EXECUTABLE "'"${rblxbuild_sphinx_build}"'" CACHE FILEPATH "Location of Qt sphinx-build" FORCE)
+' >> "${rblxbuild_bootstrap_dir}/InitialCacheFlags.rblxbuild"
 fi
-if test "x${cmake_sphinx_flags}" != "x"; then
+if test "x${rblxbuild_sphinx_flags}" != "x"; then
   echo '
-set (SPHINX_FLAGS [==['"${cmake_sphinx_flags}"']==] CACHE STRING "Flags to pass to sphinx-build" FORCE)
-' >> "${cmake_bootstrap_dir}/InitialCacheFlags.cmake"
+set (SPHINX_FLAGS [==['"${rblxbuild_sphinx_flags}"']==] CACHE STRING "Flags to pass to sphinx-build" FORCE)
+' >> "${rblxbuild_bootstrap_dir}/InitialCacheFlags.rblxbuild"
 fi
 
 # Add user-specified settings.  Handle relative-path case for
-# specification of cmake_init_file.
+# specification of rblxbuild_init_file.
 (
-cd "${cmake_binary_dir}"
-if test -f "${cmake_init_file}"; then
-  cat "${cmake_init_file}" >> "${cmake_bootstrap_dir}/InitialCacheFlags.cmake"
+cd "${rblxbuild_binary_dir}"
+if test -f "${rblxbuild_init_file}"; then
+  cat "${rblxbuild_init_file}" >> "${rblxbuild_bootstrap_dir}/InitialCacheFlags.rblxbuild"
 fi
 )
 
 echo "---------------------------------------------"
 
-# Run make to build bootstrap cmake
-if test "${cmake_bootstrap_generator}" = "Ninja"; then
+# Run make to build bootstrap rblxbuild
+if test "${rblxbuild_bootstrap_generator}" = "Ninja"; then
   ninja_v=-v
 else
   ninja_v=
 fi
-if test "x${cmake_parallel_make}" != "x"; then
-  ${cmake_make_processor} ${cmake_make_flags} ${ninja_v}
+if test "x${rblxbuild_parallel_make}" != "x"; then
+  ${rblxbuild_make_processor} ${rblxbuild_make_flags} ${ninja_v}
 else
-  ${cmake_make_processor} ${ninja_v}
+  ${rblxbuild_make_processor} ${ninja_v}
 fi
 RES=$?
 if test "${RES}" -ne "0"; then
-  cmake_error 9 "Problem while running ${cmake_make_processor}"
+  rblxbuild_error 9 "Problem while running ${rblxbuild_make_processor}"
 fi
-cd "${cmake_binary_dir}"
+cd "${rblxbuild_binary_dir}"
 
-# Set C, CXX, and MAKE environment variables, so that real real cmake will be
+# Set C, CXX, and MAKE environment variables, so that real real rblxbuild will be
 # build with same compiler and make
-CC="${cmake_c_compiler}"
-CXX="${cmake_cxx_compiler}"
-MAKE="${cmake_make_processor}"
+CC="${rblxbuild_c_compiler}"
+CXX="${rblxbuild_cxx_compiler}"
+MAKE="${rblxbuild_make_processor}"
 export CC
 export CXX
 export MAKE
@@ -2108,18 +2108,18 @@ export CFLAGS
 export CXXFLAGS
 export LDFLAGS
 
-# Run bootstrap CMake to configure real CMake
-cmake_options="-DCMAKE_BOOTSTRAP=1"
-if test -n "${cmake_verbose}"; then
-  cmake_options="${cmake_options} -DCMAKE_VERBOSE_MAKEFILE=1"
+# Run bootstrap RBLXBuild to configure real RBLXBuild
+rblxbuild_options="-DRBLXBUILD_BOOTSTRAP=1"
+if test -n "${rblxbuild_verbose}"; then
+  rblxbuild_options="${rblxbuild_options} -DRBLXBUILD_VERBOSE_MAKEFILE=1"
 fi
-"${cmake_bootstrap_dir}/cmake" "${cmake_source_dir}" "-C${cmake_bootstrap_dir}/InitialCacheFlags.cmake" "-G${cmake_bootstrap_generator}" ${cmake_options} ${cmake_bootstrap_system_libs} "$@"
+"${rblxbuild_bootstrap_dir}/rblxbuild" "${rblxbuild_source_dir}" "-C${rblxbuild_bootstrap_dir}/InitialCacheFlags.rblxbuild" "-G${rblxbuild_bootstrap_generator}" ${rblxbuild_options} ${rblxbuild_bootstrap_system_libs} "$@"
 RES=$?
 if test "${RES}" -ne "0"; then
-  cmake_error 11 "Problem while running initial CMake"
+  rblxbuild_error 11 "Problem while running initial RBLXBuild"
 fi
 
 echo "---------------------------------------------"
 
 # And we are done. Now just run make
-echo "CMake has bootstrapped.  Now run ${cmake_make_processor}."
+echo "RBLXBuild has bootstrapped.  Now run ${rblxbuild_make_processor}."

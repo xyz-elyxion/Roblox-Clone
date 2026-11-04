@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #pragma once
 
 #include "cmConfigure.h" // IWYU pragma: keep
@@ -18,7 +18,7 @@
 
 namespace dap {
 class Session;
-struct CMakeInitializeResponse;
+struct RBLXBuildInitializeResponse;
 }
 
 namespace cmDebugger {
@@ -61,7 +61,7 @@ class cmDebuggerExceptionManager
 
 public:
   cmDebuggerExceptionManager(dap::Session* dapSession);
-  void HandleInitializeRequest(dap::CMakeInitializeResponse& response);
+  void HandleInitializeRequest(dap::RBLXBuildInitializeResponse& response);
   cm::optional<dap::StoppedEvent> RaiseExceptionIfAny(MessageType t,
                                                       std::string const& text);
   void ClearAll();

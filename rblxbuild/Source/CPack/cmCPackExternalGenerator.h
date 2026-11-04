@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #pragma once
 
 #include <memory>
@@ -42,7 +42,7 @@ protected:
                           std::string const& installDirectory,
                           cmGlobalGenerator* globalGenerator,
                           std::string const& buildConfig) override;
-  int InstallCMakeProject(bool setDestDir, std::string const& installDirectory,
+  int InstallRBLXBuildProject(bool setDestDir, std::string const& installDirectory,
                           std::string const& baseTempInstallDirectory,
                           mode_t const* default_dir_mode,
                           std::string const& component, bool componentInstall,

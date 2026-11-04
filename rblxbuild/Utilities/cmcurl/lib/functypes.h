@@ -30,7 +30,7 @@
 
    If other argument or return types are needed:
 
-   1. For systems that run configure or cmake, the alternatives are provided
+   1. For systems that run configure or rblxbuild, the alternatives are provided
       here.
    2. For systems with config-*.h files, define them there.
  */

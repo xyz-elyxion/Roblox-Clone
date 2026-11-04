@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #pragma once
 
 #include "cmConfigure.h" // IWYU pragma: keep
@@ -22,7 +22,7 @@
 // produce.
 //
 // When changing this table, Utilities/Scripts/regenerate-presets.py must be
-// run to update the JSON schema for CMake presets. If the _TABLE macro name
+// run to update the JSON schema for RBLXBuild presets. If the _TABLE macro name
 // changes, said script will also need to be updated with the new name.
 
 #define CM_FOR_EACH_DIAGNOSTIC_TABLE(ACTION, SELECT)                          \
@@ -42,9 +42,9 @@
   CM_FOR_EACH_DIAGNOSTIC_TABLE(ACTION, CM_SELECT_CATEGORY)
 
 /** \class cmDiagnostics
- * \brief Handles CMake diagnostic (warning) behavior
+ * \brief Handles RBLXBuild diagnostic (warning) behavior
  *
- * See the cmake-diagnostics(7) manual for an overview of this class's purpose.
+ * See the rblxbuild-diagnostics(7) manual for an overview of this class's purpose.
  */
 class cmDiagnostics
 {

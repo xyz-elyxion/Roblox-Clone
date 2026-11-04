@@ -1,0 +1,12 @@
+include(Platform/Windows-MSVC)
+if(NOT RBLXBUILD_C_COMPILER_VERSION VERSION_LESS 18.0)
+  set(_FS_C " /FS")
+endif()
+__windows_compiler_msvc(C)
+
+if((NOT DEFINED RBLXBUILD_DEPENDS_USE_COMPILER OR RBLXBUILD_DEPENDS_USE_COMPILER)
+    AND RBLXBUILD_GENERATOR MATCHES "Makefiles|WMake"
+    AND RBLXBUILD_DEPFILE_FLAGS_C)
+  # dependencies are computed by the compiler itself
+  set(RBLXBUILD_C_DEPENDS_USE_COMPILER TRUE)
+endif()

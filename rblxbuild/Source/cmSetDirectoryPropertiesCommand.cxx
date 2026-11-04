@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmSetDirectoryPropertiesCommand.h"
 
 #include "cmExecutionStatus.h"
@@ -32,7 +32,7 @@ bool cmSetDirectoryPropertiesCommand(std::vector<std::string> const& args,
         status.GetMakefile().GetPolicyStatus(cmPolicies::CMP0217) !=
           cmPolicies::NEW) {
       status.SetError(
-        "Commands and macros cannot be set using SET_CMAKE_PROPERTIES");
+        "Commands and macros cannot be set using SET_RBLXBUILD_PROPERTIES");
       return false;
     }
     status.GetMakefile().SetProperty(prop, *(iter + 1));

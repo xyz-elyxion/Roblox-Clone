@@ -1,0 +1,23 @@
+# Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
+# file LICENSE.rst or https://rblxbuild.org/licensing for details.
+
+if(RBLXBUILD_SYCL_COMPILER_FRONTEND_VARIANT STREQUAL "GNU")
+  include(Platform/Windows-Clang-SYCL)
+  return()
+endif()
+
+include(Platform/Windows-IntelLLVM)
+include(Platform/Windows-Clang)
+set(_COMPILE_SYCL " ${_RBLXBUILD_SYCL_REQUIRED_FLAG}")
+__windows_compiler_intel(SYCL)
+
+foreach(rule CREATE_SHARED_LIBRARY CREATE_SHARED_MODULE LINK_EXECUTABLE)
+  string(REPLACE "<RBLXBUILD_SYCL_COMPILER>" "<RBLXBUILD_SYCL_COMPILER> ${_RBLXBUILD_SYCL_REQUIRED_FLAG}"
+    RBLXBUILD_SYCL_${rule} "${RBLXBUILD_SYCL_${rule}}")
+endforeach()
+unset(rule)
+if(RBLXBUILD_GENERATOR MATCHES "Visual Studio")
+  # Use the same clang-cl driver/linker boundary as Clang's offload rules.
+  __windows_compiler_clang_msvc_offload_link(SYCL "${_RBLXBUILD_SYCL_REQUIRED_FLAG}" "")
+endif()
+unset(_COMPILE_SYCL)

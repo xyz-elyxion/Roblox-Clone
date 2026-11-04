@@ -12,7 +12,7 @@
     <SYCLToolName>$([System.IO.Path]::GetFileNameWithoutExtension('$(SYCLToolExe)'))</SYCLToolName>
   </PropertyGroup>
   <!-- Reuse native Link execution and tracking, replacing only its linker
-       command syntax with the selected SYCL frontend's shared CMake rule. -->
+       command syntax with the selected SYCL frontend's shared RBLXBuild rule. -->
   <UsingTask TaskName="SYCLLink" TaskFactory="CodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll">
     <ParameterGroup>
       <BuildingInIDE ParameterType="System.Boolean"/>
@@ -58,8 +58,8 @@
   <ItemGroup>
     <CoreCppClean Include="$(TLogLocation)SYCLDeviceLink\"/>
   </ItemGroup>
-  <ItemGroup Condition="'$(CMakeSYCLDeviceLinkObject)' != ''">
-    <SYCLDeviceLink Include="$(CMakeSYCLDeviceLinkObject)"/>
+  <ItemGroup Condition="'$(RBLXBuildSYCLDeviceLinkObject)' != ''">
+    <SYCLDeviceLink Include="$(RBLXBuildSYCLDeviceLinkObject)"/>
   </ItemGroup>
   <!-- Follow SelectClCompile: retain all sources for object computation and
        cleanup, and select a separate list for a selected-file build. -->
@@ -127,12 +127,12 @@
     <PropertyGroup>
       <LinkToolArchitecture Condition="'$(LinkToolArchitecture)' == ''">$(VCToolArchitecture)</LinkToolArchitecture>
       <_SYCLDeviceInputArguments>@(_SYCLDeviceInputs-&gt;'&quot;%(FullPath)&quot;', ' ')</_SYCLDeviceInputArguments>
-      <_SYCLDeviceArguments>$([System.String]::Copy('%(SYCLDeviceLink.AdditionalOptions)').Replace('__CMAKE_SYCL_OBJECTS__', '$(_SYCLDeviceInputArguments)'))</_SYCLDeviceArguments>
+      <_SYCLDeviceArguments>$([System.String]::Copy('%(SYCLDeviceLink.AdditionalOptions)').Replace('__RBLXBUILD_SYCL_OBJECTS__', '$(_SYCLDeviceInputArguments)'))</_SYCLDeviceArguments>
       <!-- Compile, device link and final link use the same executable, unlike
            ClangCL's separate compiler and linker. Keep their logs separate. -->
     </PropertyGroup>
     <MakeDir Directories="%(SYCLDeviceLink.TrackerLogDirectory)"/>
-    <SYCLLink Sources="@(_SYCLDeviceInputs)" OutputFile="$(CMakeSYCLDeviceLinkObject)"
+    <SYCLLink Sources="@(_SYCLDeviceInputs)" OutputFile="$(RBLXBuildSYCLDeviceLinkObject)"
               ToolExe="%(SYCLDeviceLink.ToolExe)" AdditionalOptions="$(LlvmArchitectureSwitch) $(_SYCLDeviceArguments)"
               TrackerLogDirectory="%(SYCLDeviceLink.TrackerLogDirectory)"
               TLogReadFiles="%(SYCLDeviceLink.TrackerLogDirectory)$(SYCLToolName)*.read.*.tlog"
@@ -145,11 +145,11 @@
               TrackedInputFilesToIgnore="@(LinkNoDependencies)"
               YieldDuringToolExecution="$(LinkYieldDuringToolExecution)"/>
   </Target>
-  <Target Name="ComputeSYCLDeviceLinkOutput" Condition="'$(CMakeSYCLDeviceLinkObject)' != ''" DependsOnTargets="SYCLDeviceLink">
+  <Target Name="ComputeSYCLDeviceLinkOutput" Condition="'$(RBLXBuildSYCLDeviceLinkObject)' != ''" DependsOnTargets="SYCLDeviceLink">
     <ItemGroup>
-      <Link Include="$(CMakeSYCLDeviceLinkObject)"/>
-      <Lib Include="$(CMakeSYCLDeviceLinkObject)"/>
+      <Link Include="$(RBLXBuildSYCLDeviceLinkObject)"/>
+      <Lib Include="$(RBLXBuildSYCLDeviceLinkObject)"/>
     </ItemGroup>
   </Target>
-  <Import Project="$(MSBuildThisFileDirectory)sycl-link.targets" Condition="'$(CMakeSYCLLink)' == 'true'"/>
+  <Import Project="$(MSBuildThisFileDirectory)sycl-link.targets" Condition="'$(RBLXBuildSYCLLink)' == 'true'"/>
 </Project>

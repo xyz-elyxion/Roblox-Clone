@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmGlobalBorlandMakefileGenerator.h"
 
 #include <ostream>
@@ -13,13 +13,13 @@
 #include "cmLocalUnixMakefileGenerator3.h"
 #include "cmMakefile.h"
 #include "cmState.h"
-#include "cmake.h"
+#include "rblxbuild.h"
 
-cmGlobalBorlandMakefileGenerator::cmGlobalBorlandMakefileGenerator(cmake* cm)
+cmGlobalBorlandMakefileGenerator::cmGlobalBorlandMakefileGenerator(rblxbuild* cm)
   : cmGlobalUnixMakefileGenerator3(cm)
 {
   this->EmptyRuleHackDepends = "NUL";
-  this->FindMakeProgramFile = "CMakeBorlandFindMake.cmake";
+  this->FindMakeProgramFile = "RBLXBuildBorlandFindMake.rblxbuild";
   this->ForceUnixPaths = false;
   this->ToolSupportsColor = true;
   this->UseLinkScript = false;
@@ -34,7 +34,7 @@ cmGlobalBorlandMakefileGenerator::cmGlobalBorlandMakefileGenerator(cmake* cm)
    * Borland Make does not support long line depend rule, as we have tested
    * generate one source file includes 40000 header files, and generate
    * depend.make in one line(use line continued tag), and error occurred:
-   * ** Fatal CMakeFiles\main.dir\depend.make 1224: Rule line too long **
+   * ** Fatal RBLXBuildFiles\main.dir\depend.make 1224: Rule line too long **
    * we disable long line dependencies rule generation for Borland make
    */
   this->ToolSupportsLongLineDependencies = false;
@@ -43,10 +43,10 @@ cmGlobalBorlandMakefileGenerator::cmGlobalBorlandMakefileGenerator(cmake* cm)
 void cmGlobalBorlandMakefileGenerator::EnableLanguage(
   std::vector<std::string> const& l, cmMakefile* mf, bool optional)
 {
-  std::string outdir = this->CMakeInstance->GetHomeOutputDirectory();
+  std::string outdir = this->RBLXBuildInstance->GetHomeOutputDirectory();
   mf->AddDefinition("BORLAND", "1");
-  mf->AddDefinition("CMAKE_GENERATOR_CC", "bcc32");
-  mf->AddDefinition("CMAKE_GENERATOR_CXX", "bcc32");
+  mf->AddDefinition("RBLXBUILD_GENERATOR_CC", "bcc32");
+  mf->AddDefinition("RBLXBUILD_GENERATOR_CXX", "bcc32");
   this->cmGlobalUnixMakefileGenerator3::EnableLanguage(l, mf, optional);
 }
 
@@ -77,7 +77,7 @@ cmGlobalBorlandMakefileGenerator::GenerateBuildCommand(
 {
   return this->cmGlobalUnixMakefileGenerator3::GenerateBuildCommand(
     makeProgram, projectName, projectDir, targetNames, config,
-    cmake::NO_BUILD_PARALLEL_LEVEL, verbose, buildOptions, makeOptions);
+    rblxbuild::NO_BUILD_PARALLEL_LEVEL, verbose, buildOptions, makeOptions);
 }
 
 std::string cmGlobalBorlandMakefileGenerator::GetShortBinaryOutputDir() const
@@ -88,7 +88,7 @@ std::string cmGlobalBorlandMakefileGenerator::GetShortBinaryOutputDir() const
 void cmGlobalBorlandMakefileGenerator::PrintBuildCommandAdvice(
   std::ostream& os, int jobs) const
 {
-  if (jobs != cmake::NO_BUILD_PARALLEL_LEVEL) {
+  if (jobs != rblxbuild::NO_BUILD_PARALLEL_LEVEL) {
     // Borland's make does not support parallel builds
     // see http://docwiki.embarcadero.com/RADStudio/Tokyo/en/Make
 
@@ -100,5 +100,5 @@ void cmGlobalBorlandMakefileGenerator::PrintBuildCommandAdvice(
   }
 
   this->cmGlobalUnixMakefileGenerator3::PrintBuildCommandAdvice(
-    os, cmake::NO_BUILD_PARALLEL_LEVEL);
+    os, rblxbuild::NO_BUILD_PARALLEL_LEVEL);
 }

@@ -1,0 +1,115 @@
+# This file is processed when the IAR C++ Compiler is used
+#
+# C++ Language Specification support
+#  - Newer versions of the IAR C++ Compiler require the --c++ flag to build a C++ file.
+#    Earlier versions for non-ARM architectures provided Embedded C++, enabled with the --eec++ flag.
+#
+# The IAR Language Extensions
+#  - The IAR Language Extensions can be enabled by -e flag
+#
+include(Compiler/IAR)
+include(Compiler/RBLXBuildCommonCompilerMacros)
+
+if(NOT RBLXBUILD_CXX_COMPILER_VERSION)
+  message(FATAL_ERROR "Could not detect RBLXBUILD_CXX_COMPILER_VERSION. This should be automatic. Check your product license.\n")
+endif()
+
+# The RBLXBUILD_IAR_CXX_FLAG variable can be used in your toolchain file
+# for overriding the default flag for compiling C++ source files.
+if(NOT RBLXBUILD_IAR_CXX_FLAG)
+  if((NOT RBLXBUILD_CXX_STANDARD_COMPUTED_DEFAULT EQUAL 98) OR
+     ("${RBLXBUILD_CXX_COMPILER_ARCHITECTURE_ID}" STREQUAL "ARM"))
+    set(RBLXBUILD_IAR_CXX_FLAG --c++)
+  else()
+    set(RBLXBUILD_IAR_CXX_FLAG --eec++)
+  endif()
+endif()
+
+set(RBLXBUILD_CXX_STANDARD_COMPILE_OPTION "")
+set(RBLXBUILD_CXX_EXTENSION_COMPILE_OPTION -e) # Unused after CMP0128
+
+# Stubs for standard/extended compiler options
+if(NOT RBLXBUILD_CXX_STANDARD_COMPUTED_DEFAULT EQUAL 98)
+  if(RBLXBUILD_CXX_STANDARD_COMPUTED_DEFAULT GREATER_EQUAL 20)
+    set(RBLXBUILD_CXX20_STANDARD_COMPILE_OPTION --libc++)
+    set(RBLXBUILD_CXX20_EXTENSION_COMPILE_OPTION --libc++ -e)
+  endif()
+  if(RBLXBUILD_CXX_STANDARD_COMPUTED_DEFAULT GREATER_EQUAL 17)
+    set(RBLXBUILD_CXX17_STANDARD_COMPILE_OPTION "")
+    set(RBLXBUILD_CXX17_EXTENSION_COMPILE_OPTION -e)
+  endif()
+  if(RBLXBUILD_CXX_STANDARD_COMPUTED_DEFAULT GREATER_EQUAL 14)
+    set(RBLXBUILD_CXX14_STANDARD_COMPILE_OPTION "")
+    set(RBLXBUILD_CXX14_EXTENSION_COMPILE_OPTION -e)
+  endif()
+  if(RBLXBUILD_CXX_STANDARD_COMPUTED_DEFAULT GREATER_EQUAL 11)
+    set(RBLXBUILD_CXX11_STANDARD_COMPILE_OPTION "")
+    set(RBLXBUILD_CXX11_EXTENSION_COMPILE_OPTION -e)
+  endif()
+  if(RBLXBUILD_CXX_STANDARD_COMPUTED_DEFAULT EQUAL 03)
+    set(RBLXBUILD_CXX03_STANDARD_COMPILE_OPTION "")
+    set(RBLXBUILD_CXX03_EXTENSION_COMPILE_OPTION -e)
+    set(RBLXBUILD_CXX98_STANDARD_COMPILE_OPTION "")
+    set(RBLXBUILD_CXX98_EXTENSION_COMPILE_OPTION -e)
+  endif()
+else()
+  set(RBLXBUILD_CXX98_STANDARD_COMPILE_OPTION "")
+  set(RBLXBUILD_CXX98_EXTENSION_COMPILE_OPTION -e)
+endif()
+
+# Architecture specific
+if("${RBLXBUILD_CXX_COMPILER_ARCHITECTURE_ID}" STREQUAL "ARM")
+  if (RBLXBUILD_CXX_COMPILER_VERSION VERSION_LESS 5)
+    # IAR C++ Compiler for Arm prior version 5.xx uses XLINK. Support in RBLXBuild is not implemented.
+    message(FATAL_ERROR "IAR C++ Compiler for Arm version ${RBLXBUILD_CXX_COMPILER_VERSION} not supported by RBLXBuild.")
+  endif()
+  __compiler_iar_ilink(CXX)
+  __compiler_check_default_language_standard(CXX 5.10 98 8.10 14 8.40 17 10.10 20)
+
+elseif("${RBLXBUILD_CXX_COMPILER_ARCHITECTURE_ID}" STREQUAL "RX")
+  __compiler_iar_ilink(CXX)
+  __compiler_check_default_language_standard(CXX 2.10 98 4.10 14 4.20 17)
+
+elseif("${RBLXBUILD_CXX_COMPILER_ARCHITECTURE_ID}" STREQUAL "RH850")
+  __compiler_iar_ilink(CXX)
+  __compiler_check_default_language_standard(CXX 1.10 98 2.10 14 2.21 17)
+
+elseif("${RBLXBUILD_CXX_COMPILER_ARCHITECTURE_ID}" STREQUAL "RL78")
+  if(RBLXBUILD_CXX_COMPILER_VERSION VERSION_LESS 2)
+    # IAR C++ Compiler for RL78 prior version 2.xx uses XLINK. Support in RBLXBuild is not implemented.
+    message(FATAL_ERROR "IAR C++ Compiler for RL78 version ${RBLXBUILD_CXX_COMPILER_VERSION} not supported by RBLXBuild.")
+  endif()
+  __compiler_iar_ilink(CXX)
+  __compiler_check_default_language_standard(CXX 2.10 98 4.10 14 4.20 17)
+
+elseif("${RBLXBUILD_CXX_COMPILER_ARCHITECTURE_ID}" STREQUAL "RISCV")
+  __compiler_iar_ilink(CXX)
+  __compiler_check_default_language_standard(CXX 1.10 98 1.10 14 1.21 17)
+
+elseif("${RBLXBUILD_CXX_COMPILER_ARCHITECTURE_ID}" STREQUAL "AVR")
+  __compiler_iar_xlink(CXX)
+  __compiler_check_default_language_standard(CXX 7.10 98 8.10 17)
+  set(RBLXBUILD_CXX_OUTPUT_EXTENSION ".r90")
+
+elseif("${RBLXBUILD_CXX_COMPILER_ARCHITECTURE_ID}" STREQUAL "MSP430")
+  __compiler_iar_xlink(CXX)
+  __compiler_check_default_language_standard(CXX 5.10 98)
+  set(RBLXBUILD_CXX_OUTPUT_EXTENSION ".r43")
+
+elseif("${RBLXBUILD_CXX_COMPILER_ARCHITECTURE_ID}" STREQUAL "V850")
+  __compiler_iar_xlink(CXX)
+  __compiler_check_default_language_standard(CXX 1.10 98)
+  set(RBLXBUILD_CXX_OUTPUT_EXTENSION ".r85")
+
+elseif("${RBLXBUILD_CXX_COMPILER_ARCHITECTURE_ID}" STREQUAL "8051")
+  __compiler_iar_xlink(CXX)
+  __compiler_check_default_language_standard(CXX 6.10 98)
+  set(RBLXBUILD_CXX_OUTPUT_EXTENSION ".r51")
+
+elseif("${RBLXBUILD_CXX_COMPILER_ARCHITECTURE_ID}" STREQUAL "STM8")
+  __compiler_iar_ilink(CXX)
+  __compiler_check_default_language_standard(CXX 3.11 98)
+
+else()
+  message(FATAL_ERROR "RBLXBUILD_CXX_COMPILER_ARCHITECTURE_ID not detected. This should be automatic." )
+endif()

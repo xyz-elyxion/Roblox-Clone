@@ -1,27 +1,27 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmVersion.h"
 
 #include "cmVersionConfig.h"
 
 unsigned int cmVersion::GetMajorVersion()
 {
-  return CMake_VERSION_MAJOR;
+  return RBLXBuild_VERSION_MAJOR;
 }
 unsigned int cmVersion::GetMinorVersion()
 {
-  return CMake_VERSION_MINOR;
+  return RBLXBuild_VERSION_MINOR;
 }
 unsigned int cmVersion::GetPatchVersion()
 {
-  return CMake_VERSION_PATCH;
+  return RBLXBuild_VERSION_PATCH;
 }
 unsigned int cmVersion::GetTweakVersion()
 {
   return 0;
 }
 
-char const* cmVersion::GetCMakeVersion()
+char const* cmVersion::GetRBLXBuildVersion()
 {
-  return CMake_VERSION;
+  return RBLXBuild_VERSION;
 }

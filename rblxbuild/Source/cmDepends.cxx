@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmDepends.h"
 
 #include <utility>
@@ -31,7 +31,7 @@ bool cmDepends::Write(std::ostream& makeDepends, std::ostream& internalDepends)
     // Lookup the set of sources to scan.
     cmList pairs;
     {
-      std::string const srcLang = "CMAKE_DEPENDS_CHECK_" + this->Language;
+      std::string const srcLang = "RBLXBUILD_DEPENDS_CHECK_" + this->Language;
       cmMakefile* mf = this->LocalGenerator->GetMakefile();
       pairs.assign(mf->GetSafeDefinition(srcLang));
     }
@@ -231,14 +231,14 @@ void cmDepends::SetIncludePathFromLanguage(std::string const& lang)
 {
   // Look for the new per "TARGET_" variant first:
   std::string includePathVar =
-    cmStrCat("CMAKE_", lang, "_TARGET_INCLUDE_PATH");
+    cmStrCat("RBLXBUILD_", lang, "_TARGET_INCLUDE_PATH");
   cmMakefile* mf = this->LocalGenerator->GetMakefile();
   cmValue includePath = mf->GetDefinition(includePathVar);
   if (includePath) {
     cmExpandList(*includePath, this->IncludePath);
   } else {
     // Fallback to the old directory level variable if no per-target var:
-    includePathVar = cmStrCat("CMAKE_", lang, "_INCLUDE_PATH");
+    includePathVar = cmStrCat("RBLXBUILD_", lang, "_INCLUDE_PATH");
     includePath = mf->GetDefinition(includePathVar);
     if (includePath) {
       cmExpandList(*includePath, this->IncludePath);

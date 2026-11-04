@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #pragma once
 
 #include "cmCPackGenerator.h"
@@ -16,7 +16,7 @@ public:
                             std::string const& filename,
                             GuidType componentGuidType);
 
-  void CreateCMakePackageRegistryEntry(std::string const& package,
+  void CreateRBLXBuildPackageRegistryEntry(std::string const& package,
                                        std::string const& upgradeGuid);
 
   void EmitFeatureForComponentGroup(cmCPackComponentGroup const& group,

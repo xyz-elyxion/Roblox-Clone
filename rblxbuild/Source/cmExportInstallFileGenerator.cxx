@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmExportInstallFileGenerator.h"
 
 #include <algorithm>
@@ -329,7 +329,7 @@ std::string cmExportInstallFileGenerator::InstallNameDir(
   std::string install_name_dir;
 
   cmMakefile* mf = target->Target->GetMakefile();
-  if (mf->IsOn("CMAKE_PLATFORM_HAS_INSTALLNAME")) {
+  if (mf->IsOn("RBLXBUILD_PLATFORM_HAS_INSTALLNAME")) {
     auto const& prefix = this->GetInstallPrefix();
     install_name_dir = target->GetInstallNameDirForInstallTree(config, prefix);
   }
@@ -419,7 +419,7 @@ bool cmExportInstallFileGenerator::CheckInterfaceDirs(
   std::string const& prop) const
 {
   std::string const& installDir =
-    target->Makefile->GetSafeDefinition("CMAKE_INSTALL_PREFIX");
+    target->Makefile->GetSafeDefinition("RBLXBUILD_INSTALL_PREFIX");
   std::string const& topSourceDir =
     target->GetLocalGenerator()->GetSourceDirectory();
   std::string const& topBinaryDir =
@@ -561,7 +561,7 @@ void cmExportInstallFileGenerator::PopulateIncludeDirectoriesInterface(
   char const* const propName = "INTERFACE_INCLUDE_DIRECTORIES";
   cmValue input = target->GetProperty(propName);
 
-  cmGeneratorExpression ge(*target->Makefile->GetCMakeInstance());
+  cmGeneratorExpression ge(*target->Makefile->GetRBLXBuildInstance());
 
   std::string dirs = cmGeneratorExpression::Preprocess(
     cmList::to_string(target->Target->GetInstallIncludeDirectoriesEntries(te)),

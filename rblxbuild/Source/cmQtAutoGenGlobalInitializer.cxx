@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmQtAutoGenGlobalInitializer.h"
 
 #include <algorithm>
@@ -55,9 +55,9 @@ cmQtAutoGenGlobalInitializer::cmQtAutoGenGlobalInitializer(
     {
       cmMakefile const* makefile = localGen->GetMakefile();
       // Detect global autogen target name
-      if (makefile->IsOn("CMAKE_GLOBAL_AUTOGEN_TARGET")) {
+      if (makefile->IsOn("RBLXBUILD_GLOBAL_AUTOGEN_TARGET")) {
         std::string targetName =
-          makefile->GetSafeDefinition("CMAKE_GLOBAL_AUTOGEN_TARGET_NAME");
+          makefile->GetSafeDefinition("RBLXBUILD_GLOBAL_AUTOGEN_TARGET_NAME");
         if (targetName.empty()) {
           targetName = "autogen";
         }
@@ -67,9 +67,9 @@ cmQtAutoGenGlobalInitializer::cmQtAutoGenGlobalInitializer(
       }
 
       // Detect global autorcc target name
-      if (makefile->IsOn("CMAKE_GLOBAL_AUTORCC_TARGET")) {
+      if (makefile->IsOn("RBLXBUILD_GLOBAL_AUTORCC_TARGET")) {
         std::string targetName =
-          makefile->GetSafeDefinition("CMAKE_GLOBAL_AUTORCC_TARGET_NAME");
+          makefile->GetSafeDefinition("RBLXBUILD_GLOBAL_AUTORCC_TARGET_NAME");
         if (targetName.empty()) {
           targetName = "autorcc";
         }
@@ -148,7 +148,7 @@ cmQtAutoGenGlobalInitializer::cmQtAutoGenGlobalInitializer(
             target->GetName(), ".  ",
             cmQtAutoGen::Tools(mocDisabled, uicDisabled, rccDisabled),
             " disabled.  Consider adding:\n  find_package(Qt", version,
-            " COMPONENTS ", component, ")\nto your CMakeLists.txt file.");
+            " COMPONENTS ", component, ")\nto your RBLXBuildLists.txt file.");
           target->Makefile->IssueDiagnostic(cmDiagnostics::CMD_AUTHOR, msg);
         }
         if (mocIsValid || uicIsValid || rccIsValid) {

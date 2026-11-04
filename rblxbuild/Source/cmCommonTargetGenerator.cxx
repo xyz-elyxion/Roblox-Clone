@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmCommonTargetGenerator.h"
 
 #include <algorithm>
@@ -102,10 +102,10 @@ void cmCommonTargetGenerator::AppendFortranFormatFlags(
   char const* var = nullptr;
   switch (format) {
     case cmOutputConverter::FortranFormatFixed:
-      var = "CMAKE_Fortran_FORMAT_FIXED_FLAG";
+      var = "RBLXBUILD_Fortran_FORMAT_FIXED_FLAG";
       break;
     case cmOutputConverter::FortranFormatFree:
-      var = "CMAKE_Fortran_FORMAT_FREE_FLAG";
+      var = "RBLXBUILD_Fortran_FORMAT_FREE_FLAG";
       break;
     default:
       break;
@@ -132,11 +132,11 @@ void cmCommonTargetGenerator::AppendFortranPreprocessFlags(
   switch (preprocess) {
     case cmOutputConverter::FortranPreprocess::Needed:
       if (requires_pp == PreprocessFlagsRequired::YES) {
-        var = "CMAKE_Fortran_COMPILE_OPTIONS_PREPROCESS_ON";
+        var = "RBLXBUILD_Fortran_COMPILE_OPTIONS_PREPROCESS_ON";
       }
       break;
     case cmOutputConverter::FortranPreprocess::NotNeeded:
-      var = "CMAKE_Fortran_COMPILE_OPTIONS_PREPROCESS_OFF";
+      var = "RBLXBUILD_Fortran_COMPILE_OPTIONS_PREPROCESS_OFF";
       break;
     default:
       break;
@@ -367,7 +367,7 @@ std::string cmCommonTargetGenerator::GetManifests(std::string const& config)
 
   std::string const lang = this->GeneratorTarget->GetLinkerLanguage(config);
   std::string const manifestFlag = this->Makefile->GetDefinition(
-    cmStrCat("CMAKE_", lang, "_LINKER_MANIFEST_FLAG"));
+    cmStrCat("RBLXBUILD_", lang, "_LINKER_MANIFEST_FLAG"));
   for (cmSourceFile const* manifest_src : manifest_srcs) {
     manifests.push_back(manifestFlag +
                         this->LocalCommonGenerator->ConvertToOutputFormat(
@@ -399,7 +399,7 @@ void cmCommonTargetGenerator::AppendOSXVerFlag(std::string& flags,
 {
   // Lookup the flag to specify the version.
   std::string const fvar =
-    cmStrCat("CMAKE_", lang, "_OSX_", name, "_VERSION_FLAG");
+    cmStrCat("RBLXBUILD_", lang, "_OSX_", name, "_VERSION_FLAG");
   cmValue flag = this->Makefile->GetDefinition(fvar);
 
   // Skip if no such flag.
@@ -440,7 +440,7 @@ std::vector<std::string> cmCommonTargetGenerator::GetCompilerLauncher(
       // Wrappers go outside of the launcher.
       compilerLauncher = this->ParseWrappers(
         this->GeneratorTarget->GetCompileWrappers(config, lang),
-        "CMAKE_COMPILE_WRAPPER_"_s, "COMPILE_WRAPPERS"_s,
+        "RBLXBUILD_COMPILE_WRAPPER_"_s, "COMPILE_WRAPPERS"_s,
         this->GeneratorTarget->GetName(), config, lang);
     }
 
@@ -459,7 +459,7 @@ std::vector<std::string> cmCommonTargetGenerator::GetCompilerLauncher(
 
 std::string cmCommonTargetGenerator::GenerateCodeCheckRules(
   cmSourceFile const& source, std::vector<std::string>& compilerLauncher,
-  std::string const& cmakeCmd, std::string const& config,
+  std::string const& rblxbuildCmd, std::string const& config,
   std::function<std::string(std::string const&)> const& pathConverter)
 {
   std::string const lang =
@@ -503,7 +503,7 @@ std::string cmCommonTargetGenerator::GenerateCodeCheckRules(
 
   if (cmNonempty(iwyu) || cmNonempty(tidy) || cmNonempty(cpplint) ||
       cmNonempty(cppcheck) || cmNonempty(icstat) || cmNonempty(pvs)) {
-    std::string code_check = cmakeCmd + " -E __run_co_compile";
+    std::string code_check = rblxbuildCmd + " -E __run_co_compile";
     if (!compilerLauncher.empty()) {
       // In __run_co_compile case the launcher command is supplied
       // via --launcher=<list> and consumed
@@ -521,7 +521,7 @@ std::string cmCommonTargetGenerator::GenerateCodeCheckRules(
       // it unconditionally might override a user-specified driver-mode
       if (iwyu.find("--driver-mode=") == std::string::npos) {
         cmValue const p = this->Makefile->GetDefinition(
-          cmStrCat("CMAKE_", lang, "_INCLUDE_WHAT_YOU_USE_DRIVER_MODE"));
+          cmStrCat("RBLXBUILD_", lang, "_INCLUDE_WHAT_YOU_USE_DRIVER_MODE"));
         std::string driverMode;
 
         if (cmNonempty(p)) {
@@ -543,7 +543,7 @@ std::string cmCommonTargetGenerator::GenerateCodeCheckRules(
     if (cmNonempty(tidy)) {
       code_check += " --tidy=";
       cmValue const p = this->Makefile->GetDefinition(
-        cmStrCat("CMAKE_", lang, "_CLANG_TIDY_DRIVER_MODE"));
+        cmStrCat("RBLXBUILD_", lang, "_CLANG_TIDY_DRIVER_MODE"));
       std::string driverMode;
       if (cmNonempty(p)) {
         driverMode = *p;
@@ -600,10 +600,10 @@ std::string cmCommonTargetGenerator::GenerateCodeCheckRules(
       std::string extraPvsArgs;
       if (lang == "CXX") {
         extraPvsArgs =
-          cmStrCat(";--cxx;", mf->GetDefinition("CMAKE_CXX_COMPILER"));
+          cmStrCat(";--cxx;", mf->GetDefinition("RBLXBUILD_CXX_COMPILER"));
       } else if (lang == "C") {
         extraPvsArgs =
-          cmStrCat(";--cc;", mf->GetDefinition("CMAKE_C_COMPILER"));
+          cmStrCat(";--cc;", mf->GetDefinition("RBLXBUILD_C_COMPILER"));
       }
       // cocompile args
       code_check = cmStrCat(
@@ -628,7 +628,7 @@ std::string cmCommonTargetGenerator::GenerateCodeCheckRules(
         this->GeneratorTarget->GetLocalGenerator()->EscapeForShell(cppcheck));
     }
     if (cmNonempty(icstat)) {
-      // Unless specified otherwise via CMAKE_<LANG>_ICSTAT,
+      // Unless specified otherwise via RBLXBUILD_<LANG>_ICSTAT,
       // populate the icstat command line using default options
       // for its mandatory parameters.
       std::string checksParam{};
@@ -676,7 +676,7 @@ std::vector<std::string> cmCommonTargetGenerator::GetLinkerLauncher(
     // Wrappers go outside of the launcher.
     linkLauncher =
       this->ParseWrappers(this->GeneratorTarget->GetLinkWrappers(config, lang),
-                          "CMAKE_LINK_WRAPPER_"_s, "LINK_WRAPPERS"_s,
+                          "RBLXBUILD_LINK_WRAPPER_"_s, "LINK_WRAPPERS"_s,
                           this->GeneratorTarget->GetName(), config, lang);
   }
 
@@ -735,7 +735,7 @@ bool cmCommonTargetGenerator::HaveRequiredLanguages(
                  " was requested for compilation but was not enabled."
                  " To enable a language it needs to be specified in a"
                  " 'project' or 'enable_language' command in the root"
-                 " CMakeLists.txt"));
+                 " RBLXBuildLists.txt"));
     }
     return valid;
   };

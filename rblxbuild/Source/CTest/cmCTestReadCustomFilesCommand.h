@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #pragma once
 
 #include "cmConfigure.h" // IWYU pragma: keep
@@ -15,7 +15,7 @@ public:
 
   /**
    * This is called when the command is first encountered in
-   * the CMakeLists.txt file.
+   * the RBLXBuildLists.txt file.
    */
   bool InitialPass(std::vector<std::string> const& args,
                    cmExecutionStatus& status) const override;

@@ -1,0 +1,11 @@
+include(Compiler/Clang)
+__compiler_clang(OBJCXX)
+__compiler_clang_cxx_standards(OBJCXX)
+
+if((NOT DEFINED RBLXBUILD_DEPENDS_USE_COMPILER OR RBLXBUILD_DEPENDS_USE_COMPILER)
+    AND RBLXBUILD_GENERATOR MATCHES "Makefiles|WMake"
+    AND RBLXBUILD_DEPFILE_FLAGS_OBJCXX)
+  # dependencies are computed by the compiler itself
+  set(RBLXBUILD_OBJCXX_DEPFILE_FORMAT gcc)
+  set(RBLXBUILD_OBJCXX_DEPENDS_USE_COMPILER TRUE)
+endif()

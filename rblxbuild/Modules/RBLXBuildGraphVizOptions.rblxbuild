@@ -1,0 +1,13 @@
+# Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
+# file LICENSE.rst or https://rblxbuild.org/licensing for details.
+
+#[=======================================================================[.rst:
+RBLXBuildGraphVizOptions
+--------------------
+
+.. note::
+
+  This module is not intended to be included in RBLXBuild projects directly.
+  It once contained the information for using Graphviz in RBLXBuild.  For
+  Graphviz usage in RBLXBuild refer to the :option:`rblxbuild --graphviz`.
+#]=======================================================================]

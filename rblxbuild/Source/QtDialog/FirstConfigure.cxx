@@ -9,7 +9,7 @@
 #include "cmStringAlgorithms.h"
 
 #include "Compilers.h"
-#include "QCMakeSizeType.h"
+#include "QRBLXBuildSizeType.h"
 
 StartCompilerSetup::StartCompilerSetup(QString defaultGeneratorPlatform,
                                        QString defaultGeneratorToolset,
@@ -74,7 +74,7 @@ QFrame* StartCompilerSetup::CreateToolsetWidgets()
   Toolset = new QLineEdit(frame);
   l->addWidget(Toolset);
 
-  // Default to CMAKE_GENERATOR_TOOLSET env var if set
+  // Default to RBLXBUILD_GENERATOR_TOOLSET env var if set
   if (!DefaultGeneratorToolset.isEmpty()) {
     this->Toolset->setText(DefaultGeneratorToolset);
   }
@@ -101,13 +101,13 @@ QFrame* StartCompilerSetup::CreatePlatformWidgets()
 StartCompilerSetup::~StartCompilerSetup() = default;
 
 void StartCompilerSetup::setGenerators(
-  std::vector<cmake::GeneratorInfo> const& gens)
+  std::vector<rblxbuild::GeneratorInfo> const& gens)
 {
   this->GeneratorOptions->clear();
 
   QStringList generator_list;
 
-  for (cmake::GeneratorInfo const& gen : gens) {
+  for (rblxbuild::GeneratorInfo const& gen : gens) {
     generator_list.append(QString::fromStdString(gen.name));
 
     if (gen.supportsPlatform) {
@@ -459,7 +459,7 @@ ToolchainCompilerSetup::ToolchainCompilerSetup(QWidget* p)
 {
   QVBoxLayout* l = new QVBoxLayout(this);
   l->addWidget(new QLabel(tr("Specify the Toolchain file")));
-  this->ToolchainFile = new QCMakeFilePathEditor(this);
+  this->ToolchainFile = new QRBLXBuildFilePathEditor(this);
   l->addWidget(this->ToolchainFile);
 }
 
@@ -481,13 +481,13 @@ FirstConfigure::FirstConfigure()
   // FIXME(QTBUG-123853): Fix window style init for dark mode.
   this->setWizardStyle(this->wizardStyle());
 #endif
-  char const* env_generator = std::getenv("CMAKE_GENERATOR");
+  char const* env_generator = std::getenv("RBLXBUILD_GENERATOR");
   char const* env_generator_platform = nullptr;
   char const* env_generator_toolset = nullptr;
   if (env_generator && std::strlen(env_generator)) {
     mDefaultGenerator = env_generator;
-    env_generator_platform = std::getenv("CMAKE_GENERATOR_PLATFORM");
-    env_generator_toolset = std::getenv("CMAKE_GENERATOR_TOOLSET");
+    env_generator_platform = std::getenv("RBLXBUILD_GENERATOR_PLATFORM");
+    env_generator_toolset = std::getenv("RBLXBUILD_GENERATOR_TOOLSET");
   }
 
   if (!env_generator_platform) {
@@ -518,7 +518,7 @@ FirstConfigure::FirstConfigure()
 FirstConfigure::~FirstConfigure() = default;
 
 void FirstConfigure::setGenerators(
-  std::vector<cmake::GeneratorInfo> const& gens)
+  std::vector<rblxbuild::GeneratorInfo> const& gens)
 {
   this->mStartCompilerSetupPage->setGenerators(gens);
 }

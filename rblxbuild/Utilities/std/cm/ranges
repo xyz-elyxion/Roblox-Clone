@@ -2,14 +2,14 @@
 // vim: set ft=cpp:
 
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #pragma once
 
 #if __cplusplus >= 202002L || (defined(_MSVC_LANG) && _MSVC_LANG >= 202002L)
-#  define CMake_HAVE_CXX_RANGES
+#  define RBLXBuild_HAVE_CXX_RANGES
 #endif
 
-#if defined(CMake_HAVE_CXX_RANGES)
+#if defined(RBLXBuild_HAVE_CXX_RANGES)
 #  include <ranges>
 #else
 #  include <algorithm>
@@ -24,7 +24,7 @@
 namespace cm {
 namespace ranges {
 namespace views {
-#if defined(CMake_HAVE_CXX_RANGES)
+#if defined(RBLXBuild_HAVE_CXX_RANGES)
 
 using std::ranges::views::keys;
 using std::ranges::views::values;

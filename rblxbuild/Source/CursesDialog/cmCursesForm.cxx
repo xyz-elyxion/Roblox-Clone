@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmCursesForm.h"
 
 #include <cstdlib>
@@ -27,7 +27,7 @@ cmCursesForm::~cmCursesForm()
 void cmCursesForm::DebugStart()
 {
   cmCursesForm::Debug = true;
-  cmCursesForm::DebugFile.open("ccmakelog.txt");
+  cmCursesForm::DebugFile.open("crblxbuildlog.txt");
 }
 
 void cmCursesForm::DebugEnd()

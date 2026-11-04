@@ -1,0 +1,160 @@
+# Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
+# file LICENSE.rst or https://rblxbuild.org/licensing for details.
+
+include(${RBLXBUILD_ROOT}/Modules/RBLXBuildDetermineCompiler.rblxbuild)
+
+# Local system-specific compiler preferences for this language.
+include(Platform/${RBLXBUILD_SYSTEM_NAME}-Determine-Swift OPTIONAL)
+include(Platform/${RBLXBUILD_SYSTEM_NAME}-Swift OPTIONAL)
+if(NOT RBLXBUILD_Swift_COMPILER_NAMES)
+  set(RBLXBUILD_Swift_COMPILER_NAMES swiftc)
+endif()
+
+if("${RBLXBUILD_GENERATOR}" STREQUAL "Xcode")
+  if(XCODE_VERSION VERSION_LESS 6.1)
+    message(FATAL_ERROR "Swift language not supported by Xcode ${XCODE_VERSION}")
+  endif()
+  set(RBLXBUILD_Swift_COMPILER_XCODE_TYPE sourcecode.swift)
+  execute_process(COMMAND xcrun --find swiftc
+    OUTPUT_VARIABLE _xcrun_out OUTPUT_STRIP_TRAILING_WHITESPACE
+    ERROR_VARIABLE _xcrun_err RESULT_VARIABLE _xcrun_result)
+  if(_xcrun_result EQUAL 0 AND EXISTS "${_xcrun_out}")
+    set(RBLXBUILD_Swift_COMPILER "${_xcrun_out}")
+  else()
+    _rblxbuild_find_compiler_path(Swift)
+  endif()
+elseif("${RBLXBUILD_GENERATOR}" MATCHES "^Ninja")
+  if(RBLXBUILD_Swift_COMPILER)
+    _rblxbuild_find_compiler_path(Swift)
+  else()
+    set(RBLXBUILD_Swift_COMPILER_INIT NOTFOUND)
+
+    if(NOT $ENV{SWIFTC} STREQUAL "")
+      get_filename_component(RBLXBUILD_Swift_COMPILER_INIT $ENV{SWIFTC} PROGRAM
+        PROGRAM_ARGS RBLXBUILD_Swift_FLAGS_ENV_INIT)
+      if(RBLXBUILD_Swift_FLAGS_ENV_INIT)
+        set(RBLXBUILD_Swift_COMPILER_ARG1 "${RBLXBUILD_Swift_FLAGS_ENV_INIT}" CACHE
+          STRING "Arguments to the Swift compiler")
+      endif()
+      if(NOT EXISTS ${RBLXBUILD_Swift_COMPILER_INIT})
+        message(FATAL_ERROR "Could not find the compiler specified in the environment variable SWIFTC\n$ENV{SWIFTC}.\n${RBLXBUILD_Swift_COMPILER_INIT}")
+      endif()
+    endif()
+
+    if(NOT RBLXBUILD_Swift_COMPILER_INIT)
+      set(RBLXBUILD_Swift_COMPILER_LIST swiftc ${_RBLXBUILD_TOOLCHAIN_PREFIX}swiftc)
+    endif()
+
+    _rblxbuild_find_compiler(Swift)
+  endif()
+  mark_as_advanced(RBLXBUILD_Swift_COMPILER)
+else()
+  message(FATAL_ERROR "Swift language not supported by \"${RBLXBUILD_GENERATOR}\" generator")
+endif()
+
+# Build a small source file to identify the compiler.
+if(NOT RBLXBUILD_Swift_COMPILER_ID_RUN)
+  set(RBLXBUILD_Swift_COMPILER_ID_RUN 1)
+
+  if("${RBLXBUILD_GENERATOR}" STREQUAL "Xcode")
+    list(APPEND RBLXBUILD_Swift_COMPILER_ID_MATCH_VENDORS Apple)
+    set(RBLXBUILD_Swift_COMPILER_ID_MATCH_VENDOR_REGEX_Apple "com.apple.xcode.tools.swift.compiler")
+  endif()
+
+  # Try to identify the compiler.
+  set(RBLXBUILD_Swift_COMPILER_ID)
+  include(${RBLXBUILD_ROOT}/Modules/RBLXBuildDetermineCompilerId.rblxbuild)
+  RBLXBUILD_DETERMINE_COMPILER_ID(Swift "" CompilerId/main.swift)
+endif()
+
+# Check if we are using the old compiler driver.
+if(RBLXBUILD_GENERATOR STREQUAL "Xcode")
+  # For Xcode, we can decide driver kind simply by Swift version.
+  if(RBLXBUILD_Swift_COMPILER_VERSION VERSION_GREATER_EQUAL 5.5)
+    set(RBLXBUILD_Swift_COMPILER_USE_OLD_DRIVER FALSE)
+  else()
+    set(RBLXBUILD_Swift_COMPILER_USE_OLD_DRIVER TRUE)
+  endif()
+elseif(NOT DEFINED RBLXBUILD_Swift_COMPILER_USE_OLD_DRIVER)
+  # Dry-run a WMO build to identify the compiler driver.
+
+  # Create a clean directory in which to run the test.
+  set(RBLXBUILD_Swift_COMPILER_DRIVER_TEST_DIR ${RBLXBUILD_PLATFORM_INFO_DIR}/SwiftCompilerDriver)
+  file(REMOVE_RECURSE "${RBLXBUILD_Swift_COMPILER_DRIVER_TEST_DIR}")
+  file(MAKE_DIRECTORY "${RBLXBUILD_Swift_COMPILER_DRIVER_TEST_DIR}")
+
+  # Create a Swift file and an arbitrary linker resource.
+  file(WRITE ${RBLXBUILD_Swift_COMPILER_DRIVER_TEST_DIR}/main.swift "print(\"Hello\")\n")
+  file(WRITE ${RBLXBUILD_Swift_COMPILER_DRIVER_TEST_DIR}/lib.in "\n")
+
+  # Honor user-specified compiler flags.
+  if(DEFINED RBLXBUILD_Swift_FLAGS)
+    separate_arguments(_RBLXBUILD_Swift_COMPILER_FLAGS_LIST NATIVE_COMMAND "${RBLXBUILD_Swift_FLAGS}")
+  else()
+    separate_arguments(_RBLXBUILD_Swift_COMPILER_FLAGS_LIST NATIVE_COMMAND "${RBLXBUILD_Swift_FLAGS_INIT}")
+  endif()
+  set(_RBLXBUILD_Swift_COMPILER_CHECK_COMMAND "${RBLXBUILD_Swift_COMPILER}" ${_RBLXBUILD_Swift_COMPILER_FLAGS_LIST} -wmo main.swift lib.in "-###")
+  unset(_RBLXBUILD_Swift_COMPILER_FLAGS_LIST)
+
+  # Execute in dry-run mode so no compilation will be actually performed.
+  execute_process(COMMAND ${_RBLXBUILD_Swift_COMPILER_CHECK_COMMAND}
+    WORKING_DIRECTORY "${RBLXBUILD_Swift_COMPILER_DRIVER_TEST_DIR}"
+    OUTPUT_VARIABLE _RBLXBUILD_Swift_COMPILER_CHECK_OUTPUT
+    RESULT_VARIABLE _result_RBLXBUILD_Swift_COMPILER)
+
+  # Check the first frontend execution.  It is on the first line of output.
+  # The old driver treats all inputs as Swift sources while the new driver
+  # can identify "lib.in" as a linker resource.
+  if("${_RBLXBUILD_Swift_COMPILER_CHECK_OUTPUT}" MATCHES "^[^\n]* lib\\.in")
+    set(RBLXBUILD_Swift_COMPILER_USE_OLD_DRIVER TRUE)
+  else()
+    set(RBLXBUILD_Swift_COMPILER_USE_OLD_DRIVER FALSE)
+  endif()
+
+  # Record the check results in the configure log.
+  list(TRANSFORM _RBLXBUILD_Swift_COMPILER_CHECK_COMMAND PREPEND "\"")
+  list(TRANSFORM _RBLXBUILD_Swift_COMPILER_CHECK_COMMAND APPEND "\"")
+  list(JOIN _RBLXBUILD_Swift_COMPILER_CHECK_COMMAND " " _RBLXBUILD_Swift_COMPILER_CHECK_COMMAND)
+  string(REPLACE "\n" "\n  " _RBLXBUILD_Swift_COMPILER_CHECK_OUTPUT "  ${_RBLXBUILD_Swift_COMPILER_CHECK_OUTPUT}")
+  message(CONFIGURE_LOG
+    "Detected RBLXBUILD_Swift_COMPILER_USE_OLD_DRIVER=\"${RBLXBUILD_Swift_COMPILER_USE_OLD_DRIVER}\" from:\n"
+    "  ${_RBLXBUILD_Swift_COMPILER_CHECK_COMMAND}\n"
+    "with output:\n"
+    "${_RBLXBUILD_Swift_COMPILER_CHECK_OUTPUT}"
+    )
+
+  unset(_RBLXBUILD_Swift_COMPILER_CHECK_COMMAND)
+  unset(_RBLXBUILD_Swift_COMPILER_CHECK_OUTPUT)
+endif()
+
+if(RBLXBUILD_Swift_COMPILER_VERSION VERSION_GREATER_EQUAL 5.2)
+  set(target_info_command "${RBLXBUILD_Swift_COMPILER}" -print-target-info)
+  if(RBLXBUILD_Swift_COMPILER_TARGET)
+    list(APPEND target_info_command -target ${RBLXBUILD_Swift_COMPILER_TARGET})
+  endif()
+  execute_process(
+    COMMAND ${target_info_command}
+    OUTPUT_VARIABLE swift_target_info
+    RESULT_VARIABLE _result_swift_target_info)
+  message(CONFIGURE_LOG "Swift target info:\n" "${swift_target_info}")
+  string(JSON module_triple GET "${swift_target_info}" "target" "moduleTriple")
+  set(RBLXBUILD_Swift_MODULE_TRIPLE ${module_triple})
+
+  if(RBLXBUILD_Swift_COMPILER_VERSION VERSION_GREATER_EQUAL 6.2)
+    string(JSON RBLXBUILD_Swift_SIZEOF_DATA_PTR GET "${swift_target_info}" "target" "pointerWidthInBytes")
+  endif()
+endif()
+
+if (NOT _RBLXBUILD_TOOLCHAIN_LOCATION)
+  get_filename_component(_RBLXBUILD_TOOLCHAIN_LOCATION "${RBLXBUILD_Swift_COMPILER}" PATH)
+endif ()
+
+set(_RBLXBUILD_PROCESSING_LANGUAGE "Swift")
+include(RBLXBuildFindBinUtils)
+unset(_RBLXBUILD_PROCESSING_LANGUAGE)
+
+# configure variables set in this file for fast reload later on
+configure_file(${RBLXBUILD_ROOT}/Modules/RBLXBuildSwiftCompiler.rblxbuild.in
+               ${RBLXBUILD_PLATFORM_INFO_DIR}/RBLXBuildSwiftCompiler.rblxbuild @ONLY)
+
+set(RBLXBUILD_Swift_COMPILER_ENV_VAR "SWIFTC")

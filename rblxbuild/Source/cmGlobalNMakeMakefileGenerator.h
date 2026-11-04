@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #pragma once
 
 #include <iosfwd>
@@ -14,7 +14,7 @@
 #include "cmValue.h"
 
 class cmMakefile;
-class cmake;
+class rblxbuild;
 
 /** \class cmGlobalNMakeMakefileGenerator
  * \brief Write a NMake makefiles.
@@ -24,7 +24,7 @@ class cmake;
 class cmGlobalNMakeMakefileGenerator : public cmGlobalUnixMakefileGenerator3
 {
 public:
-  cmGlobalNMakeMakefileGenerator(cmake* cm);
+  cmGlobalNMakeMakefileGenerator(rblxbuild* cm);
   static std::unique_ptr<cmGlobalGeneratorFactory> NewFactory()
   {
     return std::unique_ptr<cmGlobalGeneratorFactory>(

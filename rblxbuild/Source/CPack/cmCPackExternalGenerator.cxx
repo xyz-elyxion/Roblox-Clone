@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmCPackExternalGenerator.h"
 
 #include <map>
@@ -25,9 +25,9 @@ int cmCPackExternalGenerator::InitializeInternal()
 {
   this->SetOption("CPACK_EXTERNAL_KNOWN_VERSIONS", "1.0");
 
-  if (!this->ReadListFile("Internal/CPack/CPackExternal.cmake")) {
+  if (!this->ReadListFile("Internal/CPack/CPackExternal.rblxbuild")) {
     cmCPackLogger(cmCPackLog::LOG_ERROR,
-                  "Error while executing CPackExternal.cmake" << std::endl);
+                  "Error while executing CPackExternal.rblxbuild" << std::endl);
     return 0;
   }
 
@@ -140,7 +140,7 @@ int cmCPackExternalGenerator::RunPreinstallTarget(
   return 1;
 }
 
-int cmCPackExternalGenerator::InstallCMakeProject(
+int cmCPackExternalGenerator::InstallRBLXBuildProject(
   bool setDestDir, std::string const& installDirectory,
   std::string const& baseTempInstallDirectory, mode_t const* default_dir_mode,
   std::string const& component, bool componentInstall,
@@ -148,7 +148,7 @@ int cmCPackExternalGenerator::InstallCMakeProject(
   std::string& absoluteDestFiles)
 {
   if (this->StagingEnabled()) {
-    return this->cmCPackGenerator::InstallCMakeProject(
+    return this->cmCPackGenerator::InstallRBLXBuildProject(
       setDestDir, installDirectory, baseTempInstallDirectory, default_dir_mode,
       component, componentInstall, installSubDirectory, buildConfig,
       absoluteDestFiles);
@@ -231,7 +231,7 @@ int cmCPackExternalGenerator::cmCPackExternalVersionGenerator::WriteToJSON(
     this->Parent->IsOn("CPACK_ERROR_ON_ABSOLUTE_INSTALL_DESTINATION");
 
   Json::Value& projects = root["projects"] = Json::Value(Json::arrayValue);
-  for (auto& project : this->Parent->CMakeProjects) {
+  for (auto& project : this->Parent->RBLXBuildProjects) {
     Json::Value jsonProject(Json::objectValue);
 
     jsonProject["projectName"] = project.ProjectName;

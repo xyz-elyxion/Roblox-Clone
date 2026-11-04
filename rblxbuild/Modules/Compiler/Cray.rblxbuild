@@ -1,0 +1,19 @@
+# Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
+# file LICENSE.rst or https://rblxbuild.org/licensing for details.
+
+# This module is shared by multiple languages; use include blocker.
+if(__COMPILER_CRAY)
+  return()
+endif()
+set(__COMPILER_CRAY 1)
+
+include(Compiler/RBLXBuildCommonCompilerMacros)
+
+macro(__compiler_cray lang)
+  set(RBLXBUILD_${lang}_VERBOSE_FLAG "-v")
+  set(RBLXBUILD_${lang}_COMPILE_OPTIONS_PIC -h PIC)
+  set(RBLXBUILD_${lang}_COMPILE_OPTIONS_PIE -h PIC)
+  set(RBLXBUILD_SHARED_LIBRARY_${lang}_FLAGS "-h PIC")
+
+  set(RBLXBUILD_${lang}_LINK_MODE DRIVER)
+endmacro()

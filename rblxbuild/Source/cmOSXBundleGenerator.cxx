@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmOSXBundleGenerator.h"
 
 #include <cassert>
@@ -43,7 +43,7 @@ void cmOSXBundleGenerator::CreateAppBundle(std::string const& targetName,
     outpath, '/',
     this->GT->GetAppBundleDirectory(config, cmGeneratorTarget::FullLevel));
   cmSystemTools::MakeDirectory(out);
-  this->Makefile->AddCMakeOutputFile(out);
+  this->Makefile->AddRBLXBuildOutputFile(out);
 
   // Configure the Info.plist file.  Note that it needs the executable name
   // to be set.
@@ -52,7 +52,7 @@ void cmOSXBundleGenerator::CreateAppBundle(std::string const& targetName,
     this->GT->GetAppBundleDirectory(config, cmGeneratorTarget::ContentLevel),
     "/Info.plist");
   this->LocalGenerator->GenerateAppleInfoPList(this->GT, targetName, plist);
-  this->Makefile->AddCMakeOutputFile(plist);
+  this->Makefile->AddRBLXBuildOutputFile(plist);
   outpath = out;
 }
 
@@ -113,24 +113,24 @@ void cmOSXBundleGenerator::CreateFramework(
   newName = cmStrCat(versions, "/Current");
   cmSystemTools::RemoveFile(newName);
   cmSystemTools::CreateSymlink(oldName, newName);
-  this->Makefile->AddCMakeOutputFile(newName);
+  this->Makefile->AddRBLXBuildOutputFile(newName);
 
   // foo -> Versions/Current/foo
   oldName = cmStrCat("Versions/Current/", name);
   newName = cmStrCat(contentdir, name);
   cmSystemTools::RemoveFile(newName);
   cmSystemTools::CreateSymlink(oldName, newName);
-  this->Makefile->AddCMakeOutputFile(newName);
+  this->Makefile->AddRBLXBuildOutputFile(newName);
 
   if (!skipParts.TextStubs) {
     // foo.tbd -> Versions/Current/foo.tbd
     cmValue tbdSuffix =
-      this->Makefile->GetDefinition("CMAKE_APPLE_IMPORT_FILE_SUFFIX");
+      this->Makefile->GetDefinition("RBLXBUILD_APPLE_IMPORT_FILE_SUFFIX");
     oldName = cmStrCat("Versions/Current/", name, tbdSuffix);
     newName = cmStrCat(contentdir, name, tbdSuffix);
     cmSystemTools::RemoveFile(newName);
     cmSystemTools::CreateSymlink(oldName, newName);
-    this->Makefile->AddCMakeOutputFile(newName);
+    this->Makefile->AddRBLXBuildOutputFile(newName);
   }
 
   // Resources -> Versions/Current/Resources
@@ -140,7 +140,7 @@ void cmOSXBundleGenerator::CreateFramework(
     newName = cmStrCat(contentdir, "Resources");
     cmSystemTools::RemoveFile(newName);
     cmSystemTools::CreateSymlink(oldName, newName);
-    this->Makefile->AddCMakeOutputFile(newName);
+    this->Makefile->AddRBLXBuildOutputFile(newName);
   }
 
   // Headers -> Versions/Current/Headers
@@ -150,7 +150,7 @@ void cmOSXBundleGenerator::CreateFramework(
     newName = cmStrCat(contentdir, "Headers");
     cmSystemTools::RemoveFile(newName);
     cmSystemTools::CreateSymlink(oldName, newName);
-    this->Makefile->AddCMakeOutputFile(newName);
+    this->Makefile->AddRBLXBuildOutputFile(newName);
   }
 
   // PrivateHeaders -> Versions/Current/PrivateHeaders
@@ -160,7 +160,7 @@ void cmOSXBundleGenerator::CreateFramework(
     newName = cmStrCat(contentdir, "PrivateHeaders");
     cmSystemTools::RemoveFile(newName);
     cmSystemTools::CreateSymlink(oldName, newName);
-    this->Makefile->AddCMakeOutputFile(newName);
+    this->Makefile->AddRBLXBuildOutputFile(newName);
   }
 }
 
@@ -177,7 +177,7 @@ void cmOSXBundleGenerator::CreateCFBundle(std::string const& targetName,
     root, '/',
     this->GT->GetCFBundleDirectory(config, cmGeneratorTarget::FullLevel));
   cmSystemTools::MakeDirectory(out);
-  this->Makefile->AddCMakeOutputFile(out);
+  this->Makefile->AddRBLXBuildOutputFile(out);
 
   // Configure the Info.plist file.  Note that it needs the executable name
   // to be set.
@@ -187,7 +187,7 @@ void cmOSXBundleGenerator::CreateCFBundle(std::string const& targetName,
     "/Info.plist");
   std::string name = cmSystemTools::GetFilenameName(targetName);
   this->LocalGenerator->GenerateAppleInfoPList(this->GT, name, plist);
-  this->Makefile->AddCMakeOutputFile(plist);
+  this->Makefile->AddRBLXBuildOutputFile(plist);
 }
 
 void cmOSXBundleGenerator::GenerateMacOSXContentStatements(

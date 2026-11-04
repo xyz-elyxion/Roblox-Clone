@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 
 #include "cmBinUtilsLinuxELFLinker.h"
 
@@ -62,12 +62,12 @@ bool cmBinUtilsLinuxELFLinker::Prepare()
         this->Archive);
   } else {
     this->SetError(cmStrCat(
-      "Invalid value for CMAKE_GET_RUNTIME_DEPENDENCIES_TOOL: ", tool));
+      "Invalid value for RBLXBUILD_GET_RUNTIME_DEPENDENCIES_TOOL: ", tool));
     return false;
   }
 
   std::string ldConfigTool =
-    this->Archive->GetMakefile()->GetSafeDefinition("CMAKE_LDCONFIG_TOOL");
+    this->Archive->GetMakefile()->GetSafeDefinition("RBLXBUILD_LDCONFIG_TOOL");
   if (ldConfigTool.empty()) {
     ldConfigTool = "ldconfig";
   }
@@ -79,7 +79,7 @@ bool cmBinUtilsLinuxELFLinker::Prepare()
     }
   } else {
     this->SetError(
-      cmStrCat("Invalid value for CMAKE_LDCONFIG_TOOL: ", ldConfigTool));
+      cmStrCat("Invalid value for RBLXBUILD_LDCONFIG_TOOL: ", ldConfigTool));
     return false;
   }
 

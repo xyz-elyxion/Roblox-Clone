@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #pragma once
 
 #include "cmConfigure.h" // IWYU pragma: keep
@@ -8,7 +8,7 @@
 enum class PackageResolveMode
 {
   /** \brief Behavior is defined by preset or cache variable (e.g.
-     CMAKE_VS_NUGET_PACKAGE_RESTORE). This is the default. **/
+     RBLXBUILD_VS_NUGET_PACKAGE_RESTORE). This is the default. **/
   Default,
 
   /** \brief Ignore behavior defined by preset or cache variable and forces

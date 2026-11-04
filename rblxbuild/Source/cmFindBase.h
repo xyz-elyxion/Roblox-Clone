@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #pragma once
 
 #include "cmConfigure.h" // IWYU pragma: keep
@@ -27,7 +27,7 @@ public:
 
   /**
    * This is called when the command is first encountered in
-   * the CMakeLists.txt file.
+   * the RBLXBuildLists.txt file.
    */
   virtual bool ParseArguments(std::vector<std::string> const& args);
 
@@ -57,7 +57,7 @@ protected:
   bool NamesPerDir = false;
   bool NamesPerDirAllowed = false;
 
-  // CMAKE_*_PATH CMAKE_SYSTEM_*_PATH FRAMEWORK|LIBRARY|INCLUDE|PROGRAM
+  // RBLXBUILD_*_PATH RBLXBUILD_SYSTEM_*_PATH FRAMEWORK|LIBRARY|INCLUDE|PROGRAM
   std::string EnvironmentPath; // LIB,INCLUDE
 
   bool AlreadyInCacheWithoutMetaInfo = false;
@@ -82,11 +82,11 @@ private:
 
   // Add pieces of the search.
   void FillPackageRootPath();
-  void FillCMakeVariablePath();
-  void FillCMakeEnvironmentPath();
+  void FillRBLXBuildVariablePath();
+  void FillRBLXBuildEnvironmentPath();
   void FillUserHintsPath();
   void FillSystemEnvironmentPath();
-  void FillCMakeSystemVariablePath();
+  void FillRBLXBuildSystemVariablePath();
   void FillUserGuessPath();
 };
 
@@ -113,7 +113,7 @@ private:
   };
 
   void WriteDebug() const override;
-#ifndef CMAKE_BOOTSTRAP
+#ifndef RBLXBUILD_BOOTSTRAP
   void WriteEvent(cmConfigureLog& log, cmMakefile const& mf) const override;
   std::vector<std::pair<VariableSource, std::string>> ExtraSearchVariables()
     const override;

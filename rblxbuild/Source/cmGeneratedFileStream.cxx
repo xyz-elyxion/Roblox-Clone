@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmGeneratedFileStream.h"
 
 #include <cstdio>
@@ -8,7 +8,7 @@
 #include "cmStringAlgorithms.h"
 #include "cmSystemTools.h"
 
-#if !defined(CMAKE_BOOTSTRAP)
+#if !defined(RBLXBUILD_BOOTSTRAP)
 #  include <cm3p/zlib.h>
 
 #  include "cm_codecvt.hxx"
@@ -16,7 +16,7 @@
 
 cmGeneratedFileStream::cmGeneratedFileStream(Encoding encoding)
 {
-#ifndef CMAKE_BOOTSTRAP
+#ifndef RBLXBUILD_BOOTSTRAP
   if (encoding != codecvt_Encoding::None) {
     this->imbue(std::locale(this->getloc(), new codecvt(encoding)));
   }
@@ -28,14 +28,14 @@ cmGeneratedFileStream::cmGeneratedFileStream(Encoding encoding)
 cmGeneratedFileStream::cmGeneratedFileStream(std::string const& name,
                                              bool quiet, Encoding encoding)
   : cmGeneratedFileStreamBase(name)
-  , Stream(this->TempName.c_str()) // NOLINT(cmake-use-cmsys-fstream)
+  , Stream(this->TempName.c_str()) // NOLINT(rblxbuild-use-cmsys-fstream)
 {
   // Check if the file opened.
   if (!*this && !quiet) {
     cmSystemTools::Error("Cannot open file for write: " + this->TempName);
     cmSystemTools::ReportLastSystemError("");
   }
-#ifndef CMAKE_BOOTSTRAP
+#ifndef RBLXBUILD_BOOTSTRAP
   if (encoding != codecvt_Encoding::None) {
     this->imbue(std::locale(this->getloc(), new codecvt(encoding)));
   }
@@ -68,10 +68,10 @@ cmGeneratedFileStream& cmGeneratedFileStream::Open(std::string const& name,
 
   // Open the temporary output file.
   if (binaryFlag) {
-    this->Stream::open( // NOLINT(cmake-use-cmsys-fstream)
+    this->Stream::open( // NOLINT(rblxbuild-use-cmsys-fstream)
       this->TempName.c_str(), std::ios::out | std::ios::binary);
   } else {
-    this->Stream::open( // NOLINT(cmake-use-cmsys-fstream)
+    this->Stream::open( // NOLINT(rblxbuild-use-cmsys-fstream)
       this->TempName.c_str());
   }
 
@@ -89,7 +89,7 @@ bool cmGeneratedFileStream::Close()
   this->Okay = !this->fail();
 
   // Close the temporary output file.
-  this->Stream::close(); // NOLINT(cmake-use-cmsys-fstream)
+  this->Stream::close(); // NOLINT(rblxbuild-use-cmsys-fstream)
 
   // Remove the temporary file (possibly by renaming to the real file).
   return this->cmGeneratedFileStreamBase::Close();
@@ -214,7 +214,7 @@ bool cmGeneratedFileStreamBase::Close()
   return replaced;
 }
 
-#ifndef CMAKE_BOOTSTRAP
+#ifndef RBLXBUILD_BOOTSTRAP
 int cmGeneratedFileStreamBase::CompressFile(std::string const& oldname,
                                             std::string const& newname)
 {
@@ -268,7 +268,7 @@ void cmGeneratedFileStream::SetTempExt(std::string const& ext)
 void cmGeneratedFileStream::WriteAltEncoding(std::string const& data,
                                              Encoding encoding)
 {
-#ifndef CMAKE_BOOTSTRAP
+#ifndef RBLXBUILD_BOOTSTRAP
   std::locale prevLocale =
     this->imbue(std::locale(this->getloc(), new codecvt(encoding)));
   this->write(data.data(), data.size());

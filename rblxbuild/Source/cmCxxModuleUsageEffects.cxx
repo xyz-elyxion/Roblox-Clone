@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmCxxModuleUsageEffects.h"
 
 #include <algorithm>
@@ -230,7 +230,7 @@ CompileOptionClassifier GetCompileOptionClassifier(cmGeneratorTarget const* gt)
   }
 
   cmValue frontendVariant =
-    gt->Makefile->GetDefinition("CMAKE_CXX_COMPILER_FRONTEND_VARIANT");
+    gt->Makefile->GetDefinition("RBLXBUILD_CXX_COMPILER_FRONTEND_VARIANT");
 
   if (frontendVariant == "GNU") {
     classifier = ClassifyGNUCompileOption;
@@ -308,7 +308,7 @@ cmCxxModuleUsageEffects::cmCxxModuleUsageEffects(cmGeneratorTarget const* gt,
 
     cmValue langStd = gt->GetLanguageStandard("CXX", config);
     if (!langStd) {
-      langStd = gt->Makefile->GetDefinition("CMAKE_CXX_STANDARD_DEFAULT");
+      langStd = gt->Makefile->GetDefinition("RBLXBUILD_CXX_STANDARD_DEFAULT");
     }
     AppendUsage(usageHashInput,
                 cmStrCat("CXX_STANDARD:", langStd ? *langStd : "20"));
@@ -322,7 +322,7 @@ cmCxxModuleUsageEffects::cmCxxModuleUsageEffects(cmGeneratorTarget const* gt,
   }
 
   cmValue runtimeDefault =
-    gt->Makefile->GetDefinition("CMAKE_MSVC_RUNTIME_LIBRARY_DEFAULT");
+    gt->Makefile->GetDefinition("RBLXBUILD_MSVC_RUNTIME_LIBRARY_DEFAULT");
   if (cmNonempty(runtimeDefault)) {
     cmValue runtime = gt->GetProperty("MSVC_RUNTIME_LIBRARY");
     this->MsvcRuntimeLibrary =

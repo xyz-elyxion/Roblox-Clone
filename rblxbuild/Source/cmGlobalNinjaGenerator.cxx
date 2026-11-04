@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmGlobalNinjaGenerator.h"
 
 #include <algorithm>
@@ -60,11 +60,11 @@
 #include "cmUnreachable.h"
 #include "cmValue.h"
 #include "cmVersion.h"
-#include "cmake.h"
+#include "rblxbuild.h"
 
 char const* cmGlobalNinjaGenerator::NINJA_BUILD_FILE = "build.ninja";
 char const* cmGlobalNinjaGenerator::NINJA_RULES_FILE =
-  "CMakeFiles/rules.ninja";
+  "RBLXBuildFiles/rules.ninja";
 char const* cmGlobalNinjaGenerator::INDENT = "  ";
 #ifdef _WIN32
 std::string const cmGlobalNinjaGenerator::SHELL_NOOP = "cd .";
@@ -195,8 +195,8 @@ std::string& cmGlobalNinjaGenerator::EncodeLiteral(std::string& lit)
   cmSystemTools::ReplaceString(lit, "$", "$$");
   cmSystemTools::ReplaceString(lit, "\n", "$\n");
   if (this->IsMultiConfig()) {
-    cmSystemTools::ReplaceString(lit, cmStrCat('$', this->GetCMakeCFGIntDir()),
-                                 this->GetCMakeCFGIntDir());
+    cmSystemTools::ReplaceString(lit, cmStrCat('$', this->GetRBLXBuildCFGIntDir()),
+                                 this->GetRBLXBuildCFGIntDir());
   }
   return lit;
 }
@@ -265,7 +265,7 @@ void cmGlobalNinjaGenerator::WriteBuild(std::ostream& os,
         buildStr = cmStrCat(std::move(buildStr), " |");
       }
       for (std::string const& workdirOut : build.WorkDirOuts) {
-        buildStr = cmStrCat(std::move(buildStr), " ${cmake_ninja_workdir}",
+        buildStr = cmStrCat(std::move(buildStr), " ${rblxbuild_ninja_workdir}",
                             this->EncodePath(workdirOut));
       }
     }
@@ -425,14 +425,14 @@ void cmGlobalNinjaGenerator::AddMacOSXContentRule()
 {
   {
     cmNinjaRule rule("COPY_OSX_CONTENT_FILE");
-    rule.Command = cmStrCat(this->CMakeCmd(), " -E copy $in $out");
+    rule.Command = cmStrCat(this->RBLXBuildCmd(), " -E copy $in $out");
     rule.Description = "Copying OS X Content $out";
     rule.Comment = "Rule for copying OS X bundle content file, with style.";
     this->AddRule(rule);
   }
   {
     cmNinjaRule rule("COPY_OSX_CONTENT_DIR");
-    rule.Command = cmStrCat(this->CMakeCmd(), " -E copy_directory $in $out");
+    rule.Command = cmStrCat(this->RBLXBuildCmd(), " -E copy_directory $in $out");
     rule.Description = "Copying OS X Content $out";
     rule.Comment = "Rule for copying OS X bundle content dir, with style.";
     this->AddRule(rule);
@@ -572,7 +572,7 @@ void cmGlobalNinjaGenerator::WriteDefault(std::ostream& os,
   os << "\n";
 }
 
-cmGlobalNinjaGenerator::cmGlobalNinjaGenerator(cmake* cm)
+cmGlobalNinjaGenerator::cmGlobalNinjaGenerator(rblxbuild* cm)
   : cmGlobalCommonGenerator(cm)
 {
 #ifdef _WIN32
@@ -582,7 +582,7 @@ cmGlobalNinjaGenerator::cmGlobalNinjaGenerator(cmake* cm)
   this->Comspec = cmSystemTools::GetComspec();
 #endif
   cm->GetState()->SetNinja(true);
-  this->FindMakeProgramFile = "CMakeNinjaFindMake.cmake";
+  this->FindMakeProgramFile = "RBLXBuildNinjaFindMake.rblxbuild";
 }
 
 // Virtual public methods.
@@ -615,16 +615,16 @@ std::vector<std::string> const& cmGlobalNinjaGenerator::GetConfigNames() const
 // Implemented in all cmGlobaleGenerator sub-classes.
 // Used in:
 //   Source/cmLocalGenerator.cxx
-//   Source/cmake.cxx
+//   Source/rblxbuild.cxx
 void cmGlobalNinjaGenerator::Generate()
 {
   // Check minimum Ninja version.
   if (cmSystemTools::VersionCompare(cmSystemTools::OP_LESS, this->NinjaVersion,
                                     RequiredNinjaVersion())) {
-    this->GetCMakeInstance()->IssueMessage(
+    this->GetRBLXBuildInstance()->IssueMessage(
       MessageType::FATAL_ERROR,
       cmStrCat("The detected version of Ninja (", this->NinjaVersion,
-               ") is less than the version of Ninja required by CMake (",
+               ") is less than the version of Ninja required by RBLXBuild (",
                cmGlobalNinjaGenerator::RequiredNinjaVersion(), ")."));
     return;
   }
@@ -642,7 +642,7 @@ void cmGlobalNinjaGenerator::Generate()
   this->ExistingDirectories.clear();
 
   this->TargetAll = this->NinjaOutputPath("all");
-  this->CMakeCacheFile = this->NinjaOutputPath("CMakeCache.txt");
+  this->RBLXBuildCacheFile = this->NinjaOutputPath("RBLXBuildCache.txt");
   this->DiagnosedCxxModuleNinjaSupport = false;
   this->ClangTidyExportFixesDirs.clear();
   this->ClangTidyExportFixesFiles.clear();
@@ -674,7 +674,7 @@ void cmGlobalNinjaGenerator::Generate()
   // when we are re-generating inside an existing 'ninja' invocation
   // because the outer tool has the files open for write.
   if (this->NinjaSupportsMetadataOnRegeneration ||
-      !this->GetCMakeInstance()->GetRegenerateDuringBuild())
+      !this->GetRBLXBuildInstance()->GetRegenerateDuringBuild())
 #endif
   {
     this->CleanMetaData();
@@ -690,7 +690,7 @@ void cmGlobalNinjaGenerator::CleanMetaData()
     std::vector<std::string> command;
     command.push_back(this->NinjaCommand);
     command.emplace_back("-C");
-    command.emplace_back(this->GetCMakeInstance()->GetHomeOutputDirectory());
+    command.emplace_back(this->GetRBLXBuildInstance()->GetHomeOutputDirectory());
     command.emplace_back("-t");
     for (auto const& arg : args) {
       command.emplace_back(arg);
@@ -699,7 +699,7 @@ void cmGlobalNinjaGenerator::CleanMetaData()
     if (!cmSystemTools::RunSingleCommand(command, nullptr, &error, nullptr,
                                          nullptr,
                                          cmSystemTools::OUTPUT_NONE)) {
-      this->GetCMakeInstance()->IssueMessage(MessageType::FATAL_ERROR,
+      this->GetRBLXBuildInstance()->IssueMessage(MessageType::FATAL_ERROR,
                                              cmStrCat("Running\n '",
                                                       cmJoin(command, "' '"),
                                                       "'\n"
@@ -723,7 +723,7 @@ void cmGlobalNinjaGenerator::CleanMetaData()
   // future pending further investigation into how Ninja works upstream
   // (ninja#1721).
   if (this->NinjaSupportsUnconditionalRecompactTool &&
-      !this->GetCMakeInstance()->GetRegenerateDuringBuild() &&
+      !this->GetRBLXBuildInstance()->GetRegenerateDuringBuild() &&
       expectBuildManifest && !missingBuildManifest) {
     run_ninja_tool({ "recompact" });
   }
@@ -732,7 +732,7 @@ void cmGlobalNinjaGenerator::CleanMetaData()
     this->AddRebuildManifestOutputs(outputs);
     auto output_it = outputs.begin();
     size_t static_arg_size = ninja_tool_arg_size + this->NinjaCommand.size() +
-      this->GetCMakeInstance()->GetHomeOutputDirectory().size();
+      this->GetRBLXBuildInstance()->GetHomeOutputDirectory().size();
     // The Windows command-line length limit is 32768, but if `ninja` is
     // wrapped by a `.bat` file, the limit is 8192.  Leave plenty.
     constexpr size_t maximum_arg_size = 8000;
@@ -758,7 +758,7 @@ bool cmGlobalNinjaGenerator::FindMakeProgram(cmMakefile* mf)
   if (!this->cmGlobalGenerator::FindMakeProgram(mf)) {
     return false;
   }
-  if (cmValue ninjaCommand = mf->GetDefinition("CMAKE_MAKE_PROGRAM")) {
+  if (cmValue ninjaCommand = mf->GetDefinition("RBLXBUILD_MAKE_PROGRAM")) {
     this->NinjaCommand = *ninjaCommand;
     std::vector<std::string> command;
     command.push_back(this->NinjaCommand);
@@ -853,7 +853,7 @@ void cmGlobalNinjaGenerator::CheckNinjaCodePage()
   int result;
   if (!cmSystemTools::RunSingleCommand(command, &output, &error, &result,
                                        nullptr, cmSystemTools::OUTPUT_NONE)) {
-    this->GetCMakeInstance()->IssueMessage(MessageType::FATAL_ERROR,
+    this->GetRBLXBuildInstance()->IssueMessage(MessageType::FATAL_ERROR,
                                            cmStrCat("Running\n '",
                                                     cmJoin(command, "' '"),
                                                     "'\n"
@@ -880,7 +880,7 @@ void cmGlobalNinjaGenerator::CheckNinjaCodePage()
       }
     }
     if (!found) {
-      this->GetCMakeInstance()->IssueMessage(
+      this->GetRBLXBuildInstance()->IssueMessage(
         MessageType::WARNING,
         "Could not determine Ninja's code page, defaulting to UTF-8");
       this->NinjaExpectedEncoding = codecvt_Encoding::None;
@@ -901,10 +901,10 @@ bool cmGlobalNinjaGenerator::CheckLanguages(
   }
   if (cm::contains(languages, "Swift")) {
     std::string const architectures =
-      mf->GetSafeDefinition("CMAKE_OSX_ARCHITECTURES");
+      mf->GetSafeDefinition("RBLXBUILD_OSX_ARCHITECTURES");
     if (architectures.find_first_of(';') != std::string::npos) {
       mf->IssueMessage(MessageType::FATAL_ERROR,
-                       "multiple values for CMAKE_OSX_ARCHITECTURES not "
+                       "multiple values for RBLXBUILD_OSX_ARCHITECTURES not "
                        "supported with Swift");
       cmSystemTools::SetFatalErrorOccurred();
       return false;
@@ -919,10 +919,10 @@ bool cmGlobalNinjaGenerator::CheckCxxModuleSupport(CxxModuleSupportQuery query)
     return true;
   }
   bool const diagnose = !this->DiagnosedCxxModuleNinjaSupport &&
-    !this->CMakeInstance->GetIsInTryCompile() &&
+    !this->RBLXBuildInstance->GetIsInTryCompile() &&
     query == CxxModuleSupportQuery::Expected;
   if (diagnose) {
-    this->GetCMakeInstance()->IssueMessage(
+    this->GetRBLXBuildInstance()->IssueMessage(
       MessageType::FATAL_ERROR,
       cmStrCat("The Ninja generator does not support C++20 modules "
                "using Ninja version \n"
@@ -983,7 +983,7 @@ void cmGlobalNinjaGenerator::EnableLanguage(
   std::vector<std::string> const& langs, cmMakefile* mf, bool optional)
 {
   if (this->IsMultiConfig()) {
-    mf->InitCMAKE_CONFIGURATION_TYPES("Debug;Release;RelWithDebInfo");
+    mf->InitRBLXBUILD_CONFIGURATION_TYPES("Debug;Release;RelWithDebInfo");
   }
 
   this->cmGlobalGenerator::EnableLanguage(langs, mf, optional);
@@ -994,11 +994,11 @@ void cmGlobalNinjaGenerator::EnableLanguage(
     this->ResolveLanguageCompiler(l, mf, optional);
 #ifdef _WIN32
     std::string const& compilerId =
-      mf->GetSafeDefinition(cmStrCat("CMAKE_", l, "_COMPILER_ID"));
+      mf->GetSafeDefinition(cmStrCat("RBLXBUILD_", l, "_COMPILER_ID"));
     std::string const& simulateId =
-      mf->GetSafeDefinition(cmStrCat("CMAKE_", l, "_SIMULATE_ID"));
+      mf->GetSafeDefinition(cmStrCat("RBLXBUILD_", l, "_SIMULATE_ID"));
     std::string const& compilerFrontendVariant = mf->GetSafeDefinition(
-      cmStrCat("CMAKE_", l, "_COMPILER_FRONTEND_VARIANT"));
+      cmStrCat("RBLXBUILD_", l, "_COMPILER_FRONTEND_VARIANT"));
     if (DetectGCCOnWindows(compilerId, simulateId, compilerFrontendVariant)) {
       this->MarkAsGCCOnWindows();
     }
@@ -1030,8 +1030,8 @@ cmGlobalNinjaGenerator::GenerateBuildCommand(
     makeCommand.Add("-v");
   }
 
-  if ((jobs != cmake::NO_BUILD_PARALLEL_LEVEL) &&
-      (jobs != cmake::DEFAULT_BUILD_PARALLEL_LEVEL)) {
+  if ((jobs != rblxbuild::NO_BUILD_PARALLEL_LEVEL) &&
+      (jobs != rblxbuild::DEFAULT_BUILD_PARALLEL_LEVEL)) {
     makeCommand.Add("-j", std::to_string(jobs));
   }
 
@@ -1077,7 +1077,7 @@ void cmGlobalNinjaGenerator::ComputeTargetObjectDirectory(
 {
   // Compute full path to object file directory for this target.
   std::string dir =
-    cmStrCat(gt->GetSupportDirectory(), '/', this->GetCMakeCFGIntDir(), '/');
+    cmStrCat(gt->GetSupportDirectory(), '/', this->GetRBLXBuildCFGIntDir(), '/');
   gt->ObjectDirectory = dir;
 }
 
@@ -1105,7 +1105,7 @@ bool cmGlobalNinjaGenerator::OpenFileStream(
   if (!stream) {
     // Compute Ninja's build file path.
     std::string path =
-      cmStrCat(this->GetCMakeInstance()->GetHomeOutputDirectory(), '/', name);
+      cmStrCat(this->GetRBLXBuildInstance()->GetHomeOutputDirectory(), '/', name);
     stream = cm::make_unique<cmGeneratedFileStream>(
       path, false, this->GetMakefileEncoding());
     if (!(*stream)) {
@@ -1236,7 +1236,7 @@ void cmGlobalNinjaGenerator::AddCXXCompileCommand(
 {
   // Compute Ninja's build file path.
   std::string buildFileDir =
-    this->GetCMakeInstance()->GetHomeOutputDirectory();
+    this->GetRBLXBuildInstance()->GetHomeOutputDirectory();
   if (!this->CompileCommandsStream) {
     std::string buildFilePath =
       cmStrCat(buildFileDir, "/compile_commands.json");
@@ -1278,9 +1278,9 @@ void cmGlobalNinjaGenerator::CloseCompileCommandsStream()
 
 void cmGlobalNinjaGenerator::WriteDisclaimer(std::ostream& os) const
 {
-  os << "# CMAKE generated file: DO NOT EDIT!\n"
+  os << "# RBLXBUILD generated file: DO NOT EDIT!\n"
      << "# Generated by \"" << this->GetName() << "\""
-     << " Generator, CMake Version " << cmVersion::GetMajorVersion() << "."
+     << " Generator, RBLXBuild Version " << cmVersion::GetMajorVersion() << "."
      << cmVersion::GetMinorVersion() << "\n\n";
 }
 
@@ -1363,7 +1363,7 @@ void cmGlobalNinjaGenerator::WriteInstallPrepTargets()
 
 void cmGlobalNinjaGenerator::WriteTestPrepTargets()
 {
-  if (this->Makefiles.front()->IsOn("CMAKE_SKIP_TEST_PREP_TARGETS")) {
+  if (this->Makefiles.front()->IsOn("RBLXBUILD_SKIP_TEST_PREP_TARGETS")) {
     return;
   }
 
@@ -1457,7 +1457,7 @@ void cmGlobalNinjaGenerator::WriteTestPrepTargets()
     }
   } else {
     writeConfig(
-      this->Makefiles.front()->GetSafeDefinition("CMAKE_BUILD_TYPE"));
+      this->Makefiles.front()->GetSafeDefinition("RBLXBUILD_BUILD_TYPE"));
   }
   this->WritePerConfigPhonyAliases(configsByName);
 }
@@ -1524,7 +1524,7 @@ void cmGlobalNinjaGenerator::WritePerConfigPhonyAliases(
 std::string cmGlobalNinjaGenerator::OrderDependsTargetForTarget(
   cmGeneratorTarget const* target, std::string const& /*config*/) const
 {
-  return cmStrCat("cmake_object_order_depends_target_", target->GetName());
+  return cmStrCat("rblxbuild_object_order_depends_target_", target->GetName());
 }
 
 std::string cmGlobalNinjaGenerator::OrderDependsTargetForTargetPrivate(
@@ -1597,7 +1597,7 @@ void cmGlobalNinjaGenerator::AppendTargetDepends(
   cmNinjaTargetDepends depends)
 {
   if (target->GetType() == cm::TargetType::GLOBAL_TARGET) {
-    // These depend only on other CMake-provided targets, e.g. "all".
+    // These depend only on other RBLXBuild-provided targets, e.g. "all".
     for (BT<std::pair<std::string, bool>> const& util :
          target->GetUtilities()) {
       std::string d =
@@ -2046,8 +2046,8 @@ void cmGlobalNinjaGenerator::WriteBuiltinTargets(std::ostream& os)
   this->WriteTargetRebuildManifest(os);
   this->WriteTargetClean(os);
   this->WriteTargetHelp(os);
-#ifndef CMAKE_BOOTSTRAP
-  if (this->GetCMakeInstance()->GetInstrumentation()->HasQuery()) {
+#ifndef RBLXBUILD_BOOTSTRAP
+  if (this->GetRBLXBuildInstance()->GetInstrumentation()->HasQuery()) {
     this->WriteTargetInstrument(os);
   }
 #endif
@@ -2061,9 +2061,9 @@ void cmGlobalNinjaGenerator::WriteBuiltinTargets(std::ostream& os)
   }
 
   if (this->InstallTargetEnabled &&
-      this->GetCMakeInstance()->GetState()->GetGlobalPropertyAsBool(
+      this->GetRBLXBuildInstance()->GetState()->GetGlobalPropertyAsBool(
         "INSTALL_PARALLEL") &&
-      !this->Makefiles[0]->IsOn("CMAKE_SKIP_INSTALL_RULES")) {
+      !this->Makefiles[0]->IsOn("RBLXBUILD_SKIP_INSTALL_RULES")) {
     cmNinjaBuild build("phony");
     build.Comment = "Install every subdirectory in parallel";
     build.Outputs.emplace_back(this->GetInstallParallelTargetName());
@@ -2088,17 +2088,17 @@ void cmGlobalNinjaGenerator::WriteTargetDefault(std::ostream& os)
 
 void cmGlobalNinjaGenerator::WriteTargetRebuildManifest(std::ostream& os)
 {
-  if (this->GlobalSettingIsOn("CMAKE_SUPPRESS_REGENERATION")) {
+  if (this->GlobalSettingIsOn("RBLXBUILD_SUPPRESS_REGENERATION")) {
     return;
   }
 
-  cmake* cm = this->GetCMakeInstance();
+  rblxbuild* cm = this->GetRBLXBuildInstance();
   auto const& lg = this->LocalGenerators[0];
 
   {
-    cmNinjaRule rule("RERUN_CMAKE");
+    cmNinjaRule rule("RERUN_RBLXBUILD");
     rule.Command = cmStrCat(
-      this->CMakeCmd(), " --regenerate-during-build",
+      this->RBLXBuildCmd(), " --regenerate-during-build",
       cm->GetIgnoreCompileWarningAsError() ? " --compile-no-warning-as-error"
                                            : "",
       cm->GetIgnoreLinkWarningAsError() ? " --link-no-warning-as-error" : "",
@@ -2108,14 +2108,14 @@ void cmGlobalNinjaGenerator::WriteTargetRebuildManifest(std::ostream& os)
       " -B",
       lg->ConvertToOutputFormat(lg->GetBinaryDirectory(),
                                 cmOutputConverter::SHELL));
-    rule.Description = "Re-running CMake...";
-    rule.Comment = "Rule for re-running cmake.";
+    rule.Description = "Re-running RBLXBuild...";
+    rule.Comment = "Rule for re-running rblxbuild.";
     rule.Generator = true;
     WriteRule(*this->RulesFileStream, rule);
   }
 
-  cmNinjaBuild reBuild("RERUN_CMAKE");
-  reBuild.Comment = "Re-run CMake if any of its inputs changed.";
+  cmNinjaBuild reBuild("RERUN_RBLXBUILD");
+  reBuild.Comment = "Re-run RBLXBuild if any of its inputs changed.";
   this->AddRebuildManifestOutputs(reBuild.Outputs);
 
   for (auto const& localGen : this->LocalGenerators) {
@@ -2123,15 +2123,15 @@ void cmGlobalNinjaGenerator::WriteTargetRebuildManifest(std::ostream& os)
       reBuild.ImplicitDeps.push_back(this->ConvertToNinjaPath(fi));
     }
   }
-  reBuild.ImplicitDeps.push_back(this->CMakeCacheFile);
+  reBuild.ImplicitDeps.push_back(this->RBLXBuildCacheFile);
 
-#ifndef CMAKE_BOOTSTRAP
-  if (this->GetCMakeInstance()->GetInstrumentation()->HasQuery()) {
+#ifndef RBLXBUILD_BOOTSTRAP
+  if (this->GetRBLXBuildInstance()->GetInstrumentation()->HasQuery()) {
     reBuild.ExplicitDeps.push_back(this->NinjaOutputPath("start_instrument"));
   }
 #endif
 
-  // Use 'console' pool to get non buffered output of the CMake re-run call
+  // Use 'console' pool to get non buffered output of the RBLXBuild re-run call
   // Available since Ninja 1.5
   if (this->SupportsDirectConsole()) {
     reBuild.Variables["pool"] = "console";
@@ -2141,7 +2141,7 @@ void cmGlobalNinjaGenerator::WriteTargetRebuildManifest(std::ostream& os)
     {
       cmNinjaRule rule("VERIFY_GLOBS");
       rule.Command =
-        cmStrCat(this->CMakeCmd(), " -P ",
+        cmStrCat(this->RBLXBuildCmd(), " -P ",
                  lg->ConvertToOutputFormat(cm->GetGlobVerifyScript(),
                                            cmOutputConverter::SHELL));
       rule.Description = "Re-checking globbed directories...";
@@ -2164,7 +2164,7 @@ void cmGlobalNinjaGenerator::WriteTargetRebuildManifest(std::ostream& os)
     {
       cmNinjaBuild vgBuild("VERIFY_GLOBS");
       vgBuild.Comment =
-        "Re-run CMake to check if globbed directories changed.";
+        "Re-run RBLXBuild to check if globbed directories changed.";
       vgBuild.Outputs.push_back(verifyStampFile);
       vgBuild.ImplicitDeps = phonyBuild.Outputs;
       vgBuild.Variables = reBuild.Variables;
@@ -2175,14 +2175,14 @@ void cmGlobalNinjaGenerator::WriteTargetRebuildManifest(std::ostream& os)
     reBuild.ExplicitDeps.push_back(verifyStampFile);
   } else if (!this->SupportsManifestRestat() &&
              cm->DoWriteGlobVerifyTarget()) {
-    this->GetCMakeInstance()->IssueDiagnostic(
+    this->GetRBLXBuildInstance()->IssueDiagnostic(
       cmDiagnostics::CMD_AUTHOR,
       cmStrCat(
         "The detected version of Ninja:\n"
         "  ",
         this->NinjaVersion,
         "\n"
-        "is less than the version of Ninja required by CMake for adding "
+        "is less than the version of Ninja required by RBLXBuild for adding "
         "restat dependencies to the build.ninja manifest regeneration "
         "target:\n"
         "  ",
@@ -2201,7 +2201,7 @@ void cmGlobalNinjaGenerator::WriteTargetRebuildManifest(std::ostream& os)
 
   {
     cmNinjaBuild build("phony");
-    build.Comment = "A missing CMake input file is not an error.";
+    build.Comment = "A missing RBLXBuild input file is not an error.";
     std::set_difference(std::make_move_iterator(reBuild.ImplicitDeps.begin()),
                         std::make_move_iterator(reBuild.ImplicitDeps.end()),
                         this->CustomCommandOutputs.begin(),
@@ -2211,10 +2211,10 @@ void cmGlobalNinjaGenerator::WriteTargetRebuildManifest(std::ostream& os)
   }
 }
 
-std::string cmGlobalNinjaGenerator::CMakeCmd() const
+std::string cmGlobalNinjaGenerator::RBLXBuildCmd() const
 {
   auto const& lgen = this->LocalGenerators.at(0);
-  return lgen->ConvertToOutputFormat(cmSystemTools::GetCMakeCommand(),
+  return lgen->ConvertToOutputFormat(cmSystemTools::GetRBLXBuildCommand(),
                                      cmOutputConverter::SHELL);
 }
 
@@ -2256,7 +2256,7 @@ bool cmGlobalNinjaGenerator::SupportsCWDDepend() const
 bool cmGlobalNinjaGenerator::WriteTargetCleanAdditional(std::ostream& os)
 {
   auto const& lgr = this->LocalGenerators.at(0);
-  std::string cleanScriptRel = "CMakeFiles/clean_additional.cmake";
+  std::string cleanScriptRel = "RBLXBuildFiles/clean_additional.rblxbuild";
   std::string cleanScriptAbs =
     cmStrCat(lgr->GetBinaryDirectory(), '/', cleanScriptRel);
   std::vector<std::string> const& configs = this->GetConfigNames();
@@ -2272,18 +2272,18 @@ bool cmGlobalNinjaGenerator::WriteTargetCleanAdditional(std::ostream& os)
     }
   }
   if (empty) {
-    // Remove cmake clean script file if it exists
+    // Remove rblxbuild clean script file if it exists
     cmSystemTools::RemoveFile(cleanScriptAbs);
     return false;
   }
 
-  // Write cmake clean script file
+  // Write rblxbuild clean script file
   {
     cmGeneratedFileStream fout(cleanScriptAbs);
     if (!fout) {
       return false;
     }
-    fout << "# Additional clean files\ncmake_minimum_required(VERSION 3.16)\n";
+    fout << "# Additional clean files\nrblxbuild_minimum_required(VERSION 3.16)\n";
     for (auto const& config : configs) {
       auto const it = this->Configs.find(config);
       if (it != this->Configs.end() &&
@@ -2302,13 +2302,13 @@ bool cmGlobalNinjaGenerator::WriteTargetCleanAdditional(std::ostream& os)
     }
   }
   // Register clean script file
-  lgr->GetMakefile()->AddCMakeOutputFile(cleanScriptAbs);
+  lgr->GetMakefile()->AddRBLXBuildOutputFile(cleanScriptAbs);
 
   // Write rule
   {
     cmNinjaRule rule("CLEAN_ADDITIONAL");
     rule.Command = cmStrCat(
-      this->CMakeCmd(), " -DCONFIG=$CONFIG -P ",
+      this->RBLXBuildCmd(), " -DCONFIG=$CONFIG -P ",
       lgr->ConvertToOutputFormat(this->NinjaOutputPath(cleanScriptRel),
                                  cmOutputConverter::SHELL));
     rule.Description = "Cleaning additional files...";
@@ -2477,7 +2477,7 @@ void cmGlobalNinjaGenerator::WriteTargetHelp(std::ostream& os)
   }
 }
 
-#ifndef CMAKE_BOOTSTRAP
+#ifndef RBLXBUILD_BOOTSTRAP
 void cmGlobalNinjaGenerator::WriteTargetInstrument(std::ostream& os)
 {
   // Write rule
@@ -2485,7 +2485,7 @@ void cmGlobalNinjaGenerator::WriteTargetInstrument(std::ostream& os)
     cmNinjaRule rule("START_INSTRUMENT");
     rule.Command = cmStrCat(
       '"', cmSystemTools::GetCTestCommand(), "\" --start-instrumentation \"",
-      this->GetCMakeInstance()->GetHomeOutputDirectory(), '"');
+      this->GetRBLXBuildInstance()->GetHomeOutputDirectory(), '"');
 #  ifndef _WIN32
     /*
      * On Unix systems, Ninja will prefix the command with `/bin/sh -c`.
@@ -2503,12 +2503,12 @@ void cmGlobalNinjaGenerator::WriteTargetInstrument(std::ostream& os)
   {
     cmNinjaBuild phony("phony");
     phony.Comment = "Phony target to keep START_INSTRUMENTATION out of date.";
-    phony.Outputs.push_back(this->NinjaOutputPath("CMakeFiles/instrument"));
+    phony.Outputs.push_back(this->NinjaOutputPath("RBLXBuildFiles/instrument"));
     cmNinjaBuild instrument("START_INSTRUMENT");
     instrument.Comment = "Start instrumentation daemon.";
     instrument.Outputs.push_back(this->NinjaOutputPath("start_instrument"));
     instrument.ExplicitDeps.push_back(
-      this->NinjaOutputPath("CMakeFiles/instrument"));
+      this->NinjaOutputPath("RBLXBuildFiles/instrument"));
     WriteBuild(os, phony);
     WriteBuild(os, instrument);
   }
@@ -2519,7 +2519,7 @@ void cmGlobalNinjaGenerator::InitOutputPathPrefix()
 {
   this->OutputPathPrefix =
     this->LocalGenerators[0]->GetMakefile()->GetSafeDefinition(
-      "CMAKE_NINJA_OUTPUT_PATH_PREFIX");
+      "RBLXBUILD_NINJA_OUTPUT_PATH_PREFIX");
   EnsureTrailingSlash(this->OutputPathPrefix);
 }
 
@@ -2553,13 +2553,13 @@ void cmGlobalNinjaGenerator::StripNinjaOutputPathPrefixAsSuffix(
   cmStripSuffixIfExists(path, this->OutputPathPrefix);
 }
 
-#if !defined(CMAKE_BOOTSTRAP)
+#if !defined(RBLXBUILD_BOOTSTRAP)
 
 /*
 
 We use the following approach to support Fortran.  Each target already
-has an intermediate directory used to hold intermediate files for CMake.
-For each target, a FortranDependInfo.json file is generated by CMake with
+has an intermediate directory used to hold intermediate files for RBLXBuild.
+For each target, a FortranDependInfo.json file is generated by RBLXBuild with
 information about include directories, module directories, and the locations
 the per-target directories for target dependencies.
 
@@ -2572,7 +2572,7 @@ Compilation of source files within a target is split into the following steps:
     rule Fortran_PREPROCESS
       depfile = $DEP_FILE
       command = gfortran -cpp $DEFINES $INCLUDES $FLAGS -E $in -o $out &&
-                cmake -E cmake_ninja_depends \
+                rblxbuild -E rblxbuild_ninja_depends \
                   --tdi=FortranDependInfo.json --lang=Fortran \
                   --src=$out --out=$out --dep=$DEP_FILE --obj=$OBJ_FILE \
                   --ddi=$DYNDEP_INTERMEDIATE_FILE
@@ -2582,9 +2582,9 @@ Compilation of source files within a target is split into the following steps:
       DEP_FILE = src.f90.o.d
       DYNDEP_INTERMEDIATE_FILE = src.f90.o.ddi
 
-   The ``cmake -E cmake_ninja_depends`` tool reads the preprocessed output
+   The ``rblxbuild -E rblxbuild_ninja_depends`` tool reads the preprocessed output
    and generates the ninja depfile for preprocessor dependencies.  It also
-   generates a "ddi" file (in a format private to CMake) that lists the
+   generates a "ddi" file (in a format private to RBLXBuild) that lists the
    object file that compilation will produce along with the module names
    it provides and/or requires.  The "ddi" file is an implicit output
    because it should not appear in "$out" but is generated by the rule.
@@ -2593,12 +2593,12 @@ Compilation of source files within a target is split into the following steps:
    files from all sources to produce a ninja "dyndep" file, ``Fortran.dd``.
 
     rule Fortran_DYNDEP
-      command = cmake -E cmake_ninja_dyndep \
+      command = rblxbuild -E rblxbuild_ninja_dyndep \
                   --tdi=FortranDependInfo.json --lang=Fortran --dd=$out $in
 
     build Fortran.dd: Fortran_DYNDEP src1.f90.o.ddi src2.f90.o.ddi
 
-   The ``cmake -E cmake_ninja_dyndep`` tool reads the "ddi" files from all
+   The ``rblxbuild -E rblxbuild_ninja_dyndep`` tool reads the "ddi" files from all
    sources in the target and the ``FortranModules.json`` files from targets
    on which the target depends.  It computes dependency edges on compilations
    that require modules to those that provide the modules.  This information
@@ -2642,12 +2642,12 @@ struct cmSourceInfo
   std::vector<std::string> Includes;
 };
 
-cm::optional<cmSourceInfo> cmcmd_cmake_ninja_depends_fortran(
+cm::optional<cmSourceInfo> cmcmd_rblxbuild_ninja_depends_fortran(
   std::string const& arg_tdi, std::string const& arg_src,
   std::string const& arg_src_orig);
 }
 
-int cmcmd_cmake_ninja_depends(std::vector<std::string>::const_iterator argBeg,
+int cmcmd_rblxbuild_ninja_depends(std::vector<std::string>::const_iterator argBeg,
                               std::vector<std::string>::const_iterator argEnd)
 {
   std::string arg_tdi;
@@ -2676,50 +2676,50 @@ int cmcmd_cmake_ninja_depends(std::vector<std::string>::const_iterator argBeg,
     } else if (cmHasLiteralPrefix(arg, "--lang=")) {
       arg_lang = arg.substr(7);
     } else if (cmHasLiteralPrefix(arg, "--pp=")) {
-      // CMake 3.26 and below used '--pp=' instead of '--src=' and '--out='.
+      // RBLXBuild 3.26 and below used '--pp=' instead of '--src=' and '--out='.
       arg_src = arg.substr(5);
       arg_out = arg_src;
     } else {
       cmSystemTools::Error(
-        cmStrCat("-E cmake_ninja_depends unknown argument: ", arg));
+        cmStrCat("-E rblxbuild_ninja_depends unknown argument: ", arg));
       return 1;
     }
   }
   if (arg_tdi.empty()) {
-    cmSystemTools::Error("-E cmake_ninja_depends requires value for --tdi=");
+    cmSystemTools::Error("-E rblxbuild_ninja_depends requires value for --tdi=");
     return 1;
   }
   if (arg_src.empty()) {
-    cmSystemTools::Error("-E cmake_ninja_depends requires value for --src=");
+    cmSystemTools::Error("-E rblxbuild_ninja_depends requires value for --src=");
     return 1;
   }
   if (arg_out.empty()) {
-    cmSystemTools::Error("-E cmake_ninja_depends requires value for --out=");
+    cmSystemTools::Error("-E rblxbuild_ninja_depends requires value for --out=");
     return 1;
   }
   if (arg_dep.empty()) {
-    cmSystemTools::Error("-E cmake_ninja_depends requires value for --dep=");
+    cmSystemTools::Error("-E rblxbuild_ninja_depends requires value for --dep=");
     return 1;
   }
   if (arg_obj.empty()) {
-    cmSystemTools::Error("-E cmake_ninja_depends requires value for --obj=");
+    cmSystemTools::Error("-E rblxbuild_ninja_depends requires value for --obj=");
     return 1;
   }
   if (arg_ddi.empty()) {
-    cmSystemTools::Error("-E cmake_ninja_depends requires value for --ddi=");
+    cmSystemTools::Error("-E rblxbuild_ninja_depends requires value for --ddi=");
     return 1;
   }
   if (arg_lang.empty()) {
-    cmSystemTools::Error("-E cmake_ninja_depends requires value for --lang=");
+    cmSystemTools::Error("-E rblxbuild_ninja_depends requires value for --lang=");
     return 1;
   }
 
   cm::optional<cmSourceInfo> info;
   if (arg_lang == "Fortran") {
-    info = cmcmd_cmake_ninja_depends_fortran(arg_tdi, arg_src, arg_src_orig);
+    info = cmcmd_rblxbuild_ninja_depends_fortran(arg_tdi, arg_src, arg_src_orig);
   } else {
     cmSystemTools::Error(
-      cmStrCat("-E cmake_ninja_depends does not understand the ", arg_lang,
+      cmStrCat("-E rblxbuild_ninja_depends does not understand the ", arg_lang,
                " language"));
     return 1;
   }
@@ -2742,7 +2742,7 @@ int cmcmd_cmake_ninja_depends(std::vector<std::string>::const_iterator argBeg,
 
   if (!cmScanDepFormat_P1689_Write(arg_ddi, info->ScanDep)) {
     cmSystemTools::Error(
-      cmStrCat("-E cmake_ninja_depends failed to write ", arg_ddi));
+      cmStrCat("-E rblxbuild_ninja_depends failed to write ", arg_ddi));
     return 1;
   }
   return 0;
@@ -2750,7 +2750,7 @@ int cmcmd_cmake_ninja_depends(std::vector<std::string>::const_iterator argBeg,
 
 namespace {
 
-cm::optional<cmSourceInfo> cmcmd_cmake_ninja_depends_fortran(
+cm::optional<cmSourceInfo> cmcmd_rblxbuild_ninja_depends_fortran(
   std::string const& arg_tdi, std::string const& arg_src,
   std::string const& arg_src_orig)
 {
@@ -2777,7 +2777,7 @@ cm::optional<cmSourceInfo> cmcmd_cmake_ninja_depends_fortran(
       cmJSONState parseState(arg_tdi, &tdio, cmJSONState::StrictMode::Relaxed);
       if (!parseState.errors.empty()) {
         cmSystemTools::Error(
-          cmStrCat("-E cmake_ninja_depends failed to parse ", arg_tdi,
+          cmStrCat("-E rblxbuild_ninja_depends failed to parse ", arg_tdi,
                    parseState.GetErrorMessage()));
         return info;
       }
@@ -2820,7 +2820,7 @@ cm::optional<cmSourceInfo> cmcmd_cmake_ninja_depends_fortran(
   cmFortranParser parser(fc, includes, defines, finfo);
   if (!cmFortranParser_FilePush(&parser, arg_src.c_str())) {
     cmSystemTools::Error(
-      cmStrCat("-E cmake_ninja_depends failed to open ", arg_src));
+      cmStrCat("-E rblxbuild_ninja_depends failed to open ", arg_src));
     return info;
   }
   if (cmFortran_yyparse(parser.Scanner) != 0) {
@@ -2874,7 +2874,7 @@ bool cmGlobalNinjaGenerator::WriteDyndepFile(
 {
   // Setup path conversions.
   {
-    cmStateSnapshot snapshot = this->GetCMakeInstance()->GetCurrentSnapshot();
+    cmStateSnapshot snapshot = this->GetRBLXBuildInstance()->GetCurrentSnapshot();
     snapshot.GetDirectory().SetCurrentSource(dir_cur_src);
     snapshot.GetDirectory().SetCurrentBinary(dir_cur_bld);
     auto mfd = cm::make_unique<cmMakefile>(this, snapshot);
@@ -2889,7 +2889,7 @@ bool cmGlobalNinjaGenerator::WriteDyndepFile(
     cmScanDepInfo info;
     if (!cmScanDepFormat_P1689_Parse(arg_ddi, &info)) {
       cmSystemTools::Error(
-        cmStrCat("-E cmake_ninja_dyndep failed to parse ddi file ", arg_ddi));
+        cmStrCat("-E rblxbuild_ninja_dyndep failed to parse ddi file ", arg_ddi));
       return false;
     }
     objects.push_back(std::move(info));
@@ -2920,7 +2920,7 @@ bool cmGlobalNinjaGenerator::WriteDyndepFile(
     Json::Value ltm;
     cmJSONState parseState(ltmn, &ltm, cmJSONState::StrictMode::Relaxed);
     if (!parseState.errors.empty()) {
-      cmSystemTools::Error(cmStrCat("-E cmake_ninja_dyndep failed to parse ",
+      cmSystemTools::Error(cmStrCat("-E rblxbuild_ninja_dyndep failed to parse ",
                                     linked_target_dir,
                                     parseState.GetErrorMessage()));
       return false;
@@ -3026,7 +3026,7 @@ bool cmGlobalNinjaGenerator::WriteDyndepFile(
     modmap_fmt = CxxModuleMapFormat::Msvc;
   } else {
     cmSystemTools::Error(
-      cmStrCat("-E cmake_ninja_dyndep does not understand the ", arg_modmapfmt,
+      cmStrCat("-E rblxbuild_ninja_dyndep does not understand the ", arg_modmapfmt,
                " module map format"));
     return false;
   }
@@ -3077,7 +3077,7 @@ bool cmGlobalNinjaGenerator::WriteDyndepFile(
     cmJSONState parseState(modules_info_path, &native_modules_info,
                            cmJSONState::StrictMode::Relaxed);
     if (!parseState.errors.empty()) {
-      cmSystemTools::Error(cmStrCat("-E cmake_ninja_dyndep failed to parse ",
+      cmSystemTools::Error(cmStrCat("-E rblxbuild_ninja_dyndep failed to parse ",
                                     modules_info_path,
                                     parseState.GetErrorMessage()));
       return false;
@@ -3237,7 +3237,7 @@ bool cmGlobalNinjaGenerator::WriteDyndepFile(
     Json::Value fmft;
     cmJSONState parseState(fmftn, &fmft, cmJSONState::StrictMode::Relaxed);
     if (!parseState.errors.empty()) {
-      cmSystemTools::Error(cmStrCat("-E cmake_ninja_dyndep failed to parse ",
+      cmSystemTools::Error(cmStrCat("-E rblxbuild_ninja_dyndep failed to parse ",
                                     forward_modules_from_target_dir,
                                     parseState.GetErrorMessage()));
       return false;
@@ -3340,7 +3340,7 @@ bool cmGlobalNinjaGenerator::WriteDyndepFile(
   return true;
 }
 
-int cmcmd_cmake_ninja_dyndep(std::vector<std::string>::const_iterator argBeg,
+int cmcmd_rblxbuild_ninja_dyndep(std::vector<std::string>::const_iterator argBeg,
                              std::vector<std::string>::const_iterator argEnd)
 {
   std::vector<std::string> arg_full =
@@ -3365,20 +3365,20 @@ int cmcmd_cmake_ninja_dyndep(std::vector<std::string>::const_iterator argBeg,
       arg_ddis.push_back(arg);
     } else {
       cmSystemTools::Error(
-        cmStrCat("-E cmake_ninja_dyndep unknown argument: ", arg));
+        cmStrCat("-E rblxbuild_ninja_dyndep unknown argument: ", arg));
       return 1;
     }
   }
   if (arg_tdi.empty()) {
-    cmSystemTools::Error("-E cmake_ninja_dyndep requires value for --tdi=");
+    cmSystemTools::Error("-E rblxbuild_ninja_dyndep requires value for --tdi=");
     return 1;
   }
   if (arg_lang.empty()) {
-    cmSystemTools::Error("-E cmake_ninja_dyndep requires value for --lang=");
+    cmSystemTools::Error("-E rblxbuild_ninja_dyndep requires value for --lang=");
     return 1;
   }
   if (arg_dd.empty()) {
-    cmSystemTools::Error("-E cmake_ninja_dyndep requires value for --dd=");
+    cmSystemTools::Error("-E rblxbuild_ninja_dyndep requires value for --dd=");
     return 1;
   }
 
@@ -3387,7 +3387,7 @@ int cmcmd_cmake_ninja_dyndep(std::vector<std::string>::const_iterator argBeg,
   {
     cmJSONState parseState(arg_tdi, &tdio, cmJSONState::StrictMode::Relaxed);
     if (!parseState.errors.empty()) {
-      cmSystemTools::Error(cmStrCat("-E cmake_ninja_dyndep failed to parse ",
+      cmSystemTools::Error(cmStrCat("-E rblxbuild_ninja_dyndep failed to parse ",
                                     arg_tdi, parseState.GetErrorMessage()));
       return 1;
     }
@@ -3396,28 +3396,28 @@ int cmcmd_cmake_ninja_dyndep(std::vector<std::string>::const_iterator argBeg,
   std::string const dir_cur_bld = tdi["dir-cur-bld"].asString();
   if (!cmSystemTools::FileIsFullPath(dir_cur_bld)) {
     cmSystemTools::Error(
-      "-E cmake_ninja_dyndep --tdi= file has no absolute dir-cur-bld");
+      "-E rblxbuild_ninja_dyndep --tdi= file has no absolute dir-cur-bld");
     return 1;
   }
 
   std::string const dir_cur_src = tdi["dir-cur-src"].asString();
   if (!cmSystemTools::FileIsFullPath(dir_cur_src)) {
     cmSystemTools::Error(
-      "-E cmake_ninja_dyndep --tdi= file has no absolute dir-cur-src");
+      "-E rblxbuild_ninja_dyndep --tdi= file has no absolute dir-cur-src");
     return 1;
   }
 
   std::string const dir_top_bld = tdi["dir-top-bld"].asString();
   if (!cmSystemTools::FileIsFullPath(dir_top_bld)) {
     cmSystemTools::Error(
-      "-E cmake_ninja_dyndep --tdi= file has no absolute dir-top-bld");
+      "-E rblxbuild_ninja_dyndep --tdi= file has no absolute dir-top-bld");
     return 1;
   }
 
   std::string const dir_top_src = tdi["dir-top-src"].asString();
   if (!cmSystemTools::FileIsFullPath(dir_top_src)) {
     cmSystemTools::Error(
-      "-E cmake_ninja_dyndep --tdi= file has no absolute dir-top-src");
+      "-E rblxbuild_ninja_dyndep --tdi= file has no absolute dir-top-src");
     return 1;
   }
 
@@ -3455,7 +3455,7 @@ int cmcmd_cmake_ninja_dyndep(std::vector<std::string>::const_iterator argBeg,
     cxx_interface_objects = &tdi["cxx-interface-objects"];
   }
 
-  cmake cm(cmState::Role::Internal);
+  rblxbuild cm(cmState::Role::Internal);
   cm.SetHomeDirectory(dir_top_src);
   cm.SetHomeOutputDirectory(dir_top_bld);
   auto ggd = cm.CreateGlobalGenerator("Ninja");
@@ -3515,10 +3515,10 @@ std::string cmGlobalNinjaGenerator::ConvertToOutputPath(std::string path) const
 }
 
 char const* cmGlobalNinjaMultiGenerator::NINJA_COMMON_FILE =
-  "CMakeFiles/common.ninja";
+  "RBLXBuildFiles/common.ninja";
 char const* cmGlobalNinjaMultiGenerator::NINJA_FILE_EXTENSION = ".ninja";
 
-cmGlobalNinjaMultiGenerator::cmGlobalNinjaMultiGenerator(cmake* cm)
+cmGlobalNinjaMultiGenerator::cmGlobalNinjaMultiGenerator(rblxbuild* cm)
   : cmGlobalNinjaGenerator(cm)
 {
   cm->GetState()->SetIsGeneratorMultiConfig(true);
@@ -3535,7 +3535,7 @@ std::string cmGlobalNinjaMultiGenerator::ExpandCFGIntDir(
   std::string const& str, std::string const& config) const
 {
   std::string result = str;
-  cmSystemTools::ReplaceString(result, this->GetCMakeCFGIntDir(), config);
+  cmSystemTools::ReplaceString(result, this->GetRBLXBuildCFGIntDir(), config);
   return result;
 }
 
@@ -3632,7 +3632,7 @@ void cmGlobalNinjaMultiGenerator::AppendNinjaFileArgument(
 std::string cmGlobalNinjaMultiGenerator::GetNinjaImplFilename(
   std::string const& config)
 {
-  return cmStrCat("CMakeFiles/impl-", config,
+  return cmStrCat("RBLXBuildFiles/impl-", config,
                   cmGlobalNinjaMultiGenerator::NINJA_FILE_EXTENSION);
 }
 
@@ -3653,7 +3653,7 @@ void cmGlobalNinjaMultiGenerator::AddRebuildManifestOutputs(
   if (!this->DefaultFileConfig.empty()) {
     outputs.push_back(this->NinjaOutputPath(NINJA_BUILD_FILE));
   }
-  this->AddCMakeFilesToRebuild(outputs);
+  this->AddRBLXBuildFilesToRebuild(outputs);
 }
 
 void cmGlobalNinjaMultiGenerator::GetQtAutoGenConfigs(
@@ -3671,43 +3671,43 @@ bool cmGlobalNinjaMultiGenerator::InspectConfigTypeVariables()
   std::set<std::string> configs(configsList.cbegin(), configsList.cend());
 
   this->DefaultFileConfig =
-    this->Makefiles.front()->GetSafeDefinition("CMAKE_DEFAULT_BUILD_TYPE");
+    this->Makefiles.front()->GetSafeDefinition("RBLXBUILD_DEFAULT_BUILD_TYPE");
   if (this->DefaultFileConfig.empty()) {
     this->DefaultFileConfig = configsList.front();
   }
   if (!configs.count(this->DefaultFileConfig)) {
-    this->GetCMakeInstance()->IssueMessage(
+    this->GetRBLXBuildInstance()->IssueMessage(
       MessageType::FATAL_ERROR,
       cmStrCat("The configuration specified by "
-               "CMAKE_DEFAULT_BUILD_TYPE (",
+               "RBLXBUILD_DEFAULT_BUILD_TYPE (",
                this->DefaultFileConfig,
-               ") is not present in CMAKE_CONFIGURATION_TYPES"));
+               ") is not present in RBLXBUILD_CONFIGURATION_TYPES"));
     return false;
   }
 
   cmList crossConfigsList{ this->Makefiles.front()->GetSafeDefinition(
-    "CMAKE_CROSS_CONFIGS") };
+    "RBLXBUILD_CROSS_CONFIGS") };
   auto crossConfigs = ListSubsetWithAll(configs, configs, crossConfigsList);
   if (!crossConfigs) {
-    this->GetCMakeInstance()->IssueMessage(
+    this->GetRBLXBuildInstance()->IssueMessage(
       MessageType::FATAL_ERROR,
-      "CMAKE_CROSS_CONFIGS is not a subset of CMAKE_CONFIGURATION_TYPES");
+      "RBLXBUILD_CROSS_CONFIGS is not a subset of RBLXBUILD_CONFIGURATION_TYPES");
     return false;
   }
   this->CrossConfigs = *crossConfigs;
 
   auto defaultConfigsString =
-    this->Makefiles.front()->GetSafeDefinition("CMAKE_DEFAULT_CONFIGS");
+    this->Makefiles.front()->GetSafeDefinition("RBLXBUILD_DEFAULT_CONFIGS");
   if (defaultConfigsString.empty()) {
     defaultConfigsString = this->DefaultFileConfig;
   }
   if (!defaultConfigsString.empty() &&
       defaultConfigsString != this->DefaultFileConfig &&
       (this->DefaultFileConfig.empty() || this->CrossConfigs.empty())) {
-    this->GetCMakeInstance()->IssueMessage(
+    this->GetRBLXBuildInstance()->IssueMessage(
       MessageType::FATAL_ERROR,
-      "CMAKE_DEFAULT_CONFIGS cannot be used without "
-      "CMAKE_DEFAULT_BUILD_TYPE or CMAKE_CROSS_CONFIGS");
+      "RBLXBUILD_DEFAULT_CONFIGS cannot be used without "
+      "RBLXBUILD_DEFAULT_BUILD_TYPE or RBLXBUILD_CROSS_CONFIGS");
     return false;
   }
 
@@ -3717,9 +3717,9 @@ bool cmGlobalNinjaMultiGenerator::InspectConfigTypeVariables()
       ListSubsetWithAll(this->GetCrossConfigs(this->DefaultFileConfig),
                         this->CrossConfigs, defaultConfigsList);
     if (!defaultConfigs) {
-      this->GetCMakeInstance()->IssueMessage(
+      this->GetRBLXBuildInstance()->IssueMessage(
         MessageType::FATAL_ERROR,
-        "CMAKE_DEFAULT_CONFIGS is not a subset of CMAKE_CROSS_CONFIGS");
+        "RBLXBUILD_DEFAULT_CONFIGS is not a subset of RBLXBUILD_CROSS_CONFIGS");
       return false;
     }
     this->DefaultConfigs = *defaultConfigs;
@@ -3736,6 +3736,6 @@ std::string cmGlobalNinjaMultiGenerator::GetDefaultBuildConfig() const
 std::string cmGlobalNinjaMultiGenerator::OrderDependsTargetForTarget(
   cmGeneratorTarget const* target, std::string const& config) const
 {
-  return cmStrCat("cmake_object_order_depends_target_", target->GetName(), '_',
+  return cmStrCat("rblxbuild_object_order_depends_target_", target->GetName(), '_',
                   cmSystemTools::UpperCase(config));
 }

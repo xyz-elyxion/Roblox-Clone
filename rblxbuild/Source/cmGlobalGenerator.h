@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #pragma once
 
 #include "cmConfigure.h" // IWYU pragma: keep
@@ -39,13 +39,13 @@
 #include "cmValue.h"
 #include "cmXcFramework.h"
 
-#if !defined(CMAKE_BOOTSTRAP)
+#if !defined(RBLXBUILD_BOOTSTRAP)
 #  include <cm3p/json/value.h>
 
 #  include "cmFileLockPool.h"
 #endif
 
-#define CMAKE_DIRECTORY_ID_SEP "::@"
+#define RBLXBUILD_DIRECTORY_ID_SEP "::@"
 
 enum class cmDepfileFormat;
 enum class codecvt_Encoding;
@@ -67,7 +67,7 @@ class cmQtAutoGenGlobalInitializer;
 class cmSourceFile;
 class cmState;
 class cmStateDirectory;
-class cmake;
+class rblxbuild;
 
 namespace detail {
 inline void AppendStrs(std::vector<std::string>&)
@@ -124,7 +124,7 @@ public:
   };
 
   //! Free any memory allocated with the GlobalGenerator
-  cmGlobalGenerator(cmake* cm);
+  cmGlobalGenerator(rblxbuild* cm);
   virtual ~cmGlobalGenerator();
 
   virtual std::unique_ptr<cmLocalGenerator> CreateLocalGenerator(
@@ -192,7 +192,7 @@ public:
   /** Get encoding used by generator for makefile files */
   virtual codecvt_Encoding GetMakefileEncoding() const;
 
-#if !defined(CMAKE_BOOTSTRAP)
+#if !defined(RBLXBUILD_BOOTSTRAP)
   /** Get a JSON object describing the generator.  */
   virtual Json::Value GetJson() const;
 #endif
@@ -212,14 +212,14 @@ public:
   virtual bool SetGeneratorToolset(std::string const& ts, bool build,
                                    cmMakefile* mf);
 
-  /** Read any other cache entries needed for cmake --build. */
+  /** Read any other cache entries needed for rblxbuild --build. */
   virtual bool ReadCacheEntriesForBuild(cmState const& /*state*/)
   {
     return true;
   }
 
   /**
-   * Create LocalGenerators and process the CMakeLists files. This does not
+   * Create LocalGenerators and process the RBLXBuildLists files. This does not
    * actually produce any makefiles, DSPs, etc.
    */
   virtual void Configure();
@@ -291,7 +291,7 @@ public:
                               cmMakefile*, bool optional);
 
   /**
-   * Resolve the CMAKE_<lang>_COMPILER setting for the given language.
+   * Resolve the RBLXBUILD_<lang>_COMPILER setting for the given language.
    * Intended to be called from EnableLanguage.
    */
   void ResolveLanguageCompiler(std::string const& lang, cmMakefile* mf,
@@ -299,7 +299,7 @@ public:
 
   void SetupTryCompile(cmGlobalGenerator* gen, cmMakefile* mf);
   /**
-   * Try running cmake and building a file. This is used for dynamically
+   * Try running rblxbuild and building a file. This is used for dynamically
    * loaded commands, not as part of the usual build process.
    */
   int TryCompile(int jobs, std::string const& bindir,
@@ -341,17 +341,17 @@ public:
   virtual void PrintBuildCommandAdvice(std::ostream& os, int jobs) const;
 
   /**
-   * Generate a "cmake --build" call for a given target, config and parallel
+   * Generate a "rblxbuild --build" call for a given target, config and parallel
    * level.
    */
-  std::string GenerateCMakeBuildCommand(std::string const& target,
+  std::string GenerateRBLXBuildBuildCommand(std::string const& target,
                                         std::string const& config,
                                         std::string const& parallel,
                                         std::string const& native,
                                         bool ignoreErrors);
 
-  //! Get the CMake instance
-  cmake* GetCMakeInstance() const { return this->CMakeInstance; }
+  //! Get the RBLXBuild instance
+  rblxbuild* GetRBLXBuildInstance() const { return this->RBLXBuildInstance; }
 
   void SetConfiguredFilesPath(cmGlobalGenerator* gen);
   std::vector<std::unique_ptr<cmMakefile>> const& GetMakefiles() const
@@ -448,7 +448,7 @@ public:
   std::string GetRustEmitOutputExtension(std::string const& emitValue) const;
 
   //! What is the configurations directory variable called?
-  virtual char const* GetCMakeCFGIntDir() const { return "."; }
+  virtual char const* GetRBLXBuildCFGIntDir() const { return "."; }
 
   //! expand CFGIntDir for a configuration
   virtual std::string ExpandCFGIntDir(std::string const& str,
@@ -582,7 +582,7 @@ public:
 
   /** Check whether a file exists for the purpose of resolving the
       location of a source file.  Files found to exist are remembered until
-      the next configure, or until cmake::InvalidateFileSystemCaches,
+      the next configure, or until rblxbuild::InvalidateFileSystemCaches,
       because the same source file is typically looked up many times.
       Missing files are always checked again so that files created later
       are still found.  */
@@ -616,7 +616,7 @@ public:
   // Lookup edit_cache target command preferred by this generator.
   virtual std::string GetEditCacheCommand() const { return ""; }
 
-  // Default config to use for cmake --build
+  // Default config to use for rblxbuild --build
   virtual std::string GetDefaultBuildConfig() const { return "Debug"; }
 
   virtual cmValue GetDebuggerWorkingDirectory(cmGeneratorTarget* gt) const;
@@ -810,7 +810,7 @@ public:
   std::set<cmGeneratorTarget const*> const& GetFilenameTargetDepends(
     cmSourceFile* sf) const;
 
-#if !defined(CMAKE_BOOTSTRAP)
+#if !defined(RBLXBUILD_BOOTSTRAP)
   cmFileLockPool& GetFileLockPool() { return this->FileLockPool; }
 #endif
 
@@ -846,7 +846,7 @@ public:
 
   void AddInstallScript(std::string const& file);
   void AddTestFile(std::string const& file);
-  void AddCMakeFilesToRebuild(std::vector<std::string>& files) const;
+  void AddRBLXBuildFilesToRebuild(std::vector<std::string>& files) const;
 
   virtual std::set<std::string> const& GetDefaultConfigs() const
   {
@@ -887,7 +887,7 @@ protected:
 
   virtual bool ComputeTargetDepends();
 
-#if !defined(CMAKE_BOOTSTRAP)
+#if !defined(RBLXBUILD_BOOTSTRAP)
   void WriteJsonContent(std::string const& fname,
                         Json::Value const& value) const;
   void WriteInstallJson() const;
@@ -951,11 +951,11 @@ protected:
 
   std::string FindMakeProgramFile;
   std::string ConfiguredFilesPath;
-  cmake* CMakeInstance;
+  rblxbuild* RBLXBuildInstance;
   std::vector<std::unique_ptr<cmMakefile>> Makefiles;
   LocalGeneratorVector LocalGenerators;
 
-#ifndef CMAKE_BOOTSTRAP
+#ifndef RBLXBUILD_BOOTSTRAP
   std::unique_ptr<cmQtAutoGenGlobalInitializer> QtAutoGen;
 #endif
 
@@ -1038,7 +1038,7 @@ private:
 #endif
   std::map<std::string, int> LanguageToLinkerPreference;
 
-#if !defined(CMAKE_BOOTSTRAP)
+#if !defined(RBLXBUILD_BOOTSTRAP)
   std::unique_ptr<Json::StreamWriter> JsonWriter;
 #endif
 
@@ -1115,7 +1115,7 @@ private:
   GetInstallPrepDependencies(cmInstallGenerator const* installer,
                              std::string const& config);
 
-  friend class cmake;
+  friend class rblxbuild;
   void CreateGeneratorTargets(
     TargetTypes targetTypes, cmMakefile* mf, cmLocalGenerator* lg,
     std::map<cmTarget*, cmGeneratorTarget*> const& importedMap);
@@ -1179,7 +1179,7 @@ private:
   std::vector<std::string> InstallScripts;
   std::vector<std::string> TestFiles;
 
-#if !defined(CMAKE_BOOTSTRAP)
+#if !defined(RBLXBUILD_BOOTSTRAP)
   // Pool of file locks
   cmFileLockPool FileLockPool;
 #endif

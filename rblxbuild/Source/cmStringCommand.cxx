@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 // NOLINTNEXTLINE(bugprone-reserved-identifier)
 #define _SCL_SECURE_NO_WARNINGS
 
@@ -22,7 +22,7 @@
 #include <cm3p/json/value.h>
 #include <cm3p/json/writer.h>
 
-#include "cmCMakeString.hxx"
+#include "cmRBLXBuildString.hxx"
 #include "cmExecutionStatus.h"
 #include "cmJSONState.h"
 #include "cmList.h"
@@ -55,7 +55,7 @@ bool HandleHashCommand(std::vector<std::string> const& args,
     return false;
   }
 
-  cm::CMakeString data{ args[2] };
+  cm::RBLXBuildString data{ args[2] };
 
   try {
     data.Hash(args[0]);
@@ -76,7 +76,7 @@ bool HandleToUpperLowerCommand(std::vector<std::string> const& args,
   }
 
   std::string const& outvar = args[2];
-  cm::CMakeString data{ args[1] };
+  cm::RBLXBuildString data{ args[1] };
 
   if (toUpper) {
     data.ToUpper();
@@ -111,7 +111,7 @@ bool HandleAsciiCommand(std::vector<std::string> const& args,
 
   try {
     std::string const& outvar = args.back();
-    cm::CMakeString data;
+    cm::RBLXBuildString data;
     data.FromASCII(cmMakeRange(args).advance(1).retreat(1));
     status.GetMakefile().AddDefinition(outvar, data);
     return true;
@@ -130,7 +130,7 @@ bool HandleHexCommand(std::vector<std::string> const& args,
   }
 
   auto const& outvar = args[2];
-  cm::CMakeString data{ args[1] };
+  cm::RBLXBuildString data{ args[1] };
 
   data.ToHexadecimal();
 
@@ -228,9 +228,9 @@ bool RegexMatch(std::vector<std::string> const& args,
   try {
     std::string const& regex = args[2];
     std::string const& outvar = args[3];
-    cm::CMakeString data{ cmMakeRange(args).advance(4) };
+    cm::RBLXBuildString data{ cmMakeRange(args).advance(4) };
 
-    auto result = data.Match(regex, cm::CMakeString::MatchItems::Once,
+    auto result = data.Match(regex, cm::RBLXBuildString::MatchItems::Once,
                              &status.GetMakefile());
     // Store the result in the provided variable.
     status.GetMakefile().AddDefinition(outvar, result.to_string());
@@ -250,9 +250,9 @@ bool RegexMatchAll(std::vector<std::string> const& args,
   try {
     std::string const& regex = args[2];
     std::string const& outvar = args[3];
-    cm::CMakeString data{ cmMakeRange(args).advance(4) };
+    cm::RBLXBuildString data{ cmMakeRange(args).advance(4) };
 
-    auto result = data.Match(regex, cm::CMakeString::MatchItems::All,
+    auto result = data.Match(regex, cm::RBLXBuildString::MatchItems::All,
                              &status.GetMakefile());
     // Store the result in the provided variable.
     status.GetMakefile().AddDefinition(outvar, result.to_string());
@@ -274,9 +274,9 @@ bool RegexReplace(std::vector<std::string> const& args,
   std::string const& outvar = args[4];
 
   try {
-    cm::CMakeString data{ cmMakeRange(args).advance(5) };
+    cm::RBLXBuildString data{ cmMakeRange(args).advance(5) };
 
-    data.Replace(regex, replace, cm::CMakeString::Regex::Yes,
+    data.Replace(regex, replace, cm::RBLXBuildString::Regex::Yes,
                  &status.GetMakefile());
     // Store the result in the provided variable.
     status.GetMakefile().AddDefinition(outvar, data);
@@ -293,7 +293,7 @@ bool RegexQuote(std::vector<std::string> const& args,
 {
   //"STRING(REGEX QUOTE <output variable> <input> [<input>...]\n"
   std::string const& outvar = args[2];
-  cm::CMakeString data{ cmMakeRange(args).advance(3) };
+  cm::RBLXBuildString data{ cmMakeRange(args).advance(3) };
 
   try {
     // Escape all regex special characters
@@ -343,13 +343,13 @@ bool HandleFindCommand(std::vector<std::string> const& args,
   }
 
   // try to find the character and return its position
-  auto pos = cm::CMakeString{ sstring }.Find(
+  auto pos = cm::RBLXBuildString{ sstring }.Find(
     schar,
-    reverseMode ? cm::CMakeString::FindFrom::End
-                : cm::CMakeString::FindFrom::Begin);
+    reverseMode ? cm::RBLXBuildString::FindFrom::End
+                : cm::RBLXBuildString::FindFrom::Begin);
 
   status.GetMakefile().AddDefinition(
-    outvar, pos != cm::CMakeString::npos ? std::to_string(pos) : "-1");
+    outvar, pos != cm::RBLXBuildString::npos ? std::to_string(pos) : "-1");
 
   return true;
 }
@@ -377,17 +377,17 @@ bool HandleCompareCommand(std::vector<std::string> const& args,
     std::string const& right = args[3];
     std::string const& outvar = args[4];
     bool result;
-    cm::CMakeString::CompOperator op = cm::CMakeString::CompOperator::EQUAL;
+    cm::RBLXBuildString::CompOperator op = cm::RBLXBuildString::CompOperator::EQUAL;
     if (mode == "LESS") {
-      op = cm::CMakeString::CompOperator::LESS;
+      op = cm::RBLXBuildString::CompOperator::LESS;
     } else if (mode == "LESS_EQUAL") {
-      op = cm::CMakeString::CompOperator::LESS_EQUAL;
+      op = cm::RBLXBuildString::CompOperator::LESS_EQUAL;
     } else if (mode == "GREATER") {
-      op = cm::CMakeString::CompOperator::GREATER;
+      op = cm::RBLXBuildString::CompOperator::GREATER;
     } else if (mode == "GREATER_EQUAL") {
-      op = cm::CMakeString::CompOperator::GREATER_EQUAL;
+      op = cm::RBLXBuildString::CompOperator::GREATER_EQUAL;
     }
-    result = cm::CMakeString{ left }.Compare(op, right);
+    result = cm::RBLXBuildString{ left }.Compare(op, right);
     if (mode == "NOTEQUAL") {
       result = !result;
     }
@@ -412,7 +412,7 @@ bool HandleReplaceCommand(std::vector<std::string> const& args,
     std::string const& matchExpression = args[1];
     std::string const& replaceExpression = args[2];
     std::string const& variableName = args[3];
-    cm::CMakeString data{ cmMakeRange(args).advance(4) };
+    cm::RBLXBuildString data{ cmMakeRange(args).advance(4) };
 
     data.Replace(matchExpression, replaceExpression);
     status.GetMakefile().AddDefinition(variableName, data);
@@ -437,7 +437,7 @@ bool HandleSubstringCommand(std::vector<std::string> const& args,
     int end = atoi(args[3].c_str());
     std::string const& variableName = args[4];
 
-    cm::CMakeString data{ stringValue };
+    cm::RBLXBuildString data{ stringValue };
     status.GetMakefile().AddDefinition(variableName,
                                        data.Substring(begin, end));
   } catch (std::exception const& e) {
@@ -459,7 +459,7 @@ bool HandleLengthCommand(std::vector<std::string> const& args,
   std::string const& variableName = args[2];
 
   status.GetMakefile().AddDefinition(
-    variableName, std::to_string(cm::CMakeString{ stringValue }.Length()));
+    variableName, std::to_string(cm::RBLXBuildString{ stringValue }.Length()));
   return true;
 }
 
@@ -477,7 +477,7 @@ bool HandleAppendCommand(std::vector<std::string> const& args,
   }
 
   auto const& variableName = args[1];
-  cm::CMakeString data{ status.GetMakefile().GetDefinition(variableName) };
+  cm::RBLXBuildString data{ status.GetMakefile().GetDefinition(variableName) };
 
   data.Append(cmMakeRange(args).advance(2));
   status.GetMakefile().AddDefinition(variableName, data);
@@ -499,7 +499,7 @@ bool HandlePrependCommand(std::vector<std::string> const& args,
   }
 
   std::string const& variable = args[1];
-  cm::CMakeString data{ status.GetMakefile().GetDefinition(variable) };
+  cm::RBLXBuildString data{ status.GetMakefile().GetDefinition(variable) };
 
   data.Prepend(cmMakeRange(args).advance(2));
   status.GetMakefile().AddDefinition(variable, data);
@@ -534,7 +534,7 @@ bool joinImpl(std::vector<std::string> const& args, std::string const& glue,
   std::string const& variableName = args[varIdx];
   // NOTE Items to concat/join placed right after the variable for
   // both `CONCAT` and `JOIN` sub-commands.
-  cm::CMakeString data{ cmMakeRange(args).advance(varIdx + 1), glue };
+  cm::RBLXBuildString data{ cmMakeRange(args).advance(varIdx + 1), glue };
 
   makefile.AddDefinition(variableName, data);
   return true;
@@ -552,7 +552,7 @@ bool HandleMakeCIdentifierCommand(std::vector<std::string> const& args,
   std::string const& variableName = args[2];
 
   status.GetMakefile().AddDefinition(variableName,
-                                     cm::CMakeString{}.MakeCIdentifier(input));
+                                     cm::RBLXBuildString{}.MakeCIdentifier(input));
   return true;
 }
 
@@ -564,11 +564,11 @@ bool HandleGenexStripCommand(std::vector<std::string> const& args,
     return false;
   }
 
-  cm::CMakeString data{ args[1] };
+  cm::RBLXBuildString data{ args[1] };
   std::string const& variableName = args[2];
 
   status.GetMakefile().AddDefinition(
-    variableName, data.Strip(cm::CMakeString::StripItems::Genex));
+    variableName, data.Strip(cm::RBLXBuildString::StripItems::Genex));
   return true;
 }
 
@@ -580,7 +580,7 @@ bool HandleStripCommand(std::vector<std::string> const& args,
     return false;
   }
 
-  cm::CMakeString data{ args[1] };
+  cm::RBLXBuildString data{ args[1] };
   std::string const& variableName = args[2];
 
   status.GetMakefile().AddDefinition(variableName, data.Strip());
@@ -615,7 +615,7 @@ bool HandleRepeatCommand(std::vector<std::string> const& args,
     return true;
   }
 
-  cm::CMakeString data{ args[ArgPos::VALUE] };
+  cm::RBLXBuildString data{ args[ArgPos::VALUE] };
   data.Repeat(times);
 
   auto const& variableName = args[ArgPos::OUTPUT_VARIABLE];
@@ -657,7 +657,7 @@ bool HandleRandomCommand(std::vector<std::string> const& args,
   }
 
   try {
-    cm::CMakeString data;
+    cm::RBLXBuildString data;
     std::string const& variableName = args.back();
 
     if (force_seed) {
@@ -694,10 +694,10 @@ bool HandleTimestampCommand(std::vector<std::string> const& args,
     formatString = args[argsIndex++];
   }
 
-  cm::CMakeString::UTC utcFlag = cm::CMakeString::UTC::No;
+  cm::RBLXBuildString::UTC utcFlag = cm::RBLXBuildString::UTC::No;
   if (args.size() > argsIndex) {
     if (args[argsIndex] == "UTC") {
-      utcFlag = cm::CMakeString::UTC::Yes;
+      utcFlag = cm::RBLXBuildString::UTC::Yes;
     } else {
       std::string e =
         cmStrCat(" TIMESTAMP sub-command does not recognize option ",
@@ -707,7 +707,7 @@ bool HandleTimestampCommand(std::vector<std::string> const& args,
     }
   }
 
-  cm::CMakeString data;
+  cm::RBLXBuildString data;
 
   status.GetMakefile().AddDefinition(outputVariable,
                                      data.Timestamp(formatString, utcFlag));
@@ -718,7 +718,7 @@ bool HandleTimestampCommand(std::vector<std::string> const& args,
 bool HandleUuidCommand(std::vector<std::string> const& args,
                        cmExecutionStatus& status)
 {
-#if !defined(CMAKE_BOOTSTRAP)
+#if !defined(RBLXBUILD_BOOTSTRAP)
   unsigned int argsIndex = 1;
 
   if (args.size() < 2) {
@@ -730,8 +730,8 @@ bool HandleUuidCommand(std::vector<std::string> const& args,
 
   cm::string_view uuidNamespaceString;
   cm::string_view uuidName;
-  cm::CMakeString::UUIDType uuidType = cm::CMakeString::UUIDType::MD5;
-  cm::CMakeString::Case uuidCase = cm::CMakeString::Case::Lower;
+  cm::RBLXBuildString::UUIDType uuidType = cm::RBLXBuildString::UUIDType::MD5;
+  cm::RBLXBuildString::Case uuidCase = cm::RBLXBuildString::Case::Lower;
 
   while (args.size() > argsIndex) {
     if (args[argsIndex] == "NAMESPACE") {
@@ -755,9 +755,9 @@ bool HandleUuidCommand(std::vector<std::string> const& args,
         return false;
       }
       if (args[argsIndex] == "MD5") {
-        uuidType = cm::CMakeString::UUIDType::MD5;
+        uuidType = cm::RBLXBuildString::UUIDType::MD5;
       } else if (args[argsIndex] == "SHA1") {
-        uuidType = cm::CMakeString::UUIDType::SHA1;
+        uuidType = cm::RBLXBuildString::UUIDType::SHA1;
       } else {
         status.SetError(
           cmStrCat("UUID sub-command, unknown TYPE '", args[argsIndex], "'."));
@@ -766,7 +766,7 @@ bool HandleUuidCommand(std::vector<std::string> const& args,
       argsIndex++;
     } else if (args[argsIndex] == "UPPER") {
       ++argsIndex;
-      uuidCase = cm::CMakeString::Case::Upper;
+      uuidCase = cm::RBLXBuildString::Case::Upper;
     } else {
       std::string e = cmStrCat("UUID sub-command does not recognize option ",
                                args[argsIndex], '.');
@@ -776,7 +776,7 @@ bool HandleUuidCommand(std::vector<std::string> const& args,
   }
 
   try {
-    cm::CMakeString data;
+    cm::RBLXBuildString data;
 
     data.UUID(uuidNamespaceString, uuidName, uuidType, uuidCase);
     status.GetMakefile().AddDefinition(outputVariable, data);
@@ -791,7 +791,7 @@ bool HandleUuidCommand(std::vector<std::string> const& args,
 #endif
 }
 
-#if !defined(CMAKE_BOOTSTRAP)
+#if !defined(RBLXBUILD_BOOTSTRAP)
 
 // Helpers for string(JSON ...)
 struct Args : cmRange<typename std::vector<std::string>::const_iterator>
@@ -926,8 +926,8 @@ std::string WriteJson(Json::Value const& value)
   return Json::writeString(writer, value);
 }
 
-// Rewrite a compact JSON value so it survives CMake's list grammar as one
-// element.  CMake list parsing splits on ';' only at bracket-nesting depth
+// Rewrite a compact JSON value so it survives RBLXBuild's list grammar as one
+// element.  RBLXBuild list parsing splits on ';' only at bracket-nesting depth
 // zero and un-escapes only '\;', never '[' or ']'.  So inside string tokens
 // emit '[' and ']' as the JSON escapes \u005B and \u005D (the list nesting
 // counter never sees a literal bracket), and escape every ';' as '\;'.  Both
@@ -1016,7 +1016,7 @@ bool JsonPartialMatch(Json::Value const& pattern, Json::Value const& actual)
 bool HandleJSONCommand(std::vector<std::string> const& arguments,
                        cmExecutionStatus& status)
 {
-#if !defined(CMAKE_BOOTSTRAP)
+#if !defined(RBLXBUILD_BOOTSTRAP)
 
   auto& makefile = status.GetMakefile();
   Args args{ arguments.begin() + 1, arguments.end() };

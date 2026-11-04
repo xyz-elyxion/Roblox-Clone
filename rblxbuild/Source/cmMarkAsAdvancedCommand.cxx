@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmMarkAsAdvancedCommand.h"
 
 #include "cmDiagnostics.h"
@@ -11,7 +11,7 @@
 #include "cmStringAlgorithms.h"
 #include "cmSystemTools.h"
 #include "cmValue.h"
-#include "cmake.h"
+#include "rblxbuild.h"
 
 // cmMarkAsAdvancedCommand
 bool cmMarkAsAdvancedCommand(std::vector<std::string> const& args,
@@ -44,7 +44,7 @@ bool cmMarkAsAdvancedCommand(std::vector<std::string> const& args,
     bool ignoreVariable = false;
     switch (mf.GetPolicyStatus(cmPolicies::CMP0102)) {
       case cmPolicies::WARN:
-        if (mf.PolicyOptionalWarningEnabled("CMAKE_POLICY_WARNING_CMP0102")) {
+        if (mf.PolicyOptionalWarningEnabled("RBLXBUILD_POLICY_WARNING_CMP0102")) {
           if (!state->GetCacheEntryValue(variable)) {
             issueMessage = true;
           }
@@ -65,8 +65,8 @@ bool cmMarkAsAdvancedCommand(std::vector<std::string> const& args,
       std::string err = cmStrCat(
         "Policy CMP0102 is not set: The variable named \"", variable,
         "\" is not in the cache. This results in an empty cache entry which "
-        "is no longer created when policy CMP0102 is set to NEW. Run \"cmake "
-        "--help-policy CMP0102\" for policy details. Use the cmake_policy "
+        "is no longer created when policy CMP0102 is set to NEW. Run \"rblxbuild "
+        "--help-policy CMP0102\" for policy details. Use the rblxbuild_policy "
         "command to set the policy and suppress this warning.");
       mf.IssueDiagnostic(cmDiagnostics::CMD_POLICY, err);
     }
@@ -80,7 +80,7 @@ bool cmMarkAsAdvancedCommand(std::vector<std::string> const& args,
     // Check if we want the old behavior of making a dummy cache entry.
     if (oldBehavior) {
       if (!state->GetCacheEntryValue(variable)) {
-        status.GetMakefile().GetCMakeInstance()->AddCacheEntry(
+        status.GetMakefile().GetRBLXBuildInstance()->AddCacheEntry(
           variable, cmValue{ nullptr }, cmValue{ nullptr },
           cmStateEnums::UNINITIALIZED);
         overwrite = true;

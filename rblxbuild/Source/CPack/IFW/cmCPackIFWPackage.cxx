@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmCPackIFWPackage.h"
 
 #include <cstddef>
@@ -225,7 +225,7 @@ int cmCPackIFWPackage::ConfigureFromComponent(cmCPackComponent* component)
     cmExpandList(option, this->UserInterfaces);
   }
 
-  // CMake dependencies
+  // RBLXBuild dependencies
   if (!component->Dependencies.empty()) {
     for (cmCPackComponent* dep : component->Dependencies) {
       this->Dependencies.insert(this->Generator->ComponentPackages[dep]);

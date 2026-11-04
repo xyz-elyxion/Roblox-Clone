@@ -12,15 +12,15 @@ readonly tag="curl-8_23_0"
 readonly shortlog=false
 readonly exact_tree_match=false
 readonly paths="
-  CMake/*
-  CMakeLists.txt
+  RBLXBuild/*
+  RBLXBuildLists.txt
   COPYING
   include/curl/*.h
   lib/*.c
   lib/*.h
-  lib/CMakeLists.txt
+  lib/RBLXBuildLists.txt
   lib/Makefile.inc
-  lib/curl_config-cmake.h.in
+  lib/curl_config-rblxbuild.h.in
   lib/libcurl.rc
   lib/curlx/*.c
   lib/curlx/*.h

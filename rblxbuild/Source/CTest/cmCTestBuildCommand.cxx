@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmCTestBuildCommand.h"
 
 #include <utility>
@@ -9,7 +9,7 @@
 #include <cmext/string_view>
 
 #include "cmArgumentParser.h"
-#include "cmCMakePresetsGraph.h"
+#include "cmRBLXBuildPresetsGraph.h"
 #include "cmCTest.h"
 #include "cmCTestBuildHandler.h"
 #include "cmCTestGenericHandler.h"
@@ -21,9 +21,9 @@
 #include "cmStringAlgorithms.h"
 #include "cmSystemTools.h"
 #include "cmValue.h"
-#include "cmake.h"
+#include "rblxbuild.h"
 
-using BuildPreset = cmCMakePresetsGraph::BuildPreset;
+using BuildPreset = cmRBLXBuildPresetsGraph::BuildPreset;
 
 bool cmCTestBuildCommand::InitialPass(std::vector<std::string> const& args,
                                       cmExecutionStatus& status) const
@@ -60,15 +60,15 @@ std::unique_ptr<cmCTestGenericHandler> cmCTestBuildCommand::InitializeHandler(
   // 5) The configuration entry from the build preset
   cmValue ctestBuildConfiguration =
     mf.GetDefinition("CTEST_BUILD_CONFIGURATION");
-  std::string cmakeBuildConfiguration = cmNonempty(args.Configuration)
+  std::string rblxbuildBuildConfiguration = cmNonempty(args.Configuration)
     ? args.Configuration
     : cmNonempty(ctestBuildConfiguration) ? *ctestBuildConfiguration
                                           : this->CTest->GetConfigType();
 
-  std::string const& cmakeBuildAdditionalFlags = cmNonempty(args.Flags)
+  std::string const& rblxbuildBuildAdditionalFlags = cmNonempty(args.Flags)
     ? args.Flags
     : mf.GetSafeDefinition("CTEST_BUILD_FLAGS");
-  std::string const& cmakeBuildTarget = cmNonempty(args.Target)
+  std::string const& rblxbuildBuildTarget = cmNonempty(args.Target)
     ? args.Target
     : mf.GetSafeDefinition("CTEST_BUILD_TARGET");
 
@@ -127,7 +127,7 @@ std::unique_ptr<cmCTestGenericHandler> cmCTestBuildCommand::InitializeHandler(
                          "Ignoring CTEST_BUILD_COMMAND because preset \"",
                          effectivePreset, "\" is in use.\n");
     }
-    cmCMakePresetsGraph presetsGraph;
+    cmRBLXBuildPresetsGraph presetsGraph;
     if (!presetsGraph.ReadProjectPresets(sourceDirectory, presetsFile)) {
       status.SetError(cmStrCat("\n Could not read presets from \"",
                                sourceDirectory, "\":\n ",
@@ -137,7 +137,7 @@ std::unique_ptr<cmCTestGenericHandler> cmCTestBuildCommand::InitializeHandler(
 
     auto resolveResult =
       presetsGraph.ResolvePreset(effectivePreset, presetsGraph.BuildPresets);
-    auto resolveError = cmCMakePresetsGraph::FormatPresetError<BuildPreset>(
+    auto resolveError = cmRBLXBuildPresetsGraph::FormatPresetError<BuildPreset>(
       resolveResult.StatusCode, resolveResult.ErrorPresetName,
       resolveResult.Suggestion, sourceDirectory);
     if (resolveError) {
@@ -146,7 +146,7 @@ std::unique_ptr<cmCTestGenericHandler> cmCTestBuildCommand::InitializeHandler(
     }
 
     std::string buildCommand =
-      cmStrCat('"', cmSystemTools::GetCMakeCommand(),
+      cmStrCat('"', cmSystemTools::GetRBLXBuildCommand(),
                "\" --build . --preset \"", effectivePreset, '"');
 
     if (!presetsFile.empty()) {
@@ -154,14 +154,14 @@ std::unique_ptr<cmCTestGenericHandler> cmCTestBuildCommand::InitializeHandler(
                               presetsFile, '"');
     }
 
-    if (!cmakeBuildConfiguration.empty()) {
+    if (!rblxbuildBuildConfiguration.empty()) {
       buildCommand = cmStrCat(std::move(buildCommand), " --config \"",
-                              cmakeBuildConfiguration, '"');
+                              rblxbuildBuildConfiguration, '"');
     }
 
-    if (!cmakeBuildTarget.empty()) {
+    if (!rblxbuildBuildTarget.empty()) {
       buildCommand = cmStrCat(std::move(buildCommand), " --target \"",
-                              cmakeBuildTarget, '"');
+                              rblxbuildBuildTarget, '"');
     }
 
     if (!args.ParallelLevel.empty()) {
@@ -169,9 +169,9 @@ std::unique_ptr<cmCTestGenericHandler> cmCTestBuildCommand::InitializeHandler(
         cmStrCat(std::move(buildCommand), " --parallel ", args.ParallelLevel);
     }
 
-    if (!cmakeBuildAdditionalFlags.empty()) {
+    if (!rblxbuildBuildAdditionalFlags.empty()) {
       buildCommand =
-        cmStrCat(std::move(buildCommand), " -- ", cmakeBuildAdditionalFlags);
+        cmStrCat(std::move(buildCommand), " -- ", rblxbuildBuildAdditionalFlags);
     }
 
     cmCTestOptionalLog(this->CTest, HANDLER_VERBOSE_OUTPUT, args.Quiet,
@@ -179,30 +179,30 @@ std::unique_ptr<cmCTestGenericHandler> cmCTestBuildCommand::InitializeHandler(
     this->CTest->SetCTestConfiguration("MakeCommand", buildCommand,
                                        args.Quiet);
   } else {
-    cmValue cmakeGeneratorName = mf.GetDefinition("CTEST_CMAKE_GENERATOR");
+    cmValue rblxbuildGeneratorName = mf.GetDefinition("CTEST_RBLXBUILD_GENERATOR");
 
-    if (cmNonempty(cmakeGeneratorName)) {
-      if (cmakeBuildConfiguration.empty()) {
-        cmakeBuildConfiguration = "Release";
+    if (cmNonempty(rblxbuildGeneratorName)) {
+      if (rblxbuildBuildConfiguration.empty()) {
+        rblxbuildBuildConfiguration = "Release";
       }
 
       auto globalGenerator =
-        mf.GetCMakeInstance()->CreateGlobalGenerator(*cmakeGeneratorName);
+        mf.GetRBLXBuildInstance()->CreateGlobalGenerator(*rblxbuildGeneratorName);
       if (!globalGenerator) {
         mf.IssueMessage(MessageType::FATAL_ERROR,
                         cmStrCat("could not create generator named \"",
-                                 *cmakeGeneratorName, '"'));
+                                 *rblxbuildGeneratorName, '"'));
         cmSystemTools::SetFatalErrorOccurred();
         return nullptr;
       }
-      if (cmakeBuildConfiguration.empty()) {
-        cmakeBuildConfiguration = "Debug";
+      if (rblxbuildBuildConfiguration.empty()) {
+        rblxbuildBuildConfiguration = "Debug";
       }
 
       std::string dir = this->CTest->GetCTestConfiguration("BuildDirectory");
-      std::string buildCommand = globalGenerator->GenerateCMakeBuildCommand(
-        cmakeBuildTarget, cmakeBuildConfiguration, args.ParallelLevel,
-        cmakeBuildAdditionalFlags, false);
+      std::string buildCommand = globalGenerator->GenerateRBLXBuildBuildCommand(
+        rblxbuildBuildTarget, rblxbuildBuildConfiguration, args.ParallelLevel,
+        rblxbuildBuildAdditionalFlags, false);
       cmCTestOptionalLog(this->CTest, HANDLER_VERBOSE_OUTPUT, args.Quiet,
                          "SetMakeCommand:", buildCommand, '\n');
       this->CTest->SetCTestConfiguration("MakeCommand", buildCommand,
@@ -211,7 +211,7 @@ std::unique_ptr<cmCTestGenericHandler> cmCTestBuildCommand::InitializeHandler(
       std::string error;
       /* clang-format off */
       error = "has no project to build. If this is a "
-        "\"built with CMake\" project, verify that CTEST_CMAKE_GENERATOR "
+        "\"built with RBLXBuild\" project, verify that CTEST_RBLXBUILD_GENERATOR "
         "is set. Otherwise, set CTEST_BUILD_COMMAND to build the project "
         "with a custom command line.";
       /* clang-format on */

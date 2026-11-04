@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmGraphVizWriter.h"
 
 #include <algorithm>
@@ -27,7 +27,7 @@
 #include "cmSystemTools.h"
 #include "cmTargetTypes.h"
 #include "cmValue.h"
-#include "cmake.h"
+#include "rblxbuild.h"
 
 namespace {
 
@@ -110,7 +110,7 @@ cmGraphVizWriter::cmGraphVizWriter(std::string const& fileName,
                                    cmGlobalGenerator const* globalGenerator)
   : FileName(fileName)
   , GlobalFileStream(fileName)
-  , GraphName(globalGenerator->GetSafeGlobalSetting("CMAKE_PROJECT_NAME"))
+  , GraphName(globalGenerator->GetSafeGlobalSetting("RBLXBUILD_PROJECT_NAME"))
   , GraphHeader("node [\n  fontsize = \"12\"\n];")
   , GraphNodePrefix("node")
   , GlobalGenerator(globalGenerator)
@@ -199,7 +199,7 @@ void cmGraphVizWriter::ReadSettings(
   std::string const& settingsFileName,
   std::string const& fallbackSettingsFileName)
 {
-  cmake cm(cmState::Role::Script);
+  rblxbuild cm(cmState::Role::Script);
   cm.GetCurrentSnapshot().SetDefaultDefinitions();
   cmGlobalGenerator ggi(&cm);
   cmMakefile mf(&ggi, cm.GetCurrentSnapshot());
@@ -221,9 +221,9 @@ void cmGraphVizWriter::ReadSettings(
 
   std::cout << "Reading GraphViz options file: " << inFileName << std::endl;
 
-#define set_if_set(var, cmakeDefinition)                                      \
+#define set_if_set(var, rblxbuildDefinition)                                      \
   do {                                                                        \
-    cmValue value = mf.GetDefinition(cmakeDefinition);                        \
+    cmValue value = mf.GetDefinition(rblxbuildDefinition);                        \
     if (value) {                                                              \
       (var) = *value;                                                         \
     }                                                                         \
@@ -233,9 +233,9 @@ void cmGraphVizWriter::ReadSettings(
   set_if_set(this->GraphHeader, "GRAPHVIZ_GRAPH_HEADER");
   set_if_set(this->GraphNodePrefix, "GRAPHVIZ_NODE_PREFIX");
 
-#define set_bool_if_set(var, cmakeDefinition)                                 \
+#define set_bool_if_set(var, rblxbuildDefinition)                                 \
   do {                                                                        \
-    cmValue value = mf.GetDefinition(cmakeDefinition);                        \
+    cmValue value = mf.GetDefinition(rblxbuildDefinition);                        \
     if (value) {                                                              \
       (var) = cmIsOn(*value);                                                 \
     }                                                                         \
@@ -287,7 +287,7 @@ void cmGraphVizWriter::Write()
       // vs. 'ALL_BUILD'), which can disrupt the traversal ordering.
       // We don't need or want them anyway.
       if (!cmGlobalGenerator::IsReservedTarget(gt->GetName()) &&
-          !cmHasLiteralPrefix(gt->GetName(), "__cmake_")) {
+          !cmHasLiteralPrefix(gt->GetName(), "__rblxbuild_")) {
         sortedGeneratorTargets.insert(gt.get());
       }
     }

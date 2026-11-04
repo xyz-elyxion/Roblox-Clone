@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 
 #include "cmLDConfigLDConfigTool.h"
 
@@ -25,7 +25,7 @@ cmLDConfigLDConfigTool::cmLDConfigLDConfigTool(
 bool cmLDConfigLDConfigTool::GetLDConfigPaths(std::vector<std::string>& paths)
 {
   std::string ldConfigPath =
-    this->Archive->GetMakefile()->GetSafeDefinition("CMAKE_LDCONFIG_COMMAND");
+    this->Archive->GetMakefile()->GetSafeDefinition("RBLXBUILD_LDCONFIG_COMMAND");
   if (ldConfigPath.empty()) {
     ldConfigPath = cmSystemTools::FindProgram(
       "ldconfig", { "/sbin", "/usr/sbin", "/usr/local/sbin" });

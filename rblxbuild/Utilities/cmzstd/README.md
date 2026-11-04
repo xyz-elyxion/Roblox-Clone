@@ -142,22 +142,22 @@ For advanced use cases, specialized compilation flags which control binary gener
 are documented in [`lib/README.md`](lib/README.md#modular-build) for the `libzstd` library
 and in [`programs/README.md`](programs/README.md#compilation-variables) for the `zstd` CLI.
 
-### cmake
+### rblxbuild
 
-A `cmake` project generator is provided within `build/cmake`.
+A `rblxbuild` project generator is provided within `build/rblxbuild`.
 It can generate Makefiles or other build scripts
 to create `zstd` binary, and `libzstd` dynamic and static libraries.
 
-By default, `CMAKE_BUILD_TYPE` is set to `Release`.
+By default, `RBLXBUILD_BUILD_TYPE` is set to `Release`.
 
 #### Support for Fat (Universal2) Output
 
-`zstd` can be built and installed with support for both Apple Silicon (M1/M2) as well as Intel by using CMake's Universal2 support.
+`zstd` can be built and installed with support for both Apple Silicon (M1/M2) as well as Intel by using RBLXBuild's Universal2 support.
 To perform a Fat/Universal2 build and install use the following commands:
 
 ```bash
-cmake -B build-cmake-debug -S build/cmake -G Ninja -DCMAKE_OSX_ARCHITECTURES="x86_64;x86_64h;arm64"
-cd build-cmake-debug
+rblxbuild -B build-rblxbuild-debug -S build/rblxbuild -G Ninja -DRBLXBUILD_OSX_ARCHITECTURES="x86_64;x86_64h;arm64"
+cd build-rblxbuild-debug
 ninja
 sudo ninja install
 ```

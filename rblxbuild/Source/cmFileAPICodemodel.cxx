@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmFileAPICodemodel.h"
 
 #include <algorithm>
@@ -63,7 +63,7 @@
 #include "cmTargetExport.h"
 #include "cmTargetTypes.h"
 #include "cmValue.h"
-#include "cmake.h"
+#include "rblxbuild.h"
 
 namespace {
 
@@ -302,7 +302,7 @@ class CodemodelConfig
   Json::Value DumpProjects();
   Json::Value DumpProject(Project& p);
 
-  Json::Value DumpMinimumCMakeVersion(cmStateSnapshot s);
+  Json::Value DumpMinimumRBLXBuildVersion(cmStateSnapshot s);
 
 public:
   CodemodelConfig(cmFileAPI& fileAPI, unsigned int versionMajor,
@@ -317,7 +317,7 @@ std::string TargetId(cmGeneratorTarget const* gt, std::string const& topBuild)
     topBuild, gt->GetLocalGenerator()->GetCurrentBinaryDirectory());
   std::string hash = hasher.HashString(path);
   hash.resize(20, '0');
-  return cmStrCat(gt->GetName(), CMAKE_DIRECTORY_ID_SEP, hash);
+  return cmStrCat(gt->GetName(), RBLXBUILD_DIRECTORY_ID_SEP, hash);
 }
 
 struct CompileData
@@ -574,8 +574,8 @@ Json::Value Codemodel::Dump()
 Json::Value Codemodel::DumpPaths()
 {
   Json::Value paths = Json::objectValue;
-  paths["source"] = this->FileAPI.GetCMakeInstance()->GetHomeDirectory();
-  paths["build"] = this->FileAPI.GetCMakeInstance()->GetHomeOutputDirectory();
+  paths["source"] = this->FileAPI.GetRBLXBuildInstance()->GetHomeDirectory();
+  paths["build"] = this->FileAPI.GetRBLXBuildInstance()->GetHomeOutputDirectory();
   return paths;
 }
 
@@ -583,7 +583,7 @@ Json::Value Codemodel::DumpConfigurations()
 {
   Json::Value configurations = Json::arrayValue;
   cmGlobalGenerator* gg =
-    this->FileAPI.GetCMakeInstance()->GetGlobalGenerator();
+    this->FileAPI.GetRBLXBuildInstance()->GetGlobalGenerator();
   auto const& makefiles = gg->GetMakefiles();
   if (!makefiles.empty()) {
     std::vector<std::string> const& configs =
@@ -609,8 +609,8 @@ CodemodelConfig::CodemodelConfig(cmFileAPI& fileAPI, unsigned int versionMajor,
   , VersionMajor(versionMajor)
   , VersionMinor(versionMinor)
   , Config(config)
-  , TopSource(this->FileAPI.GetCMakeInstance()->GetHomeDirectory())
-  , TopBuild(this->FileAPI.GetCMakeInstance()->GetHomeOutputDirectory())
+  , TopSource(this->FileAPI.GetRBLXBuildInstance()->GetHomeDirectory())
+  , TopBuild(this->FileAPI.GetRBLXBuildInstance()->GetHomeOutputDirectory())
 {
 }
 
@@ -633,7 +633,7 @@ Json::Value CodemodelConfig::Dump()
 void CodemodelConfig::ProcessDirectories()
 {
   cmGlobalGenerator* gg =
-    this->FileAPI.GetCMakeInstance()->GetGlobalGenerator();
+    this->FileAPI.GetRBLXBuildInstance()->GetGlobalGenerator();
   auto const& localGens = gg->GetLocalGenerators();
 
   // Add directories in forward order to process parents before children.
@@ -719,7 +719,7 @@ CodemodelConfig::DumpedTargets CodemodelConfig::DumpTargets()
 
   std::vector<cmGeneratorTarget*> targetList;
   cmGlobalGenerator* gg =
-    this->FileAPI.GetCMakeInstance()->GetGlobalGenerator();
+    this->FileAPI.GetRBLXBuildInstance()->GetGlobalGenerator();
   for (auto const& lg : gg->GetLocalGenerators()) {
     cm::append(targetList, lg->GetGeneratorTargets());
     cm::append(targetList, lg->GetOwnedImportedGeneratorTargets());
@@ -734,8 +734,8 @@ CodemodelConfig::DumpedTargets CodemodelConfig::DumpTargets()
       continue;
     }
 
-    // Ignore targets starting with `__cmake_` as they are internal.
-    if (cmHasLiteralPrefix(gt->GetName(), "__cmake_")) {
+    // Ignore targets starting with `__rblxbuild_` as they are internal.
+    if (cmHasLiteralPrefix(gt->GetName(), "__rblxbuild_")) {
       continue;
     }
 
@@ -827,9 +827,9 @@ Json::Value CodemodelConfig::DumpDirectory(Directory& d)
     directory["abstractTargetIndexes"] = std::move(d.AbstractTargetIndexes);
   }
 
-  Json::Value minimumCMakeVersion = this->DumpMinimumCMakeVersion(d.Snapshot);
-  if (!minimumCMakeVersion.isNull()) {
-    directory["minimumCMakeVersion"] = std::move(minimumCMakeVersion);
+  Json::Value minimumRBLXBuildVersion = this->DumpMinimumRBLXBuildVersion(d.Snapshot);
+  if (!minimumRBLXBuildVersion.isNull()) {
+    directory["minimumRBLXBuildVersion"] = std::move(minimumRBLXBuildVersion);
   }
 
   if (d.HasInstallRule) {
@@ -900,14 +900,14 @@ Json::Value CodemodelConfig::DumpProject(Project& p)
   return project;
 }
 
-Json::Value CodemodelConfig::DumpMinimumCMakeVersion(cmStateSnapshot s)
+Json::Value CodemodelConfig::DumpMinimumRBLXBuildVersion(cmStateSnapshot s)
 {
-  Json::Value minimumCMakeVersion;
-  if (cmValue def = s.GetDefinition("CMAKE_MINIMUM_REQUIRED_VERSION")) {
-    minimumCMakeVersion = Json::objectValue;
-    minimumCMakeVersion["string"] = *def;
+  Json::Value minimumRBLXBuildVersion;
+  if (cmValue def = s.GetDefinition("RBLXBUILD_MINIMUM_REQUIRED_VERSION")) {
+    minimumRBLXBuildVersion = Json::objectValue;
+    minimumRBLXBuildVersion["string"] = *def;
   }
-  return minimumCMakeVersion;
+  return minimumRBLXBuildVersion;
 }
 
 DirectoryObject::DirectoryObject(cmLocalGenerator const* lg,
@@ -920,9 +920,9 @@ DirectoryObject::DirectoryObject(cmLocalGenerator const* lg,
   , VersionMinor(versionMinor)
   , Config(config)
   , TargetIndexMap(targetIndexMap)
-  , TopSource(lg->GetGlobalGenerator()->GetCMakeInstance()->GetHomeDirectory())
+  , TopSource(lg->GetGlobalGenerator()->GetRBLXBuildInstance()->GetHomeDirectory())
   , TopBuild(
-      lg->GetGlobalGenerator()->GetCMakeInstance()->GetHomeOutputDirectory())
+      lg->GetGlobalGenerator()->GetRBLXBuildInstance()->GetHomeOutputDirectory())
   , Backtraces(this->TopSource)
 {
 }
@@ -1257,9 +1257,9 @@ Target::Target(cmGeneratorTarget* gt, unsigned int versionMajor,
   , VersionMajor(versionMajor)
   , VersionMinor(versionMinor)
   , Config(config)
-  , TopSource(gt->GetGlobalGenerator()->GetCMakeInstance()->GetHomeDirectory())
+  , TopSource(gt->GetGlobalGenerator()->GetRBLXBuildInstance()->GetHomeDirectory())
   , TopBuild(
-      gt->GetGlobalGenerator()->GetCMakeInstance()->GetHomeOutputDirectory())
+      gt->GetGlobalGenerator()->GetRBLXBuildInstance()->GetHomeOutputDirectory())
   , Backtraces(this->TopSource)
 {
 }
@@ -1432,10 +1432,10 @@ void Target::ProcessLanguage(std::string const& lang)
   CompileData& cd = this->CompileDataMap[lang];
   cd.Language = lang;
   if (cmValue sysrootCompile =
-        this->GT->Makefile->GetDefinition("CMAKE_SYSROOT_COMPILE")) {
+        this->GT->Makefile->GetDefinition("RBLXBUILD_SYSROOT_COMPILE")) {
     cd.Sysroot = *sysrootCompile;
   } else if (cmValue sysroot =
-               this->GT->Makefile->GetDefinition("CMAKE_SYSROOT")) {
+               this->GT->Makefile->GetDefinition("RBLXBUILD_SYSROOT")) {
     cd.Sysroot = *sysroot;
   }
   cmLocalGenerator* lg = this->GT->GetLocalGenerator();
@@ -1828,7 +1828,7 @@ std::pair<Json::Value, Target::FileSetDatabase> Target::DumpFileSets()
       auto const& fileEntries = fs->GetFileEntries();
       for (BT<std::string> const& fileEntry : fileEntries) {
         cmGeneratorExpression ge(
-          *this->GT->GetLocalGenerator()->GetCMakeInstance(),
+          *this->GT->GetLocalGenerator()->GetRBLXBuildInstance(),
           fileEntry.Backtrace);
         for (std::string const& ex : cmList{ fileEntry.Value }) {
           std::unique_ptr<cmCompiledGeneratorExpression> cge = ge.Parse(ex);
@@ -2043,7 +2043,7 @@ Json::Value Target::DumpInterfaceIncludes()
                                          this->GT) };
     };
 
-  cmGeneratorExpression ge(*this->GT->Makefile->GetCMakeInstance());
+  cmGeneratorExpression ge(*this->GT->Makefile->GetRBLXBuildInstance());
   auto includesExpression = ge.Parse(*prop);
   auto systemIncludesExpression =
     systemIncludesProp ? ge.Parse(*systemIncludesProp) : nullptr;
@@ -2286,7 +2286,7 @@ Json::Value Target::DumpInstallPrefix()
 {
   Json::Value prefix = Json::objectValue;
   std::string p =
-    this->GT->Makefile->GetSafeDefinition("CMAKE_INSTALL_PREFIX");
+    this->GT->Makefile->GetSafeDefinition("RBLXBUILD_INSTALL_PREFIX");
   cmSystemTools::ConvertToUnixSlashes(p);
   prefix["path"] = p;
   return prefix;
@@ -2354,7 +2354,7 @@ Json::Value Target::DumpArtifacts()
       // being missing before here. Therefore, we tell ImportedGetFullPath()
       // not to raise that CMP0111 error if it sees the problem. We don't want
       // to trigger an error for a target that nothing uses, as that would be a
-      // regression compared to CMake 4.1 and earlier behavior.
+      // regression compared to RBLXBuild 4.1 and earlier behavior.
       fullPath = this->GT->Target->ImportedGetFullPath(
         this->Config, cmStateEnums::ImportLibraryArtifact,
         cmTarget::ImportArtifactMissingOk::Yes);
@@ -2399,10 +2399,10 @@ Json::Value Target::DumpLink()
     }
   }
   if (cmValue sysrootLink =
-        this->GT->Makefile->GetDefinition("CMAKE_SYSROOT_LINK")) {
+        this->GT->Makefile->GetDefinition("RBLXBUILD_SYSROOT_LINK")) {
     link["sysroot"] = this->DumpSysroot(*sysrootLink);
   } else if (cmValue sysroot =
-               this->GT->Makefile->GetDefinition("CMAKE_SYSROOT")) {
+               this->GT->Makefile->GetDefinition("RBLXBUILD_SYSROOT")) {
     link["sysroot"] = this->DumpSysroot(*sysroot);
   }
   if (this->GT->IsIPOEnabled(lang, this->Config)) {
@@ -2649,7 +2649,7 @@ Json::Value Target::DumpLauncher(char const* name, char const* type)
   Json::Value launcher;
   if (property) {
     cmLocalGenerator* lg = this->GT->GetLocalGenerator();
-    cmGeneratorExpression ge(*lg->GetCMakeInstance());
+    cmGeneratorExpression ge(*lg->GetRBLXBuildInstance());
     cmList commandWithArgs{ ge.Parse(*property)->Evaluate(lg, this->Config) };
     if (!commandWithArgs.empty() && !commandWithArgs[0].empty()) {
       std::string command(commandWithArgs[0]);
@@ -2678,7 +2678,7 @@ Json::Value Target::DumpLaunchers()
       launchers.append(std::move(launcher));
     }
   }
-  if (this->GT->Makefile->IsOn("CMAKE_CROSSCOMPILING")) {
+  if (this->GT->Makefile->IsOn("RBLXBUILD_CROSSCOMPILING")) {
     Json::Value emulator = DumpLauncher("CROSSCOMPILING_EMULATOR", "emulator");
     if (!emulator.empty()) {
       launchers.append(std::move(emulator));

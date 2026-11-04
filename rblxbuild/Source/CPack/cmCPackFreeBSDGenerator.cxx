@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmCPackFreeBSDGenerator.h"
 
 #include <algorithm>
@@ -173,7 +173,7 @@ public:
   virtual void write_value(cmGeneratedFileStream& s) const = 0;
 };
 
-// Basic string-value (e.g. "name": "cmake")
+// Basic string-value (e.g. "name": "rblxbuild")
 class ManifestKeyValue : public ManifestKey
 {
 public:
@@ -303,7 +303,7 @@ void cmCPackFreeBSDGenerator::write_manifest_fields(
   manifest << (ManifestKeyListValue("licenses") << licenses);
   cmList categories{ var_lookup("CPACK_FREEBSD_PACKAGE_CATEGORIES") };
   manifest << (ManifestKeyListValue("categories") << categories);
-  manifest << ManifestKeyValue("prefix", var_lookup("CMAKE_INSTALL_PREFIX"));
+  manifest << ManifestKeyValue("prefix", var_lookup("RBLXBUILD_INSTALL_PREFIX"));
   cmList deps{ var_lookup("CPACK_FREEBSD_PACKAGE_DEPS") };
   if (!deps.empty()) {
     manifest << (ManifestKeyDepsValue("deps") << deps);
@@ -339,9 +339,9 @@ void write_manifest_files(cmGeneratedFileStream& s,
 
 int cmCPackFreeBSDGenerator::PackageFiles()
 {
-  if (!this->ReadListFile("Internal/CPack/CPackFreeBSD.cmake")) {
+  if (!this->ReadListFile("Internal/CPack/CPackFreeBSD.rblxbuild")) {
     cmCPackLogger(cmCPackLog::LOG_ERROR,
-                  "Error while executing CPackFreeBSD.cmake" << std::endl);
+                  "Error while executing CPackFreeBSD.rblxbuild" << std::endl);
     return 0;
   }
 

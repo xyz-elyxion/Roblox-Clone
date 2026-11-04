@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmAddCustomCommandCommand.h"
 
 #include <algorithm>
@@ -55,7 +55,7 @@ bool cmAddCustomCommandCommand(std::vector<std::string> const& args,
   bool uses_terminal = false;
   bool command_expand_lists = false;
   bool depends_explicit_only =
-    mf.IsOn("CMAKE_ADD_CUSTOM_COMMAND_DEPENDS_EXPLICIT_ONLY");
+    mf.IsOn("RBLXBUILD_ADD_CUSTOM_COMMAND_DEPENDS_EXPLICIT_ONLY");
   bool codegen = false;
   std::string implicit_depends_lang;
   cmImplicitDependsList implicit_depends;

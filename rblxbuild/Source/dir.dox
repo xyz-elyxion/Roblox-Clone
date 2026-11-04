@@ -2,6 +2,6 @@
 
 \dir
 
-\brief Root \c ${CMake_SOURCE_DIR}/Source directory
+\brief Root \c ${RBLXBuild_SOURCE_DIR}/Source directory
 
 */

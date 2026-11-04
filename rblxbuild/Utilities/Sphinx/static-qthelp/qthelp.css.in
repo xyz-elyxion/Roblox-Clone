@@ -12,7 +12,7 @@
  * much less CSS than a browser does, so keep the rules here simple.
  */
 
-/* Undo the full-window layout of "cmake.css", which has no navigation bar or
+/* Undo the full-window layout of "rblxbuild.css", which has no navigation bar or
    footer to place in the qthelp output, and which litehtml cannot lay out. */
 html,
 body {

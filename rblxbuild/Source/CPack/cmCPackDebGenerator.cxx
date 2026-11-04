@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmCPackDebGenerator.h"
 
 #include <algorithm>
@@ -275,7 +275,7 @@ bool DebGenerator::generateDataTar() const
                   "RELATIVEDIR: \"" << relativeDir << "\"" << std::endl);
 
 #ifdef _WIN32
-    std::string mode_t_adt_filename = file + ":cmake_mode_t";
+    std::string mode_t_adt_filename = file + ":rblxbuild_mode_t";
     cmsys::ifstream permissionStream(mode_t_adt_filename.c_str());
 
     mode_t permissions = 0;
@@ -335,7 +335,7 @@ std::string DebGenerator::generateMD5File() const
 
     output = cmStrCat(std::move(output), "  ", file, '\n');
     // debian md5sums entries are like this:
-    // 014f3604694729f3bf19263bac599765  usr/bin/ccmake
+    // 014f3604694729f3bf19263bac599765  usr/bin/crblxbuild
     // thus strip the full path (with the trailing slash)
     cmSystemTools::ReplaceString(output, topLevelWithTrailingSlash.c_str(),
                                  "");
@@ -611,14 +611,14 @@ int cmCPackDebGenerator::PackageOnePack(std::string const& initialTopLevel,
   this->SetOption("CPACK_OUTPUT_FILE_NAME", outputFileName);
   /* replace the TEMPORARY package file name */
   this->SetOption("CPACK_TEMPORARY_PACKAGE_FILE_NAME", packageFileName);
-  // Tell CPackDeb.cmake the name of the component GROUP.
+  // Tell CPackDeb.rblxbuild the name of the component GROUP.
   this->SetOption("CPACK_DEB_PACKAGE_COMPONENT", packageName);
-  // Tell CPackDeb.cmake the path where the component is.
+  // Tell CPackDeb.rblxbuild the path where the component is.
   std::string component_path = cmStrCat('/', sanitizedPkgDirName);
   this->SetOption("CPACK_DEB_PACKAGE_COMPONENT_PART_PATH", component_path);
-  if (!this->ReadListFile("Internal/CPack/CPackDeb.cmake")) {
+  if (!this->ReadListFile("Internal/CPack/CPackDeb.rblxbuild")) {
     cmCPackLogger(cmCPackLog::LOG_ERROR,
-                  "Error while execution CPackDeb.cmake" << std::endl);
+                  "Error while execution CPackDeb.rblxbuild" << std::endl);
     return 0;
   }
 
@@ -703,13 +703,13 @@ int cmCPackDebGenerator::PackageComponentsAllInOne(
   this->SetOption("CPACK_TEMPORARY_PACKAGE_FILE_NAME", packageFileName);
 
   if (!compInstDirName.empty()) {
-    // Tell CPackDeb.cmake the path where the component is.
+    // Tell CPackDeb.rblxbuild the path where the component is.
     std::string component_path = cmStrCat('/', compInstDirName);
     this->SetOption("CPACK_DEB_PACKAGE_COMPONENT_PART_PATH", component_path);
   }
-  if (!this->ReadListFile("Internal/CPack/CPackDeb.cmake")) {
+  if (!this->ReadListFile("Internal/CPack/CPackDeb.rblxbuild")) {
     cmCPackLogger(cmCPackLog::LOG_ERROR,
-                  "Error while execution CPackDeb.cmake" << std::endl);
+                  "Error while execution CPackDeb.rblxbuild" << std::endl);
     return 0;
   }
 

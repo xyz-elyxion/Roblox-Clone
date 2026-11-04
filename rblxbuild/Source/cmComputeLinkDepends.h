@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #pragma once
 
 #include "cmConfigure.h" // IWYU pragma: keep
@@ -25,7 +25,7 @@ class cmGeneratorTarget;
 class cmGlobalGenerator;
 class cmMakefile;
 class cmSourceFile;
-class cmake;
+class rblxbuild;
 
 enum class LinkLibrariesStrategy
 {
@@ -89,7 +89,7 @@ private:
   cmGeneratorTarget const* Target = nullptr;
   cmMakefile* Makefile = nullptr;
   cmGlobalGenerator const* GlobalGenerator = nullptr;
-  cmake* CMakeInstance;
+  rblxbuild* RBLXBuildInstance;
   std::string Config;
   bool DebugMode = false;
   std::string LinkLanguage;

@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #pragma once
 
 #include "cmConfigure.h" // IWYU pragma: keep
@@ -13,7 +13,7 @@
 #include "cmGlobalGeneratorFactory.h"
 #include "cmGlobalUnixMakefileGenerator3.h"
 
-class cmake;
+class rblxbuild;
 
 /** \class cmGlobalWatcomWMakeGenerator
  * \brief Write a NMake makefiles.
@@ -23,7 +23,7 @@ class cmake;
 class cmGlobalWatcomWMakeGenerator : public cmGlobalUnixMakefileGenerator3
 {
 public:
-  cmGlobalWatcomWMakeGenerator(cmake* cm);
+  cmGlobalWatcomWMakeGenerator(rblxbuild* cm);
   static std::unique_ptr<cmGlobalGeneratorFactory> NewFactory()
   {
     return std::unique_ptr<cmGlobalGeneratorFactory>(

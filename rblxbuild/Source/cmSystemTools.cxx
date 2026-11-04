@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 
 #if !defined(_WIN32) && !defined(__sun) && !defined(__OpenBSD__)
 // POSIX APIs are needed
@@ -53,7 +53,7 @@
 #include "cmValue.h"
 #include "cmWorkingDirectory.h"
 
-#if !defined(CMAKE_BOOTSTRAP)
+#if !defined(RBLXBUILD_BOOTSTRAP)
 #  include <cm3p/archive.h>
 #  include <cm3p/archive_entry.h>
 
@@ -66,11 +66,11 @@
 #  endif
 #endif
 
-#if defined(CMake_USE_MACH_PARSER)
+#if defined(RBLXBuild_USE_MACH_PARSER)
 #  include "cmMachO.h"
 #endif
 
-#if defined(CMake_USE_XCOFF_PARSER)
+#if defined(RBLXBuild_USE_XCOFF_PARSER)
 #  include "cmXCOFF.h"
 #endif
 
@@ -140,20 +140,20 @@
 #  include <sys/utsname.h>
 #endif
 
-#if defined(CMAKE_BOOTSTRAP) && defined(__sun) && defined(__i386)
-#  define CMAKE_NO_MKDTEMP
+#if defined(RBLXBUILD_BOOTSTRAP) && defined(__sun) && defined(__i386)
+#  define RBLXBUILD_NO_MKDTEMP
 #endif
 
-#ifdef CMAKE_NO_MKDTEMP
+#ifdef RBLXBUILD_NO_MKDTEMP
 #  include <dlfcn.h>
 #endif
 
-#ifndef CMAKE_NO_GETPWNAM
+#ifndef RBLXBUILD_NO_GETPWNAM
 #  if defined(_WIN32)
-#    define CMAKE_NO_GETPWNAM
+#    define RBLXBUILD_NO_GETPWNAM
 #  endif
 #endif
-#ifndef CMAKE_NO_GETPWNAM
+#ifndef RBLXBUILD_NO_GETPWNAM
 #  include <pwd.h>
 #endif
 
@@ -182,7 +182,7 @@ std::string ResolveTildePath(std::string p)
       if (!home)
 #endif
         home = cmSystemTools::GetEnvVar("HOME");
-#ifndef CMAKE_NO_GETPWNAM
+#ifndef RBLXBUILD_NO_GETPWNAM
     } else if (last > 1) {
       std::string user = p.substr(1, last - 1);
       if (passwd* pw = getpwnam(user.c_str())) {
@@ -383,7 +383,7 @@ extern char** environ; // NOLINT(readability-redundant-declaration)
 #  endif
 #endif
 
-#if !defined(CMAKE_BOOTSTRAP)
+#if !defined(RBLXBUILD_BOOTSTRAP)
 // Get path that was read from the archive.
 static char const* cm_archive_entry_pathname(struct archive_entry* entry)
 {
@@ -473,7 +473,7 @@ std::string cmSystemTools::HelpFileName(cm::string_view str)
 
 void cmSystemTools::Error(std::string const& m)
 {
-  std::string message = "CMake Error: " + m;
+  std::string message = "RBLXBuild Error: " + m;
   cmSystemTools::s_ErrorOccurred = true;
   cmSystemTools::Message(message, "Error");
 }
@@ -1138,7 +1138,7 @@ WindowsFileRetryInit InitWindowsFileRetry(wchar_t const* const values[2],
   HKEY const keys[2] = { HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE };
   for (int k = 0; k < 2; ++k) {
     HKEY hKey;
-    if (RegOpenKeyExW(keys[k], L"Software\\Kitware\\CMake\\Config", 0,
+    if (RegOpenKeyExW(keys[k], L"Software\\Kitware\\RBLXBuild\\Config", 0,
                       KEY_QUERY_VALUE, &hKey) == ERROR_SUCCESS) {
       for (int v = 0; v < 2; ++v) {
         DWORD dwData, dwType, dwSize = 4;
@@ -1425,7 +1425,7 @@ inline int Mkdir(char const* dir, mode_t const* mode)
 #endif
 }
 
-#ifdef CMAKE_NO_MKDTEMP
+#ifdef RBLXBUILD_NO_MKDTEMP
 namespace {
 char* cm_mkdtemp_fallback(char* template_)
 {
@@ -2196,7 +2196,7 @@ std::string cmSystemTools::ToNormalizedPathOnDisk(std::string p)
   return p;
 }
 
-#ifndef CMAKE_BOOTSTRAP
+#ifndef RBLXBUILD_BOOTSTRAP
 bool cmSystemTools::UnsetEnv(char const* value)
 {
 #  if !defined(HAVE_UNSETENV)
@@ -2306,11 +2306,11 @@ void cmSystemTools::EnableVSConsoleOutput()
   // output and allow it to be captured on the fly.
   cmSystemTools::PutEnv("vsconsoleoutput=1");
 
-#  ifndef CMAKE_BOOTSTRAP
+#  ifndef RBLXBUILD_BOOTSTRAP
   // VS sets an environment variable to tell MS tools like "cl" to report
   // output through a backdoor pipe instead of stdout/stderr.  Unset the
   // environment variable to close this backdoor for any path of process
-  // invocations that passes through CMake so we can capture the output.
+  // invocations that passes through RBLXBuild so we can capture the output.
   cmSystemTools::UnsetEnv("VS_UNICODE_OUTPUT");
 #  endif
 #endif
@@ -2341,7 +2341,7 @@ bool cmSystemTools::CreateTar(
   std::string const& encoding, bool verbose, std::string const& mtime,
   std::string const& format, int compressionLevel, int numThreads)
 {
-#if !defined(CMAKE_BOOTSTRAP)
+#if !defined(RBLXBUILD_BOOTSTRAP)
   cmWorkingDirectory workdir(cmSystemTools::GetLogicalWorkingDirectory());
   if (!workingDirectory.empty()) {
     workdir.SetDirectory(workingDirectory);
@@ -2376,7 +2376,7 @@ bool cmSystemTools::CreateTar(
       compress = cmArchiveWrite::CompressPPMd;
       break;
     case TarCompressAuto:
-      // Kept for backwards compatibility with pre-4.3 versions of CMake
+      // Kept for backwards compatibility with pre-4.3 versions of RBLXBuild
       if (format == "zip") {
         compress = cmArchiveWrite::CompressGZip;
       } else if (format == "7zip") {
@@ -2425,7 +2425,7 @@ bool cmSystemTools::CreateTar(
 #endif
 }
 
-#if !defined(CMAKE_BOOTSTRAP)
+#if !defined(RBLXBUILD_BOOTSTRAP)
 namespace {
 #  define BSDTAR_FILESIZE_PRINTF "%lu"
 #  define BSDTAR_FILESIZE_TYPE unsigned long
@@ -2555,14 +2555,14 @@ bool la_diagnostic(struct archive* ar, __LA_SSIZE_T r)
     if (archive_errno(ar) == ENOSPC) {
       // If we fall through to the generic error handling, the error message
       // will be "Write failed". Explicit handling for better diagnostics
-      std::cerr << "cmake -E tar: error: No space left on device\n";
+      std::cerr << "rblxbuild -E tar: error: No space left on device\n";
       return false;
     }
     char const* warn = archive_error_string(ar);
     if (!warn) {
       warn = "unknown warning";
     }
-    std::cerr << "cmake -E tar: warning: " << warn << '\n';
+    std::cerr << "rblxbuild -E tar: warning: " << warn << '\n';
     return true;
   }
 
@@ -2571,7 +2571,7 @@ bool la_diagnostic(struct archive* ar, __LA_SSIZE_T r)
   if (!err) {
     err = "unknown error";
   }
-  std::cerr << "cmake -E tar: error: " << err << '\n';
+  std::cerr << "rblxbuild -E tar: error: " << err << '\n';
   return false;
 }
 
@@ -2728,7 +2728,7 @@ bool extract_tar(std::string const& arFileName,
       }
 #  ifdef _WIN32
       else if (char const* linktext = archive_entry_symlink(entry)) {
-        std::cerr << "cmake -E tar: warning: skipping symbolic link \""
+        std::cerr << "rblxbuild -E tar: warning: skipping symbolic link \""
                   << cm_archive_entry_pathname(entry) << "\" -> \"" << linktext
                   << "\"." << std::endl;
       }
@@ -2771,7 +2771,7 @@ bool cmSystemTools::ExtractTar(std::string const& arFileName,
                                cmTarExtractTimestamps extractTimestamps,
                                std::string const& encoding, bool verbose)
 {
-#if !defined(CMAKE_BOOTSTRAP)
+#if !defined(RBLXBUILD_BOOTSTRAP)
   return extract_tar(arFileName, files, excludeFiles, encoding, verbose,
                      extractTimestamps, true);
 #else
@@ -2790,7 +2790,7 @@ bool cmSystemTools::ListTar(std::string const& arFileName,
                             std::vector<std::string> const& excludeFiles,
                             std::string const& encoding, bool verbose)
 {
-#if !defined(CMAKE_BOOTSTRAP)
+#if !defined(RBLXBUILD_BOOTSTRAP)
   return extract_tar(arFileName, files, excludeFiles, encoding, verbose,
                      cmTarExtractTimestamps::Yes, false);
 #else
@@ -3024,24 +3024,24 @@ std::string InitLogicalWorkingDirectory()
   return cwd;
 }
 
-bool cmSystemToolsCMakeInBuildTree = false;
+bool cmSystemToolsRBLXBuildInBuildTree = false;
 
 std::string cmSystemToolsLogicalWorkingDirectory =
   InitLogicalWorkingDirectory();
 
-std::string cmSystemToolsCMakeCommand;
+std::string cmSystemToolsRBLXBuildCommand;
 std::string cmSystemToolsCTestCommand;
 std::string cmSystemToolsCPackCommand;
-std::string cmSystemToolsCMakeCursesCommand;
-std::string cmSystemToolsCMakeGUICommand;
+std::string cmSystemToolsRBLXBuildCursesCommand;
+std::string cmSystemToolsRBLXBuildGUICommand;
 std::string cmSystemToolsCMClDepsCommand;
-std::string cmSystemToolsCMakeRoot;
+std::string cmSystemToolsRBLXBuildRoot;
 std::string cmSystemToolsHTMLDoc;
 
 #if defined(__APPLE__)
-bool IsCMakeAppBundleExe(std::string const& exe)
+bool IsRBLXBuildAppBundleExe(std::string const& exe)
 {
-  return cmHasLiteralSuffix(cmSystemTools::LowerCase(exe), "/macos/cmake");
+  return cmHasLiteralSuffix(cmSystemTools::LowerCase(exe), "/macos/rblxbuild");
 }
 #endif
 
@@ -3071,17 +3071,17 @@ std::string FindOwnExecutable(char const* argv0)
   if (exe_path != exe_path_local) {
     free(exe_path);
   }
-  if (IsCMakeAppBundleExe(exe)) {
+  if (IsRBLXBuildAppBundleExe(exe)) {
     // The executable is inside an application bundle.
-    // The install tree has "..<CMAKE_BIN_DIR>/cmake-gui".
-    // The build tree has '../../../cmake-gui".
+    // The install tree has "..<RBLXBUILD_BIN_DIR>/rblxbuild-gui".
+    // The build tree has '../../../rblxbuild-gui".
     std::string dir = cmSystemTools::GetFilenamePath(exe);
     dir = cmSystemTools::GetFilenamePath(dir);
-    exe = cmStrCat(dir, CMAKE_BIN_DIR "/cmake-gui");
+    exe = cmStrCat(dir, RBLXBUILD_BIN_DIR "/rblxbuild-gui");
     if (!cmSystemTools::PathExists(exe)) {
       dir = cmSystemTools::GetFilenamePath(dir);
       dir = cmSystemTools::GetFilenamePath(dir);
-      exe = cmStrCat(dir, "/cmake-gui");
+      exe = cmStrCat(dir, "/rblxbuild-gui");
     }
   }
 #else
@@ -3091,7 +3091,7 @@ std::string FindOwnExecutable(char const* argv0)
   return exe;
 }
 
-#ifndef CMAKE_BOOTSTRAP
+#ifndef RBLXBUILD_BOOTSTRAP
 bool ResolveSymlinkToOwnExecutable(std::string& exe, std::string& exe_dir)
 {
   std::string linked_exe;
@@ -3099,8 +3099,8 @@ bool ResolveSymlinkToOwnExecutable(std::string& exe, std::string& exe_dir)
     return false;
   }
 #  if defined(__APPLE__)
-  // Ignore "cmake-gui -> ../MacOS/CMake".
-  if (IsCMakeAppBundleExe(linked_exe)) {
+  // Ignore "rblxbuild-gui -> ../MacOS/RBLXBuild".
+  if (IsRBLXBuildAppBundleExe(linked_exe)) {
     return false;
   }
 #  endif
@@ -3114,24 +3114,24 @@ bool ResolveSymlinkToOwnExecutable(std::string& exe, std::string& exe_dir)
   return true;
 }
 
-bool FindCMakeResourcesInInstallTree(std::string const& exe_dir)
+bool FindRBLXBuildResourcesInInstallTree(std::string const& exe_dir)
 {
   // Install tree has
-  // - "<prefix><CMAKE_BIN_DIR>/cmake"
-  // - "<prefix><CMAKE_DATA_DIR>"
-  // - "<prefix><CMAKE_DOC_DIR>"
-  if (cmHasLiteralSuffix(exe_dir, CMAKE_BIN_DIR)) {
+  // - "<prefix><RBLXBUILD_BIN_DIR>/rblxbuild"
+  // - "<prefix><RBLXBUILD_DATA_DIR>"
+  // - "<prefix><RBLXBUILD_DOC_DIR>"
+  if (cmHasLiteralSuffix(exe_dir, RBLXBUILD_BIN_DIR)) {
     std::string const prefix =
-      exe_dir.substr(0, exe_dir.size() - cmStrLen(CMAKE_BIN_DIR));
-    // Set cmSystemToolsCMakeRoot set to the location expected in an
+      exe_dir.substr(0, exe_dir.size() - cmStrLen(RBLXBUILD_BIN_DIR));
+    // Set cmSystemToolsRBLXBuildRoot set to the location expected in an
     // install tree, even if it does not exist, so that
-    // cmake::AddCMakePaths can print the location in its error message.
-    cmSystemToolsCMakeRoot = cmStrCat(prefix, CMAKE_DATA_DIR);
+    // rblxbuild::AddRBLXBuildPaths can print the location in its error message.
+    cmSystemToolsRBLXBuildRoot = cmStrCat(prefix, RBLXBUILD_DATA_DIR);
     if (cmSystemTools::FileExists(
-          cmStrCat(cmSystemToolsCMakeRoot, "/Modules/CMake.cmake"))) {
+          cmStrCat(cmSystemToolsRBLXBuildRoot, "/Modules/RBLXBuild.rblxbuild"))) {
       if (cmSystemTools::FileExists(
-            cmStrCat(prefix, CMAKE_DOC_DIR "/html/index.html"))) {
-        cmSystemToolsHTMLDoc = cmStrCat(prefix, CMAKE_DOC_DIR "/html");
+            cmStrCat(prefix, RBLXBUILD_DOC_DIR "/html/index.html"))) {
+        cmSystemToolsHTMLDoc = cmStrCat(prefix, RBLXBUILD_DOC_DIR "/html");
       }
       return true;
     }
@@ -3139,29 +3139,29 @@ bool FindCMakeResourcesInInstallTree(std::string const& exe_dir)
   return false;
 }
 
-void FindCMakeResourcesInBuildTree(std::string const& exe_dir)
+void FindRBLXBuildResourcesInBuildTree(std::string const& exe_dir)
 {
-  // Build tree has "<build>/bin[/<config>]/cmake" and
-  // "<build>/CMakeFiles/CMakeSourceDir.txt".
+  // Build tree has "<build>/bin[/<config>]/rblxbuild" and
+  // "<build>/RBLXBuildFiles/RBLXBuildSourceDir.txt".
   std::string dir = cmSystemTools::GetFilenamePath(exe_dir);
-  std::string src_dir_txt = cmStrCat(dir, "/CMakeFiles/CMakeSourceDir.txt");
+  std::string src_dir_txt = cmStrCat(dir, "/RBLXBuildFiles/RBLXBuildSourceDir.txt");
   cmsys::ifstream fin(src_dir_txt.c_str());
   std::string src_dir;
   if (fin && cmSystemTools::GetLineFromStream(fin, src_dir) &&
       cmSystemTools::FileIsDirectory(src_dir)) {
-    cmSystemToolsCMakeRoot = src_dir;
-    cmSystemToolsCMakeInBuildTree = true;
+    cmSystemToolsRBLXBuildRoot = src_dir;
+    cmSystemToolsRBLXBuildInBuildTree = true;
   } else {
     dir = cmSystemTools::GetFilenamePath(dir);
-    src_dir_txt = cmStrCat(dir, "/CMakeFiles/CMakeSourceDir.txt");
+    src_dir_txt = cmStrCat(dir, "/RBLXBuildFiles/RBLXBuildSourceDir.txt");
     cmsys::ifstream fin2(src_dir_txt.c_str());
     if (fin2 && cmSystemTools::GetLineFromStream(fin2, src_dir) &&
         cmSystemTools::FileIsDirectory(src_dir)) {
-      cmSystemToolsCMakeRoot = src_dir;
-      cmSystemToolsCMakeInBuildTree = true;
+      cmSystemToolsRBLXBuildRoot = src_dir;
+      cmSystemToolsRBLXBuildInBuildTree = true;
     }
   }
-  if (!cmSystemToolsCMakeRoot.empty() && cmSystemToolsHTMLDoc.empty() &&
+  if (!cmSystemToolsRBLXBuildRoot.empty() && cmSystemToolsHTMLDoc.empty() &&
       cmSystemTools::FileExists(
         cmStrCat(dir, "/Utilities/Sphinx/html/index.html"))) {
     cmSystemToolsHTMLDoc = cmStrCat(dir, "/Utilities/Sphinx/html");
@@ -3170,7 +3170,7 @@ void FindCMakeResourcesInBuildTree(std::string const& exe_dir)
 #endif
 }
 
-void cmSystemTools::InitializeCMake(char const* argv0)
+void cmSystemTools::InitializeRBLXBuild(char const* argv0)
 {
 #if defined(_WIN32)
   // Perform libuv one-time initialization now, and then un-do its
@@ -3189,14 +3189,14 @@ void cmSystemTools::InitializeCMake(char const* argv0)
 #endif
 
   std::string exe = FindOwnExecutable(argv0);
-#ifdef CMAKE_BOOTSTRAP
-  // The bootstrap cmake knows its resource locations.
-  cmSystemToolsCMakeRoot = CMAKE_BOOTSTRAP_SOURCE_DIR;
-  cmSystemToolsCMakeInBuildTree = true;
-  cmSystemToolsCMakeCommand = exe;
-  // The bootstrap cmake does not provide the other tools,
+#ifdef RBLXBUILD_BOOTSTRAP
+  // The bootstrap rblxbuild knows its resource locations.
+  cmSystemToolsRBLXBuildRoot = RBLXBUILD_BOOTSTRAP_SOURCE_DIR;
+  cmSystemToolsRBLXBuildInBuildTree = true;
+  cmSystemToolsRBLXBuildCommand = exe;
+  // The bootstrap rblxbuild does not provide the other tools,
   // so use the directory where they are about to be built.
-  std::string exe_dir = CMAKE_BOOTSTRAP_BINARY_DIR "/bin";
+  std::string exe_dir = RBLXBUILD_BOOTSTRAP_BINARY_DIR "/bin";
 #else
   // Find resources relative to our own executable.
   std::string exe_dir = cmSystemTools::GetFilenamePath(exe);
@@ -3204,7 +3204,7 @@ void cmSystemTools::InitializeCMake(char const* argv0)
   // When running through a symlink to our own executable,
   // preserve symlinks in directory components if possible.
   do {
-    found = FindCMakeResourcesInInstallTree(exe_dir);
+    found = FindRBLXBuildResourcesInInstallTree(exe_dir);
   } while (!found && ResolveSymlinkToOwnExecutable(exe, exe_dir));
   // If we have not yet found the resources, the above loop will
   // have left 'exe' referring to a real file, not a symlink, so
@@ -3212,27 +3212,27 @@ void cmSystemTools::InitializeCMake(char const* argv0)
   // resources may be discoverable only in the real path.
   if (!found) {
     found =
-      FindCMakeResourcesInInstallTree(cmSystemTools::GetRealPath(exe_dir));
+      FindRBLXBuildResourcesInInstallTree(cmSystemTools::GetRealPath(exe_dir));
   }
   if (!found) {
-    FindCMakeResourcesInBuildTree(exe_dir);
+    FindRBLXBuildResourcesInBuildTree(exe_dir);
   }
-  cmSystemToolsCMakeCommand =
-    cmStrCat(exe_dir, "/cmake", cmSystemTools::GetExecutableExtension());
+  cmSystemToolsRBLXBuildCommand =
+    cmStrCat(exe_dir, "/rblxbuild", cmSystemTools::GetExecutableExtension());
 #endif
   cmSystemToolsCTestCommand =
     cmStrCat(exe_dir, "/ctest", cmSystemTools::GetExecutableExtension());
   cmSystemToolsCPackCommand =
     cmStrCat(exe_dir, "/cpack", cmSystemTools::GetExecutableExtension());
-  cmSystemToolsCMakeGUICommand =
-    cmStrCat(exe_dir, "/cmake-gui", cmSystemTools::GetExecutableExtension());
-  if (!cmSystemTools::FileExists(cmSystemToolsCMakeGUICommand)) {
-    cmSystemToolsCMakeGUICommand.clear();
+  cmSystemToolsRBLXBuildGUICommand =
+    cmStrCat(exe_dir, "/rblxbuild-gui", cmSystemTools::GetExecutableExtension());
+  if (!cmSystemTools::FileExists(cmSystemToolsRBLXBuildGUICommand)) {
+    cmSystemToolsRBLXBuildGUICommand.clear();
   }
-  cmSystemToolsCMakeCursesCommand =
-    cmStrCat(exe_dir, "/ccmake", cmSystemTools::GetExecutableExtension());
-  if (!cmSystemTools::FileExists(cmSystemToolsCMakeCursesCommand)) {
-    cmSystemToolsCMakeCursesCommand.clear();
+  cmSystemToolsRBLXBuildCursesCommand =
+    cmStrCat(exe_dir, "/crblxbuild", cmSystemTools::GetExecutableExtension());
+  if (!cmSystemTools::FileExists(cmSystemToolsRBLXBuildCursesCommand)) {
+    cmSystemToolsRBLXBuildCursesCommand.clear();
   }
   cmSystemToolsCMClDepsCommand =
     cmStrCat(exe_dir, "/cmcldeps", cmSystemTools::GetExecutableExtension());
@@ -3241,9 +3241,9 @@ void cmSystemTools::InitializeCMake(char const* argv0)
   }
 }
 
-std::string const& cmSystemTools::GetCMakeCommand()
+std::string const& cmSystemTools::GetRBLXBuildCommand()
 {
-  return cmSystemToolsCMakeCommand;
+  return cmSystemToolsRBLXBuildCommand;
 }
 
 std::string const& cmSystemTools::GetCTestCommand()
@@ -3256,14 +3256,14 @@ std::string const& cmSystemTools::GetCPackCommand()
   return cmSystemToolsCPackCommand;
 }
 
-std::string const& cmSystemTools::GetCMakeCursesCommand()
+std::string const& cmSystemTools::GetRBLXBuildCursesCommand()
 {
-  return cmSystemToolsCMakeCursesCommand;
+  return cmSystemToolsRBLXBuildCursesCommand;
 }
 
-std::string const& cmSystemTools::GetCMakeGUICommand()
+std::string const& cmSystemTools::GetRBLXBuildGUICommand()
 {
-  return cmSystemToolsCMakeGUICommand;
+  return cmSystemToolsRBLXBuildGUICommand;
 }
 
 std::string const& cmSystemTools::GetCMClDepsCommand()
@@ -3271,14 +3271,14 @@ std::string const& cmSystemTools::GetCMClDepsCommand()
   return cmSystemToolsCMClDepsCommand;
 }
 
-std::string const& cmSystemTools::GetCMakeRoot()
+std::string const& cmSystemTools::GetRBLXBuildRoot()
 {
-  return cmSystemToolsCMakeRoot;
+  return cmSystemToolsRBLXBuildRoot;
 }
 
-bool cmSystemTools::GetCMakeInBuildTree()
+bool cmSystemTools::GetRBLXBuildInBuildTree()
 {
-  return cmSystemToolsCMakeInBuildTree;
+  return cmSystemToolsRBLXBuildInBuildTree;
 }
 
 std::string const& cmSystemTools::GetHTMLDoc()
@@ -3324,16 +3324,16 @@ cm::optional<std::string> cmSystemTools::GetSystemConfigDirectory()
 #endif
 }
 
-cm::optional<std::string> cmSystemTools::GetCMakeConfigDirectory()
+cm::optional<std::string> cmSystemTools::GetRBLXBuildConfigDirectory()
 {
-  auto config = cmSystemTools::GetEnvVar("CMAKE_CONFIG_DIR");
+  auto config = cmSystemTools::GetEnvVar("RBLXBUILD_CONFIG_DIR");
   if (!config.has_value()) {
     config = cmSystemTools::GetSystemConfigDirectory();
     if (config.has_value()) {
 #if defined(_WIN32) || defined(__APPLE__)
-      config = cmStrCat(config.value(), "/CMake");
+      config = cmStrCat(config.value(), "/RBLXBuild");
 #else
-      config = cmStrCat(config.value(), "/cmake");
+      config = cmStrCat(config.value(), "/rblxbuild");
 #endif
     }
   }
@@ -3387,7 +3387,7 @@ bool cmSystemTools::GuessLibrarySOName(std::string const& fullPath,
 bool cmSystemTools::GuessLibraryInstallName(std::string const& fullPath,
                                             std::string& soname)
 {
-#if defined(CMake_USE_MACH_PARSER)
+#if defined(RBLXBuild_USE_MACH_PARSER)
   cmMachO macho(fullPath.c_str());
   if (macho) {
     return macho.GetInstallName(soname);
@@ -3694,7 +3694,7 @@ static cm::optional<bool> ChangeRPathXCOFF(std::string const& file,
   if (changed) {
     *changed = false;
   }
-#if !defined(CMake_USE_XCOFF_PARSER)
+#if !defined(RBLXBuild_USE_XCOFF_PARSER)
   (void)file;
   (void)oldRPath;
   (void)newRPath;
@@ -4149,7 +4149,7 @@ static cm::optional<bool> RemoveRPathXCOFF(std::string const& file,
   if (removed) {
     *removed = false;
   }
-#if !defined(CMake_USE_XCOFF_PARSER)
+#if !defined(RBLXBuild_USE_XCOFF_PARSER)
   (void)file;
   (void)emsg;
   return cm::nullopt; // Cannot handle XCOFF files.
@@ -4223,7 +4223,7 @@ bool cmSystemTools::CheckRPath(std::string const& file,
     }
     return false;
   }
-#if defined(CMake_USE_XCOFF_PARSER)
+#if defined(RBLXBuild_USE_XCOFF_PARSER)
   // Parse the XCOFF binary.
   cmXCOFF xcoff(file.c_str());
   if (xcoff) {
@@ -4311,8 +4311,8 @@ cm::optional<cmSystemTools::DirCase> cmSystemTools::GetDirCase(
 
   // FS_CASEFOLD_FD from linux/fs.h, in Linux libc-dev 5.4+
   // For compat with old libc-dev, define it here.
-  int const CMAKE_FS_CASEFOLD_FL = 0x40000000;
-  return (attr & CMAKE_FS_CASEFOLD_FL) != 0 ? DirCase::Insensitive
+  int const RBLXBUILD_FS_CASEFOLD_FL = 0x40000000;
+  return (attr & RBLXBUILD_FS_CASEFOLD_FL) != 0 ? DirCase::Insensitive
                                             : DirCase::Sensitive;
 #else
   return DirCase::Sensitive;

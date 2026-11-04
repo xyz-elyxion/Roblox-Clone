@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 
 #pragma once
 
@@ -27,8 +27,8 @@ class BT;
 class cmMakefile;
 
 /**
- * CMake lists management
- * A CMake list is a string where list elements are separated by the ';'
+ * RBLXBuild lists management
+ * A RBLXBuild list is a string where list elements are separated by the ';'
  * character.
  *
  * For all operations, input arguments (single value like cm::string_view or
@@ -993,7 +993,7 @@ public:
 
   // static members
   // ==============
-  // these methods can be used to store CMake list expansion directly in a
+  // these methods can be used to store RBLXBuild list expansion directly in a
   // std::vector.
   static void assign(std::vector<std::string>& container,
                      cm::string_view value,
@@ -1127,9 +1127,9 @@ public:
                           emptyElements);
   }
 
-  // The following methods offer the possibility to extend a CMake list
+  // The following methods offer the possibility to extend a RBLXBuild list
   // but without any intermediate expansion. So the operation is simply a
-  // string concatenation with special handling for the CMake list item
+  // string concatenation with special handling for the RBLXBuild list item
   // separator
   static std::string& append(std::string& list, std::string&& value);
   static std::string& append(std::string& list, cm::string_view value);

@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmTarget.h"
 
 #include <algorithm>
@@ -49,7 +49,7 @@
 #include "cmUnreachable.h"
 #include "cmValue.h"
 #include "cmXcFramework.h"
-#include "cmake.h"
+#include "rblxbuild.h"
 
 template <>
 std::string const& cmTargetPropertyComputer::ImportedLocation<cmTarget>(
@@ -445,7 +445,7 @@ TargetProperty const StaticTargetProperties[] = {
   { "LINK_SEARCH_END_STATIC"_s, IC::CanCompileSources },
   // Initialize per-configuration name postfix property from the variable only
   // for non-executable targets.  This preserves compatibility with previous
-  // CMake versions in which executables did not support this variable.
+  // RBLXBuild versions in which executables did not support this variable.
   // Projects may still specify the property directly.
   { "_POSTFIX"_s, IC::NonExecutableWithArtifact, R::PerConfigPrefix },
   // -- Dependent library lookup
@@ -802,11 +802,11 @@ cmTargetInternals::cmTargetInternals(std::string name, cm::TargetType type,
 
   // Check whether this is a DLL platform.
   this->IsDLLPlatform =
-    !mf->GetSafeDefinition("CMAKE_IMPORT_LIBRARY_SUFFIX").empty();
+    !mf->GetSafeDefinition("RBLXBUILD_IMPORT_LIBRARY_SUFFIX").empty();
 
   // Check whether we are targeting AIX.
   {
-    std::string const& systemName = mf->GetSafeDefinition("CMAKE_SYSTEM_NAME");
+    std::string const& systemName = mf->GetSafeDefinition("RBLXBUILD_SYSTEM_NAME");
     this->IsAIX = (systemName == "AIX" || systemName == "OS400");
   }
 
@@ -814,7 +814,7 @@ cmTargetInternals::cmTargetInternals(std::string name, cm::TargetType type,
   this->IsApple = mf->IsOn("APPLE");
 
   // Check whether we are targeting an Android platform.
-  this->IsAndroid = (mf->GetSafeDefinition("CMAKE_SYSTEM_NAME") == "Android");
+  this->IsAndroid = (mf->GetSafeDefinition("RBLXBUILD_SYSTEM_NAME") == "Android");
 
   // Save the backtrace of target construction.
   this->Backtrace = mf->GetBacktrace();
@@ -1116,16 +1116,16 @@ cmTarget::cmTarget(std::string name, cm::TargetType type, Visibility vis,
 
   std::string defKey;
   defKey.reserve(128);
-  defKey += "CMAKE_";
+  defKey += "RBLXBUILD_";
   auto initProperty = [this, mf, &defKey](std::string const& property,
                                           char const* default_value) {
     // special init for ENABLE_EXPORTS
-    // For SHARED_LIBRARY, only CMAKE_SHARED_LIBRARY_ENABLE_EXPORTS variable
+    // For SHARED_LIBRARY, only RBLXBUILD_SHARED_LIBRARY_ENABLE_EXPORTS variable
     // is used
-    // For EXECUTABLE, CMAKE_EXECUTABLE_ENABLE_EXPORTS or else
-    // CMAKE_ENABLE_EXPORTS variables are used
+    // For EXECUTABLE, RBLXBUILD_EXECUTABLE_ENABLE_EXPORTS or else
+    // RBLXBUILD_ENABLE_EXPORTS variables are used
     if (property == "ENABLE_EXPORTS"_s) {
-      // Replace everything after "CMAKE_"
+      // Replace everything after "RBLXBUILD_"
       defKey.replace(
         defKey.begin() + 6, defKey.end(),
         cmStrCat(this->impl->TargetType == cm::TargetType::EXECUTABLE
@@ -1151,7 +1151,7 @@ cmTarget::cmTarget(std::string name, cm::TargetType type, Visibility vis,
       return;
     }
 
-    // Replace everything after "CMAKE_"
+    // Replace everything after "RBLXBUILD_"
     defKey.replace(defKey.begin() + 6, defKey.end(), property);
     if (cmValue value = mf->GetDefinition(defKey)) {
       this->SetProperty(property, value);
@@ -1194,9 +1194,9 @@ cmTarget::cmTarget(std::string name, cm::TargetType type, Visibility vis,
     this->SetProperty("POSITION_INDEPENDENT_CODE", "True");
   }
 
-  // check for "CMAKE_VS_GLOBALS" variable and set up target properties
+  // check for "RBLXBUILD_VS_GLOBALS" variable and set up target properties
   // if any
-  cmValue globals = mf->GetDefinition("CMAKE_VS_GLOBALS");
+  cmValue globals = mf->GetDefinition("RBLXBUILD_VS_GLOBALS");
   if (globals) {
     std::string const genName = mf->GetGlobalGenerator()->GetName();
     if (cmHasLiteralPrefix(genName, "Visual Studio")) {
@@ -1618,7 +1618,7 @@ std::string cmTarget::GetDebugGeneratorExpressions(
 
   // Get the list of configurations considered to be DEBUG.
   std::vector<std::string> debugConfigs =
-    this->impl->Makefile->GetCMakeInstance()->GetDebugConfigs();
+    this->impl->Makefile->GetRBLXBuildInstance()->GetDebugConfigs();
 
   std::string configString = cmStrCat("$<CONFIG:", debugConfigs[0], '>');
 
@@ -2059,7 +2059,7 @@ void cmTarget::CopyCxxModulesProperties(cmTarget const* tgt)
     // Metadata
     "EchoString",
     // Do *not* copy this property; it should be re-initialized at synthesis
-    // time from the `CMAKE_EXPORT_BUILD_DATABASE` variable as `IMPORTED`
+    // time from the `RBLXBUILD_EXPORT_BUILD_DATABASE` variable as `IMPORTED`
     // targets ignore the property initialization.
     // "EXPORT_BUILD_DATABASE",
     "FOLDER",
@@ -2073,7 +2073,7 @@ void cmTarget::CopyCxxModulesProperties(cmTarget const* tgt)
   }
 
   // Imported targets do not initialize this property.  Keep the synthetic
-  // target's initialization from CMAKE_EXPORT_COMPILE_COMMANDS instead.
+  // target's initialization from RBLXBUILD_EXPORT_COMPILE_COMMANDS instead.
   if (!tgt->IsImported()) {
     copyProperty(tgt, this, "EXPORT_COMPILE_COMMANDS");
   }
@@ -2408,9 +2408,9 @@ void cmTarget::SetProperty(std::string const& prop, cmValue value)
              prop == propCUDA_OPTIX_COMPILATION ||
              prop == propCUDA_PTX_COMPILATION) {
     auto const& compiler =
-      this->impl->Makefile->GetSafeDefinition("CMAKE_CUDA_COMPILER_ID");
+      this->impl->Makefile->GetSafeDefinition("RBLXBUILD_CUDA_COMPILER_ID");
     auto const& compilerVersion =
-      this->impl->Makefile->GetSafeDefinition("CMAKE_CUDA_COMPILER_VERSION");
+      this->impl->Makefile->GetSafeDefinition("RBLXBUILD_CUDA_COMPILER_VERSION");
     if (this->GetType() != cm::TargetType::OBJECT_LIBRARY) {
       auto e =
         cmStrCat(prop, " property can only be applied to OBJECT targets(",
@@ -2420,13 +2420,13 @@ void cmTarget::SetProperty(std::string const& prop, cmValue value)
     }
     bool const flag_found =
       (prop == propCUDA_PTX_COMPILATION &&
-       this->impl->Makefile->GetDefinition("_CMAKE_CUDA_PTX_FLAG")) ||
+       this->impl->Makefile->GetDefinition("_RBLXBUILD_CUDA_PTX_FLAG")) ||
       (prop == propCUDA_CUBIN_COMPILATION &&
-       this->impl->Makefile->GetDefinition("_CMAKE_CUDA_CUBIN_FLAG")) ||
+       this->impl->Makefile->GetDefinition("_RBLXBUILD_CUDA_CUBIN_FLAG")) ||
       (prop == propCUDA_FATBIN_COMPILATION &&
-       this->impl->Makefile->GetDefinition("_CMAKE_CUDA_FATBIN_FLAG")) ||
+       this->impl->Makefile->GetDefinition("_RBLXBUILD_CUDA_FATBIN_FLAG")) ||
       (prop == propCUDA_OPTIX_COMPILATION &&
-       this->impl->Makefile->GetDefinition("_CMAKE_CUDA_OPTIX_FLAG"));
+       this->impl->Makefile->GetDefinition("_RBLXBUILD_CUDA_OPTIX_FLAG"));
     if (flag_found) {
       this->impl->Properties.SetProperty(prop, value);
     } else {
@@ -2634,7 +2634,7 @@ void cmTarget::AppendBuildInterfaceIncludes()
   }
   this->impl->BuildInterfaceIncludesAppended = true;
 
-  if (this->impl->Makefile->IsOn("CMAKE_INCLUDE_CURRENT_DIR_IN_INTERFACE")) {
+  if (this->impl->Makefile->IsOn("RBLXBUILD_INCLUDE_CURRENT_DIR_IN_INTERFACE")) {
     std::string dirs = this->impl->Makefile->GetCurrentBinaryDirectory();
     if (!dirs.empty()) {
       dirs += ';';
@@ -2649,7 +2649,7 @@ void cmTarget::AppendBuildInterfaceIncludes()
 
 namespace {
 bool CheckLinkLibraryPattern(UsageRequirementProperty const& usage,
-                             cmake* context)
+                             rblxbuild* context)
 {
   // Look for <LINK_LIBRARY:> and </LINK_LIBRARY:> internal tags
   static cmsys::RegularExpression linkPattern(
@@ -2687,11 +2687,11 @@ void cmTarget::FinalizeTargetConfiguration(cmBTStringRange compileDefinitions)
   }
 
   if (!CheckLinkLibraryPattern(this->impl->LinkLibraries,
-                               this->GetMakefile()->GetCMakeInstance()) ||
+                               this->GetMakefile()->GetRBLXBuildInstance()) ||
       !CheckLinkLibraryPattern(this->impl->InterfaceLinkLibraries,
-                               this->GetMakefile()->GetCMakeInstance()) ||
+                               this->GetMakefile()->GetRBLXBuildInstance()) ||
       !CheckLinkLibraryPattern(this->impl->InterfaceLinkLibrariesDirect,
-                               this->GetMakefile()->GetCMakeInstance())) {
+                               this->GetMakefile()->GetRBLXBuildInstance())) {
     return;
   }
 
@@ -3263,24 +3263,24 @@ char const* cmTarget::GetSuffixVariableInternal(
 {
   switch (this->GetType()) {
     case cm::TargetType::STATIC_LIBRARY:
-      return "CMAKE_STATIC_LIBRARY_SUFFIX";
+      return "RBLXBUILD_STATIC_LIBRARY_SUFFIX";
     case cm::TargetType::SHARED_LIBRARY:
       switch (artifact) {
         case cmStateEnums::RuntimeBinaryArtifact:
           return this->IsArchivedAIXSharedLibrary()
-            ? "CMAKE_SHARED_LIBRARY_ARCHIVE_SUFFIX"
-            : "CMAKE_SHARED_LIBRARY_SUFFIX";
+            ? "RBLXBUILD_SHARED_LIBRARY_ARCHIVE_SUFFIX"
+            : "RBLXBUILD_SHARED_LIBRARY_SUFFIX";
         case cmStateEnums::ImportLibraryArtifact:
-          return this->IsApple() ? "CMAKE_APPLE_IMPORT_FILE_SUFFIX"
-                                 : "CMAKE_IMPORT_LIBRARY_SUFFIX";
+          return this->IsApple() ? "RBLXBUILD_APPLE_IMPORT_FILE_SUFFIX"
+                                 : "RBLXBUILD_IMPORT_LIBRARY_SUFFIX";
       }
       break;
     case cm::TargetType::MODULE_LIBRARY:
       switch (artifact) {
         case cmStateEnums::RuntimeBinaryArtifact:
-          return "CMAKE_SHARED_MODULE_SUFFIX";
+          return "RBLXBUILD_SHARED_MODULE_SUFFIX";
         case cmStateEnums::ImportLibraryArtifact:
-          return "CMAKE_IMPORT_LIBRARY_SUFFIX";
+          return "RBLXBUILD_IMPORT_LIBRARY_SUFFIX";
       }
       break;
     case cm::TargetType::EXECUTABLE:
@@ -3289,11 +3289,11 @@ char const* cmTarget::GetSuffixVariableInternal(
           // Android GUI application packages store the native
           // binary as a shared library.
           return (this->IsAndroidGuiExecutable()
-                    ? "CMAKE_SHARED_LIBRARY_SUFFIX"
-                    : "CMAKE_EXECUTABLE_SUFFIX");
+                    ? "RBLXBUILD_SHARED_LIBRARY_SUFFIX"
+                    : "RBLXBUILD_EXECUTABLE_SUFFIX");
         case cmStateEnums::ImportLibraryArtifact:
-          return (this->impl->IsAIX ? "CMAKE_AIX_IMPORT_FILE_SUFFIX"
-                                    : "CMAKE_IMPORT_LIBRARY_SUFFIX");
+          return (this->impl->IsAIX ? "RBLXBUILD_AIX_IMPORT_FILE_SUFFIX"
+                                    : "RBLXBUILD_IMPORT_LIBRARY_SUFFIX");
       }
       break;
     default:
@@ -3307,22 +3307,22 @@ char const* cmTarget::GetPrefixVariableInternal(
 {
   switch (this->GetType()) {
     case cm::TargetType::STATIC_LIBRARY:
-      return "CMAKE_STATIC_LIBRARY_PREFIX";
+      return "RBLXBUILD_STATIC_LIBRARY_PREFIX";
     case cm::TargetType::SHARED_LIBRARY:
       switch (artifact) {
         case cmStateEnums::RuntimeBinaryArtifact:
-          return "CMAKE_SHARED_LIBRARY_PREFIX";
+          return "RBLXBUILD_SHARED_LIBRARY_PREFIX";
         case cmStateEnums::ImportLibraryArtifact:
-          return this->IsApple() ? "CMAKE_APPLE_IMPORT_FILE_PREFIX"
-                                 : "CMAKE_IMPORT_LIBRARY_PREFIX";
+          return this->IsApple() ? "RBLXBUILD_APPLE_IMPORT_FILE_PREFIX"
+                                 : "RBLXBUILD_IMPORT_LIBRARY_PREFIX";
       }
       break;
     case cm::TargetType::MODULE_LIBRARY:
       switch (artifact) {
         case cmStateEnums::RuntimeBinaryArtifact:
-          return "CMAKE_SHARED_MODULE_PREFIX";
+          return "RBLXBUILD_SHARED_MODULE_PREFIX";
         case cmStateEnums::ImportLibraryArtifact:
-          return "CMAKE_IMPORT_LIBRARY_PREFIX";
+          return "RBLXBUILD_IMPORT_LIBRARY_PREFIX";
       }
       break;
     case cm::TargetType::EXECUTABLE:
@@ -3331,11 +3331,11 @@ char const* cmTarget::GetPrefixVariableInternal(
           // Android GUI application packages store the native
           // binary as a shared library.
           return (this->IsAndroidGuiExecutable()
-                    ? "CMAKE_SHARED_LIBRARY_PREFIX"
+                    ? "RBLXBUILD_SHARED_LIBRARY_PREFIX"
                     : "");
         case cmStateEnums::ImportLibraryArtifact:
-          return (this->impl->IsAIX ? "CMAKE_AIX_IMPORT_FILE_PREFIX"
-                                    : "CMAKE_IMPORT_LIBRARY_PREFIX");
+          return (this->impl->IsAIX ? "RBLXBUILD_AIX_IMPORT_FILE_PREFIX"
+                                    : "RBLXBUILD_IMPORT_LIBRARY_PREFIX");
       }
       break;
     default:
@@ -3691,7 +3691,7 @@ bool cmTarget::GetMappedConfig(std::string const& desiredConfig, cmValue& loc,
   switch (this->GetPolicyStatusCMP0200()) {
     case cmPolicies::WARN:
       if (this->GetMakefile()->PolicyOptionalWarningEnabled(
-            "CMAKE_POLICY_WARNING_CMP0200")) {
+            "RBLXBUILD_POLICY_WARNING_CMP0200")) {
         break;
       }
       CM_FALLTHROUGH;

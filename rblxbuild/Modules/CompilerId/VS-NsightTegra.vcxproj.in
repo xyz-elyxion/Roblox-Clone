@@ -35,13 +35,13 @@
       <Command>
 if "$(ToolchainName)"=="gcc" (
   for %%i in ($(ToolchainPrebuiltRoot)\bin\*@id_gcc@.exe) do (
-    @echo CMAKE_@id_lang@_COMPILER=%%i
+    @echo RBLXBUILD_@id_lang@_COMPILER=%%i
     goto :done
     )
 )
 if "$(ToolchainName)"=="clang" (
   for %%i in ($(ToolchainPrebuiltRoot)\bin\*@id_clang@.exe) do (
-    @echo CMAKE_@id_lang@_COMPILER=%%i
+    @echo RBLXBUILD_@id_lang@_COMPILER=%%i
     goto :done
   )
 )

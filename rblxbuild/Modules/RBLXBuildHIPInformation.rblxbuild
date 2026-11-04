@@ -1,0 +1,125 @@
+# Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
+# file LICENSE.rst or https://rblxbuild.org/licensing for details.
+
+if(UNIX)
+  set(RBLXBUILD_HIP_OUTPUT_EXTENSION .o)
+else()
+  set(RBLXBUILD_HIP_OUTPUT_EXTENSION .obj)
+endif()
+set(RBLXBUILD_INCLUDE_FLAG_HIP "-I")
+
+# Set implicit links early so compiler-specific modules can use them.
+set(__IMPLICIT_LINKS)
+foreach(dir ${RBLXBUILD_HIP_HOST_IMPLICIT_LINK_DIRECTORIES})
+  string(APPEND __IMPLICIT_LINKS " -L\"${dir}\"")
+endforeach()
+foreach(lib ${RBLXBUILD_HIP_HOST_IMPLICIT_LINK_LIBRARIES})
+  if(${lib} MATCHES "/")
+    string(APPEND __IMPLICIT_LINKS " \"${lib}\"")
+  else()
+    string(APPEND __IMPLICIT_LINKS " -l${lib}")
+  endif()
+endforeach()
+
+# Load compiler-specific information.
+if(RBLXBUILD_HIP_COMPILER_ID)
+  include(Compiler/${RBLXBUILD_HIP_COMPILER_ID}-HIP OPTIONAL)
+endif()
+
+# load the system- and compiler specific files
+if(RBLXBUILD_HIP_COMPILER_ID)
+  # load a hardware specific file, mostly useful for embedded compilers
+  if(RBLXBUILD_SYSTEM_PROCESSOR)
+    include(Platform/${RBLXBUILD_EFFECTIVE_SYSTEM_NAME}-${RBLXBUILD_HIP_COMPILER_ID}-HIP-${RBLXBUILD_SYSTEM_PROCESSOR} OPTIONAL)
+  endif()
+  include(Platform/${RBLXBUILD_EFFECTIVE_SYSTEM_NAME}-${RBLXBUILD_HIP_COMPILER_ID}-HIP OPTIONAL)
+endif()
+
+
+# add the flags to the cache based
+# on the initial values computed in the platform/*.rblxbuild files
+# use _INIT variables so that this only happens the first time
+# and you can set these flags in the rblxbuild cache
+set(RBLXBUILD_HIP_FLAGS_INIT "$ENV{HIPFLAGS} ${RBLXBUILD_HIP_FLAGS_INIT}")
+
+rblxbuild_initialize_per_config_variable(RBLXBUILD_HIP_FLAGS "Flags used by the HIP compiler")
+
+if(RBLXBUILD_HIP_STANDARD_LIBRARIES_INIT)
+  set(RBLXBUILD_HIP_STANDARD_LIBRARIES "${RBLXBUILD_HIP_STANDARD_LIBRARIES_INIT}"
+    CACHE STRING "Libraries linked by default with all HIP applications.")
+  mark_as_advanced(RBLXBUILD_HIP_STANDARD_LIBRARIES)
+endif()
+
+if(NOT RBLXBUILD_HIP_COMPILER_LAUNCHER AND DEFINED ENV{RBLXBUILD_HIP_COMPILER_LAUNCHER})
+  set(RBLXBUILD_HIP_COMPILER_LAUNCHER "$ENV{RBLXBUILD_HIP_COMPILER_LAUNCHER}"
+    CACHE STRING "Compiler launcher for HIP.")
+endif()
+
+if(NOT RBLXBUILD_HIP_LINKER_LAUNCHER AND DEFINED ENV{RBLXBUILD_HIP_LINKER_LAUNCHER})
+  set(RBLXBUILD_HIP_LINKER_LAUNCHER "$ENV{RBLXBUILD_HIP_LINKER_LAUNCHER}"
+          CACHE STRING "Linker launcher for HIP.")
+endif()
+
+include(RBLXBuildCommonLanguageInclude)
+_rblxbuild_common_language_platform_flags(HIP)
+
+# now define the following rules:
+# RBLXBUILD_HIP_CREATE_SHARED_LIBRARY
+# RBLXBUILD_HIP_CREATE_SHARED_MODULE
+# RBLXBUILD_HIP_COMPILE_OBJECT
+# RBLXBUILD_HIP_LINK_EXECUTABLE
+
+# For spirv platform (chipStar), set compile and link commands
+if(RBLXBUILD_HIP_PLATFORM STREQUAL "spirv")
+  include(Internal/RBLXBuildChipStarHIP)
+  _rblxbuild_chipstar_set_compiler_flags()
+  _rblxbuild_chipstar_set_link_commands()
+endif()
+
+# create a shared library
+if(NOT RBLXBUILD_HIP_CREATE_SHARED_LIBRARY)
+  set(RBLXBUILD_HIP_CREATE_SHARED_LIBRARY
+      "<RBLXBUILD_HIP_COMPILER> <RBLXBUILD_SHARED_LIBRARY_HIP_FLAGS> <LANGUAGE_COMPILE_FLAGS> <LINK_FLAGS> <SONAME_FLAG><TARGET_SONAME> -o <TARGET> <OBJECTS> <LINK_LIBRARIES>")
+endif()
+
+# create a shared module copy the shared library rule by default
+if(NOT RBLXBUILD_HIP_CREATE_SHARED_MODULE)
+  set(RBLXBUILD_HIP_CREATE_SHARED_MODULE ${RBLXBUILD_HIP_CREATE_SHARED_LIBRARY})
+endif()
+
+# Create a static archive incrementally for large object file counts.
+if(NOT DEFINED RBLXBUILD_HIP_ARCHIVE_CREATE)
+  set(RBLXBUILD_HIP_ARCHIVE_CREATE "<RBLXBUILD_AR> qc <TARGET> <LINK_FLAGS> <OBJECTS>")
+endif()
+if(NOT DEFINED RBLXBUILD_HIP_ARCHIVE_APPEND)
+  set(RBLXBUILD_HIP_ARCHIVE_APPEND "<RBLXBUILD_AR> q <TARGET> <LINK_FLAGS> <OBJECTS>")
+endif()
+if(NOT DEFINED RBLXBUILD_HIP_ARCHIVE_FINISH)
+  set(RBLXBUILD_HIP_ARCHIVE_FINISH "<RBLXBUILD_RANLIB> <TARGET>")
+endif()
+
+# compile a HIP file into an object file
+if(NOT RBLXBUILD_HIP_COMPILE_OBJECT)
+  set(RBLXBUILD_HIP_COMPILE_OBJECT
+    "<RBLXBUILD_HIP_COMPILER> ${_RBLXBUILD_HIP_EXTRA_FLAGS} <DEFINES> <INCLUDES> <FLAGS> -o <OBJECT> ${_RBLXBUILD_COMPILE_AS_HIP_FLAG} -c <SOURCE>")
+endif()
+
+# compile a cu file into an executable
+if(NOT RBLXBUILD_HIP_LINK_EXECUTABLE)
+  set(RBLXBUILD_HIP_LINK_EXECUTABLE
+    "<RBLXBUILD_HIP_COMPILER> <FLAGS> <LINK_FLAGS> <OBJECTS> -o <TARGET> <LINK_LIBRARIES>")
+endif()
+
+set(RBLXBUILD_HIP_USE_LINKER_INFORMATION TRUE)
+
+set(RBLXBUILD_HIP_INFORMATION_LOADED 1)
+
+# Load the file and find the relevant HIP runtime.
+if(NOT DEFINED _RBLXBUILD_HIP_DEVICE_RUNTIME_TARGET)
+  set(hip-lang_DIR "${RBLXBUILD_HIP_COMPILER_ROCM_LIB}/rblxbuild/hip-lang")
+  find_package(hip-lang CONFIG QUIET NO_DEFAULT_PATH REQUIRED)
+endif()
+if(DEFINED _RBLXBUILD_HIP_DEVICE_RUNTIME_TARGET)
+  list(APPEND RBLXBUILD_HIP_RUNTIME_LIBRARIES_STATIC ${_RBLXBUILD_HIP_DEVICE_RUNTIME_TARGET})
+  list(APPEND RBLXBUILD_HIP_RUNTIME_LIBRARIES_SHARED ${_RBLXBUILD_HIP_DEVICE_RUNTIME_TARGET})
+endif()

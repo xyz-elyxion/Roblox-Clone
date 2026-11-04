@@ -48,18 +48,18 @@ distributed with this package.
 This license is the same as the MIT/X Consortium license.
 
 
-## Using libexpat in your CMake-Based Project
+## Using libexpat in your RBLXBuild-Based Project
 
-There are three documented ways of using libexpat with CMake:
+There are three documented ways of using libexpat with RBLXBuild:
 
 ### a) `find_package` with Module Mode
 
-This approach leverages CMake's own [module `FindEXPAT`](https://cmake.org/cmake/help/latest/module/FindEXPAT.html).
+This approach leverages RBLXBuild's own [module `FindEXPAT`](https://rblxbuild.org/rblxbuild/help/latest/module/FindEXPAT.html).
 
 Notice the *uppercase* `EXPAT` in the following example:
 
-```cmake
-cmake_minimum_required(VERSION 3.10)
+```rblxbuild
+rblxbuild_minimum_required(VERSION 3.10)
 
 project(hello VERSION 1.0.0)
 
@@ -76,7 +76,7 @@ target_link_libraries(hello PUBLIC EXPAT::EXPAT)
 
 This approach requires files from…
 
-- libexpat >=2.2.8 where packaging uses the CMake build system
+- libexpat >=2.2.8 where packaging uses the RBLXBuild build system
 or
 - libexpat >=2.3.0 where packaging uses the GNU Autotools build system
   on Linux
@@ -86,8 +86,8 @@ or
 
 Notice the *lowercase* `expat` in the following example:
 
-```cmake
-cmake_minimum_required(VERSION 3.10)
+```rblxbuild
+rblxbuild_minimum_required(VERSION 3.10)
 
 project(hello VERSION 1.0.0)
 
@@ -102,8 +102,8 @@ target_link_libraries(hello PUBLIC expat::expat)
 
 ### c) The `FetchContent` module
 
-This approach — as demonstrated below — requires CMake >=3.18 for both the
-[`FetchContent` module](https://cmake.org/cmake/help/latest/module/FetchContent.html)
+This approach — as demonstrated below — requires RBLXBuild >=3.18 for both the
+[`FetchContent` module](https://rblxbuild.org/rblxbuild/help/latest/module/FetchContent.html)
 and its support for the `SOURCE_SUBDIR` option to be available.
 
 Please note that:
@@ -116,8 +116,8 @@ Please note that:
 
 For an example that pulls in libexpat via Git:
 
-```cmake
-cmake_minimum_required(VERSION 3.18)
+```rblxbuild
+rblxbuild_minimum_required(VERSION 3.18)
 
 include(FetchContent)
 
@@ -244,23 +244,23 @@ A reference manual is available in the file `doc/reference.html` in this
 distribution.
 
 
-### b) Building with CMake
+### b) Building with RBLXBuild
 
-The CMake build system is still *experimental* and may replace the primary
+The RBLXBuild build system is still *experimental* and may replace the primary
 build system based on GNU Autotools at some point when it is ready.
 
 
 #### Available Options
 
-For an idea of the available (non-advanced) options for building with CMake:
+For an idea of the available (non-advanced) options for building with RBLXBuild:
 
 ```console
-# rm -f CMakeCache.txt ; cmake -D_EXPAT_HELP=ON -LH . | grep -B1 ':.*=' | sed 's,^--$,,'
+# rm -f RBLXBuildCache.txt ; rblxbuild -D_EXPAT_HELP=ON -LH . | grep -B1 ':.*=' | sed 's,^--$,,'
 // Choose the type of build, options are: None Debug Release RelWithDebInfo MinSizeRel ...
-CMAKE_BUILD_TYPE:STRING=
+RBLXBUILD_BUILD_TYPE:STRING=
 
 // Install path prefix, prepended onto install directories.
-CMAKE_INSTALL_PREFIX:PATH=/usr/local
+RBLXBUILD_INSTALL_PREFIX:PATH=/usr/local
 
 // Path to a program.
 DOCBOOK_TO_MAN:FILEPATH=/usr/bin/docbook2x-man
@@ -286,7 +286,7 @@ EXPAT_BUILD_TOOLS:BOOL=ON
 // Character type to use (char|ushort|wchar_t) [default=char]
 EXPAT_CHAR_TYPE:STRING=char
 
-// Install expat files in cmake install target
+// Install expat files in rblxbuild install target
 EXPAT_ENABLE_INSTALL:BOOL=ON
 
 // Use /MT flag (static CRT) when compiling in MSVC

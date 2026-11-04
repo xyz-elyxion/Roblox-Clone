@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 
 #include "cmFileCopier.h"
 
@@ -67,9 +67,9 @@ bool cmFileCopier::SetPermissions(std::string const& toFile,
 {
   if (permissions) {
 #ifdef _WIN32
-    if (Makefile->IsOn("CMAKE_CROSSCOMPILING")) {
+    if (Makefile->IsOn("RBLXBUILD_CROSSCOMPILING")) {
       // Store the mode in an NTFS alternate stream.
-      std::string mode_t_adt_filename = toFile + ":cmake_mode_t";
+      std::string mode_t_adt_filename = toFile + ":rblxbuild_mode_t";
 
       // Writing to an NTFS alternate stream changes the modification
       // time, so we need to save and restore its original value.
@@ -163,13 +163,13 @@ bool cmFileCopier::GetDefaultDirectoryPermissions(mode_t** mode)
 {
   // check if default dir creation permissions were set
   cmValue default_dir_install_permissions = this->Makefile->GetDefinition(
-    "CMAKE_INSTALL_DEFAULT_DIRECTORY_PERMISSIONS");
+    "RBLXBUILD_INSTALL_DEFAULT_DIRECTORY_PERMISSIONS");
   if (cmNonempty(default_dir_install_permissions)) {
     cmList items{ *default_dir_install_permissions };
     for (auto const& arg : items) {
       if (!this->CheckPermissions(arg, **mode)) {
         this->Status.SetError(
-          " Set with CMAKE_INSTALL_DEFAULT_DIRECTORY_PERMISSIONS variable.");
+          " Set with RBLXBUILD_INSTALL_DEFAULT_DIRECTORY_PERMISSIONS variable.");
         return false;
       }
     }

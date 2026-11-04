@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmGhsMultiTargetGenerator.h"
 
 #include <algorithm>
@@ -46,7 +46,7 @@ cmGhsMultiTargetGenerator::cmGhsMultiTargetGenerator(cmGeneratorTarget* target)
   , Name(target->GetName())
 {
   // Store the configuration name that is being used
-  if (cmValue config = this->Makefile->GetDefinition("CMAKE_BUILD_TYPE")) {
+  if (cmValue config = this->Makefile->GetDefinition("RBLXBUILD_BUILD_TYPE")) {
     // Use the build type given by the user.
     this->ConfigName = *config;
   } else {
@@ -557,7 +557,7 @@ void cmGhsMultiTargetGenerator::WriteSources(std::ostream& fout_proj)
 
   /* list of known groups and the order they are displayed in a project file */
   std::vector<std::string> const standardGroups = {
-    "CMake Rules",  "Header Files",     "Source Files",
+    "RBLXBuild Rules",  "Header Files",     "Source Files",
     "Object Files", "Object Libraries", "Resources"
   };
 
@@ -576,7 +576,7 @@ void cmGhsMultiTargetGenerator::WriteSources(std::ostream& fout_proj)
       i += 1;
       groupNames.erase(gn);
     } else if (this->TagType == GhsMultiGpj::CUSTOM_TARGET &&
-               gn == "CMake Rules") {
+               gn == "RBLXBuild Rules") {
       /* make sure that rules folder always exists in case of custom targets
        * that have no custom commands except for pre or post build events.
        */
@@ -619,7 +619,7 @@ void cmGhsMultiTargetGenerator::WriteSources(std::ostream& fout_proj)
     std::ostream* fout;
     bool useProjectFile =
       this->GeneratorTarget->GetProperty("GHS_NO_SOURCE_GROUP_FILE").IsOn() ||
-      this->Makefile->IsOn("CMAKE_GHS_NO_SOURCE_GROUP_FILE");
+      this->Makefile->IsOn("RBLXBUILD_GHS_NO_SOURCE_GROUP_FILE");
     if (useProjectFile || sg.empty()) {
       fout = &fout_proj;
     } else {
@@ -650,7 +650,7 @@ void cmGhsMultiTargetGenerator::WriteSources(std::ostream& fout_proj)
       *fout << "{comment} Others\n";
     }
 
-    if (sg != "CMake Rules") {
+    if (sg != "RBLXBuild Rules") {
       /* output rule for each source file */
       for (cmSourceFile const* si : groupFiles[sg]) {
         bool compile = true;

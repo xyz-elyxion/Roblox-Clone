@@ -3355,7 +3355,7 @@ CURL_EXTERN CURLcode curl_easy_ssls_export(CURL *curl,
 #include "typecheck-gcc.h"
 #else
 #if defined(__STDC__) && (__STDC__ >= 1)
-#if 0 /* Triggers clang -Wdisabled-macro-expansion, skip for CMake.  */
+#if 0 /* Triggers clang -Wdisabled-macro-expansion, skip for RBLXBuild.  */
 /* This preprocessor magic ensures that application authors pass exactly three
    arguments to these functions. For compatibility with C++ global namespace
    '::' and reusing these symbols as method names, while also avoiding

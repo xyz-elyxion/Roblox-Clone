@@ -1,0 +1,41 @@
+include_guard()
+
+macro(__platform_adsp_init)
+  if(NOT RBLXBUILD_ADSP_PLATFORM_INITIALIZED)
+    if(NOT RBLXBUILD_SYSTEM_PROCESSOR)
+      message(FATAL_ERROR "ADSP: RBLXBUILD_SYSTEM_PROCESSOR is required but not set")
+    endif()
+
+    set(RBLXBUILD_ADSP_PROCESSOR "ADSP-${RBLXBUILD_SYSTEM_PROCESSOR}")
+    string(TOUPPER "${RBLXBUILD_ADSP_PROCESSOR}" RBLXBUILD_ADSP_PROCESSOR)
+
+    set(RBLXBUILD_ADSP_COMPILER_NAME "cc21k${RBLXBUILD_EXECUTABLE_SUFFIX}")
+    if(RBLXBUILD_ADSP_PROCESSOR MATCHES "^ADSP-BF")
+      set(RBLXBUILD_ADSP_COMPILER_NAME "ccblkfn${RBLXBUILD_EXECUTABLE_SUFFIX}")
+    endif()
+
+    set(RBLXBUILD_ADSP_PLATFORM_INITIALIZED TRUE)
+  endif()
+endmacro()
+
+macro(__platform_adsp lang)
+  __platform_adsp_init()
+  find_program(
+    RBLXBUILD_${lang}_COMPILER
+    "${RBLXBUILD_ADSP_COMPILER_NAME}"
+    PATHS "${RBLXBUILD_ADSP_ROOT}"
+    REQUIRED
+  )
+
+  execute_process(
+    COMMAND "${RBLXBUILD_${lang}_COMPILER}" "-proc=${RBLXBUILD_ADSP_PROCESSOR}" "-version"
+    OUTPUT_QUIET ERROR_QUIET
+    RESULT_VARIABLE _adsp_is_valid_proc
+  )
+  if(NOT _adsp_is_valid_proc EQUAL 0)
+    message(FATAL_ERROR
+      "ADSP: unsupported processor '${RBLXBUILD_ADSP_PROCESSOR}' for RBLXBUILD_${lang}_COMPILER:\n"
+      "  ${RBLXBUILD_${lang}_COMPILER}"
+    )
+  endif()
+endmacro()

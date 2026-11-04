@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmGlobalVisualStudio12Generator.h"
 
 #include <cstring>
@@ -16,7 +16,7 @@
 #include "cmSystemTools.h"
 
 cmGlobalVisualStudio12Generator::cmGlobalVisualStudio12Generator(
-  cmake* cm, std::string const& name)
+  rblxbuild* cm, std::string const& name)
   : cmGlobalVisualStudio11Generator(cm, name)
 {
 }
@@ -41,10 +41,10 @@ bool cmGlobalVisualStudio12Generator::InitializeWindowsPhone(cmMakefile* mf)
       e = cmStrCat(this->GetName(),
                    " supports Windows Phone '8.0' and '8.1', but "
                    "not '",
-                   this->SystemVersion, "'.  Check CMAKE_SYSTEM_VERSION.");
+                   this->SystemVersion, "'.  Check RBLXBUILD_SYSTEM_VERSION.");
     } else {
       e = cmStrCat(
-        "A Windows Phone component with CMake requires both the Windows "
+        "A Windows Phone component with RBLXBuild requires both the Windows "
         "Desktop SDK as well as the Windows Phone '",
         this->SystemVersion,
         "' SDK. Please make sure that you have both installed");
@@ -63,10 +63,10 @@ bool cmGlobalVisualStudio12Generator::InitializeWindowsStore(cmMakefile* mf)
       e = cmStrCat(this->GetName(),
                    " supports Windows Store '8.0' and '8.1', but "
                    "not '",
-                   this->SystemVersion, "'.  Check CMAKE_SYSTEM_VERSION.");
+                   this->SystemVersion, "'.  Check RBLXBUILD_SYSTEM_VERSION.");
     } else {
       e = cmStrCat(
-        "A Windows Store component with CMake requires both the Windows "
+        "A Windows Store component with RBLXBuild requires both the Windows "
         "Desktop SDK as well as the Windows Store '",
         this->SystemVersion,
         "' SDK. Please make sure that you have both installed");

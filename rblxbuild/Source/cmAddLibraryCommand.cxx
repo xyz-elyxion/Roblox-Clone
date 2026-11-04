@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmAddLibraryCommand.h"
 
 #include "cmDiagnostics.h"
@@ -228,7 +228,7 @@ bool cmAddLibraryCommand(std::vector<std::string> const& args,
   }
 
   /* ideally we should check whether for the linker language of the target
-     CMAKE_${LANG}_CREATE_SHARED_LIBRARY is defined and if not default to
+     RBLXBUILD_${LANG}_CREATE_SHARED_LIBRARY is defined and if not default to
      STATIC. But at this point we know only the name of the target, but not
      yet its linker language. */
   if ((type == cm::TargetType::SHARED_LIBRARY ||

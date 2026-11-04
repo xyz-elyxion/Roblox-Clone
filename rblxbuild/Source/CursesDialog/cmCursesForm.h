@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #pragma once
 
 #include "cmConfigure.h" // IWYU pragma: keep
@@ -33,16 +33,16 @@ public:
   virtual void UpdateStatusBar() = 0;
 
   // Description:
-  // During a CMake run, an error handle should add errors
+  // During a RBLXBuild run, an error handle should add errors
   // to be displayed afterwards.
   virtual void AddError(std::string const&, char const*) {}
 
   // Description:
-  // Turn debugging on. This will create ccmakelog.txt.
+  // Turn debugging on. This will create crblxbuildlog.txt.
   static void DebugStart();
 
   // Description:
-  // Turn debugging off. This will close ccmakelog.txt.
+  // Turn debugging off. This will close crblxbuildlog.txt.
   static void DebugEnd();
 
   // Description:

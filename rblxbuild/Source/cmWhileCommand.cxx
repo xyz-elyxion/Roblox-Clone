@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmWhileCommand.h"
 
 #include <string>
@@ -124,7 +124,7 @@ bool cmWhileFunctionBlocker::Replay(std::vector<cmListFileFunction> functions,
     std::string err = "while() given incorrect arguments:\n ";
     for (auto const& i : expandedArguments) {
       err += " ";
-      err += cmOutputConverter::EscapeForCMake(i.GetValue());
+      err += cmOutputConverter::EscapeForRBLXBuild(i.GetValue());
     }
     err += "\n";
     err += errorString;

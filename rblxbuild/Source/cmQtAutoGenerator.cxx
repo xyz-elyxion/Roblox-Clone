@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmQtAutoGenerator.h"
 
 #include <iterator>
@@ -477,13 +477,13 @@ bool cmQtAutoGenerator::Run(cm::string_view infoFile, cm::string_view config,
       unsigned int verbosity = 0;
       // Info: setup project directories
       if (!info.GetUInt("VERBOSITY", verbosity, false) ||
-          !info.GetString("CMAKE_SOURCE_DIR", this->ProjectDirs_.Source,
+          !info.GetString("RBLXBUILD_SOURCE_DIR", this->ProjectDirs_.Source,
                           true) ||
-          !info.GetString("CMAKE_BINARY_DIR", this->ProjectDirs_.Binary,
+          !info.GetString("RBLXBUILD_BINARY_DIR", this->ProjectDirs_.Binary,
                           true) ||
-          !info.GetString("CMAKE_CURRENT_SOURCE_DIR",
+          !info.GetString("RBLXBUILD_CURRENT_SOURCE_DIR",
                           this->ProjectDirs_.CurrentSource, true) ||
-          !info.GetString("CMAKE_CURRENT_BINARY_DIR",
+          !info.GetString("RBLXBUILD_CURRENT_BINARY_DIR",
                           this->ProjectDirs_.CurrentBinary, true)) {
         return false;
       }

@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #pragma once
 
 #include <cstdint>
@@ -17,7 +17,7 @@ namespace cm {
 namespace FileSetMetadata {
 enum class FileSetDomain : std::uint16_t
 {
-  // NATIVE: File set type is defined by CMake
+  // NATIVE: File set type is defined by RBLXBuild
   NATIVE,
   // RULE: file set type is matching a defined custom rule
   RULE

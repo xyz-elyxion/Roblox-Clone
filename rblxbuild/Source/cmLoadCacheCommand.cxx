@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmLoadCacheCommand.h"
 
 #include <set>
@@ -11,7 +11,7 @@
 #include "cmState.h"
 #include "cmStateTypes.h"
 #include "cmSystemTools.h"
-#include "cmake.h"
+#include "rblxbuild.h"
 
 static bool ReadWithPrefix(std::vector<std::string> const& args,
                            cmExecutionStatus& status);
@@ -33,7 +33,7 @@ bool cmLoadCacheCommand(std::vector<std::string> const& args,
   }
 
   cmState::Role const role =
-    status.GetMakefile().GetCMakeInstance()->GetState()->GetRole();
+    status.GetMakefile().GetRBLXBuildInstance()->GetState()->GetRole();
   if (role != cmState::Role::Project) {
     status.SetError(
       "Only load_cache(READ_WITH_PREFIX) may be used in script mode");
@@ -84,7 +84,7 @@ bool cmLoadCacheCommand(std::vector<std::string> const& args,
     if ((arg == "EXCLUDE") || (arg == "INCLUDE_INTERNALS")) {
       break;
     }
-    mf.GetCMakeInstance()->LoadCache(arg, false, excludes, includes);
+    mf.GetRBLXBuildInstance()->LoadCache(arg, false, excludes, includes);
   }
 
   return true;
@@ -100,7 +100,7 @@ static bool ReadWithPrefix(std::vector<std::string> const& args,
   }
 
   // Make sure the cache file exists.
-  std::string cacheFile = args[0] + "/CMakeCache.txt";
+  std::string cacheFile = args[0] + "/RBLXBuildCache.txt";
   if (!cmSystemTools::FileExists(cacheFile)) {
     std::string e = "Cannot load cache file from " + cacheFile;
     status.SetError(e);
@@ -169,7 +169,7 @@ static void CheckLine(cmMakefile& mf, std::string const& prefix,
   std::string var;
   std::string value;
   cmStateEnums::CacheEntryType type = cmStateEnums::UNINITIALIZED;
-  if (cmake::ParseCacheEntry(line, var, value, type)) {
+  if (rblxbuild::ParseCacheEntry(line, var, value, type)) {
     // Found a real entry.  See if this one was requested.
     if (variablesToRead.find(var) != variablesToRead.end()) {
       // This was requested.  Set this variable locally with the given

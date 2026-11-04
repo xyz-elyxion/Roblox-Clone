@@ -1,0 +1,24 @@
+include(Compiler/GNU)
+__compiler_gnu(Fortran)
+
+set(RBLXBUILD_Fortran_SUBMODULE_SEP "@")
+set(RBLXBUILD_Fortran_SUBMODULE_EXT ".smod")
+
+set(RBLXBUILD_Fortran_PREPROCESS_SOURCE
+  "<RBLXBUILD_Fortran_COMPILER> -cpp <DEFINES> <INCLUDES> <FLAGS> -E <SOURCE> -o <PREPROCESSED_SOURCE>")
+
+set(RBLXBUILD_Fortran_FORMAT_FIXED_FLAG "-ffixed-form")
+set(RBLXBUILD_Fortran_FORMAT_FREE_FLAG "-ffree-form")
+
+if (NOT RBLXBUILD_Fortran_COMPILER_VERSION VERSION_LESS 4.4)
+  set(RBLXBUILD_Fortran_COMPILE_OPTIONS_PREPROCESS_ON "-cpp")
+  set(RBLXBUILD_Fortran_COMPILE_OPTIONS_PREPROCESS_OFF "-nocpp")
+endif()
+
+set(RBLXBUILD_Fortran_POSTPROCESS_FLAG "-fpreprocessed")
+
+# No -isystem for Fortran because it will not find .mod files.
+unset(RBLXBUILD_INCLUDE_SYSTEM_FLAG_Fortran)
+
+# Fortran-specific feature flags.
+set(RBLXBUILD_Fortran_MODDIR_FLAG -J)

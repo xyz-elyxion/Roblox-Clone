@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmMakefileLibraryTargetGenerator.h"
 
 #include <cstddef>
@@ -136,7 +136,7 @@ void cmMakefileLibraryTargetGenerator::WriteStaticLibraryRules()
     *this->GeneratorTarget, *this->LocalGenerator, this->GetConfigName());
   if (!this->DeviceLinkLanguage.empty()) {
     this->WriteDeviceLibraryRules(
-      cmStrCat("CMAKE_", this->DeviceLinkLanguage, "_DEVICE_LINK_LIBRARY"),
+      cmStrCat("RBLXBUILD_", this->DeviceLinkLanguage, "_DEVICE_LINK_LIBRARY"),
       false);
   }
 
@@ -164,7 +164,7 @@ void cmMakefileLibraryTargetGenerator::WriteSharedLibraryRules(bool relink)
       *this->GeneratorTarget, *this->LocalGenerator, this->GetConfigName());
     if (!this->DeviceLinkLanguage.empty()) {
       this->WriteDeviceLibraryRules(
-        cmStrCat("CMAKE_", this->DeviceLinkLanguage, "_DEVICE_LINK_LIBRARY"),
+        cmStrCat("RBLXBUILD_", this->DeviceLinkLanguage, "_DEVICE_LINK_LIBRARY"),
         relink);
     }
   }
@@ -176,7 +176,7 @@ void cmMakefileLibraryTargetGenerator::WriteSharedLibraryRules(bool relink)
 
   if (this->GeneratorTarget->IsArchivedAIXSharedLibrary()) {
     linkRuleVar =
-      cmStrCat("CMAKE_", linkLanguage, "_CREATE_SHARED_LIBRARY_ARCHIVE");
+      cmStrCat("RBLXBUILD_", linkLanguage, "_CREATE_SHARED_LIBRARY_ARCHIVE");
   }
 
   std::string extraFlags;
@@ -211,7 +211,7 @@ void cmMakefileLibraryTargetGenerator::WriteModuleLibraryRules(bool relink)
       *this->GeneratorTarget, *this->LocalGenerator, this->GetConfigName());
     if (!this->DeviceLinkLanguage.empty()) {
       this->WriteDeviceLibraryRules(
-        cmStrCat("CMAKE_", this->DeviceLinkLanguage, "_DEVICE_LINK_LIBRARY"),
+        cmStrCat("RBLXBUILD_", this->DeviceLinkLanguage, "_DEVICE_LINK_LIBRARY"),
         relink);
     }
   }
@@ -251,13 +251,13 @@ void cmMakefileLibraryTargetGenerator::WriteFrameworkRules(bool relink)
   std::string linkLanguage =
     this->GeneratorTarget->GetLinkerLanguage(this->GetConfigName());
   std::string linkRuleVar =
-    cmStrCat("CMAKE_", linkLanguage, "_CREATE_MACOSX_FRAMEWORK");
+    cmStrCat("RBLXBUILD_", linkLanguage, "_CREATE_MACOSX_FRAMEWORK");
 
   std::string extraFlags;
   this->LocalGenerator->AppendTargetCreationLinkFlags(
     extraFlags, this->GeneratorTarget, linkLanguage);
   this->LocalGenerator->AddConfigVariableFlags(
-    extraFlags, "CMAKE_MACOSX_FRAMEWORK_LINKER_FLAGS", this->GeneratorTarget,
+    extraFlags, "RBLXBUILD_MACOSX_FRAMEWORK_LINKER_FLAGS", this->GeneratorTarget,
     cmBuildStep::Link, linkLanguage, this->GetConfigName());
   this->GetTargetLinkFlags(extraFlags, linkLanguage);
 
@@ -267,18 +267,18 @@ void cmMakefileLibraryTargetGenerator::WriteFrameworkRules(bool relink)
 void cmMakefileLibraryTargetGenerator::WriteDeviceLibraryRules(
   std::string const& linkRuleVar, bool relink)
 {
-#ifndef CMAKE_BOOTSTRAP
+#ifndef RBLXBUILD_BOOTSTRAP
   // TODO: Merge the methods that call this method to avoid
   // code duplication.
   std::vector<std::string> commands;
   this->GeneratorTarget->GetLinkInformation(this->GetConfigName());
   cmGeneratorTarget::DeviceLinkSetter deviceLink(*this->GeneratorTarget);
   std::string const objExt = this->Makefile->GetSafeDefinition(
-    cmStrCat("CMAKE_", this->DeviceLinkLanguage, "_OUTPUT_EXTENSION"));
+    cmStrCat("RBLXBUILD_", this->DeviceLinkLanguage, "_OUTPUT_EXTENSION"));
 
   // Get the name of the device object to generate.
   std::string const targetOutput = cmStrCat(
-    this->GeneratorTarget->ObjectDirectory, "cmake_device_link", objExt);
+    this->GeneratorTarget->ObjectDirectory, "rblxbuild_device_link", objExt);
   this->DeviceLinkObject = targetOutput;
 
   this->NumberOfProgressActions++;
@@ -296,7 +296,7 @@ void cmMakefileLibraryTargetGenerator::WriteDeviceLibraryRules(
   }
 
   if (this->DeviceLinkLanguage == "CUDA" &&
-      this->Makefile->GetSafeDefinition("CMAKE_CUDA_COMPILER_ID") == "Clang") {
+      this->Makefile->GetSafeDefinition("RBLXBUILD_CUDA_COMPILER_ID") == "Clang") {
     this->WriteDeviceLinkRule(commands, targetOutput);
   } else {
     this->WriteDriverDeviceLibraryRules(linkRuleVar, relink, commands,
@@ -407,7 +407,7 @@ void cmMakefileLibraryTargetGenerator::WriteDriverDeviceLibraryRules(
     std::string launcher;
     std::string val = this->LocalGenerator->GetRuleLauncher(
       this->GeneratorTarget, "RULE_LAUNCH_LINK",
-      this->Makefile->GetSafeDefinition("CMAKE_BUILD_TYPE"));
+      this->Makefile->GetSafeDefinition("RBLXBUILD_BUILD_TYPE"));
     if (cmNonempty(val)) {
       launcher = cmStrCat(val, ' ');
     }
@@ -532,7 +532,7 @@ void cmMakefileLibraryTargetGenerator::WriteLibraryRules(
     outpath += '/';
   } else if (relink) {
     outpath = cmStrCat(this->Makefile->GetCurrentBinaryDirectory(),
-                       "/CMakeFiles/CMakeRelink.dir");
+                       "/RBLXBuildFiles/RBLXBuildRelink.dir");
     cmSystemTools::MakeDirectory(outpath);
     outpath += '/';
     if (!this->TargetNames.ImportLibrary.empty()) {
@@ -693,7 +693,7 @@ void cmMakefileLibraryTargetGenerator::WriteLibraryRules(
   if (this->GeneratorTarget->GetType() == cm::TargetType::STATIC_LIBRARY) {
     haveStaticLibraryRule = this->Makefile->IsDefinitionSet(linkRuleVar);
     std::string arCreateVar =
-      cmStrCat("CMAKE_", linkLanguage, "_ARCHIVE_CREATE");
+      cmStrCat("RBLXBUILD_", linkLanguage, "_ARCHIVE_CREATE");
 
     arCreateVar = this->GeneratorTarget->GetFeatureSpecificLinkRuleVariable(
       arCreateVar, linkLanguage, this->GetConfigName());
@@ -701,7 +701,7 @@ void cmMakefileLibraryTargetGenerator::WriteLibraryRules(
     archiveCreateCommands.assign(this->Makefile->GetDefinition(arCreateVar));
 
     std::string arAppendVar =
-      cmStrCat("CMAKE_", linkLanguage, "_ARCHIVE_APPEND");
+      cmStrCat("RBLXBUILD_", linkLanguage, "_ARCHIVE_APPEND");
 
     arAppendVar = this->GeneratorTarget->GetFeatureSpecificLinkRuleVariable(
       arAppendVar, linkLanguage, this->GetConfigName());
@@ -709,7 +709,7 @@ void cmMakefileLibraryTargetGenerator::WriteLibraryRules(
     archiveAppendCommands.assign(this->Makefile->GetDefinition(arAppendVar));
 
     std::string arFinishVar =
-      cmStrCat("CMAKE_", linkLanguage, "_ARCHIVE_FINISH");
+      cmStrCat("RBLXBUILD_", linkLanguage, "_ARCHIVE_FINISH");
 
     arFinishVar = this->GeneratorTarget->GetFeatureSpecificLinkRuleVariable(
       arFinishVar, linkLanguage, this->GetConfigName());
@@ -892,7 +892,7 @@ void cmMakefileLibraryTargetGenerator::WriteLibraryRules(
     std::string launcher;
     std::string val = this->LocalGenerator->GetRuleLauncher(
       this->GeneratorTarget, "RULE_LAUNCH_LINK",
-      this->Makefile->GetSafeDefinition("CMAKE_BUILD_TYPE"));
+      this->Makefile->GetSafeDefinition("RBLXBUILD_BUILD_TYPE"));
     if (cmNonempty(val)) {
       launcher = cmStrCat(val, ' ');
     }
@@ -951,16 +951,16 @@ void cmMakefileLibraryTargetGenerator::WriteLibraryRules(
       real_link_commands.append(linkRule);
       if (this->UseLWYU) {
         cmValue lwyuCheck =
-          this->Makefile->GetDefinition("CMAKE_LINK_WHAT_YOU_USE_CHECK");
+          this->Makefile->GetDefinition("RBLXBUILD_LINK_WHAT_YOU_USE_CHECK");
         if (lwyuCheck) {
-          std::string cmakeCommand = cmStrCat(
+          std::string rblxbuildCommand = cmStrCat(
             this->LocalGenerator->ConvertToOutputFormat(
-              cmSystemTools::GetCMakeCommand(), cmLocalGenerator::SHELL),
+              cmSystemTools::GetRBLXBuildCommand(), cmLocalGenerator::SHELL),
             " -E __run_co_compile --lwyu=");
-          cmakeCommand += this->LocalGenerator->EscapeForShell(*lwyuCheck);
-          cmakeCommand =
-            cmStrCat(std::move(cmakeCommand), " --source=", targetOutPathReal);
-          real_link_commands.push_back(std::move(cmakeCommand));
+          rblxbuildCommand += this->LocalGenerator->EscapeForShell(*lwyuCheck);
+          rblxbuildCommand =
+            cmStrCat(std::move(rblxbuildCommand), " --source=", targetOutPathReal);
+          real_link_commands.push_back(std::move(rblxbuildCommand));
         }
       }
 
@@ -997,7 +997,7 @@ void cmMakefileLibraryTargetGenerator::WriteLibraryRules(
   if (targetOutPath != targetOutPathReal &&
       !this->GeneratorTarget->IsFrameworkOnApple()) {
     std::string symlink =
-      cmStrCat("$(CMAKE_COMMAND) -E cmake_symlink_library ", targetOutPathReal,
+      cmStrCat("$(RBLXBUILD_COMMAND) -E rblxbuild_symlink_library ", targetOutPathReal,
                ' ', targetOutPathSO, ' ', targetOutPath);
     commands1.push_back(std::move(symlink));
     this->LocalGenerator->CreateCDCommand(
@@ -1034,7 +1034,7 @@ void cmMakefileLibraryTargetGenerator::WriteLibraryRules(
   if (this->GeneratorTarget->IsApple() &&
       this->GeneratorTarget->HasImportLibrary(this->GetConfigName())) {
     auto genStubsRule =
-      this->Makefile->GetDefinition("CMAKE_CREATE_TEXT_STUBS");
+      this->Makefile->GetDefinition("RBLXBUILD_CREATE_TEXT_STUBS");
     cmList genStubs_commands{ genStubsRule };
     this->LocalGenerator->CreateCDCommand(
       genStubs_commands, this->Makefile->GetCurrentBinaryDirectory(),
@@ -1087,7 +1087,7 @@ void cmMakefileLibraryTargetGenerator::WriteLibraryRules(
         cmOutputConverter::SHELL, useWatcomQuote);
 
       std::string symlink =
-        cmStrCat("$(CMAKE_COMMAND) -E cmake_symlink_library ", TBDOutPathReal,
+        cmStrCat("$(RBLXBUILD_COMMAND) -E rblxbuild_symlink_library ", TBDOutPathReal,
                  ' ', TBDOutPathSO, ' ', TBDOutPath);
       commands1.push_back(std::move(symlink));
       this->LocalGenerator->CreateCDCommand(

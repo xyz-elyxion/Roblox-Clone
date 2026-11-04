@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmCTestCoverageCommand.h"
 
 #include <set>
@@ -22,9 +22,9 @@ cmCTestCoverageCommand::InitializeHandler(HandlerArguments& arguments,
 {
   cmMakefile& mf = status.GetMakefile();
   auto& args = static_cast<CoverageArguments&>(arguments);
-  this->CTest->SetCTestConfigurationFromCMakeVariable(
+  this->CTest->SetCTestConfigurationFromRBLXBuildVariable(
     &mf, "CoverageCommand", "CTEST_COVERAGE_COMMAND", args.Quiet);
-  this->CTest->SetCTestConfigurationFromCMakeVariable(
+  this->CTest->SetCTestConfigurationFromRBLXBuildVariable(
     &mf, "CoverageExtraFlags", "CTEST_COVERAGE_EXTRA_FLAGS", args.Quiet);
   auto handler = cm::make_unique<cmCTestCoverageHandler>(this->CTest);
 

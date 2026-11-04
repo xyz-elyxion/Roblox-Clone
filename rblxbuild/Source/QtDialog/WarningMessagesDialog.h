@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #pragma once
 
 #include <map>
@@ -11,7 +11,7 @@
 
 class QButtonGroup;
 
-class QCMake;
+class QRBLXBuild;
 
 /**
  * Dialog window for setting the warning message related options.
@@ -23,7 +23,7 @@ class WarningMessagesDialog
   Q_OBJECT
 
 public:
-  WarningMessagesDialog(QWidget* prnt, QCMake* instance);
+  WarningMessagesDialog(QWidget* prnt, QRBLXBuild* instance);
 
 private slots:
   /**
@@ -32,7 +32,7 @@ private slots:
   void doAccept();
 
 private:
-  QCMake* cmakeInstance;
+  QRBLXBuild* rblxbuildInstance;
   std::map<unsigned, QButtonGroup*> buttons;
 
   /**

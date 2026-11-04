@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmCryptoHash.h"
 
 #include <cm/memory>
@@ -84,7 +84,7 @@ std::unique_ptr<cmCryptoHash> cmCryptoHash::New(cm::string_view algo)
 
 std::string cmCryptoHash::GetHashAlgoName() const
 {
-#ifndef CMAKE_USE_SYSTEM_LIBRHASH
+#ifndef RBLXBUILD_USE_SYSTEM_LIBRHASH
   static_assert(RHASH_HASH_COUNT == 10, "Update switch statement!");
 #endif
   switch (this->Id) {

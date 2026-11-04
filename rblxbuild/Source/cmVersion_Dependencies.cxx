@@ -1,8 +1,8 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmVersion.h"
 
-#if !defined(CMAKE_BOOTSTRAP)
+#if !defined(RBLXBUILD_BOOTSTRAP)
 #  include <cstddef>
 #  include <string>
 #  include <utility>
@@ -16,7 +16,7 @@
 
 #  include "cmThirdParty.h" // IWYU pragma: keep
 
-#  ifdef CMAKE_USE_SYSTEM_LIBRHASH
+#  ifdef RBLXBUILD_USE_SYSTEM_LIBRHASH
 #    include <cstdint>
 
 #    include <cm3p/rhash.h>
@@ -34,7 +34,7 @@ cmVersion::CollectDependencyInfo()
     return deps;
   }
 
-  // BZIP2 is not directly used in CMake, so it is not included here
+  // BZIP2 is not directly used in RBLXBuild, so it is not included here
 
   // BZIP2 (libarchive)
   {
@@ -49,7 +49,7 @@ cmVersion::CollectDependencyInfo()
         // Convert `1.0.8, 30-Mar-2009` to `1.0.8`
         info.version.erase(pos);
       }
-#  if defined(CMAKE_USE_SYSTEM_BZIP2) || defined(CMAKE_USE_SYSTEM_LIBARCHIVE)
+#  if defined(RBLXBUILD_USE_SYSTEM_BZIP2) || defined(RBLXBUILD_USE_SYSTEM_LIBARCHIVE)
       // System BZIP2 can be used by system or bundled libarchive
       // System libarchive always uses system BZIP2
       info.type = DependencyType::System;
@@ -64,7 +64,7 @@ cmVersion::CollectDependencyInfo()
   {
     DependencyInfo info;
     info.name = "cppdap";
-#  ifdef CMAKE_USE_SYSTEM_CPPDAP
+#  ifdef RBLXBUILD_USE_SYSTEM_CPPDAP
     info.type = DependencyType::System;
     // Cannot get runtime version from cppdap library
 #  else
@@ -86,7 +86,7 @@ cmVersion::CollectDependencyInfo()
         if (curlVersion->version) {
           info.version = curlVersion->version;
         }
-#  ifdef CMAKE_USE_SYSTEM_CURL
+#  ifdef RBLXBUILD_USE_SYSTEM_CURL
         info.type = DependencyType::System;
 #  else
         info.type = DependencyType::Bundled;
@@ -108,7 +108,7 @@ cmVersion::CollectDependencyInfo()
 
         info.version = curlVersion->nghttp2_version;
 
-#    if defined(CMAKE_USE_SYSTEM_NGHTTP2) || defined(CMAKE_USE_SYSTEM_CURL)
+#    if defined(RBLXBUILD_USE_SYSTEM_NGHTTP2) || defined(RBLXBUILD_USE_SYSTEM_CURL)
         // System CURL always uses system NGHTTP2
         // System NGHTTP2 can be used by system or bundled CURL
         info.type = DependencyType::System;
@@ -146,7 +146,7 @@ cmVersion::CollectDependencyInfo()
         info.name = "zlib";
         info.cameFrom = "curl";
         info.version = curlVersion->libz_version;
-#  if defined(CMAKE_USE_SYSTEM_ZLIB) || defined(CMAKE_USE_SYSTEM_CURL)
+#  if defined(RBLXBUILD_USE_SYSTEM_ZLIB) || defined(RBLXBUILD_USE_SYSTEM_CURL)
         // System CURL always uses system ZLIB
         // System ZLIB can be used by system or bundled CURL
         info.type = DependencyType::System;
@@ -166,7 +166,7 @@ cmVersion::CollectDependencyInfo()
     XML_Expat_Version version = XML_ExpatVersionInfo();
     info.version =
       cmStrCat(version.major, '.', version.minor, '.', version.micro);
-#  ifdef CMAKE_USE_SYSTEM_EXPAT
+#  ifdef RBLXBUILD_USE_SYSTEM_EXPAT
     info.type = DependencyType::System;
 #  else
     info.type = DependencyType::Bundled;
@@ -179,7 +179,7 @@ cmVersion::CollectDependencyInfo()
     DependencyInfo info;
     info.name = "form";
     // Cannot get any version from form library
-#  ifdef CMAKE_USE_SYSTEM_FORM
+#  ifdef RBLXBUILD_USE_SYSTEM_FORM
     info.type = DependencyType::System;
 #  else
     info.type = DependencyType::Bundled;
@@ -192,7 +192,7 @@ cmVersion::CollectDependencyInfo()
     DependencyInfo info;
     info.name = "jsoncpp";
     info.version = JSONCPP_VERSION_STRING;
-#  ifdef CMAKE_USE_SYSTEM_JSONCPP
+#  ifdef RBLXBUILD_USE_SYSTEM_JSONCPP
     info.type = DependencyType::System;
 #  else
     info.type = DependencyType::Bundled;
@@ -208,7 +208,7 @@ cmVersion::CollectDependencyInfo()
     // Library is header-only, so we can safely use the defined version
     info.version = KWIML_VERSION_STRING;
 
-#  ifdef CMAKE_USE_SYSTEM_KWIML
+#  ifdef RBLXBUILD_USE_SYSTEM_KWIML
     info.type = DependencyType::System;
 #  else
     info.type = DependencyType::Bundled;
@@ -224,7 +224,7 @@ cmVersion::CollectDependencyInfo()
     if (cmHasLiteralPrefix(info.version, "libarchive ")) {
       info.version.erase(0, 11);
     }
-#  ifdef CMAKE_USE_SYSTEM_LIBARCHIVE
+#  ifdef RBLXBUILD_USE_SYSTEM_LIBARCHIVE
     info.type = DependencyType::System;
 #  else
     info.type = DependencyType::Bundled;
@@ -232,7 +232,7 @@ cmVersion::CollectDependencyInfo()
     deps.emplace_back(std::move(info));
   }
 
-  // LIBLZMA is not directly used in CMake, so it is not included here
+  // LIBLZMA is not directly used in RBLXBuild, so it is not included here
 
   // LIBLZMA (libarchive)
   {
@@ -242,7 +242,7 @@ cmVersion::CollectDependencyInfo()
       info.name = "liblzma";
       info.cameFrom = "libarchive";
       info.version = liblzmaVersion;
-#  if defined(CMAKE_USE_SYSTEM_LIBLZMA) || defined(CMAKE_USE_SYSTEM_LIBARCHIVE)
+#  if defined(RBLXBUILD_USE_SYSTEM_LIBLZMA) || defined(RBLXBUILD_USE_SYSTEM_LIBARCHIVE)
       // System LIBLZMA can be used by system or bundled libarchive
       // System libarchive always uses system LIBLZMA
       info.type = DependencyType::System;
@@ -257,7 +257,7 @@ cmVersion::CollectDependencyInfo()
   {
     DependencyInfo info;
     info.name = "librhash";
-#  ifdef CMAKE_USE_SYSTEM_LIBRHASH
+#  ifdef RBLXBUILD_USE_SYSTEM_LIBRHASH
     info.type = DependencyType::System;
     std::uint64_t version = rhash_get_version();
     std::uint8_t major = (version >> 24) & 0xFFu;
@@ -277,7 +277,7 @@ cmVersion::CollectDependencyInfo()
     DependencyInfo info;
     info.name = "libuv";
     info.version = uv_version_string();
-#  ifdef CMAKE_USE_SYSTEM_LIBUV
+#  ifdef RBLXBUILD_USE_SYSTEM_LIBUV
     info.type = DependencyType::System;
 #  else
     info.type = DependencyType::Bundled;
@@ -285,7 +285,7 @@ cmVersion::CollectDependencyInfo()
     deps.emplace_back(std::move(info));
   }
 
-  // OPENSSL is not directly used in CMake, so it is not included here
+  // OPENSSL is not directly used in RBLXBuild, so it is not included here
 
 #  if ARCHIVE_VERSION_NUMBER >= 3008000
   // OPENSSL (libarchive)
@@ -309,7 +309,7 @@ cmVersion::CollectDependencyInfo()
     DependencyInfo info;
     info.name = "zlib";
     info.version = zlibVersion();
-#  ifdef CMAKE_USE_SYSTEM_ZLIB
+#  ifdef RBLXBUILD_USE_SYSTEM_ZLIB
     info.type = DependencyType::System;
 #  else
     info.type = DependencyType::Bundled;
@@ -325,7 +325,7 @@ cmVersion::CollectDependencyInfo()
       info.name = "zlib";
       info.cameFrom = "libarchive";
       info.version = zlibVersion;
-#  if defined(CMAKE_USE_SYSTEM_ZLIB) || defined(CMAKE_USE_SYSTEM_LIBARCHIVE)
+#  if defined(RBLXBUILD_USE_SYSTEM_ZLIB) || defined(RBLXBUILD_USE_SYSTEM_LIBARCHIVE)
       // System ZLIB can be used by system or bundled libarchive
       // System libarchive always uses system ZLIB
       info.type = DependencyType::System;
@@ -336,7 +336,7 @@ cmVersion::CollectDependencyInfo()
     }
   }
 
-  // ZSTD is not directly used in CMake, so it is not included here
+  // ZSTD is not directly used in RBLXBuild, so it is not included here
 
   // ZSTD (libarchive)
   {
@@ -346,7 +346,7 @@ cmVersion::CollectDependencyInfo()
       info.name = "zstd";
       info.cameFrom = "libarchive";
       info.version = zstdVersion;
-#  if defined(CMAKE_USE_SYSTEM_ZSTD) || defined(CMAKE_USE_SYSTEM_LIBARCHIVE)
+#  if defined(RBLXBUILD_USE_SYSTEM_ZSTD) || defined(RBLXBUILD_USE_SYSTEM_LIBARCHIVE)
       // System ZSTD can be used by system or bundled libarchive
       // System libarchive always uses system ZSTD
       info.type = DependencyType::System;

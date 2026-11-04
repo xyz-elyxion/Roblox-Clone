@@ -1,0 +1,3 @@
+set(QNXNTO 1)
+include(Platform/GNU-Initialize)
+unset(RBLXBUILD_LIBRARY_ARCHITECTURE_REGEX)

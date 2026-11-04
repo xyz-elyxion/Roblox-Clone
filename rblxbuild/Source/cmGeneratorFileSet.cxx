@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmGeneratorFileSet.h"
 
 #include <algorithm>
@@ -29,7 +29,7 @@
 #include "cmPolicies.h"
 #include "cmStringAlgorithms.h"
 #include "cmSystemTools.h"
-#include "cmake.h"
+#include "rblxbuild.h"
 
 class cmLinkItem;
 
@@ -101,12 +101,12 @@ private:
 };
 
 void CreatePropertyGeneratorExpressions(
-  cmake& cmakeInstance, cmBTStringRange entries,
+  rblxbuild& rblxbuildInstance, cmBTStringRange entries,
   std::vector<std::unique_ptr<cm::TargetPropertyEntry>>& items)
 {
   for (auto const& entry : entries) {
     items.emplace_back(
-      cm::TargetPropertyEntry::Create(cmakeInstance, entry, false));
+      cm::TargetPropertyEntry::Create(rblxbuildInstance, entry, false));
   }
 }
 
@@ -190,23 +190,23 @@ cmGeneratorFileSet::cmGeneratorFileSet(
   , FileSet(fileSet)
   , Domain(domain)
 {
-  auto& cmake = *target->GetLocalGenerator()->GetCMakeInstance();
+  auto& rblxbuild = *target->GetLocalGenerator()->GetRBLXBuildInstance();
 
-  CreatePropertyGeneratorExpressions(cmake, fileSet->GetIncludeDirectories(),
+  CreatePropertyGeneratorExpressions(rblxbuild, fileSet->GetIncludeDirectories(),
                                      this->IncludeDirectories);
-  CreatePropertyGeneratorExpressions(cmake,
+  CreatePropertyGeneratorExpressions(rblxbuild,
                                      fileSet->GetInterfaceIncludeDirectories(),
                                      this->InterfaceIncludeDirectories);
 
-  CreatePropertyGeneratorExpressions(cmake, fileSet->GetCompileOptions(),
+  CreatePropertyGeneratorExpressions(rblxbuild, fileSet->GetCompileOptions(),
                                      this->CompileOptions);
-  CreatePropertyGeneratorExpressions(cmake,
+  CreatePropertyGeneratorExpressions(rblxbuild,
                                      fileSet->GetInterfaceCompileOptions(),
                                      this->InterfaceCompileOptions);
 
-  CreatePropertyGeneratorExpressions(cmake, fileSet->GetCompileDefinitions(),
+  CreatePropertyGeneratorExpressions(rblxbuild, fileSet->GetCompileDefinitions(),
                                      this->CompileDefinitions);
-  CreatePropertyGeneratorExpressions(cmake,
+  CreatePropertyGeneratorExpressions(rblxbuild,
                                      fileSet->GetInterfaceCompileDefinitions(),
                                      this->InterfaceCompileDefinitions);
 }
@@ -425,7 +425,7 @@ cmGeneratorFileSet::CompileFileEntries() const
       for (auto const& ex : cmList{ entry.Value }) {
         if (uniqueSrcs.insert(ex).second) {
           cmGeneratorExpression ge(
-            *this->FileSet->GetMakefile()->GetCMakeInstance(),
+            *this->FileSet->GetMakefile()->GetRBLXBuildInstance(),
             entry.Backtrace);
           auto cge = ge.Parse(ex);
           this->CompiledFileEntries.push_back(std::move(cge));
@@ -445,7 +445,7 @@ cmGeneratorFileSet::CompileDirectoryEntries() const
     for (auto const& entry : this->FileSet->GetDirectoryEntries()) {
       for (auto const& ex : cmList{ entry.Value }) {
         cmGeneratorExpression ge(
-          *this->FileSet->GetMakefile()->GetCMakeInstance(), entry.Backtrace);
+          *this->FileSet->GetMakefile()->GetRBLXBuildInstance(), entry.Backtrace);
         auto cge = ge.Parse(ex);
         this->CompiledDirectoryEntries.push_back(std::move(cge));
       }
@@ -499,7 +499,7 @@ std::vector<std::string> cmGeneratorFileSet::EvaluateDirectoryEntries(
                                            priorDirCacheEntry.collapsedDir) ||
              cmSystemTools::IsSubDirectory(priorDirCacheEntry.collapsedDir,
                                            dirCacheEntry.collapsedDir))) {
-          context.LG->GetCMakeInstance()->IssueMessage(
+          context.LG->GetRBLXBuildInstance()->IssueMessage(
             MessageType::FATAL_ERROR,
             cmStrCat(
               "Base directories in file set cannot be subdirectories of each "
@@ -539,7 +539,7 @@ void cmGeneratorFileSet::EvaluateFileEntry(
       }
     }
     if (baseDir.empty()) {
-      context.LG->GetCMakeInstance()->IssueMessage(
+      context.LG->GetRBLXBuildInstance()->IssueMessage(
         MessageType::FATAL_ERROR,
         cmStrCat("File:\n  ", file,
                  "\nmust be in one of the file set's base directories:",

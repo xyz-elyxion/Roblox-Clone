@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #pragma once
 
 #include "cmConfigure.h" // IWYU pragma: keep
@@ -11,7 +11,7 @@
 
 #include "cmGlobalGenerator.h"
 
-class cmake;
+class rblxbuild;
 class cmGeneratorTarget;
 class cmLocalGenerator;
 
@@ -21,7 +21,7 @@ class cmLocalGenerator;
 class cmGlobalCommonGenerator : public cmGlobalGenerator
 {
 public:
-  cmGlobalCommonGenerator(cmake* cm);
+  cmGlobalCommonGenerator(rblxbuild* cm);
   ~cmGlobalCommonGenerator() override;
 
   struct DirectoryTarget

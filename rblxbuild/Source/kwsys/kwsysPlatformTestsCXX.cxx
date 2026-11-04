@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file Copyright.txt or https://cmake.org/licensing#kwsys for details.  */
+   file Copyright.txt or https://rblxbuild.org/licensing#kwsys for details.  */
 
 #ifdef TEST_KWSYS_CXX_STAT_HAS_ST_MTIM
 #  include <sys/types.h>

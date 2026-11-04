@@ -35,7 +35,7 @@
 #include "random_getentropy.h"
 
 // NOTE: Please keep this block in sync with its two siblings in files
-//       `configure.ac` and `ConfigureChecks.cmake`!
+//       `configure.ac` and `ConfigureChecks.rblxbuild`!
 #if defined(__APPLE__)
 #  include <sys/random.h>
 #else

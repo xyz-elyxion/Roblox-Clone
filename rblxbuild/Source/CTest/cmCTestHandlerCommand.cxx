@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmCTestHandlerCommand.h"
 
 #include <algorithm>
@@ -7,7 +7,7 @@
 
 #include <cm/string_view>
 
-#include "cmCMakePresetsGraph.h"
+#include "cmRBLXBuildPresetsGraph.h"
 #include "cmCTest.h"
 #include "cmCTestGenericHandler.h"
 #include "cmExecutionStatus.h"
@@ -20,7 +20,7 @@
 
 namespace {
 // class to save and restore the error state for ctest_* commands
-// if a ctest_* command has a CAPTURE_CMAKE_ERROR then put the error
+// if a ctest_* command has a CAPTURE_RBLXBUILD_ERROR then put the error
 // state into there and restore the system wide error to what
 // it was before the command ran
 class SaveRestoreErrorState
@@ -30,18 +30,18 @@ public:
   {
     this->InitialErrorState = cmSystemTools::GetErrorOccurredFlag();
     cmSystemTools::ResetErrorOccurredFlag(); // rest the error state
-    this->CaptureCMakeErrorValue = false;
+    this->CaptureRBLXBuildErrorValue = false;
   }
-  // if the function has a CAPTURE_CMAKE_ERROR then we should restore
+  // if the function has a CAPTURE_RBLXBUILD_ERROR then we should restore
   // the error state to what it was before the function was run
   // if not then let the error state be what it is
-  void CaptureCMakeError() { this->CaptureCMakeErrorValue = true; }
+  void CaptureRBLXBuildError() { this->CaptureRBLXBuildErrorValue = true; }
   ~SaveRestoreErrorState()
   {
     // if we are not saving the return value then make sure
     // if it was in error it goes back to being in error
     // otherwise leave it be what it is
-    if (!this->CaptureCMakeErrorValue) {
+    if (!this->CaptureRBLXBuildErrorValue) {
       if (this->InitialErrorState) {
         cmSystemTools::SetErrorOccurred();
       }
@@ -66,7 +66,7 @@ public:
 
 private:
   bool InitialErrorState;
-  bool CaptureCMakeErrorValue;
+  bool CaptureRBLXBuildErrorValue;
 };
 }
 
@@ -76,8 +76,8 @@ bool cmCTestHandlerCommand::InvokeImpl(
 {
   // save error state and restore it if needed
   SaveRestoreErrorState errorState;
-  if (!args.CaptureCMakeError.empty()) {
-    errorState.CaptureCMakeError();
+  if (!args.CaptureRBLXBuildError.empty()) {
+    errorState.CaptureRBLXBuildError();
   }
 
   bool success = [&]() -> bool {
@@ -102,7 +102,7 @@ bool cmCTestHandlerCommand::InvokeImpl(
     return handler();
   }();
 
-  if (args.CaptureCMakeError.empty()) {
+  if (args.CaptureRBLXBuildError.empty()) {
     return success;
   }
 
@@ -113,7 +113,7 @@ bool cmCTestHandlerCommand::InvokeImpl(
 
   cmMakefile& mf = status.GetMakefile();
   success = success && !cmSystemTools::GetErrorOccurredFlag();
-  mf.AddDefinition(args.CaptureCMakeError, success ? "0" : "-1");
+  mf.AddDefinition(args.CaptureRBLXBuildError, success ? "0" : "-1");
   return true;
 }
 
@@ -189,7 +189,7 @@ bool cmCTestHandlerCommand::ExecuteHandlerCommand(
 
   // reread time limit, as the variable may have been modified.
   this->CTest->SetTimeLimit(mf.GetDefinition("CTEST_TIME_LIMIT"));
-  handler->SetCMakeInstance(mf.GetCMakeInstance());
+  handler->SetRBLXBuildInstance(mf.GetRBLXBuildInstance());
 
   int res = handler->ProcessHandler();
   if (!args.ReturnValue.empty()) {
@@ -225,7 +225,7 @@ enum class PresetType
 };
 
 cmCTestHandlerCommand::PresetCheckResult PresetExistsInGraph(
-  cmCMakePresetsGraph& graph, std::string const& name,
+  cmRBLXBuildPresetsGraph& graph, std::string const& name,
   std::string const& sourceDir, std::string const& presetsFile,
   PresetType presetType, std::string& errorMessage)
 {
@@ -235,7 +235,7 @@ cmCTestHandlerCommand::PresetCheckResult PresetExistsInGraph(
                             "\":\n  ", graph.parseState.GetErrorMessage());
     return Result::ReadError;
   }
-  using Status = cmCMakePresetsGraph::PresetResolveStatus;
+  using Status = cmRBLXBuildPresetsGraph::PresetResolveStatus;
   if (presetType == PresetType::Build) {
     auto result = graph.ResolvePreset(name, graph.BuildPresets);
     return result.StatusCode == Status::Success ? Result::Found
@@ -253,7 +253,7 @@ cmCTestHandlerCommand::BuildPresetExists(std::string const& name,
                                          std::string const& presetsFile,
                                          std::string& errorMessage)
 {
-  cmCMakePresetsGraph graph;
+  cmRBLXBuildPresetsGraph graph;
   return PresetExistsInGraph(graph, name, sourceDir, presetsFile,
                              PresetType::Build, errorMessage);
 }
@@ -264,7 +264,7 @@ cmCTestHandlerCommand::TestPresetExists(std::string const& name,
                                         std::string const& presetsFile,
                                         std::string& errorMessage)
 {
-  cmCMakePresetsGraph graph;
+  cmRBLXBuildPresetsGraph graph;
   return PresetExistsInGraph(graph, name, sourceDir, presetsFile,
                              PresetType::Test, errorMessage);
 }

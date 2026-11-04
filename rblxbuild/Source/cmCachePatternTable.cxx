@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 
 // Built-in cache variable documentation pattern table.
 //
@@ -8,7 +8,7 @@
 // ``<CONFIG>``, ``<PackageName>``, ``<PROJECT-NAME>``, ``<an-attribute>``,
 // ``<NNNN>``, ``<n>``).  The Summary is a one-line tooltip installed as
 // the ``HELPSTRING`` of cache variables created via
-// ``cmake -D <var>=<value>`` whose name matches the template under the
+// ``rblxbuild -D <var>=<value>`` whose name matches the template under the
 // lexical classes defined below and for which no exact-match entry exists
 // in ``cmCacheDocumentationTable``.
 //
@@ -21,7 +21,7 @@
 //     and make sure that, with ``<`` and ``>`` stripped, the pattern
 //     names an existing ``Help/variable/<NAME>.rst`` file.  The
 //     ``testPatternTableOrdered`` regression test in
-//     ``Tests/CMakeLib`` verifies the canonical ordering; the
+//     ``Tests/RBLXBuildLib`` verifies the canonical ordering; the
 //     ``CacheVarHelpCoverage`` lint verifies the structural-parity
 //     invariant.
 //   * Per-language or per-configuration restrictions documented in the
@@ -30,7 +30,7 @@
 //     in the tooltip).
 //   * Summaries must be single-line printable ASCII, no embedded
 //     double quotes, no embedded newlines, and ``<= 200`` characters
-//     (so that ``cmake-gui`` / ``ccmake`` render them legibly).  The
+//     (so that ``rblxbuild-gui`` / ``crblxbuild`` render them legibly).  The
 //     ``testPatternTableFieldsValid`` regression test enforces all of
 //     these.
 //
@@ -72,15 +72,15 @@ using cmCachePatternTable::Entry;
 // where ``totalLiteralLen`` is the byte count of the pattern after every
 // ``<...>`` placeholder has been stripped.  Examples:
 //
-//   ``CMAKE_<LANG>_COMPILER_LAUNCHER``  -> ``CMAKE__COMPILER_LAUNCHER``  (24)
-//   ``CMAKE_<LANG>_CLANG_TIDY``         -> ``CMAKE__CLANG_TIDY``         (17)
-//   ``CMAKE_<LANG>_FLAGS``              -> ``CMAKE__FLAGS``              (12)
+//   ``RBLXBUILD_<LANG>_COMPILER_LAUNCHER``  -> ``RBLXBUILD__COMPILER_LAUNCHER``  (24)
+//   ``RBLXBUILD_<LANG>_CLANG_TIDY``         -> ``RBLXBUILD__CLANG_TIDY``         (17)
+//   ``RBLXBUILD_<LANG>_FLAGS``              -> ``RBLXBUILD__FLAGS``              (12)
 //
 // Ordering literals DESC within a placeholder-count band is what makes
 // ``Match()``'s first-match-wins linear scan correct: a more-anchored
-// pattern (e.g. ``CMAKE_<LANG>_FLAGS_<CONFIG>_INIT``, literal=18) must
-// shadow a less-anchored one (``CMAKE_<LANG>_FLAGS_<CONFIG>``, literal=13)
-// so a lookup of ``CMAKE_CXX_FLAGS_DEBUG_INIT`` resolves to the former
+// pattern (e.g. ``RBLXBUILD_<LANG>_FLAGS_<CONFIG>_INIT``, literal=18) must
+// shadow a less-anchored one (``RBLXBUILD_<LANG>_FLAGS_<CONFIG>``, literal=13)
+// so a lookup of ``RBLXBUILD_CXX_FLAGS_DEBUG_INIT`` resolves to the former
 // rather than lazily binding ``CONFIG`` to ``DEBUG_INIT`` against the
 // latter.  Contributors adding a new entry: place it in the bucket whose
 // literal-count matches yours, and update or add a new ``=== ... ===``
@@ -89,131 +89,131 @@ using cmCachePatternTable::Entry;
 Entry const kPatterns[] = {
 
   // === 1-placeholder, (37-literal-char bucket) ===
-  { "CMAKE_FRAMEWORK_MULTI_CONFIG_POSTFIX_<CONFIG>"_s,
+  { "RBLXBUILD_FRAMEWORK_MULTI_CONFIG_POSTFIX_<CONFIG>"_s,
     "Default framework filename postfix under configuration <CONFIG>."_s },
 
   // === 1-placeholder, (35-literal-char bucket) ===
-  { "CMAKE_COMPILE_PDB_OUTPUT_DIRECTORY_<CONFIG>"_s,
+  { "RBLXBUILD_COMPILE_PDB_OUTPUT_DIRECTORY_<CONFIG>"_s,
     "Initializes COMPILE_PDB_OUTPUT_DIRECTORY_<CONFIG> target property."_s },
-  { "CMAKE_INTERPROCEDURAL_OPTIMIZATION_<CONFIG>"_s,
+  { "RBLXBUILD_INTERPROCEDURAL_OPTIMIZATION_<CONFIG>"_s,
     "Initializes INTERPROCEDURAL_OPTIMIZATION_<CONFIG> target property."_s },
-  { "CMAKE_LINK_LIBRARY_USING_<FEATURE>_SUPPORTED"_s,
+  { "RBLXBUILD_LINK_LIBRARY_USING_<FEATURE>_SUPPORTED"_s,
     "Set to TRUE if <FEATURE> is supported regardless of linker language."_s },
 
   // === 1-placeholder, (34-literal-char bucket) ===
-  { "CMAKE_<LANG>_CLANG_TIDY_EXPORT_FIXES_DIR"_s,
+  { "RBLXBUILD_<LANG>_CLANG_TIDY_EXPORT_FIXES_DIR"_s,
     "Default value for the <LANG>_CLANG_TIDY_EXPORT_FIXES_DIR target property; directory where clang-tidy writes suggested fix .yaml files. Applies only when <LANG> is C, CXX, OBJC, or OBJCXX."_s },
 
   // === 1-placeholder, (33-literal-char bucket) ===
-  { "CMAKE_LINK_GROUP_USING_<FEATURE>_SUPPORTED"_s,
+  { "RBLXBUILD_LINK_GROUP_USING_<FEATURE>_SUPPORTED"_s,
     "Specifies if <FEATURE> is supported regardless of link language."_s },
 
   // === 1-placeholder, (31-literal-char bucket) ===
-  { "CMAKE_ARCHIVE_OUTPUT_DIRECTORY_<CONFIG>"_s,
+  { "RBLXBUILD_ARCHIVE_OUTPUT_DIRECTORY_<CONFIG>"_s,
     "Initializes ARCHIVE_OUTPUT_DIRECTORY_<CONFIG> target property."_s },
-  { "CMAKE_LIBRARY_OUTPUT_DIRECTORY_<CONFIG>"_s,
+  { "RBLXBUILD_LIBRARY_OUTPUT_DIRECTORY_<CONFIG>"_s,
     "Initializes LIBRARY_OUTPUT_DIRECTORY_<CONFIG> target property."_s },
-  { "CMAKE_RUNTIME_OUTPUT_DIRECTORY_<CONFIG>"_s,
+  { "RBLXBUILD_RUNTIME_OUTPUT_DIRECTORY_<CONFIG>"_s,
     "Initializes RUNTIME_OUTPUT_DIRECTORY_<CONFIG> target property."_s },
-  { "CMAKE_USER_MAKE_RULES_OVERRIDE_<LANG>"_s,
-    "Specify a CMake file that overrides platform information for <LANG>"_s },
+  { "RBLXBUILD_USER_MAKE_RULES_OVERRIDE_<LANG>"_s,
+    "Specify a RBLXBuild file that overrides platform information for <LANG>"_s },
 
   // === 1-placeholder, (30-literal-char bucket) ===
-  { "CMAKE_LINK_LIBRARY_<FEATURE>_ATTRIBUTES"_s,
+  { "RBLXBUILD_LINK_LIBRARY_<FEATURE>_ATTRIBUTES"_s,
     "Defines behavior and attributes of the specified link library <FEATURE>."_s },
 
   // === 1-placeholder, (29-literal-char bucket) ===
-  { "CMAKE_PROJECT_<PROJECT-NAME>_INCLUDE_BEFORE"_s,
-    "Path to a CMake language file included as the first step of any project() command call matching <PROJECT-NAME>. Intended for injecting custom code into project builds without modifying the source."_s },
+  { "RBLXBUILD_PROJECT_<PROJECT-NAME>_INCLUDE_BEFORE"_s,
+    "Path to a RBLXBuild language file included as the first step of any project() command call matching <PROJECT-NAME>. Intended for injecting custom code into project builds without modifying the source."_s },
 
   // === 1-placeholder, (27-literal-char bucket) ===
-  { "CMAKE_<LANG>_INCLUDE_WHAT_YOU_USE"_s,
+  { "RBLXBUILD_<LANG>_INCLUDE_WHAT_YOU_USE"_s,
     "Default value for the <LANG>_INCLUDE_WHAT_YOU_USE target property; names an include-what-you-use command (and arguments) run alongside compilation. Applies only when <LANG> is C or CXX."_s },
-  { "CMAKE_DISABLE_FIND_PACKAGE_<PackageName>"_s,
+  { "RBLXBUILD_DISABLE_FIND_PACKAGE_<PackageName>"_s,
     "Set to TRUE to disable calls to find_package(<PackageName>); the call returns as if the package were not found, even when REQUIRED was specified."_s },
-  { "CMAKE_PDB_OUTPUT_DIRECTORY_<CONFIG>"_s,
+  { "RBLXBUILD_PDB_OUTPUT_DIRECTORY_<CONFIG>"_s,
     "Initializes PDB_OUTPUT_DIRECTORY_<CONFIG> target property."_s },
-  { "CMAKE_REQUIRE_FIND_PACKAGE_<PackageName>"_s,
-    "Set to TRUE to make every call to find_package(<PackageName>) behave as if REQUIRED were specified, causing CMake to fail when the package is not found."_s },
+  { "RBLXBUILD_REQUIRE_FIND_PACKAGE_<PackageName>"_s,
+    "Set to TRUE to make every call to find_package(<PackageName>) behave as if REQUIRED were specified, causing RBLXBuild to fail when the package is not found."_s },
 
   // === 1-placeholder, (26-literal-char bucket) ===
-  { "CMAKE_MAP_IMPORTED_CONFIG_<CONFIG>"_s,
+  { "RBLXBUILD_MAP_IMPORTED_CONFIG_<CONFIG>"_s,
     "Initializes MAP_IMPORTED_CONFIG_<CONFIG> target property."_s },
-  { "CMAKE_MODULE_LINKER_FLAGS_<CONFIG>"_s,
-    "Flags used by the linker when creating a module library for the <CONFIG> configuration. Appended after the configuration-independent CMAKE_MODULE_LINKER_FLAGS."_s },
-  { "CMAKE_SHARED_LINKER_FLAGS_<CONFIG>"_s,
-    "Flags used by the linker when creating a shared library for the <CONFIG> configuration. Appended after the configuration-independent CMAKE_SHARED_LINKER_FLAGS."_s },
-  { "CMAKE_STATIC_LINKER_FLAGS_<CONFIG>"_s,
-    "Flags used by the static-library archiver when creating a static library for the <CONFIG> configuration. Appended after the configuration-independent CMAKE_STATIC_LINKER_FLAGS."_s },
+  { "RBLXBUILD_MODULE_LINKER_FLAGS_<CONFIG>"_s,
+    "Flags used by the linker when creating a module library for the <CONFIG> configuration. Appended after the configuration-independent RBLXBUILD_MODULE_LINKER_FLAGS."_s },
+  { "RBLXBUILD_SHARED_LINKER_FLAGS_<CONFIG>"_s,
+    "Flags used by the linker when creating a shared library for the <CONFIG> configuration. Appended after the configuration-independent RBLXBUILD_SHARED_LINKER_FLAGS."_s },
+  { "RBLXBUILD_STATIC_LINKER_FLAGS_<CONFIG>"_s,
+    "Flags used by the static-library archiver when creating a static library for the <CONFIG> configuration. Appended after the configuration-independent RBLXBUILD_STATIC_LINKER_FLAGS."_s },
 
   // === 1-placeholder, (25-literal-char bucket) ===
-  { "CMAKE_LINK_LIBRARY_USING_<FEATURE>"_s,
+  { "RBLXBUILD_LINK_LIBRARY_USING_<FEATURE>"_s,
     "Defines how to link a library for <FEATURE>."_s },
 
   // === 1-placeholder, (24-literal-char bucket) ===
-  { "CMAKE_<LANG>_COMPILER_LAUNCHER"_s,
+  { "RBLXBUILD_<LANG>_COMPILER_LAUNCHER"_s,
     "Default value for the <LANG>_COMPILER_LAUNCHER target property; launcher tool prepended to every <LANG> compile command. Applies only when <LANG> is C, CXX, Fortran, HIP, ISPC, OBJC, OBJCXX, or CUDA."_s },
-  { "CMAKE_<LANG>_STANDARD_REQUIRED"_s,
+  { "RBLXBUILD_<LANG>_STANDARD_REQUIRED"_s,
     "Default value for the <LANG>_STANDARD_REQUIRED target property when a target is created. If TRUE, the requested language standard must be supported by the compiler."_s },
-  { "CMAKE_<LANG>_VISIBILITY_PRESET"_s,
+  { "RBLXBUILD_<LANG>_VISIBILITY_PRESET"_s,
     "Default value for the <LANG>_VISIBILITY_PRESET target property when a target is created. Controls the default symbol visibility (default, hidden, protected, internal) for <LANG> code."_s },
-  { "CMAKE_POLICY_DEFAULT_CMP<NNNN>"_s,
-    "Default for CMake Policy CMP<NNNN> when otherwise left unset. Set to OLD or NEW to externally control the policy for projects that have not set it via cmake_minimum_required or cmake_policy."_s },
-  { "CMAKE_POLICY_WARNING_CMP<NNNN>"_s,
-    "Explicitly enable or disable the warning when CMake Policy CMP<NNNN> has not been set explicitly. Meaningful only for the policies that do not warn by default."_s },
+  { "RBLXBUILD_POLICY_DEFAULT_CMP<NNNN>"_s,
+    "Default for RBLXBuild Policy CMP<NNNN> when otherwise left unset. Set to OLD or NEW to externally control the policy for projects that have not set it via rblxbuild_minimum_required or rblxbuild_policy."_s },
+  { "RBLXBUILD_POLICY_WARNING_CMP<NNNN>"_s,
+    "Explicitly enable or disable the warning when RBLXBuild Policy CMP<NNNN> has not been set explicitly. Meaningful only for the policies that do not warn by default."_s },
 
   // === 1-placeholder, (23-literal-char bucket) ===
-  { "CMAKE_EXE_LINKER_FLAGS_<CONFIG>"_s,
-    "Flags used by the linker when creating an executable for the <CONFIG> configuration. Appended after the configuration-independent CMAKE_EXE_LINKER_FLAGS."_s },
-  { "CMAKE_LINK_GROUP_USING_<FEATURE>"_s,
+  { "RBLXBUILD_EXE_LINKER_FLAGS_<CONFIG>"_s,
+    "Flags used by the linker when creating an executable for the <CONFIG> configuration. Appended after the configuration-independent RBLXBUILD_EXE_LINKER_FLAGS."_s },
+  { "RBLXBUILD_LINK_GROUP_USING_<FEATURE>"_s,
     "Defines how to link a group of libraries for <FEATURE>."_s },
 
   // === 1-placeholder, (22-literal-char bucket) ===
-  { "CMAKE_<LANG>_LINKER_LAUNCHER"_s,
+  { "RBLXBUILD_<LANG>_LINKER_LAUNCHER"_s,
     "Default value for the <LANG>_LINKER_LAUNCHER target property; names a launcher tool prepended to every <LANG> link command. Applies only when <LANG> is C, CXX, CUDA, OBJC, OBJCXX, Fortran, or HIP."_s },
-  { "CMAKE_PROJECT_<PROJECT-NAME>_INCLUDE"_s,
-    "Path to a CMake language file included as the last step of any project() command call matching <PROJECT-NAME>. Intended for injecting custom code without modifying the project source."_s },
-  { "CMAKE_XCODE_ATTRIBUTE_<an-attribute>"_s,
+  { "RBLXBUILD_PROJECT_<PROJECT-NAME>_INCLUDE"_s,
+    "Path to a RBLXBuild language file included as the last step of any project() command call matching <PROJECT-NAME>. Intended for injecting custom code without modifying the project source."_s },
+  { "RBLXBUILD_XCODE_ATTRIBUTE_<an-attribute>"_s,
     "Tells the Xcode generator to set <an-attribute> to the given value in the generated Xcode project. Ignored on other generators. Low-level escape hatch for Xcode-specific settings."_s },
 
   // === 1-placeholder, (20-literal-char bucket) ===
-  { "CMAKE_<LANG>_HOST_COMPILER"_s,
+  { "RBLXBUILD_<LANG>_HOST_COMPILER"_s,
     "Host compiler executable for CUDA or HIP code compilation"_s },
 
   // === 1-placeholder, (17-literal-char bucket) ===
-  { "CMAKE_<LANG>_CLANG_TIDY"_s,
+  { "RBLXBUILD_<LANG>_CLANG_TIDY"_s,
     "Default value for the <LANG>_CLANG_TIDY target property; names a clang-tidy command (with arguments) run alongside compilation. Applies only when <LANG> is C, CXX, OBJC, or OBJCXX."_s },
-  { "CMAKE_<LANG>_EXTENSIONS"_s,
+  { "RBLXBUILD_<LANG>_EXTENSIONS"_s,
     "Default value for the <LANG>_EXTENSIONS target property when a target is created. Controls whether compiler-specific extensions to the language standard are enabled."_s },
-  { "CMAKE_<LANG>_FLAGS_INIT"_s,
-    "Toolchain-file hook initializing CMAKE_<LANG>_FLAGS the first time the build tree is configured for <LANG>. Set in toolchain or platform files; user projects should set CMAKE_<LANG>_FLAGS instead."_s },
-  { "CMAKE_<LANG>_LINK_FLAGS"_s,
-    "Language-wide flags for <LANG> used when linking for all configurations. Passed to every compiler invocation that drives linking. Per-config CMAKE_<LANG>_LINK_FLAGS_<CONFIG> are appended on top."_s },
-  { "CMAKE_<LANG>_PVS_STUDIO"_s,
+  { "RBLXBUILD_<LANG>_FLAGS_INIT"_s,
+    "Toolchain-file hook initializing RBLXBUILD_<LANG>_FLAGS the first time the build tree is configured for <LANG>. Set in toolchain or platform files; user projects should set RBLXBUILD_<LANG>_FLAGS instead."_s },
+  { "RBLXBUILD_<LANG>_LINK_FLAGS"_s,
+    "Language-wide flags for <LANG> used when linking for all configurations. Passed to every compiler invocation that drives linking. Per-config RBLXBUILD_<LANG>_LINK_FLAGS_<CONFIG> are appended on top."_s },
+  { "RBLXBUILD_<LANG>_PVS_STUDIO"_s,
     "Default value for the <LANG>_PVS_STUDIO target property; names a pvs-studio-analyzer command (with arguments) run alongside compilation. Applies only when <LANG> is C or CXX."_s },
 
   // === 1-placeholder, (15-literal-char bucket) ===
-  { "CMAKE_<LANG>_COMPILER"_s,
-    "Full path to the compiler used for language <LANG>. Set by CMake during compiler detection on the first configure; users may override on the command line to select a specific toolchain."_s },
-  { "CMAKE_<LANG>_CPPCHECK"_s,
+  { "RBLXBUILD_<LANG>_COMPILER"_s,
+    "Full path to the compiler used for language <LANG>. Set by RBLXBuild during compiler detection on the first configure; users may override on the command line to select a specific toolchain."_s },
+  { "RBLXBUILD_<LANG>_CPPCHECK"_s,
     "Default value for the <LANG>_CPPCHECK target property; names a cppcheck command (with arguments) run alongside compilation. Applies only when <LANG> is C or CXX."_s },
-  { "CMAKE_<LANG>_STANDARD"_s,
-    "Default value for the <LANG>_STANDARD target property when a target is created. Applies to <LANG> = C, CXX, CUDA, HIP, OBJC, OBJCXX. See cmake-compile-features(7)."_s },
+  { "RBLXBUILD_<LANG>_STANDARD"_s,
+    "Default value for the <LANG>_STANDARD target property when a target is created. Applies to <LANG> = C, CXX, CUDA, HIP, OBJC, OBJCXX. See rblxbuild-compile-features(7)."_s },
 
   // === 1-placeholder, (14-literal-char bucket) ===
-  { "CMAKE_<CONFIG>_POSTFIX"_s,
+  { "RBLXBUILD_<CONFIG>_POSTFIX"_s,
     "Default filename postfix for libraries under configuration <CONFIG>."_s },
-  { "CMAKE_<LANG>_CPPLINT"_s,
+  { "RBLXBUILD_<LANG>_CPPLINT"_s,
     "Default value for the <LANG>_CPPLINT target property; names a cpplint command (with arguments) run alongside compilation. Applies only when <LANG> is C or CXX."_s },
 
   // === 1-placeholder, (13-literal-char bucket) ===
-  { "CMAKE_<LANG>_ICSTAT"_s,
+  { "RBLXBUILD_<LANG>_ICSTAT"_s,
     "Default value for the <LANG>_ICSTAT target property; names an icstat static-analysis command (with arguments) run alongside compilation. Applies only when <LANG> is C or CXX."_s },
 
   // === 1-placeholder, (12-literal-char bucket) ===
-  { "CMAKE_<LANG>_FLAGS"_s,
+  { "RBLXBUILD_<LANG>_FLAGS"_s,
     "Language-wide compiler flags for <LANG>. Initialized from the language-specific environment variable (CFLAGS, CXXFLAGS, FFLAGS, etc.) the first time the language is enabled."_s },
-  { "CMAKE_MATCH_<n>"_s,
+  { "RBLXBUILD_MATCH_<n>"_s,
     "Capture group <n> matched by the most recent regular expression (groups 0 through 9). Group 0 is the entire match; groups 1 through 9 are the parenthesized subexpressions."_s },
 
   // === 1-placeholder, (11-literal-char bucket) ===
@@ -231,38 +231,38 @@ Entry const kPatterns[] = {
     "Initial search prefix(es) for find_package(<PackageName>); covers both the mixed-case form (CMP0074, e.g. Foo_ROOT) and the upper-case form (CMP0144, e.g. FOO_ROOT)."_s },
 
   // === 2-placeholder, (36-literal-char bucket) ===
-  { "CMAKE_<LANG>_LINK_LIBRARY_USING_<FEATURE>_SUPPORTED"_s,
+  { "RBLXBUILD_<LANG>_LINK_LIBRARY_USING_<FEATURE>_SUPPORTED"_s,
     "Set to TRUE if <FEATURE> is supported for linker language <LANG>."_s },
 
   // === 2-placeholder, (34-literal-char bucket) ===
-  { "CMAKE_<LANG>_LINK_GROUP_USING_<FEATURE>_SUPPORTED"_s,
+  { "RBLXBUILD_<LANG>_LINK_GROUP_USING_<FEATURE>_SUPPORTED"_s,
     "Specifies if <FEATURE> is supported for link language <LANG>."_s },
 
   // === 2-placeholder, (31-literal-char bucket) ===
-  { "CMAKE_<LANG>_LINK_LIBRARY_<FEATURE>_ATTRIBUTES"_s,
+  { "RBLXBUILD_<LANG>_LINK_LIBRARY_<FEATURE>_ATTRIBUTES"_s,
     "Defines semantics of link library <FEATURE> for language <LANG>."_s },
 
   // === 2-placeholder, (26-literal-char bucket) ===
-  { "CMAKE_<LANG>_LINK_LIBRARY_USING_<FEATURE>"_s,
+  { "RBLXBUILD_<LANG>_LINK_LIBRARY_USING_<FEATURE>"_s,
     "Defines how to link a library for <FEATURE>."_s },
 
   // === 2-placeholder, (24-literal-char bucket) ===
-  { "CMAKE_<LANG>_LINK_GROUP_USING_<FEATURE>"_s,
+  { "RBLXBUILD_<LANG>_LINK_GROUP_USING_<FEATURE>"_s,
     "Defines how to link a group of libraries for <FEATURE>."_s },
 
   // === 2-placeholder, (20-literal-char bucket) ===
-  { "CMAKE_<LANG>_USING_LINKER_<TYPE>"_s,
+  { "RBLXBUILD_<LANG>_USING_LINKER_<TYPE>"_s,
     "Defines how to specify the <TYPE> linker for the link step."_s },
 
   // === 2-placeholder, (18-literal-char bucket) ===
-  { "CMAKE_<LANG>_FLAGS_<CONFIG>_INIT"_s,
-    "Toolchain-file hook initializing CMAKE_<LANG>_FLAGS_<CONFIG> the first time the build tree is configured for language <LANG>. Intended for toolchain or platform files."_s },
-  { "CMAKE_<LANG>_LINK_FLAGS_<CONFIG>"_s,
-    "Language-wide flags for <LANG> used when linking for the <CONFIG> configuration. Passed to every compiler invocation that drives linking. Appended after CMAKE_<LANG>_LINK_FLAGS."_s },
+  { "RBLXBUILD_<LANG>_FLAGS_<CONFIG>_INIT"_s,
+    "Toolchain-file hook initializing RBLXBUILD_<LANG>_FLAGS_<CONFIG> the first time the build tree is configured for language <LANG>. Intended for toolchain or platform files."_s },
+  { "RBLXBUILD_<LANG>_LINK_FLAGS_<CONFIG>"_s,
+    "Language-wide flags for <LANG> used when linking for the <CONFIG> configuration. Passed to every compiler invocation that drives linking. Appended after RBLXBUILD_<LANG>_LINK_FLAGS."_s },
 
   // === 2-placeholder, (13-literal-char bucket) ===
-  { "CMAKE_<LANG>_FLAGS_<CONFIG>"_s,
-    "Language-wide flags for <LANG> used when building for the <CONFIG> configuration. Appended after CMAKE_<LANG>_FLAGS on both compile and link invocations."_s },
+  { "RBLXBUILD_<LANG>_FLAGS_<CONFIG>"_s,
+    "Language-wide flags for <LANG> used when building for the <CONFIG> configuration. Appended after RBLXBUILD_<LANG>_FLAGS on both compile and link invocations."_s },
 };
 /* clang-format on */
 
@@ -319,12 +319,12 @@ PlaceholderClass ClassOf(cm::string_view placeholder)
   // ``placeholder`` includes the surrounding angle brackets, e.g. "<LANG>".
   // ``<FEATURE>`` and ``<TYPE>`` are documented as identifiers by their
   // RSTs (e.g. WEAK / WHOLE_ARCHIVE for FEATURE in
-  // Help/variable/CMAKE_LINK_LIBRARY_USING_FEATURE.rst and LLD / MOLD
-  // for TYPE in Help/variable/CMAKE_LANG_USING_LINKER_TYPE.rst), so they
+  // Help/variable/RBLXBUILD_LINK_LIBRARY_USING_FEATURE.rst and LLD / MOLD
+  // for TYPE in Help/variable/RBLXBUILD_LANG_USING_LINKER_TYPE.rst), so they
   // share the ``Ident`` lexical class with <LANG>/<CONFIG>/<PackageName>.
   // Without this clause the eleven pattern entries that use these two
   // placeholders would never match any input (regression guarded by
-  // testEveryPatternReachable in Tests/CMakeLib).
+  // testEveryPatternReachable in Tests/RBLXBuildLib).
   if (placeholder == "<LANG>" || placeholder == "<CONFIG>" ||
       placeholder == "<PackageName>" || placeholder == "<FEATURE>" ||
       placeholder == "<TYPE>") {

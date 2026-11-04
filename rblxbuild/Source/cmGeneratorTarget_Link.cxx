@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 /* clang-format off */
 #include "cmGeneratorTarget.h"
 /* clang-format on */
@@ -44,7 +44,7 @@
 #include "cmTargetLinkLibraryType.h"
 #include "cmTargetTypes.h"
 #include "cmValue.h"
-#include "cmake.h"
+#include "rblxbuild.h"
 
 namespace {
 using UseTo = cmGeneratorTarget::UseTo;
@@ -175,7 +175,7 @@ public:
       return "";
     }
     if (this->Preferred.size() > 1) {
-      cmake* cm = this->Target->GetLocalGenerator()->GetCMakeInstance();
+      rblxbuild* cm = this->Target->GetLocalGenerator()->GetRBLXBuildInstance();
       cm->IssueMessage(
         MessageType::FATAL_ERROR,
         cmStrCat(
@@ -225,7 +225,7 @@ bool cmGeneratorTarget::ComputeLinkClosure(std::string const& config,
     // Now consider languages that propagate from linked targets.
     for (std::string const& lang : languages) {
       std::string propagates =
-        cmStrCat("CMAKE_", lang, "_LINKER_PREFERENCE_PROPAGATES");
+        cmStrCat("RBLXBUILD_", lang, "_LINKER_PREFERENCE_PROPAGATES");
       if (this->Makefile->IsOn(propagates)) {
         tsl.Consider(lang);
       }
@@ -349,7 +349,7 @@ cmComputeLinkInformation* cmGeneratorTarget::GetLinkInformation(
   auto i = this->LinkInformation.find(key);
   if (i != this->LinkInformation.end()) {
     if (cm::contains(this->LinkInformationInProgress, key)) {
-      this->GlobalGenerator->GetCMakeInstance()->IssueMessage(
+      this->GlobalGenerator->GetRBLXBuildInstance()->IssueMessage(
         MessageType::FATAL_ERROR,
         cmStrCat("The link dependencies of \"", this->GetName(),
                  "\" use a generator expression that depends on the link "
@@ -469,7 +469,7 @@ bool cmGeneratorTarget::VerifyLinkItemColons(LinkItemRole role,
   if (backtrace.Empty()) {
     backtrace = this->GetBacktrace();
   }
-  this->GetLocalGenerator()->GetCMakeInstance()->IssueMessage(
+  this->GetLocalGenerator()->GetRBLXBuildInstance()->IssueMessage(
     MessageType::FATAL_ERROR, e, backtrace);
   return false;
 }
@@ -500,7 +500,7 @@ bool cmGeneratorTarget::VerifyLinkItemIsTarget(LinkItemRole role,
   if (backtrace.Empty()) {
     backtrace = this->GetBacktrace();
   }
-  this->LocalGenerator->GetCMakeInstance()->IssueMessage(
+  this->LocalGenerator->GetRBLXBuildInstance()->IssueMessage(
     MessageType::FATAL_ERROR, e, backtrace);
   return false;
 }
@@ -508,8 +508,8 @@ bool cmGeneratorTarget::VerifyLinkItemIsTarget(LinkItemRole role,
 bool cmGeneratorTarget::IsLinkLookupScope(std::string const& n,
                                           cmLocalGenerator const*& lg) const
 {
-  if (cmHasLiteralPrefix(n, CMAKE_DIRECTORY_ID_SEP)) {
-    cmDirectoryId const dirId = n.substr(cmStrLen(CMAKE_DIRECTORY_ID_SEP));
+  if (cmHasLiteralPrefix(n, RBLXBUILD_DIRECTORY_ID_SEP)) {
+    cmDirectoryId const dirId = n.substr(cmStrLen(RBLXBUILD_DIRECTORY_ID_SEP));
     if (dirId.String.empty()) {
       lg = this->LocalGenerator;
       return true;
@@ -575,7 +575,7 @@ void cmGeneratorTarget::ExpandLinkItems(std::string const& prop,
   cmMakefile const* mf = this->LocalGenerator->GetMakefile();
   LookupLinkItemScope scope{ this->LocalGenerator };
   for (BT<std::string> const& entry : entries) {
-    cmGeneratorExpression ge(*this->LocalGenerator->GetCMakeInstance(),
+    cmGeneratorExpression ge(*this->LocalGenerator->GetRBLXBuildInstance(),
                              entry.Backtrace);
     std::unique_ptr<cmCompiledGeneratorExpression> cge = ge.Parse(entry.Value);
     cge->SetEvaluateForBuildsystem(true);
@@ -836,7 +836,7 @@ std::vector<cmLinkItem> cmGeneratorTarget::ComputeImplicitLanguageTargets(
   std::string const& runtimeLibrary =
     this->GetRuntimeLinkLibrary(lang, config);
   if (cmValue runtimeLinkOptions = this->Makefile->GetDefinition(
-        cmStrCat("CMAKE_", lang, "_RUNTIME_LIBRARIES_", runtimeLibrary))) {
+        cmStrCat("RBLXBUILD_", lang, "_RUNTIME_LIBRARIES_", runtimeLibrary))) {
     cmList libsList{ *runtimeLinkOptions };
     result.reserve(libsList.size());
 
@@ -1152,7 +1152,7 @@ void cmGeneratorTarget::ComputeLinkImplementationLibraries(
           break;
       }
     }
-    cmGeneratorExpression ge(*this->LocalGenerator->GetCMakeInstance(),
+    cmGeneratorExpression ge(*this->LocalGenerator->GetRBLXBuildInstance(),
                              entry.Backtrace);
     std::unique_ptr<cmCompiledGeneratorExpression> const cge =
       ge.Parse(entry.Value);
@@ -1192,7 +1192,7 @@ void cmGeneratorTarget::ComputeLinkImplementationLibraries(
       }
       if (name == this->GetName() || name.empty()) {
         if (name == this->GetName()) {
-          this->LocalGenerator->GetCMakeInstance()->IssueMessage(
+          this->LocalGenerator->GetRBLXBuildInstance()->IssueMessage(
             MessageType::FATAL_ERROR,
             cmStrCat("Target \"", this->GetName(), "\" links to itself."),
             this->GetBacktrace());
@@ -1243,7 +1243,7 @@ void cmGeneratorTarget::ComputeLinkImplementationLibraries(
 
   // Get the list of configurations considered to be DEBUG.
   std::vector<std::string> debugConfigs =
-    this->Makefile->GetCMakeInstance()->GetDebugConfigs();
+    this->Makefile->GetRBLXBuildInstance()->GetDebugConfigs();
 
   cmTargetLinkLibraryType linkType = ComputeLinkType(config, debugConfigs);
   cmTarget::LinkLibraryVectorType const& oldllibs =

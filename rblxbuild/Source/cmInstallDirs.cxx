@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmInstallDirs.h"
 
 #include <cmext/string_view>
@@ -24,88 +24,88 @@ namespace cm {
 namespace InstallDirs {
 std::string GetRuntimeDirectory(cmMakefile const* makefile)
 {
-  return GetDirectory(makefile, "CMAKE_INSTALL_BINDIR", "bin");
+  return GetDirectory(makefile, "RBLXBUILD_INSTALL_BINDIR", "bin");
 }
 
 std::string GetSbinDirectory(cmMakefile const* makefile)
 {
-  return GetDirectory(makefile, "CMAKE_INSTALL_SBINDIR", "sbin");
+  return GetDirectory(makefile, "RBLXBUILD_INSTALL_SBINDIR", "sbin");
 }
 
 std::string GetArchiveDirectory(cmMakefile const* makefile)
 {
-  return GetDirectory(makefile, "CMAKE_INSTALL_LIBDIR", "lib");
+  return GetDirectory(makefile, "RBLXBUILD_INSTALL_LIBDIR", "lib");
 }
 
 std::string GetLibraryDirectory(cmMakefile const* makefile)
 {
-  return GetDirectory(makefile, "CMAKE_INSTALL_LIBDIR", "lib");
+  return GetDirectory(makefile, "RBLXBUILD_INSTALL_LIBDIR", "lib");
 }
 
 std::string GetIncludeDirectory(cmMakefile const* makefile)
 {
-  return GetDirectory(makefile, "CMAKE_INSTALL_INCLUDEDIR", "include");
+  return GetDirectory(makefile, "RBLXBUILD_INSTALL_INCLUDEDIR", "include");
 }
 
 std::string GetSysconfDirectory(cmMakefile const* makefile)
 {
-  return GetDirectory(makefile, "CMAKE_INSTALL_SYSCONFDIR", "etc");
+  return GetDirectory(makefile, "RBLXBUILD_INSTALL_SYSCONFDIR", "etc");
 }
 
 std::string GetSharedStateDirectory(cmMakefile const* makefile)
 {
-  return GetDirectory(makefile, "CMAKE_INSTALL_SHAREDSTATEDIR", "com");
+  return GetDirectory(makefile, "RBLXBUILD_INSTALL_SHAREDSTATEDIR", "com");
 }
 
 std::string GetLocalStateDirectory(cmMakefile const* makefile)
 {
-  return GetDirectory(makefile, "CMAKE_INSTALL_LOCALSTATEDIR", "var");
+  return GetDirectory(makefile, "RBLXBUILD_INSTALL_LOCALSTATEDIR", "var");
 }
 
 std::string GetRunStateDirectory(cmMakefile const* makefile)
 {
-  return GetDirectory(makefile, "CMAKE_INSTALL_RUNSTATEDIR",
+  return GetDirectory(makefile, "RBLXBUILD_INSTALL_RUNSTATEDIR",
                       cmStrCat(GetLocalStateDirectory(makefile), "/run"));
 }
 
 std::string GetDataRootDirectory(cmMakefile const* makefile)
 {
-  return GetDirectory(makefile, "CMAKE_INSTALL_DATAROOTDIR", "share");
+  return GetDirectory(makefile, "RBLXBUILD_INSTALL_DATAROOTDIR", "share");
 }
 
 std::string GetDataDirectory(cmMakefile const* makefile)
 {
-  return GetDirectory(makefile, "CMAKE_INSTALL_DATADIR",
+  return GetDirectory(makefile, "RBLXBUILD_INSTALL_DATADIR",
                       GetDataRootDirectory(makefile));
 }
 
 std::string GetInfoDirectory(cmMakefile const* makefile)
 {
-  return GetDirectory(makefile, "CMAKE_INSTALL_INFODIR",
+  return GetDirectory(makefile, "RBLXBUILD_INSTALL_INFODIR",
                       cmStrCat(GetDataRootDirectory(makefile), "/info"));
 }
 
 std::string GetLocaleDirectory(cmMakefile const* makefile)
 {
-  return GetDirectory(makefile, "CMAKE_INSTALL_LOCALEDIR",
+  return GetDirectory(makefile, "RBLXBUILD_INSTALL_LOCALEDIR",
                       cmStrCat(GetDataRootDirectory(makefile), "/locale"));
 }
 
 std::string GetManDirectory(cmMakefile const* makefile)
 {
-  return GetDirectory(makefile, "CMAKE_INSTALL_MANDIR",
+  return GetDirectory(makefile, "RBLXBUILD_INSTALL_MANDIR",
                       cmStrCat(GetDataRootDirectory(makefile), "/man"));
 }
 
 std::string GetDocDirectory(cmMakefile const* makefile)
 {
-  return GetDirectory(makefile, "CMAKE_INSTALL_DOCDIR",
+  return GetDirectory(makefile, "RBLXBUILD_INSTALL_DOCDIR",
                       cmStrCat(GetDataRootDirectory(makefile), "/doc"));
 }
 
 std::string GetLibExecDirectory(cmMakefile const* makefile)
 {
-  return GetDirectory(makefile, "CMAKE_INSTALL_LIBEXECDIR", "libexec");
+  return GetDirectory(makefile, "RBLXBUILD_INSTALL_LIBEXECDIR", "libexec");
 }
 
 std::string GetDirectoryForType(cmMakefile const* makefile,

@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmCTestSubmitCommand.h"
 
 #include <set>
@@ -34,66 +34,66 @@ std::unique_ptr<cmCTestGenericHandler> cmCTestSubmitCommand::InitializeHandler(
   if (submitURL) {
     this->CTest->SetCTestConfiguration("SubmitURL", *submitURL, args.Quiet);
   } else {
-    this->CTest->SetCTestConfigurationFromCMakeVariable(
+    this->CTest->SetCTestConfigurationFromRBLXBuildVariable(
       &mf, "DropMethod", "CTEST_DROP_METHOD", args.Quiet);
-    this->CTest->SetCTestConfigurationFromCMakeVariable(
+    this->CTest->SetCTestConfigurationFromRBLXBuildVariable(
       &mf, "DropSiteUser", "CTEST_DROP_SITE_USER", args.Quiet);
-    this->CTest->SetCTestConfigurationFromCMakeVariable(
+    this->CTest->SetCTestConfigurationFromRBLXBuildVariable(
       &mf, "DropSitePassword", "CTEST_DROP_SITE_PASSWORD", args.Quiet);
-    this->CTest->SetCTestConfigurationFromCMakeVariable(
+    this->CTest->SetCTestConfigurationFromRBLXBuildVariable(
       &mf, "DropSite", "CTEST_DROP_SITE", args.Quiet);
-    this->CTest->SetCTestConfigurationFromCMakeVariable(
+    this->CTest->SetCTestConfigurationFromRBLXBuildVariable(
       &mf, "DropLocation", "CTEST_DROP_LOCATION", args.Quiet);
   }
 
-  if (!this->CTest->SetCTestConfigurationFromCMakeVariable(
+  if (!this->CTest->SetCTestConfigurationFromRBLXBuildVariable(
         &mf, "TLSVersion", "CTEST_TLS_VERSION", args.Quiet)) {
-    if (cmValue tlsVersionVar = mf.GetDefinition("CMAKE_TLS_VERSION")) {
+    if (cmValue tlsVersionVar = mf.GetDefinition("RBLXBUILD_TLS_VERSION")) {
       cmCTestOptionalLog(
         this->CTest, HANDLER_VERBOSE_OUTPUT, args.Quiet,
-        "SetCTestConfiguration from CMAKE_TLS_VERSION:TLSVersion:",
+        "SetCTestConfiguration from RBLXBUILD_TLS_VERSION:TLSVersion:",
         *tlsVersionVar, '\n');
       this->CTest->SetCTestConfiguration("TLSVersion", *tlsVersionVar,
                                          args.Quiet);
     } else if (cm::optional<std::string> tlsVersionEnv =
-                 cmSystemTools::GetEnvVar("CMAKE_TLS_VERSION")) {
+                 cmSystemTools::GetEnvVar("RBLXBUILD_TLS_VERSION")) {
       cmCTestOptionalLog(
         this->CTest, HANDLER_VERBOSE_OUTPUT, args.Quiet,
-        "SetCTestConfiguration from ENV{CMAKE_TLS_VERSION}:TLSVersion:",
+        "SetCTestConfiguration from ENV{RBLXBUILD_TLS_VERSION}:TLSVersion:",
         *tlsVersionEnv, '\n');
       this->CTest->SetCTestConfiguration("TLSVersion", *tlsVersionEnv,
                                          args.Quiet);
     }
   }
-  if (!this->CTest->SetCTestConfigurationFromCMakeVariable(
+  if (!this->CTest->SetCTestConfigurationFromRBLXBuildVariable(
         &mf, "TLSVerify", "CTEST_TLS_VERIFY", args.Quiet)) {
-    if (cmValue tlsVerifyVar = mf.GetDefinition("CMAKE_TLS_VERIFY")) {
+    if (cmValue tlsVerifyVar = mf.GetDefinition("RBLXBUILD_TLS_VERIFY")) {
       cmCTestOptionalLog(
         this->CTest, HANDLER_VERBOSE_OUTPUT, args.Quiet,
-        "SetCTestConfiguration from CMAKE_TLS_VERIFY:TLSVerify:",
+        "SetCTestConfiguration from RBLXBUILD_TLS_VERIFY:TLSVerify:",
         *tlsVerifyVar, '\n');
       this->CTest->SetCTestConfiguration("TLSVerify", *tlsVerifyVar,
                                          args.Quiet);
     } else if (cm::optional<std::string> tlsVerifyEnv =
-                 cmSystemTools::GetEnvVar("CMAKE_TLS_VERIFY")) {
+                 cmSystemTools::GetEnvVar("RBLXBUILD_TLS_VERIFY")) {
       cmCTestOptionalLog(
         this->CTest, HANDLER_VERBOSE_OUTPUT, args.Quiet,
-        "SetCTestConfiguration from ENV{CMAKE_TLS_VERIFY}:TLSVerify:",
+        "SetCTestConfiguration from ENV{RBLXBUILD_TLS_VERIFY}:TLSVerify:",
         *tlsVerifyEnv, '\n');
       this->CTest->SetCTestConfiguration("TLSVerify", *tlsVerifyEnv,
                                          args.Quiet);
     }
   }
-  this->CTest->SetCTestConfigurationFromCMakeVariable(
+  this->CTest->SetCTestConfigurationFromRBLXBuildVariable(
     &mf, "CurlOptions", "CTEST_CURL_OPTIONS", args.Quiet);
-  this->CTest->SetCTestConfigurationFromCMakeVariable(
+  this->CTest->SetCTestConfigurationFromRBLXBuildVariable(
     &mf, "SubmitInactivityTimeout", "CTEST_SUBMIT_INACTIVITY_TIMEOUT",
     args.Quiet);
 
   cmValue notesFilesVariable = mf.GetDefinition("CTEST_NOTES_FILES");
   if (notesFilesVariable) {
     cmList notesFiles{ *notesFilesVariable };
-    this->CTest->GenerateNotesFile(mf.GetCMakeInstance(), notesFiles);
+    this->CTest->GenerateNotesFile(mf.GetRBLXBuildInstance(), notesFiles);
   }
 
   cmValue extraFilesVariable = mf.GetDefinition("CTEST_EXTRA_SUBMIT_FILES");

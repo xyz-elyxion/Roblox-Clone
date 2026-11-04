@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #pragma once
 
 #include "cmConfigure.h" // IWYU pragma: keep
@@ -22,7 +22,7 @@ class cmCustomCommand;
 class cmGeneratorTarget;
 class cmLocalGenerator;
 class cmMakefile;
-class cmake;
+class rblxbuild;
 
 /** \class cmGlobalVisualStudioGenerator
  * \brief Base class for global Visual Studio generators.
@@ -52,10 +52,10 @@ public:
   std::string const& GetPlatformName() const;
 
   /**
-   * Configure CMake's Visual Studio macros file into the user's Visual
+   * Configure RBLXBuild's Visual Studio macros file into the user's Visual
    * Studio macros directory.
    */
-  virtual void ConfigureCMakeVisualStudioMacros();
+  virtual void ConfigureRBLXBuildVisualStudioMacros();
 
   /**
    * Where does this version of Visual Studio look for macros for the
@@ -154,7 +154,7 @@ public:
   std::string GetGUID(std::string const& name) const;
 
 protected:
-  cmGlobalVisualStudioGenerator(cmake* cm);
+  cmGlobalVisualStudioGenerator(rblxbuild* cm);
 
   /** Return true when using a Visual Studio clang-cl toolset.  */
   virtual bool IsClangClToolset() const { return false; }

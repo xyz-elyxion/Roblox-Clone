@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 /* clang-format off */
 #include "cmGeneratorTarget.h"
 /* clang-format on */
@@ -24,7 +24,7 @@
 #include "cmStringAlgorithms.h"
 #include "cmUnreachable.h"
 #include "cmValue.h"
-#include "cmake.h"
+#include "rblxbuild.h"
 
 namespace {
 
@@ -63,7 +63,7 @@ void ProcessWrappers(cmGeneratorTarget const* tgt,
       }
     }
     if (!usedOptions.empty()) {
-      tgt->GetLocalGenerator()->GetCMakeInstance()->IssueMessage(
+      tgt->GetLocalGenerator()->GetRBLXBuildInstance()->IssueMessage(
         MessageType::LOG,
         cmStrCat("Used ", WrapperTypeToString(wrapperType),
                  " wrappers for target ", tgt->GetName(), ":\n", usedOptions),
@@ -98,7 +98,7 @@ std::vector<BT<std::string>> cmGeneratorTarget::GetLinkWrappers(
   };
 
   cmList debugProperties{ this->Makefile->GetDefinition(
-    "CMAKE_DEBUG_TARGET_PROPERTIES") };
+    "RBLXBUILD_DEBUG_TARGET_PROPERTIES") };
   bool debugWrappers = !this->DebugLinkWrappersDone &&
     cm::contains(debugProperties, "LINK_WRAPPERS");
   this->DebugLinkWrappersDone = true;
@@ -135,7 +135,7 @@ std::vector<BT<std::string>> cmGeneratorTarget::GetCompileWrappers(
   };
 
   cmList debugProperties{ this->Makefile->GetDefinition(
-    "CMAKE_DEBUG_TARGET_PROPERTIES") };
+    "RBLXBUILD_DEBUG_TARGET_PROPERTIES") };
   bool debugWrappers = !this->DebugCompileWrappersDone &&
     cm::contains(debugProperties, "COMPILE_WRAPPERS");
   this->DebugCompileWrappersDone = true;

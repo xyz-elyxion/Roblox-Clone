@@ -1,0 +1,628 @@
+# Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
+# file LICENSE.rst or https://rblxbuild.org/licensing for details.
+
+# When RBLXBUILD_SYSTEM_NAME is "Android", RBLXBuildDetermineSystem loads this module.
+# This module detects platform-wide information about the Android target
+# in order to store it in "RBLXBuildSystem.rblxbuild".
+
+# Include the NDK hook.
+# It can be used by NDK to inject necessary fixes for an earlier rblxbuild.
+if(RBLXBUILD_ANDROID_NDK)
+  include(${RBLXBUILD_ANDROID_NDK}/build/rblxbuild/hooks/pre/Android-Determine.rblxbuild OPTIONAL)
+endif()
+
+# Support for NVIDIA Nsight Tegra Visual Studio Edition was previously
+# implemented in the RBLXBuild VS IDE generators.  Avoid interfering with
+# that functionality for now.
+if(RBLXBUILD_GENERATOR_PLATFORM STREQUAL "Tegra-Android")
+  return()
+endif()
+
+# Commonly used Android toolchain files that pre-date RBLXBuild upstream support
+# set RBLXBUILD_SYSTEM_VERSION to 1.  Avoid interfering with them.
+if(RBLXBUILD_SYSTEM_VERSION EQUAL 1)
+  return()
+endif()
+
+# Natively compiling on an Android host doesn't use the NDK cross-compilation
+# tools.
+if(RBLXBUILD_HOST_SYSTEM_NAME STREQUAL "Android")
+  return()
+endif()
+
+rblxbuild_policy(PUSH)
+rblxbuild_policy(SET CMP0159 NEW) # file(STRINGS) with REGEX updates RBLXBUILD_MATCH_<n>
+
+# If using Android tools for Visual Studio, compile a sample project to get the
+# NDK path and set the processor from the generator platform.
+if(RBLXBUILD_GENERATOR MATCHES "Visual Studio")
+  if(NOT RBLXBUILD_ANDROID_ARCH_ABI AND NOT RBLXBUILD_SYSTEM_PROCESSOR)
+    if(RBLXBUILD_GENERATOR_PLATFORM STREQUAL "ARM")
+      set(RBLXBUILD_SYSTEM_PROCESSOR "armv7-a")
+    elseif(RBLXBUILD_GENERATOR_PLATFORM STREQUAL "ARM64")
+      set(RBLXBUILD_SYSTEM_PROCESSOR "aarch64")
+    elseif(RBLXBUILD_GENERATOR_PLATFORM STREQUAL "x86")
+      set(RBLXBUILD_SYSTEM_PROCESSOR "i686")
+    elseif(RBLXBUILD_GENERATOR_PLATFORM STREQUAL "x64")
+      set(RBLXBUILD_SYSTEM_PROCESSOR "x86_64")
+    else()
+      message(FATAL_ERROR "Unhandled generator platform, please choose ARM, ARM64, x86 or x86_64 using -A")
+    endif()
+  endif()
+  if(NOT RBLXBUILD_ANDROID_NDK)
+    set(vcx_platform ${RBLXBUILD_GENERATOR_PLATFORM})
+    if(RBLXBUILD_GENERATOR MATCHES "Visual Studio 14")
+      set(vcx_revision "2.0")
+    elseif(RBLXBUILD_GENERATOR MATCHES "Visual Studio 1[5678]")
+      set(vcx_revision "3.0")
+    else()
+      set(vcx_revision "")
+    endif()
+    configure_file(${RBLXBUILD_ROOT}/Modules/Platform/Android/VCXProjInspect.vcxproj.in
+      ${RBLXBUILD_PLATFORM_INFO_DIR}/VCXProjInspect.vcxproj @ONLY)
+    rblxbuild_host_system_information(RESULT _msbuild QUERY VS_MSBUILD_COMMAND) # undocumented query
+    execute_process(
+      COMMAND "${_msbuild}" "VCXProjInspect.vcxproj"
+        "/p:Configuration=Debug" "/p:Platform=${vcx_platform}"
+      WORKING_DIRECTORY ${RBLXBUILD_PLATFORM_INFO_DIR}
+      OUTPUT_VARIABLE VCXPROJ_INSPECT_OUTPUT
+      ERROR_VARIABLE VCXPROJ_INSPECT_OUTPUT
+      RESULT_VARIABLE VCXPROJ_INSPECT_RESULT
+      )
+    unset(_msbuild)
+    if(VCXPROJ_INSPECT_OUTPUT MATCHES "RBLXBUILD_ANDROID_NDK=([^%\r\n]+)[\r\n]")
+      # Strip VS diagnostic output from the end of the line.
+      string(REGEX REPLACE " \\(TaskId:[0-9]*\\)$" "" _ndk "${RBLXBUILD_MATCH_1}")
+      if(EXISTS "${_ndk}")
+        file(TO_RBLXBUILD_PATH "${_ndk}" RBLXBUILD_ANDROID_NDK)
+      endif()
+    endif()
+    if(VCXPROJ_INSPECT_RESULT)
+      message(CONFIGURE_LOG
+        "Determining the Android NDK failed from msbuild failed.
+The output was:
+${VCXPROJ_INSPECT_RESULT}
+${VCXPROJ_INSPECT_OUTPUT}
+
+")
+    else()
+      message(CONFIGURE_LOG
+        "Determining the Android NDK succeeded.
+The output was:
+${VCXPROJ_INSPECT_RESULT}
+${VCXPROJ_INSPECT_OUTPUT}
+
+")
+    endif()
+  endif()
+  if(NOT RBLXBUILD_ANDROID_NDK_TOOLCHAIN_VERSION)
+    set(RBLXBUILD_ANDROID_NDK_TOOLCHAIN_VERSION "clang")
+  endif()
+endif()
+
+# If the user provided RBLXBUILD_SYSROOT for us, extract information from it.
+set(_ANDROID_SYSROOT_NDK "")
+set(_ANDROID_SYSROOT_API "")
+set(_ANDROID_SYSROOT_ARCH "")
+set(_ANDROID_SYSROOT_STANDALONE_TOOLCHAIN "")
+if(RBLXBUILD_SYSROOT)
+  if(NOT IS_DIRECTORY "${RBLXBUILD_SYSROOT}")
+    message(FATAL_ERROR
+      "Android: The specified RBLXBUILD_SYSROOT:\n"
+      "  ${RBLXBUILD_SYSROOT}\n"
+      "is not an existing directory."
+      )
+  endif()
+  if(RBLXBUILD_SYSROOT MATCHES "^([^\\\n]*)/platforms/android-([0-9]+)/arch-([a-z0-9_]+)$")
+    set(_ANDROID_SYSROOT_NDK "${RBLXBUILD_MATCH_1}")
+    set(_ANDROID_SYSROOT_API "${RBLXBUILD_MATCH_2}")
+    set(_ANDROID_SYSROOT_ARCH "${RBLXBUILD_MATCH_3}")
+  elseif(RBLXBUILD_SYSROOT MATCHES "^([^\\\n]*)/sysroot$")
+    set(_ANDROID_SYSROOT_STANDALONE_TOOLCHAIN "${RBLXBUILD_MATCH_1}")
+  else()
+    message(FATAL_ERROR
+      "The value of RBLXBUILD_SYSROOT:\n"
+      "  ${RBLXBUILD_SYSROOT}\n"
+      "does not match any of the forms:\n"
+      "  <ndk>/platforms/android-<api>/arch-<arch>\n"
+      "  <standalone-toolchain>/sysroot\n"
+      "where:\n"
+      "  <ndk>  = Android NDK directory (with forward slashes)\n"
+      "  <api>  = Android API version number (decimal digits)\n"
+      "  <arch> = Android ARCH name (lower case)\n"
+      "  <standalone-toolchain> = Path to standalone toolchain prefix\n"
+      )
+  endif()
+endif()
+
+# Find the Android NDK.
+if(RBLXBUILD_ANDROID_NDK)
+  if(NOT IS_DIRECTORY "${RBLXBUILD_ANDROID_NDK}")
+    message(FATAL_ERROR
+      "Android: The NDK root directory specified by RBLXBUILD_ANDROID_NDK:\n"
+      "  ${RBLXBUILD_ANDROID_NDK}\n"
+      "does not exist."
+      )
+  endif()
+elseif(RBLXBUILD_ANDROID_STANDALONE_TOOLCHAIN)
+  if(NOT IS_DIRECTORY "${RBLXBUILD_ANDROID_STANDALONE_TOOLCHAIN}")
+    message(FATAL_ERROR
+      "Android: The standalone toolchain directory specified by RBLXBUILD_ANDROID_STANDALONE_TOOLCHAIN:\n"
+      "  ${RBLXBUILD_ANDROID_STANDALONE_TOOLCHAIN}\n"
+      "does not exist."
+      )
+  endif()
+  if(NOT EXISTS "${RBLXBUILD_ANDROID_STANDALONE_TOOLCHAIN}/sysroot/usr/include/android/api-level.h")
+    message(FATAL_ERROR
+      "Android: The standalone toolchain directory specified by RBLXBUILD_ANDROID_STANDALONE_TOOLCHAIN:\n"
+      "  ${RBLXBUILD_ANDROID_STANDALONE_TOOLCHAIN}\n"
+      "does not contain a sysroot with a known layout.  The file:\n"
+      "  ${RBLXBUILD_ANDROID_STANDALONE_TOOLCHAIN}/sysroot/usr/include/android/api-level.h\n"
+      "does not exist."
+      )
+  endif()
+else()
+  if(IS_DIRECTORY "${_ANDROID_SYSROOT_NDK}")
+    set(RBLXBUILD_ANDROID_NDK "${_ANDROID_SYSROOT_NDK}")
+  elseif(IS_DIRECTORY "${_ANDROID_SYSROOT_STANDALONE_TOOLCHAIN}")
+    set(RBLXBUILD_ANDROID_STANDALONE_TOOLCHAIN "${_ANDROID_SYSROOT_STANDALONE_TOOLCHAIN}")
+  elseif(IS_DIRECTORY "${ANDROID_NDK}")
+    file(TO_RBLXBUILD_PATH "${ANDROID_NDK}" RBLXBUILD_ANDROID_NDK)
+  elseif(IS_DIRECTORY "${ANDROID_STANDALONE_TOOLCHAIN}")
+    file(TO_RBLXBUILD_PATH "${ANDROID_STANDALONE_TOOLCHAIN}" RBLXBUILD_ANDROID_STANDALONE_TOOLCHAIN)
+  elseif(IS_DIRECTORY "$ENV{ANDROID_NDK_ROOT}")
+    file(TO_RBLXBUILD_PATH "$ENV{ANDROID_NDK_ROOT}" RBLXBUILD_ANDROID_NDK)
+  elseif(IS_DIRECTORY "$ENV{ANDROID_NDK}")
+    file(TO_RBLXBUILD_PATH "$ENV{ANDROID_NDK}" RBLXBUILD_ANDROID_NDK)
+  elseif(IS_DIRECTORY "$ENV{ANDROID_STANDALONE_TOOLCHAIN}")
+    file(TO_RBLXBUILD_PATH "$ENV{ANDROID_STANDALONE_TOOLCHAIN}" RBLXBUILD_ANDROID_STANDALONE_TOOLCHAIN)
+  endif()
+  # TODO: Search harder for the NDK or standalone toolchain.
+endif()
+
+set(_ANDROID_STANDALONE_TOOLCHAIN_API "")
+if(RBLXBUILD_ANDROID_STANDALONE_TOOLCHAIN)
+  # Try to read the API level from the toolchain launcher.
+  if(EXISTS "${RBLXBUILD_ANDROID_STANDALONE_TOOLCHAIN}/bin/clang")
+    set(_ANDROID_API_LEVEL_CLANG_REGEX "__ANDROID_API__=([0-9]+)")
+    file(STRINGS "${RBLXBUILD_ANDROID_STANDALONE_TOOLCHAIN}/bin/clang" _ANDROID_STANDALONE_TOOLCHAIN_BIN_CLANG
+      REGEX "${_ANDROID_API_LEVEL_CLANG_REGEX}" LIMIT_COUNT 1 LIMIT_INPUT 65536)
+    if(_ANDROID_STANDALONE_TOOLCHAIN_BIN_CLANG MATCHES "${_ANDROID_API_LEVEL_CLANG_REGEX}")
+      set(_ANDROID_STANDALONE_TOOLCHAIN_API "${RBLXBUILD_MATCH_1}")
+    endif()
+    unset(_ANDROID_STANDALONE_TOOLCHAIN_BIN_CLANG)
+    unset(_ANDROID_API_LEVEL_CLANG_REGEX)
+  endif()
+  if(NOT _ANDROID_STANDALONE_TOOLCHAIN_API)
+    # The compiler launcher does not know __ANDROID_API__.  Assume this
+    # is not unified headers and look for it in the api-level.h header.
+    set(_ANDROID_API_LEVEL_H_REGEX "^[\t ]*#[\t ]*define[\t ]+__ANDROID_API__[\t ]+([0-9]+)")
+    file(STRINGS "${RBLXBUILD_ANDROID_STANDALONE_TOOLCHAIN}/sysroot/usr/include/android/api-level.h"
+      _ANDROID_API_LEVEL_H_CONTENT REGEX "${_ANDROID_API_LEVEL_H_REGEX}")
+    if(_ANDROID_API_LEVEL_H_CONTENT MATCHES "${_ANDROID_API_LEVEL_H_REGEX}")
+      set(_ANDROID_STANDALONE_TOOLCHAIN_API "${RBLXBUILD_MATCH_1}")
+    endif()
+  endif()
+  if(NOT _ANDROID_STANDALONE_TOOLCHAIN_API)
+    message(WARNING
+      "Android: Did not detect API level from\n"
+      "  ${RBLXBUILD_ANDROID_STANDALONE_TOOLCHAIN}/bin/clang\n"
+      "or\n"
+      "  ${RBLXBUILD_ANDROID_STANDALONE_TOOLCHAIN}/sysroot/usr/include/android/api-level.h\n"
+      )
+  endif()
+endif()
+
+if(NOT RBLXBUILD_ANDROID_NDK AND NOT RBLXBUILD_ANDROID_STANDALONE_TOOLCHAIN)
+  message(FATAL_ERROR "Android: Neither the NDK or a standalone toolchain was found.")
+endif()
+
+if(RBLXBUILD_ANDROID_NDK)
+  # NDK >= 18 has platforms.rblxbuild. It provides:
+  #   NDK_MIN_PLATFORM_LEVEL
+  #   NDK_MAX_PLATFORM_LEVEL
+  include("${RBLXBUILD_ANDROID_NDK}/build/rblxbuild/platforms.rblxbuild" OPTIONAL RESULT_VARIABLE _INCLUDED_PLATFORMS)
+  # NDK >= 18 has abis.rblxbuild. It provides:
+  #   NDK_KNOWN_DEVICE_ABI32S
+  #   NDK_KNOWN_DEVICE_ABI64S
+  # NDK >= 23 also provides:
+  #   NDK_KNOWN_DEVICE_ABIS
+  #   NDK_ABI_<abi>_PROC
+  #   NDK_ABI_<abi>_ARCH
+  #   NDK_ABI_<abi>_TRIPLE
+  #   NDK_ABI_<abi>_LLVM_TRIPLE
+  #   NDK_PROC_<processor>_ABI
+  #   NDK_ARCH_<arch>_ABI
+  include("${RBLXBUILD_ANDROID_NDK}/build/rblxbuild/abis.rblxbuild" OPTIONAL RESULT_VARIABLE _INCLUDED_ABIS)
+endif()
+
+if(RBLXBUILD_ANDROID_NDK AND EXISTS "${RBLXBUILD_ANDROID_NDK}/source.properties")
+  # Android NDK revision
+  # Possible formats:
+  # * r16, build 1234: 16.0.1234
+  # * r16b, build 1234: 16.1.1234
+  # * r16 beta 1, build 1234: 16.0.1234-beta1
+  #
+  # Canary builds are not specially marked.
+  file(READ "${RBLXBUILD_ANDROID_NDK}/source.properties" _ANDROID_NDK_SOURCE_PROPERTIES)
+
+  set(_ANDROID_NDK_REVISION_REGEX
+    "^Pkg\\.Desc = Android NDK\nPkg\\.Revision = ([0-9]+)\\.([0-9]+)\\.([0-9]+)(-beta([0-9]+))?")
+  if(NOT _ANDROID_NDK_SOURCE_PROPERTIES MATCHES "${_ANDROID_NDK_REVISION_REGEX}")
+    string(REPLACE "\n" "\n  " _ANDROID_NDK_SOURCE_PROPERTIES "${_ANDROID_NDK_SOURCE_PROPERTIES}")
+    message(FATAL_ERROR
+      "Android: Failed to parse NDK revision from:\n"
+      " ${RBLXBUILD_ANDROID_NDK}/source.properties\n"
+      "with content:\n"
+      "  ${_ANDROID_NDK_SOURCE_PROPERTIES}")
+  endif()
+
+  set(_ANDROID_NDK_MAJOR "${RBLXBUILD_MATCH_1}")
+  set(_ANDROID_NDK_MINOR "${RBLXBUILD_MATCH_2}")
+  set(_ANDROID_NDK_BUILD "${RBLXBUILD_MATCH_3}")
+  set(_ANDROID_NDK_BETA "${RBLXBUILD_MATCH_5}")
+  if(_ANDROID_NDK_BETA STREQUAL "")
+    set(_ANDROID_NDK_BETA "0")
+  endif()
+  set(RBLXBUILD_ANDROID_NDK_VERSION "${_ANDROID_NDK_MAJOR}.${_ANDROID_NDK_MINOR}")
+
+  unset(_ANDROID_NDK_SOURCE_PROPERTIES)
+  unset(_ANDROID_NDK_REVISION_REGEX)
+  unset(_ANDROID_NDK_MAJOR)
+  unset(_ANDROID_NDK_MINOR)
+  unset(_ANDROID_NDK_BUILD)
+  unset(_ANDROID_NDK_BETA)
+endif()
+
+if(RBLXBUILD_ANDROID_NDK)
+  # Identify the host platform.
+  if(RBLXBUILD_HOST_SYSTEM_NAME STREQUAL "Darwin")
+    if(RBLXBUILD_HOST_SYSTEM_PROCESSOR MATCHES "64")
+      set(RBLXBUILD_ANDROID_NDK_TOOLCHAIN_HOST_TAG "darwin-x86_64")
+    else()
+      set(RBLXBUILD_ANDROID_NDK_TOOLCHAIN_HOST_TAG "darwin-x86")
+    endif()
+  elseif(RBLXBUILD_HOST_SYSTEM_NAME STREQUAL "Linux")
+    if(RBLXBUILD_HOST_SYSTEM_PROCESSOR STREQUAL "x86_64")
+      set(RBLXBUILD_ANDROID_NDK_TOOLCHAIN_HOST_TAG "linux-x86_64")
+    elseif(RBLXBUILD_HOST_SYSTEM_PROCESSOR STREQUAL "aarch64")
+      set(RBLXBUILD_ANDROID_NDK_TOOLCHAIN_HOST_TAG "linux-arm64")
+    else()
+      set(RBLXBUILD_ANDROID_NDK_TOOLCHAIN_HOST_TAG "linux-x86")
+    endif()
+  elseif(RBLXBUILD_HOST_SYSTEM_NAME STREQUAL "Windows")
+    if(RBLXBUILD_HOST_SYSTEM_PROCESSOR STREQUAL "AMD64")
+      set(RBLXBUILD_ANDROID_NDK_TOOLCHAIN_HOST_TAG "windows-x86_64")
+    else()
+      set(RBLXBUILD_ANDROID_NDK_TOOLCHAIN_HOST_TAG "windows")
+    endif()
+  else()
+    message(FATAL_ERROR "Android: Builds hosted on '${RBLXBUILD_HOST_SYSTEM_NAME}' not supported.")
+  endif()
+
+  # Look for a unified toolchain/sysroot provided with the NDK.
+  set(RBLXBUILD_ANDROID_NDK_TOOLCHAIN_UNIFIED "${RBLXBUILD_ANDROID_NDK}/toolchains/llvm/prebuilt/${RBLXBUILD_ANDROID_NDK_TOOLCHAIN_HOST_TAG}")
+  if(NOT IS_DIRECTORY "${RBLXBUILD_ANDROID_NDK_TOOLCHAIN_UNIFIED}/sysroot")
+    set(RBLXBUILD_ANDROID_NDK_TOOLCHAIN_UNIFIED "")
+  endif()
+else()
+  set(RBLXBUILD_ANDROID_NDK_TOOLCHAIN_HOST_TAG "")
+  set(RBLXBUILD_ANDROID_NDK_TOOLCHAIN_UNIFIED "")
+endif()
+
+if(_INCLUDED_ABIS)
+  if(NDK_KNOWN_DEVICE_ABIS)
+    set(_ANDROID_KNOWN_ABIS ${NDK_KNOWN_DEVICE_ABIS})
+  else()
+    set(_ANDROID_KNOWN_ABIS ${NDK_KNOWN_DEVICE_ABI32S} ${NDK_KNOWN_DEVICE_ABI64S})
+  endif()
+endif()
+
+if(NOT DEFINED NDK_KNOWN_DEVICE_ABIS)
+  # The NDK is not new enough to provide ABI information.
+  # https://developer.android.com/ndk/guides/abis.html
+
+  set(NDK_ABI_arm64-v8a_PROC           "aarch64")
+  set(NDK_ABI_arm64-v8a_ARCH           "arm64")
+  set(NDK_ABI_arm64-v8a_TRIPLE         "aarch64-linux-android")
+  set(NDK_ABI_arm64-v8a_LLVM_TRIPLE    "aarch64-none-linux-android")
+  set(NDK_ABI_armeabi-v7a_PROC         "armv7-a")
+  set(NDK_ABI_armeabi-v7a_ARCH         "arm")
+  set(NDK_ABI_armeabi-v7a_TRIPLE       "arm-linux-androideabi")
+  set(NDK_ABI_armeabi-v7a_LLVM_TRIPLE  "armv7-none-linux-androideabi")
+  set(NDK_ABI_armeabi-v6_PROC          "armv6")
+  set(NDK_ABI_armeabi-v6_ARCH          "arm")
+  set(NDK_ABI_armeabi-v6_TRIPLE        "arm-linux-androideabi")
+  set(NDK_ABI_armeabi-v6_LLVM_TRIPLE   "armv6-none-linux-androideabi")
+  set(NDK_ABI_armeabi_PROC             "armv5te")
+  set(NDK_ABI_armeabi_ARCH             "arm")
+  set(NDK_ABI_armeabi_TRIPLE           "arm-linux-androideabi")
+  set(NDK_ABI_armeabi_LLVM_TRIPLE      "armv5te-none-linux-androideabi")
+  set(NDK_ABI_mips_PROC                "mips")
+  set(NDK_ABI_mips_ARCH                "mips")
+  set(NDK_ABI_mips_TRIPLE              "mipsel-linux-android")
+  set(NDK_ABI_mips_LLVM_TRIPLE         "mipsel-none-linux-android")
+  set(NDK_ABI_mips64_PROC              "mips64")
+  set(NDK_ABI_mips64_ARCH              "mips64")
+  set(NDK_ABI_mips64_TRIPLE            "mips64el-linux-android")
+  set(NDK_ABI_mips64_LLVM_TRIPLE       "mips64el-none-linux-android")
+  set(NDK_ABI_x86_PROC                 "i686")
+  set(NDK_ABI_x86_ARCH                 "x86")
+  set(NDK_ABI_x86_TRIPLE               "i686-linux-android")
+  set(NDK_ABI_x86_LLVM_TRIPLE          "i686-none-linux-android")
+  set(NDK_ABI_x86_64_PROC              "x86_64")
+  set(NDK_ABI_x86_64_ARCH              "x86_64")
+  set(NDK_ABI_x86_64_TRIPLE            "x86_64-linux-android")
+  set(NDK_ABI_x86_64_LLVM_TRIPLE       "x86_64-none-linux-android")
+  set(NDK_ABI_riscv64_PROC             "riscv64")
+  set(NDK_ABI_riscv64_ARCH             "riscv64")
+  set(NDK_ABI_riscv64_TRIPLE           "riscv64-linux-android")
+  set(NDK_ABI_riscv64_LLVM_TRIPLE      "riscv64-none-linux-android")
+
+  set(NDK_PROC_aarch64_ABI "arm64-v8a")
+  set(NDK_PROC_armv7-a_ABI "armeabi-v7a")
+  set(NDK_PROC_armv6_ABI   "armeabi-v6")
+  set(NDK_PROC_armv5te_ABI "armeabi")
+  set(NDK_PROC_i686_ABI    "x86")
+  set(NDK_PROC_mips_ABI    "mips")
+  set(NDK_PROC_mips64_ABI  "mips64")
+  set(NDK_PROC_x86_64_ABI  "x86_64")
+  set(NDK_PROC_riscv64_ABI "riscv64")
+
+  set(NDK_ARCH_arm64_ABI   "arm64-v8a")
+  set(NDK_ARCH_arm_ABI     "armeabi")
+  set(NDK_ARCH_mips_ABI    "mips")
+  set(NDK_ARCH_mips64_ABI  "mips64")
+  set(NDK_ARCH_x86_ABI     "x86")
+  set(NDK_ARCH_x86_64_ABI  "x86_64")
+  set(NDK_ARCH_riscv64_ABI "riscv64")
+endif()
+
+# Validate inputs.
+if(RBLXBUILD_ANDROID_ARCH_ABI AND NOT DEFINED "NDK_ABI_${RBLXBUILD_ANDROID_ARCH_ABI}_PROC")
+  message(FATAL_ERROR "Android: Unknown ABI RBLXBUILD_ANDROID_ARCH_ABI='${RBLXBUILD_ANDROID_ARCH_ABI}'.")
+endif()
+
+# Select an ABI.
+if(NOT RBLXBUILD_ANDROID_ARCH_ABI)
+  if(RBLXBUILD_SYSTEM_PROCESSOR)
+    if(NOT DEFINED "NDK_PROC_${RBLXBUILD_SYSTEM_PROCESSOR}_ABI")
+      message(FATAL_ERROR "Android: Unknown processor RBLXBUILD_SYSTEM_PROCESSOR='${RBLXBUILD_SYSTEM_PROCESSOR}'.")
+    endif()
+    set(RBLXBUILD_ANDROID_ARCH_ABI "${NDK_PROC_${RBLXBUILD_SYSTEM_PROCESSOR}_ABI}")
+  elseif(_ANDROID_SYSROOT_ARCH)
+    if(NOT DEFINED "NDK_ARCH_${_ANDROID_SYSROOT_ARCH}_ABI")
+      message(FATAL_ERROR
+        "Android: Unknown architecture '${_ANDROID_SYSROOT_ARCH}' specified in RBLXBUILD_SYSROOT:\n"
+        "  ${RBLXBUILD_SYSROOT}"
+        )
+    endif()
+    set(RBLXBUILD_ANDROID_ARCH_ABI "${NDK_ARCH_${_ANDROID_SYSROOT_ARCH}_ABI}")
+  elseif(_INCLUDED_ABIS)
+    # Default to the oldest ARM ABI.
+    foreach(abi armeabi armeabi-v7a arm64-v8a)
+      if("${abi}" IN_LIST _ANDROID_KNOWN_ABIS)
+        set(RBLXBUILD_ANDROID_ARCH_ABI "${abi}")
+        break()
+      endif()
+    endforeach()
+    if(NOT RBLXBUILD_ANDROID_ARCH_ABI)
+      message(FATAL_ERROR
+        "Android: Can not determine the default ABI. Please set RBLXBUILD_ANDROID_ARCH_ABI."
+      )
+    endif()
+  else()
+    # https://developer.android.com/ndk/guides/application_mk.html
+    # Default is the oldest ARM ABI.
+
+    # Lookup the available ABIs among all toolchains.
+    set(_ANDROID_ABIS "")
+    file(GLOB _ANDROID_CONFIG_MKS
+      "${RBLXBUILD_ANDROID_NDK}/build/core/toolchains/*/config.mk"
+      "${RBLXBUILD_ANDROID_NDK}/toolchains/*/config.mk"
+      )
+    foreach(config_mk IN LISTS _ANDROID_CONFIG_MKS)
+      file(STRINGS "${config_mk}" _ANDROID_TOOL_ABIS REGEX "^TOOLCHAIN_ABIS :=")
+      string(REPLACE "TOOLCHAIN_ABIS :=" "" _ANDROID_TOOL_ABIS "${_ANDROID_TOOL_ABIS}")
+      separate_arguments(_ANDROID_TOOL_ABIS UNIX_COMMAND "${_ANDROID_TOOL_ABIS}")
+      list(APPEND _ANDROID_ABIS ${_ANDROID_TOOL_ABIS})
+      unset(_ANDROID_TOOL_ABIS)
+    endforeach()
+    unset(_ANDROID_CONFIG_MKS)
+
+    # Choose the oldest among the available arm ABIs.
+    if(_ANDROID_ABIS)
+      list(REMOVE_DUPLICATES _ANDROID_ABIS)
+      foreach(abi armeabi armeabi-v7a arm64-v8a)
+        if("${abi}" IN_LIST _ANDROID_ABIS)
+          set(RBLXBUILD_ANDROID_ARCH_ABI "${abi}")
+          break()
+        endif()
+      endforeach()
+    endif()
+    unset(_ANDROID_ABIS)
+
+    if(NOT RBLXBUILD_ANDROID_ARCH_ABI)
+      set(RBLXBUILD_ANDROID_ARCH_ABI "armeabi")
+    endif()
+  endif()
+endif()
+if(_INCLUDED_ABIS AND NOT RBLXBUILD_ANDROID_ARCH_ABI IN_LIST _ANDROID_KNOWN_ABIS)
+  message(FATAL_ERROR
+    "Android: ABI '${RBLXBUILD_ANDROID_ARCH_ABI}' is not supported by the NDK.\n"
+    "Supported ABIS: ${_ANDROID_KNOWN_ABIS}."
+  )
+endif()
+set(RBLXBUILD_ANDROID_ARCH "${NDK_ABI_${RBLXBUILD_ANDROID_ARCH_ABI}_ARCH}")
+if(_ANDROID_SYSROOT_ARCH AND NOT "x${_ANDROID_SYSROOT_ARCH}" STREQUAL "x${RBLXBUILD_ANDROID_ARCH}")
+  message(FATAL_ERROR
+    "Android: Architecture '${_ANDROID_SYSROOT_ARCH}' specified in RBLXBUILD_SYSROOT:\n"
+    "  ${RBLXBUILD_SYSROOT}\n"
+    "does not match architecture '${RBLXBUILD_ANDROID_ARCH}' for the ABI '${RBLXBUILD_ANDROID_ARCH_ABI}'."
+    )
+endif()
+set(RBLXBUILD_ANDROID_ARCH_TRIPLE "${NDK_ABI_${RBLXBUILD_ANDROID_ARCH_ABI}_TRIPLE}")
+set(RBLXBUILD_ANDROID_ARCH_LLVM_TRIPLE
+    "${NDK_ABI_${RBLXBUILD_ANDROID_ARCH_ABI}_LLVM_TRIPLE}")
+
+# Select a processor.
+if(NOT RBLXBUILD_SYSTEM_PROCESSOR)
+  set(RBLXBUILD_SYSTEM_PROCESSOR "${NDK_ABI_${RBLXBUILD_ANDROID_ARCH_ABI}_PROC}")
+endif()
+
+# If the user specified both an ABI and a processor then they might not match.
+if(NOT NDK_ABI_${RBLXBUILD_ANDROID_ARCH_ABI}_PROC STREQUAL RBLXBUILD_SYSTEM_PROCESSOR)
+  message(FATAL_ERROR "Android: The specified RBLXBUILD_ANDROID_ARCH_ABI='${RBLXBUILD_ANDROID_ARCH_ABI}' and RBLXBUILD_SYSTEM_PROCESSOR='${RBLXBUILD_SYSTEM_PROCESSOR}' is not a valid combination.")
+endif()
+
+# Select an API.
+if(RBLXBUILD_SYSTEM_VERSION)
+  set(_ANDROID_API_VAR RBLXBUILD_SYSTEM_VERSION)
+elseif(RBLXBUILD_ANDROID_API)
+  set(RBLXBUILD_SYSTEM_VERSION "${RBLXBUILD_ANDROID_API}")
+  set(_ANDROID_API_VAR RBLXBUILD_ANDROID_API)
+elseif(_ANDROID_SYSROOT_API)
+  set(RBLXBUILD_SYSTEM_VERSION "${_ANDROID_SYSROOT_API}")
+  set(_ANDROID_API_VAR RBLXBUILD_SYSROOT)
+elseif(_ANDROID_STANDALONE_TOOLCHAIN_API)
+  set(RBLXBUILD_SYSTEM_VERSION "${_ANDROID_STANDALONE_TOOLCHAIN_API}")
+endif()
+if(RBLXBUILD_SYSTEM_VERSION)
+  if(RBLXBUILD_ANDROID_API AND NOT "x${RBLXBUILD_ANDROID_API}" STREQUAL "x${RBLXBUILD_SYSTEM_VERSION}")
+    message(FATAL_ERROR
+      "Android: The API specified by RBLXBUILD_ANDROID_API='${RBLXBUILD_ANDROID_API}' is not consistent with RBLXBUILD_SYSTEM_VERSION='${RBLXBUILD_SYSTEM_VERSION}'."
+      )
+  endif()
+  if(_ANDROID_SYSROOT_API)
+    foreach(v RBLXBUILD_ANDROID_API RBLXBUILD_SYSTEM_VERSION)
+      if(${v} AND NOT "x${_ANDROID_SYSROOT_API}" STREQUAL "x${${v}}")
+        message(FATAL_ERROR
+          "Android: The API specified by ${v}='${${v}}' is not consistent with RBLXBUILD_SYSROOT:\n"
+          "  ${RBLXBUILD_SYSROOT}"
+          )
+      endif()
+    endforeach()
+  endif()
+  if(RBLXBUILD_ANDROID_NDK)
+    if (_INCLUDED_PLATFORMS)
+      if(RBLXBUILD_SYSTEM_VERSION GREATER NDK_MAX_PLATFORM_LEVEL OR
+         RBLXBUILD_SYSTEM_VERSION LESS NDK_MIN_PLATFORM_LEVEL)
+        message(FATAL_ERROR
+          "Android: The API level ${RBLXBUILD_SYSTEM_VERSION} is not supported by the NDK.\n"
+          "Choose one in the range of [${NDK_MIN_PLATFORM_LEVEL}, ${NDK_MAX_PLATFORM_LEVEL}]."
+        )
+      endif()
+    else()
+      if(NOT IS_DIRECTORY "${RBLXBUILD_ANDROID_NDK}/platforms/android-${RBLXBUILD_SYSTEM_VERSION}")
+        message(FATAL_ERROR
+          "Android: The API specified by ${_ANDROID_API_VAR}='${${_ANDROID_API_VAR}}' does not exist in the NDK.  "
+          "The directory:\n"
+          "  ${RBLXBUILD_ANDROID_NDK}/platforms/android-${RBLXBUILD_SYSTEM_VERSION}\n"
+          "does not exist."
+          )
+      endif()
+    endif()
+  endif()
+elseif(RBLXBUILD_ANDROID_NDK)
+  if (_INCLUDED_PLATFORMS)
+    set(RBLXBUILD_SYSTEM_VERSION ${NDK_MIN_PLATFORM_LEVEL})
+    # And for LP64 we need to pull up to 21. No diagnostic is provided here because
+    # minSdkVersion < 21 is valid for the project even though it may not be for this
+    # ABI.
+    if(RBLXBUILD_ANDROID_ARCH_ABI MATCHES "64(-v8a)?$" AND RBLXBUILD_SYSTEM_VERSION LESS 21)
+      set(RBLXBUILD_SYSTEM_VERSION 21)
+    endif()
+    if(RBLXBUILD_ANDROID_ARCH_ABI MATCHES "^riscv64$" AND RBLXBUILD_SYSTEM_VERSION LESS 35)
+      set(RBLXBUILD_SYSTEM_VERSION 35)
+    endif()
+  else()
+    file(GLOB _ANDROID_APIS_1 RELATIVE "${RBLXBUILD_ANDROID_NDK}/platforms" "${RBLXBUILD_ANDROID_NDK}/platforms/android-[0-9]")
+    file(GLOB _ANDROID_APIS_2 RELATIVE "${RBLXBUILD_ANDROID_NDK}/platforms" "${RBLXBUILD_ANDROID_NDK}/platforms/android-[0-9][0-9]")
+    list(SORT _ANDROID_APIS_1)
+    list(SORT _ANDROID_APIS_2)
+    set(_ANDROID_APIS ${_ANDROID_APIS_1} ${_ANDROID_APIS_2})
+    unset(_ANDROID_APIS_1)
+    unset(_ANDROID_APIS_2)
+    if(NOT DEFINED _ANDROID_APIS OR _ANDROID_APIS STREQUAL "")
+      message(FATAL_ERROR
+        "Android: No APIs found in the NDK.  No\n"
+        "  ${RBLXBUILD_ANDROID_NDK}/platforms/android-*\n"
+        "directories exist."
+        )
+    endif()
+    string(REPLACE "android-" "" _ANDROID_APIS "${_ANDROID_APIS}")
+    list(REVERSE _ANDROID_APIS)
+    list(GET _ANDROID_APIS 0 RBLXBUILD_SYSTEM_VERSION)
+    unset(_ANDROID_APIS)
+  endif()
+endif()
+if(NOT RBLXBUILD_SYSTEM_VERSION MATCHES "^[0-9]+$")
+  message(FATAL_ERROR "Android: The API specified by RBLXBUILD_SYSTEM_VERSION='${RBLXBUILD_SYSTEM_VERSION}' is not an integer.")
+endif()
+
+if(RBLXBUILD_ANDROID_NDK AND NOT DEFINED RBLXBUILD_ANDROID_NDK_DEPRECATED_HEADERS)
+  if(IS_DIRECTORY "${RBLXBUILD_ANDROID_NDK}/sysroot/usr/include/${RBLXBUILD_ANDROID_ARCH_TRIPLE}")
+    # Unified headers exist so we use them by default.
+    set(RBLXBUILD_ANDROID_NDK_DEPRECATED_HEADERS 0)
+  else()
+    # Unified headers do not exist so use the deprecated headers.
+    set(RBLXBUILD_ANDROID_NDK_DEPRECATED_HEADERS 1)
+  endif()
+endif()
+
+# Save the Android-specific information in RBLXBuildSystem.rblxbuild.
+set(RBLXBUILD_SYSTEM_CUSTOM_CODE "
+set(RBLXBUILD_ANDROID_NDK \"${RBLXBUILD_ANDROID_NDK}\")
+set(RBLXBUILD_ANDROID_STANDALONE_TOOLCHAIN \"${RBLXBUILD_ANDROID_STANDALONE_TOOLCHAIN}\")
+set(RBLXBUILD_ANDROID_ARCH \"${RBLXBUILD_ANDROID_ARCH}\")
+set(RBLXBUILD_ANDROID_ARCH_ABI \"${RBLXBUILD_ANDROID_ARCH_ABI}\")
+")
+
+if(RBLXBUILD_ANDROID_NDK)
+  string(APPEND RBLXBUILD_SYSTEM_CUSTOM_CODE
+    "set(RBLXBUILD_ANDROID_ARCH_TRIPLE \"${RBLXBUILD_ANDROID_ARCH_TRIPLE}\")\n"
+    "set(RBLXBUILD_ANDROID_ARCH_LLVM_TRIPLE \"${RBLXBUILD_ANDROID_ARCH_LLVM_TRIPLE}\")\n"
+    "set(RBLXBUILD_ANDROID_NDK_VERSION \"${RBLXBUILD_ANDROID_NDK_VERSION}\")\n"
+    "set(RBLXBUILD_ANDROID_NDK_DEPRECATED_HEADERS \"${RBLXBUILD_ANDROID_NDK_DEPRECATED_HEADERS}\")\n"
+    "set(RBLXBUILD_ANDROID_NDK_TOOLCHAIN_HOST_TAG \"${RBLXBUILD_ANDROID_NDK_TOOLCHAIN_HOST_TAG}\")\n"
+    "set(RBLXBUILD_ANDROID_NDK_TOOLCHAIN_UNIFIED \"${RBLXBUILD_ANDROID_NDK_TOOLCHAIN_UNIFIED}\")\n"
+    )
+endif()
+
+# Select an ARM variant.
+if(RBLXBUILD_ANDROID_ARCH_ABI MATCHES "^armeabi")
+  if(RBLXBUILD_ANDROID_ARM_MODE)
+    set(RBLXBUILD_ANDROID_ARM_MODE 1)
+  else()
+    set(RBLXBUILD_ANDROID_ARM_MODE 0)
+  endif()
+  string(APPEND RBLXBUILD_SYSTEM_CUSTOM_CODE
+    "set(RBLXBUILD_ANDROID_ARM_MODE \"${RBLXBUILD_ANDROID_ARM_MODE}\")\n"
+    )
+elseif(DEFINED RBLXBUILD_ANDROID_ARM_MODE)
+  message(FATAL_ERROR "Android: RBLXBUILD_ANDROID_ARM_MODE is set but is valid only for 'armeabi' architectures.")
+endif()
+
+if(RBLXBUILD_ANDROID_ARCH_ABI STREQUAL "armeabi-v7a")
+  if(RBLXBUILD_ANDROID_ARM_NEON)
+    set(RBLXBUILD_ANDROID_ARM_NEON 1)
+  else()
+    set(RBLXBUILD_ANDROID_ARM_NEON 0)
+  endif()
+  string(APPEND RBLXBUILD_SYSTEM_CUSTOM_CODE
+    "set(RBLXBUILD_ANDROID_ARM_NEON \"${RBLXBUILD_ANDROID_ARM_NEON}\")\n"
+    )
+elseif(DEFINED RBLXBUILD_ANDROID_ARM_NEON)
+  message(FATAL_ERROR "Android: RBLXBUILD_ANDROID_ARM_NEON is set but is valid only for 'armeabi-v7a' architecture.")
+endif()
+
+# Report the chosen architecture.
+message(STATUS "Android: Targeting API '${RBLXBUILD_SYSTEM_VERSION}' with architecture '${RBLXBUILD_ANDROID_ARCH}', ABI '${RBLXBUILD_ANDROID_ARCH_ABI}', and processor '${RBLXBUILD_SYSTEM_PROCESSOR}'")
+
+rblxbuild_policy(POP)
+
+# Include the NDK hook.
+# It can be used by NDK to inject necessary fixes for an earlier rblxbuild.
+if(RBLXBUILD_ANDROID_NDK)
+  include(${RBLXBUILD_ANDROID_NDK}/build/rblxbuild/hooks/post/Android-Determine.rblxbuild OPTIONAL)
+endif()

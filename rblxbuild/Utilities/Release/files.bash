@@ -6,7 +6,7 @@ usage='usage: files.bash [<options>] [--]
 
 Options:
 
-    --version <ver>            CMake <major>.<minor> version number to push.
+    --version <ver>            RBLXBuild <major>.<minor> version number to push.
                                Defaults to version of source tree.
 '
 
@@ -14,13 +14,13 @@ die() {
     echo "$@" 1>&2; exit 1
 }
 
-readonly cmake_source_dir="${BASH_SOURCE%/*}/../.."
+readonly rblxbuild_source_dir="${BASH_SOURCE%/*}/../.."
 
-cmake_version_component()
+rblxbuild_version_component()
 {
   sed -n "
-/^set(CMake_VERSION_${1}/ {s/set(CMake_VERSION_${1} *\([0-9]*\))/\1/;p;}
-" "${cmake_source_dir}/Source/CMakeVersion.cmake"
+/^set(RBLXBuild_VERSION_${1}/ {s/set(RBLXBuild_VERSION_${1} *\([0-9]*\))/\1/;p;}
+" "${rblxbuild_source_dir}/Source/RBLXBuildVersion.rblxbuild"
 }
 
 
@@ -37,13 +37,13 @@ done
 test "$#" = 0 || die "$usage"
 
 if test -z "$version"; then
-    cmake_version_major="$(cmake_version_component MAJOR)"
-    cmake_version_minor="$(cmake_version_component MINOR)"
-    cmake_version_patch="$(cmake_version_component PATCH)"
-    cmake_version_rc="$(cmake_version_component RC)"
-    version="${cmake_version_major}.${cmake_version_minor}.${cmake_version_patch}"
-    if test -n "$cmake_version_rc"; then
-      version="$version-rc$cmake_version_rc"
+    rblxbuild_version_major="$(rblxbuild_version_component MAJOR)"
+    rblxbuild_version_minor="$(rblxbuild_version_component MINOR)"
+    rblxbuild_version_patch="$(rblxbuild_version_component PATCH)"
+    rblxbuild_version_rc="$(rblxbuild_version_component RC)"
+    version="${rblxbuild_version_major}.${rblxbuild_version_minor}.${rblxbuild_version_patch}"
+    if test -n "$rblxbuild_version_rc"; then
+      version="$version-rc$rblxbuild_version_rc"
     fi
 fi
 readonly version
@@ -70,15 +70,15 @@ sed "
   s/@maybe_version_suffix@/$maybe_version_suffix/g
 " "$files_v1_in" \
   | jq . \
-  > "cmake-$version-files-v1.json"
+  > "rblxbuild-$version-files-v1.json"
 
 readonly algos='
   256
 '
 for algo in $algos; do
   shasum -a $algo \
-    "cmake-$version-files-v1.json" \
-    $(jq -r '.files[].name' "cmake-$version-files-v1.json") \
+    "rblxbuild-$version-files-v1.json" \
+    $(jq -r '.files[].name' "rblxbuild-$version-files-v1.json") \
   | LC_ALL=C sort -k 2 \
-  > "cmake-$version-SHA-$algo.txt"
+  > "rblxbuild-$version-SHA-$algo.txt"
 done

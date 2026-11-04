@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmCTestMemCheckCommand.h"
 
 #include <utility>
@@ -21,17 +21,17 @@ cmCTestMemCheckCommand::InitializeActualHandler(
   cmMakefile& mf = status.GetMakefile();
   auto handler = cm::make_unique<cmCTestMemCheckHandler>(this->CTest);
 
-  this->CTest->SetCTestConfigurationFromCMakeVariable(
+  this->CTest->SetCTestConfigurationFromRBLXBuildVariable(
     &mf, "MemoryCheckType", "CTEST_MEMORYCHECK_TYPE", args.Quiet);
-  this->CTest->SetCTestConfigurationFromCMakeVariable(
+  this->CTest->SetCTestConfigurationFromRBLXBuildVariable(
     &mf, "MemoryCheckSanitizerOptions", "CTEST_MEMORYCHECK_SANITIZER_OPTIONS",
     args.Quiet);
-  this->CTest->SetCTestConfigurationFromCMakeVariable(
+  this->CTest->SetCTestConfigurationFromRBLXBuildVariable(
     &mf, "MemoryCheckCommand", "CTEST_MEMORYCHECK_COMMAND", args.Quiet);
-  this->CTest->SetCTestConfigurationFromCMakeVariable(
+  this->CTest->SetCTestConfigurationFromRBLXBuildVariable(
     &mf, "MemoryCheckCommandOptions", "CTEST_MEMORYCHECK_COMMAND_OPTIONS",
     args.Quiet);
-  this->CTest->SetCTestConfigurationFromCMakeVariable(
+  this->CTest->SetCTestConfigurationFromRBLXBuildVariable(
     &mf, "MemoryCheckSuppressionFile", "CTEST_MEMORYCHECK_SUPPRESSIONS_FILE",
     args.Quiet);
 

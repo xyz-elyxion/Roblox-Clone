@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmCursesColor.h"
 
 #include <cstdlib>
@@ -41,7 +41,7 @@ short cmCursesColor::GetColor(char id, short fallback)
   static std::unordered_map<char, short> env;
 
   if (!initialized) {
-    if (auto* v = getenv("CCMAKE_COLORS")) {
+    if (auto* v = getenv("CRBLXBUILD_COLORS")) {
       while (v[0] && v[1] && v[1] == '=') {
         char const n = cmsysString_toupper(*v);
 

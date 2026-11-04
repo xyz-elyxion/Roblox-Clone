@@ -2,7 +2,7 @@
 <VisualStudioProject
 	ProjectCreator="Intel Fortran"
 	Keyword="Console Application"
-	Version="@CMAKE_VS_INTEL_Fortran_PROJECT_VERSION@"
+	Version="@RBLXBUILD_VS_INTEL_Fortran_PROJECT_VERSION@"
 	ProjectIdGuid="{AB67BAB7-D7AE-4E97-B492-FE5420447509}"
 	>
 	<Platforms>
@@ -29,7 +29,7 @@
 			/>
 			<Tool
 				Name="VFPostBuildEventTool"
-				CommandLine="for %%i in (@id_cl@) do @echo CMAKE_@id_lang@_COMPILER=%%~$PATH:i"
+				CommandLine="for %%i in (@id_cl@) do @echo RBLXBUILD_@id_lang@_COMPILER=%%~$PATH:i"
 			/>
 		</Configuration>
 	</Configurations>

@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #pragma once
 
 #include "cmConfigure.h" // IWYU pragma: keep
@@ -141,16 +141,16 @@ public:
   std::vector<cmCPackComponentGroup*> Subgroups;
 };
 
-/** \class cmCPackInstallCMakeProject
- * \brief A single quadruplet from the CPACK_INSTALL_CMAKE_PROJECTS variable.
+/** \class cmCPackInstallRBLXBuildProject
+ * \brief A single quadruplet from the CPACK_INSTALL_RBLXBUILD_PROJECTS variable.
  */
-class cmCPackInstallCMakeProject
+class cmCPackInstallRBLXBuildProject
 {
 public:
-  /// The directory of the CMake project.
+  /// The directory of the RBLXBuild project.
   std::string Directory;
 
-  /// The name of the CMake project.
+  /// The name of the RBLXBuild project.
   std::string ProjectName;
 
   /// The name of the component (or component set) to install.

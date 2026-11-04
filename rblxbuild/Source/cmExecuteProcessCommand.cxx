@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmExecuteProcessCommand.h"
 
 #include <cstdint>
@@ -40,7 +40,7 @@
 #include "cmUVHandlePtr.h"
 #include "cmUVProcessChain.h"
 #include "cmUVStream.h"
-#include "cmake.h"
+#include "rblxbuild.h"
 
 namespace {
 bool cmExecuteProcessCommandIsWhitespace(char c)
@@ -191,7 +191,7 @@ bool cmExecuteProcessCommand(std::vector<std::string> const& args,
   if (commandErrorIsFatal.empty() && arguments.ResultVariable.empty() &&
       arguments.ResultsVariable.empty()) {
     commandErrorIsFatal = status.GetMakefile().GetSafeDefinition(
-      "CMAKE_EXECUTE_PROCESS_COMMAND_ERROR_IS_FATAL");
+      "RBLXBUILD_EXECUTE_PROCESS_COMMAND_ERROR_IS_FATAL");
   }
 
   if (!commandErrorIsFatal.empty() && commandErrorIsFatal != "ANY"_s &&
@@ -202,7 +202,7 @@ bool cmExecuteProcessCommand(std::vector<std::string> const& args,
       return false;
     }
     status.SetError(cmStrCat(
-      "Using CMAKE_EXECUTE_PROCESS_COMMAND_ERROR_IS_FATAL with invalid value "
+      "Using RBLXBUILD_EXECUTE_PROCESS_COMMAND_ERROR_IS_FATAL with invalid value "
       "\"",
       commandErrorIsFatal, "\". This variable can be ANY, LAST or NONE"));
     return false;
@@ -221,7 +221,7 @@ bool cmExecuteProcessCommand(std::vector<std::string> const& args,
   }
 
   if (!arguments.Environment.empty() || !arguments.EnvModification.empty()) {
-#ifndef CMAKE_BOOTSTRAP
+#ifndef RBLXBUILD_BOOTSTRAP
     auto diff = cmEnvironmentModification{};
     if (!diff.Add(arguments.EnvModification)) {
       return false;
@@ -292,7 +292,7 @@ bool cmExecuteProcessCommand(std::vector<std::string> const& args,
   bool echo_stderr = false;
   bool echo_output_from_variable = true;
   std::string echo_output = status.GetMakefile().GetSafeDefinition(
-    "CMAKE_EXECUTE_PROCESS_COMMAND_ECHO");
+    "RBLXBUILD_EXECUTE_PROCESS_COMMAND_ECHO");
   if (!arguments.CommandEcho.empty()) {
     echo_output_from_variable = false;
     echo_output = arguments.CommandEcho;
@@ -306,7 +306,7 @@ bool cmExecuteProcessCommand(std::vector<std::string> const& args,
     } else if (echo_output != "NONE") {
       std::string error;
       if (echo_output_from_variable) {
-        error = "CMAKE_EXECUTE_PROCESS_COMMAND_ECHO set to '";
+        error = "RBLXBUILD_EXECUTE_PROCESS_COMMAND_ECHO set to '";
       } else {
         error = " called with '";
       }
@@ -430,7 +430,7 @@ bool cmExecuteProcessCommand(std::vector<std::string> const& args,
   }
 
   // The processes may have removed or renamed files.
-  status.GetMakefile().GetCMakeInstance()->InvalidateFileSystemCaches();
+  status.GetMakefile().GetRBLXBuildInstance()->InvalidateFileSystemCaches();
   if (!arguments.OutputQuiet &&
       (arguments.OutputVariable.empty() || arguments.EchoOutputVariable)) {
     processOutput.DecodeText(std::string(), strdata, 1);

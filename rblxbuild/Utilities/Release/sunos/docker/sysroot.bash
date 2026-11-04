@@ -36,7 +36,7 @@ if test -n "$SYSROOT_URL"; then
     tarball=$(basename "$url")
 else
     # This URL is only visible inside of Kitware's network.
-    url="https://cmake.org/files/dependencies/internal/sunos/$tarball"
+    url="https://rblxbuild.org/files/dependencies/internal/sunos/$tarball"
 fi
 readonly url
 readonly tarball

@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmDebuggerExceptionManager.h"
 
 #include <utility>
@@ -73,7 +73,7 @@ cmDebuggerExceptionManager::HandleExceptionInfoRequest()
 }
 
 void cmDebuggerExceptionManager::HandleInitializeRequest(
-  dap::CMakeInitializeResponse& response)
+  dap::RBLXBuildInitializeResponse& response)
 {
   std::unique_lock<std::mutex> lock(Mutex);
   response.supportsExceptionInfoRequest = true;

@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmRulePlaceholderExpander.h"
 
 #include <utility>
@@ -42,7 +42,7 @@ std::string cmRulePlaceholderExpander::ExpandVariable(
     }
   }
   if (this->ReplaceValues->Linker) {
-    if (variable == "CMAKE_LINKER") {
+    if (variable == "RBLXBUILD_LINKER") {
       auto result =
         this->ConvertToOutputForExisting(this->ReplaceValues->Linker);
       if (this->ReplaceValues->Launcher) {
@@ -57,7 +57,7 @@ std::string cmRulePlaceholderExpander::ExpandVariable(
   }
   if (this->ReplaceValues->Language && this->ReplaceValues->Launcher &&
       variable ==
-        cmStrCat("CMAKE_", this->ReplaceValues->Language,
+        cmStrCat("RBLXBUILD_", this->ReplaceValues->Language,
                  "_HOST_LINK_LAUNCHER")) {
     auto mapIt = this->VariableMappings.find(variable);
     std::string result = mapIt != this->VariableMappings.end()
@@ -321,9 +321,9 @@ std::string cmRulePlaceholderExpander::ExpandVariable(
       return this->ReplaceValues->FilePathWithOutput;
     }
   }
-  if (variable == "CMAKE_COMMAND") {
+  if (variable == "RBLXBUILD_COMMAND") {
     return this->OutputConverter->ConvertToOutputFormat(
-      cmSystemTools::GetCMakeCommand(), cmOutputConverter::SHELL);
+      cmSystemTools::GetRBLXBuildCommand(), cmOutputConverter::SHELL);
   }
   if (variable == "ROLE") {
     if (this->ReplaceValues->Role) {
@@ -342,22 +342,22 @@ std::string cmRulePlaceholderExpander::ExpandVariable(
 
   if (compIt != this->Compilers.end()) {
     std::string const& compilerPath =
-      this->VariableMappings[cmStrCat("CMAKE_", compIt->second, "_COMPILER")];
+      this->VariableMappings[cmStrCat("RBLXBUILD_", compIt->second, "_COMPILER")];
     std::string ret = this->ConvertToOutputForExisting(compilerPath);
     std::string const& compilerArg1 = this->VariableMappings[cmStrCat(
-      "CMAKE_", compIt->second, "_COMPILER_ARG1")];
+      "RBLXBUILD_", compIt->second, "_COMPILER_ARG1")];
     std::string const& compilerTarget = this->VariableMappings[cmStrCat(
-      "CMAKE_", compIt->second, "_COMPILER_TARGET")];
+      "RBLXBUILD_", compIt->second, "_COMPILER_TARGET")];
     std::string const& compilerOptionTarget = this->VariableMappings[cmStrCat(
-      "CMAKE_", compIt->second, "_COMPILE_OPTIONS_TARGET")];
+      "RBLXBUILD_", compIt->second, "_COMPILE_OPTIONS_TARGET")];
     std::string const& compilerExternalToolchain =
-      this->VariableMappings[cmStrCat("CMAKE_", compIt->second,
+      this->VariableMappings[cmStrCat("RBLXBUILD_", compIt->second,
                                       "_COMPILER_EXTERNAL_TOOLCHAIN")];
     std::string const& compilerOptionExternalToolchain =
-      this->VariableMappings[cmStrCat("CMAKE_", compIt->second,
+      this->VariableMappings[cmStrCat("RBLXBUILD_", compIt->second,
                                       "_COMPILE_OPTIONS_EXTERNAL_TOOLCHAIN")];
     std::string const& compilerOptionSysroot = this->VariableMappings[cmStrCat(
-      "CMAKE_", compIt->second, "_COMPILE_OPTIONS_SYSROOT")];
+      "RBLXBUILD_", compIt->second, "_COMPILE_OPTIONS_SYSROOT")];
 
     if (compIt->second == this->ReplaceValues->Language &&
         this->ReplaceValues->Launcher) {

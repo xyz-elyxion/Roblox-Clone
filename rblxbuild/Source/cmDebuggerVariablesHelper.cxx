@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 
 #include "cmDebuggerVariablesHelper.h"
 
@@ -28,7 +28,7 @@
 #include "cmTarget.h"
 #include "cmTest.h"
 #include "cmValue.h"
-#include "cmake.h"
+#include "rblxbuild.h"
 
 namespace cmDebugger {
 
@@ -423,7 +423,7 @@ std::shared_ptr<cmDebuggerVariables> cmDebuggerVariablesHelper::Create(
 
   auto cacheVariables = std::make_shared<cmDebuggerVariables>(
     variablesManager, "CacheVariables", supportsVariableType);
-  auto* state = frame->GetMakefile()->GetCMakeInstance()->GetState();
+  auto* state = frame->GetMakefile()->GetRBLXBuildInstance()->GetState();
   auto keys = state->GetCacheEntryKeys();
   for (auto const& key : keys) {
     auto entry = std::make_shared<cmDebuggerVariables>(

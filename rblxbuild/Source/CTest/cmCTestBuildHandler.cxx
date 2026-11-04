@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmCTestBuildHandler.h"
 
 #include <cstdio>
@@ -64,7 +64,7 @@ static char const* cmCTestErrorMatches[] = {
   "^Unresolved:",
   "Undefined symbol",
   "^Undefined[ \\t]+first referenced",
-  "^CMake Error.*:",
+  "^RBLXBuild Error.*:",
   ":[ \\t]cannot find",
   ":[ \\t]can't find",
   R"(: \*\*\* No rule to make target [`'].*\'.  Stop)",
@@ -133,7 +133,7 @@ static char const* cmCTestWarningMatches[] = {
   "\\([0-9]*\\): remark #[0-9]*",
   R"(".*", line [0-9]+: remark\([0-9]*\):)",
   "cc-[0-9]* CC: REMARK File = .*, Line = [0-9]*",
-  "^CMake Warning.*:",
+  "^RBLXBuild Warning.*:",
   "^\\[WARNING\\]",
   "lcc: \"([^\"]+)\", (line|строка) ([0-9]+): (warning|предупреждение)",
   nullptr
@@ -453,7 +453,7 @@ int cmCTestBuildHandler::ProcessHandler()
 
 void cmCTestBuildHandler::GenerateXMLHeader(cmXMLWriter& xml)
 {
-  this->CTest->StartXML(xml, this->CMake, this->AppendXML);
+  this->CTest->StartXML(xml, this->RBLXBuild, this->AppendXML);
   this->CTest->GenerateSubprojectsOutput(xml);
   xml.StartElement("Build");
   xml.Element("StartDateTime", this->StartBuild);
@@ -625,23 +625,23 @@ void cmCTestBuildHandler::GenerateInstrumentationXML(cmXMLWriter& xml)
       xml.StartElement("Target");
       xml.Attribute("name", target_name);
 
-      // Load latest CMake content file
+      // Load latest RBLXBuild content file
       Json::Value target_data;
-      std::string cmake_content_file =
+      std::string rblxbuild_content_file =
         cmStrCat(CTest->GetInstrumentation().GetDataDir(), "/content/",
                  this->CTest->GetInstrumentation().GetFileByTimestamp(
                    cmInstrumentation::LatestOrOldest::Latest, "content"));
-      if (!cmake_content_file.empty() &&
-          cmSystemTools::FileExists(cmake_content_file)) {
-        Json::Value cmake_content;
+      if (!rblxbuild_content_file.empty() &&
+          cmSystemTools::FileExists(rblxbuild_content_file)) {
+        Json::Value rblxbuild_content;
         cmJSONState parseState =
-          cmJSONState(cmake_content_file, &cmake_content);
+          cmJSONState(rblxbuild_content_file, &rblxbuild_content);
         if (!parseState.errors.empty()) {
           cmSystemTools::Error(parseState.GetErrorMessage(true));
           break;
         }
-        if (cmake_content.isMember("targets")) {
-          target_data = cmake_content["targets"];
+        if (rblxbuild_content.isMember("targets")) {
+          target_data = rblxbuild_content["targets"];
         }
       }
       bool target_has_data =
@@ -781,7 +781,7 @@ void cmCTestBuildHandler::LaunchHelper::WriteLauncherConfig()
 
   // Give some testing configuration information to the launcher.
   std::string fname =
-    cmStrCat(this->Handler->CTestLaunchDir, "/CTestLaunchConfig.cmake");
+    cmStrCat(this->Handler->CTestLaunchDir, "/CTestLaunchConfig.rblxbuild");
   cmGeneratedFileStream fout(fname);
   std::string srcdir = this->CTest->GetCTestConfiguration("SourceDirectory");
   fout << "set(CTEST_SOURCE_DIRECTORY \"" << srcdir << "\")\n";

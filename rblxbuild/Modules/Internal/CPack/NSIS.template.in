@@ -933,7 +933,7 @@ Function .onInit
 ;Run the uninstaller
 uninst:
   ClearErrors
-  # $0 should _always_ be quoted, however older versions of CMake did not
+  # $0 should _always_ be quoted, however older versions of RBLXBuild did not
   # do this.  We'll conditionally remove the begin/end quotes.
   # Remove first char if quote
   StrCpy $2 $0 1 0      # copy first char

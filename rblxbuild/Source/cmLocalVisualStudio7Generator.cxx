@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmLocalVisualStudio7Generator.h"
 
 #include <algorithm>
@@ -47,7 +47,7 @@
 #include "cmValue.h"
 #include "cmVsProjectType.h"
 #include "cmXMLParser.h"
-#include "cmake.h"
+#include "rblxbuild.h"
 
 static bool cmLVS7G_IsFAT(char const* dir);
 
@@ -136,7 +136,7 @@ void cmLocalVisualStudio7Generator::FixGlobalTargets()
       cmCustomCommandLines force_commands =
         cmMakeSingleCommandLine({ "cd", "." });
       std::string force = cmStrCat(this->GetCurrentBinaryDirectory(),
-                                   "/CMakeFiles/", l->GetName(), "_force");
+                                   "/RBLXBuildFiles/", l->GetName(), "_force");
       if (cmSourceFile* sf =
             this->Makefile->GetOrCreateGeneratedSource(force)) {
         sf->SetProperty("SYMBOLIC", "1");
@@ -158,24 +158,24 @@ void cmLocalVisualStudio7Generator::WriteStampFiles()
   // Touch a timestamp file used to determine when the project file is
   // out of date.
   std::string stampName =
-    cmStrCat(this->GetCurrentBinaryDirectory(), "/CMakeFiles");
+    cmStrCat(this->GetCurrentBinaryDirectory(), "/RBLXBuildFiles");
   cmSystemTools::MakeDirectory(stampName);
   stampName += "/generate.stamp";
   cmsys::ofstream stamp(stampName.c_str());
-  stamp << "# CMake generation timestamp file for this directory.\n";
+  stamp << "# RBLXBuild generation timestamp file for this directory.\n";
 
-  // Create a helper file so CMake can determine when it is run
+  // Create a helper file so RBLXBuild can determine when it is run
   // through the rule created by CreateVCProjBuildRule whether it
   // really needs to regenerate the project.  This file lists its own
   // dependencies.  If any file listed in it is newer than itself then
-  // CMake must rerun.  Otherwise the project files are up to date and
+  // RBLXBuild must rerun.  Otherwise the project files are up to date and
   // the stamp file can just be touched.
   std::string depName = cmStrCat(stampName, ".depend");
   cmsys::ofstream depFile(depName.c_str());
-  depFile << "# CMake generation dependency list for this directory.\n";
+  depFile << "# RBLXBuild generation dependency list for this directory.\n";
 
   std::vector<std::string> listFiles(this->Makefile->GetListFiles());
-  cmake* cm = this->GlobalGenerator->GetCMakeInstance();
+  rblxbuild* cm = this->GlobalGenerator->GetRBLXBuildInstance();
   if (cm->DoWriteGlobVerifyTarget()) {
     listFiles.push_back(cm->GetGlobVerifyStamp());
   }
@@ -200,7 +200,7 @@ void cmLocalVisualStudio7Generator::GenerateTarget(cmGeneratorTarget* target)
 
   // add to the list of projects
   target->Target->SetProperty("GENERATOR_FILE_NAME", lname);
-  // create the dsp.cmake file
+  // create the dsp.rblxbuild file
   std::string fname;
   fname = cmStrCat(this->GetCurrentBinaryDirectory(), '/', lname);
   if (this->FortranProject) {
@@ -226,11 +226,11 @@ void cmLocalVisualStudio7Generator::GenerateTarget(cmGeneratorTarget* target)
 cmSourceFile* cmLocalVisualStudio7Generator::CreateVCProjBuildRule()
 {
   if (this->GlobalGenerator->GlobalSettingIsOn(
-        "CMAKE_SUPPRESS_REGENERATION")) {
+        "RBLXBUILD_SUPPRESS_REGENERATION")) {
     return nullptr;
   }
 
-  std::string makefileIn = this->GetCMakeInstance()->GetCMakeListFile(
+  std::string makefileIn = this->GetRBLXBuildInstance()->GetRBLXBuildListFile(
     this->GetCurrentSourceDirectory());
   if (cmSourceFile* file = this->Makefile->GetSource(makefileIn)) {
     if (file->GetCustomCommand()) {
@@ -242,7 +242,7 @@ cmSourceFile* cmLocalVisualStudio7Generator::CreateVCProjBuildRule()
   }
 
   std::vector<std::string> listFiles = this->Makefile->GetListFiles();
-  cmake* cm = this->GlobalGenerator->GetCMakeInstance();
+  rblxbuild* cm = this->GlobalGenerator->GetRBLXBuildInstance();
   if (cm->DoWriteGlobVerifyTarget()) {
     listFiles.push_back(cm->GetGlobVerifyStamp());
   }
@@ -255,9 +255,9 @@ cmSourceFile* cmLocalVisualStudio7Generator::CreateVCProjBuildRule()
   std::string argS = cmStrCat("-S", this->GetSourceDirectory());
   std::string argB = cmStrCat("-B", this->GetBinaryDirectory());
   std::string stampName =
-    cmStrCat(this->GetCurrentBinaryDirectory(), "/CMakeFiles/generate.stamp");
+    cmStrCat(this->GetCurrentBinaryDirectory(), "/RBLXBuildFiles/generate.stamp");
   cmCustomCommandLines commandLines =
-    cmMakeSingleCommandLine({ cmSystemTools::GetCMakeCommand(), argS, argB,
+    cmMakeSingleCommandLine({ cmSystemTools::GetRBLXBuildCommand(), argS, argB,
                               "--check-stamp-file", stampName });
 
   if (cm->GetIgnoreCompileWarningAsError()) {
@@ -622,7 +622,7 @@ void cmLocalVisualStudio7Generator::WriteConfiguration(
   std::string const& libName, cmGeneratorTarget* target)
 {
   std::string mfcFlag;
-  if (cmValue p = this->Makefile->GetDefinition("CMAKE_MFC_FLAG")) {
+  if (cmValue p = this->Makefile->GetDefinition("RBLXBUILD_MFC_FLAG")) {
     mfcFlag = cmGeneratorExpression::Evaluate(*p, this, configName);
   } else {
     mfcFlag = "0";
@@ -676,7 +676,7 @@ void cmLocalVisualStudio7Generator::WriteConfiguration(
                           : target->GetLinkerLanguage(configName));
   if (linkLanguage.empty()) {
     cmSystemTools::Error(
-      cmStrCat("CMake can not determine linker language for target: ",
+      cmStrCat("RBLXBuild can not determine linker language for target: ",
                target->GetName()));
     return;
   }
@@ -703,7 +703,7 @@ void cmLocalVisualStudio7Generator::WriteConfiguration(
       if (this->FortranProject) {
         this->AppendCompileOptions(flags,
                                    this->Makefile->GetSafeDefinition(
-                                     "CMAKE_Fortran_COMPILE_OPTIONS_IPO"));
+                                     "RBLXBUILD_Fortran_COMPILE_OPTIONS_IPO"));
       }
     }
   }
@@ -759,10 +759,10 @@ void cmLocalVisualStudio7Generator::WriteConfiguration(
     targetOptions.AddIncludes(targetIncludes);
   }
   targetOptions.SetVerboseMakefile(
-    this->Makefile->IsOn("CMAKE_VERBOSE_MAKEFILE"));
+    this->Makefile->IsOn("RBLXBUILD_VERBOSE_MAKEFILE"));
 
   // Add a definition for the configuration name.
-  std::string configDefine = cmStrCat("CMAKE_INTDIR=\"", configName, '"');
+  std::string configDefine = cmStrCat("RBLXBUILD_INTDIR=\"", configName, '"');
   targetOptions.AddDefine(configDefine);
 
   // Add the export symbol definition for shared library objects.
@@ -946,7 +946,7 @@ void cmLocalVisualStudio7Generator::WriteConfiguration(
     if (cmLVS7G_IsFAT(target->GetDirectory(configName).c_str())) {
       // Add a flag telling the manifest tool to use a workaround
       // for FAT32 file systems, which can cause an empty manifest
-      // to be embedded into the resulting executable.  See CMake
+      // to be embedded into the resulting executable.  See RBLXBuild
       // bug #2617.
       fout << "\n\t\t\t\tUseFAT32Workaround=\"true\"";
     }
@@ -1061,7 +1061,7 @@ void cmLocalVisualStudio7Generator::OutputBuildTool(
 
       if (!target->GetLinkerTypeProperty(linkLanguage, configName).empty()) {
         // Visual Studio 10 or upper is required for this feature
-        this->GetCMakeInstance()->IssueMessage(
+        this->GetRBLXBuildInstance()->IssueMessage(
           MessageType::FATAL_ERROR,
           cmStrCat("'LINKER_TYPE' property, specified on target '",
                    target->GetName(),
@@ -1072,7 +1072,7 @@ void cmLocalVisualStudio7Generator::OutputBuildTool(
       // Compute the variable name to lookup standard libraries for this
       // language.
       std::string standardLibsVar =
-        cmStrCat("CMAKE_", linkLanguage, "_STANDARD_LIBRARIES");
+        cmStrCat("RBLXBUILD_", linkLanguage, "_STANDARD_LIBRARIES");
       char const* tool = "VCLinkerTool";
       if (this->FortranProject) {
         tool = "VFLinkerTool";
@@ -1101,7 +1101,7 @@ void cmLocalVisualStudio7Generator::OutputBuildTool(
       linkOptions.OutputFlagMap(fout, 4);
       fout << "\t\t\t\tAdditionalLibraryDirectories=\"";
       std::string const& linkDirsString = this->Makefile->GetSafeDefinition(
-        cmStrCat("CMAKE_", linkLanguage, "_STANDARD_LINK_DIRECTORIES"));
+        cmStrCat("RBLXBUILD_", linkLanguage, "_STANDARD_LINK_DIRECTORIES"));
       this->OutputLibraryDirectories(fout, cmList(linkDirsString),
                                      cli.GetDirectories());
       fout << "\"\n";
@@ -1115,7 +1115,7 @@ void cmLocalVisualStudio7Generator::OutputBuildTool(
       if (this->WindowsCEProject) {
         fout << "\t\t\t\tSubSystem=\"8\"\n";
       }
-      std::string stackVar = cmStrCat("CMAKE_", linkLanguage, "_STACK_SIZE");
+      std::string stackVar = cmStrCat("RBLXBUILD_", linkLanguage, "_STACK_SIZE");
       cmValue stackVal = this->Makefile->GetDefinition(stackVar);
       if (stackVal) {
         fout << "\t\t\t\tStackReserveSize=\"" << *stackVal << "\"\n";
@@ -1145,7 +1145,7 @@ void cmLocalVisualStudio7Generator::OutputBuildTool(
 
       if (!target->GetLinkerTypeProperty(linkLanguage, configName).empty()) {
         // Visual Studio 10 or upper is required for this feature
-        this->GetCMakeInstance()->IssueMessage(
+        this->GetRBLXBuildInstance()->IssueMessage(
           MessageType::FATAL_ERROR,
           cmStrCat("'LINKER_TYPE' property, specified on target '",
                    target->GetName(),
@@ -1158,7 +1158,7 @@ void cmLocalVisualStudio7Generator::OutputBuildTool(
       // Compute the variable name to lookup standard libraries for this
       // language.
       std::string standardLibsVar =
-        cmStrCat("CMAKE_", linkLanguage, "_STANDARD_LIBRARIES");
+        cmStrCat("RBLXBUILD_", linkLanguage, "_STANDARD_LIBRARIES");
       char const* tool = "VCLinkerTool";
       if (this->FortranProject) {
         tool = "VFLinkerTool";
@@ -1187,7 +1187,7 @@ void cmLocalVisualStudio7Generator::OutputBuildTool(
       linkOptions.OutputFlagMap(fout, 4);
       fout << "\t\t\t\tAdditionalLibraryDirectories=\"";
       std::string const& linkDirsString = this->Makefile->GetSafeDefinition(
-        cmStrCat("CMAKE_", linkLanguage, "_STANDARD_LINK_DIRECTORIES"));
+        cmStrCat("RBLXBUILD_", linkLanguage, "_STANDARD_LINK_DIRECTORIES"));
       this->OutputLibraryDirectories(fout, cmList(linkDirsString),
                                      cli.GetDirectories());
       fout << "\"\n";
@@ -1216,7 +1216,7 @@ void cmLocalVisualStudio7Generator::OutputBuildTool(
         fout << "\t\t\t\tSubSystem=\"" << (isWin32Executable ? "2" : "1")
              << "\"\n";
       }
-      std::string stackVar = cmStrCat("CMAKE_", linkLanguage, "_STACK_SIZE");
+      std::string stackVar = cmStrCat("RBLXBUILD_", linkLanguage, "_STACK_SIZE");
       cmValue stackVal = this->Makefile->GetDefinition(stackVar);
       if (stackVal) {
         fout << "\t\t\t\tStackReserveSize=\"" << *stackVal << '"';
@@ -1390,9 +1390,9 @@ void cmLocalVisualStudio7Generator::WriteVCProjFile(std::ostream& fout,
 
   cmSourceGroupFiles sourceGroupFiles;
 
-  // Add CMakeLists.txt file with rule to re-run CMake for user convenience.
+  // Add RBLXBuildLists.txt file with rule to re-run RBLXBuild for user convenience.
   if (target->GetType() != cm::TargetType::GLOBAL_TARGET &&
-      target->GetName() != CMAKE_CHECK_BUILD_SYSTEM_TARGET) {
+      target->GetName() != RBLXBUILD_CHECK_BUILD_SYSTEM_TARGET) {
     if (cmSourceFile* sf = this->CreateVCProjBuildRule()) {
       cmGeneratorTarget::AllConfigSource acs;
       acs.Source = sf;
@@ -1400,16 +1400,16 @@ void cmLocalVisualStudio7Generator::WriteVCProjFile(std::ostream& fout,
       for (size_t ci = 0; ci < configs.size(); ++ci) {
         acs.Configs.push_back(ci);
       }
-      bool haveCMakeLists = false;
+      bool haveRBLXBuildLists = false;
       for (cmGeneratorTarget::AllConfigSource& si : sources.Sources) {
         if (si.Source == sf) {
-          haveCMakeLists = true;
+          haveRBLXBuildLists = true;
           // Replace the explicit source reference with our generated one.
           si = acs;
           break;
         }
       }
-      if (!haveCMakeLists) {
+      if (!haveRBLXBuildLists) {
         sources.Sources.emplace_back(std::move(acs));
       }
     }
@@ -1918,7 +1918,7 @@ void cmLocalVisualStudio7Generator::WriteCustomRule(
     } else {
       // Write out the dependencies for the rule.
       for (std::string const& d : ccg.GetDepends()) {
-        // Get the real name of the dependency in case it is a CMake target.
+        // Get the real name of the dependency in case it is a RBLXBuild target.
         std::string dep;
         if (this->GetRealDependency(d, config, dep,
                                     command.GetCMP0212Status())) {
@@ -2257,9 +2257,9 @@ void cmLocalVisualStudio7Generator::ReadAndStoreExternalGUID(
   if (parser.GUID.empty()) {
     return;
   }
-  std::string guidStoreName = cmStrCat(name, "_GUID_CMAKE");
+  std::string guidStoreName = cmStrCat(name, "_GUID_RBLXBUILD");
   // save the GUID in the cache
-  this->GlobalGenerator->GetCMakeInstance()->AddCacheEntry(
+  this->GlobalGenerator->GetRBLXBuildInstance()->AddCacheEntry(
     guidStoreName, parser.GUID, "Stored GUID", cmStateEnums::INTERNAL);
 }
 

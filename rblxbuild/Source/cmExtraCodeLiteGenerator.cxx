@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmExtraCodeLiteGenerator.h"
 
 #include <cstring>
@@ -21,7 +21,7 @@
 #include "cmSystemTools.h"
 #include "cmTargetTypes.h"
 #include "cmXMLWriter.h"
-#include "cmake.h"
+#include "rblxbuild.h"
 
 cmExtraCodeLiteGenerator::cmExtraCodeLiteGenerator()
   : ConfigName("NoConfig")
@@ -85,7 +85,7 @@ void cmExtraCodeLiteGenerator::Generate()
   xml.Attribute("Name", workspaceProjectName);
 
   bool const targetsAreProjects =
-    this->GlobalGenerator->GlobalSettingIsOn("CMAKE_CODELITE_USE_TARGETS");
+    this->GlobalGenerator->GlobalSettingIsOn("RBLXBUILD_CODELITE_USE_TARGETS");
 
   std::vector<std::string> ProjectNames;
   if (targetsAreProjects) {
@@ -216,10 +216,10 @@ std::string cmExtraCodeLiteGenerator::CollectSourceFiles(
     case cm::TargetType::STATIC_LIBRARY:
     case cm::TargetType::SHARED_LIBRARY:
     case cm::TargetType::MODULE_LIBRARY: {
-      cmake const* cm = makefile->GetCMakeInstance();
+      rblxbuild const* cm = makefile->GetRBLXBuildInstance();
       std::vector<cmSourceFile*> sources;
       gt->GetSourceFiles(sources,
-                         makefile->GetSafeDefinition("CMAKE_BUILD_TYPE"));
+                         makefile->GetSafeDefinition("RBLXBUILD_BUILD_TYPE"));
       for (cmSourceFile* s : sources) {
         std::string const& fullPath = s->ResolveFullPath();
         std::string const& extLower =
@@ -287,7 +287,7 @@ void cmExtraCodeLiteGenerator::FindMatchingHeaderfiles(
 {
 
   std::vector<std::string> const& headerExts =
-    this->GlobalGenerator->GetCMakeInstance()->GetHeaderExtensions();
+    this->GlobalGenerator->GetRBLXBuildInstance()->GetHeaderExtensions();
 
   // The following loop tries to add header files matching to implementation
   // files to the project. It does that by iterating over all source files,
@@ -461,7 +461,7 @@ void cmExtraCodeLiteGenerator::CreateProjectSourceEntries(
 
   xml.StartElement("General");
   std::string outputPath =
-    mf->GetSafeDefinition("CMAKE_RUNTIME_OUTPUT_DIRECTORY");
+    mf->GetSafeDefinition("RBLXBUILD_RUNTIME_OUTPUT_DIRECTORY");
   if (outputPath.empty()) {
     outputPath = mf->GetSafeDefinition("EXECUTABLE_OUTPUT_PATH");
   }
@@ -587,9 +587,9 @@ std::string cmExtraCodeLiteGenerator::GetCodeLiteCompilerName(
 {
   // figure out which language to use
   // for now care only for C and C++
-  std::string compilerIdVar = "CMAKE_CXX_COMPILER_ID";
+  std::string compilerIdVar = "RBLXBUILD_CXX_COMPILER_ID";
   if (!this->GlobalGenerator->GetLanguageEnabled("CXX")) {
-    compilerIdVar = "CMAKE_C_COMPILER_ID";
+    compilerIdVar = "RBLXBUILD_C_COMPILER_ID";
   }
 
   std::string const& compilerId = mf->GetSafeDefinition(compilerIdVar);
@@ -611,7 +611,7 @@ std::string cmExtraCodeLiteGenerator::GetCodeLiteCompilerName(
 std::string cmExtraCodeLiteGenerator::GetConfigurationName(
   cmMakefile const* mf) const
 {
-  std::string confName = mf->GetSafeDefinition("CMAKE_BUILD_TYPE");
+  std::string confName = mf->GetSafeDefinition("RBLXBUILD_BUILD_TYPE");
   // Trim the configuration name from whitespaces (left and right)
   confName.erase(0, confName.find_first_not_of(" \t\r\v\n"));
   confName.erase(confName.find_last_not_of(" \t\r\v\n") + 1);
@@ -624,8 +624,8 @@ std::string cmExtraCodeLiteGenerator::GetConfigurationName(
 std::string cmExtraCodeLiteGenerator::GetBuildCommand(
   cmMakefile const* mf, std::string const& targetName) const
 {
-  std::string const& generator = mf->GetSafeDefinition("CMAKE_GENERATOR");
-  std::string const& make = mf->GetRequiredDefinition("CMAKE_MAKE_PROGRAM");
+  std::string const& generator = mf->GetSafeDefinition("RBLXBUILD_GENERATOR");
+  std::string const& make = mf->GetRequiredDefinition("RBLXBUILD_MAKE_PROGRAM");
   std::string buildCommand = make; // Default
   std::ostringstream ss;
   if (generator == "NMake Makefiles" || generator == "Ninja") {
@@ -646,7 +646,7 @@ std::string cmExtraCodeLiteGenerator::GetBuildCommand(
 std::string cmExtraCodeLiteGenerator::GetCleanCommand(
   cmMakefile const* mf, std::string const& targetName) const
 {
-  std::string generator = mf->GetSafeDefinition("CMAKE_GENERATOR");
+  std::string generator = mf->GetSafeDefinition("RBLXBUILD_GENERATOR");
   std::string buildcommand = this->GetBuildCommand(mf, "");
   if (!targetName.empty() && generator == "Ninja") {
     return cmStrCat(std::move(buildcommand), " -t clean ", targetName);
@@ -665,8 +665,8 @@ std::string cmExtraCodeLiteGenerator::GetSingleFileBuildCommand(
   cmMakefile const* mf) const
 {
   std::string buildCommand;
-  std::string const& make = mf->GetRequiredDefinition("CMAKE_MAKE_PROGRAM");
-  std::string const& generator = mf->GetSafeDefinition("CMAKE_GENERATOR");
+  std::string const& make = mf->GetRequiredDefinition("RBLXBUILD_MAKE_PROGRAM");
+  std::string const& generator = mf->GetSafeDefinition("RBLXBUILD_GENERATOR");
   if (generator == "Unix Makefiles" || generator == "MinGW Makefiles") {
 #if defined(_WIN32)
     buildCommand = cmStrCat(

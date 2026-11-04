@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmFindCommon.h"
 
 #include <algorithm>
@@ -16,9 +16,9 @@
 #include "cmStringAlgorithms.h"
 #include "cmSystemTools.h"
 #include "cmValue.h"
-#include "cmake.h"
+#include "rblxbuild.h"
 
-#ifndef CMAKE_BOOTSTRAP
+#ifndef RBLXBUILD_BOOTSTRAP
 #  include <deque>
 #  include <iterator>
 
@@ -33,13 +33,13 @@
 cmFindCommon::PathGroup cmFindCommon::PathGroup::All("ALL");
 cmFindCommon::PathLabel cmFindCommon::PathLabel::PackageRoot(
   "PackageName_ROOT");
-cmFindCommon::PathLabel cmFindCommon::PathLabel::CMake("CMAKE");
-cmFindCommon::PathLabel cmFindCommon::PathLabel::CMakeEnvironment(
-  "CMAKE_ENVIRONMENT");
+cmFindCommon::PathLabel cmFindCommon::PathLabel::RBLXBuild("RBLXBUILD");
+cmFindCommon::PathLabel cmFindCommon::PathLabel::RBLXBuildEnvironment(
+  "RBLXBUILD_ENVIRONMENT");
 cmFindCommon::PathLabel cmFindCommon::PathLabel::Hints("HINTS");
 cmFindCommon::PathLabel cmFindCommon::PathLabel::SystemEnvironment(
   "SYSTEM_ENVIRONMENT");
-cmFindCommon::PathLabel cmFindCommon::PathLabel::CMakeSystem("CMAKE_SYSTEM");
+cmFindCommon::PathLabel cmFindCommon::PathLabel::RBLXBuildSystem("RBLXBUILD_SYSTEM");
 cmFindCommon::PathLabel cmFindCommon::PathLabel::Guess("GUESS");
 
 cmFindCommon::cmFindCommon(cmExecutionStatus& status)
@@ -50,11 +50,11 @@ cmFindCommon::cmFindCommon(cmExecutionStatus& status)
   this->FullDebugMode = false;
   this->NoDefaultPath = false;
   this->NoPackageRootPath = false;
-  this->NoCMakePath = false;
-  this->NoCMakeEnvironmentPath = false;
+  this->NoRBLXBuildPath = false;
+  this->NoRBLXBuildEnvironmentPath = false;
   this->NoSystemEnvironmentPath = false;
-  this->NoCMakeSystemPath = false;
-  this->NoCMakeInstallPath = false;
+  this->NoRBLXBuildSystemPath = false;
+  this->NoRBLXBuildInstallPath = false;
 
 // OS X Bundle and Framework search policy.  The default is to
 // search frameworks first on apple.
@@ -76,7 +76,7 @@ cmFindCommon::cmFindCommon(cmExecutionStatus& status)
   // When policy CMP0134 is not NEW, rely on previous behavior:
   if (this->Makefile->GetPolicyStatus(cmPolicies::CMP0134) !=
       cmPolicies::NEW) {
-    if (this->Makefile->GetDefinition("CMAKE_SIZEOF_VOID_P") == "8") {
+    if (this->Makefile->GetDefinition("RBLXBUILD_SIZEOF_VOID_P") == "8") {
       this->RegistryView = cmWindowsRegistry::View::Reg64;
     } else {
       this->RegistryView = cmWindowsRegistry::View::Reg32;
@@ -106,14 +106,14 @@ void cmFindCommon::DebugMessage(std::string const& msg) const
 bool cmFindCommon::ComputeIfDebugModeWanted()
 {
   return this->Makefile->GetDebugFindPkgMode() ||
-    this->Makefile->IsOn("CMAKE_FIND_DEBUG_MODE") ||
-    this->Makefile->GetCMakeInstance()->GetDebugFindOutput();
+    this->Makefile->IsOn("RBLXBUILD_FIND_DEBUG_MODE") ||
+    this->Makefile->GetRBLXBuildInstance()->GetDebugFindOutput();
 }
 
 bool cmFindCommon::ComputeIfDebugModeWanted(std::string const& var)
 {
   return this->ComputeIfDebugModeWanted() ||
-    this->Makefile->GetCMakeInstance()->GetDebugFindOutput(var);
+    this->Makefile->GetRBLXBuildInstance()->GetDebugFindOutput(var);
 }
 
 bool cmFindCommon::ComputeIfImplicitDebugModeSuppressed()
@@ -121,7 +121,7 @@ bool cmFindCommon::ComputeIfImplicitDebugModeSuppressed()
   // XXX(find-events): In the future, mirror the `ComputeIfDebugModeWanted`
   // methods if more control is desired.
   return this->Makefile->IsOn(
-    "CMAKE_FIND_DEBUG_MODE_NO_IMPLICIT_CONFIGURE_LOG");
+    "RBLXBUILD_FIND_DEBUG_MODE_NO_IMPLICIT_CONFIGURE_LOG");
 }
 
 void cmFindCommon::InitializeSearchPathGroups()
@@ -133,11 +133,11 @@ void cmFindCommon::InitializeSearchPathGroups()
   // All search paths
   labels = &this->PathGroupLabelMap[PathGroup::All];
   labels->push_back(PathLabel::PackageRoot);
-  labels->push_back(PathLabel::CMake);
-  labels->push_back(PathLabel::CMakeEnvironment);
+  labels->push_back(PathLabel::RBLXBuild);
+  labels->push_back(PathLabel::RBLXBuildEnvironment);
   labels->push_back(PathLabel::Hints);
   labels->push_back(PathLabel::SystemEnvironment);
-  labels->push_back(PathLabel::CMakeSystem);
+  labels->push_back(PathLabel::RBLXBuildSystem);
   labels->push_back(PathLabel::Guess);
 
   // Define the search group order
@@ -145,11 +145,11 @@ void cmFindCommon::InitializeSearchPathGroups()
 
   // Create the individual labeled search paths
   this->LabeledPaths.emplace(PathLabel::PackageRoot, cmSearchPath(this));
-  this->LabeledPaths.emplace(PathLabel::CMake, cmSearchPath(this));
-  this->LabeledPaths.emplace(PathLabel::CMakeEnvironment, cmSearchPath(this));
+  this->LabeledPaths.emplace(PathLabel::RBLXBuild, cmSearchPath(this));
+  this->LabeledPaths.emplace(PathLabel::RBLXBuildEnvironment, cmSearchPath(this));
   this->LabeledPaths.emplace(PathLabel::Hints, cmSearchPath(this));
   this->LabeledPaths.emplace(PathLabel::SystemEnvironment, cmSearchPath(this));
-  this->LabeledPaths.emplace(PathLabel::CMakeSystem, cmSearchPath(this));
+  this->LabeledPaths.emplace(PathLabel::RBLXBuildSystem, cmSearchPath(this));
   this->LabeledPaths.emplace(PathLabel::Guess, cmSearchPath(this));
 }
 
@@ -157,7 +157,7 @@ void cmFindCommon::SelectDefaultRootPathMode()
 {
   // Check the policy variable for this find command type.
   std::string findRootPathVar =
-    cmStrCat("CMAKE_FIND_ROOT_PATH_MODE_", this->CMakePathName);
+    cmStrCat("RBLXBUILD_FIND_ROOT_PATH_MODE_", this->RBLXBuildPathName);
   std::string rootPathMode =
     this->Makefile->GetSafeDefinition(findRootPathVar);
   if (rootPathMode == "NEVER") {
@@ -171,7 +171,7 @@ void cmFindCommon::SelectDefaultRootPathMode()
 
 void cmFindCommon::SelectDefaultMacMode()
 {
-  std::string ff = this->Makefile->GetSafeDefinition("CMAKE_FIND_FRAMEWORK");
+  std::string ff = this->Makefile->GetSafeDefinition("RBLXBUILD_FIND_FRAMEWORK");
   if (ff == "NEVER") {
     this->SearchFrameworkLast = false;
     this->SearchFrameworkFirst = false;
@@ -190,7 +190,7 @@ void cmFindCommon::SelectDefaultMacMode()
     this->SearchFrameworkOnly = false;
   }
 
-  std::string fab = this->Makefile->GetSafeDefinition("CMAKE_FIND_APPBUNDLE");
+  std::string fab = this->Makefile->GetSafeDefinition("RBLXBUILD_FIND_APPBUNDLE");
   if (fab == "NEVER") {
     this->SearchAppBundleLast = false;
     this->SearchAppBundleFirst = false;
@@ -213,14 +213,14 @@ void cmFindCommon::SelectDefaultMacMode()
 void cmFindCommon::SelectDefaultSearchModes()
 {
   std::array<std::pair<bool&, std::string>, 6> const search_paths = {
-    { { this->NoPackageRootPath, "CMAKE_FIND_USE_PACKAGE_ROOT_PATH" },
-      { this->NoCMakePath, "CMAKE_FIND_USE_CMAKE_PATH" },
-      { this->NoCMakeEnvironmentPath,
-        "CMAKE_FIND_USE_CMAKE_ENVIRONMENT_PATH" },
+    { { this->NoPackageRootPath, "RBLXBUILD_FIND_USE_PACKAGE_ROOT_PATH" },
+      { this->NoRBLXBuildPath, "RBLXBUILD_FIND_USE_RBLXBUILD_PATH" },
+      { this->NoRBLXBuildEnvironmentPath,
+        "RBLXBUILD_FIND_USE_RBLXBUILD_ENVIRONMENT_PATH" },
       { this->NoSystemEnvironmentPath,
-        "CMAKE_FIND_USE_SYSTEM_ENVIRONMENT_PATH" },
-      { this->NoCMakeSystemPath, "CMAKE_FIND_USE_CMAKE_SYSTEM_PATH" },
-      { this->NoCMakeInstallPath, "CMAKE_FIND_USE_INSTALL_PREFIX" } }
+        "RBLXBUILD_FIND_USE_SYSTEM_ENVIRONMENT_PATH" },
+      { this->NoRBLXBuildSystemPath, "RBLXBUILD_FIND_USE_RBLXBUILD_SYSTEM_PATH" },
+      { this->NoRBLXBuildInstallPath, "RBLXBUILD_FIND_USE_INSTALL_PREFIX" } }
   };
 
   for (auto const& path : search_paths) {
@@ -239,11 +239,11 @@ void cmFindCommon::RerootPaths(std::vector<std::string>& paths,
     return;
   }
 
-  cmValue sysroot = this->Makefile->GetDefinition("CMAKE_SYSROOT");
+  cmValue sysroot = this->Makefile->GetDefinition("RBLXBUILD_SYSROOT");
   cmValue sysrootCompile =
-    this->Makefile->GetDefinition("CMAKE_SYSROOT_COMPILE");
-  cmValue sysrootLink = this->Makefile->GetDefinition("CMAKE_SYSROOT_LINK");
-  cmValue rootPath = this->Makefile->GetDefinition("CMAKE_FIND_ROOT_PATH");
+    this->Makefile->GetDefinition("RBLXBUILD_SYSROOT_COMPILE");
+  cmValue sysrootLink = this->Makefile->GetDefinition("RBLXBUILD_SYSROOT_LINK");
+  cmValue rootPath = this->Makefile->GetDefinition("RBLXBUILD_FIND_ROOT_PATH");
   bool const noSysroot = !cmNonempty(sysroot);
   bool const noCompileSysroot = !cmNonempty(sysrootCompile);
   bool const noLinkSysroot = !cmNonempty(sysrootLink);
@@ -273,19 +273,19 @@ void cmFindCommon::RerootPaths(std::vector<std::string>& paths,
 
   // Construct the list of path roots with no trailing slashes.
   cmList roots;
-  debugRoot("CMAKE_FIND_ROOT_PATH", rootPath);
+  debugRoot("RBLXBUILD_FIND_ROOT_PATH", rootPath);
   if (cmNonempty(rootPath)) {
     roots.assign(*rootPath);
   }
-  debugRoot("CMAKE_SYSROOT_COMPILE", sysrootCompile);
+  debugRoot("RBLXBUILD_SYSROOT_COMPILE", sysrootCompile);
   if (cmNonempty(sysrootCompile)) {
     roots.emplace_back(*sysrootCompile);
   }
-  debugRoot("CMAKE_SYSROOT_LINK", sysrootLink);
+  debugRoot("RBLXBUILD_SYSROOT_LINK", sysrootLink);
   if (cmNonempty(sysrootLink)) {
     roots.emplace_back(*sysrootLink);
   }
-  debugRoot("CMAKE_SYSROOT", sysroot);
+  debugRoot("RBLXBUILD_SYSROOT", sysroot);
   if (cmNonempty(sysroot)) {
     roots.emplace_back(*sysroot);
   }
@@ -293,7 +293,7 @@ void cmFindCommon::RerootPaths(std::vector<std::string>& paths,
     cmSystemTools::ConvertToUnixSlashes(r);
   }
 
-  cmValue stagePrefix = this->Makefile->GetDefinition("CMAKE_STAGING_PREFIX");
+  cmValue stagePrefix = this->Makefile->GetDefinition("RBLXBUILD_STAGING_PREFIX");
 
   // Copy the original set of unrooted paths.
   auto unrootedPaths = paths;
@@ -339,8 +339,8 @@ void cmFindCommon::RerootPaths(std::vector<std::string>& paths,
 
 void cmFindCommon::GetIgnoredPaths(std::vector<std::string>& ignore)
 {
-  std::array<char const*, 2> const paths = { { "CMAKE_SYSTEM_IGNORE_PATH",
-                                               "CMAKE_IGNORE_PATH" } };
+  std::array<char const*, 2> const paths = { { "RBLXBUILD_SYSTEM_IGNORE_PATH",
+                                               "RBLXBUILD_IGNORE_PATH" } };
 
   // Construct the list of path roots with no trailing slashes.
   for (char const* pathName : paths) {
@@ -363,7 +363,7 @@ void cmFindCommon::GetIgnoredPaths(std::set<std::string>& ignore)
 void cmFindCommon::GetIgnoredPrefixPaths(std::vector<std::string>& ignore)
 {
   std::array<char const*, 2> const paths = {
-    { "CMAKE_SYSTEM_IGNORE_PREFIX_PATH", "CMAKE_IGNORE_PREFIX_PATH" }
+    { "RBLXBUILD_SYSTEM_IGNORE_PREFIX_PATH", "RBLXBUILD_IGNORE_PREFIX_PATH" }
   };
   // Construct the list of path roots with no trailing slashes.
   for (char const* pathName : paths) {
@@ -393,35 +393,35 @@ bool cmFindCommon::CheckCommonArgument(std::string const& arg)
     this->NoPackageRootPath = true;
     return true;
   }
-  if (arg == "NO_CMAKE_PATH") {
-    this->NoCMakePath = true;
+  if (arg == "NO_RBLXBUILD_PATH") {
+    this->NoRBLXBuildPath = true;
     return true;
   }
-  if (arg == "NO_CMAKE_ENVIRONMENT_PATH") {
-    this->NoCMakeEnvironmentPath = true;
+  if (arg == "NO_RBLXBUILD_ENVIRONMENT_PATH") {
+    this->NoRBLXBuildEnvironmentPath = true;
     return true;
   }
   if (arg == "NO_SYSTEM_ENVIRONMENT_PATH") {
     this->NoSystemEnvironmentPath = true;
     return true;
   }
-  if (arg == "NO_CMAKE_SYSTEM_PATH") {
-    this->NoCMakeSystemPath = true;
+  if (arg == "NO_RBLXBUILD_SYSTEM_PATH") {
+    this->NoRBLXBuildSystemPath = true;
     return true;
   }
-  if (arg == "NO_CMAKE_INSTALL_PREFIX") {
-    this->NoCMakeInstallPath = true;
+  if (arg == "NO_RBLXBUILD_INSTALL_PREFIX") {
+    this->NoRBLXBuildInstallPath = true;
     return true;
   }
-  if (arg == "NO_CMAKE_FIND_ROOT_PATH") {
+  if (arg == "NO_RBLXBUILD_FIND_ROOT_PATH") {
     this->FindRootPathMode = RootPathModeNever;
     return true;
   }
-  if (arg == "ONLY_CMAKE_FIND_ROOT_PATH") {
+  if (arg == "ONLY_RBLXBUILD_FIND_ROOT_PATH") {
     this->FindRootPathMode = RootPathModeOnly;
     return true;
   }
-  if (arg == "CMAKE_FIND_ROOT_PATH_BOTH") {
+  if (arg == "RBLXBUILD_FIND_ROOT_PATH_BOTH") {
     this->FindRootPathMode = RootPathModeBoth;
     return true;
   }
@@ -525,10 +525,10 @@ void cmFindCommonDebugState::Write()
 {
   auto const* const fc = this->FindCommand;
 
-#ifndef CMAKE_BOOTSTRAP
+#ifndef RBLXBUILD_BOOTSTRAP
   // Write find event to the configure log if the log exists
   if (cmConfigureLog* log =
-        fc->Makefile->GetCMakeInstance()->GetConfigureLog()) {
+        fc->Makefile->GetRBLXBuildInstance()->GetConfigureLog()) {
     // Write event if any of:
     //   - debug mode is enabled
     //   - implicit logging should happen and:
@@ -548,7 +548,7 @@ void cmFindCommonDebugState::Write()
   }
 }
 
-#ifndef CMAKE_BOOTSTRAP
+#ifndef RBLXBUILD_BOOTSTRAP
 void cmFindCommonDebugState::WriteSearchVariables(cmConfigureLog& log,
                                                   cmMakefile const& mf) const
 {
@@ -557,7 +557,7 @@ void cmFindCommonDebugState::WriteSearchVariables(cmConfigureLog& log,
       log.WriteValue(name, *value);
     }
   };
-  auto WriteCMakeList = [&log, &mf](std::string const& name) {
+  auto WriteRBLXBuildList = [&log, &mf](std::string const& name) {
     if (cmValue value = mf.GetDefinition(name)) {
       cmList values{ *value };
       if (!values.empty()) {
@@ -596,42 +596,42 @@ void cmFindCommonDebugState::WriteSearchVariables(cmConfigureLog& log,
       log.EndObject();
     }
   }
-  auto cmakePathVar = cmStrCat("CMAKE_", fc->CMakePathName, "_PATH");
-  WriteCMakeList(cmakePathVar);
-  WriteCMakeList("CMAKE_PREFIX_PATH");
-  if (fc->CMakePathName == "PROGRAM"_s) {
-    WriteCMakeList("CMAKE_APPBUNDLE_PATH");
+  auto rblxbuildPathVar = cmStrCat("RBLXBUILD_", fc->RBLXBuildPathName, "_PATH");
+  WriteRBLXBuildList(rblxbuildPathVar);
+  WriteRBLXBuildList("RBLXBUILD_PREFIX_PATH");
+  if (fc->RBLXBuildPathName == "PROGRAM"_s) {
+    WriteRBLXBuildList("RBLXBUILD_APPBUNDLE_PATH");
   } else {
-    WriteCMakeList("CMAKE_FRAMEWORK_PATH");
+    WriteRBLXBuildList("RBLXBUILD_FRAMEWORK_PATH");
   }
   // Same as above, but ask the environment instead.
-  WriteEnvList(cmakePathVar);
-  WriteEnvList("CMAKE_PREFIX_PATH");
-  if (fc->CMakePathName == "PROGRAM"_s) {
-    WriteEnvList("CMAKE_APPBUNDLE_PATH");
+  WriteEnvList(rblxbuildPathVar);
+  WriteEnvList("RBLXBUILD_PREFIX_PATH");
+  if (fc->RBLXBuildPathName == "PROGRAM"_s) {
+    WriteEnvList("RBLXBUILD_APPBUNDLE_PATH");
   } else {
-    WriteEnvList("CMAKE_FRAMEWORK_PATH");
+    WriteEnvList("RBLXBUILD_FRAMEWORK_PATH");
   }
   WriteEnvList("PATH");
-  WriteString("CMAKE_INSTALL_PREFIX");
-  WriteString("CMAKE_STAGING_PREFIX");
-  WriteCMakeList("CMAKE_SYSTEM_PREFIX_PATH");
-  auto systemPathVar = cmStrCat("CMAKE_SYSTEM_", fc->CMakePathName, "_PATH");
-  WriteCMakeList(systemPathVar);
+  WriteString("RBLXBUILD_INSTALL_PREFIX");
+  WriteString("RBLXBUILD_STAGING_PREFIX");
+  WriteRBLXBuildList("RBLXBUILD_SYSTEM_PREFIX_PATH");
+  auto systemPathVar = cmStrCat("RBLXBUILD_SYSTEM_", fc->RBLXBuildPathName, "_PATH");
+  WriteRBLXBuildList(systemPathVar);
   // Sysroot paths.
-  WriteString("CMAKE_SYSROOT");
-  WriteString("CMAKE_SYSROOT_COMPILE");
-  WriteString("CMAKE_SYSROOT_LINK");
-  WriteString("CMAKE_FIND_ROOT_PATH");
+  WriteString("RBLXBUILD_SYSROOT");
+  WriteString("RBLXBUILD_SYSROOT_COMPILE");
+  WriteString("RBLXBUILD_SYSROOT_LINK");
+  WriteString("RBLXBUILD_FIND_ROOT_PATH");
   // Write out paths which are ignored.
-  WriteCMakeList("CMAKE_IGNORE_PATH");
-  WriteCMakeList("CMAKE_IGNORE_PREFIX_PATH");
-  WriteCMakeList("CMAKE_SYSTEM_IGNORE_PATH");
-  WriteCMakeList("CMAKE_SYSTEM_IGNORE_PREFIX_PATH");
-  if (fc->CMakePathName == "PROGRAM"_s) {
-    WriteCMakeList("CMAKE_SYSTEM_APPBUNDLE_PATH");
+  WriteRBLXBuildList("RBLXBUILD_IGNORE_PATH");
+  WriteRBLXBuildList("RBLXBUILD_IGNORE_PREFIX_PATH");
+  WriteRBLXBuildList("RBLXBUILD_SYSTEM_IGNORE_PATH");
+  WriteRBLXBuildList("RBLXBUILD_SYSTEM_IGNORE_PREFIX_PATH");
+  if (fc->RBLXBuildPathName == "PROGRAM"_s) {
+    WriteRBLXBuildList("RBLXBUILD_SYSTEM_APPBUNDLE_PATH");
   } else {
-    WriteCMakeList("CMAKE_SYSTEM_FRAMEWORK_PATH");
+    WriteRBLXBuildList("RBLXBUILD_SYSTEM_FRAMEWORK_PATH");
   }
   for (auto const& extraVar : this->ExtraSearchVariables()) {
     switch (extraVar.first) {
@@ -639,7 +639,7 @@ void cmFindCommonDebugState::WriteSearchVariables(cmConfigureLog& log,
         WriteString(extraVar.second);
         break;
       case VariableSource::PathList:
-        WriteCMakeList(extraVar.second);
+        WriteRBLXBuildList(extraVar.second);
         break;
       case VariableSource::EnvironmentList:
         WriteEnvList(extraVar.second);
@@ -660,8 +660,8 @@ bool cmFindCommonDebugState::TrackSearchProgress() const
 {
   // Track search progress if debugging or logging the configure.
   return this->FindCommand->DebugModeEnabled()
-#ifndef CMAKE_BOOTSTRAP
-    || this->FindCommand->Makefile->GetCMakeInstance()->GetConfigureLog()
+#ifndef RBLXBUILD_BOOTSTRAP
+    || this->FindCommand->Makefile->GetRBLXBuildInstance()->GetConfigureLog()
 #endif
     ;
 }

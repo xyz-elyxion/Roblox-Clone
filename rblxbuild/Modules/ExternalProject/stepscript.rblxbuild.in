@@ -1,0 +1,9 @@
+rblxbuild_minimum_required(VERSION ${RBLXBUILD_VERSION}) # this file comes with rblxbuild
+
+message(VERBOSE "Executing @step_name@ step for @name@")
+
+block(SCOPE_FOR VARIABLES)
+
+@step_script_contents@
+
+endblock()

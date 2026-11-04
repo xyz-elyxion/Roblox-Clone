@@ -44,14 +44,14 @@
         <?endif?>
 
         <StandardDirectory Id="TARGETDIR">
-            <Component Id="CMakeRegistry_InstallDir">
-                <RegistryValue Root="HKLM" Key="Software\Kitware\CMake" Name="InstallDir" Type="string" Value="[INSTALL_ROOT]" />
+            <Component Id="RBLXBuildRegistry_InstallDir">
+                <RegistryValue Root="HKLM" Key="Software\Kitware\RBLXBuild" Name="InstallDir" Type="string" Value="[INSTALL_ROOT]" />
             </Component>
         </StandardDirectory>
 
         <FeatureRef Id="ProductFeature">
-            <ComponentRef Id="CMakeRegistry_InstallDir" />
-            <ComponentRef Id="CMakeRegistry_InstallInPATH" />
+            <ComponentRef Id="RBLXBuildRegistry_InstallDir" />
+            <ComponentRef Id="RBLXBuildRegistry_InstallInPATH" />
         </FeatureRef>
 
         <UIRef Id="$(var.CPACK_WIX_UI_REF)" />

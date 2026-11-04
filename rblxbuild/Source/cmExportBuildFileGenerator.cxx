@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmExportBuildFileGenerator.h"
 
 #include <algorithm>
@@ -114,9 +114,9 @@ void cmExportBuildFileGenerator::SetImportLocationProperty(
       std::string value =
         target->GetFullPath(config, cmStateEnums::ImportLibraryArtifact,
                             cmGeneratorTarget::NameType::Real);
-      if (mf->GetDefinition("CMAKE_IMPORT_LIBRARY_SUFFIX")) {
+      if (mf->GetDefinition("RBLXBUILD_IMPORT_LIBRARY_SUFFIX")) {
         target->GetImplibGNUtoMS(config, value, value,
-                                 "${CMAKE_IMPORT_LIBRARY_SUFFIX}");
+                                 "${RBLXBUILD_IMPORT_LIBRARY_SUFFIX}");
       }
       properties[prop] = value;
     }
@@ -266,7 +266,7 @@ std::string cmExportBuildFileGenerator::InstallNameDir(
   std::string install_name_dir;
 
   cmMakefile* mf = target->Target->GetMakefile();
-  if (mf->IsOn("CMAKE_PLATFORM_HAS_INSTALLNAME")) {
+  if (mf->IsOn("RBLXBUILD_PLATFORM_HAS_INSTALLNAME")) {
     install_name_dir = target->GetInstallNameDirForBuildTree(config);
   }
 

@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #pragma once
 
 #include "cmConfigure.h" // IWYU pragma: keep
@@ -19,7 +19,7 @@ enum class PackageDomain;
 
 /**
  * This data represents the actual contents of find_package
- * <PACKAGE>-Config.cmake or <PACKAGE>.cps file, and not what is passed
+ * <PACKAGE>-Config.rblxbuild or <PACKAGE>.cps file, and not what is passed
  * to the find_package command. They can be the same, but it is not guaranteed.
  */
 

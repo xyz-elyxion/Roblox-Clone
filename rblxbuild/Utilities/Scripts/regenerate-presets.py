@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Generate CMake presets documentation (reST) and JSON schema.
+"""Generate RBLXBuild presets documentation (reST) and JSON schema.
 
-The documentation and JSON schema for CMake presets are both generated from
+The documentation and JSON schema for RBLXBuild presets are both generated from
 Help/manual/presets/schema.yaml, which describes the schema in a way that
 allows both documentation forms to be combined in a single file, and also makes
 it much easier to manage version revisions (compared to editing the JSON schema
@@ -50,8 +50,8 @@ WARNING_DESCRIPTION = (
     'This may not be set to false if errors.{p} is set to true.'
 )
 WARNING_SPHINX_DESCRIPTION = """
-An optional boolean. Equivalent to passing :option:`-W{c} <cmake -W>` or
-:option:`-Wno-{c} <cmake -Wno->` on the command line.
+An optional boolean. Equivalent to passing :option:`-W{c} <rblxbuild -W>` or
+:option:`-Wno-{c} <rblxbuild -Wno->` on the command line.
 This may not be set to ``false`` if ``errors.{p}`` is set to ``true``.
 """.strip()
 ERROR_DESCRIPTION = (
@@ -60,8 +60,8 @@ ERROR_DESCRIPTION = (
     'This may not be set to true if warnings.{p} is set to false.'
 )
 ERROR_SPHINX_DESCRIPTION = """
-An optional boolean. Equivalent to passing :cmake-option:`-Werror={c}` or
-:cmake-option:`-Wno-error={c}` on the command line.
+An optional boolean. Equivalent to passing :rblxbuild-option:`-Werror={c}` or
+:rblxbuild-option:`-Wno-error={c}` on the command line.
 This may not be set to ``true`` if ``warnings.{p}`` is set to ``false``.
 """.strip()
 
@@ -478,7 +478,7 @@ class Property:
         if self.content is None:
             return None
 
-        out = f'.. _`CMakePresets.{self.label}`:\n\n``{self.name}``\n'
+        out = f'.. _`RBLXBuildPresets.{self.label}`:\n\n``{self.name}``\n'
         if self.since > since:
             out += f'  .. presets-versionadded:: {self.since}\n\n'
         if self.until < until:

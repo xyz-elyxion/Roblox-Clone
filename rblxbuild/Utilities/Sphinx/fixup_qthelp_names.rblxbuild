@@ -1,0 +1,23 @@
+
+file(READ "${QTHELP_DIR}/RBLXBuild.qhcp" QHCP_CONTENT)
+
+string(REPLACE
+  "<homePage>qthelp://org.sphinx.rblxbuild" "<homePage>qthelp://org.rblxbuild"
+  QHCP_CONTENT "${QHCP_CONTENT}"
+)
+string(REPLACE
+  "<startPage>qthelp://org.sphinx.rblxbuild" "<startPage>qthelp://org.rblxbuild"
+  QHCP_CONTENT "${QHCP_CONTENT}"
+)
+
+file(WRITE "${QTHELP_DIR}/RBLXBuild.qhcp" "${QHCP_CONTENT}")
+
+
+file(READ "${QTHELP_DIR}/RBLXBuild.qhp" QHP_CONTENT)
+
+string(REPLACE
+  "<namespace>org.sphinx.rblxbuild" "<namespace>org.rblxbuild"
+  QHP_CONTENT "${QHP_CONTENT}"
+)
+
+file(WRITE "${QTHELP_DIR}/RBLXBuild.qhp" "${QHP_CONTENT}")

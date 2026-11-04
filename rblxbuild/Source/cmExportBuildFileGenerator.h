@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #pragma once
 
 #include "cmConfigure.h" // IWYU pragma: keep
@@ -22,10 +22,10 @@ class cmGeneratorTarget;
 class cmLocalGenerator;
 class cmMakefile;
 
-/** \class cmExportBuildCMakeConfigGenerator
+/** \class cmExportBuildRBLXBuildConfigGenerator
  * \brief Generate a file exporting targets from a build tree.
  *
- * cmExportBuildCMakeConfigGenerator is the interface class for generating a
+ * cmExportBuildRBLXBuildConfigGenerator is the interface class for generating a
  * file exporting targets from a build tree.
  *
  * This is used to implement the export() command.

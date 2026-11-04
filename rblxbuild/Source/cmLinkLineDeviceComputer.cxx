@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 
 #include "cmLinkLineDeviceComputer.h"
 
@@ -114,11 +114,11 @@ void cmLinkLineDeviceComputer::ComputeLinkLibraries(
   cmMakefile const* mf = cli.GetTarget()->Makefile;
   std::string const wholeArchive =
     cmJoin(cmList(mf->GetSafeDefinition(cmStrCat(
-             "CMAKE_", this->Language, "_DEVICE_LINK_OPTIONS_WHOLE_ARCHIVE"))),
+             "RBLXBUILD_", this->Language, "_DEVICE_LINK_OPTIONS_WHOLE_ARCHIVE"))),
            " ");
   std::string const noWholeArchive = cmJoin(
     cmList(mf->GetSafeDefinition(cmStrCat(
-      "CMAKE_", this->Language, "_DEVICE_LINK_OPTIONS_NO_WHOLE_ARCHIVE"))),
+      "RBLXBUILD_", this->Language, "_DEVICE_LINK_OPTIONS_NO_WHOLE_ARCHIVE"))),
     " ");
 
   for (auto const& item : items) {
@@ -224,7 +224,7 @@ bool requireDeviceLinking(cmGeneratorTarget const& target,
   }
 
   if (!lg.GetMakefile()->IsOn(
-        cmStrCat("CMAKE_", language, "_COMPILER_HAS_DEVICE_LINK_PHASE"))) {
+        cmStrCat("RBLXBUILD_", language, "_COMPILER_HAS_DEVICE_LINK_PHASE"))) {
     return false;
   }
 

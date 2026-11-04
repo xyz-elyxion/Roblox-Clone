@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmCTestMultiProcessHandler.h"
 
 #include <algorithm>
@@ -126,7 +126,7 @@ struct Fixture
   // test that requests it, so that a report of conflicting modes can name
   // the tests responsible.
   std::map<cmCTestTestHandler::FixtureRepeatMode, int> RequestedModes;
-  // The mode CMake recorded as the CMP0224 default, taken from the first
+  // The mode RBLXBuild recorded as the CMP0224 default, taken from the first
   // setup or cleanup test that carries one.
   cm::optional<cmCTestTestHandler::FixtureRepeatMode> DefaultMode;
 };

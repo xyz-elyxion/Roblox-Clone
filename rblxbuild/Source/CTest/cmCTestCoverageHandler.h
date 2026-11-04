@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #pragma once
 
 #include "cmConfigure.h" // IWYU pragma: keep
@@ -91,8 +91,8 @@ private:
                                          std::string output,
                                          bool collectFunctions = false);
 
-  //! Handle coverage of CMake listfiles from the CMAKE coverage tool
-  int HandleCMakeListFileCoverage(cmCTestCoverageHandlerContainer* cont);
+  //! Handle coverage of RBLXBuild listfiles from the RBLXBUILD coverage tool
+  int HandleRBLXBuildListFileCoverage(cmCTestCoverageHandlerContainer* cont);
 
   //! Handle coverage for Python with coverage.py
   int HandleCoberturaCoverage(cmCTestCoverageHandlerContainer* cont);

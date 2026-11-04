@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmCPackPKGGenerator.h"
 
 #include <vector>
@@ -142,7 +142,7 @@ void cmCPackPKGGenerator::WriteDistributionFile(char const* metapackageFile,
   // CPACK_PACKAGEMAKER_CHOICES. The above elements are new and only appear
   // in the CPACK_APPLE_PKG_INSTALLER_CONTENT variable, which is a superset
   // of what CPACK_PACKAGEMAKER_CHOICES used to provide. The renaming reflects
-  // the fact that CMake has deprecated the PackageMaker generator.
+  // the fact that RBLXBuild has deprecated the PackageMaker generator.
 
   // Create the choice outline, which provides a tree-based view of
   // the components in their groups.

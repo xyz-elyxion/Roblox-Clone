@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmExtraSublimeTextGenerator.h"
 
 #include <cstring>
@@ -23,7 +23,7 @@
 #include "cmSystemTools.h"
 #include "cmTargetTypes.h"
 #include "cmValue.h"
-#include "cmake.h"
+#include "rblxbuild.h"
 
 /*
 Sublime Text 2 Generator
@@ -69,9 +69,9 @@ cmExtraSublimeTextGenerator::cmExtraSublimeTextGenerator()
 void cmExtraSublimeTextGenerator::Generate()
 {
   this->ExcludeBuildFolder = this->GlobalGenerator->GlobalSettingIsOn(
-    "CMAKE_SUBLIME_TEXT_2_EXCLUDE_BUILD_TREE");
+    "RBLXBUILD_SUBLIME_TEXT_2_EXCLUDE_BUILD_TREE");
   this->EnvSettings = this->GlobalGenerator->GetSafeGlobalSetting(
-    "CMAKE_SUBLIME_TEXT_2_ENV_SETTINGS");
+    "RBLXBUILD_SUBLIME_TEXT_2_ENV_SETTINGS");
 
   // for each sub project in the project create a sublime text 2 project
   for (auto const& it : this->GlobalGenerator->GetProjectMap()) {
@@ -138,7 +138,7 @@ void cmExtraSublimeTextGenerator::CreateNewProjectFile(
 
   // End of build_systems
   fout << "\n\t]";
-  std::string systemName = mf->GetSafeDefinition("CMAKE_SYSTEM_NAME");
+  std::string systemName = mf->GetSafeDefinition("RBLXBUILD_SYSTEM_NAME");
   cmList tokens{ this->EnvSettings };
 
   if (!this->EnvSettings.empty()) {
@@ -158,7 +158,7 @@ void cmExtraSublimeTextGenerator::CreateNewProjectFile(
       } else {
         mf->IssueMessage(MessageType::FATAL_ERROR,
                          cmStrCat("Could not parse Env Vars specified in "
-                                  "\"CMAKE_SUBLIME_TEXT_2_ENV_SETTINGS\""
+                                  "\"RBLXBUILD_SUBLIME_TEXT_2_ENV_SETTINGS\""
                                   ", corrupted string ",
                                   t));
       }
@@ -173,7 +173,7 @@ void cmExtraSublimeTextGenerator::AppendAllTargets(
   std::vector<cmLocalGenerator*> const& lgs, cmMakefile const* mf,
   cmGeneratedFileStream& fout, MapSourceFileFlags& sourceFileFlags)
 {
-  std::string const& make = mf->GetRequiredDefinition("CMAKE_MAKE_PROGRAM");
+  std::string const& make = mf->GetRequiredDefinition("RBLXBUILD_MAKE_PROGRAM");
   std::string compiler;
   if (!lgs.empty()) {
     this->AppendTarget(fout, "all", lgs[0], nullptr, make.c_str(), mf,
@@ -191,7 +191,7 @@ void cmExtraSublimeTextGenerator::AppendAllTargets(
       std::string targetName = target->GetName();
       switch (target->GetType()) {
         case cm::TargetType::GLOBAL_TARGET: {
-          // Only add the global targets from CMAKE_BINARY_DIR,
+          // Only add the global targets from RBLXBUILD_BINARY_DIR,
           // not from the subdirs
           if (lg->GetCurrentBinaryDirectory() == lg->GetBinaryDirectory()) {
             this->AppendTarget(fout, targetName, lg, nullptr, make.c_str(),
@@ -245,7 +245,7 @@ void cmExtraSublimeTextGenerator::AppendTarget(
   if (target) {
     std::vector<cmSourceFile*> sourceFiles;
     target->GetSourceFiles(sourceFiles,
-                           makefile->GetSafeDefinition("CMAKE_BUILD_TYPE"));
+                           makefile->GetSafeDefinition("RBLXBUILD_BUILD_TYPE"));
     for (cmSourceFile* sourceFile : sourceFiles) {
       auto sourceFileFlagsIter =
         sourceFileFlags.find(sourceFile->ResolveFullPath());
@@ -328,7 +328,7 @@ std::string cmExtraSublimeTextGenerator::BuildMakeCommand(
     std::string makefileName;
     if (generator == "MinGW Makefiles") {
       // no escaping of spaces in this case, see
-      // https://gitlab.kitware.com/cmake/cmake/-/issues/10014
+      // https://gitlab.kitware.com/rblxbuild/rblxbuild/-/issues/10014
       makefileName = makefile;
     } else {
       makefileName = cmSystemTools::ConvertToOutputPath(makefile);
@@ -345,7 +345,7 @@ std::string cmExtraSublimeTextGenerator::ComputeFlagsForObject(
 {
   std::string flags;
   std::string const& config =
-    lg->GetMakefile()->GetSafeDefinition("CMAKE_BUILD_TYPE");
+    lg->GetMakefile()->GetSafeDefinition("RBLXBUILD_BUILD_TYPE");
   std::string language = gtgt->GetSourceFileLanguage(source, config);
   if (language.empty()) {
     language = "C";
@@ -384,7 +384,7 @@ std::string cmExtraSublimeTextGenerator::ComputeDefines(
   std::set<std::string> defines;
   cmMakefile* makefile = lg->GetMakefile();
   std::string const& language = source->GetOrDetermineLanguage();
-  std::string const& config = makefile->GetSafeDefinition("CMAKE_BUILD_TYPE");
+  std::string const& config = makefile->GetSafeDefinition("RBLXBUILD_BUILD_TYPE");
   cmGeneratorExpressionInterpreter genexInterpreter(lg, config, target,
                                                     language);
 
@@ -417,7 +417,7 @@ std::string cmExtraSublimeTextGenerator::ComputeIncludes(
   std::vector<std::string> includes;
   cmMakefile* makefile = lg->GetMakefile();
   std::string const& language = source->GetOrDetermineLanguage();
-  std::string const& config = makefile->GetSafeDefinition("CMAKE_BUILD_TYPE");
+  std::string const& config = makefile->GetSafeDefinition("RBLXBUILD_BUILD_TYPE");
   cmGeneratorExpressionInterpreter genexInterpreter(lg, config, target,
                                                     language);
 
@@ -443,8 +443,8 @@ bool cmExtraSublimeTextGenerator::Open(std::string const& bindir,
                                        bool dryRun)
 {
   cmValue sublExecutable =
-    this->GlobalGenerator->GetCMakeInstance()->GetCacheDefinition(
-      "CMAKE_SUBLIMETEXT_EXECUTABLE");
+    this->GlobalGenerator->GetRBLXBuildInstance()->GetCacheDefinition(
+      "RBLXBUILD_SUBLIMETEXT_EXECUTABLE");
   if (!sublExecutable) {
     return false;
   }

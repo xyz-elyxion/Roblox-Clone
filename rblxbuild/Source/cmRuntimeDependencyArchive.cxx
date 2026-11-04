@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 
 #include "cmRuntimeDependencyArchive.h"
 
@@ -22,7 +22,7 @@
 
 #if defined(_WIN32)
 #  include "cmGlobalGenerator.h"
-#  ifndef CMAKE_BOOTSTRAP
+#  ifndef RBLXBUILD_BOOTSTRAP
 #    include "cmGlobalVisualStudioVersionedGenerator.h"
 #  endif
 #  include "cmsys/Glob.hxx"
@@ -38,7 +38,7 @@ static void AddVisualStudioPath(std::vector<std::string>& paths,
   // If generating for the VS IDE, use the same instance.
   std::string vsloc;
   bool found = false;
-#  ifndef CMAKE_BOOTSTRAP
+#  ifndef RBLXBUILD_BOOTSTRAP
   if (cmHasPrefix(gg->GetName(), prefix)) {
     cmGlobalVisualStudioVersionedGenerator* vsgen =
       static_cast<cmGlobalVisualStudioVersionedGenerator*>(gg);
@@ -143,10 +143,10 @@ cmRuntimeDependencyArchive::cmRuntimeDependencyArchive(
 bool cmRuntimeDependencyArchive::Prepare()
 {
   std::string platform = this->GetMakefile()->GetSafeDefinition(
-    "CMAKE_GET_RUNTIME_DEPENDENCIES_PLATFORM");
+    "RBLXBUILD_GET_RUNTIME_DEPENDENCIES_PLATFORM");
   if (platform.empty()) {
     std::string systemName =
-      this->GetMakefile()->GetSafeDefinition("CMAKE_HOST_SYSTEM_NAME");
+      this->GetMakefile()->GetSafeDefinition("RBLXBUILD_HOST_SYSTEM_NAME");
     if (systemName == "Windows") {
       platform = "windows+pe";
     } else if (systemName == "Darwin") {
@@ -165,7 +165,7 @@ bool cmRuntimeDependencyArchive::Prepare()
     this->Linker = cm::make_unique<cmBinUtilsMacOSMachOLinker>(this);
   } else {
     this->SetError(
-      cmStrCat("Invalid value for CMAKE_GET_RUNTIME_DEPENDENCIES_PLATFORM: ",
+      cmStrCat("Invalid value for RBLXBUILD_GET_RUNTIME_DEPENDENCIES_PLATFORM: ",
                platform));
     return false;
   }
@@ -215,7 +215,7 @@ std::string const& cmRuntimeDependencyArchive::GetGetRuntimeDependenciesTool()
   const
 {
   return this->GetMakefile()->GetSafeDefinition(
-    "CMAKE_GET_RUNTIME_DEPENDENCIES_TOOL");
+    "RBLXBUILD_GET_RUNTIME_DEPENDENCIES_TOOL");
 }
 
 bool cmRuntimeDependencyArchive::GetGetRuntimeDependenciesCommand(
@@ -223,9 +223,9 @@ bool cmRuntimeDependencyArchive::GetGetRuntimeDependenciesCommand(
 {
   // First see if it was supplied by the user
   std::string toolCommand = this->GetMakefile()->GetSafeDefinition(
-    "CMAKE_GET_RUNTIME_DEPENDENCIES_COMMAND");
+    "RBLXBUILD_GET_RUNTIME_DEPENDENCIES_COMMAND");
   if (toolCommand.empty() && search == "objdump") {
-    toolCommand = this->GetMakefile()->GetSafeDefinition("CMAKE_OBJDUMP");
+    toolCommand = this->GetMakefile()->GetSafeDefinition("RBLXBUILD_OBJDUMP");
   }
   if (!toolCommand.empty()) {
     cmExpandList(toolCommand, command);

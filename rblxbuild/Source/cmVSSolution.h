@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #pragma once
 
 #include "cmConfigure.h" // IWYU pragma: keep
@@ -19,7 +19,7 @@ namespace cm {
 namespace VS {
 
 /** Represent a Visual Studio Solution.
-    In VS terminology, a "project" corresponds to a CMake "target".  */
+    In VS terminology, a "project" corresponds to a RBLXBuild "target".  */
 struct Solution final
 {
   Solution() = default;
@@ -42,10 +42,10 @@ struct Solution final
   };
 
   /** Represent one project in a Solution.
-      This corresponds to one CMake "target".  */
+      This corresponds to one RBLXBuild "target".  */
   struct Project final
   {
-    /** Project name.  This corresponds to the CMake "target" name.  */
+    /** Project name.  This corresponds to the RBLXBuild "target" name.  */
     std::string Name;
 
     /** Project GUID.  */
@@ -138,7 +138,7 @@ struct Solution final
   std::string Platform;
 
   /** Solution-wide build configurations.
-      This corresponds to CMAKE_CONFIGURATION_TYPES.  */
+      This corresponds to RBLXBUILD_CONFIGURATION_TYPES.  */
   std::vector<std::string> Configs;
 
   /** List of all folders in the solution.  */

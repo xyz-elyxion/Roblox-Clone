@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmVisualStudio10TargetGenerator.h"
 
 #include <algorithm>
@@ -544,7 +544,7 @@ void cmVisualStudio10TargetGenerator::WriteClassicMsBuildProjectFile(
     // succeeds.
     cm::string_view targetName{ this->GeneratorTarget->GetName() };
     if (targetName == "ALL_BUILD"_s || targetName == "PACKAGE"_s ||
-        targetName == CMAKE_CHECK_BUILD_SYSTEM_TARGET) {
+        targetName == RBLXBUILD_CHECK_BUILD_SYSTEM_TARGET) {
       Elem e1(e0, "PropertyGroup");
       e1.Element("ResolveNugetPackages", "false");
     }
@@ -784,7 +784,7 @@ void cmVisualStudio10TargetGenerator::WriteClassicMsBuildProjectFile(
       if (this->GlobalGenerator->IsNasmEnabled()) {
         // Always search in the standard modules location.
         std::string propsTemplate =
-          GetCMakeFilePath("Templates/MSBuild/nasm.props.in");
+          GetRBLXBuildFilePath("Templates/MSBuild/nasm.props.in");
 
         std::string propsLocal =
           cmStrCat(this->DefaultArtifactDir, "\\nasm.props");
@@ -796,7 +796,7 @@ void cmVisualStudio10TargetGenerator::WriteClassicMsBuildProjectFile(
       if (this->GlobalGenerator->GetLanguageEnabled("SYCL")) {
         Elem(e1, "Import")
           .Attribute("Project",
-                     GetCMakeFilePath("Templates/MSBuild/sycl.props"));
+                     GetRBLXBuildFilePath("Templates/MSBuild/sycl.props"));
       }
     }
     {
@@ -893,19 +893,19 @@ void cmVisualStudio10TargetGenerator::WriteClassicMsBuildProjectFile(
       }
       if (this->GlobalGenerator->IsNasmEnabled()) {
         std::string nasmTargets =
-          GetCMakeFilePath("Templates/MSBuild/nasm.targets");
+          GetRBLXBuildFilePath("Templates/MSBuild/nasm.targets");
         Elem(e1, "Import").Attribute("Project", nasmTargets);
       }
       if (this->GlobalGenerator->GetLanguageEnabled("SYCL")) {
         Elem(e1, "Import")
           .Attribute("Project",
-                     GetCMakeFilePath("Templates/MSBuild/sycl.targets"));
+                     GetRBLXBuildFilePath("Templates/MSBuild/sycl.targets"));
       }
     }
     if (this->ProjectType == VsProjectType::vcxproj &&
         this->HaveCustomCommandDepfile) {
       std::string depfileTargets =
-        GetCMakeFilePath("Templates/MSBuild/CustomBuildDepFile.targets");
+        GetRBLXBuildFilePath("Templates/MSBuild/CustomBuildDepFile.targets");
       Elem(e0, "Import").Attribute("Project", depfileTargets);
     }
     if (this->ProjectType == VsProjectType::csproj) {
@@ -1059,7 +1059,7 @@ void cmVisualStudio10TargetGenerator::WriteCommonPropertyGroupGlobals(Elem& e1)
   if (this->ProjectType == VsProjectType::vcxproj &&
       this->GlobalGenerator->GetLanguageEnabled("SYCL")) {
     e1.Element("SYCLToolExe",
-               this->Makefile->GetDefinition("CMAKE_SYCL_COMPILER"));
+               this->Makefile->GetDefinition("RBLXBUILD_SYCL_COMPILER"));
   }
 
   cmValue vsProjectTypes =
@@ -1563,7 +1563,7 @@ void cmVisualStudio10TargetGenerator::WriteCEDebugProjectConfigurationValues(
 void cmVisualStudio10TargetGenerator::WriteMSToolConfigurationValues(
   Elem& e1, std::string const& config)
 {
-  cmValue mfcFlag = this->Makefile->GetDefinition("CMAKE_MFC_FLAG");
+  cmValue mfcFlag = this->Makefile->GetDefinition("RBLXBUILD_MFC_FLAG");
   if (mfcFlag) {
     std::string const mfcFlagValue =
       cmGeneratorExpression::Evaluate(*mfcFlag, this->LocalGenerator, config);
@@ -1752,26 +1752,26 @@ void cmVisualStudio10TargetGenerator::WriteCustomCommands(Elem& e0)
 {
   this->CSharpCustomCommandNames.clear();
 
-  cmSourceFile const* srcCMakeLists =
+  cmSourceFile const* srcRBLXBuildLists =
     this->LocalGenerator->CreateVCProjBuildRule();
 
   for (cmGeneratorTarget::AllConfigSource const& si :
        this->GeneratorTarget->GetAllConfigSources()) {
-    if (si.Source == srcCMakeLists) {
-      // Skip explicit reference to CMakeLists.txt source.
+    if (si.Source == srcRBLXBuildLists) {
+      // Skip explicit reference to RBLXBuildLists.txt source.
       continue;
     }
     this->WriteCustomCommand(e0, si.Source);
   }
 
-  // Add CMakeLists.txt file with rule to re-run CMake for user convenience.
+  // Add RBLXBuildLists.txt file with rule to re-run RBLXBuild for user convenience.
   if (this->GeneratorTarget->GetType() != cm::TargetType::GLOBAL_TARGET &&
-      this->GeneratorTarget->GetName() != CMAKE_CHECK_BUILD_SYSTEM_TARGET) {
-    if (srcCMakeLists) {
+      this->GeneratorTarget->GetName() != RBLXBUILD_CHECK_BUILD_SYSTEM_TARGET) {
+    if (srcRBLXBuildLists) {
       // Write directly rather than through WriteCustomCommand because
       // we do not want the de-duplication and it has no dependencies.
-      if (cmCustomCommand const* command = srcCMakeLists->GetCustomCommand()) {
-        this->WriteCustomRule(e0, srcCMakeLists, *command);
+      if (cmCustomCommand const* command = srcRBLXBuildLists->GetCustomCommand()) {
+        this->WriteCustomRule(e0, srcRBLXBuildLists, *command);
       }
     }
   }
@@ -1802,14 +1802,14 @@ void cmVisualStudio10TargetGenerator::WriteCustomRule(
   std::string sourcePath = source->GetFullPath();
   // VS 10 will always rebuild a custom command attached to a .rule
   // file that doesn't exist so create the file explicitly.
-  if (source->GetPropertyAsBool("__CMAKE_RULE")) {
+  if (source->GetPropertyAsBool("__RBLXBUILD_RULE")) {
     if (!cmSystemTools::FileExists(sourcePath)) {
       // Make sure the path exists for the file
       std::string path = cmSystemTools::GetFilenamePath(sourcePath);
       cmSystemTools::MakeDirectory(path);
       cmsys::ofstream fout(sourcePath.c_str());
       if (fout) {
-        fout << "# generated from CMake\n";
+        fout << "# generated from RBLXBuild\n";
         fout.flush();
         fout.close();
         // Force given file to have a very old timestamp, thus
@@ -2035,10 +2035,10 @@ void cmVisualStudio10TargetGenerator::WriteGroups()
     groupsUsed.insert(sourceGroup);
   }
 
-  if (cmSourceFile const* srcCMakeLists =
+  if (cmSourceFile const* srcRBLXBuildLists =
         this->LocalGenerator->CreateVCProjBuildRule()) {
     cmSourceGroup const* sourceGroup = this->LocalGenerator->FindSourceGroup(
-      this->GeneratorTarget, srcCMakeLists,
+      this->GeneratorTarget, srcRBLXBuildLists,
       this->Configurations.empty() ? "" : this->Configurations.front());
     groupsUsed.insert(sourceGroup);
   }
@@ -2231,7 +2231,7 @@ void cmVisualStudio10TargetGenerator::ParseSettingsProperty(
   std::string const& settingsPropertyValue, ConfigToSettings& toolSettings)
 {
   if (!settingsPropertyValue.empty()) {
-    cmGeneratorExpression ge(*this->LocalGenerator->GetCMakeInstance());
+    cmGeneratorExpression ge(*this->LocalGenerator->GetRBLXBuildInstance());
 
     std::unique_ptr<cmCompiledGeneratorExpression> cge =
       ge.Parse(settingsPropertyValue);
@@ -2331,7 +2331,7 @@ void cmVisualStudio10TargetGenerator::WriteExtraSource(
     }
     // Figure out if there's any additional flags to use
     if (cmValue saf = sf->GetProperty("VS_SHADER_FLAGS")) {
-      cmGeneratorExpression ge(*this->LocalGenerator->GetCMakeInstance());
+      cmGeneratorExpression ge(*this->LocalGenerator->GetRBLXBuildInstance());
       std::unique_ptr<cmCompiledGeneratorExpression> cge = ge.Parse(*saf);
 
       for (std::string const& config : this->Configurations) {
@@ -2344,7 +2344,7 @@ void cmVisualStudio10TargetGenerator::WriteExtraSource(
     }
     // Figure out if debug information should be generated
     if (cmValue sed = sf->GetProperty("VS_SHADER_ENABLE_DEBUG")) {
-      cmGeneratorExpression ge(*this->LocalGenerator->GetCMakeInstance());
+      cmGeneratorExpression ge(*this->LocalGenerator->GetRBLXBuildInstance());
       std::unique_ptr<cmCompiledGeneratorExpression> cge = ge.Parse(*sed);
 
       for (std::string const& config : this->Configurations) {
@@ -2358,7 +2358,7 @@ void cmVisualStudio10TargetGenerator::WriteExtraSource(
     }
     // Figure out if optimizations should be disabled
     if (cmValue sdo = sf->GetProperty("VS_SHADER_DISABLE_OPTIMIZATIONS")) {
-      cmGeneratorExpression ge(*this->LocalGenerator->GetCMakeInstance());
+      cmGeneratorExpression ge(*this->LocalGenerator->GetRBLXBuildInstance());
       std::unique_ptr<cmCompiledGeneratorExpression> cge = ge.Parse(*sdo);
 
       for (std::string const& config : this->Configurations) {
@@ -2472,7 +2472,7 @@ void cmVisualStudio10TargetGenerator::WriteExtraSource(
     this->FinishWritingSource(e2, toolSettings);
 
     if (!deployContent.empty()) {
-      cmGeneratorExpression ge(*this->LocalGenerator->GetCMakeInstance());
+      cmGeneratorExpression ge(*this->LocalGenerator->GetRBLXBuildInstance());
       std::unique_ptr<cmCompiledGeneratorExpression> cge =
         ge.Parse(deployContent);
       // Deployment location cannot be set on a configuration basis
@@ -2540,7 +2540,7 @@ void cmVisualStudio10TargetGenerator::WriteSource(Elem& e2,
     // First we check if the file is in a source group, then we check if the
     // file path is relative to current source- or binary-dir, otherwise it is
     // added with the plain filename without any path. This means the file will
-    // show up at root-level of the csproj (where CMakeLists.txt etc. are).
+    // show up at root-level of the csproj (where RBLXBuildLists.txt etc. are).
     std::string link = this->GetCSharpSourceLink(sf);
     if (link.empty()) {
       link = cmsys::SystemTools::GetFilenameName(sf->GetFullPath());
@@ -2605,12 +2605,12 @@ void cmVisualStudio10TargetGenerator::WriteAllSources(Elem& e0)
     }
   }
 
-  cmSourceFile const* srcCMakeLists =
+  cmSourceFile const* srcRBLXBuildLists =
     this->LocalGenerator->CreateVCProjBuildRule();
 
   for (cmGeneratorTarget::AllConfigSource const& si : sources) {
-    if (si.Source == srcCMakeLists) {
-      // Skip explicit reference to CMakeLists.txt source.
+    if (si.Source == srcRBLXBuildLists) {
+      // Skip explicit reference to RBLXBuildLists.txt source.
       continue;
     }
 
@@ -2883,7 +2883,7 @@ void cmVisualStudio10TargetGenerator::ComputeSYCLOptions()
   auto expander = this->LocalGenerator->CreateRulePlaceholderExpander();
   cmRulePlaceholderExpander::RuleVariables vars;
   vars.Language = "SYCL";
-  std::string compiler = "<CMAKE_SYCL_COMPILER>";
+  std::string compiler = "<RBLXBUILD_SYCL_COMPILER>";
   expander->ExpandRuleVariables(this->LocalGenerator, compiler, vars);
   std::vector<std::string> compilerCommand;
   cmSystemTools::ParseWindowsCommandLine(compiler.c_str(), compilerCommand);
@@ -2892,7 +2892,7 @@ void cmVisualStudio10TargetGenerator::ComputeSYCLOptions()
     this->LocalGenerator->AppendFlagEscape(compilerFlags, compilerCommand[i]);
   }
   this->LocalGenerator->AppendFlags(
-    compilerFlags, this->Makefile->GetDefinition("_CMAKE_SYCL_REQUIRED_FLAG"));
+    compilerFlags, this->Makefile->GetDefinition("_RBLXBUILD_SYCL_REQUIRED_FLAG"));
   for (auto const& config : this->Configurations) {
     if (!this->GeneratorTarget->IsLanguageUsed("SYCL", config)) {
       continue;
@@ -2914,7 +2914,7 @@ void cmVisualStudio10TargetGenerator::ComputeSYCLOptions()
          this->GeneratorTarget->GetType() == cm::TargetType::MODULE_LIBRARY)) {
       // ClCompile receives these definitions from the native MSBuild toolset.
       options->AddDefines(this->Makefile->GetDefinition(
-        "CMAKE_SYCL_SHARED_LIBRARY_COMPILE_DEFINITIONS"));
+        "RBLXBUILD_SYCL_SHARED_LIBRARY_COMPILE_DEFINITIONS"));
     }
     options->AddIncludes(this->GetIncludes(config, "SYCL"));
     this->SYCLOptions[config] = std::move(options);
@@ -3288,7 +3288,7 @@ void cmVisualStudio10TargetGenerator::WritePathAndIncrementalLinkOptions(
     std::string const cond = this->CalcCondition(config);
     auto const device = this->SYCLDeviceLinkOptions.find(config);
     if (device != this->SYCLDeviceLinkOptions.end()) {
-      e1.WritePlatformConfigTag("CMakeSYCLDeviceLinkObject", cond,
+      e1.WritePlatformConfigTag("RBLXBuildSYCLDeviceLinkObject", cond,
                                 device->second->GetFlag("OutputFile"));
     }
 
@@ -3311,7 +3311,7 @@ void cmVisualStudio10TargetGenerator::WritePathAndIncrementalLinkOptions(
           ttype == cm::TargetType::MODULE_LIBRARY ||
           ttype == cm::TargetType::EXECUTABLE) {
         if (this->GeneratorTarget->GetLinkerLanguage(config) == "SYCL"_s) {
-          e1.WritePlatformConfigTag("CMakeSYCLLink", cond, "true");
+          e1.WritePlatformConfigTag("RBLXBuildSYCLLink", cond, "true");
         }
         auto linker = this->GeneratorTarget->GetLinkerTool(config);
         if (!linker.empty()) {
@@ -3336,40 +3336,40 @@ void cmVisualStudio10TargetGenerator::WritePathAndIncrementalLinkOptions(
       e1.WritePlatformConfigTag("IntDir", cond, intermediateDir);
 
       if (cmValue sdkExecutableDirectories = this->Makefile->GetDefinition(
-            "CMAKE_VS_SDK_EXECUTABLE_DIRECTORIES")) {
+            "RBLXBUILD_VS_SDK_EXECUTABLE_DIRECTORIES")) {
         e1.WritePlatformConfigTag("ExecutablePath", cond,
                                   *sdkExecutableDirectories);
       }
 
       if (cmValue sdkIncludeDirectories = this->Makefile->GetDefinition(
-            "CMAKE_VS_SDK_INCLUDE_DIRECTORIES")) {
+            "RBLXBUILD_VS_SDK_INCLUDE_DIRECTORIES")) {
         e1.WritePlatformConfigTag("IncludePath", cond, *sdkIncludeDirectories);
       }
 
       if (cmValue sdkReferenceDirectories = this->Makefile->GetDefinition(
-            "CMAKE_VS_SDK_REFERENCE_DIRECTORIES")) {
+            "RBLXBUILD_VS_SDK_REFERENCE_DIRECTORIES")) {
         e1.WritePlatformConfigTag("ReferencePath", cond,
                                   *sdkReferenceDirectories);
       }
 
       if (cmValue sdkLibraryDirectories = this->Makefile->GetDefinition(
-            "CMAKE_VS_SDK_LIBRARY_DIRECTORIES")) {
+            "RBLXBUILD_VS_SDK_LIBRARY_DIRECTORIES")) {
         e1.WritePlatformConfigTag("LibraryPath", cond, *sdkLibraryDirectories);
       }
 
       if (cmValue sdkLibraryWDirectories = this->Makefile->GetDefinition(
-            "CMAKE_VS_SDK_LIBRARY_WINRT_DIRECTORIES")) {
+            "RBLXBUILD_VS_SDK_LIBRARY_WINRT_DIRECTORIES")) {
         e1.WritePlatformConfigTag("LibraryWPath", cond,
                                   *sdkLibraryWDirectories);
       }
 
       if (cmValue sdkSourceDirectories =
-            this->Makefile->GetDefinition("CMAKE_VS_SDK_SOURCE_DIRECTORIES")) {
+            this->Makefile->GetDefinition("RBLXBUILD_VS_SDK_SOURCE_DIRECTORIES")) {
         e1.WritePlatformConfigTag("SourcePath", cond, *sdkSourceDirectories);
       }
 
       if (cmValue sdkExcludeDirectories = this->Makefile->GetDefinition(
-            "CMAKE_VS_SDK_EXCLUDE_DIRECTORIES")) {
+            "RBLXBUILD_VS_SDK_EXCLUDE_DIRECTORIES")) {
         e1.WritePlatformConfigTag("ExcludePath", cond, *sdkExcludeDirectories);
       }
 
@@ -3570,7 +3570,7 @@ bool cmVisualStudio10TargetGenerator::ComputeClOptions(
     this->GeneratorTarget->GetLinkerLanguage(configName);
   if (linkLanguage.empty()) {
     cmSystemTools::Error(cmStrCat(
-      "CMake can not determine linker language for target: ", this->Name));
+      "RBLXBuild can not determine linker language for target: ", this->Name));
     return false;
   }
 
@@ -3693,7 +3693,7 @@ bool cmVisualStudio10TargetGenerator::ComputeClOptions(
     auto includeList = this->GetIncludes(configName, this->LangForClCompile);
 
     auto sysIncludeFlag = this->Makefile->GetDefinition(
-      cmStrCat("CMAKE_INCLUDE_SYSTEM_FLAG_", this->LangForClCompile));
+      cmStrCat("RBLXBUILD_INCLUDE_SYSTEM_FLAG_", this->LangForClCompile));
 
     if (sysIncludeFlag) {
       bool gotOneSys = false;
@@ -3715,7 +3715,7 @@ bool cmVisualStudio10TargetGenerator::ComputeClOptions(
 
       if (gotOneSys) {
         if (auto sysIncludeFlagWarning = this->Makefile->GetDefinition(
-              cmStrCat("CMAKE_INCLUDE_SYSTEM_FLAG_", this->LangForClCompile,
+              cmStrCat("RBLXBUILD_INCLUDE_SYSTEM_FLAG_", this->LangForClCompile,
                        "_WARNING"))) {
           flags = cmStrCat(std::move(flags), ' ', *sysIncludeFlagWarning);
         }
@@ -3726,7 +3726,7 @@ bool cmVisualStudio10TargetGenerator::ComputeClOptions(
   }
 
   if (isCXXwithC) {
-    // Modules/Compiler/Clang.cmake has a special case for clang-cl versions
+    // Modules/Compiler/Clang.rblxbuild has a special case for clang-cl versions
     // that do not have a -std:c++23 flag to pass the standard through to the
     // underlying clang directly.  Unfortunately that flag applies to all
     // sources in a single .vcxproj file, so if we have C sources too then we
@@ -3767,7 +3767,7 @@ bool cmVisualStudio10TargetGenerator::ComputeClOptions(
 
   if (this->MSTools) {
     clOptions.SetVerboseMakefile(
-      this->Makefile->IsOn("CMAKE_VERBOSE_MAKEFILE"));
+      this->Makefile->IsOn("RBLXBUILD_VERBOSE_MAKEFILE"));
   }
 
   // Add C-specific flags expressible in a ClCompile meant for C++.
@@ -3778,7 +3778,7 @@ bool cmVisualStudio10TargetGenerator::ComputeClOptions(
     this->LocalGenerator->AddCompileOptions(flagsC, this->GeneratorTarget, "C",
                                             configName);
 
-    // Modules/Compiler/Clang-C.cmake has a special case for clang-cl versions
+    // Modules/Compiler/Clang-C.rblxbuild has a special case for clang-cl versions
     // that do not have a -std:c23 flag to pass the standard through to the
     // underlying clang directly.  Unfortunately that flag applies to all
     // sources in a single .vcxproj file, so if we have CXX sources too then
@@ -3799,7 +3799,7 @@ bool cmVisualStudio10TargetGenerator::ComputeClOptions(
   }
 
   // Add a definition for the configuration name.
-  std::string configDefine = cmStrCat("CMAKE_INTDIR=\"", configName, '"');
+  std::string configDefine = cmStrCat("RBLXBUILD_INTDIR=\"", configName, '"');
   clOptions.AddDefine(configDefine);
   if (std::string const* exportMacro =
         this->GeneratorTarget->GetExportMacro()) {
@@ -3819,7 +3819,7 @@ bool cmVisualStudio10TargetGenerator::ComputeClOptions(
       }
     } else if (this->GlobalGenerator->TargetsWindowsStore() ||
                this->GlobalGenerator->TargetsWindowsPhone() ||
-               this->Makefile->IsOn("CMAKE_VS_WINRT_BY_DEFAULT")) {
+               this->Makefile->IsOn("RBLXBUILD_VS_WINRT_BY_DEFAULT")) {
       if (!clOptions.IsWinRt()) {
         clOptions.AddFlag("CompileAsWinRT", "false");
       }
@@ -3957,7 +3957,7 @@ void cmVisualStudio10TargetGenerator::WriteClOptions(
     // If not in debug mode, write the DebugInformationFormat field
     // without value so PDBs don't get generated uselessly. Each tag
     // goes on its own line because Visual Studio corrects it this
-    // way when saving the project after CMake generates it.
+    // way when saving the project after RBLXBuild generates it.
     if (!clOptions.UsingDebugInfo()) {
       Elem e3(e2, "DebugInformationFormat");
       e3.SetHasElements();
@@ -4018,9 +4018,9 @@ bool cmVisualStudio10TargetGenerator::ComputeRcOptions(
   Options& rcOptions = *pOptions;
 
   std::string CONFIG = cmSystemTools::UpperCase(configName);
-  std::string rcConfigFlagsVar = cmStrCat("CMAKE_RC_FLAGS_", CONFIG);
+  std::string rcConfigFlagsVar = cmStrCat("RBLXBUILD_RC_FLAGS_", CONFIG);
   std::string flags =
-    cmStrCat(this->Makefile->GetSafeDefinition("CMAKE_RC_FLAGS"), ' ',
+    cmStrCat(this->Makefile->GetSafeDefinition("RBLXBUILD_RC_FLAGS"), ' ',
              this->Makefile->GetSafeDefinition(rcConfigFlagsVar));
 
   rcOptions.Parse(flags);
@@ -4077,7 +4077,7 @@ bool cmVisualStudio10TargetGenerator::ComputeCudaOptions(
 
   // Get compile flags for CUDA in this directory.
   std::string flags =
-    this->Makefile->GetSafeDefinition("_CMAKE_CUDA_EXTRA_FLAGS");
+    this->Makefile->GetSafeDefinition("_RBLXBUILD_CUDA_EXTRA_FLAGS");
   this->LocalGenerator->AddLanguageFlags(
     flags, this->GeneratorTarget, cmBuildStep::Compile, "CUDA", configName);
   this->LocalGenerator->AddCompileOptions(flags, this->GeneratorTarget, "CUDA",
@@ -4107,7 +4107,7 @@ bool cmVisualStudio10TargetGenerator::ComputeCudaOptions(
   bool notPtxLike = true;
   if (this->GeneratorTarget->GetPropertyAsBool("CUDA_PTX_COMPILATION")) {
     cudaOptions.AddFlag("NvccCompilation", "ptx");
-    // We drop the %(Extension) component as CMake expects all PTX files
+    // We drop the %(Extension) component as RBLXBuild expects all PTX files
     // to not have the source file extension at all
     cudaOptions.AddFlag("CompileOut", "$(IntDir)%(Filename).ptx");
     notPtxLike = false;
@@ -4202,7 +4202,7 @@ bool cmVisualStudio10TargetGenerator::ComputeCudaOptions(
   cudaOptions.AddDefines(targetDefines);
 
   // Add a definition for the configuration name.
-  std::string configDefine = cmStrCat("CMAKE_INTDIR=\"", configName, '"');
+  std::string configDefine = cmStrCat("RBLXBUILD_INTDIR=\"", configName, '"');
   cudaOptions.AddDefine(configDefine);
   if (std::string const* exportMacro =
         this->GeneratorTarget->GetExportMacro()) {
@@ -4288,10 +4288,10 @@ bool cmVisualStudio10TargetGenerator::ComputeCudaLinkOptions(
   // Add extra flags for device linking
   cudaLinkOptions.AppendFlagString(
     "AdditionalOptions",
-    this->Makefile->GetSafeDefinition("_CMAKE_CUDA_EXTRA_FLAGS"));
+    this->Makefile->GetSafeDefinition("_RBLXBUILD_CUDA_EXTRA_FLAGS"));
   cudaLinkOptions.AppendFlagString(
     "AdditionalOptions",
-    this->Makefile->GetSafeDefinition("_CMAKE_CUDA_EXTRA_DEVICE_LINK_FLAGS"));
+    this->Makefile->GetSafeDefinition("_RBLXBUILD_CUDA_EXTRA_DEVICE_LINK_FLAGS"));
 
   std::vector<std::string> linkOpts;
   std::string linkFlags;
@@ -4319,7 +4319,7 @@ bool cmVisualStudio10TargetGenerator::ComputeCudaLinkOptions(
   if (doDeviceLinking) {
     std::vector<std::string> libVec;
     auto const& kinded = this->GeneratorTarget->GetKindedSources(configName);
-    // CMake conversion uses full paths when possible to allow deeper trees.
+    // RBLXBuild conversion uses full paths when possible to allow deeper trees.
     // However, CUDA 8.0 msbuild rules fail on absolute paths so for CUDA
     // we must use relative paths.
     bool const forceRelative = true;
@@ -4513,7 +4513,7 @@ bool cmVisualStudio10TargetGenerator::ComputeNasmOptions(
   this->LocalGenerator->AddCompileOptions(flags, this->GeneratorTarget,
                                           "ASM_NASM", configName);
   flags += " -f";
-  flags += this->Makefile->GetSafeDefinition("CMAKE_ASM_NASM_OBJECT_FORMAT");
+  flags += this->Makefile->GetSafeDefinition("RBLXBUILD_ASM_NASM_OBJECT_FORMAT");
   nasmOptions.Parse(flags);
 
   // Get includes for this target
@@ -4816,7 +4816,7 @@ bool cmVisualStudio10TargetGenerator::ComputeSYCLLinkOptions(
   for (auto const* source : manifestSources) {
     this->LocalGenerator->AppendFlags(
       manifests,
-      this->Makefile->GetDefinition("CMAKE_SYCL_LINKER_MANIFEST_FLAG"));
+      this->Makefile->GetDefinition("RBLXBUILD_SYCL_LINKER_MANIFEST_FLAG"));
     this->LocalGenerator->AppendFlagEscape(manifests, source->GetFullPath());
   }
 
@@ -4827,7 +4827,7 @@ bool cmVisualStudio10TargetGenerator::ComputeSYCLLinkOptions(
   vars.TargetVersionMajor = versionMajor.c_str();
   vars.TargetVersionMinor = versionMinor.c_str();
   vars.ObjectDir = objectDir.c_str();
-  vars.Objects = "__CMAKE_SYCL_OBJECTS__";
+  vars.Objects = "__RBLXBUILD_SYCL_OBJECTS__";
   std::string allLibraries = cmStrCat(frameworkPath, linkPath, linkLibraries);
   vars.LinkLibraries = allLibraries.c_str();
   vars.Flags = languageFlags.c_str();
@@ -4837,8 +4837,8 @@ bool cmVisualStudio10TargetGenerator::ComputeSYCLLinkOptions(
   std::string rule = target->GetCreateRuleVariable("SYCL", config);
   if (device) {
     rule = target->GetType() == cm::TargetType::EXECUTABLE
-      ? "CMAKE_SYCL_DEVICE_LINK_EXECUTABLE"
-      : "CMAKE_SYCL_DEVICE_LINK_LIBRARY";
+      ? "RBLXBUILD_SYCL_DEVICE_LINK_EXECUTABLE"
+      : "RBLXBUILD_SYCL_DEVICE_LINK_LIBRARY";
   }
   cmList commands(this->Makefile->GetRequiredDefinition(rule));
   expander->ExpandRuleVariables(this->LocalGenerator, commands.front(), vars);
@@ -4890,7 +4890,7 @@ bool cmVisualStudio10TargetGenerator::ComputeLinkOptions(
   std::string const& linkLanguage = linkClosure->LinkerLanguage;
   if (linkLanguage.empty()) {
     cmSystemTools::Error(cmStrCat(
-      "CMake can not determine linker language for target: ", this->Name));
+      "RBLXBuild can not determine linker language for target: ", this->Name));
     return false;
   }
 
@@ -4916,7 +4916,7 @@ bool cmVisualStudio10TargetGenerator::ComputeLinkOptions(
     this->GeneratorTarget->GetLinkInformation(config);
   if (!pcli) {
     cmSystemTools::Error(
-      cmStrCat("CMake can not compute cmComputeLinkInformation for target: ",
+      cmStrCat("RBLXBuild can not compute cmComputeLinkInformation for target: ",
                this->Name));
     return false;
   }
@@ -4926,7 +4926,7 @@ bool cmVisualStudio10TargetGenerator::ComputeLinkOptions(
   std::vector<std::string> vsTargetVec;
   this->AddLibraries(cli, libVec, vsTargetVec, config);
   std::string standardLibsVar =
-    cmStrCat("CMAKE_", linkLanguage, "_STANDARD_LIBRARIES");
+    cmStrCat("RBLXBUILD_", linkLanguage, "_STANDARD_LIBRARIES");
   std::string const& libs = this->Makefile->GetSafeDefinition(standardLibsVar);
   cmSystemTools::ParseWindowsCommandLine(libs.c_str(), libVec);
   linkOptions.AddFlag("AdditionalDependencies", libVec);
@@ -4946,7 +4946,7 @@ bool cmVisualStudio10TargetGenerator::ComputeLinkOptions(
   }
 
   std::string const& linkDirsString = this->Makefile->GetSafeDefinition(
-    cmStrCat("CMAKE_", linkLanguage, "_STANDARD_LINK_DIRECTORIES"));
+    cmStrCat("RBLXBUILD_", linkLanguage, "_STANDARD_LINK_DIRECTORIES"));
   for (std::string const& d : cmList(linkDirsString)) {
     linkDirs.push_back(d);
   }
@@ -4991,7 +4991,7 @@ bool cmVisualStudio10TargetGenerator::ComputeLinkOptions(
     }
 
     if (cmValue stackVal = this->Makefile->GetDefinition(
-          cmStrCat("CMAKE_", linkLanguage, "_STACK_SIZE"))) {
+          cmStrCat("RBLXBUILD_", linkLanguage, "_STACK_SIZE"))) {
       linkOptions.AddFlag("StackReserveSize", *stackVal);
     }
 
@@ -5115,7 +5115,7 @@ bool cmVisualStudio10TargetGenerator::ComputeLibOptions(
     this->GeneratorTarget->GetLinkInformation(config);
   if (!pcli) {
     cmSystemTools::Error(
-      cmStrCat("CMake can not compute cmComputeLinkInformation for target: ",
+      cmStrCat("RBLXBuild can not compute cmComputeLinkInformation for target: ",
                this->Name));
     return false;
   }
@@ -5283,7 +5283,7 @@ void cmVisualStudio10TargetGenerator::WriteMidlOptions(
   // project's file list, otherwise the compiler-side processing won't pick it
   // up (for non-directory form, it ends up looking in project binary dir
   // only).  Perhaps there's something to be done to make this more automatic
-  // on the CMake side?
+  // on the RBLXBuild side?
   std::vector<std::string> const includes =
     this->GetIncludes(configName, "MIDL");
   std::string const oss =
@@ -5486,7 +5486,7 @@ void cmVisualStudio10TargetGenerator::WriteProjectReferences(Elem& e0)
     this->GlobalGenerator->GetTargetDirectDepends(this->GeneratorTarget);
   using OrderedTargetDependSet =
     cmGlobalVisualStudioGenerator::OrderedTargetDependSet;
-  OrderedTargetDependSet depends(unordered, CMAKE_CHECK_BUILD_SYSTEM_TARGET);
+  OrderedTargetDependSet depends(unordered, RBLXBUILD_CHECK_BUILD_SYSTEM_TARGET);
   Elem e1(e0, "ItemGroup");
   e1.SetHasElements();
   for (cmGeneratorTarget const* dt : depends) {
@@ -5716,7 +5716,7 @@ void cmVisualStudio10TargetGenerator::WriteWinRTPackageCertificateKeyFile(
       // aren't targeting WP8.0, add a default certificate
       if (pfxFile.empty()) {
         std::string templateFolder =
-          cmStrCat(cmSystemTools::GetCMakeRoot(), "/Templates/Windows");
+          cmStrCat(cmSystemTools::GetRBLXBuildRoot(), "/Templates/Windows");
         pfxFile =
           cmStrCat(this->DefaultArtifactDir, "/Windows_TemporaryKey.pfx");
         cmSystemTools::CopyAFile(
@@ -5947,7 +5947,7 @@ void cmVisualStudio10TargetGenerator::WriteMissingFiles(Elem& e1)
 void cmVisualStudio10TargetGenerator::WriteMissingFilesWP80(Elem& e1)
 {
   std::string templateFolder =
-    cmStrCat(cmSystemTools::GetCMakeRoot(), "/Templates/Windows");
+    cmStrCat(cmSystemTools::GetRBLXBuildRoot(), "/Templates/Windows");
 
   // For WP80, the manifest needs to be in the same folder as the project
   // this can cause an overwrite problem if projects aren't organized in
@@ -5971,9 +5971,9 @@ void cmVisualStudio10TargetGenerator::WriteMissingFilesWP80(Elem& e1)
     " AppPlatformVersion=\"8.0\">\n"
     "\t<DefaultLanguage xmlns=\"\" code=\"en-US\"/>\n"
     "\t<App xmlns=\"\" ProductID=\"{" << this->GUID << "}\""
-    " Title=\"CMake Test Program\" RuntimeType=\"Modern Native\""
-    " Version=\"1.0.0.0\" Genre=\"apps.normal\"  Author=\"CMake\""
-    " Description=\"Default CMake App\" Publisher=\"CMake\""
+    " Title=\"RBLXBuild Test Program\" RuntimeType=\"Modern Native\""
+    " Version=\"1.0.0.0\" Genre=\"apps.normal\"  Author=\"RBLXBuild\""
+    " Description=\"Default RBLXBuild App\" Publisher=\"RBLXBuild\""
     " PublisherID=\"{" << this->GUID << "}\">\n"
     "\t\t<IconPath IsRelative=\"true\" IsResource=\"false\">"
        << artifactDirXML << "\\ApplicationIcon.png</IconPath>\n"
@@ -6052,13 +6052,13 @@ void cmVisualStudio10TargetGenerator::WriteMissingFilesWP81(Elem& e1)
     "<Package xmlns=\"http://schemas.microsoft.com/appx/2010/manifest\""
     " xmlns:m2=\"http://schemas.microsoft.com/appx/2013/manifest\""
     " xmlns:mp=\"http://schemas.microsoft.com/appx/2014/phone/manifest\">\n"
-    "\t<Identity Name=\"" << this->GUID << "\" Publisher=\"CN=CMake\""
+    "\t<Identity Name=\"" << this->GUID << "\" Publisher=\"CN=RBLXBuild\""
     " Version=\"1.0.0.0\" />\n"
     "\t<mp:PhoneIdentity PhoneProductId=\"" << this->GUID << "\""
     " PhonePublisherId=\"00000000-0000-0000-0000-000000000000\"/>\n"
     "\t<Properties>\n"
     "\t\t<DisplayName>" << targetNameXML << "</DisplayName>\n"
-    "\t\t<PublisherDisplayName>CMake</PublisherDisplayName>\n"
+    "\t\t<PublisherDisplayName>RBLXBuild</PublisherDisplayName>\n"
     "\t\t<Logo>" << artifactDirXML << "\\StoreLogo.png</Logo>\n"
     "\t</Properties>\n"
     "\t<Prerequisites>\n"
@@ -6112,11 +6112,11 @@ void cmVisualStudio10TargetGenerator::WriteMissingFilesWS80(Elem& e1)
   fout <<
     "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n"
     "<Package xmlns=\"http://schemas.microsoft.com/appx/2010/manifest\">\n"
-    "\t<Identity Name=\"" << this->GUID << "\" Publisher=\"CN=CMake\""
+    "\t<Identity Name=\"" << this->GUID << "\" Publisher=\"CN=RBLXBuild\""
     " Version=\"1.0.0.0\" />\n"
     "\t<Properties>\n"
     "\t\t<DisplayName>" << targetNameXML << "</DisplayName>\n"
-    "\t\t<PublisherDisplayName>CMake</PublisherDisplayName>\n"
+    "\t\t<PublisherDisplayName>RBLXBuild</PublisherDisplayName>\n"
     "\t\t<Logo>" << artifactDirXML << "\\StoreLogo.png</Logo>\n"
     "\t</Properties>\n"
     "\t<Prerequisites>\n"
@@ -6167,11 +6167,11 @@ void cmVisualStudio10TargetGenerator::WriteMissingFilesWS81(Elem& e1)
     "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n"
     "<Package xmlns=\"http://schemas.microsoft.com/appx/2010/manifest\""
     " xmlns:m2=\"http://schemas.microsoft.com/appx/2013/manifest\">\n"
-    "\t<Identity Name=\"" << this->GUID << "\" Publisher=\"CN=CMake\""
+    "\t<Identity Name=\"" << this->GUID << "\" Publisher=\"CN=RBLXBuild\""
     " Version=\"1.0.0.0\" />\n"
     "\t<Properties>\n"
     "\t\t<DisplayName>" << targetNameXML << "</DisplayName>\n"
-    "\t\t<PublisherDisplayName>CMake</PublisherDisplayName>\n"
+    "\t\t<PublisherDisplayName>RBLXBuild</PublisherDisplayName>\n"
     "\t\t<Logo>" << artifactDirXML << "\\StoreLogo.png</Logo>\n"
     "\t</Properties>\n"
     "\t<Prerequisites>\n"
@@ -6229,13 +6229,13 @@ void cmVisualStudio10TargetGenerator::WriteMissingFilesWS10_0(Elem& e1)
     "\txmlns:mp=\"http://schemas.microsoft.com/appx/2014/phone/manifest\"\n"
     "\txmlns:uap=\"http://schemas.microsoft.com/appx/manifest/uap/windows10\""
     "\n\tIgnorableNamespaces=\"uap mp\">\n\n"
-    "\t<Identity Name=\"" << this->GUID << "\" Publisher=\"CN=CMake\""
+    "\t<Identity Name=\"" << this->GUID << "\" Publisher=\"CN=RBLXBuild\""
     " Version=\"1.0.0.0\" />\n"
     "\t<mp:PhoneIdentity PhoneProductId=\"" << this->GUID <<
     "\" PhonePublisherId=\"00000000-0000-0000-0000-000000000000\"/>\n"
     "\t<Properties>\n"
     "\t\t<DisplayName>" << targetNameXML << "</DisplayName>\n"
-    "\t\t<PublisherDisplayName>CMake</PublisherDisplayName>\n"
+    "\t\t<PublisherDisplayName>RBLXBuild</PublisherDisplayName>\n"
     "\t\t<Logo>" << artifactDirXML << "\\StoreLogo.png</Logo>\n"
     "\t</Properties>\n"
     "\t<Dependencies>\n"
@@ -6272,7 +6272,7 @@ void cmVisualStudio10TargetGenerator::WriteCommonMissingFiles(
   Elem& e1, std::string const& manifestFile)
 {
   std::string templateFolder =
-    cmStrCat(cmSystemTools::GetCMakeRoot(), "/Templates/Windows");
+    cmStrCat(cmSystemTools::GetRBLXBuildRoot(), "/Templates/Windows");
 
   std::string sourceFile = this->ConvertPath(manifestFile, false);
   ConvertToWindowsSlash(sourceFile);
@@ -6418,12 +6418,12 @@ std::string cmVisualStudio10TargetGenerator::GetCSharpSourceLink(
   return link;
 }
 
-std::string cmVisualStudio10TargetGenerator::GetCMakeFilePath(
+std::string cmVisualStudio10TargetGenerator::GetRBLXBuildFilePath(
   char const* relativeFilePath) const
 {
   // Always search in the standard modules location.
   std::string path =
-    cmStrCat(cmSystemTools::GetCMakeRoot(), '/', relativeFilePath);
+    cmStrCat(cmSystemTools::GetRBLXBuildRoot(), '/', relativeFilePath);
   ConvertToWindowsSlash(path);
 
   return path;
@@ -6449,7 +6449,7 @@ void cmVisualStudio10TargetGenerator::UpdateCache()
     this->GeneratorTarget->Makefile->AddCacheDefinition(
       cmStrCat(this->GeneratorTarget->GetName(),
                "_REQUIRES_VS_PACKAGE_RESTORE"),
-      "ON", "Value Computed by CMake", cmStateEnums::STATIC);
+      "ON", "Value Computed by RBLXBuild", cmStateEnums::STATIC);
   } else {
     // If there are any dependencies that require package restore, inherit the
     // cache variable.
@@ -6457,14 +6457,14 @@ void cmVisualStudio10TargetGenerator::UpdateCache()
       this->GlobalGenerator->GetTargetDirectDepends(this->GeneratorTarget);
     using OrderedTargetDependSet =
       cmGlobalVisualStudioGenerator::OrderedTargetDependSet;
-    OrderedTargetDependSet depends(unordered, CMAKE_CHECK_BUILD_SYSTEM_TARGET);
+    OrderedTargetDependSet depends(unordered, RBLXBUILD_CHECK_BUILD_SYSTEM_TARGET);
 
     for (cmGeneratorTarget const* dt : depends) {
       if (dt->IsDotNetSdkTarget() || dt->HasPackageReferences()) {
         this->GeneratorTarget->Makefile->AddCacheDefinition(
           cmStrCat(this->GeneratorTarget->GetName(),
                    "_REQUIRES_VS_PACKAGE_RESTORE"),
-          "ON", "Value Computed by CMake", cmStateEnums::STATIC);
+          "ON", "Value Computed by RBLXBuild", cmStateEnums::STATIC);
       }
     }
   }

@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #pragma once
 
 #include <iosfwd>
@@ -21,7 +21,7 @@ class cmGeneratorTarget;
 struct cmIDEFlagTable;
 class cmLocalGenerator;
 class cmMakefile;
-class cmake;
+class rblxbuild;
 template <typename T>
 class BT;
 
@@ -39,7 +39,7 @@ public:
   std::unique_ptr<cmLocalGenerator> CreateLocalGenerator(
     cmMakefile* mf) override;
 
-#if !defined(CMAKE_BOOTSTRAP)
+#if !defined(RBLXBUILD_BOOTSTRAP)
   Json::Value GetJson() const override;
 #endif
 
@@ -65,7 +65,7 @@ public:
                       bool optional) override;
 
   /**
-   * Try running cmake and building a file. This is used for dynamically
+   * Try running rblxbuild and building a file. This is used for dynamically
    * loaded commands, not as part of the usual build process.
    */
   std::vector<GeneratedMakeCommand> GenerateBuildCommand(
@@ -83,7 +83,7 @@ public:
                                 std::string& dir) override;
 
   //! What is the configurations directory variable called?
-  char const* GetCMakeCFGIntDir() const override
+  char const* GetRBLXBuildCFGIntDir() const override
   {
     return "$(ConfigurationName)";
   }
@@ -116,7 +116,7 @@ public:
   virtual bool SupportsCxxModuleDyndep() const { return false; }
 
 protected:
-  cmGlobalVisualStudio7Generator(cmake* cm);
+  cmGlobalVisualStudio7Generator(rblxbuild* cm);
 
   std::string const& GetDevEnvCommand();
   virtual std::string FindDevEnvCommand() = 0;
@@ -132,4 +132,4 @@ private:
   std::string GetVSMakeProgram() override { return this->GetDevEnvCommand(); }
 };
 
-#define CMAKE_CHECK_BUILD_SYSTEM_TARGET "ZERO_CHECK"
+#define RBLXBUILD_CHECK_BUILD_SYSTEM_TARGET "ZERO_CHECK"

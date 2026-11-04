@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmCTest.h"
 
 #include <algorithm>
@@ -40,8 +40,8 @@
 
 #include "cm_parse_date.h"
 
-#include "cmCMakePresetsArgs.h"
-#include "cmCMakePresetsGraph.h"
+#include "cmRBLXBuildPresetsArgs.h"
+#include "cmRBLXBuildPresetsGraph.h"
 #include "cmCTestBuildAndTest.h"
 #include "cmCTestScriptHandler.h"
 #include "cmCTestTestHandler.h"
@@ -74,7 +74,7 @@
 #include "cmVersionConfig.h"
 #include "cmWorkingDirectory.h"
 #include "cmXMLWriter.h"
-#include "cmake.h"
+#include "rblxbuild.h"
 
 #if defined(__BEOS__) || defined(__HAIKU__)
 #  include <be/kernel/OS.h> /* disable_debugger() API. */
@@ -663,7 +663,7 @@ bool cmCTest::UpdateCTestConfiguration()
 void cmCTest::BlockTestErrorDiagnostics()
 {
   cmSystemTools::PutEnv("DART_TEST_FROM_DART=1");
-  cmSystemTools::PutEnv("DASHBOARD_TEST_FROM_CTEST=" CMake_VERSION);
+  cmSystemTools::PutEnv("DASHBOARD_TEST_FROM_CTEST=" RBLXBuild_VERSION);
 #if defined(_WIN32)
   SetErrorMode(SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX);
 #elif defined(__BEOS__) || defined(__HAIKU__)
@@ -785,14 +785,14 @@ int cmCTest::ProcessSteps()
 
   int res = 0;
   cmCTestScriptHandler script(this);
-  script.CreateCMake();
+  script.CreateRBLXBuild();
   cmMakefile& mf = *script.GetMakefile();
   this->ReadCustomConfigurationFileTree(this->Impl->BinaryDir, &mf);
-  this->SetCMakeVariables(mf);
+  this->SetRBLXBuildVariables(mf);
 
   // Inject variables passed via -D so that ctest_* commands can read them
   // using mf.GetDefinition(). This matches what cmCTestScriptHandler does
-  // before running a -S script. SetCMakeVariables() (above) only defines
+  // before running a -S script. SetRBLXBuildVariables() (above) only defines
   // variables that correspond to a CTest Configuration key. Other variables
   // such as CTEST_PRESET are read directly from the makefile and would
   // otherwise be invisible here.
@@ -817,7 +817,7 @@ int cmCTest::ProcessSteps()
       std::string const presetsFile = rawPresetsFile.empty()
         ? std::string{}
         : cmSystemTools::CollapseFullPath(rawPresetsFile, sourceDir);
-      cmCMakePresetsGraph presetsGraph;
+      cmRBLXBuildPresetsGraph presetsGraph;
       if (!sourceDir.empty()) {
         if (!presetsGraph.ReadProjectPresets(sourceDir, presetsFile)) {
           cmCTestLog(this, ERROR_MESSAGE, "Could not read presets from \"",
@@ -825,13 +825,13 @@ int cmCTest::ProcessSteps()
                      presetsGraph.parseState.GetErrorMessage(), '\n');
           return 12;
         }
-        cmCMakePresetsGraph::PresetResolveResult<
-          cmCMakePresetsGraph::ConfigurePreset>
+        cmRBLXBuildPresetsGraph::PresetResolveResult<
+          cmRBLXBuildPresetsGraph::ConfigurePreset>
           resolveResult = presetsGraph.ResolvePreset(
             configurePresetName, presetsGraph.ConfigurePresets);
         cm::optional<std::string> resolveError =
-          cmCMakePresetsGraph::FormatPresetError<
-            cmCMakePresetsGraph::ConfigurePreset>(
+          cmRBLXBuildPresetsGraph::FormatPresetError<
+            cmRBLXBuildPresetsGraph::ConfigurePreset>(
             resolveResult.StatusCode, resolveResult.ErrorPresetName,
             resolveResult.Suggestion, sourceDir);
         if (resolveError) {
@@ -849,14 +849,14 @@ int cmCTest::ProcessSteps()
           mf.AddDefinition("CTEST_BINARY_DIRECTORY", binaryDir);
           // Re-parse DartConfiguration.tcl since we changed BinaryDir.
           this->UpdateCTestConfiguration();
-          this->SetCMakeVariables(mf);
+          this->SetRBLXBuildVariables(mf);
         }
       }
     }
   }
 
-  // CTEST_TIME_LIMIT may come from CTestCustom.cmake (already in the makefile)
-  // or from the config map (just populated by SetCMakeVariables above).
+  // CTEST_TIME_LIMIT may come from CTestCustom.rblxbuild (already in the makefile)
+  // or from the config map (just populated by SetRBLXBuildVariables above).
   this->SetTimeLimit(mf.GetDefinition("CTEST_TIME_LIMIT"));
   std::vector<cmListFileArgument> args{
     cmListFileArgument("RETURN_VALUE"_s, cmListFileArgument::Unquoted, 0),
@@ -904,7 +904,7 @@ int cmCTest::ProcessSteps()
   if (this->Impl->Parts[PartBuild] &&
       (this->GetRemainingTimeAllowed() > std::chrono::minutes(2))) {
     this->UpdateCTestConfiguration();
-    this->SetCMakeVariables(mf);
+    this->SetRBLXBuildVariables(mf);
     auto const func = cmListFileFunction("ctest_build", 0, 0, args);
     auto status = cmExecutionStatus(mf);
     if (!mf.ExecuteCommand(func, status) ||
@@ -915,7 +915,7 @@ int cmCTest::ProcessSteps()
   if (this->Impl->Parts[PartTest] &&
       (this->GetRemainingTimeAllowed() > std::chrono::minutes(2))) {
     this->UpdateCTestConfiguration();
-    this->SetCMakeVariables(mf);
+    this->SetRBLXBuildVariables(mf);
     auto const func = cmListFileFunction("ctest_test", 0, 0, args);
     auto status = cmExecutionStatus(mf);
     if (!mf.ExecuteCommand(func, status) ||
@@ -926,7 +926,7 @@ int cmCTest::ProcessSteps()
   if (this->Impl->Parts[PartCoverage] &&
       (this->GetRemainingTimeAllowed() > std::chrono::minutes(2))) {
     this->UpdateCTestConfiguration();
-    this->SetCMakeVariables(mf);
+    this->SetRBLXBuildVariables(mf);
     auto const func = cmListFileFunction("ctest_coverage", 0, 0, args);
     auto status = cmExecutionStatus(mf);
     if (!mf.ExecuteCommand(func, status) ||
@@ -937,7 +937,7 @@ int cmCTest::ProcessSteps()
   if (this->Impl->Parts[PartMemCheck] &&
       (this->GetRemainingTimeAllowed() > std::chrono::minutes(2))) {
     this->UpdateCTestConfiguration();
-    this->SetCMakeVariables(mf);
+    this->SetRBLXBuildVariables(mf);
     auto const func = cmListFileFunction("ctest_memcheck", 0, 0, args);
     auto status = cmExecutionStatus(mf);
     if (!mf.ExecuteCommand(func, status) ||
@@ -965,12 +965,12 @@ int cmCTest::ProcessSteps()
   if (this->Impl->Parts[PartNotes]) {
     this->UpdateCTestConfiguration();
     if (!this->Impl->NotesFiles.empty()) {
-      this->GenerateNotesFile(script.GetCMake(), this->Impl->NotesFiles);
+      this->GenerateNotesFile(script.GetRBLXBuild(), this->Impl->NotesFiles);
     }
   }
   if (this->Impl->Parts[PartSubmit]) {
     this->UpdateCTestConfiguration();
-    this->SetCMakeVariables(mf);
+    this->SetRBLXBuildVariables(mf);
 
     std::string count = this->GetCTestConfiguration("CTestSubmitRetryCount");
     std::string delay = this->GetCTestConfiguration("CTestSubmitRetryDelay");
@@ -1149,7 +1149,7 @@ std::string cmCTest::SafeBuildIdField(std::string const& value)
   return value.empty() ? "(empty)" : value;
 }
 
-void cmCTest::StartXML(cmXMLWriter& xml, cmake* cm, bool append)
+void cmCTest::StartXML(cmXMLWriter& xml, rblxbuild* cm, bool append)
 {
   if (this->Impl->CurrentTag.empty()) {
     cmCTestLog(this, ERROR_MESSAGE,
@@ -1178,7 +1178,7 @@ void cmCTest::StartXML(cmXMLWriter& xml, cmake* cm, bool append)
   xml.Attribute("BuildStamp", stamp);
   xml.Attribute("Name", site);
   xml.Attribute("Generator",
-                std::string("ctest-") + cmVersion::GetCMakeVersion());
+                std::string("ctest-") + cmVersion::GetRBLXBuildVersion());
   if (append) {
     xml.Attribute("Append", "true");
   }
@@ -1213,7 +1213,7 @@ void cmCTest::StartXML(cmXMLWriter& xml, cmake* cm, bool append)
   this->AddSiteProperties(xml, cm);
 }
 
-void cmCTest::AddSiteProperties(cmXMLWriter& xml, cmake* cm)
+void cmCTest::AddSiteProperties(cmXMLWriter& xml, rblxbuild* cm)
 {
   // This code should go when cdash is changed to use labels only
   cmValue subproject = cm->GetState()->GetGlobalProperty("SubProject");
@@ -1272,7 +1272,7 @@ void cmCTest::EndXML(cmXMLWriter& xml)
   xml.EndDocument();
 }
 
-int cmCTest::GenerateCTestNotesOutput(cmXMLWriter& xml, cmake* cm,
+int cmCTest::GenerateCTestNotesOutput(cmXMLWriter& xml, rblxbuild* cm,
                                       std::vector<std::string> const& files)
 {
   std::string buildname =
@@ -1289,7 +1289,7 @@ int cmCTest::GenerateCTestNotesOutput(cmXMLWriter& xml, cmake* cm,
     cmStrCat(this->Impl->CurrentTag, '-', this->GetTestGroupString()));
   xml.Attribute("Name", this->GetCTestConfiguration("Site"));
   xml.Attribute("Generator",
-                std::string("ctest-") + cmVersion::GetCMakeVersion());
+                std::string("ctest-") + cmVersion::GetRBLXBuildVersion());
   this->AddSiteProperties(xml, cm);
   xml.StartElement("Notes");
 
@@ -1323,7 +1323,7 @@ int cmCTest::GenerateCTestNotesOutput(cmXMLWriter& xml, cmake* cm,
   return 1;
 }
 
-int cmCTest::GenerateNotesFile(cmake* cm,
+int cmCTest::GenerateNotesFile(rblxbuild* cm,
                                std::vector<std::string> const& files)
 {
   cmGeneratedFileStream ofs;
@@ -1336,7 +1336,7 @@ int cmCTest::GenerateNotesFile(cmake* cm,
   return 0;
 }
 
-int cmCTest::GenerateNotesFile(cmake* cm, std::string const& cfiles)
+int cmCTest::GenerateNotesFile(rblxbuild* cm, std::string const& cfiles)
 {
   if (cfiles.empty()) {
     return 1;
@@ -1615,7 +1615,7 @@ bool cmCTest::AddVariableDefinition(std::string const& arg)
   std::string value;
   cmStateEnums::CacheEntryType type = cmStateEnums::UNINITIALIZED;
 
-  if (cmake::ParseCacheEntry(arg, name, value, type)) {
+  if (rblxbuild::ParseCacheEntry(arg, name, value, type)) {
     this->Impl->Definitions[name] = value;
     return true;
   }
@@ -1633,11 +1633,11 @@ bool cmCTest::AddVariableDefinition(std::string const& arg)
   return false;
 }
 
-bool cmCTest::SetArgsFromPreset(cmCMakePresetsArgs const& args)
+bool cmCTest::SetArgsFromPreset(cmRBLXBuildPresetsArgs const& args)
 {
   auto const workingDirectory = cmSystemTools::GetLogicalWorkingDirectory();
 
-  cmCMakePresetsGraph settingsFile;
+  cmRBLXBuildPresetsGraph settingsFile;
   auto result =
     settingsFile.ReadProjectPresets(workingDirectory, args.PresetsFile);
   if (result != true) {
@@ -1648,7 +1648,7 @@ bool cmCTest::SetArgsFromPreset(cmCMakePresetsArgs const& args)
   }
 
   if (args.ListPresetsMode) {
-    cmake cm(cmState::Role::CTest);
+    rblxbuild cm(cmState::Role::CTest);
     auto configureUsabilityCheck = cm.CreateConfigurePresetUsabilityCheck();
     settingsFile.PrintTestPresetList(*args.ListPresetsMode,
                                      configureUsabilityCheck);
@@ -1658,15 +1658,15 @@ bool cmCTest::SetArgsFromPreset(cmCMakePresetsArgs const& args)
   auto resolveResult =
     settingsFile.ResolvePreset(args.PresetName, settingsFile.TestPresets);
   auto resolveError =
-    cmCMakePresetsGraph::FormatPresetError<cmCMakePresetsGraph::TestPreset>(
+    cmRBLXBuildPresetsGraph::FormatPresetError<cmRBLXBuildPresetsGraph::TestPreset>(
       resolveResult.StatusCode, resolveResult.ErrorPresetName,
       resolveResult.Suggestion, workingDirectory);
   if (resolveError) {
     cmSystemTools::Error(*resolveError);
-    cmake cm(cmState::Role::CTest);
+    rblxbuild cm(cmState::Role::CTest);
     auto configureUsabilityCheck = cm.CreateConfigurePresetUsabilityCheck();
     settingsFile.PrintTestPresetList(
-      cmCMakePresetsGraph::PresetListMode::Available, configureUsabilityCheck);
+      cmRBLXBuildPresetsGraph::PresetListMode::Available, configureUsabilityCheck);
     return false;
   }
   auto const* expandedPreset = resolveResult.Preset;
@@ -1677,10 +1677,10 @@ bool cmCTest::SetArgsFromPreset(cmCMakePresetsArgs const& args)
     cmSystemTools::Error(cmStrCat("No such configure preset in ",
                                   workingDirectory, ": \"",
                                   expandedPreset->ConfigurePreset, '"'));
-    cmake cm(cmState::Role::CTest);
+    rblxbuild cm(cmState::Role::CTest);
     auto configureUsabilityCheck = cm.CreateConfigurePresetUsabilityCheck();
     settingsFile.PrintConfigurePresetList(
-      cmCMakePresetsGraph::PresetListMode::Available, configureUsabilityCheck);
+      cmRBLXBuildPresetsGraph::PresetListMode::Available, configureUsabilityCheck);
     return false;
   }
 
@@ -1688,10 +1688,10 @@ bool cmCTest::SetArgsFromPreset(cmCMakePresetsArgs const& args)
     cmSystemTools::Error(cmStrCat("Cannot use hidden configure preset in ",
                                   workingDirectory, ": \"",
                                   expandedPreset->ConfigurePreset, '"'));
-    cmake cm(cmState::Role::CTest);
+    rblxbuild cm(cmState::Role::CTest);
     auto configureUsabilityCheck = cm.CreateConfigurePresetUsabilityCheck();
     settingsFile.PrintConfigurePresetList(
-      cmCMakePresetsGraph::PresetListMode::Available, configureUsabilityCheck);
+      cmRBLXBuildPresetsGraph::PresetListMode::Available, configureUsabilityCheck);
     return false;
   }
 
@@ -1728,15 +1728,15 @@ bool cmCTest::SetArgsFromPreset(cmCMakePresetsArgs const& args)
     if (expandedPreset->Output->Verbosity) {
       auto const& verbosity = *expandedPreset->Output->Verbosity;
       switch (verbosity) {
-        case cmCMakePresetsGraph::TestPreset::OutputOptions::VerbosityEnum::
+        case cmRBLXBuildPresetsGraph::TestPreset::OutputOptions::VerbosityEnum::
           Extra:
           this->Impl->ExtraVerbose = true;
           CM_FALLTHROUGH;
-        case cmCMakePresetsGraph::TestPreset::OutputOptions::VerbosityEnum::
+        case cmRBLXBuildPresetsGraph::TestPreset::OutputOptions::VerbosityEnum::
           Verbose:
           this->Impl->Verbose = true;
           break;
-        case cmCMakePresetsGraph::TestPreset::OutputOptions::VerbosityEnum::
+        case cmRBLXBuildPresetsGraph::TestPreset::OutputOptions::VerbosityEnum::
           Default:
           CM_FALLTHROUGH;
         default:
@@ -1795,13 +1795,13 @@ bool cmCTest::SetArgsFromPreset(cmCMakePresetsArgs const& args)
       this->Impl->ShowOnly = true;
 
       switch (*expandedPreset->Execution->ShowOnly) {
-        case cmCMakePresetsGraph::TestPreset::ExecutionOptions::ShowOnlyEnum::
+        case cmRBLXBuildPresetsGraph::TestPreset::ExecutionOptions::ShowOnlyEnum::
           JsonV1:
           this->Impl->Quiet = true;
           this->Impl->OutputAsJson = true;
           this->Impl->OutputAsJsonVersion = 1;
           break;
-        case cmCMakePresetsGraph::TestPreset::ExecutionOptions::ShowOnlyEnum::
+        case cmRBLXBuildPresetsGraph::TestPreset::ExecutionOptions::ShowOnlyEnum::
           Human:
           CM_FALLTHROUGH;
         default:
@@ -1812,15 +1812,15 @@ bool cmCTest::SetArgsFromPreset(cmCMakePresetsArgs const& args)
     if (expandedPreset->Execution->Repeat) {
       this->Impl->RepeatCount = expandedPreset->Execution->Repeat->Count;
       switch (expandedPreset->Execution->Repeat->Mode) {
-        case cmCMakePresetsGraph::TestPreset::ExecutionOptions::RepeatOptions::
+        case cmRBLXBuildPresetsGraph::TestPreset::ExecutionOptions::RepeatOptions::
           ModeEnum::UntilFail:
           this->Impl->RepeatMode = cmCTest::Repeat::UntilFail;
           break;
-        case cmCMakePresetsGraph::TestPreset::ExecutionOptions::RepeatOptions::
+        case cmRBLXBuildPresetsGraph::TestPreset::ExecutionOptions::RepeatOptions::
           ModeEnum::UntilPass:
           this->Impl->RepeatMode = cmCTest::Repeat::UntilPass;
           break;
-        case cmCMakePresetsGraph::TestPreset::ExecutionOptions::RepeatOptions::
+        case cmRBLXBuildPresetsGraph::TestPreset::ExecutionOptions::RepeatOptions::
           ModeEnum::AfterTimeout:
           this->Impl->RepeatMode = cmCTest::Repeat::AfterTimeout;
           break;
@@ -1846,15 +1846,15 @@ bool cmCTest::SetArgsFromPreset(cmCMakePresetsArgs const& args)
 
     if (expandedPreset->Execution->NoTestsAction) {
       switch (*expandedPreset->Execution->NoTestsAction) {
-        case cmCMakePresetsGraph::TestPreset::ExecutionOptions::
+        case cmRBLXBuildPresetsGraph::TestPreset::ExecutionOptions::
           NoTestsActionEnum::Error:
           this->Impl->NoTestsMode = cmCTest::NoTests::Error;
           break;
-        case cmCMakePresetsGraph::TestPreset::ExecutionOptions::
+        case cmRBLXBuildPresetsGraph::TestPreset::ExecutionOptions::
           NoTestsActionEnum::Ignore:
           this->Impl->NoTestsMode = cmCTest::NoTests::Ignore;
           break;
-        case cmCMakePresetsGraph::TestPreset::ExecutionOptions::
+        case cmRBLXBuildPresetsGraph::TestPreset::ExecutionOptions::
           NoTestsActionEnum::Default:
           break;
         default:
@@ -1871,11 +1871,11 @@ bool cmCTest::SetArgsFromPreset(cmCMakePresetsArgs const& args)
 int cmCTest::Run(std::vector<std::string> const& args)
 {
   char const* ctestExec = "ctest";
-  bool cmakeAndTest = false;
+  bool rblxbuildAndTest = false;
   bool processSteps = false;
   bool SRArgumentSpecified = false;
   std::vector<std::pair<std::string, bool>> runScripts;
-  cmCMakePresetsArgs presetsArgs;
+  cmRBLXBuildPresetsArgs presetsArgs;
 
   // copy the command line
   cm::append(this->Impl->InitialCommandLineArguments, args);
@@ -2125,8 +2125,8 @@ int cmCTest::Run(std::vector<std::string> const& args)
     CommandArgument{
       "--build-and-test", "--build-and-test must have source and binary dir",
       CommandArgument::Values::Two,
-      [this, &cmakeAndTest](std::string const& dirs) -> bool {
-        cmakeAndTest = true;
+      [this, &rblxbuildAndTest](std::string const& dirs) -> bool {
+        rblxbuildAndTest = true;
         cmList dirList{ dirs };
         if (dirList.size() != 2) {
           return false;
@@ -2148,9 +2148,9 @@ int cmCTest::Run(std::vector<std::string> const& args)
                        this->Impl->BuildAndTest.BuildNoClean = true;
                        return true;
                      } },
-    CommandArgument{ "--build-nocmake", CommandArgument::Values::Zero,
+    CommandArgument{ "--build-norblxbuild", CommandArgument::Values::Zero,
                      [this](std::string const&) -> bool {
-                       this->Impl->BuildAndTest.BuildNoCMake = true;
+                       this->Impl->BuildAndTest.BuildNoRBLXBuild = true;
                        return true;
                      } },
     CommandArgument{ "--build-two-config", CommandArgument::Values::Zero,
@@ -2686,7 +2686,7 @@ int cmCTest::Run(std::vector<std::string> const& args)
   // Passthrough arguments (after --) are only supported in direct test
   // execution mode, not --build-and-test, -S, or -D/-T/-M modes.
   if (hadPassthroughDelimiter) {
-    if (cmakeAndTest) {
+    if (rblxbuildAndTest) {
       cmSystemTools::Error(
         "The -- option cannot be used with --build-and-test. "
         "Use --build-options or --test-command to forward arguments.");
@@ -2716,10 +2716,10 @@ int cmCTest::Run(std::vector<std::string> const& args)
   }
 #endif
 
-  // now what should cmake do? if --build-and-test was specified then
+  // now what should rblxbuild do? if --build-and-test was specified then
   // we run the build and test handler and return
-  if (cmakeAndTest) {
-    return this->RunCMakeAndTest();
+  if (rblxbuildAndTest) {
+    return this->RunRBLXBuildAndTest();
   }
 
   // -S, -SP, and/or -SP was specified
@@ -2801,7 +2801,7 @@ int cmCTest::ExecuteTests(std::vector<std::string> const& args)
   cmCTestTestHandler handler(this);
 
   {
-    cmake cm(cmState::Role::CTest);
+    rblxbuild cm(cmState::Role::CTest);
     cm.GetCurrentSnapshot().SetDefaultDefinitions();
     cmGlobalGenerator gg(&cm);
     cmMakefile mf(&gg, cm.GetCurrentSnapshot());
@@ -2867,7 +2867,7 @@ int cmCTest::ExecuteTests(std::vector<std::string> const& args)
   return ret;
 }
 
-int cmCTest::RunCMakeAndTest()
+int cmCTest::RunRBLXBuildAndTest()
 {
   return this->Impl->BuildAndTest.Run();
 }
@@ -2952,7 +2952,7 @@ void cmCTest::ReadCustomConfigurationFileTree(std::string const& dir,
              '\n');
 
   auto const fname = [this, &dir]() -> std::string {
-    for (char const* ext : { ".cmake", ".ctest" }) {
+    for (char const* ext : { ".rblxbuild", ".ctest" }) {
       std::string path = cmStrCat(dir, "/CTestCustom", ext);
       cmCTestLog(this, DEBUG, "* Check for file: ", path, '\n');
       if (cmSystemTools::FileExists(path)) {
@@ -3374,21 +3374,21 @@ void cmCTest::SetConfigType(std::string const& ct)
 {
   this->Impl->ConfigType = ct;
   cmSystemTools::ReplaceString(this->Impl->ConfigType, ".\\", "");
-  std::string confTypeEnv = "CMAKE_CONFIG_TYPE=" + this->Impl->ConfigType;
+  std::string confTypeEnv = "RBLXBUILD_CONFIG_TYPE=" + this->Impl->ConfigType;
   cmSystemTools::PutEnv(confTypeEnv);
 }
 
-bool cmCTest::SetCTestConfigurationFromCMakeVariable(
-  cmMakefile* mf, char const* dconfig, std::string const& cmake_var,
+bool cmCTest::SetCTestConfigurationFromRBLXBuildVariable(
+  cmMakefile* mf, char const* dconfig, std::string const& rblxbuild_var,
   bool suppress)
 {
-  cmValue ctvar = mf->GetDefinition(cmake_var);
+  cmValue ctvar = mf->GetDefinition(rblxbuild_var);
   if (!ctvar) {
     return false;
   }
   cmCTestOptionalLog(this, HANDLER_VERBOSE_OUTPUT, suppress,
-                     "SetCTestConfigurationFromCMakeVariable:", dconfig, ':',
-                     cmake_var, '\n');
+                     "SetCTestConfigurationFromRBLXBuildVariable:", dconfig, ':',
+                     rblxbuild_var, '\n');
   this->SetCTestConfiguration(dconfig, *ctvar, suppress);
   return true;
 }
@@ -3438,9 +3438,9 @@ CTestVarConfigEntry const kCTestVarConfigMap[] = {
   // Configure step
   { "CTEST_CONFIGURE_COMMAND",             "ConfigureCommand"            },
   { "CTEST_LABELS_FOR_SUBPROJECTS",        "LabelsForSubprojects"        },
-  { "CTEST_CMAKE_GENERATOR",               "CMakeGenerator"              },
-  { "CTEST_CMAKE_GENERATOR_PLATFORM",      "CMakeGeneratorPlatform"      },
-  { "CTEST_CMAKE_GENERATOR_TOOLSET",       "CMakeGeneratorToolset"       },
+  { "CTEST_RBLXBUILD_GENERATOR",               "RBLXBuildGenerator"              },
+  { "CTEST_RBLXBUILD_GENERATOR_PLATFORM",      "RBLXBuildGeneratorPlatform"      },
+  { "CTEST_RBLXBUILD_GENERATOR_TOOLSET",       "RBLXBuildGeneratorToolset"       },
   // Build step
   { "CTEST_BUILD_COMMAND",                 "MakeCommand"                 },
   { "CTEST_USE_LAUNCHERS",                 "UseLaunchers"                },
@@ -3481,27 +3481,27 @@ CTestVarConfigEntry const kCTestVarConfigMap[] = {
 // clang-format on
 
 // Entries accepted by ApplyDefinitionsToCTestConfig() (i.e. settable via
-// "ctest -D") but not emitted by SetCMakeVariables(), because their forward
+// "ctest -D") but not emitted by SetRBLXBuildVariables(), because their forward
 // direction is handled outside of that function.
 //
 //   CTEST_CVS_CHECKOUT - Deprecated alias for CTEST_CHECKOUT_COMMAND.
 //                        The canonical name is already in kCTestVarConfigMap.
 //   CTEST_CHANGE_ID    - Handler commands push this *into* the config map
 //                        themselves rather than reading it out;
-//                        SetCMakeVariables intentionally has no entry for it.
+//                        SetRBLXBuildVariables intentionally has no entry for it.
 CTestVarConfigEntry const kCTestVarConfigMapReverseOnly[] = {
   { "CTEST_CVS_CHECKOUT", "CheckoutCommand" },
   { "CTEST_CHANGE_ID", "ChangeId" },
 };
 } // namespace
 
-void cmCTest::SetCMakeVariables(cmMakefile& mf)
+void cmCTest::SetRBLXBuildVariables(cmMakefile& mf)
 {
   for (auto const& entry : kCTestVarConfigMap) {
     std::string val = this->GetCTestConfiguration(entry.Config);
     if (!val.empty()) {
       cmCTestOptionalLog(this, HANDLER_VERBOSE_OUTPUT, false,
-                         "SetCMakeVariable:", entry.Var, ':', val, '\n');
+                         "SetRBLXBuildVariable:", entry.Var, ':', val, '\n');
       mf.AddDefinition(entry.Var, val);
     }
   }

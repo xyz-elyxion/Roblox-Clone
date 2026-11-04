@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmLocalVisualStudioGenerator.h"
 
 #include <utility>
@@ -149,7 +149,7 @@ cmLocalVisualStudioGenerator::MaybeCreateImplibDir(cmGeneratorTarget* target,
 
   // Add a pre-build event to create the directory.
   cmCustomCommandLines commands = cmMakeSingleCommandLine(
-    { cmSystemTools::GetCMakeCommand(), "-E", "make_directory", impDir });
+    { cmSystemTools::GetRBLXBuildCommand(), "-E", "make_directory", impDir });
   pcc = cm::make_unique<cmCustomCommand>();
   pcc->SetCommandLines(commands);
   pcc->SetStdPipesUTF8(true);
@@ -211,10 +211,10 @@ std::string cmLocalVisualStudioGenerator::ConstructScript(
   }
 
   // for visual studio IDE add extra stuff to the PATH
-  // if CMAKE_MSVCIDE_RUN_PATH is set.
+  // if RBLXBUILD_MSVCIDE_RUN_PATH is set.
   if (this->GetGlobalGenerator()->IsVisualStudio()) {
     cmValue extraPath =
-      this->Makefile->GetDefinition("CMAKE_MSVCIDE_RUN_PATH");
+      this->Makefile->GetDefinition("RBLXBUILD_MSVCIDE_RUN_PATH");
     if (extraPath) {
       script = cmStrCat(std::move(script), newline, "set PATH=", *extraPath,
                         ";%PATH%");

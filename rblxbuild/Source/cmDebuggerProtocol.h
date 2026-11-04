@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #pragma once
 
 #include "cmConfigure.h" // IWYU pragma: keep
@@ -14,8 +14,8 @@
 
 namespace dap {
 
-// Represents the cmake version.
-struct CMakeVersion : public InitializeResponse
+// Represents the rblxbuild version.
+struct RBLXBuildVersion : public InitializeResponse
 {
   // The major version number.
   integer major;
@@ -27,10 +27,10 @@ struct CMakeVersion : public InitializeResponse
   string full;
 };
 
-DAP_DECLARE_STRUCT_TYPEINFO(CMakeVersion);
+DAP_DECLARE_STRUCT_TYPEINFO(RBLXBuildVersion);
 
 // Response to `initialize` request.
-struct CMakeInitializeResponse : public Response
+struct RBLXBuildInitializeResponse : public Response
 {
   // The set of additional module information exposed by the debug adapter.
   optional<array<ColumnDescriptor>> additionalModuleColumns;
@@ -130,11 +130,11 @@ struct CMakeInitializeResponse : public Response
   optional<boolean> supportsValueFormattingOptions;
   // The debug adapter supports the `writeMemory` request.
   optional<boolean> supportsWriteMemoryRequest;
-  // The CMake version.
-  CMakeVersion cmakeVersion;
+  // The RBLXBuild version.
+  RBLXBuildVersion rblxbuildVersion;
 };
 
-DAP_DECLARE_STRUCT_TYPEINFO(CMakeInitializeResponse);
+DAP_DECLARE_STRUCT_TYPEINFO(RBLXBuildInitializeResponse);
 
 // The `initialize` request is sent as the first request from the client to the
 // debug adapter in order to configure it with client capabilities and to
@@ -144,9 +144,9 @@ DAP_DECLARE_STRUCT_TYPEINFO(CMakeInitializeResponse);
 // adapter is not allowed to send any requests or events to the client until it
 // has responded with an `initialize` response. The `initialize` request may
 // only be sent once.
-struct CMakeInitializeRequest : public Request
+struct RBLXBuildInitializeRequest : public Request
 {
-  using Response = CMakeInitializeResponse;
+  using Response = RBLXBuildInitializeResponse;
   // The ID of the debug adapter.
   string adapterID;
   // The ID of the client using this adapter.
@@ -186,6 +186,6 @@ struct CMakeInitializeRequest : public Request
   optional<boolean> supportsVariableType;
 };
 
-DAP_DECLARE_STRUCT_TYPEINFO(CMakeInitializeRequest);
+DAP_DECLARE_STRUCT_TYPEINFO(RBLXBuildInitializeRequest);
 
 } // namespace dap

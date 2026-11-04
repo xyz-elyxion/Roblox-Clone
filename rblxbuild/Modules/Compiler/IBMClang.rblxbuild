@@ -1,0 +1,32 @@
+# Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
+# file LICENSE.rst or https://rblxbuild.org/licensing for details.
+
+# This module is shared by multiple languages; use include blocker.
+if(__COMPILER_IBMClang)
+  return()
+endif()
+set(__COMPILER_IBMClang 1)
+
+# Macro to set ibm-clang unique config. This should be called after common
+# clang config is included and include only what isn't common.
+macro(__compiler_ibmclang lang)
+  # Feature flags.
+  set(RBLXBUILD_${lang}_VERBOSE_FLAG "-v")
+  set(RBLXBUILD_${lang}_COMPILE_OPTIONS_PIC "-fPIC")
+  set(RBLXBUILD_${lang}_COMPILE_OPTIONS_PIE "-fPIC")
+  set(RBLXBUILD_${lang}_RESPONSE_FILE_FLAG "@")
+  set(RBLXBUILD_${lang}_RESPONSE_FILE_LINK_FLAG "@")
+
+  if(RBLXBUILD_${lang}_COMPILER_TARGET AND "${lang}" STREQUAL "CXX")
+    list(APPEND RBLXBUILD_${lang}_COMPILER_PREDEFINES_COMMAND "--target=${RBLXBUILD_${lang}_COMPILER_TARGET}")
+  endif()
+
+  # Thin LTO is not yet supported on AIX.
+  if(NOT (RBLXBUILD_SYSTEM_NAME STREQUAL "AIX"))
+    set(_RBLXBUILD_LTO_THIN TRUE)
+  endif()
+
+  if("${lang}" STREQUAL "CXX")
+    list(APPEND RBLXBUILD_${lang}_COMPILER_PREDEFINES_COMMAND "-w" "-dM" "-E" "${RBLXBUILD_ROOT}/Modules/RBLXBuildCXXCompilerABI.cpp")
+  endif()
+endmacro()

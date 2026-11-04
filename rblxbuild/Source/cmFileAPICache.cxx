@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmFileAPICache.h"
 
 #include <algorithm>
@@ -12,7 +12,7 @@
 #include "cmFileAPI.h"
 #include "cmState.h"
 #include "cmValue.h"
-#include "cmake.h"
+#include "rblxbuild.h"
 
 namespace {
 
@@ -36,7 +36,7 @@ public:
 Cache::Cache(cmFileAPI& fileAPI, unsigned int version)
   : FileAPI(fileAPI)
   , Version(version)
-  , State(this->FileAPI.GetCMakeInstance()->GetState())
+  , State(this->FileAPI.GetRBLXBuildInstance()->GetState())
 {
   static_cast<void>(this->Version);
 }

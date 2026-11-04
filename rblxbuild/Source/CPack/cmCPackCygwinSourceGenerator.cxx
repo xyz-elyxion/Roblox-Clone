@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmCPackCygwinSourceGenerator.h"
 
 #include "cmsys/SystemTools.hxx"
@@ -10,7 +10,7 @@
 #include "cmMakefile.h"
 #include "cmSystemTools.h"
 #include "cmValue.h"
-#include "cmake.h"
+#include "rblxbuild.h"
 
 // Includes needed for implementation of RenameFile.  This is not in
 // system tools because it is not implemented robustly enough to move

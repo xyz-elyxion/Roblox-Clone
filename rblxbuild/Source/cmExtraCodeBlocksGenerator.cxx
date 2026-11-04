@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmExtraCodeBlocksGenerator.h"
 
 #include <map>
@@ -24,7 +24,7 @@
 #include "cmTargetTypes.h"
 #include "cmValue.h"
 #include "cmXMLWriter.h"
-#include "cmake.h"
+#include "rblxbuild.h"
 
 /* Some useful URLs:
 Homepage:
@@ -87,9 +87,9 @@ void cmExtraCodeBlocksGenerator::CreateProjectFile(
 }
 
 /* Tree is used to create a "Virtual Folder" in CodeBlocks, in which all
- CMake files this project depends on will be put. This means additionally
+ RBLXBuild files this project depends on will be put. This means additionally
  to the "Sources" and "Headers" virtual folders of CodeBlocks, there will
- now also be a "CMake Files" virtual folder.
+ now also be a "RBLXBuild Files" virtual folder.
  Patch by Daniel Teske <daniel.teske AT nokia.com> (which use C::B project
  files in QtCreator).*/
 struct Tree
@@ -143,7 +143,7 @@ void Tree::InsertPath(std::vector<std::string> const& split,
 void Tree::BuildVirtualFolder(cmXMLWriter& xml) const
 {
   xml.StartElement("Option");
-  std::string virtualFolders = "CMake Files\\;";
+  std::string virtualFolders = "RBLXBuild Files\\;";
   for (Tree const& folder : this->folders) {
     folder.BuildVirtualFolderImpl(virtualFolders, "");
   }
@@ -154,7 +154,7 @@ void Tree::BuildVirtualFolder(cmXMLWriter& xml) const
 void Tree::BuildVirtualFolderImpl(std::string& virtualFolders,
                                   std::string const& prefix) const
 {
-  virtualFolders = cmStrCat(std::move(virtualFolders), "CMake Files\\", prefix,
+  virtualFolders = cmStrCat(std::move(virtualFolders), "RBLXBuild Files\\", prefix,
                             this->path, "\\;");
   for (Tree const& folder : this->folders) {
     folder.BuildVirtualFolderImpl(virtualFolders,
@@ -169,7 +169,7 @@ void Tree::BuildUnit(cmXMLWriter& xml, std::string const& fsPath) const
     xml.Attribute("filename", fsPath + f);
 
     xml.StartElement("Option");
-    xml.Attribute("virtualFolder", "CMake Files\\");
+    xml.Attribute("virtualFolder", "RBLXBuild Files\\");
     xml.EndElement();
 
     xml.EndElement();
@@ -190,7 +190,7 @@ void Tree::BuildUnitImpl(cmXMLWriter& xml,
     xml.StartElement("Option");
     xml.Attribute(
       "virtualFolder",
-      cmStrCat("CMake Files\\", virtualFolderPath, this->path, '\\'));
+      cmStrCat("RBLXBuild Files\\", virtualFolderPath, this->path, '\\'));
     xml.EndElement();
 
     xml.EndElement();
@@ -222,8 +222,8 @@ void cmExtraCodeBlocksGenerator::CreateNewProjectFile(
 
     // Convert
     for (std::string const& listFile : listFiles) {
-      // don't put cmake's own files into the project (#12110):
-      if (cmHasPrefix(listFile, cmSystemTools::GetCMakeRoot())) {
+      // don't put rblxbuild's own files into the project (#12110):
+      if (cmHasPrefix(listFile, cmSystemTools::GetRBLXBuildRoot())) {
         continue;
       }
 
@@ -235,17 +235,17 @@ void cmExtraCodeBlocksGenerator::CreateNewProjectFile(
       std::string fileName = *(split.end() - 1);
       split.erase(split.end() - 1, split.end());
 
-      // We don't want paths with CMakeFiles in them
+      // We don't want paths with RBLXBuildFiles in them
       // or do we?
       // In speedcrunch those where purely internal
       //
       // Also we can disable external (outside the project) files by setting ON
-      // CMAKE_CODEBLOCKS_EXCLUDE_EXTERNAL_FILES variable.
+      // RBLXBUILD_CODEBLOCKS_EXCLUDE_EXTERNAL_FILES variable.
       bool const excludeExternal = it.second[0]->GetMakefile()->IsOn(
-        "CMAKE_CODEBLOCKS_EXCLUDE_EXTERNAL_FILES");
+        "RBLXBUILD_CODEBLOCKS_EXCLUDE_EXTERNAL_FILES");
       if (!split.empty() &&
           (!excludeExternal || (relative.find("..") == std::string::npos)) &&
-          relative.find("CMakeFiles") == std::string::npos) {
+          relative.find("RBLXBuildFiles") == std::string::npos) {
         tree.InsertPath(split, 1, fileName);
       }
     }
@@ -253,9 +253,9 @@ void cmExtraCodeBlocksGenerator::CreateNewProjectFile(
 
   // figure out the compiler
   std::string compiler = this->GetCBCompilerId(mf);
-  std::string const& make = mf->GetRequiredDefinition("CMAKE_MAKE_PROGRAM");
+  std::string const& make = mf->GetRequiredDefinition("RBLXBUILD_MAKE_PROGRAM");
   std::string const& makeArgs =
-    mf->GetSafeDefinition("CMAKE_CODEBLOCKS_MAKE_ARGUMENTS");
+    mf->GetSafeDefinition("RBLXBUILD_CODEBLOCKS_MAKE_ARGUMENTS");
 
   cmXMLWriter xml(fout);
   xml.StartDocument();
@@ -295,7 +295,7 @@ void cmExtraCodeBlocksGenerator::CreateNewProjectFile(
       std::string targetName = target->GetName();
       switch (target->GetType()) {
         case cm::TargetType::GLOBAL_TARGET: {
-          // Only add the global targets from CMAKE_BINARY_DIR,
+          // Only add the global targets from RBLXBUILD_BINARY_DIR,
           // not from the subdirs
           if (lg->GetCurrentBinaryDirectory() == lg->GetBinaryDirectory()) {
             this->AppendTarget(xml, targetName, nullptr, make, lg, compiler,
@@ -344,7 +344,7 @@ void cmExtraCodeBlocksGenerator::CreateNewProjectFile(
   all_files_map_t allFiles;
   std::vector<std::string> cFiles;
 
-  auto* cm = this->GlobalGenerator->GetCMakeInstance();
+  auto* cm = this->GlobalGenerator->GetRBLXBuildInstance();
 
   for (cmLocalGenerator* lg : lgs) {
     cmMakefile* makefile = lg->GetMakefile();
@@ -360,7 +360,7 @@ void cmExtraCodeBlocksGenerator::CreateNewProjectFile(
         {
           std::vector<cmSourceFile*> sources;
           target->GetSourceFiles(
-            sources, makefile->GetSafeDefinition("CMAKE_BUILD_TYPE"));
+            sources, makefile->GetSafeDefinition("RBLXBUILD_BUILD_TYPE"));
           for (cmSourceFile* s : sources) {
             // don't add source files from UTILITY target which have the
             // GENERATED property set:
@@ -384,9 +384,9 @@ void cmExtraCodeBlocksGenerator::CreateNewProjectFile(
             std::string const relative =
               cmSystemTools::RelativePath(lg->GetSourceDirectory(), fullPath);
             // Do not add this file if it has ".." in relative path and
-            // if CMAKE_CODEBLOCKS_EXCLUDE_EXTERNAL_FILES variable is on.
+            // if RBLXBUILD_CODEBLOCKS_EXCLUDE_EXTERNAL_FILES variable is on.
             bool const excludeExternal = lg->GetMakefile()->IsOn(
-              "CMAKE_CODEBLOCKS_EXCLUDE_EXTERNAL_FILES");
+              "RBLXBUILD_CODEBLOCKS_EXCLUDE_EXTERNAL_FILES");
             if (excludeExternal &&
                 (relative.find("..") != std::string::npos)) {
               continue;
@@ -407,7 +407,7 @@ void cmExtraCodeBlocksGenerator::CreateNewProjectFile(
   }
 
   std::vector<std::string> const& headerExts =
-    this->GlobalGenerator->GetCMakeInstance()->GetHeaderExtensions();
+    this->GlobalGenerator->GetRBLXBuildInstance()->GetHeaderExtensions();
 
   // The following loop tries to add header files matching to implementation
   // files to the project. It does that by iterating over all
@@ -453,7 +453,7 @@ void cmExtraCodeBlocksGenerator::CreateNewProjectFile(
     xml.EndElement();
   }
 
-  // Add CMakeLists.txt
+  // Add RBLXBuildLists.txt
   tree.BuildUnit(xml, mf->GetHomeDirectory() + '/');
 
   xml.EndElement(); // Project
@@ -475,7 +475,7 @@ std::string cmExtraCodeBlocksGenerator::CreateDummyTargetFile(
     /* clang-format off */
     fout << "# This is a dummy file for the OBJECT library "
          << target->GetName()
-         << " for the CMake CodeBlocks project generator.\n"
+         << " for the RBLXBuild CodeBlocks project generator.\n"
             "# Don't edit, this file will be overwritten.\n";
     /* clang-format on */
   }
@@ -502,7 +502,7 @@ void cmExtraCodeBlocksGenerator::AppendTarget(
       // Determine the directory where the executable target is created, and
       // set the working directory to this dir.
       cmValue runtimeOutputDir =
-        makefile->GetDefinition("CMAKE_RUNTIME_OUTPUT_DIRECTORY");
+        makefile->GetDefinition("RBLXBUILD_RUNTIME_OUTPUT_DIRECTORY");
       if (runtimeOutputDir) {
         workingDir = *runtimeOutputDir;
       } else {
@@ -514,7 +514,7 @@ void cmExtraCodeBlocksGenerator::AppendTarget(
       }
     }
 
-    std::string buildType = makefile->GetSafeDefinition("CMAKE_BUILD_TYPE");
+    std::string buildType = makefile->GetSafeDefinition("RBLXBUILD_BUILD_TYPE");
     std::string location;
     if (target->GetType() == cm::TargetType::OBJECT_LIBRARY) {
       location = this->CreateDummyTargetFile(target);
@@ -566,13 +566,13 @@ void cmExtraCodeBlocksGenerator::AppendTarget(
     }
 
     std::string systemIncludeDirs = makefile->GetSafeDefinition(
-      "CMAKE_EXTRA_GENERATOR_CXX_SYSTEM_INCLUDE_DIRS");
+      "RBLXBUILD_EXTRA_GENERATOR_CXX_SYSTEM_INCLUDE_DIRS");
     if (!systemIncludeDirs.empty()) {
       cm::append(allIncludeDirs, cmList{ systemIncludeDirs });
     }
 
     systemIncludeDirs = makefile->GetSafeDefinition(
-      "CMAKE_EXTRA_GENERATOR_C_SYSTEM_INCLUDE_DIRS");
+      "RBLXBUILD_EXTRA_GENERATOR_C_SYSTEM_INCLUDE_DIRS");
     if (!systemIncludeDirs.empty()) {
       cm::append(allIncludeDirs, cmList{ systemIncludeDirs });
     }
@@ -625,12 +625,12 @@ void cmExtraCodeBlocksGenerator::AppendTarget(
   xml.EndElement(); // Target
 }
 
-// Translate the cmake compiler id into the CodeBlocks compiler id
+// Translate the rblxbuild compiler id into the CodeBlocks compiler id
 std::string cmExtraCodeBlocksGenerator::GetCBCompilerId(cmMakefile const* mf)
 {
   // allow the user to overwrite the detected compiler
   std::string userCompiler =
-    mf->GetSafeDefinition("CMAKE_CODEBLOCKS_COMPILER_ID");
+    mf->GetSafeDefinition("RBLXBUILD_CODEBLOCKS_COMPILER_ID");
   if (!userCompiler.empty()) {
     return userCompiler;
   }
@@ -642,11 +642,11 @@ std::string cmExtraCodeBlocksGenerator::GetCBCompilerId(cmMakefile const* mf)
   bool pureFortran = false;
   std::string compilerIdVar;
   if (this->GlobalGenerator->GetLanguageEnabled("CXX")) {
-    compilerIdVar = "CMAKE_CXX_COMPILER_ID";
+    compilerIdVar = "RBLXBUILD_CXX_COMPILER_ID";
   } else if (this->GlobalGenerator->GetLanguageEnabled("C")) {
-    compilerIdVar = "CMAKE_C_COMPILER_ID";
+    compilerIdVar = "RBLXBUILD_C_COMPILER_ID";
   } else if (this->GlobalGenerator->GetLanguageEnabled("Fortran")) {
-    compilerIdVar = "CMAKE_Fortran_COMPILER_ID";
+    compilerIdVar = "RBLXBUILD_Fortran_COMPILER_ID";
     pureFortran = true;
   }
 
@@ -694,13 +694,13 @@ std::string cmExtraCodeBlocksGenerator::GetCBCompilerId(cmMakefile const* mf)
   return compiler;
 }
 
-// Translate the cmake target type into the CodeBlocks target type id
+// Translate the rblxbuild target type into the CodeBlocks target type id
 int cmExtraCodeBlocksGenerator::GetCBTargetType(cmGeneratorTarget* target)
 {
   switch (target->GetType()) {
     case cm::TargetType::EXECUTABLE:
       if ((target->IsWin32Executable(
-            target->Makefile->GetSafeDefinition("CMAKE_BUILD_TYPE"))) ||
+            target->Makefile->GetSafeDefinition("RBLXBUILD_BUILD_TYPE"))) ||
           (target->GetPropertyAsBool("MACOSX_BUNDLE"))) {
         return 0;
       }
@@ -731,13 +731,13 @@ std::string cmExtraCodeBlocksGenerator::BuildMakeCommand(
   if (generator == "NMake Makefiles" || generator == "NMake Makefiles JOM") {
     // For Windows ConvertToOutputPath already adds quotes when required.
     // These need to be escaped, see
-    // https://gitlab.kitware.com/cmake/cmake/-/issues/13952
+    // https://gitlab.kitware.com/rblxbuild/rblxbuild/-/issues/13952
     std::string makefileName = cmSystemTools::ConvertToOutputPath(makefile);
     command = cmStrCat(std::move(command), " /NOLOGO /f ", makefileName,
                        " VERBOSE=1 ", target);
   } else if (generator == "MinGW Makefiles") {
     // no escaping of spaces in this case, see
-    // https://gitlab.kitware.com/cmake/cmake/-/issues/10014
+    // https://gitlab.kitware.com/rblxbuild/rblxbuild/-/issues/10014
     std::string const& makefileName = makefile;
     command = cmStrCat(std::move(command), " -f \"", makefileName,
                        "\" VERBOSE=1 ", target);

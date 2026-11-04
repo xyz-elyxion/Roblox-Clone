@@ -1,0 +1,58 @@
+# Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
+# file LICENSE.rst or https://rblxbuild.org/licensing for details.
+
+
+# This module is shared by multiple languages; use include blocker.
+if(__CYGWIN_COMPILER_GNU)
+  return()
+endif()
+set(__CYGWIN_COMPILER_GNU 1)
+
+# TODO: Is -Wl,--enable-auto-import now always default?
+string(APPEND RBLXBUILD_EXE_LINKER_FLAGS_INIT " -Wl,--enable-auto-import")
+
+set(RBLXBUILD_GNULD_IMAGE_VERSION
+  "-Wl,--major-image-version,<TARGET_VERSION_MAJOR>,--minor-image-version,<TARGET_VERSION_MINOR>")
+set(RBLXBUILD_GENERATOR_RC windres)
+
+
+macro(__cygwin_compiler_gnu lang)
+  # Binary link rules.
+  set(RBLXBUILD_${lang}_CREATE_SHARED_MODULE
+    "<RBLXBUILD_${lang}_COMPILER> <LANGUAGE_COMPILE_FLAGS> <RBLXBUILD_SHARED_MODULE_${lang}_FLAGS> <LINK_FLAGS> -o <TARGET> ${RBLXBUILD_GNULD_IMAGE_VERSION} <OBJECTS> <LINK_LIBRARIES>")
+  set(RBLXBUILD_${lang}_CREATE_SHARED_LIBRARY
+    "<RBLXBUILD_${lang}_COMPILER> <LANGUAGE_COMPILE_FLAGS> <RBLXBUILD_SHARED_LIBRARY_${lang}_FLAGS> <LINK_FLAGS> -o <TARGET> -Wl,--out-implib,<TARGET_IMPLIB> ${RBLXBUILD_GNULD_IMAGE_VERSION} <OBJECTS> <LINK_LIBRARIES>")
+  set(RBLXBUILD_${lang}_LINK_EXECUTABLE
+    "<RBLXBUILD_${lang}_COMPILER> <FLAGS> <LINK_FLAGS> <OBJECTS> -o <TARGET> -Wl,--out-implib,<TARGET_IMPLIB> ${RBLXBUILD_GNULD_IMAGE_VERSION} <LINK_LIBRARIES>")
+  set(RBLXBUILD_${lang}_CREATE_WIN32_EXE "-mwindows")
+
+  set(RBLXBUILD_${lang}_VERBOSE_LINK_FLAG "-Wl,-v")
+
+   # No -fPIC on cygwin
+  set(RBLXBUILD_${lang}_COMPILE_OPTIONS_PIC "")
+  set(RBLXBUILD_${lang}_COMPILE_OPTIONS_PIE "")
+  set(_RBLXBUILD_${lang}_PIE_MAY_BE_SUPPORTED_BY_LINKER NO)
+  set(RBLXBUILD_${lang}_LINK_OPTIONS_PIE "")
+  set(RBLXBUILD_${lang}_LINK_OPTIONS_NO_PIE "")
+  set(RBLXBUILD_SHARED_LIBRARY_${lang}_FLAGS "")
+
+  # Initialize C link type selection flags.  These flags are used when
+  # building a shared library, shared module, or executable that links
+  # to other libraries to select whether to use the static or shared
+  # versions of the libraries.
+  foreach(type SHARED_LIBRARY SHARED_MODULE EXE)
+    set(RBLXBUILD_${type}_LINK_STATIC_${lang}_FLAGS "-Wl,-Bstatic")
+    set(RBLXBUILD_${type}_LINK_DYNAMIC_${lang}_FLAGS "-Wl,-Bdynamic")
+  endforeach()
+
+  set(RBLXBUILD_EXE_EXPORTS_${lang}_FLAG "-Wl,--export-all-symbols")
+  # TODO: Is -Wl,--enable-auto-import now always default?
+  string(APPEND RBLXBUILD_SHARED_LIBRARY_CREATE_${lang}_FLAGS " -Wl,--enable-auto-import")
+  set(RBLXBUILD_SHARED_MODULE_CREATE_${lang}_FLAGS "${RBLXBUILD_SHARED_LIBRARY_CREATE_${lang}_FLAGS}")
+
+  if(NOT RBLXBUILD_RC_COMPILER_INIT)
+    set(RBLXBUILD_RC_COMPILER_INIT windres)
+  endif()
+
+  enable_language(RC)
+endmacro()

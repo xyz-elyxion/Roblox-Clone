@@ -3,7 +3,7 @@
 from pygments.style import Style
 from pygments.token import Name, Comment, String, Number, Operator, Whitespace
 
-class CMakeTemplateStyle(Style):
+class RBLXBuildTemplateStyle(Style):
     """
         for more token names, see pygments/styles.default
     """

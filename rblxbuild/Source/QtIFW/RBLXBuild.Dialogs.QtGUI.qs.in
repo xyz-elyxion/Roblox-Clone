@@ -1,0 +1,21 @@
+// Component: RBLXBuild.Dialogs.QtGUI
+
+function Component()
+{
+    // Default constructor
+}
+
+Component.prototype.createOperations = function()
+{
+    // Create shortcut
+    if (installer.value("os") === "win") {
+
+        component.addOperation("CreateShortcut",
+                               "@TargetDir@/%RBLXBuild_INSTALL_BIN_DIR%/rblxbuild-gui.exe",
+                               "@StartMenuDir@/RBLXBuild (rblxbuild-gui).lnk");
+
+    }
+
+    // Call default implementation
+    component.createOperations();
+}

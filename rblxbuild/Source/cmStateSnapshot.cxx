@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 
 #include "cmStateSnapshot.h"
 
@@ -518,71 +518,71 @@ void InitializeContentFromParent(T& parentContent, T& thisContent,
 
 void cmStateSnapshot::SetDefaultDefinitions()
 {
-  /* Up to CMake 2.4 here only WIN32, UNIX and APPLE were set.
-    With CMake must separate between target and host platform. In most cases
+  /* Up to RBLXBuild 2.4 here only WIN32, UNIX and APPLE were set.
+    With RBLXBuild must separate between target and host platform. In most cases
     the tests for WIN32, UNIX and APPLE will be for the target system, so an
     additional set of variables for the host system is required ->
-    CMAKE_HOST_WIN32, CMAKE_HOST_UNIX, CMAKE_HOST_APPLE.
+    RBLXBUILD_HOST_WIN32, RBLXBUILD_HOST_UNIX, RBLXBUILD_HOST_APPLE.
     WIN32, UNIX and APPLE are now set in the platform files in
     Modules/Platforms/.
-    To keep cmake scripts (-P) and custom language and compiler modules
+    To keep rblxbuild scripts (-P) and custom language and compiler modules
     working, these variables are still also set here in this place, but they
-    will be reset in CMakeSystemSpecificInformation.cmake before the platform
+    will be reset in RBLXBuildSystemSpecificInformation.rblxbuild before the platform
     files are executed. */
   cm::string_view hostSystemName = cmSystemTools::GetSystemName();
-  this->SetDefinition("CMAKE_HOST_SYSTEM_NAME", hostSystemName);
+  this->SetDefinition("RBLXBUILD_HOST_SYSTEM_NAME", hostSystemName);
   if (hostSystemName == "Windows") {
     this->SetDefinition("WIN32", "1");
-    this->SetDefinition("CMAKE_HOST_WIN32", "1");
-    this->SetDefinition("CMAKE_HOST_EXECUTABLE_SUFFIX", ".exe");
+    this->SetDefinition("RBLXBUILD_HOST_WIN32", "1");
+    this->SetDefinition("RBLXBUILD_HOST_EXECUTABLE_SUFFIX", ".exe");
   } else {
     this->SetDefinition("UNIX", "1");
-    this->SetDefinition("CMAKE_HOST_UNIX", "1");
-    this->SetDefinition("CMAKE_HOST_EXECUTABLE_SUFFIX", "");
+    this->SetDefinition("RBLXBUILD_HOST_UNIX", "1");
+    this->SetDefinition("RBLXBUILD_HOST_EXECUTABLE_SUFFIX", "");
   }
 #if defined(__APPLE__)
   this->SetDefinition("APPLE", "1");
-  this->SetDefinition("CMAKE_HOST_APPLE", "1");
+  this->SetDefinition("RBLXBUILD_HOST_APPLE", "1");
 #endif
 #if defined(__sun__)
-  this->SetDefinition("CMAKE_HOST_SOLARIS", "1");
+  this->SetDefinition("RBLXBUILD_HOST_SOLARIS", "1");
 #endif
 
 #if defined(__OpenBSD__)
   this->SetDefinition("BSD", "OpenBSD");
-  this->SetDefinition("CMAKE_HOST_BSD", "OpenBSD");
+  this->SetDefinition("RBLXBUILD_HOST_BSD", "OpenBSD");
 #elif defined(__FreeBSD__)
   this->SetDefinition("BSD", "FreeBSD");
-  this->SetDefinition("CMAKE_HOST_BSD", "FreeBSD");
+  this->SetDefinition("RBLXBUILD_HOST_BSD", "FreeBSD");
 #elif defined(__NetBSD__)
   this->SetDefinition("BSD", "NetBSD");
-  this->SetDefinition("CMAKE_HOST_BSD", "NetBSD");
+  this->SetDefinition("RBLXBUILD_HOST_BSD", "NetBSD");
 #elif defined(__DragonFly__)
   this->SetDefinition("BSD", "DragonFlyBSD");
-  this->SetDefinition("CMAKE_HOST_BSD", "DragonFlyBSD");
+  this->SetDefinition("RBLXBUILD_HOST_BSD", "DragonFlyBSD");
 #endif
 
 #if defined(__linux__)
   this->SetDefinition("LINUX", "1");
-  this->SetDefinition("CMAKE_HOST_LINUX", "1");
+  this->SetDefinition("RBLXBUILD_HOST_LINUX", "1");
 #endif
 
 #if defined(_AIX)
   this->SetDefinition("AIX", "1");
-  this->SetDefinition("CMAKE_HOST_AIX", "1");
+  this->SetDefinition("RBLXBUILD_HOST_AIX", "1");
 #endif
 
-  this->SetDefinition("CMAKE_MAJOR_VERSION",
+  this->SetDefinition("RBLXBUILD_MAJOR_VERSION",
                       std::to_string(cmVersion::GetMajorVersion()));
-  this->SetDefinition("CMAKE_MINOR_VERSION",
+  this->SetDefinition("RBLXBUILD_MINOR_VERSION",
                       std::to_string(cmVersion::GetMinorVersion()));
-  this->SetDefinition("CMAKE_PATCH_VERSION",
+  this->SetDefinition("RBLXBUILD_PATCH_VERSION",
                       std::to_string(cmVersion::GetPatchVersion()));
-  this->SetDefinition("CMAKE_TWEAK_VERSION",
+  this->SetDefinition("RBLXBUILD_TWEAK_VERSION",
                       std::to_string(cmVersion::GetTweakVersion()));
-  this->SetDefinition("CMAKE_VERSION", cmVersion::GetCMakeVersion());
+  this->SetDefinition("RBLXBUILD_VERSION", cmVersion::GetRBLXBuildVersion());
 
-  this->SetDefinition("CMAKE_FILES_DIRECTORY", "/CMakeFiles");
+  this->SetDefinition("RBLXBUILD_FILES_DIRECTORY", "/RBLXBuildFiles");
 
   // Setup the default include file regular expression (match everything).
   this->Position->BuildSystemDirectory->Properties.SetProperty(
@@ -591,11 +591,11 @@ void cmStateSnapshot::SetDefaultDefinitions()
 
 void cmStateSnapshot::SetDirectoryDefinitions()
 {
-  this->SetDefinition("CMAKE_SOURCE_DIR", this->State->GetSourceDirectory());
-  this->SetDefinition("CMAKE_CURRENT_SOURCE_DIR",
+  this->SetDefinition("RBLXBUILD_SOURCE_DIR", this->State->GetSourceDirectory());
+  this->SetDefinition("RBLXBUILD_CURRENT_SOURCE_DIR",
                       this->State->GetSourceDirectory());
-  this->SetDefinition("CMAKE_BINARY_DIR", this->State->GetBinaryDirectory());
-  this->SetDefinition("CMAKE_CURRENT_BINARY_DIR",
+  this->SetDefinition("RBLXBUILD_BINARY_DIR", this->State->GetBinaryDirectory());
+  this->SetDefinition("RBLXBUILD_CURRENT_BINARY_DIR",
                       this->State->GetBinaryDirectory());
 }
 
@@ -674,14 +674,14 @@ cmPackageState& cmStateSnapshot::GetPackageState(
 
 void cmStateSnapshot::InitializeFromParent_ForSubdirsCommand()
 {
-  std::string currentSrcDir = *this->GetDefinition("CMAKE_CURRENT_SOURCE_DIR");
-  std::string currentBinDir = *this->GetDefinition("CMAKE_CURRENT_BINARY_DIR");
+  std::string currentSrcDir = *this->GetDefinition("RBLXBUILD_CURRENT_SOURCE_DIR");
+  std::string currentBinDir = *this->GetDefinition("RBLXBUILD_CURRENT_BINARY_DIR");
   this->InitializeFromParent();
-  this->SetDefinition("CMAKE_SOURCE_DIR", this->State->GetSourceDirectory());
-  this->SetDefinition("CMAKE_BINARY_DIR", this->State->GetBinaryDirectory());
+  this->SetDefinition("RBLXBUILD_SOURCE_DIR", this->State->GetSourceDirectory());
+  this->SetDefinition("RBLXBUILD_BINARY_DIR", this->State->GetBinaryDirectory());
 
-  this->SetDefinition("CMAKE_CURRENT_SOURCE_DIR", currentSrcDir);
-  this->SetDefinition("CMAKE_CURRENT_BINARY_DIR", currentBinDir);
+  this->SetDefinition("RBLXBUILD_CURRENT_SOURCE_DIR", currentSrcDir);
+  this->SetDefinition("RBLXBUILD_CURRENT_BINARY_DIR", currentBinDir);
 }
 
 bool cmStateSnapshot::StrictWeakOrder::operator()(

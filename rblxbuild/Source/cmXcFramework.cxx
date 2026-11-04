@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmXcFramework.h"
 
 #include <string>
@@ -16,7 +16,7 @@
 #include "cmMessageType.h"
 #include "cmPlistParser.h"
 #include "cmStringAlgorithms.h"
-#include "cmake.h"
+#include "rblxbuild.h"
 
 namespace {
 struct PlistMetadata
@@ -135,7 +135,7 @@ cm::optional<cmXcFrameworkPlist> cmParseXcFrameworkPlist(
 
   auto value = cmParsePlist(plistPath);
   if (!value) {
-    mf.GetCMakeInstance()->IssueMessage(
+    mf.GetRBLXBuildInstance()->IssueMessage(
       MessageType::FATAL_ERROR,
       cmStrCat("Unable to parse plist file:\n  ", plistPath), bt);
     return cm::nullopt;
@@ -145,14 +145,14 @@ cm::optional<cmXcFrameworkPlist> cmParseXcFrameworkPlist(
 
   PlistMetadata metadata;
   if (!PlistMetadataHelper(metadata, &*value, &state)) {
-    mf.GetCMakeInstance()->IssueMessage(
+    mf.GetRBLXBuildInstance()->IssueMessage(
       MessageType::FATAL_ERROR,
       cmStrCat("Invalid xcframework .plist file:\n  ", plistPath), bt);
     return cm::nullopt;
   }
   if (metadata.CFBundlePackageType != "XFWK"_s ||
       metadata.XCFrameworkFormatVersion != "1.0"_s) {
-    mf.GetCMakeInstance()->IssueMessage(
+    mf.GetRBLXBuildInstance()->IssueMessage(
       MessageType::FATAL_ERROR,
       cmStrCat("Expected:\n  ", plistPath,
                "\nto have CFBundlePackageType \"XFWK\" and "
@@ -163,7 +163,7 @@ cm::optional<cmXcFrameworkPlist> cmParseXcFrameworkPlist(
 
   cmXcFrameworkPlist plist;
   if (!PlistHelper(plist, &*value, &state)) {
-    mf.GetCMakeInstance()->IssueMessage(
+    mf.GetRBLXBuildInstance()->IssueMessage(
       MessageType::FATAL_ERROR,
       cmStrCat("Invalid xcframework .plist file:\n  ", plistPath), bt);
     return cm::nullopt;
@@ -176,7 +176,7 @@ cm::optional<cmXcFrameworkPlist> cmParseXcFrameworkPlist(
 cmXcFrameworkPlistLibrary const* cmXcFrameworkPlist::SelectSuitableLibrary(
   cmMakefile const& mf, cmListFileBacktrace const& bt) const
 {
-  auto systemName = mf.GetSafeDefinition("CMAKE_SYSTEM_NAME");
+  auto systemName = mf.GetSafeDefinition("RBLXBUILD_SYSTEM_NAME");
   cm::optional<cmXcFrameworkPlistSupportedPlatformVariant> systemVariant;
   if (mf.PlatformIsAppleSimulator()) {
     systemVariant = cmXcFrameworkPlistSupportedPlatformVariant::simulator;
@@ -211,7 +211,7 @@ cmXcFrameworkPlistLibrary const* cmXcFrameworkPlist::SelectSuitableLibrary(
     }
   }
 
-  mf.GetCMakeInstance()->IssueMessage(
+  mf.GetRBLXBuildInstance()->IssueMessage(
     MessageType::FATAL_ERROR,
     cmStrCat("Unable to find suitable library in:\n  ", this->Path,
              "\nfor system name \"", systemName, '"'),

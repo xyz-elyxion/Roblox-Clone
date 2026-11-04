@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmCTestTestHandler.h"
 
 #include <algorithm>
@@ -35,7 +35,7 @@
 #include "cm_utf8.h"
 
 #include "cmArgumentParser.h"
-#include "cmCMakePresetsGraph.h"
+#include "cmRBLXBuildPresetsGraph.h"
 #include "cmCTest.h"
 #include "cmCTestDiscoverTests.h"
 #include "cmCTestMultiProcessHandler.h"
@@ -60,10 +60,10 @@
 #include "cmValue.h"
 #include "cmWorkingDirectory.h"
 #include "cmXMLWriter.h"
-#include "cmake.h"
+#include "rblxbuild.h"
 
 void cmCTestApplyTestPresetToOptions(
-  cmCTestTestOptions& opts, cmCMakePresetsGraph::TestPreset const& preset)
+  cmCTestTestOptions& opts, cmRBLXBuildPresetsGraph::TestPreset const& preset)
 {
   if (preset.Filter) {
     if (preset.Filter->Include) {
@@ -172,9 +172,9 @@ bool ReadSubdirectory(std::string fname, cmExecutionStatus& status)
       return false;
     }
     char const* testFilename;
-    if (cmSystemTools::FileExists("CTestTestfile.cmake")) {
-      // does the CTestTestfile.cmake exist ?
-      testFilename = "CTestTestfile.cmake";
+    if (cmSystemTools::FileExists("CTestTestfile.rblxbuild")) {
+      // does the CTestTestfile.rblxbuild exist ?
+      testFilename = "CTestTestfile.rblxbuild";
     } else if (cmSystemTools::FileExists("DartTestfile.txt")) {
       // does the DartTestfile.txt exist ?
       testFilename = "DartTestfile.txt";
@@ -238,7 +238,7 @@ public:
 
   /**
    * This is called when the command is first encountered in
-   * the CMakeLists.txt file.
+   * the RBLXBuildLists.txt file.
    */
   bool InitialPass(std::vector<std::string> const& /*args*/,
                    cmExecutionStatus& /*unused*/) override;
@@ -308,7 +308,7 @@ public:
 
   /**
    * This is called when the command is first encountered in
-   * the CMakeLists.txt file.
+   * the RBLXBuildLists.txt file.
    */
   bool InitialPass(std::vector<std::string> const& /*args*/,
                    cmExecutionStatus& /*unused*/) override;
@@ -327,7 +327,7 @@ public:
 
   /**
    * This is called when the command is first encountered in
-   * the CMakeLists.txt file.
+   * the RBLXBuildLists.txt file.
    */
   bool InitialPass(std::vector<std::string> const& /*unused*/,
                    cmExecutionStatus& /*unused*/) override;
@@ -1540,7 +1540,7 @@ void cmCTestTestHandler::GenerateCTestXML(cmXMLWriter& xml)
   this->CTest->GetInstrumentation().CollectTimingData(
     cmInstrumentationQuery::Hook::PrepareForCDash);
 
-  this->CTest->StartXML(xml, this->CMake, this->AppendXML);
+  this->CTest->StartXML(xml, this->RBLXBuild, this->AppendXML);
   this->CTest->GenerateSubprojectsOutput(xml);
   xml.StartElement("Testing");
   xml.Element("StartDateTime", this->StartTest);
@@ -1904,7 +1904,7 @@ bool cmCTestTestHandler::GetListOfTests()
   }
   cmCTestOptionalLog(this->CTest, HANDLER_VERBOSE_OUTPUT, this->Quiet,
                      "Constructing a list of tests\n");
-  cmake cm(cmState::Role::CTest);
+  rblxbuild cm(cmState::Role::CTest);
   cm.GetCurrentSnapshot().SetDefaultDefinitions();
   cmGlobalGenerator gg(&cm);
   cmMakefile mf(&gg, cm.GetCurrentSnapshot());
@@ -1934,9 +1934,9 @@ bool cmCTestTestHandler::GetListOfTests()
                                    cmCTestSetDirectoryPropertiesCommand(this));
 
   char const* testFilename;
-  if (cmSystemTools::FileExists("CTestTestfile.cmake")) {
-    // does the CTestTestfile.cmake exist ?
-    testFilename = "CTestTestfile.cmake";
+  if (cmSystemTools::FileExists("CTestTestfile.rblxbuild")) {
+    // does the CTestTestfile.rblxbuild exist ?
+    testFilename = "CTestTestfile.rblxbuild";
   } else if (cmSystemTools::FileExists("DartTestfile.txt")) {
     // does the DartTestfile.txt exist ?
     testFilename = "DartTestfile.txt";
@@ -2434,7 +2434,7 @@ bool cmCTestTestHandler::SetTestsProperties(
           } else if (key == "FIXTURE_REPEAT_MODE"_s) {
             rt.RawProperties[key] = val;
             rt.RequestedFixtureRepeatMode = ParseFixtureRepeatMode(rt, val);
-          } else if (key == "_CMAKE_DEFAULT_FIXTURE_REPEAT_MODE"_s) {
+          } else if (key == "_RBLXBUILD_DEFAULT_FIXTURE_REPEAT_MODE"_s) {
             rt.DefaultFixtureRepeatMode = ParseFixtureRepeatMode(rt, val);
           } else if (key == "TIMEOUT"_s) {
             rt.RawProperties[key] = val;
@@ -2593,7 +2593,7 @@ bool cmCTestTestHandler::SetTestsProperties(
                 rt.TimeoutRegularExpressions.emplace_back(cr, cr);
               }
             }
-          } else if (key == "_CMAKE_TEST_BUILD_DEPENDS"_s) {
+          } else if (key == "_RBLXBUILD_TEST_BUILD_DEPENDS"_s) {
             rt.BuildDepends = val;
           } else {
             rt.CustomProperties[key] = val;
@@ -2813,14 +2813,14 @@ bool cmCTestTestHandler::WriteJUnitXML()
     xml.StartElement("properties");
     if ((result.Properties) && (!result.Properties->Labels.empty())) {
       xml.StartElement("property");
-      xml.Attribute("name", "cmake_labels");
-      // Pass the property as a cmake-formatted list, consumers will know
-      // anyway that this information is coming from cmake, so it should
-      // be ok to put it here as a cmake-list.
+      xml.Attribute("name", "rblxbuild_labels");
+      // Pass the property as a rblxbuild-formatted list, consumers will know
+      // anyway that this information is coming from rblxbuild, so it should
+      // be ok to put it here as a rblxbuild-list.
       xml.Attribute("value", cmList::to_string(result.Properties->Labels));
       // if we export more properties, this should be done the same way,
-      // i.e. prefix the property name with "cmake_", and it can be
-      // a list, write it cmake-formatted.
+      // i.e. prefix the property name with "rblxbuild_", and it can be
+      // a list, write it rblxbuild-formatted.
       xml.EndElement(); // </property>
     }
     xml.EndElement(); // </properties>

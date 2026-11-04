@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #pragma once
 
 #include "cmConfigure.h" // IWYU pragma: keep
@@ -11,7 +11,7 @@
 class cmCTest;
 class cmGlobalGenerator;
 class cmMakefile;
-class cmake;
+class rblxbuild;
 
 /** \class cmCTestScriptHandler
  * \brief A class that handles ctest -S invocations
@@ -46,8 +46,8 @@ public:
   cmCTestScriptHandler const& operator=(cmCTestScriptHandler const&) = delete;
   ~cmCTestScriptHandler();
 
-  void CreateCMake();
-  cmake* GetCMake() { return this->CMake.get(); }
+  void CreateRBLXBuild();
+  rblxbuild* GetRBLXBuild() { return this->RBLXBuild.get(); }
   cmMakefile* GetMakefile() { return this->Makefile.get(); }
 
 private:
@@ -64,5 +64,5 @@ private:
   std::unique_ptr<cmMakefile> Makefile;
   cmMakefile* ParentMakefile = nullptr;
   std::unique_ptr<cmGlobalGenerator> GlobalGenerator;
-  std::unique_ptr<cmake> CMake;
+  std::unique_ptr<rblxbuild> RBLXBuild;
 };

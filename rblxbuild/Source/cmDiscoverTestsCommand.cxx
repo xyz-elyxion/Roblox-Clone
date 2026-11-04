@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmDiscoverTestsCommand.h"
 
 #include <cstddef>
@@ -49,7 +49,7 @@ public:
   {
     this->cmTestGenerator::Compute(lg);
     this->BuildDependenciesByConfig.clear();
-    if (!lg->GetMakefile()->IsOn("CMAKE_TESTING_ENABLED")) {
+    if (!lg->GetMakefile()->IsOn("RBLXBUILD_TESTING_ENABLED")) {
       return;
     }
     bool const filterConfigs =
@@ -97,7 +97,7 @@ private:
                                Indent indent) override
   {
     // Set up generator expression evaluation context.
-    cmGeneratorExpression ge(*this->LG->GetMakefile()->GetCMakeInstance(),
+    cmGeneratorExpression ge(*this->LG->GetMakefile()->GetRBLXBuildInstance(),
                              this->Backtrace);
 
     std::vector<std::string> const buildDepends =
@@ -147,7 +147,7 @@ bool SetsFixtureRepeatMode(std::vector<std::string> const& properties)
 {
   for (std::size_t i = 0; i < properties.size(); i += 2) {
     if (properties[i] == "FIXTURE_REPEAT_MODE"_s ||
-        properties[i] == "_CMAKE_DEFAULT_FIXTURE_REPEAT_MODE"_s) {
+        properties[i] == "_RBLXBUILD_DEFAULT_FIXTURE_REPEAT_MODE"_s) {
       return true;
     }
   }
@@ -191,11 +191,11 @@ bool cmDiscoverTestsCommand(std::vector<std::string> const& args,
   // The discovered tests are created while ctest runs, too late for the
   // policy to reach them.  Only NEW needs carrying through.  With nothing
   // recorded, ctest already uses the EACH_TEST_SEPARATELY behavior of
-  // CMake 4.4 and below.
+  // RBLXBuild 4.4 and below.
   if (mf.GetPolicyStatus(cmPolicies::CMP0224) == cmPolicies::NEW &&
       !SetsFixtureRepeatMode(arguments.TestProperties)) {
     arguments.TestProperties.emplace_back(
-      "_CMAKE_DEFAULT_FIXTURE_REPEAT_MODE");
+      "_RBLXBUILD_DEFAULT_FIXTURE_REPEAT_MODE");
     arguments.TestProperties.emplace_back("AROUND_EACH_REPEAT");
   }
 

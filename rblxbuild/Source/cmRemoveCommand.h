@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #pragma once
 
 #include "cmConfigure.h" // IWYU pragma: keep
@@ -12,7 +12,7 @@ class cmExecutionStatus;
 /**
  * \brief remove command
  *
- * cmRemoveCommand implements the remove CMake command
+ * cmRemoveCommand implements the remove RBLXBuild command
  */
 bool cmRemoveCommand(std::vector<std::string> const& args,
                      cmExecutionStatus& status);

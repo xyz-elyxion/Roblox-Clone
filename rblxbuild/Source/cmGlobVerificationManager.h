@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #pragma once
 
 #include "cmConfigure.h" // IWYU pragma: keep
@@ -18,14 +18,14 @@ struct cmGlobCacheEntry;
 /** \class cmGlobVerificationManager
  * \brief Class for expressing build-time dependencies on glob expressions.
  *
- * Generates a CMake script which verifies glob outputs during prebuild.
+ * Generates a RBLXBuild script which verifies glob outputs during prebuild.
  *
  */
 class cmGlobVerificationManager
 {
 protected:
   //! Save verification script for given makefile.
-  //! Saves to output <path>/<CMakeFilesDirectory>/VerifyGlobs.cmake
+  //! Saves to output <path>/<RBLXBuildFilesDirectory>/VerifyGlobs.rblxbuild
   bool SaveVerificationScript(std::string const& path, cmMessenger* messenger);
 
   //! Add an entry into the glob cache

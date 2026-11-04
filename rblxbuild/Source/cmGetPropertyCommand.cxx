@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmGetPropertyCommand.h"
 
 #include "cmDirectoryPropertyHelper.h"
@@ -18,7 +18,7 @@
 #include "cmTargetPropertyHelper.h"
 #include "cmTestPropertyHelper.h"
 #include "cmValue.h"
-#include "cmake.h"
+#include "rblxbuild.h"
 
 namespace {
 enum OutType
@@ -78,7 +78,7 @@ bool cmGetPropertyCommand(std::vector<std::string> const& args,
     return false;
   }
 
-  // The cmake variable in which to store the result.
+  // The rblxbuild variable in which to store the result.
   std::string const& variable = args[0];
 
   std::string name;
@@ -312,7 +312,7 @@ bool HandleGlobalMode(cmExecutionStatus& status, std::string const& name,
   }
 
   // Get the property.
-  cmake* cm = status.GetMakefile().GetCMakeInstance();
+  rblxbuild* cm = status.GetMakefile().GetRBLXBuildInstance();
   return StoreResult(infoType, status.GetMakefile(), variable,
                      cm->GetState()->GetGlobalProperty(propertyName));
 }
@@ -447,7 +447,7 @@ bool HandleInstallMode(cmExecutionStatus& status, std::string const& name,
   }
 
   // Get the installed file.
-  cmake* cm = status.GetMakefile().GetCMakeInstance();
+  rblxbuild* cm = status.GetMakefile().GetRBLXBuildInstance();
 
   if (cmInstalledFile* file =
         cm->GetOrCreateInstalledFile(&status.GetMakefile(), name)) {

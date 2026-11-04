@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmMakefileExecutableTargetGenerator.h"
 
 #include <set>
@@ -86,7 +86,7 @@ void cmMakefileExecutableTargetGenerator::WriteRuleFiles()
 void cmMakefileExecutableTargetGenerator::WriteDeviceExecutableRule(
   bool relink)
 {
-#ifndef CMAKE_BOOTSTRAP
+#ifndef RBLXBUILD_BOOTSTRAP
   this->DeviceLinkLanguage = deviceLinkLanguage(
     *this->GeneratorTarget, *this->LocalGenerator, this->GetConfigName());
   if (this->DeviceLinkLanguage.empty()) {
@@ -99,9 +99,9 @@ void cmMakefileExecutableTargetGenerator::WriteDeviceExecutableRule(
 
   // Get the name of the device object to generate.
   std::string const& objExt = this->Makefile->GetSafeDefinition(
-    cmStrCat("CMAKE_", this->DeviceLinkLanguage, "_OUTPUT_EXTENSION"));
+    cmStrCat("RBLXBUILD_", this->DeviceLinkLanguage, "_OUTPUT_EXTENSION"));
   std::string const targetOutput = cmStrCat(
-    this->GeneratorTarget->ObjectDirectory, "cmake_device_link", objExt);
+    this->GeneratorTarget->ObjectDirectory, "rblxbuild_device_link", objExt);
   this->DeviceLinkObject = targetOutput;
 
   this->NumberOfProgressActions++;
@@ -119,7 +119,7 @@ void cmMakefileExecutableTargetGenerator::WriteDeviceExecutableRule(
   }
 
   if (this->DeviceLinkLanguage == "CUDA" &&
-      this->Makefile->GetSafeDefinition("CMAKE_CUDA_COMPILER_ID") == "Clang") {
+      this->Makefile->GetSafeDefinition("RBLXBUILD_CUDA_COMPILER_ID") == "Clang") {
     this->WriteDeviceLinkRule(commands, targetOutput);
   } else {
     this->WriteDriverDeviceExecutableRule(relink, commands, targetOutput);
@@ -158,7 +158,7 @@ void cmMakefileExecutableTargetGenerator::WriteDriverDeviceExecutableRule(
 
   // Construct the main link rule.
   std::string const linkRuleVar =
-    cmStrCat("CMAKE_", linkLanguage, "_DEVICE_LINK_EXECUTABLE");
+    cmStrCat("RBLXBUILD_", linkLanguage, "_DEVICE_LINK_EXECUTABLE");
   std::string const linkRule = this->GetLinkRule(linkRuleVar);
   std::vector<std::string> commands1;
   cmList real_link_commands(linkRule);
@@ -239,7 +239,7 @@ void cmMakefileExecutableTargetGenerator::WriteDriverDeviceExecutableRule(
 
     std::string val = this->LocalGenerator->GetRuleLauncher(
       this->GeneratorTarget, "RULE_LAUNCH_LINK",
-      this->Makefile->GetSafeDefinition("CMAKE_BUILD_TYPE"));
+      this->Makefile->GetSafeDefinition("RBLXBUILD_BUILD_TYPE"));
     if (cmNonempty(val)) {
       launcher = cmStrCat(val, ' ');
     }
@@ -302,7 +302,7 @@ void cmMakefileExecutableTargetGenerator::WriteExecutableRule(bool relink)
   std::string outpathImp;
   if (relink) {
     outpath = cmStrCat(this->Makefile->GetCurrentBinaryDirectory(),
-                       "/CMakeFiles/CMakeRelink.dir");
+                       "/RBLXBuildFiles/RBLXBuildRelink.dir");
     cmSystemTools::MakeDirectory(outpath);
     outpath += '/';
     if (!targetNames.ImportLibrary.empty()) {
@@ -391,9 +391,9 @@ void cmMakefileExecutableTargetGenerator::WriteExecutableRule(bool relink)
 
   {
     auto exeType =
-      cmStrCat("CMAKE_", linkLanguage, "_CREATE_",
+      cmStrCat("RBLXBUILD_", linkLanguage, "_CREATE_",
                (this->GeneratorTarget->IsWin32Executable(
-                  this->Makefile->GetDefinition("CMAKE_BUILD_TYPE"))
+                  this->Makefile->GetDefinition("RBLXBUILD_BUILD_TYPE"))
                   ? "WIN32"
                   : "CONSOLE"),
                "_EXE");
@@ -405,7 +405,7 @@ void cmMakefileExecutableTargetGenerator::WriteExecutableRule(bool relink)
   // Add symbol export flags if necessary.
   if (this->GeneratorTarget->IsExecutableWithExports()) {
     std::string export_flag_var =
-      cmStrCat("CMAKE_EXE_EXPORTS_", linkLanguage, "_FLAG");
+      cmStrCat("RBLXBUILD_EXE_EXPORTS_", linkLanguage, "_FLAG");
     this->LocalGenerator->AppendFlags(
       linkFlags, this->Makefile->GetSafeDefinition(export_flag_var));
   }
@@ -497,7 +497,7 @@ void cmMakefileExecutableTargetGenerator::WriteExecutableRule(bool relink)
     // If a separate rule for creating an import library is specified
     // add it now.
     std::string implibRuleVar =
-      cmStrCat("CMAKE_", linkLanguage, "_CREATE_IMPORT_LIBRARY");
+      cmStrCat("RBLXBUILD_", linkLanguage, "_CREATE_IMPORT_LIBRARY");
     real_link_commands.append(this->Makefile->GetDefinition(implibRuleVar));
   }
 
@@ -611,16 +611,16 @@ void cmMakefileExecutableTargetGenerator::WriteExecutableRule(bool relink)
 
     if (this->UseLWYU) {
       cmValue lwyuCheck =
-        this->Makefile->GetDefinition("CMAKE_LINK_WHAT_YOU_USE_CHECK");
+        this->Makefile->GetDefinition("RBLXBUILD_LINK_WHAT_YOU_USE_CHECK");
       if (lwyuCheck) {
-        std::string cmakeCommand = cmStrCat(
+        std::string rblxbuildCommand = cmStrCat(
           this->LocalGenerator->ConvertToOutputFormat(
-            cmSystemTools::GetCMakeCommand(), cmLocalGenerator::SHELL),
+            cmSystemTools::GetRBLXBuildCommand(), cmLocalGenerator::SHELL),
           " -E __run_co_compile --lwyu=");
-        cmakeCommand += this->LocalGenerator->EscapeForShell(*lwyuCheck);
-        cmakeCommand =
-          cmStrCat(std::move(cmakeCommand), " --source=", targetOutPathReal);
-        real_link_commands.push_back(std::move(cmakeCommand));
+        rblxbuildCommand += this->LocalGenerator->EscapeForShell(*lwyuCheck);
+        rblxbuildCommand =
+          cmStrCat(std::move(rblxbuildCommand), " --source=", targetOutPathReal);
+        real_link_commands.push_back(std::move(rblxbuildCommand));
       }
     }
 
@@ -628,7 +628,7 @@ void cmMakefileExecutableTargetGenerator::WriteExecutableRule(bool relink)
 
     std::string val = this->LocalGenerator->GetRuleLauncher(
       this->GeneratorTarget, "RULE_LAUNCH_LINK",
-      this->Makefile->GetSafeDefinition("CMAKE_BUILD_TYPE"));
+      this->Makefile->GetSafeDefinition("RBLXBUILD_BUILD_TYPE"));
     if (cmNonempty(val)) {
       launcher = cmStrCat(val, ' ');
     }
@@ -667,7 +667,7 @@ void cmMakefileExecutableTargetGenerator::WriteExecutableRule(bool relink)
   // Add a rule to create necessary symlinks for the library.
   if (targetOutPath != targetOutPathReal) {
     std::string symlink =
-      cmStrCat("$(CMAKE_COMMAND) -E cmake_symlink_executable ",
+      cmStrCat("$(RBLXBUILD_COMMAND) -E rblxbuild_symlink_executable ",
                targetOutPathReal, ' ', targetOutPath);
     commands1.push_back(std::move(symlink));
     this->LocalGenerator->CreateCDCommand(

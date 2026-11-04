@@ -6,7 +6,7 @@ Options:
 
     --dir     <dir>            Specify subdirectory under destination.
                                Defaults to "v<version>".
-    --version <ver>            CMake <major>.<minor> version number to push.
+    --version <ver>            RBLXBuild <major>.<minor> version number to push.
                                Defaults to version of source tree.
 '
 
@@ -14,13 +14,13 @@ die() {
     echo "$@" 1>&2; exit 1
 }
 
-cmake_source_dir="${BASH_SOURCE%/*}/../.."
+rblxbuild_source_dir="${BASH_SOURCE%/*}/../.."
 
-cmake_version_component()
+rblxbuild_version_component()
 {
   sed -n "
-/^set(CMake_VERSION_${1}/ {s/set(CMake_VERSION_${1} *\([0-9]*\))/\1/;p;}
-" "${cmake_source_dir}/Source/CMakeVersion.cmake"
+/^set(RBLXBuild_VERSION_${1}/ {s/set(RBLXBuild_VERSION_${1} *\([0-9]*\))/\1/;p;}
+" "${rblxbuild_source_dir}/Source/RBLXBuildVersion.rblxbuild"
 }
 
 
@@ -40,9 +40,9 @@ test "$#" = 1 || die "$usage"
 readonly dest="$1"
 
 if test -z "$version"; then
-    cmake_version_major="$(cmake_version_component MAJOR)"
-    cmake_version_minor="$(cmake_version_component MINOR)"
-    version="${cmake_version_major}.${cmake_version_minor}"
+    rblxbuild_version_major="$(rblxbuild_version_component MAJOR)"
+    rblxbuild_version_minor="$(rblxbuild_version_component MINOR)"
+    version="${rblxbuild_version_major}.${rblxbuild_version_minor}"
 fi
 readonly version
 
@@ -54,7 +54,7 @@ if ! test -d "${dest}/${dir}"; then
     mkdir "${dest}/${dir}"
 fi
 
-for f in cmake-${version}*; do
+for f in rblxbuild-${version}*; do
     if ! test -f "${f}"; then
         continue
     fi

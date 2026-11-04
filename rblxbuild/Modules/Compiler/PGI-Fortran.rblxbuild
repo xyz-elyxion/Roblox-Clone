@@ -1,0 +1,16 @@
+include(Compiler/PGI)
+__compiler_pgi(Fortran)
+
+set(RBLXBUILD_Fortran_SUBMODULE_SEP "-")
+set(RBLXBUILD_Fortran_SUBMODULE_EXT ".mod")
+
+set(RBLXBUILD_Fortran_PREPROCESS_SOURCE
+  "<RBLXBUILD_Fortran_COMPILER> -Mpreprocess <DEFINES> <INCLUDES> <FLAGS> -E <SOURCE> > <PREPROCESSED_SOURCE>")
+set(RBLXBUILD_Fortran_COMPILE_OPTIONS_PREPROCESS_ON "-Mpreprocess")
+
+set(RBLXBUILD_Fortran_FORMAT_FIXED_FLAG "-Mnofreeform")
+set(RBLXBUILD_Fortran_FORMAT_FREE_FLAG "-Mfreeform")
+
+string(APPEND RBLXBUILD_Fortran_FLAGS_DEBUG_INIT " -Mbounds")
+
+set(RBLXBUILD_Fortran_MODDIR_FLAG "-module ")

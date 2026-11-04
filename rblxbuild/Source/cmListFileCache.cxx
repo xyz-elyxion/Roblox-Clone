@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #define cmListFileCache_cxx
 #include "cmListFileCache.h"
 
@@ -20,7 +20,7 @@
 #include "cmMessageType.h"
 #include "cmStringAlgorithms.h"
 #include "cmSystemTools.h"
-#include "cmake.h"
+#include "rblxbuild.h"
 
 namespace {
 
@@ -99,7 +99,7 @@ cmListFileParser::cmListFileParser(cmListFile* lf, cmListFileBacktrace lfbt,
 void cmListFileParser::IssueFileOpenError(std::string const& text) const
 {
   if (this->Makefile) {
-    this->Makefile->GetCMakeInstance()->IssueMessage(MessageType::FATAL_ERROR,
+    this->Makefile->GetRBLXBuildInstance()->IssueMessage(MessageType::FATAL_ERROR,
                                                      text, this->Backtrace);
   }
 }
@@ -112,7 +112,7 @@ void cmListFileParser::IssueError(std::string const& text) const
     lfc.Line = cmListFileLexer_GetCurrentLine(this->Lexer.get());
     cmListFileBacktrace lfbt = this->Backtrace;
     lfbt = lfbt.Push(lfc);
-    this->Makefile->GetCMakeInstance()->IssueMessage(MessageType::FATAL_ERROR,
+    this->Makefile->GetRBLXBuildInstance()->IssueMessage(MessageType::FATAL_ERROR,
                                                      text, lfbt);
   }
   cmSystemTools::SetFatalErrorOccurred();
@@ -202,7 +202,7 @@ bool cmListFileParser::Parse()
   // Check if all functions are nested properly.
   if (auto badNesting = this->CheckNesting()) {
     if (this->Makefile) {
-      this->Makefile->GetCMakeInstance()->IssueMessage(
+      this->Makefile->GetRBLXBuildInstance()->IssueMessage(
         MessageType::FATAL_ERROR,
         "Flow control statements are not properly nested.",
         this->Backtrace.Push(*badNesting));
@@ -301,7 +301,7 @@ bool cmListFileParser::ParseFunction(cm::string_view name, long line)
     lfc.Line = line;
     cmListFileBacktrace lfbt = this->Backtrace;
     lfbt = lfbt.Push(lfc);
-    this->Makefile->GetCMakeInstance()->IssueMessage(
+    this->Makefile->GetRBLXBuildInstance()->IssueMessage(
       MessageType::FATAL_ERROR,
       "Parse error.  Function missing ending \")\".  "
       "End of file reached.",
@@ -327,12 +327,12 @@ bool cmListFileParser::AddArgument(cmListFileLexer_Token* token,
   lfbt = lfbt.Push(lfc);
   auto msg =
     cmStrCat("Syntax ", (isError ? "Error" : "Warning"),
-             " in cmake code at column ", token->column,
+             " in rblxbuild code at column ", token->column,
              "\n"
              "Argument not separated from preceding token by whitespace.");
   if (isError) {
     if (this->Makefile) {
-      this->Makefile->GetCMakeInstance()->IssueMessage(
+      this->Makefile->GetRBLXBuildInstance()->IssueMessage(
         MessageType::FATAL_ERROR, msg, lfbt);
     }
     return false;

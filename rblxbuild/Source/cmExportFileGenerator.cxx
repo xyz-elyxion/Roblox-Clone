@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmExportFileGenerator.h"
 
 #include <array>
@@ -593,7 +593,7 @@ void cmExportFileGenerator::SetImportDetailProperties(
       std::string prop;
       std::string value;
       if (target->HasSOName(config)) {
-        if (mf->IsOn("CMAKE_PLATFORM_HAS_INSTALLNAME")) {
+        if (mf->IsOn("RBLXBUILD_PLATFORM_HAS_INSTALLNAME")) {
           value = this->InstallNameDir(target, config);
         }
         prop = "IMPORTED_SONAME";

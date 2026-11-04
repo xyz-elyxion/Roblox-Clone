@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #pragma once
 
 #include "cmConfigure.h" // IWYU pragma: keep
@@ -9,15 +9,15 @@
 #include <cm/string_view>
 
 /** \namespace cmCacheDocumentationTable
- * \brief Compile-time lookup for built-in CMake cache variable documentation.
+ * \brief Compile-time lookup for built-in RBLXBuild cache variable documentation.
  *
  * The table is a hand-maintained list of short, single-line plain-text
- * summaries keyed by the canonical CMake variable name (for example
- * ``CMAKE_BUILD_TYPE``).  See the header comment in
+ * summaries keyed by the canonical RBLXBuild variable name (for example
+ * ``RBLXBUILD_BUILD_TYPE``).  See the header comment in
  * ``cmCacheDocumentationTable.cxx`` for the scope of variables included
  * and the maintenance discipline.
  *
- * The sole consumer is ``cmake::ProcessCacheArg``, which reads
+ * The sole consumer is ``rblxbuild::ProcessCacheArg``, which reads
  * ``Summary`` to populate the ``HELPSTRING`` of cache entries created
  * via ``-D <var>=<value>`` when the user did not supply one.
  */
@@ -46,7 +46,7 @@ struct LookupResult
 /** \brief Look up the built-in documentation for \a varName.
  *
  * Returns a ``LookupResult`` whose ``Summary`` references storage with
- * static lifetime when \a varName corresponds to a documented CMake
+ * static lifetime when \a varName corresponds to a documented RBLXBuild
  * variable.  Otherwise returns an empty ``Summary``.  The lookup runs
  * in ``O(log N)`` and performs no allocation.
  */
@@ -55,7 +55,7 @@ LookupResult Get(cm::string_view varName);
 /** \brief Iterate the underlying table.
  *
  * These are exposed primarily for the ``testCacheDocumentationTable``
- * regression test in ``Tests/CMakeLib``, which verifies that the entries
+ * regression test in ``Tests/RBLXBuildLib``, which verifies that the entries
  * are sorted (a precondition of ``Get``'s ``std::lower_bound`` lookup),
  * unique, and otherwise well-formed.  Callers should not rely on a
  * particular entry count or ordering beyond the sort invariant.

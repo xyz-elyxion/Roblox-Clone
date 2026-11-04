@@ -1,0 +1,10 @@
+set(RBLXBUILD_Rust_COMPILER "@RBLXBUILD_Rust_COMPILER@")
+set(RBLXBUILD_Rust_COMPILER_ENV_VAR "RUSTC")
+set(RBLXBUILD_Rust_SOURCE_FILE_EXTENSIONS rs)
+set(RBLXBUILD_Rust_COMPILER_LOADED 1)
+set(RBLXBUILD_Rust_COMPILER_WORKS @RBLXBUILD_Rust_COMPILER_WORKS@)
+
+# Make sure RBLXBuild prefers to link with Rust when Rust source files are present
+set(RBLXBUILD_Rust_LINKER_PREFERENCE 60)
+# Once compiled by Rust, static libraries can be linked by anyone.
+set(RBLXBUILD_Rust_LINKER_PREFERENCE_PROPAGATES 0)

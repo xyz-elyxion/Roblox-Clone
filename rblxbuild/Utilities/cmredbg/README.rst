@@ -1,7 +1,7 @@
 Regular expression debugging tool
 =================================
 
-A tool to help diagnose issues with ``RunCMake`` regular expressions by
+A tool to help diagnose issues with ``RunRBLXBuild`` regular expressions by
 offering an editor with live results matching the haystack (``content.txt``)
 against the needle (``re.txt``).
 

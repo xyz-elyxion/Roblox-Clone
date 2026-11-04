@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 
 #include "cmBinUtilsMacOSMachOLinker.h"
 
@@ -45,7 +45,7 @@ bool cmBinUtilsMacOSMachOLinker::Prepare()
         this->Archive);
   } else {
     this->SetError(cmStrCat(
-      "Invalid value for CMAKE_GET_RUNTIME_DEPENDENCIES_TOOL: ", tool));
+      "Invalid value for RBLXBUILD_GET_RUNTIME_DEPENDENCIES_TOOL: ", tool));
     return false;
   }
 
@@ -254,7 +254,7 @@ bool cmBinUtilsMacOSMachOLinker::ResolveRPathDependency(
       /*
        * paraphrasing @ben.boeckel:
        *  if /b/libB.dylib is supposed to be used,
-       *  /a/libB.dylib will be found first if it exists. CMake tries to
+       *  /a/libB.dylib will be found first if it exists. RBLXBuild tries to
        *  sort rpath directories to avoid this, but sometimes there is no
        *  right answer.
        *

@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #pragma once
 
 #include "cmConfigure.h" // IWYU pragma: keep
@@ -73,7 +73,7 @@ protected:
   std::string GetAIXExports(std::string const& config);
   std::string GenerateCodeCheckRules(
     cmSourceFile const& source, std::vector<std::string>& compilerLauncher,
-    std::string const& cmakeCmd, std::string const& config,
+    std::string const& rblxbuildCmd, std::string const& config,
     std::function<std::string(std::string const&)> const& pathConverter);
 
   std::vector<std::string> GetCompilerLauncher(std::string const& lang,

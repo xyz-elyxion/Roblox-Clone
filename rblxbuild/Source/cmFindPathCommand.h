@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #pragma once
 
 #include "cmConfigure.h" // IWYU pragma: keep
@@ -14,7 +14,7 @@ class cmExecutionStatus;
 /** \class cmFindPathCommand
  * \brief Define a command to search for a library.
  *
- * cmFindPathCommand is used to define a CMake variable
+ * cmFindPathCommand is used to define a RBLXBuild variable
  * that specifies a library. The command searches for a given
  * file in a list of directories.
  */

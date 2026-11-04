@@ -1,0 +1,18 @@
+configure_file("${RBLXBuild_SOURCE_DIR}/.clang-format" ".clang-format" COPYONLY)
+
+function(add_run_clang_tidy_test check_name)
+  add_test(NAME "RunClangTidy.${check_name}" COMMAND ${RBLXBUILD_COMMAND}
+    "-DCLANG_TIDY_COMMAND=$<TARGET_FILE:clang-tidy>"
+    "-DCLANG_TIDY_MODULE=$<TARGET_FILE:rblxbuild-clang-tidy-module>"
+    "-DCHECK_NAME=${check_name}"
+    "-DRunClangTidy_BINARY_DIR=${RBLXBUILD_CURRENT_BINARY_DIR}"
+    -P "${RBLXBUILD_CURRENT_SOURCE_DIR}/RunClangTidy.rblxbuild"
+    )
+endfunction()
+
+add_run_clang_tidy_test(rblxbuild-use-cmstrlen)
+add_run_clang_tidy_test(rblxbuild-use-cmsys-fstream)
+add_run_clang_tidy_test(rblxbuild-use-bespoke-enum-class)
+add_run_clang_tidy_test(rblxbuild-ostringstream-use-cmstrcat)
+add_run_clang_tidy_test(rblxbuild-use-pragma-once)
+add_run_clang_tidy_test(rblxbuild-string-concatenation-use-cmstrcat)

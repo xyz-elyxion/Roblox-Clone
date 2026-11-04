@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #pragma once
 
 #include <memory>
@@ -99,7 +99,7 @@ protected:
   void AddExecArguments(FastbuildExecNode& exec,
                         std::string const& scriptFilename) const;
 
-  void ReplaceProblematicMakeVars(std::string& command) const;
+  void ReplaceProblematirblxbuildVars(std::string& command) const;
 
   FastbuildExecNodes GenerateCommands(FastbuildBuildStep buildStep);
   FastbuildExecNode GetAppleTextStubCommand() const;
@@ -147,7 +147,7 @@ protected:
   cmGlobalGenerator::TargetDependSet const TargetDirectDependencies;
   std::string const Config;
 
-  // Sometimes CMake adds equivalent custom commands to different targets.
+  // Sometimes RBLXBuild adds equivalent custom commands to different targets.
   // Not really supported by FBuild (can't have different exec nodes producing
   // same output). So, in such cases we need to "re-map" the exec to produce a
   // "dummy" output (and update all deps within the target).

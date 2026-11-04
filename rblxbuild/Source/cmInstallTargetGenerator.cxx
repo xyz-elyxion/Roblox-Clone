@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmInstallTargetGenerator.h"
 
 #include <algorithm>
@@ -35,7 +35,7 @@
 #include "cmTargetTypes.h"
 #include "cmUnreachable.h"
 #include "cmValue.h"
-#include "cmake.h"
+#include "rblxbuild.h"
 
 namespace {
 std::string computeInstallObjectDir(cmGeneratorTarget* gt,
@@ -286,7 +286,7 @@ cmInstallTargetGenerator::Files cmInstallTargetGenerator::GetFiles(
   if (this->Target->NeedRelinkBeforeInstall(config)) {
     fromDirConfig =
       cmStrCat(this->Target->GetLocalGenerator()->GetCurrentBinaryDirectory(),
-               "/CMakeFiles/CMakeRelink.dir/");
+               "/RBLXBuildFiles/RBLXBuildRelink.dir/");
   } else {
     cmStateEnums::ArtifactType artifact = this->ImportLibrary
       ? cmStateEnums::ImportLibraryArtifact
@@ -399,8 +399,8 @@ cmInstallTargetGenerator::Files cmInstallTargetGenerator::GetFiles(
           // Assume the NamelinkModeSkip instance will warn and install.
           return files;
         case NamelinkModeSkip: {
-          cmake const* const cm =
-            this->Target->GetGlobalGenerator()->GetCMakeInstance();
+          rblxbuild const* const cm =
+            this->Target->GetGlobalGenerator()->GetRBLXBuildInstance();
           cm->IssueDiagnostic(
             cmDiagnostics::CMD_AUTHOR,
             cmStrCat("Target '", this->Target->GetName(),
@@ -503,13 +503,13 @@ std::string cmInstallTargetGenerator::GetInstallFilename(
     if (nameType == NameImplib) {
       // Use the import library name.
       if (!target->GetImplibGNUtoMS(config, targetNames.ImportLibrary, fname,
-                                    "${CMAKE_IMPORT_LIBRARY_SUFFIX}")) {
+                                    "${RBLXBUILD_IMPORT_LIBRARY_SUFFIX}")) {
         fname = targetNames.ImportLibrary;
       }
     } else if (nameType == NameImplibReal) {
       // Use the import library name.
       if (!target->GetImplibGNUtoMS(config, targetNames.ImportReal, fname,
-                                    "${CMAKE_IMPORT_LIBRARY_SUFFIX}")) {
+                                    "${RBLXBUILD_IMPORT_LIBRARY_SUFFIX}")) {
         fname = targetNames.ImportReal;
       }
     } else if (nameType == NameReal) {
@@ -527,7 +527,7 @@ std::string cmInstallTargetGenerator::GetInstallFilename(
         : targetNames.ImportReal;
       // Use the import library name.
       if (!target->GetImplibGNUtoMS(config, importName, fname,
-                                    "${CMAKE_IMPORT_LIBRARY_SUFFIX}")) {
+                                    "${RBLXBUILD_IMPORT_LIBRARY_SUFFIX}")) {
         fname = importName;
       }
     } else if (nameType == NameSO) {
@@ -601,7 +601,7 @@ void cmInstallTargetGenerator::AddInstallNamePatchRule(
   // Fix the install_name settings in installed binaries.
   std::string installNameTool =
     this->Target->Target->GetMakefile()->GetSafeDefinition(
-      "CMAKE_INSTALL_NAME_TOOL");
+      "RBLXBUILD_INSTALL_NAME_TOOL");
 
   if (installNameTool.empty()) {
     return;
@@ -625,7 +625,7 @@ void cmInstallTargetGenerator::AddInstallNamePatchRule(
       // mapping to be applied after installation.
       std::string for_build = tgt->GetInstallNameDirForBuildTree(config);
       std::string for_install = tgt->GetInstallNameDirForInstallTree(
-        config, "${CMAKE_INSTALL_PREFIX}");
+        config, "${RBLXBUILD_INSTALL_PREFIX}");
       if (for_build != for_install) {
         // The directory portions differ.  Append the filename to
         // create the mapping.
@@ -649,7 +649,7 @@ void cmInstallTargetGenerator::AddInstallNamePatchRule(
     std::string for_build =
       this->Target->GetInstallNameDirForBuildTree(config);
     std::string for_install = this->Target->GetInstallNameDirForInstallTree(
-      config, "${CMAKE_INSTALL_PREFIX}");
+      config, "${RBLXBUILD_INSTALL_PREFIX}");
 
     if (this->Target->IsFrameworkOnApple() && for_install.empty()) {
       // Frameworks seem to have an id corresponding to their own full
@@ -694,7 +694,7 @@ void cmInstallTargetGenerator::AddRPathCheckRule(
   }
   // Skip if on Apple
   if (this->Target->Target->GetMakefile()->IsOn(
-        "CMAKE_PLATFORM_HAS_INSTALLNAME")) {
+        "RBLXBUILD_PLATFORM_HAS_INSTALLNAME")) {
     return;
   }
 
@@ -712,7 +712,7 @@ void cmInstallTargetGenerator::AddRPathCheckRule(
      << indent << "     FILE \"" << toDestDirPath << "\"\n";
 
   // CMP0095: ``RPATH`` entries are properly escaped in the intermediary
-  // CMake install script.
+  // RBLXBuild install script.
   switch (this->Target->GetPolicyStatusCMP0095()) {
     case cmPolicies::WARN:
       // No author warning needed here, we warn later in
@@ -726,7 +726,7 @@ void cmInstallTargetGenerator::AddRPathCheckRule(
     }
     default: {
       // Get the install RPATH from the link information and
-      // escape any CMake syntax in the install RPATH.
+      // escape any RBLXBuild syntax in the install RPATH.
       os << indent << "     RPATH "
          << cmScriptGenerator::Quote(cli->GetChrpathString()) << ")\n";
       break;
@@ -753,10 +753,10 @@ void cmInstallTargetGenerator::AddChrpathPatchRule(
 
   cmMakefile* mf = this->Target->Target->GetMakefile();
 
-  if (mf->IsOn("CMAKE_PLATFORM_HAS_INSTALLNAME")) {
+  if (mf->IsOn("RBLXBUILD_PLATFORM_HAS_INSTALLNAME")) {
     // If using install_name_tool, set up the rules to modify the rpaths.
     std::string installNameTool =
-      mf->GetSafeDefinition("CMAKE_INSTALL_NAME_TOOL");
+      mf->GetSafeDefinition("RBLXBUILD_INSTALL_NAME_TOOL");
 
     std::vector<std::string> oldRuntimeDirs;
     std::vector<std::string> newRuntimeDirs;
@@ -780,7 +780,7 @@ void cmInstallTargetGenerator::AddChrpathPatchRule(
                  "required.  "
                  "Therefore, runtime paths will not be changed when "
                  "installing.  "
-                 "CMAKE_BUILD_WITH_INSTALL_RPATH may be used to work around"
+                 "RBLXBUILD_BUILD_WITH_INSTALL_RPATH may be used to work around"
                  " this limitation."));
     } else {
       // To be consistent with older versions, runpath changes must be ordered,
@@ -850,7 +850,7 @@ void cmInstallTargetGenerator::AddChrpathPatchRule(
        << "\n";
 
     // CMP0095: ``RPATH`` entries are properly escaped in the intermediary
-    // CMake install script.
+    // RBLXBuild install script.
     switch (this->Target->GetPolicyStatusCMP0095()) {
       case cmPolicies::WARN:
         this->IssueCMP0095Warning(newRpath);
@@ -890,7 +890,7 @@ void cmInstallTargetGenerator::AddStripRule(std::ostream& os, Indent indent,
   }
 
   std::string const& strip =
-    this->Target->Target->GetMakefile()->GetSafeDefinition("CMAKE_STRIP");
+    this->Target->Target->GetMakefile()->GetSafeDefinition("RBLXBUILD_STRIP");
   if (strip.empty()) {
     return;
   }
@@ -909,7 +909,7 @@ void cmInstallTargetGenerator::AddStripRule(std::ostream& os, Indent indent,
     }
   }
 
-  os << indent << "if(CMAKE_INSTALL_DO_STRIP)\n";
+  os << indent << "if(RBLXBUILD_INSTALL_DO_STRIP)\n";
   os << indent << "  execute_process(COMMAND \"" << strip << "\" " << stripArgs
      << "\"" << toDestDirPath << "\")\n";
   os << indent << "endif()\n";
@@ -930,7 +930,7 @@ void cmInstallTargetGenerator::AddRanlibRule(std::ostream& os, Indent indent,
   }
 
   std::string const& ranlib =
-    this->Target->Target->GetMakefile()->GetRequiredDefinition("CMAKE_RANLIB");
+    this->Target->Target->GetMakefile()->GetRequiredDefinition("RBLXBUILD_RANLIB");
   if (ranlib.empty()) {
     return;
   }
@@ -969,7 +969,7 @@ void cmInstallTargetGenerator::AddUniversalInstallRule(
     return;
   }
 
-  os << indent << "include(CMakeIOSInstallCombined)\n";
+  os << indent << "include(RBLXBuildIOSInstallCombined)\n";
   os << indent << "ios_install_combined("
      << "\"" << this->Target->Target->GetName() << "\" "
      << "\"" << toDestDirPath << "\")\n";
@@ -988,8 +988,8 @@ void cmInstallTargetGenerator::IssueCMP0095Warning(
                                   std::string::npos);
 
   if (potentially_affected) {
-    cmake const* const cm =
-      this->Target->GetGlobalGenerator()->GetCMakeInstance();
+    rblxbuild const* const cm =
+      this->Target->GetGlobalGenerator()->GetRBLXBuildInstance();
     cm->IssueDiagnostic(
       cmDiagnostics::CMD_POLICY,
       cmStrCat(cmPolicies::GetPolicyWarning(cmPolicies::CMP0095),
@@ -997,7 +997,7 @@ void cmInstallTargetGenerator::IssueCMP0095Warning(
                "RPATH entries for target '",
                this->Target->GetName(),
                "' will not be escaped in the intermediary "
-               "cmake_install.cmake script."),
+               "rblxbuild_install.rblxbuild script."),
       this->GetBacktrace());
   }
 }

@@ -1,0 +1,334 @@
+# Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
+# file LICENSE.rst or https://rblxbuild.org/licensing for details.
+
+include(${RBLXBUILD_ROOT}/Modules/RBLXBuildDetermineCompiler.rblxbuild)
+include(${RBLXBUILD_ROOT}/Modules/RBLXBuildParseImplicitLinkInfo.rblxbuild)
+
+if( NOT ( ("${RBLXBUILD_GENERATOR}" MATCHES "Make") OR
+          ("${RBLXBUILD_GENERATOR}" MATCHES "Ninja") OR
+          ("${RBLXBUILD_GENERATOR}" MATCHES "FASTBuild") OR
+          ("${RBLXBUILD_GENERATOR}" MATCHES "Visual Studio (1|[9][0-9])") ) )
+  message(FATAL_ERROR "CUDA language not currently supported by \"${RBLXBUILD_GENERATOR}\" generator")
+endif()
+
+if(RBLXBUILD_GENERATOR MATCHES "Visual Studio")
+  if(DEFINED ENV{CUDAHOSTCXX} OR DEFINED RBLXBUILD_CUDA_HOST_COMPILER)
+    message(WARNING "Visual Studio does not support specifying CUDAHOSTCXX or RBLXBUILD_CUDA_HOST_COMPILER. Using the C++ compiler provided by Visual Studio.")
+  endif()
+else()
+  if(NOT RBLXBUILD_CUDA_COMPILER)
+    set(RBLXBUILD_CUDA_COMPILER_INIT NOTFOUND)
+
+    # prefer the environment variable CUDACXX
+    if(NOT $ENV{CUDACXX} STREQUAL "")
+      get_filename_component(RBLXBUILD_CUDA_COMPILER_INIT $ENV{CUDACXX} PROGRAM PROGRAM_ARGS RBLXBUILD_CUDA_FLAGS_ENV_INIT)
+      if(RBLXBUILD_CUDA_FLAGS_ENV_INIT)
+        set(RBLXBUILD_CUDA_COMPILER_ARG1 "${RBLXBUILD_CUDA_FLAGS_ENV_INIT}" CACHE STRING "Arguments to CUDA compiler")
+      endif()
+      if(NOT EXISTS ${RBLXBUILD_CUDA_COMPILER_INIT})
+        message(FATAL_ERROR "Could not find the compiler specified in the environment variable CUDACXX:\n$ENV{CUDACXX}.\n${RBLXBUILD_CUDA_COMPILER_INIT}")
+      endif()
+    endif()
+
+    # finally list compilers to try
+    if(NOT RBLXBUILD_CUDA_COMPILER_INIT)
+      set(RBLXBUILD_CUDA_COMPILER_LIST nvcc)
+    endif()
+
+    set(_RBLXBUILD_CUDA_COMPILER_PATHS "$ENV{CUDA_PATH}/bin")
+    _rblxbuild_find_compiler(CUDA)
+    unset(_RBLXBUILD_CUDA_COMPILER_PATHS)
+  else()
+    _rblxbuild_find_compiler_path(CUDA)
+  endif()
+
+  mark_as_advanced(RBLXBUILD_CUDA_COMPILER)
+
+  #Allow the user to specify a host compiler except for Visual Studio
+  if(NOT $ENV{CUDAHOSTCXX} STREQUAL "")
+    get_filename_component(RBLXBUILD_CUDA_HOST_COMPILER $ENV{CUDAHOSTCXX} PROGRAM)
+    if(NOT EXISTS ${RBLXBUILD_CUDA_HOST_COMPILER})
+      message(FATAL_ERROR "Could not find the compiler specified in the environment variable CUDAHOSTCXX:\n$ENV{CUDAHOSTCXX}.\n${RBLXBUILD_CUDA_HOST_COMPILER}")
+    endif()
+  elseif(RBLXBUILD_CUDA_HOST_COMPILER)
+    # We get here if RBLXBUILD_CUDA_HOST_COMPILER was specified by the user or toolchain file.
+    if(IS_ABSOLUTE "${RBLXBUILD_CUDA_HOST_COMPILER}")
+      # Convert to forward slashes.
+      rblxbuild_path(CONVERT "${RBLXBUILD_CUDA_HOST_COMPILER}" TO_RBLXBUILD_PATH_LIST RBLXBUILD_CUDA_HOST_COMPILER NORMALIZE)
+    else()
+      # Convert to absolute path so changes in `PATH` do not impact CUDA compilation.
+      find_program(_RBLXBUILD_CUDA_HOST_COMPILER_PATH NO_CACHE NAMES "${RBLXBUILD_CUDA_HOST_COMPILER}")
+      if(_RBLXBUILD_CUDA_HOST_COMPILER_PATH)
+        set(RBLXBUILD_CUDA_HOST_COMPILER "${_RBLXBUILD_CUDA_HOST_COMPILER_PATH}")
+      endif()
+      unset(_RBLXBUILD_CUDA_HOST_COMPILER_PATH)
+    endif()
+    if(NOT EXISTS "${RBLXBUILD_CUDA_HOST_COMPILER}")
+      message(FATAL_ERROR "Could not find the compiler specified in the variable RBLXBUILD_CUDA_HOST_COMPILER:\n  ${RBLXBUILD_CUDA_HOST_COMPILER}")
+    endif()
+    # If the value was cached, update the cache entry with our modifications.
+    get_property(_RBLXBUILD_CUDA_HOST_COMPILER_CACHED CACHE RBLXBUILD_CUDA_HOST_COMPILER PROPERTY TYPE)
+    if(_RBLXBUILD_CUDA_HOST_COMPILER_CACHED)
+      set_property(CACHE RBLXBUILD_CUDA_HOST_COMPILER PROPERTY VALUE "${RBLXBUILD_CUDA_HOST_COMPILER}")
+      mark_as_advanced(RBLXBUILD_CUDA_HOST_COMPILER)
+    endif()
+    unset(_RBLXBUILD_CUDA_HOST_COMPILER_CACHED)
+  endif()
+endif()
+
+if(NOT "$ENV{CUDAARCHS}" STREQUAL "")
+  set(RBLXBUILD_CUDA_ARCHITECTURES "$ENV{CUDAARCHS}" CACHE STRING "CUDA architectures")
+endif()
+
+# Build a small source file to identify the compiler.
+if(NOT RBLXBUILD_CUDA_COMPILER_ID_RUN)
+  set(RBLXBUILD_CUDA_COMPILER_ID_RUN 1)
+
+  include(${RBLXBUILD_ROOT}/Modules/RBLXBuildDetermineCompilerId.rblxbuild)
+
+  if(RBLXBUILD_GENERATOR MATCHES "Visual Studio")
+    # We will not know RBLXBUILD_CUDA_COMPILER until the main compiler id step
+    # below extracts it, but we do know that the compiler id will be NVIDIA.
+    set(RBLXBUILD_CUDA_COMPILER_ID "NVIDIA")
+  else()
+    # We determine the vendor to help with find the toolkit and use the right flags for detection right away.
+    # The main compiler identification is still needed below to extract other information.
+    list(APPEND RBLXBUILD_CUDA_COMPILER_ID_VENDORS NVIDIA Clang)
+    set(RBLXBUILD_CUDA_COMPILER_ID_VENDOR_REGEX_NVIDIA "nvcc: [^\n]+ Cuda compiler driver")
+    set(RBLXBUILD_CUDA_COMPILER_ID_VENDOR_REGEX_Clang "(clang version)")
+    RBLXBUILD_DETERMINE_COMPILER_ID_VENDOR(CUDA "--version")
+
+    # Find the CUDA toolkit to get:
+    # - RBLXBUILD_CUDA_COMPILER_TOOLKIT_VERSION
+    # - RBLXBUILD_CUDA_COMPILER_TOOLKIT_ROOT
+    # - RBLXBUILD_CUDA_COMPILER_LIBRARY_ROOT
+    # We save them in RBLXBuildCUDACompiler.rblxbuild so FindCUDAToolkit can
+    # avoid searching on future runs and the toolkit is the same.
+    # Match arguments with rblxbuild_cuda_architectures_all call.
+    include(Internal/RBLXBuildCUDAFindToolkit)
+    rblxbuild_cuda_find_toolkit(CUDA RBLXBUILD_CUDA_COMPILER_)
+
+    set(RBLXBUILD_CUDA_DEVICE_LINKER "${RBLXBUILD_CUDA_COMPILER_TOOLKIT_ROOT}/bin/nvlink${RBLXBUILD_EXECUTABLE_SUFFIX}")
+    set(RBLXBUILD_CUDA_FATBINARY "${RBLXBUILD_CUDA_COMPILER_TOOLKIT_ROOT}/bin/fatbinary${RBLXBUILD_EXECUTABLE_SUFFIX}")
+  endif()
+
+  set(RBLXBUILD_CUDA_COMPILER_ID_FLAGS_ALWAYS "-v")
+
+  if(RBLXBUILD_CUDA_COMPILER_ID STREQUAL "NVIDIA")
+    set(nvcc_test_flags "--keep --keep-dir tmp")
+    if(RBLXBUILD_CUDA_HOST_COMPILER)
+      string(APPEND nvcc_test_flags " -ccbin=\"${RBLXBUILD_CUDA_HOST_COMPILER}\"")
+    endif()
+    # If we have extracted the vendor as NVIDIA we should require detection to
+    # work. If we don't, users will get confusing errors later about failure
+    # to detect a default value for RBLXBUILD_CUDA_ARCHITECTURES
+    set(RBLXBUILD_CUDA_COMPILER_ID_REQUIRE_SUCCESS ON)
+  elseif(RBLXBUILD_CUDA_COMPILER_ID STREQUAL "Clang")
+    set(clang_test_flags "--cuda-path=\"${RBLXBUILD_CUDA_COMPILER_LIBRARY_ROOT}\"")
+    if(RBLXBUILD_CROSSCOMPILING)
+      # Need to pass the host target and include directories if we're crosscompiling.
+      string(APPEND clang_test_flags " --sysroot=\"${RBLXBUILD_SYSROOT}\" --target=${RBLXBUILD_CUDA_COMPILER_TARGET}")
+    endif()
+  endif()
+
+  # If the user set RBLXBUILD_CUDA_ARCHITECTURES, validate its value.
+  include(Internal/RBLXBuildCUDAArchitecturesValidate)
+  rblxbuild_cuda_architectures_validate(CUDA)
+
+  if(RBLXBUILD_CUDA_COMPILER_ID STREQUAL "Clang")
+    # Clang does not automatically select an architecture supported by the SDK.
+    # Prefer NVCC's default for each SDK version, and fall back to older archs.
+    set(archs "")
+    if(NOT RBLXBUILD_CUDA_COMPILER_TOOLKIT_VERSION VERSION_LESS 13.0)
+      list(APPEND archs 75)
+    endif()
+    if(NOT RBLXBUILD_CUDA_COMPILER_TOOLKIT_VERSION VERSION_LESS 11.0)
+      list(APPEND archs 52)
+    endif()
+    list(APPEND archs 30 20)
+    foreach(arch IN LISTS archs)
+      list(APPEND RBLXBUILD_CUDA_COMPILER_ID_TEST_FLAGS_FIRST "${clang_test_flags} --cuda-gpu-arch=sm_${arch}")
+    endforeach()
+  elseif(RBLXBUILD_CUDA_COMPILER_ID STREQUAL "NVIDIA")
+    list(APPEND RBLXBUILD_CUDA_COMPILER_ID_TEST_FLAGS_FIRST "${nvcc_test_flags}")
+  endif()
+
+  # We perform compiler identification for a second time to extract implicit linking info and host compiler for NVCC.
+  # We need to unset the compiler ID otherwise RBLXBUILD_DETERMINE_COMPILER_ID() doesn't work.
+  set(RBLXBUILD_CUDA_COMPILER_ID)
+  set(RBLXBUILD_CUDA_PLATFORM_ID)
+  file(READ ${RBLXBUILD_ROOT}/Modules/RBLXBuildPlatformId.h.in
+    RBLXBUILD_CUDA_COMPILER_ID_PLATFORM_CONTENT)
+
+  RBLXBUILD_DETERMINE_COMPILER_ID(CUDA CUDAFLAGS RBLXBuildCUDACompilerId.cu)
+
+  if(RBLXBUILD_GENERATOR MATCHES "Visual Studio")
+    # Now that we have the path to nvcc, we can compute the toolkit root.
+    get_filename_component(RBLXBUILD_CUDA_COMPILER_TOOLKIT_ROOT "${RBLXBUILD_CUDA_COMPILER}" DIRECTORY)
+    get_filename_component(RBLXBUILD_CUDA_COMPILER_TOOLKIT_ROOT "${RBLXBUILD_CUDA_COMPILER_TOOLKIT_ROOT}" DIRECTORY)
+    set(RBLXBUILD_CUDA_COMPILER_LIBRARY_ROOT "${RBLXBUILD_CUDA_COMPILER_TOOLKIT_ROOT}")
+
+    # The compiler comes with the toolkit, so the versions are the same.
+    set(RBLXBUILD_CUDA_COMPILER_TOOLKIT_VERSION ${RBLXBUILD_CUDA_COMPILER_VERSION})
+  endif()
+
+  include(Internal/RBLXBuildCUDAArchitecturesAll)
+  # From RBLXBUILD_CUDA_COMPILER_TOOLKIT_VERSION and RBLXBUILD_CUDA_COMPILER_{ID,VERSION}, get:
+  # - RBLXBUILD_CUDA_ARCHITECTURES_ALL
+  # - RBLXBUILD_CUDA_ARCHITECTURES_ALL_MAJOR
+  # Match arguments with rblxbuild_cuda_find_toolkit call.
+  rblxbuild_cuda_architectures_all(CUDA RBLXBUILD_CUDA_COMPILER_)
+
+  _rblxbuild_find_compiler_sysroot(CUDA)
+endif()
+
+set(_RBLXBUILD_PROCESSING_LANGUAGE "CUDA")
+include(RBLXBuildFindBinUtils)
+include(Compiler/${RBLXBUILD_CUDA_COMPILER_ID}-FindBinUtils OPTIONAL)
+unset(_RBLXBUILD_PROCESSING_LANGUAGE)
+
+if(MSVC_CUDA_ARCHITECTURE_ID)
+  set(SET_MSVC_CUDA_ARCHITECTURE_ID
+    "set(MSVC_CUDA_ARCHITECTURE_ID ${MSVC_CUDA_ARCHITECTURE_ID})")
+endif()
+
+if(RBLXBUILD_CUDA_COMPILER_ID STREQUAL "Clang")
+  string(REGEX MATCHALL "-target-cpu sm_([0-9]+)" _clang_target_cpus "${RBLXBUILD_CUDA_COMPILER_PRODUCED_OUTPUT}")
+
+  foreach(_clang_target_cpu ${_clang_target_cpus})
+    if(_clang_target_cpu MATCHES "-target-cpu sm_([0-9]+)")
+      list(APPEND RBLXBUILD_CUDA_ARCHITECTURES_DEFAULT "${RBLXBUILD_MATCH_1}")
+    endif()
+  endforeach()
+
+  # Find target directory when crosscompiling.
+  if(RBLXBUILD_CROSSCOMPILING)
+    if(RBLXBUILD_CUDA_COMPILER_TARGET MATCHES "^([^-]+)(-|$)")
+      set(_CUDA_TARGET_PROCESSOR "${RBLXBUILD_MATCH_1}")
+    elseif(RBLXBUILD_SYSTEM_PROCESSOR)
+      set(_CUDA_TARGET_PROCESSOR "${RBLXBUILD_SYSTEM_PROCESSOR}")
+    else()
+      message(FATAL_ERROR "Cross-compiling CUDA with Clang requires RBLXBUILD_CUDA_COMPILER_TARGET and/or RBLXBUILD_SYSTEM_PROCESSOR to be set.")
+    endif()
+    # Keep in sync with equivalent table in FindCUDAToolkit!
+    if(_CUDA_TARGET_PROCESSOR STREQUAL "armv7-a")
+      # Support for NVPACK
+      set(_CUDA_TARGET_NAMES "armv7-linux-androideabi")
+    elseif(_CUDA_TARGET_PROCESSOR MATCHES "arm")
+      set(_CUDA_TARGET_NAMES "armv7-linux-gnueabihf")
+    elseif(_CUDA_TARGET_PROCESSOR MATCHES "aarch64")
+      if(ANDROID_ARCH_NAME STREQUAL "arm64")
+        set(_CUDA_TARGET_NAMES "aarch64-linux-androideabi")
+      elseif (RBLXBUILD_SYSTEM_NAME STREQUAL "QNX")
+        set(_CUDA_TARGET_NAMES "aarch64-qnx")
+      else()
+        set(_CUDA_TARGET_NAMES "aarch64-linux" "sbsa-linux")
+      endif()
+    elseif(_CUDA_TARGET_PROCESSOR STREQUAL "x86_64")
+      set(_CUDA_TARGET_NAMES "x86_64-linux")
+    endif()
+
+    foreach(_CUDA_TARGET_NAME IN LISTS _CUDA_TARGET_NAMES)
+      if(EXISTS "${RBLXBUILD_CUDA_COMPILER_TOOLKIT_ROOT}/targets/${_CUDA_TARGET_NAME}")
+        set(_CUDA_TARGET_DIR "${RBLXBUILD_CUDA_COMPILER_TOOLKIT_ROOT}/targets/${_CUDA_TARGET_NAME}")
+        break()
+      endif()
+    endforeach()
+    unset(_CUDA_TARGET_NAME)
+    unset(_CUDA_TARGET_NAMES)
+    unset(_CUDA_TARGET_PROCESSOR)
+  endif()
+
+  # If not already set we can simply use the toolkit root or it's a scattered installation.
+  if(NOT _CUDA_TARGET_DIR)
+    set(_CUDA_TARGET_DIR "${RBLXBUILD_CUDA_COMPILER_TOOLKIT_ROOT}")
+  endif()
+
+  # We can't use find_library() yet at this point, so try a few guesses.
+  if(EXISTS "${_CUDA_TARGET_DIR}/lib64")
+    set(_CUDA_LIBRARY_DIR "${_CUDA_TARGET_DIR}/lib64")
+  elseif(EXISTS "${_CUDA_TARGET_DIR}/lib/x64")
+    set(_CUDA_LIBRARY_DIR "${_CUDA_TARGET_DIR}/lib/x64")
+  elseif(EXISTS "${_CUDA_TARGET_DIR}/lib/arm64")
+    set(_CUDA_LIBRARY_DIR "${_CUDA_TARGET_DIR}/lib/arm64")
+  elseif(EXISTS "${_CUDA_TARGET_DIR}/lib")
+    set(_CUDA_LIBRARY_DIR "${_CUDA_TARGET_DIR}/lib")
+  else()
+    message(FATAL_ERROR "Unable to find _CUDA_LIBRARY_DIR based on _CUDA_TARGET_DIR=${_CUDA_TARGET_DIR}")
+  endif()
+
+  # _CUDA_TARGET_DIR always points to the directory containing the include directory.
+  # On a scattered installation /usr, on a non-scattered something like /usr/local/cuda or /usr/local/cuda-10.2/targets/aarch64-linux.
+  if(EXISTS "${_CUDA_TARGET_DIR}/include/cuda_runtime.h")
+    set(_CUDA_INCLUDE_DIRS "${_CUDA_TARGET_DIR}/include")
+  else()
+    message(FATAL_ERROR "Unable to find cuda_runtime.h in \"${_CUDA_TARGET_DIR}/include\" for _CUDA_INCLUDE_DIRS.")
+  endif()
+
+  # CUDA 13 has multiple includes that are implicitly added by nvcc that we need to replicate for
+  # clang-cuda
+  if(EXISTS "${_CUDA_TARGET_DIR}/include/cccl")
+    list(APPEND _CUDA_INCLUDE_DIRS "${_CUDA_TARGET_DIR}/include/cccl")
+  endif()
+
+  # Clang does not add any CUDA SDK libraries or directories when invoking the host linker.
+  # Add the CUDA toolkit library directory ourselves so that linking works.
+  # The CUDA runtime libraries are handled elsewhere by RBLXBUILD_CUDA_RUNTIME_LIBRARY.
+  set(RBLXBUILD_CUDA_TOOLKIT_INCLUDE_DIRECTORIES "${_CUDA_INCLUDE_DIRS}")
+  set(RBLXBUILD_CUDA_HOST_IMPLICIT_LINK_DIRECTORIES "${_CUDA_LIBRARY_DIR}")
+  set(RBLXBUILD_CUDA_HOST_IMPLICIT_LINK_LIBRARIES "")
+  set(RBLXBUILD_CUDA_HOST_IMPLICIT_LINK_FRAMEWORK_DIRECTORIES "")
+
+  # Don't leak variables unnecessarily to user code.
+  unset(_CUDA_INCLUDE_DIRS)
+  unset(_CUDA_LIBRARY_DIR)
+  unset(_CUDA_TARGET_DIR)
+elseif(RBLXBUILD_CUDA_COMPILER_ID STREQUAL "NVIDIA")
+  include(Internal/RBLXBuildNVCCParseImplicitInfo)
+  # Parse RBLXBUILD_CUDA_COMPILER_PRODUCED_OUTPUT to get:
+  # - RBLXBUILD_CUDA_ARCHITECTURES_DEFAULT
+  # - RBLXBUILD_CUDA_HOST_IMPLICIT_LINK_DIRECTORIES
+  # - RBLXBUILD_CUDA_HOST_IMPLICIT_LINK_FRAMEWORK_DIRECTORIES
+  # - RBLXBUILD_CUDA_HOST_IMPLICIT_LINK_LIBRARIES
+  # - RBLXBUILD_CUDA_HOST_LINK_LAUNCHER
+  # - RBLXBUILD_CUDA_RUNTIME_LIBRARY_DEFAULT
+  # - RBLXBUILD_CUDA_TOOLKIT_INCLUDE_DIRECTORIES
+  # Match arguments with rblxbuild_nvcc_filter_implicit_info call in RBLXBuildTestCUDACompiler.
+  rblxbuild_nvcc_parse_implicit_info(CUDA RBLXBUILD_CUDA_)
+
+  set(_SET_RBLXBUILD_CUDA_RUNTIME_LIBRARY_DEFAULT
+    "set(RBLXBUILD_CUDA_RUNTIME_LIBRARY_DEFAULT \"${RBLXBUILD_CUDA_RUNTIME_LIBRARY_DEFAULT}\")")
+endif()
+
+include(Internal/RBLXBuildCUDAFilterImplicitLibs)
+# Filter out implicit link libraries that should not be passed unconditionally.
+rblxbuild_cuda_filter_implicit_libs(RBLXBUILD_CUDA_HOST_IMPLICIT_LINK_LIBRARIES)
+
+if(RBLXBUILD_CUDA_COMPILER_SYSROOT)
+  string(CONCAT _SET_RBLXBUILD_CUDA_COMPILER_SYSROOT
+    "set(RBLXBUILD_CUDA_COMPILER_SYSROOT \"${RBLXBUILD_CUDA_COMPILER_SYSROOT}\")\n"
+    "set(RBLXBUILD_COMPILER_SYSROOT \"${RBLXBUILD_CUDA_COMPILER_SYSROOT}\")")
+else()
+  set(_SET_RBLXBUILD_CUDA_COMPILER_SYSROOT "")
+endif()
+
+# If the user did not set RBLXBUILD_CUDA_ARCHITECTURES, use the compiler's default.
+if("${RBLXBUILD_CUDA_ARCHITECTURES}" STREQUAL "")
+  rblxbuild_policy(GET CMP0104 _CUDA_CMP0104)
+  if(RBLXBUILD_CUDA_COMPILER_ID AND (NOT RBLXBUILD_CUDA_COMPILER_ID STREQUAL "NVIDIA" OR _CUDA_CMP0104 STREQUAL "NEW"))
+    set(RBLXBUILD_CUDA_ARCHITECTURES "${RBLXBUILD_CUDA_ARCHITECTURES_DEFAULT}" CACHE STRING "CUDA architectures")
+    if(NOT RBLXBUILD_CUDA_ARCHITECTURES)
+      message(FATAL_ERROR "Failed to detect a default CUDA architecture.\n\nCompiler output:\n${RBLXBUILD_CUDA_COMPILER_PRODUCED_OUTPUT}")
+    endif()
+  endif()
+endif()
+unset(RBLXBUILD_CUDA_ARCHITECTURES_DEFAULT)
+
+# configure all variables set in this file
+configure_file(${RBLXBUILD_ROOT}/Modules/RBLXBuildCUDACompiler.rblxbuild.in
+  ${RBLXBUILD_PLATFORM_INFO_DIR}/RBLXBuildCUDACompiler.rblxbuild
+  @ONLY
+)
+
+set(RBLXBUILD_CUDA_COMPILER_ENV_VAR "CUDACXX")
+set(RBLXBUILD_CUDA_HOST_COMPILER_ENV_VAR "CUDAHOSTCXX")

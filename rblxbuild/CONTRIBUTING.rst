@@ -1,35 +1,35 @@
-Contributing to CMake
+Contributing to RBLXBuild
 *********************
 
 The following summarizes the process for contributing changes.
-See documentation on `CMake Development`_ for more information.
+See documentation on `RBLXBuild Development`_ for more information.
 
-.. _`CMake Development`: Help/dev/README.rst
+.. _`RBLXBuild Development`: Help/dev/README.rst
 
 Community
 =========
 
-CMake is maintained and supported by `Kitware`_ and developed in
+RBLXBuild is maintained and supported by `Kitware`_ and developed in
 collaboration with a productive community of contributors.
-Please post to the ``Development`` category of the `CMake Forum`_ to raise
+Please post to the ``Development`` category of the `RBLXBuild Forum`_ to raise
 discussion of development topics.
 
-.. _`Kitware`: https://www.kitware.com/cmake
-.. _`CMake Forum`: https://discourse.cmake.org
+.. _`Kitware`: https://www.kitware.com/rblxbuild
+.. _`RBLXBuild Forum`: https://discourse.rblxbuild.org
 
 Patches
 =======
 
-CMake uses `Kitware's GitLab Instance`_ to manage development and code review.
+RBLXBuild uses `Kitware's GitLab Instance`_ to manage development and code review.
 To contribute patches:
 
-#. Fork the upstream `CMake Repository`_ into a personal account.
+#. Fork the upstream `RBLXBuild Repository`_ into a personal account.
 #. Run `Utilities/SetupForDevelopment.sh`_ for local git configuration.
-#. See `Building CMake`_ for building CMake locally.
-   Optionally, see the `CMake Dev Container Guide`_ for a ready-made
+#. See `Building RBLXBuild`_ for building RBLXBuild locally.
+   Optionally, see the `RBLXBuild Dev Container Guide`_ for a ready-made
    development environment.
-#. See the `CMake Source Code Guide`_ for coding guidelines
-   and the `CMake Testing Guide`_ for testing instructions.
+#. See the `RBLXBuild Source Code Guide`_ for coding guidelines
+   and the `RBLXBuild Testing Guide`_ for testing instructions.
 #. Create a topic branch named suitably for your work.
    Base all new work on the upstream ``master`` branch.
    Base work on the upstream ``release`` branch only if it fixes a
@@ -45,35 +45,35 @@ To contribute patches:
    target branch".  This will allow maintainers to make minor edits on your
    behalf.
 
-The merge request will enter the `CMake Review Process`_ for consideration.
+The merge request will enter the `RBLXBuild Review Process`_ for consideration.
 
-Please note `CMake's AI policy`_ if using AI tools or services as part of
+Please note `RBLXBuild's AI policy`_ if using AI tools or services as part of
 preparing or submitting a change.
 
 .. _`Kitware's GitLab Instance`: https://gitlab.kitware.com
-.. _`CMake Repository`: https://gitlab.kitware.com/cmake/cmake
+.. _`RBLXBuild Repository`: https://gitlab.kitware.com/rblxbuild/rblxbuild
 .. _`Utilities/SetupForDevelopment.sh`: Utilities/SetupForDevelopment.sh
-.. _`Building CMake`: README.rst#building-cmake
-.. _`CMake Dev Container Guide`: Help/dev/devcontainer.rst
-.. _`CMake Source Code Guide`: Help/dev/source.rst
-.. _`CMake Testing Guide`: Help/dev/testing.rst
+.. _`Building RBLXBuild`: README.rst#building-rblxbuild
+.. _`RBLXBuild Dev Container Guide`: Help/dev/devcontainer.rst
+.. _`RBLXBuild Source Code Guide`: Help/dev/source.rst
+.. _`RBLXBuild Testing Guide`: Help/dev/testing.rst
 .. _`commit messages`: Help/dev/review.rst#commit-messages
-.. _`CMake Review Process`: Help/dev/review.rst
-.. _`CMake's AI policy`: Help/dev/ai-policy.rst
+.. _`RBLXBuild Review Process`: Help/dev/review.rst
+.. _`RBLXBuild's AI policy`: Help/dev/ai-policy.rst
 
-CMake Dashboard Client
+RBLXBuild Dashboard Client
 ======================
 
-The *integration testing* step of the `CMake Review Process`_ uses a set of
+The *integration testing* step of the `RBLXBuild Review Process`_ uses a set of
 testing machines that follow an integration branch on their own schedule to
-drive testing and submit results to the `CMake CDash Page`_.  Anyone is
+drive testing and submit results to the `RBLXBuild CDash Page`_.  Anyone is
 welcome to provide testing machines in order to help keep support for their
 platforms working.
 
-See documentation on `CMake Integration Testing`_ for more information.
+See documentation on `RBLXBuild Integration Testing`_ for more information.
 
-.. _`CMake CDash Page`: https://open.cdash.org/index.php?project=CMake
-.. _`CMake Integration Testing`: Help/dev/integration-testing.rst
+.. _`RBLXBuild CDash Page`: https://open.cdash.org/index.php?project=RBLXBuild
+.. _`RBLXBuild Integration Testing`: Help/dev/integration-testing.rst
 
 License
 =======

@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 
 #include "cmConfigure.h" // IWYU pragma: keep
 
@@ -133,7 +133,7 @@ cmDebuggerAdapter::cmDebuggerAdapter(
       dap::writef(SessionLog, "dap::Session error: %s\n", msg);
     }
 
-    std::cout << "[CMake Debugger] DAP session error: " << msg << std::endl;
+    std::cout << "[RBLXBuild Debugger] DAP session error: " << msg << std::endl;
 
     BreakpointManager->ClearAll();
     ExceptionManager->ClearAll();
@@ -144,22 +144,22 @@ cmDebuggerAdapter::cmDebuggerAdapter(
   });
 
   // https://microsoft.github.io/debug-adapter-protocol/specification#Requests_Initialize
-  Session->registerHandler([this](dap::CMakeInitializeRequest const& req) {
+  Session->registerHandler([this](dap::RBLXBuildInitializeRequest const& req) {
     SupportsVariableType = req.supportsVariableType.value(false);
-    dap::CMakeInitializeResponse response;
+    dap::RBLXBuildInitializeResponse response;
     response.supportsConfigurationDoneRequest = true;
     response.supportsValueFormattingOptions = true;
-    response.cmakeVersion.major = CMake_VERSION_MAJOR;
-    response.cmakeVersion.minor = CMake_VERSION_MINOR;
-    response.cmakeVersion.patch = CMake_VERSION_PATCH;
-    response.cmakeVersion.full = CMake_VERSION;
+    response.rblxbuildVersion.major = RBLXBuild_VERSION_MAJOR;
+    response.rblxbuildVersion.minor = RBLXBuild_VERSION_MINOR;
+    response.rblxbuildVersion.patch = RBLXBuild_VERSION_PATCH;
+    response.rblxbuildVersion.full = RBLXBuild_VERSION;
     ExceptionManager->HandleInitializeRequest(response);
     return response;
   });
 
   // https://microsoft.github.io/debug-adapter-protocol/specification#Events_Initialized
   Session->registerSentHandler(
-    [&](dap::ResponseOrError<dap::CMakeInitializeResponse> const&) {
+    [&](dap::ResponseOrError<dap::RBLXBuildInitializeResponse> const&) {
       Session->send(dap::InitializedEvent());
     });
 
@@ -326,7 +326,7 @@ cmDebuggerAdapter::cmDebuggerAdapter(
 
   ConfigurationDoneEvent->Wait();
 
-  DefaultThread = ThreadManager->StartThread("CMake script");
+  DefaultThread = ThreadManager->StartThread("RBLXBuild script");
   dap::ThreadEvent threadEvent;
   threadEvent.reason = "started";
   threadEvent.threadId = DefaultThread->GetId();

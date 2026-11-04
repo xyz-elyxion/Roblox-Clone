@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmUVProcessChain.h"
 
 #include <array>
@@ -382,10 +382,10 @@ void cmUVProcessChain::InternalData::SpawnProcess(
   }
 #if UV_VERSION_MAJOR > 1 ||                                                   \
   (UV_VERSION_MAJOR == 1 && UV_VERSION_MINOR >= 48) ||                        \
-  !defined(CMAKE_USE_SYSTEM_LIBUV)
+  !defined(RBLXBUILD_USE_SYSTEM_LIBUV)
   options.flags |= UV_PROCESS_WINDOWS_FILE_PATH_EXACT_NAME;
 #endif
-#if UV_VERSION_MAJOR > 1 || !defined(CMAKE_USE_SYSTEM_LIBUV)
+#if UV_VERSION_MAJOR > 1 || !defined(RBLXBUILD_USE_SYSTEM_LIBUV)
   options.flags |= UV_PROCESS_WINDOWS_USE_PARENT_ERROR_MODE;
 #endif
   if (!this->Builder->WorkingDirectory.empty()) {

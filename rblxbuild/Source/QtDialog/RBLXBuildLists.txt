@@ -1,0 +1,363 @@
+# Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
+# file LICENSE.rst or https://rblxbuild.org/licensing for details.
+
+if(RBLXBuild_GUI_OSX_DEPLOYMENT_TARGET)
+  set(RBLXBUILD_OSX_DEPLOYMENT_TARGET "${RBLXBuild_GUI_OSX_DEPLOYMENT_TARGET}")
+endif()
+
+project(QtDialog)
+RBLXBuild_OPTIONAL_COMPONENT(rblxbuild-gui)
+set(QT_COMPONENTS
+  Core
+  Widgets
+  Gui
+)
+
+set(RBLXBuild_QT_MAJOR_VERSION "A" CACHE
+  STRING "Expected Qt major version. Valid values are A (auto-select), 5, 6.")
+set(SUPPORTED_QT_VERSIONS "A" 5 6)
+set_property(CACHE RBLXBuild_QT_MAJOR_VERSION PROPERTY STRINGS ${SUPPORTED_QT_VERSIONS})
+# Select a Qt version and store it in a normal variable of the same name.
+if(NOT RBLXBuild_QT_MAJOR_VERSION STREQUAL "A")
+  if(NOT RBLXBuild_QT_MAJOR_VERSION IN_LIST SUPPORTED_QT_VERSIONS)
+    message(FATAL_ERROR "Supported Qt versions are \"${SUPPORTED_QT_VERSIONS}\"."
+            " But RBLXBuild_QT_MAJOR_VERSION is set to ${RBLXBuild_QT_MAJOR_VERSION}.")
+  endif()
+  set(RBLXBuild_QT_MAJOR_VERSION "${RBLXBuild_QT_MAJOR_VERSION}")
+else()
+  find_package(Qt6Widgets QUIET)
+  set(RBLXBuild_QT_MAJOR_VERSION 6)
+  if(NOT Qt6Widgets_FOUND)
+    find_package(Qt5Widgets QUIET)
+    if(NOT Qt5Widgets_FOUND)
+      message(FATAL_ERROR "Could not find a valid Qt installation.")
+    endif()
+    set(RBLXBuild_QT_MAJOR_VERSION 5)
+  endif()
+endif()
+
+find_package(Qt${RBLXBuild_QT_MAJOR_VERSION}
+    COMPONENTS ${QT_COMPONENTS}
+    REQUIRED QUIET
+)
+
+set(RBLXBuild_QT_EXTRA_LIBRARIES)
+
+# Try to find the package WinExtras for the task bar progress
+if(WIN32)
+  find_package(Qt${RBLXBuild_QT_MAJOR_VERSION}WinExtras QUIET)
+  if(Qt${RBLXBuild_QT_MAJOR_VERSION}WinExtras_FOUND)
+    add_compile_definitions(QT_WINEXTRAS)
+    list(APPEND RBLXBuild_QT_EXTRA_LIBRARIES Qt${RBLXBuild_QT_MAJOR_VERSION}::WinExtras)
+    list(APPEND QT_COMPONENTS WinExtras)
+  endif()
+endif()
+
+if(MSVC)
+  # QTBUG-118993: Qt uses deprecated stdext::checked_array_iterator
+  add_compile_definitions(_SILENCE_STDEXT_ARR_ITERS_DEPRECATION_WARNING)
+endif()
+
+set(RBLXBUILD_CXX_FLAGS "${RBLXBUILD_CXX_FLAGS} ${Qt${RBLXBuild_QT_MAJOR_VERSION}Widgets_EXECUTABLE_COMPILE_FLAGS}")
+
+if(RBLXBuild_QT_STATIC_QXcbIntegrationPlugin_LIBRARIES)
+  list(APPEND RBLXBuild_QT_EXTRA_LIBRARIES ${RBLXBuild_QT_STATIC_QXcbIntegrationPlugin_LIBRARIES})
+  set_property(SOURCE RBLXBuildSetup.cxx
+    PROPERTY COMPILE_DEFINITIONS USE_QXcbIntegrationPlugin)
+endif()
+
+# We need to install platform plugin and add qt.conf for Qt5 on Mac and Windows.
+if(RBLXBuild_INSTALL_DEPENDENCIES AND (APPLE OR WIN32) AND NOT COMMAND qt_generate_deploy_app_script)
+  function(_qt_get_plugin_name_with_version target out_var)
+      string(REGEX REPLACE "^Qt::(.+)" "Qt${RBLXBuild_QT_MAJOR_VERSION}::\\1"
+             qt_plugin_with_version "${target}")
+      if(TARGET "${qt_plugin_with_version}")
+          set("${out_var}" "${qt_plugin_with_version}" PARENT_SCOPE)
+      else()
+          set("${out_var}" "" PARENT_SCOPE)
+      endif()
+  endfunction()
+  macro(install_qt_plugin _qt_plugin_name _qt_plugins_var)
+    if(TARGET "${_qt_plugin_name}")
+      get_target_property(_qt_plugin_path "${_qt_plugin_name}" LOCATION)
+    else()
+      _qt_get_plugin_name_with_version("Qt::${_qt_plugin_name}" _qt_plugin_with_version_name)
+      if(TARGET "${_qt_plugin_with_version_name}")
+        get_target_property(_qt_plugin_path "${_qt_plugin_with_version_name}" LOCATION)
+      endif()
+    endif()
+    if(EXISTS "${_qt_plugin_path}")
+      get_filename_component(_qt_plugin_file "${_qt_plugin_path}" NAME)
+      get_filename_component(_qt_plugin_type "${_qt_plugin_path}" PATH)
+      get_filename_component(_qt_plugin_type "${_qt_plugin_type}" NAME)
+      if(APPLE)
+        set(_qt_plugin_dir "PlugIns")
+      elseif(WIN32)
+        set(_qt_plugin_dir "plugins")
+      endif()
+      set(_qt_plugin_dest "${RBLXBuild_INSTALL_APP_DIR_SLASH}${_qt_plugin_dir}/${_qt_plugin_type}")
+      install(FILES "${_qt_plugin_path}"
+        DESTINATION "${_qt_plugin_dest}"
+        ${COMPONENT})
+      set(${_qt_plugins_var}
+        "${${_qt_plugins_var}};\$ENV{DESTDIR}\${RBLXBUILD_INSTALL_PREFIX}/${_qt_plugin_dest}/${_qt_plugin_file}")
+    endif()
+  endmacro()
+  if(APPLE)
+    if(RBLXBuild_QT_MAJOR_VERSION VERSION_GREATER_EQUAL 6)
+      # Qt6 provides the plugins as individual packages that need to be found.
+      find_package(Qt${RBLXBuild_QT_MAJOR_VERSION}QCocoaIntegrationPlugin QUIET PATHS ${Qt${RBLXBuild_QT_MAJOR_VERSION}Gui_DIR})
+      find_package(Qt${RBLXBuild_QT_MAJOR_VERSION}QMacStylePlugin QUIET PATHS ${Qt${RBLXBuild_QT_MAJOR_VERSION}Widgets_DIR})
+    endif()
+    install_qt_plugin("Qt${RBLXBuild_QT_MAJOR_VERSION}::QCocoaIntegrationPlugin" QT_PLUGINS)
+    if(TARGET Qt${RBLXBuild_QT_MAJOR_VERSION}::QMacStylePlugin)
+      install_qt_plugin("Qt${RBLXBuild_QT_MAJOR_VERSION}::QMacStylePlugin" QT_PLUGINS)
+    endif()
+    file(WRITE "${RBLXBUILD_CURRENT_BINARY_DIR}/qt.conf"
+      "[Paths]\nPlugins = ${_qt_plugin_dir}\n")
+    install(FILES "${RBLXBUILD_CURRENT_BINARY_DIR}/qt.conf"
+      DESTINATION "${RBLXBuild_INSTALL_APP_DIR_SLASH}Resources"
+      ${COMPONENT})
+  elseif(WIN32)
+    if(RBLXBuild_QT_MAJOR_VERSION VERSION_GREATER_EQUAL 6)
+      # Qt6 provides the plugins as individual packages that need to be found.
+      find_package(Qt${RBLXBuild_QT_MAJOR_VERSION}QWindowsIntegrationPlugin QUIET PATHS ${Qt${RBLXBuild_QT_MAJOR_VERSION}Gui_DIR})
+    endif()
+    install_qt_plugin("Qt${RBLXBuild_QT_MAJOR_VERSION}::QWindowsIntegrationPlugin" QT_PLUGINS)
+    file(WRITE "${RBLXBUILD_CURRENT_BINARY_DIR}/qt.conf"
+      "[Paths]\nPlugins = ../${_qt_plugin_dir}\n")
+    install(FILES "${RBLXBUILD_CURRENT_BINARY_DIR}/qt.conf"
+      DESTINATION bin
+      ${COMPONENT})
+  endif()
+endif()
+
+set(RBLXBUILD_INCLUDE_CURRENT_DIR ON)
+
+add_library(
+  RBLXBuildGUILib STATIC
+  AddCacheEntry.cxx
+  AddCacheEntry.h
+  RBLXBuildSetupDialog.cxx
+  RBLXBuildSetupDialog.h
+  Compilers.h
+  EnvironmentDialog.cxx
+  EnvironmentDialog.h
+  FirstConfigure.cxx
+  FirstConfigure.h
+  QRBLXBuild.cxx
+  QRBLXBuild.h
+  QRBLXBuildCacheView.cxx
+  QRBLXBuildCacheView.h
+  QRBLXBuildPreset.cxx
+  QRBLXBuildPreset.h
+  QRBLXBuildPresetComboBox.cxx
+  QRBLXBuildPresetComboBox.h
+  QRBLXBuildPresetItemModel.cxx
+  QRBLXBuildPresetItemModel.h
+  QRBLXBuildSizeType.h
+  QRBLXBuildWidgets.cxx
+  QRBLXBuildWidgets.h
+  RegexExplorer.cxx
+  RegexExplorer.h
+  WarningMessagesDialog.cxx
+  WarningMessagesDialog.h
+  )
+# RBLXBuild_QT_EXTRA_LIBRARIES have to come before the main libraries on the link line
+target_link_libraries(
+  RBLXBuildGUILib
+  PUBLIC
+    RBLXBuildLib
+    ${RBLXBuild_QT_EXTRA_LIBRARIES}
+    Qt${RBLXBuild_QT_MAJOR_VERSION}::Core
+    Qt${RBLXBuild_QT_MAJOR_VERSION}::Widgets
+  )
+
+set(UI_SRCS
+  RBLXBuildSetupDialog.ui
+  Compilers.ui
+  CrossCompiler.ui
+  AddCacheEntry.ui
+  EnvironmentDialog.ui
+  RegexExplorer.ui
+  WarningMessagesDialog.ui
+  )
+set(MOC_SRCS
+  AddCacheEntry.h
+  Compilers.h
+  RBLXBuildSetupDialog.h
+  EnvironmentDialog.h
+  FirstConfigure.h
+  QRBLXBuild.h
+  QRBLXBuildCacheView.h
+  QRBLXBuildPresetComboBox.h
+  QRBLXBuildPresetItemModel.h
+  QRBLXBuildWidgets.h
+  RegexExplorer.h
+  WarningMessagesDialog.h
+  )
+set(QRC_SRCS RBLXBuildSetup.qrc)
+
+if(RBLXBuild_QT_MAJOR_VERSION VERSION_LESS 6)
+  qt5_wrap_ui(UI_BUILT_SRCS ${UI_SRCS})
+  qt5_wrap_cpp(MOC_BUILT_SRCS ${MOC_SRCS})
+  qt5_add_resources(QRC_BUILT_SRCS ${QRC_SRCS})
+else()
+  qt_wrap_ui(UI_BUILT_SRCS ${UI_SRCS})
+  qt_wrap_cpp(MOC_BUILT_SRCS ${MOC_SRCS})
+  qt_add_resources(QRC_BUILT_SRCS ${QRC_SRCS})
+endif()
+add_library(RBLXBuildGUIQRCLib OBJECT ${QRC_BUILT_SRCS})
+
+if(FALSE) # RBLXBuild's bootstrap binary does not support automoc
+  set(RBLXBUILD_AUTOMOC 1)
+  set(RBLXBUILD_AUTORCC 1)
+  set(RBLXBUILD_AUTOUIC 1)
+else()
+  target_sources(
+    RBLXBuildGUILib
+    PRIVATE
+      ${UI_BUILT_SRCS}
+      ${MOC_BUILT_SRCS}
+  )
+endif()
+
+if(USE_LGPL)
+  install(FILES ${RBLXBuild_SOURCE_DIR}/Licenses/LGPLv${USE_LGPL}.txt
+    DESTINATION ${RBLXBuild_INSTALL_DATA_DIR}/Licenses
+    ${COMPONENT})
+  set_property(SOURCE RBLXBuildSetupDialog.cxx
+    PROPERTY COMPILE_DEFINITIONS USE_LGPL="${USE_LGPL}")
+endif()
+
+add_library(RBLXBuildGUIMainLib STATIC RBLXBuildSetup.cxx)
+target_link_libraries(
+  RBLXBuildGUIMainLib
+  PUBLIC
+    RBLXBuildGUILib
+  )
+
+add_executable(rblxbuild-gui WIN32 MACOSX_BUNDLE RBLXBuildGUIExec.cxx)
+set_property(TARGET rblxbuild-gui PROPERTY RBLXBuild_QT_MAJOR_VERSION "${RBLXBuild_QT_MAJOR_VERSION}")
+target_link_libraries(rblxbuild-gui
+  PRIVATE
+    RBLXBuildGUIMainLib
+    RBLXBuildGUIQRCLib
+    $<TARGET_NAME_IF_EXISTS:RBLXBuildVersion>
+    ManifestLib
+    Qt${RBLXBuild_QT_MAJOR_VERSION}::Core
+  )
+
+if(WIN32)
+  target_sources(RBLXBuildGUIMainLib INTERFACE RBLXBuildSetup.rc)
+endif()
+if(APPLE)
+  target_sources(RBLXBuildGUIMainLib INTERFACE RBLXBuildSetup.icns)
+  set(MACOSX_BUNDLE_ICON_FILE RBLXBuildSetup.icns)
+  set_source_files_properties(RBLXBuildSetup.icns PROPERTIES
+    MACOSX_PACKAGE_LOCATION Resources)
+endif()
+
+if(RBLXBuild_JOB_POOL_LINK_BIN)
+  set_property(TARGET rblxbuild-gui PROPERTY JOB_POOL_LINK "link-bin")
+endif()
+
+# rblxbuild-gui has not been updated for `include-what-you-use`.
+# Block the tool until this is done.
+set_target_properties(RBLXBuildGUILib RBLXBuildGUIMainLib rblxbuild-gui PROPERTIES
+  CXX_INCLUDE_WHAT_YOU_USE ""
+  )
+
+# Files generated by MOC, RCC, and UIC may produce clang-tidy warnings.
+# We generate a dummy .clang-tidy file in the binary directory that disables
+# all clang-tidy checks except one that will never match.  This one check is
+# necessary; clang-tidy reports an error when no checks are enabled.
+# Since the Qt code generators will generate source files in the binary tree,
+# clang-tidy will load the configuration from this dummy file when the sources
+# are built.
+file(WRITE "${QtDialog_BINARY_DIR}/.clang-tidy" "
+---
+Checks: '-*,llvm-twine-local'
+...
+")
+
+if(APPLE)
+  set_target_properties(rblxbuild-gui PROPERTIES
+    OUTPUT_NAME RBLXBuild
+    MACOSX_BUNDLE_INFO_PLIST "${RBLXBUILD_CURRENT_SOURCE_DIR}/Info.plist.in"
+    MACOSX_BUNDLE_SHORT_VERSION_STRING "${RBLXBuild_VERSION_MAJOR}.${RBLXBuild_VERSION_MINOR}.${RBLXBuild_VERSION_PATCH}"
+    # TBD: MACOSX_BUNDLE_BUNDLE_VERSION "${RBLXBuild_VERSION_MAJOR}.${RBLXBuild_VERSION_MINOR}.${RBLXBuild_VERSION_PATCH}"
+    MACOSX_BUNDLE_COPYRIGHT "${RBLXBuild_COPYRIGHT_LINE}"
+    MACOSX_BUNDLE_GUI_IDENTIFIER "org.rblxbuild.rblxbuild"
+    )
+
+  # Create a symlink in the build tree to provide a "rblxbuild-gui" next
+  # to the "rblxbuild" executable that refers to the application bundle.
+  add_custom_command(TARGET rblxbuild-gui POST_BUILD
+    COMMAND ln -sf RBLXBuild.app/Contents/MacOS/RBLXBuild
+                   $<TARGET_FILE_DIR:rblxbuild>/rblxbuild-gui
+    )
+endif()
+
+install(TARGETS rblxbuild-gui
+  RUNTIME DESTINATION ${RBLXBuild_INSTALL_BIN_DIR} ${COMPONENT}
+  BUNDLE  DESTINATION .                        ${COMPONENT})
+
+if(UNIX AND NOT APPLE)
+  foreach(size IN ITEMS 32 128)
+    install(
+      FILES       "${RBLXBUILD_CURRENT_SOURCE_DIR}/RBLXBuildSetup${size}.png"
+      DESTINATION "${RBLXBuild_INSTALL_XDGDATA_DIR}/icons/hicolor/${size}x${size}/apps"
+      ${COMPONENT}
+      RENAME      "RBLXBuildSetup.png")
+  endforeach()
+
+  # install a desktop file so RBLXBuild appears in the application start menu
+  # with an icon
+  install(FILES rblxbuild-gui.desktop
+    DESTINATION "${RBLXBuild_INSTALL_XDGDATA_DIR}/applications"
+    ${COMPONENT})
+  install(FILES rblxbuildcache.xml
+    DESTINATION "${RBLXBuild_INSTALL_XDGDATA_DIR}/mime/packages"
+    ${COMPONENT})
+endif()
+
+if(APPLE)
+  install(CODE "
+    execute_process(COMMAND ln -s \"../MacOS/RBLXBuild\" rblxbuild-gui
+        WORKING_DIRECTORY \$ENV{DESTDIR}\${RBLXBUILD_INSTALL_PREFIX}/${RBLXBuild_INSTALL_BIN_DIR})
+  " ${COMPONENT})
+endif()
+
+if(RBLXBuild_INSTALL_DEPENDENCIES AND (APPLE OR WIN32))
+  if(COMMAND qt_generate_deploy_app_script)
+    # Qt libraries are found via @rpath, so point the runtime path at them.
+    set_property(TARGET rblxbuild-gui PROPERTY INSTALL_RPATH "@executable_path/../Frameworks")
+    qt_generate_deploy_app_script(
+      TARGET rblxbuild-gui
+      OUTPUT_SCRIPT qt_deploy_script
+    )
+    install(SCRIPT "${qt_deploy_script}")
+  else()
+    # install rules for including 3rd party libs such as Qt
+    # if a system Qt is used (e.g. installed in /usr/lib/), it will not be included in the installation
+    set(fixup_exe "\$ENV{DESTDIR}\${RBLXBUILD_INSTALL_PREFIX}/${RBLXBuild_INSTALL_BIN_DIR}/rblxbuild-gui${RBLXBUILD_EXECUTABLE_SUFFIX}")
+    if(APPLE)
+      set(fixup_exe "\$ENV{DESTDIR}\${RBLXBUILD_INSTALL_PREFIX}/${RBLXBuild_INSTALL_APP_DIR_SLASH}MacOS/RBLXBuild")
+    endif()
+    get_property(_Qt_Core_LOCATION TARGET Qt${RBLXBuild_QT_MAJOR_VERSION}::Core PROPERTY LOCATION)
+    if(APPLE AND _Qt_Core_LOCATION MATCHES [[^(.*)/[^/]*\.framework/]])
+      set(Qt_LIB_DIR "${RBLXBUILD_MATCH_1}")
+    else()
+      get_filename_component(Qt_LIB_DIR "${_Qt_Core_LOCATION}" PATH)
+    endif()
+    install(CODE "
+      include(BundleUtilities)
+      set(BU_CHMOD_BUNDLE_ITEMS ON)
+      fixup_bundle(\"${fixup_exe}\" \"${QT_PLUGINS}\" \"${Qt_LIB_DIR};${QT_LIBRARY_DIR};${QT_BINARY_DIR}\")
+    " ${COMPONENT})
+  endif()
+endif()
+
+set(RBLXBUILD_PACKAGE_QTGUI TRUE)
+configure_file(QtDialogCPack.rblxbuild.in QtDialogCPack.rblxbuild @ONLY)

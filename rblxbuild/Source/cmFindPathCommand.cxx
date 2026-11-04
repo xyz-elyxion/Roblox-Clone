@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmFindPathCommand.h"
 
 #include <utility>
@@ -32,7 +32,7 @@ cmFindPathCommand::cmFindPathCommand(cmExecutionStatus& status)
 // cmFindPathCommand
 bool cmFindPathCommand::InitialPass(std::vector<std::string> const& argsIn)
 {
-  this->CMakePathName = "INCLUDE";
+  this->RBLXBuildPathName = "INCLUDE";
 
   if (!this->ParseArguments(argsIn)) {
     return false;

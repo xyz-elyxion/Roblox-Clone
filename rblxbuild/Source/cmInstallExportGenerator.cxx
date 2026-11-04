@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmInstallExportGenerator.h"
 
 #include <map>
@@ -66,7 +66,7 @@ std::string cmInstallExportGenerator::TempDirCalculate() const
   // Choose a temporary directory in which to generate the import
   // files to be installed.
   std::string path = cmStrCat(
-    this->LocalGenerator->GetCurrentBinaryDirectory(), "/CMakeFiles/Export");
+    this->LocalGenerator->GetCurrentBinaryDirectory(), "/RBLXBuildFiles/Export");
   if (this->Destination.empty()) {
     return path;
   }
@@ -168,26 +168,26 @@ void cmInstallExportGenerator::GenerateScriptConfigs(std::ostream& os,
     Indent indentN = indent.Next();
     Indent indentNN = indentN.Next();
     Indent indentNNN = indentNN.Next();
-    os << indentN << "file(DIFFERENT _cmake_export_file_changed FILES\n"
+    os << indentN << "file(DIFFERENT _rblxbuild_export_file_changed FILES\n"
        << indentN << "     \"" << installedFile << "\"\n"
        << indentN << "     \"" << cxxModuleInstallFilePath << "\")\n";
-    os << indentN << "if(_cmake_export_file_changed)\n";
-    os << indentNN << "file(GLOB _cmake_old_config_files \"" << installedDir
+    os << indentN << "if(_rblxbuild_export_file_changed)\n";
+    os << indentNN << "file(GLOB _rblxbuild_old_config_files \"" << installedDir
        << configImportFilesGlob << "\")\n";
-    os << indentNN << "if(_cmake_old_config_files)\n";
+    os << indentNN << "if(_rblxbuild_old_config_files)\n";
     os << indentNNN
-       << "string(REPLACE \";\" \", \" _cmake_old_config_files_text "
-          "\"${_cmake_old_config_files}\")\n";
+       << "string(REPLACE \";\" \", \" _rblxbuild_old_config_files_text "
+          "\"${_rblxbuild_old_config_files}\")\n";
     os << indentNNN << R"(message(STATUS "Old C++ module export file \")"
        << installedFile
        << "\\\" will be replaced.  "
-          "Removing files [${_cmake_old_config_files_text}].\")\n";
-    os << indentNNN << "unset(_cmake_old_config_files_text)\n";
-    os << indentNNN << "file(REMOVE ${_cmake_old_config_files})\n";
+          "Removing files [${_rblxbuild_old_config_files_text}].\")\n";
+    os << indentNNN << "unset(_rblxbuild_old_config_files_text)\n";
+    os << indentNNN << "file(REMOVE ${_rblxbuild_old_config_files})\n";
     os << indentNN << "endif()\n";
-    os << indentNN << "unset(_cmake_old_config_files)\n";
+    os << indentNN << "unset(_rblxbuild_old_config_files)\n";
     os << indentN << "endif()\n";
-    os << indentN << "unset(_cmake_export_file_changed)\n";
+    os << indentN << "unset(_rblxbuild_export_file_changed)\n";
     os << indent << "endif()\n";
 
     // All of these files are siblings; get its location to know where the
@@ -232,25 +232,25 @@ void cmInstallExportGenerator::GenerateScriptActions(std::ostream& os,
     Indent indentN = indent.Next();
     Indent indentNN = indentN.Next();
     Indent indentNNN = indentNN.Next();
-    os << indentN << "file(DIFFERENT _cmake_export_file_changed FILES\n"
+    os << indentN << "file(DIFFERENT _rblxbuild_export_file_changed FILES\n"
        << indentN << "     \"" << installedFile << "\"\n"
        << indentN << "     \"" << this->MainImportFile << "\")\n";
-    os << indentN << "if(_cmake_export_file_changed)\n";
-    os << indentNN << "file(GLOB _cmake_old_config_files \"" << installedDir
+    os << indentN << "if(_rblxbuild_export_file_changed)\n";
+    os << indentNN << "file(GLOB _rblxbuild_old_config_files \"" << installedDir
        << configImportFilesGlob << "\")\n";
-    os << indentNN << "if(_cmake_old_config_files)\n";
+    os << indentNN << "if(_rblxbuild_old_config_files)\n";
     os << indentNNN
-       << "string(REPLACE \";\" \", \" _cmake_old_config_files_text "
-          "\"${_cmake_old_config_files}\")\n";
+       << "string(REPLACE \";\" \", \" _rblxbuild_old_config_files_text "
+          "\"${_rblxbuild_old_config_files}\")\n";
     os << indentNNN << R"(message(STATUS "Old export file \")" << installedFile
        << "\\\" will be replaced.  "
-          "Removing files [${_cmake_old_config_files_text}].\")\n";
-    os << indentNNN << "unset(_cmake_old_config_files_text)\n";
-    os << indentNNN << "file(REMOVE ${_cmake_old_config_files})\n";
+          "Removing files [${_rblxbuild_old_config_files_text}].\")\n";
+    os << indentNNN << "unset(_rblxbuild_old_config_files_text)\n";
+    os << indentNNN << "file(REMOVE ${_rblxbuild_old_config_files})\n";
     os << indentNN << "endif()\n";
-    os << indentNN << "unset(_cmake_old_config_files)\n";
+    os << indentNN << "unset(_rblxbuild_old_config_files)\n";
     os << indentN << "endif()\n";
-    os << indentN << "unset(_cmake_export_file_changed)\n";
+    os << indentN << "unset(_rblxbuild_export_file_changed)\n";
     os << indent << "endif()\n";
   }
 

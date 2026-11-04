@@ -1,0 +1,247 @@
+# Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
+# file LICENSE.rst or https://rblxbuild.org/licensing for details.
+
+
+if(RBLXBUILD_GENERATOR MATCHES "^Xcode")
+  message(FATAL_ERROR
+    "The SYCL language is not supported by the \"${RBLXBUILD_GENERATOR}\" "
+    "generator.")
+endif()
+
+include(${RBLXBUILD_ROOT}/Modules/RBLXBuildDetermineCompiler.rblxbuild)
+
+# Record the selection used to identify the host toolchain and runtime.
+if(DEFINED RBLXBUILD_SYCL_DEVICE_TARGETS)
+  set(_RBLXBUILD_SYCL_DEVICE_TARGETS "${RBLXBUILD_SYCL_DEVICE_TARGETS}")
+endif()
+
+# Load system-specific compiler preferences for this language.
+include(Platform/${RBLXBUILD_SYSTEM_NAME}-Determine-SYCL OPTIONAL)
+include(Platform/${RBLXBUILD_SYSTEM_NAME}-SYCL OPTIONAL)
+if(NOT RBLXBUILD_SYCL_COMPILER_NAMES)
+  set(RBLXBUILD_SYCL_COMPILER_NAMES dpclang++ dpclang-cl icpx icx icx-cl dpcpp acpp syclcc clang++ clang-cl)
+endif()
+
+if(NOT "${RBLXBUILD_GENERATOR}" MATCHES "Green Hills MULTI")
+  if(NOT RBLXBUILD_SYCL_COMPILER)
+    set(RBLXBUILD_SYCL_COMPILER_INIT NOTFOUND)
+
+    if(NOT $ENV{SYCLCXX} STREQUAL "")
+      get_filename_component(RBLXBUILD_SYCL_COMPILER_INIT $ENV{SYCLCXX} PROGRAM PROGRAM_ARGS RBLXBUILD_SYCL_FLAGS_ENV_INIT)
+      if(RBLXBUILD_SYCL_FLAGS_ENV_INIT)
+        set(RBLXBUILD_SYCL_COMPILER_ARG1 "${RBLXBUILD_SYCL_FLAGS_ENV_INIT}" CACHE STRING "Arguments to SYCL compiler")
+      endif()
+      if(NOT EXISTS ${RBLXBUILD_SYCL_COMPILER_INIT})
+        message(FATAL_ERROR "Could not find the compiler specified in the environment variable SYCLCXX:\n$ENV{SYCLCXX}.\n${RBLXBUILD_SYCL_COMPILER_INIT}")
+      endif()
+    endif()
+
+    if(RBLXBUILD_GENERATOR_SYCL AND NOT RBLXBUILD_SYCL_COMPILER_INIT)
+      set(RBLXBUILD_SYCL_COMPILER_INIT ${RBLXBUILD_GENERATOR_SYCL})
+    endif()
+
+    if(NOT RBLXBUILD_SYCL_COMPILER_INIT)
+      set(RBLXBUILD_SYCL_COMPILER_LIST dpclang++ dpclang-cl icpx icx icx-cl dpcpp acpp syclcc clang++ clang-cl)
+    endif()
+
+    _rblxbuild_find_compiler(SYCL)
+  else()
+    _rblxbuild_find_compiler_path(SYCL)
+  endif()
+  mark_as_advanced(RBLXBUILD_SYCL_COMPILER)
+
+  get_filename_component(_RBLXBUILD_SYCL_COMPILER_NAME
+    "${RBLXBUILD_SYCL_COMPILER}" NAME_WE)
+  if(_RBLXBUILD_SYCL_COMPILER_NAME MATCHES "^(acpp|syclcc|syclcc-clang)$")
+    set(RBLXBUILD_SYCL_COMPILER_ID_TEST_FLAGS_FIRST "-x c++")
+    set(RBLXBUILD_SYCL_COMPILER_ID_TEST_FLAGS "-c -x c++" "-x c++")
+  else()
+    set(RBLXBUILD_SYCL_COMPILER_ID_TEST_FLAGS_FIRST "-fsycl -x c++")
+    set(RBLXBUILD_SYCL_COMPILER_ID_TEST_FLAGS
+      "-c -fsycl -x c++"
+      "-fsycl -x c++"
+      "-c -x c++"
+      "-x c++")
+  endif()
+  unset(_RBLXBUILD_SYCL_COMPILER_NAME)
+endif()
+
+if(RBLXBUILD_SYCL_COMPILER_TARGET)
+  get_filename_component(_RBLXBUILD_SYCL_COMPILER_NAME
+    "${RBLXBUILD_SYCL_COMPILER}" NAME_WE)
+  if(_RBLXBUILD_SYCL_COMPILER_NAME MATCHES "^(acpp|syclcc|syclcc-clang)$")
+    set(RBLXBUILD_SYCL_COMPILER_ID_TEST_FLAGS_FIRST
+      "-c --target=${RBLXBUILD_SYCL_COMPILER_TARGET} -x c++")
+  else()
+    set(RBLXBUILD_SYCL_COMPILER_ID_TEST_FLAGS_FIRST
+      "-c --target=${RBLXBUILD_SYCL_COMPILER_TARGET} -fsycl -x c++")
+  endif()
+  unset(_RBLXBUILD_SYCL_COMPILER_NAME)
+endif()
+
+get_filename_component(_RBLXBUILD_SYCL_COMPILER_NAME
+  "${RBLXBUILD_SYCL_COMPILER}" NAME_WE)
+if(_RBLXBUILD_SYCL_COMPILER_NAME MATCHES "^(acpp|syclcc|syclcc-clang)$")
+  if(NOT DEFINED _RBLXBUILD_SYCL_DEVICE_TARGETS)
+    if(DEFINED ENV{ACPP_TARGETS})
+      set(_RBLXBUILD_SYCL_DEVICE_TARGETS "$ENV{ACPP_TARGETS}")
+    elseif(DEFINED ENV{HIPSYCL_TARGETS})
+      set(_RBLXBUILD_SYCL_DEVICE_TARGETS "$ENV{HIPSYCL_TARGETS}")
+    else()
+      execute_process(COMMAND "${RBLXBUILD_SYCL_COMPILER}" --help
+        OUTPUT_VARIABLE _RBLXBUILD_SYCL_DRIVER_HELP
+        ERROR_QUIET)
+      if(_RBLXBUILD_SYCL_DRIVER_HELP MATCHES
+          "--acpp-targets=[^\n]*\n[^\n]*\n[^\n]*\n  \\[current value: ([^]\n]+)\\]")
+        if(NOT RBLXBUILD_MATCH_1 STREQUAL "NOT SET")
+          set(_RBLXBUILD_SYCL_DEVICE_TARGETS "${RBLXBUILD_MATCH_1}")
+        endif()
+      endif()
+      unset(_RBLXBUILD_SYCL_DRIVER_HELP)
+    endif()
+  endif()
+  # AdaptiveCpp supplies the backend's source language itself.  A forwarded
+  # -x c++ would override its -x cuda/-x hip during multipass compilation.
+  string(TOLOWER "${_RBLXBUILD_SYCL_DEVICE_TARGETS}" _RBLXBUILD_SYCL_TARGET_FLOWS)
+  if(_RBLXBUILD_SYCL_TARGET_FLOWS MATCHES
+      "(^|;)[ \t]*(cuda|hip)(\\.(integrated|explicit)-multipass)?[ \t]*(:|;|$)" OR
+      (NOT "${RBLXBUILD_SYCL_DEVICE_TARGETS}" STREQUAL "" AND
+       NOT RBLXBUILD_SYCL_DEVICE_TARGETS))
+    string(REPLACE "-x c++" "" RBLXBUILD_SYCL_COMPILER_ID_TEST_FLAGS_FIRST
+      "${RBLXBUILD_SYCL_COMPILER_ID_TEST_FLAGS_FIRST}")
+    string(REPLACE "-x c++" "" RBLXBUILD_SYCL_COMPILER_ID_TEST_FLAGS
+      "${RBLXBUILD_SYCL_COMPILER_ID_TEST_FLAGS}")
+  endif()
+  unset(_RBLXBUILD_SYCL_TARGET_FLOWS)
+  set(_RBLXBUILD_SYCL_DEVICE_TARGET_OPTION "--acpp-targets=")
+  set(_RBLXBUILD_SYCL_DEVICE_TARGET_VALUE "${_RBLXBUILD_SYCL_DEVICE_TARGETS}")
+elseif(_RBLXBUILD_SYCL_COMPILER_NAME MATCHES "^(clang\\+\\+|clang|clang-cl)(-[0-9]+)?$")
+  set(_RBLXBUILD_SYCL_DEVICE_TARGET_OPTION "--offload-targets=")
+  string(REPLACE ";" "," _RBLXBUILD_SYCL_DEVICE_TARGET_VALUE
+    "${_RBLXBUILD_SYCL_DEVICE_TARGETS}")
+else()
+  set(_RBLXBUILD_SYCL_DEVICE_TARGET_OPTION "-fsycl-targets=")
+  string(REPLACE ";" "," _RBLXBUILD_SYCL_DEVICE_TARGET_VALUE
+    "${_RBLXBUILD_SYCL_DEVICE_TARGETS}")
+endif()
+if(_RBLXBUILD_SYCL_DEVICE_TARGETS)
+  set(RBLXBUILD_SYCL_COMPILER_ID_TEST_FLAGS_FIRST
+    "\"${_RBLXBUILD_SYCL_DEVICE_TARGET_OPTION}${_RBLXBUILD_SYCL_DEVICE_TARGET_VALUE}\" ${RBLXBUILD_SYCL_COMPILER_ID_TEST_FLAGS_FIRST}")
+  string(REPLACE ";" "\\;" _RBLXBUILD_SYCL_DEVICE_TARGET_VALUE
+    "${_RBLXBUILD_SYCL_DEVICE_TARGET_VALUE}")
+  foreach(_flag IN LISTS RBLXBUILD_SYCL_COMPILER_ID_TEST_FLAGS)
+    # Subsequent attempts must not silently fall back to default targets.
+    string(APPEND _RBLXBUILD_SYCL_ID_TARGET_FLAGS
+      "\"${_RBLXBUILD_SYCL_DEVICE_TARGET_OPTION}${_RBLXBUILD_SYCL_DEVICE_TARGET_VALUE}\" ${_flag};")
+  endforeach()
+  set(RBLXBUILD_SYCL_COMPILER_ID_TEST_FLAGS "${_RBLXBUILD_SYCL_ID_TARGET_FLAGS}")
+endif()
+unset(_RBLXBUILD_SYCL_COMPILER_NAME)
+unset(_RBLXBUILD_SYCL_DEVICE_TARGET_OPTION)
+unset(_RBLXBUILD_SYCL_DEVICE_TARGET_VALUE)
+unset(_RBLXBUILD_SYCL_ID_TARGET_FLAGS)
+unset(_flag)
+
+if(NOT RBLXBUILD_SYCL_COMPILER_ID_RUN)
+  set(RBLXBUILD_SYCL_COMPILER_ID_RUN 1)
+
+  set(RBLXBUILD_SYCL_COMPILER_ID)
+  set(RBLXBUILD_SYCL_PLATFORM_ID)
+  file(READ ${RBLXBUILD_ROOT}/Modules/RBLXBuildPlatformId.h.in
+    RBLXBUILD_SYCL_COMPILER_ID_PLATFORM_CONTENT)
+
+  list(APPEND RBLXBUILD_SYCL_COMPILER_ID_VENDORS IAR)
+  set(RBLXBUILD_SYCL_COMPILER_ID_VENDOR_FLAGS_IAR )
+  set(RBLXBUILD_SYCL_COMPILER_ID_VENDOR_REGEX_IAR "IAR .+ Compiler")
+
+  set(RBLXBUILD_SYCL_COMPILER_ID_TOOL_MATCH_REGEX "\nLd[^\n]*(\n[ \t]+[^\n]*)*\n[ \t]+([^ \t\r\n]+)[^\r\n]*-o[^\r\n]*CompilerIdSYCL/(\\./)?(CompilerIdSYCL.(framework|xctest|build/[^ \t\r\n]+)/)?CompilerIdSYCL[ \t\n\\\"]")
+  set(RBLXBUILD_SYCL_COMPILER_ID_TOOL_MATCH_INDEX 2)
+
+  include(${RBLXBUILD_ROOT}/Modules/RBLXBuildDetermineCompilerId.rblxbuild)
+  get_filename_component(_RBLXBUILD_SYCL_COMPILER_NAME "${RBLXBUILD_SYCL_COMPILER}" NAME_WE)
+  if(_RBLXBUILD_SYCL_COMPILER_NAME MATCHES "-cl$")
+    string(APPEND RBLXBUILD_SYCL_COMPILER_ID_TEST_FLAGS_FIRST " -clang:-v")
+  else()
+    string(APPEND RBLXBUILD_SYCL_COMPILER_ID_TEST_FLAGS_FIRST " -v")
+  endif()
+  unset(_RBLXBUILD_SYCL_COMPILER_NAME)
+  RBLXBUILD_DETERMINE_COMPILER_ID(SYCL SYCLFLAGS RBLXBuildSYCLCompilerId.sycl)
+
+  include(RBLXBuildParseImplicitLinkInfo)
+  rblxbuild_parse_implicit_link_info2("${RBLXBUILD_SYCL_COMPILER_PRODUCED_OUTPUT}" _RBLXBUILD_SYCL_LINK_LOG ""
+    LANGUAGE SYCL
+    COMPUTE_IMPLICIT_LIBS RBLXBUILD_SYCL_HOST_IMPLICIT_LINK_LIBRARIES
+    COMPUTE_IMPLICIT_DIRS RBLXBUILD_SYCL_HOST_IMPLICIT_LINK_DIRECTORIES
+    COMPUTE_IMPLICIT_FWKS RBLXBUILD_SYCL_HOST_IMPLICIT_LINK_FRAMEWORK_DIRECTORIES)
+  message(CONFIGURE_LOG "Parsed SYCL compiler-id link information:\n${_RBLXBUILD_SYCL_LINK_LOG}\n")
+  set(RBLXBUILD_SYCL_IMPLICIT_LINK_LIBRARIES "${RBLXBUILD_SYCL_HOST_IMPLICIT_LINK_LIBRARIES}")
+  set(RBLXBUILD_SYCL_IMPLICIT_LINK_DIRECTORIES "${RBLXBUILD_SYCL_HOST_IMPLICIT_LINK_DIRECTORIES}")
+  set(RBLXBUILD_SYCL_IMPLICIT_LINK_FRAMEWORK_DIRECTORIES "${RBLXBUILD_SYCL_HOST_IMPLICIT_LINK_FRAMEWORK_DIRECTORIES}")
+  include(Internal/RBLXBuildSYCLFilterImplicitLibs)
+  rblxbuild_sycl_filter_implicit_libs(RBLXBUILD_SYCL_IMPLICIT_LINK_LIBRARIES)
+
+  _rblxbuild_find_compiler_sysroot(SYCL)
+else()
+  if(NOT DEFINED RBLXBUILD_SYCL_COMPILER_FRONTEND_VARIANT)
+    if(RBLXBUILD_SYCL_COMPILER_ID STREQUAL "Clang" OR
+       "x${RBLXBUILD_SYCL_COMPILER_ID}" STREQUAL "xDPClang" OR
+       "x${RBLXBUILD_SYCL_COMPILER_ID}" STREQUAL "xIntelLLVM")
+      if("x${RBLXBUILD_SYCL_SIMULATE_ID}" STREQUAL "xMSVC")
+        set(RBLXBUILD_SYCL_COMPILER_FRONTEND_VARIANT "MSVC")
+      else()
+        set(RBLXBUILD_SYCL_COMPILER_FRONTEND_VARIANT "GNU")
+      endif()
+    elseif(RBLXBUILD_SYCL_COMPILER_ID STREQUAL "AdaptiveCpp")
+      set(RBLXBUILD_SYCL_COMPILER_FRONTEND_VARIANT "GNU")
+    else()
+      set(RBLXBUILD_SYCL_COMPILER_FRONTEND_VARIANT "")
+    endif()
+  endif()
+endif()
+
+if(NOT _RBLXBUILD_TOOLCHAIN_LOCATION)
+  get_filename_component(_RBLXBUILD_TOOLCHAIN_LOCATION "${RBLXBUILD_SYCL_COMPILER}" PATH)
+endif()
+
+if(NOT _RBLXBUILD_TOOLCHAIN_PREFIX)
+  if(RBLXBUILD_SYCL_COMPILER_ID MATCHES "GNU|Clang|IntelLLVM|QCC|LCC")
+    get_filename_component(COMPILER_BASENAME "${RBLXBUILD_SYCL_COMPILER}" NAME)
+    if(COMPILER_BASENAME MATCHES "^(.+-)?(dpclang\\+\\+|dpclang-cl|dpclang|clang\\+\\+|dpcpp|icpx|[gc]\\+\\+|clang-cl)(-?[0-9]+(\\.[0-9]+)*)?(-[^.]+)?(\\.exe)?$")
+      set(_RBLXBUILD_TOOLCHAIN_PREFIX ${RBLXBUILD_MATCH_1})
+      set(_RBLXBUILD_TOOLCHAIN_SUFFIX ${RBLXBUILD_MATCH_3})
+      set(_RBLXBUILD_COMPILER_SUFFIX ${RBLXBUILD_MATCH_5})
+    elseif(RBLXBUILD_SYCL_COMPILER_TARGET AND RBLXBUILD_SYCL_COMPILER_ID MATCHES "Clang|IntelLLVM")
+      set(_RBLXBUILD_TOOLCHAIN_PREFIX ${RBLXBUILD_SYCL_COMPILER_TARGET}-)
+    endif()
+
+    if("${_RBLXBUILD_TOOLCHAIN_PREFIX}" MATCHES "(.+-)?llvm-$")
+      set(_RBLXBUILD_TOOLCHAIN_PREFIX ${RBLXBUILD_MATCH_1})
+    endif()
+  endif()
+endif()
+
+set(_RBLXBUILD_PROCESSING_LANGUAGE "SYCL")
+include(RBLXBuildFindBinUtils)
+include(Compiler/${RBLXBUILD_SYCL_COMPILER_ID}-FindBinUtils OPTIONAL)
+unset(_RBLXBUILD_PROCESSING_LANGUAGE)
+
+if(RBLXBUILD_SYCL_COMPILER_SYSROOT)
+  string(CONCAT _SET_RBLXBUILD_SYCL_COMPILER_SYSROOT
+    "set(RBLXBUILD_SYCL_COMPILER_SYSROOT \"${RBLXBUILD_SYCL_COMPILER_SYSROOT}\")\n"
+    "set(RBLXBUILD_COMPILER_SYSROOT \"${RBLXBUILD_SYCL_COMPILER_SYSROOT}\")")
+else()
+  set(_SET_RBLXBUILD_SYCL_COMPILER_SYSROOT "")
+endif()
+
+if(MSVC_SYCL_ARCHITECTURE_ID)
+  set(SET_MSVC_SYCL_ARCHITECTURE_ID
+    "set(MSVC_SYCL_ARCHITECTURE_ID ${MSVC_SYCL_ARCHITECTURE_ID})")
+endif()
+
+# configure all variables set in this file
+configure_file(${RBLXBUILD_ROOT}/Modules/RBLXBuildSYCLCompiler.rblxbuild.in
+  ${RBLXBUILD_PLATFORM_INFO_DIR}/RBLXBuildSYCLCompiler.rblxbuild
+  @ONLY
+  )
+
+set(RBLXBUILD_SYCL_COMPILER_ENV_VAR "SYCLCXX")

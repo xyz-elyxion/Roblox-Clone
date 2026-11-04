@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmGlobalVisualStudioVersionedGenerator.h"
 
 #include <cstring>
@@ -22,7 +22,7 @@
 #include "cmStringAlgorithms.h"
 #include "cmSystemTools.h"
 #include "cmVSSetupHelper.h"
-#include "cmake.h"
+#include "rblxbuild.h"
 
 #ifndef IMAGE_FILE_MACHINE_ARM64
 #  define IMAGE_FILE_MACHINE_ARM64 0xaa64 // ARM64 Little-Endian
@@ -204,7 +204,7 @@ class cmGlobalVisualStudioVersionedGenerator::Factory15
 {
 public:
   std::unique_ptr<cmGlobalGenerator> CreateGlobalGenerator(
-    std::string const& name, cmake* cm) const override
+    std::string const& name, rblxbuild* cm) const override
   {
     std::string genName;
     char const* p = cmVS15GenName(name, genName);
@@ -307,7 +307,7 @@ class cmGlobalVisualStudioVersionedGenerator::Factory16
 {
 public:
   std::unique_ptr<cmGlobalGenerator> CreateGlobalGenerator(
-    std::string const& name, cmake* cm) const override
+    std::string const& name, rblxbuild* cm) const override
   {
     std::string genName;
     char const* p = cmVS16GenName(name, genName);
@@ -367,7 +367,7 @@ class cmGlobalVisualStudioVersionedGenerator::Factory17
 {
 public:
   std::unique_ptr<cmGlobalGenerator> CreateGlobalGenerator(
-    std::string const& name, cmake* cm) const override
+    std::string const& name, rblxbuild* cm) const override
   {
     std::string genName;
     char const* p = cmVS17GenName(name, genName);
@@ -427,7 +427,7 @@ class cmGlobalVisualStudioVersionedGenerator::Factory18
 {
 public:
   std::unique_ptr<cmGlobalGenerator> CreateGlobalGenerator(
-    std::string const& name, cmake* cm) const override
+    std::string const& name, rblxbuild* cm) const override
   {
     std::string genName;
     char const* p = cmVS18GenName(name, genName);
@@ -483,7 +483,7 @@ cmGlobalVisualStudioVersionedGenerator::NewFactory18()
 }
 
 cmGlobalVisualStudioVersionedGenerator::cmGlobalVisualStudioVersionedGenerator(
-  VSVersion version, cmake* cm, std::string const& name)
+  VSVersion version, rblxbuild* cm, std::string const& name)
   : cmGlobalVisualStudio14Generator(cm, name)
   , vsSetupAPIHelper(VSVersionToMajor(version))
 {
@@ -612,9 +612,9 @@ bool cmGlobalVisualStudioVersionedGenerator::SetGeneratorInstance(
   }
 
   // Save the selected instance persistently.
-  std::string genInstance = mf->GetSafeDefinition("CMAKE_GENERATOR_INSTANCE");
+  std::string genInstance = mf->GetSafeDefinition("RBLXBUILD_GENERATOR_INSTANCE");
   if (vsInstance != genInstance) {
-    this->CMakeInstance->AddCacheEntry("CMAKE_GENERATOR_INSTANCE", vsInstance,
+    this->RBLXBuildInstance->AddCacheEntry("RBLXBUILD_GENERATOR_INSTANCE", vsInstance,
                                        "Generator instance identifier.",
                                        cmStateEnums::INTERNAL);
   }
@@ -705,7 +705,7 @@ bool cmGlobalVisualStudioVersionedGenerator::ParseGeneratorInstance(
 void cmGlobalVisualStudioVersionedGenerator::SetVSVersionVar(cmMakefile* mf)
 {
   if (cm::optional<std::string> vsVer = this->GetVSInstanceVersion()) {
-    mf->AddDefinition("CMAKE_VS_VERSION_BUILD_NUMBER", *vsVer);
+    mf->AddDefinition("RBLXBUILD_VS_VERSION_BUILD_NUMBER", *vsVer);
   }
 }
 
@@ -989,7 +989,7 @@ cmGlobalVisualStudioVersionedGenerator::GetWindows10SDKMaxVersionDefault(
 cm::optional<std::string>
 cmGlobalVisualStudioVersionedGenerator::FindMSBuildCommandEarly(cmMakefile* mf)
 {
-  std::string instance = mf->GetSafeDefinition("CMAKE_GENERATOR_INSTANCE");
+  std::string instance = mf->GetSafeDefinition("RBLXBUILD_GENERATOR_INSTANCE");
   if (!this->SetGeneratorInstance(instance, mf)) {
     cmSystemTools::SetFatalErrorOccurred();
     return {};

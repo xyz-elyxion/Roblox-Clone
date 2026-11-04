@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmCacheManager.h"
 
 #include <algorithm>
@@ -19,9 +19,9 @@
 #include "cmSystemTools.h"
 #include "cmVersion.h"
 
-void cmCacheManager::CleanCMakeFiles(std::string const& path)
+void cmCacheManager::CleanRBLXBuildFiles(std::string const& path)
 {
-  std::string glob = cmStrCat(path, "/CMakeFiles/*.cmake");
+  std::string glob = cmStrCat(path, "/RBLXBuildFiles/*.rblxbuild");
   cmsys::Glob globIt;
   globIt.FindFiles(glob);
   std::vector<std::string> files = globIt.GetFiles();
@@ -32,13 +32,13 @@ bool cmCacheManager::LoadCache(std::string const& path, bool internal,
                                std::set<std::string>& excludes,
                                std::set<std::string>& includes)
 {
-  std::string cacheFile = cmStrCat(path, "/CMakeCache.txt");
+  std::string cacheFile = cmStrCat(path, "/RBLXBuildCache.txt");
   // clear the old cache, if we are reading in internal values
   if (internal) {
     this->Cache.clear();
   }
   if (!cmSystemTools::FileExists(cacheFile)) {
-    this->CleanCMakeFiles(path);
+    this->CleanRBLXBuildFiles(path);
     return false;
   }
 
@@ -98,7 +98,7 @@ bool cmCacheManager::LoadCache(std::string const& path, bool internal,
             helpString = cmStrCat("DO NOT EDIT, ", entryKey,
                                   " loaded from external file.  "
                                   "To change this value edit this file: ",
-                                  path, "/CMakeCache.txt");
+                                  path, "/RBLXBuildCache.txt");
             e.SetProperty("HELPSTRING", helpString);
           }
           if (!this->ReadPropertyEntry(entryKey, e)) {
@@ -116,46 +116,46 @@ bool cmCacheManager::LoadCache(std::string const& path, bool internal,
   this->CacheMajorVersion = 0;
   this->CacheMinorVersion = 0;
   if (cmValue cmajor =
-        this->GetInitializedCacheValue("CMAKE_CACHE_MAJOR_VERSION")) {
+        this->GetInitializedCacheValue("RBLXBUILD_CACHE_MAJOR_VERSION")) {
     unsigned int v = 0;
     if (sscanf(cmajor->c_str(), "%u", &v) == 1) {
       this->CacheMajorVersion = v;
     }
     if (cmValue cminor =
-          this->GetInitializedCacheValue("CMAKE_CACHE_MINOR_VERSION")) {
+          this->GetInitializedCacheValue("RBLXBUILD_CACHE_MINOR_VERSION")) {
       if (sscanf(cminor->c_str(), "%u", &v) == 1) {
         this->CacheMinorVersion = v;
       }
     }
   } else {
-    // CMake version not found in the list file.
+    // RBLXBuild version not found in the list file.
     // Set as version 0.0
-    this->AddCacheEntry("CMAKE_CACHE_MINOR_VERSION", "0",
-                        "Minor version of cmake used to create the "
+    this->AddCacheEntry("RBLXBUILD_CACHE_MINOR_VERSION", "0",
+                        "Minor version of rblxbuild used to create the "
                         "current loaded cache",
                         cmStateEnums::INTERNAL);
-    this->AddCacheEntry("CMAKE_CACHE_MAJOR_VERSION", "0",
-                        "Major version of cmake used to create the "
+    this->AddCacheEntry("RBLXBUILD_CACHE_MAJOR_VERSION", "0",
+                        "Major version of rblxbuild used to create the "
                         "current loaded cache",
                         cmStateEnums::INTERNAL);
   }
   // check to make sure the cache directory has not
   // been moved
-  cmValue oldDir = this->GetInitializedCacheValue("CMAKE_CACHEFILE_DIR");
+  cmValue oldDir = this->GetInitializedCacheValue("RBLXBUILD_CACHEFILE_DIR");
   if (internal && oldDir) {
     std::string currentcwd = path;
     std::string oldcwd = *oldDir;
     cmSystemTools::ConvertToUnixSlashes(currentcwd);
-    currentcwd = cmStrCat(std::move(currentcwd), "/CMakeCache.txt");
-    oldcwd = cmStrCat(std::move(oldcwd), "/CMakeCache.txt");
+    currentcwd = cmStrCat(std::move(currentcwd), "/RBLXBuildCache.txt");
+    oldcwd = cmStrCat(std::move(oldcwd), "/RBLXBuildCache.txt");
     if (!cmSystemTools::SameFile(oldcwd, currentcwd)) {
-      cmValue dir = this->GetInitializedCacheValue("CMAKE_CACHEFILE_DIR");
+      cmValue dir = this->GetInitializedCacheValue("RBLXBUILD_CACHEFILE_DIR");
       std::string message =
-        cmStrCat("The current CMakeCache.txt directory ", currentcwd,
+        cmStrCat("The current RBLXBuildCache.txt directory ", currentcwd,
                  " is different than the directory ", (dir ? *dir : ""),
-                 " where CMakeCache.txt was created. This may result "
+                 " where RBLXBuildCache.txt was created. This may result "
                  "in binaries being created in the wrong place. If you "
-                 "are not sure, reedit the CMakeCache.txt");
+                 "are not sure, reedit the RBLXBuildCache.txt");
       cmSystemTools::Error(message);
     }
   }
@@ -218,7 +218,7 @@ void cmCacheManager::WritePropertyEntries(std::ostream& os,
 
 bool cmCacheManager::SaveCache(std::string const& path, cmMessenger* messenger)
 {
-  std::string cacheFile = cmStrCat(path, "/CMakeCache.txt");
+  std::string cacheFile = cmStrCat(path, "/RBLXBuildCache.txt");
   cmGeneratedFileStream fout(cacheFile);
   fout.SetCopyIfDifferent(true);
   if (!fout) {
@@ -229,19 +229,19 @@ bool cmCacheManager::SaveCache(std::string const& path, cmMessenger* messenger)
   }
   // before writing the cache, update the version numbers
   // to the
-  this->AddCacheEntry("CMAKE_CACHE_MAJOR_VERSION",
+  this->AddCacheEntry("RBLXBUILD_CACHE_MAJOR_VERSION",
                       std::to_string(cmVersion::GetMajorVersion()),
-                      "Major version of cmake used to create the "
+                      "Major version of rblxbuild used to create the "
                       "current loaded cache",
                       cmStateEnums::INTERNAL);
-  this->AddCacheEntry("CMAKE_CACHE_MINOR_VERSION",
+  this->AddCacheEntry("RBLXBUILD_CACHE_MINOR_VERSION",
                       std::to_string(cmVersion::GetMinorVersion()),
-                      "Minor version of cmake used to create the "
+                      "Minor version of rblxbuild used to create the "
                       "current loaded cache",
                       cmStateEnums::INTERNAL);
-  this->AddCacheEntry("CMAKE_CACHE_PATCH_VERSION",
+  this->AddCacheEntry("RBLXBUILD_CACHE_PATCH_VERSION",
                       std::to_string(cmVersion::GetPatchVersion()),
-                      "Patch version of cmake used to create the "
+                      "Patch version of rblxbuild used to create the "
                       "current loaded cache",
                       cmStateEnums::INTERNAL);
 
@@ -254,18 +254,18 @@ bool cmCacheManager::SaveCache(std::string const& path, cmMessenger* messenger)
     currentcwd[0] = static_cast<char>(currentcwd[0] - 'A' + 'a');
   }
   cmSystemTools::ConvertToUnixSlashes(currentcwd);
-  this->AddCacheEntry("CMAKE_CACHEFILE_DIR", currentcwd,
-                      "This is the directory where this CMakeCache.txt"
+  this->AddCacheEntry("RBLXBUILD_CACHEFILE_DIR", currentcwd,
+                      "This is the directory where this RBLXBuildCache.txt"
                       " was created",
                       cmStateEnums::INTERNAL);
 
   /* clang-format off */
-  fout << "# This is the CMakeCache file.\n"
+  fout << "# This is the RBLXBuildCache file.\n"
           "# For build in directory: " << currentcwd << "\n"
-          "# It was generated by CMake: "
-       << cmSystemTools::GetCMakeCommand()
+          "# It was generated by RBLXBuild: "
+       << cmSystemTools::GetRBLXBuildCommand()
        << "\n"
-          "# You can edit this file to change values found and used by cmake."
+          "# You can edit this file to change values found and used by rblxbuild."
           "\n"
           "# If you do not want to change any of the values, simply exit the "
           "editor.\n"
@@ -338,9 +338,9 @@ bool cmCacheManager::SaveCache(std::string const& path, cmMessenger* messenger)
   }
   fout << '\n';
   fout.Close();
-  std::string checkCacheFile = cmStrCat(path, "/CMakeFiles");
+  std::string checkCacheFile = cmStrCat(path, "/RBLXBuildFiles");
   cmSystemTools::MakeDirectory(checkCacheFile);
-  checkCacheFile = cmStrCat(std::move(checkCacheFile), "/cmake.check_cache");
+  checkCacheFile = cmStrCat(std::move(checkCacheFile), "/rblxbuild.check_cache");
   cmsys::ofstream checkCache(checkCacheFile.c_str());
   if (!checkCache) {
     cmSystemTools::Error(
@@ -348,8 +348,8 @@ bool cmCacheManager::SaveCache(std::string const& path, cmMessenger* messenger)
                std::move(checkCacheFile)));
     return false;
   }
-  checkCache << "# This file is generated by cmake for dependency checking "
-                "of the CMakeCache.txt file\n";
+  checkCache << "# This file is generated by rblxbuild for dependency checking "
+                "of the RBLXBuildCache.txt file\n";
   return true;
 }
 
@@ -357,15 +357,15 @@ bool cmCacheManager::DeleteCache(std::string const& path)
 {
   std::string cacheFile = path;
   cmSystemTools::ConvertToUnixSlashes(cacheFile);
-  std::string cmakeFiles = cacheFile;
-  cacheFile += "/CMakeCache.txt";
+  std::string rblxbuildFiles = cacheFile;
+  cacheFile += "/RBLXBuildCache.txt";
   if (cmSystemTools::FileExists(cacheFile)) {
     cmSystemTools::RemoveFile(cacheFile);
-    // now remove the files in the CMakeFiles directory
+    // now remove the files in the RBLXBuildFiles directory
     // this cleans up language cache files
-    cmakeFiles += "/CMakeFiles";
-    if (cmSystemTools::FileIsDirectory(cmakeFiles)) {
-      cmSystemTools::RemoveADirectory(cmakeFiles);
+    rblxbuildFiles += "/RBLXBuildFiles";
+    if (cmSystemTools::FileIsDirectory(rblxbuildFiles)) {
+      cmSystemTools::RemoveADirectory(rblxbuildFiles);
     }
   }
   return true;
@@ -506,15 +506,15 @@ cmValue cmCacheManager::GetInitializedCacheValue(std::string const& key) const
 void cmCacheManager::PrintCache(std::ostream& out) const
 {
   out << "=================================================\n"
-         "CMakeCache Contents:\n";
+         "RBLXBuildCache Contents:\n";
   for (auto const& i : this->Cache) {
     if (i.second.Type != cmStateEnums::INTERNAL) {
       out << i.first << " = " << i.second.Value << '\n';
     }
   }
   out << "\n\n"
-         "To change values in the CMakeCache, \n"
-         "edit CMakeCache.txt in your output directory.\n"
+         "To change values in the RBLXBuildCache, \n"
+         "edit RBLXBuildCache.txt in your output directory.\n"
          "=================================================\n";
 }
 

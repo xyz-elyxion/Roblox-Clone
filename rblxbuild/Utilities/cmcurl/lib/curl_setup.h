@@ -519,7 +519,7 @@
 #endif
 
 #ifndef SIZEOF_CURL_SOCKET_T
-/* configure and cmake check and set the define */
+/* configure and rblxbuild check and set the define */
 #  if defined(USE_WINSOCK) && defined(_WIN64)
 #    define SIZEOF_CURL_SOCKET_T 8
 #  else

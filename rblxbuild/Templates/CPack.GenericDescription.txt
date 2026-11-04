@@ -1,4 +1,4 @@
 DESCRIPTION
 ===========
 
-This is an installer created using CPack (https://cmake.org). No additional installation instructions provided.
+This is an installer created using CPack (https://rblxbuild.org). No additional installation instructions provided.

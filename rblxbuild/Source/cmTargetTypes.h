@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 
 #pragma once
 
@@ -28,12 +28,12 @@ enum class TargetType
 // Target search domains for FindTarget() style commands.
 enum class TargetDomain : unsigned
 {
-  // Native, unaliased CMake targets, generated via add_library or
+  // Native, unaliased RBLXBuild targets, generated via add_library or
   // add_executable
   NATIVE,
   // Alias index, must include another domain
   ALIAS,
-  // Foreign domain targets, generated directly inside CMake
+  // Foreign domain targets, generated directly inside RBLXBuild
   FOREIGN
 };
 using TargetDomainSet = cm::enum_set<TargetDomain>;

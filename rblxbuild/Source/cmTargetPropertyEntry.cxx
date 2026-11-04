@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 
 #include "cmTargetPropertyEntry.h"
 
@@ -13,7 +13,7 @@
 #include "cmLinkItem.h"
 #include "cmListFileCache.h"
 
-class cmake;
+class rblxbuild;
 
 namespace cm {
 cmLinkItem TargetPropertyEntry::NoLinkItem;
@@ -85,11 +85,11 @@ private:
 };
 
 std::unique_ptr<TargetPropertyEntry> TargetPropertyEntry::Create(
-  cmake& cmakeInstance, const BT<std::string>& propertyValue,
+  rblxbuild& rblxbuildInstance, const BT<std::string>& propertyValue,
   bool evaluateForBuildsystem)
 {
   if (cmGeneratorExpression::Find(propertyValue.Value) != std::string::npos) {
-    cmGeneratorExpression ge(cmakeInstance, propertyValue.Backtrace);
+    cmGeneratorExpression ge(rblxbuildInstance, propertyValue.Backtrace);
     std::unique_ptr<cmCompiledGeneratorExpression> cge =
       ge.Parse(propertyValue.Value);
     cge->SetEvaluateForBuildsystem(evaluateForBuildsystem);

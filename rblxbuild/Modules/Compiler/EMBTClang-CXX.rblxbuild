@@ -1,0 +1,19 @@
+# Keep a scanning rule set before enable_language() (RBLXBuild's own tests set one
+# to fake scanning); drop only the one Compiler/Clang-CXX adds.
+if(DEFINED RBLXBUILD_CXX_SCANDEP_SOURCE)
+  set(__embt_scandep_source "${RBLXBUILD_CXX_SCANDEP_SOURCE}")
+endif()
+
+include(Compiler/Clang-CXX)
+include(Compiler/EMBTClang)
+
+# The toolchain's clang-scan-deps does not apply the bcc64x driver's target,
+# standard, and include paths, so C++ module scanning is not supported.
+if(DEFINED __embt_scandep_source)
+  set(RBLXBUILD_CXX_SCANDEP_SOURCE "${__embt_scandep_source}")
+  unset(__embt_scandep_source)
+else()
+  unset(RBLXBUILD_CXX_SCANDEP_SOURCE)
+endif()
+
+string(APPEND RBLXBUILD_CXX_FLAGS_INIT " -q")

@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmRule.h"
 
 #include <algorithm>
@@ -184,7 +184,7 @@ cmRule::cmRule(cmMakefile& makefile, std::string name, cm::RuleScope scope)
   this->SetProperty("VERBATIM", cmValue::True);
   this->SetProperty("COMMAND_EXPAND_LISTS", cmValue::True);
   this->SetProperty("OUTPUT_FILE_SET",
-                    "__cmake_rule_<RULE>_<TARGET>_<FILE_SET>_outputs;SOURCES");
+                    "__rblxbuild_rule_<RULE>_<TARGET>_<FILE_SET>_outputs;SOURCES");
   this->SetProperty("OUTPUT_FILE_SET_BASE_DIRS", "<CURRENT_BINARY_DIR>");
 }
 
@@ -546,7 +546,7 @@ bool ConfigureRule(cmRule::ConfiguratorSet const& configurators,
                    std::string const& outputFileSet,
                    std::string const& source = {})
 {
-  cm::string_view patternsVariable{ "_CMAKE_RULE_PATTERNS"_s };
+  cm::string_view patternsVariable{ "_RBLXBUILD_RULE_PATTERNS"_s };
 
   for (auto const& item : configurators) {
     // The validator command will be executed in an isolated scope.

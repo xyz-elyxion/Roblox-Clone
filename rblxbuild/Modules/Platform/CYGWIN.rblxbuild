@@ -1,0 +1,27 @@
+set(RBLXBUILD_SHARED_LIBRARY_PREFIX "cyg")
+set(RBLXBUILD_SHARED_LIBRARY_SUFFIX ".dll")
+set(RBLXBUILD_SHARED_MODULE_PREFIX "cyg")
+set(RBLXBUILD_SHARED_MODULE_SUFFIX ".dll")
+set(RBLXBUILD_IMPORT_LIBRARY_PREFIX "lib")
+set(RBLXBUILD_IMPORT_LIBRARY_SUFFIX ".dll.a")
+set(RBLXBUILD_EXECUTABLE_SUFFIX ".exe")          # .exe
+# Modules have a different default prefix that shared libs.
+set(RBLXBUILD_MODULE_EXISTS 1)
+
+set(RBLXBUILD_FIND_LIBRARY_PREFIXES "lib")
+set(RBLXBUILD_FIND_LIBRARY_SUFFIXES ".dll.a" ".a")
+
+# Shared libraries on cygwin can be named with their version number.
+set(RBLXBUILD_SHARED_LIBRARY_NAME_WITH_VERSION 1)
+
+include(Platform/UnixPaths)
+
+# Windows API on Cygwin
+list(APPEND RBLXBUILD_SYSTEM_INCLUDE_PATH
+  /usr/include/w32api
+  )
+
+# Windows API on Cygwin
+list(APPEND RBLXBUILD_SYSTEM_LIBRARY_PATH
+  /usr/lib/w32api
+  )

@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmIncludeExternalMSProjectCommand.h"
 
 #include "cmExecutionStatus.h"
@@ -10,7 +10,7 @@
 #  include "cmStateTypes.h"
 #  include "cmSystemTools.h"
 #  include "cmTarget.h"
-#  include "cmake.h"
+#  include "rblxbuild.h"
 #endif
 
 bool cmIncludeExternalMSProjectCommand(std::vector<std::string> const& args,
@@ -76,8 +76,8 @@ bool cmIncludeExternalMSProjectCommand(std::vector<std::string> const& args,
     cmSystemTools::ConvertToUnixSlashes(path);
 
     if (!customGuid.empty()) {
-      std::string guidVariable = utility_name + "_GUID_CMAKE";
-      mf.GetCMakeInstance()->AddCacheEntry(
+      std::string guidVariable = utility_name + "_GUID_RBLXBUILD";
+      mf.GetRBLXBuildInstance()->AddCacheEntry(
         guidVariable, customGuid, "Stored GUID", cmStateEnums::INTERNAL);
     }
 

@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmCurl.h"
 
 #include <utility>
@@ -7,9 +7,9 @@
 #include <cm/string_view>
 #include <cmext/string_view>
 
-#if !defined(CMAKE_USE_SYSTEM_CURL) && !defined(_WIN32) &&                    \
+#if !defined(RBLXBUILD_USE_SYSTEM_CURL) && !defined(_WIN32) &&                    \
   !defined(__APPLE__) && !defined(CURL_CA_BUNDLE) && !defined(CURL_CA_PATH)
-#  define CMAKE_FIND_CAFILE
+#  define RBLXBUILD_FIND_CAFILE
 #endif
 #include "cmStringAlgorithms.h"
 #include "cmSystemTools.h"
@@ -49,7 +49,7 @@
 // Make sure we keep up with new TLS versions supported by curl.
 // Do this only for our vendored curl to avoid breaking builds
 // against external future versions of curl.
-#if !defined(CMAKE_USE_SYSTEM_CURL)
+#if !defined(RBLXBUILD_USE_SYSTEM_CURL)
 // NOLINTNEXTLINE(misc-redundant-expression)
 static_assert(CURL_SSLVERSION_LAST == 8,
               "A new CURL_SSLVERSION_ may be available!");
@@ -58,7 +58,7 @@ static_assert(CURL_SSLVERSION_LAST == 8,
 ::CURLcode cm_curl_global_init(long flags)
 {
   // curl 7.56.0 introduced curl_global_sslset.
-#if defined(__APPLE__) && defined(CMAKE_USE_SYSTEM_CURL) &&                   \
+#if defined(__APPLE__) && defined(RBLXBUILD_USE_SYSTEM_CURL) &&                   \
   defined(LIBCURL_VERSION_NUM) && LIBCURL_VERSION_NUM >= 0x073800
   cm::optional<std::string> curl_ssl_backend =
     cmSystemTools::GetEnvVar("CURL_SSL_BACKEND");
@@ -147,46 +147,46 @@ std::string cmCurlSetCAInfo(::CURL* curl, std::string const& cafile)
     ::CURLcode res = ::curl_easy_setopt(curl, CURLOPT_CAPATH, env_ca.c_str());
     check_curl_result(res, "Unable to set TLS/SSL Verify CAINFO: ");
   }
-#ifdef CMAKE_FIND_CAFILE
-#  define CMAKE_CAFILE_FEDORA "/etc/pki/tls/certs/ca-bundle.crt"
-  else if (cmSystemTools::FileExists(CMAKE_CAFILE_FEDORA, true)) {
+#ifdef RBLXBUILD_FIND_CAFILE
+#  define RBLXBUILD_CAFILE_FEDORA "/etc/pki/tls/certs/ca-bundle.crt"
+  else if (cmSystemTools::FileExists(RBLXBUILD_CAFILE_FEDORA, true)) {
     ::CURLcode res =
-      ::curl_easy_setopt(curl, CURLOPT_CAINFO, CMAKE_CAFILE_FEDORA);
+      ::curl_easy_setopt(curl, CURLOPT_CAINFO, RBLXBUILD_CAFILE_FEDORA);
     check_curl_result(res, "Unable to set TLS/SSL Verify CAINFO: ");
   }
-#  undef CMAKE_CAFILE_FEDORA
+#  undef RBLXBUILD_CAFILE_FEDORA
   else {
-#  define CMAKE_CAFILE_COMMON "/etc/ssl/certs/ca-certificates.crt"
-    if (cmSystemTools::FileExists(CMAKE_CAFILE_COMMON, true)) {
+#  define RBLXBUILD_CAFILE_COMMON "/etc/ssl/certs/ca-certificates.crt"
+    if (cmSystemTools::FileExists(RBLXBUILD_CAFILE_COMMON, true)) {
       ::CURLcode res =
-        ::curl_easy_setopt(curl, CURLOPT_CAINFO, CMAKE_CAFILE_COMMON);
+        ::curl_easy_setopt(curl, CURLOPT_CAINFO, RBLXBUILD_CAFILE_COMMON);
       check_curl_result(res, "Unable to set TLS/SSL Verify CAINFO: ");
     }
-#  undef CMAKE_CAFILE_COMMON
-#  define CMAKE_CAPATH_COMMON "/etc/ssl/certs"
-    if (cmSystemTools::FileIsDirectory(CMAKE_CAPATH_COMMON)) {
+#  undef RBLXBUILD_CAFILE_COMMON
+#  define RBLXBUILD_CAPATH_COMMON "/etc/ssl/certs"
+    if (cmSystemTools::FileIsDirectory(RBLXBUILD_CAPATH_COMMON)) {
       ::CURLcode res =
-        ::curl_easy_setopt(curl, CURLOPT_CAPATH, CMAKE_CAPATH_COMMON);
+        ::curl_easy_setopt(curl, CURLOPT_CAPATH, RBLXBUILD_CAPATH_COMMON);
       check_curl_result(res, "Unable to set TLS/SSL Verify CAPATH: ");
     }
-#  undef CMAKE_CAPATH_COMMON
+#  undef RBLXBUILD_CAPATH_COMMON
 #  ifdef _AIX
-#    define CMAKE_CAPATH_AIX "/var/ssl/certs"
-    if (cmSystemTools::FileIsDirectory(CMAKE_CAPATH_AIX)) {
+#    define RBLXBUILD_CAPATH_AIX "/var/ssl/certs"
+    if (cmSystemTools::FileIsDirectory(RBLXBUILD_CAPATH_AIX)) {
       ::CURLcode res =
-        ::curl_easy_setopt(curl, CURLOPT_CAPATH, CMAKE_CAPATH_AIX);
+        ::curl_easy_setopt(curl, CURLOPT_CAPATH, RBLXBUILD_CAPATH_AIX);
       check_curl_result(res, "Unable to set TLS/SSL Verify CAPATH: ");
     }
-#    undef CMAKE_CAPATH_AIX
+#    undef RBLXBUILD_CAPATH_AIX
 #  endif
 #  ifdef __sun
-#    define CMAKE_CAPATH_SUNOS_CSW "/etc/opt/csw/ssl/certs"
-    if (cmSystemTools::FileIsDirectory(CMAKE_CAPATH_SUNOS_CSW)) {
+#    define RBLXBUILD_CAPATH_SUNOS_CSW "/etc/opt/csw/ssl/certs"
+    if (cmSystemTools::FileIsDirectory(RBLXBUILD_CAPATH_SUNOS_CSW)) {
       ::CURLcode res =
-        ::curl_easy_setopt(curl, CURLOPT_CAPATH, CMAKE_CAPATH_SUNOS_CSW);
+        ::curl_easy_setopt(curl, CURLOPT_CAPATH, RBLXBUILD_CAPATH_SUNOS_CSW);
       check_curl_result(res, "Unable to set TLS/SSL Verify CAPATH: ");
     }
-#    undef CMAKE_CAPATH_SUNOS_CSW
+#    undef RBLXBUILD_CAPATH_SUNOS_CSW
 #  endif
   }
 #endif

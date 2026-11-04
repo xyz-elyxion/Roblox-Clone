@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmCPackAPKGenerator.h"
 
 #include <ostream>
@@ -25,13 +25,13 @@ int cmCPackAPKGenerator::PackageFiles()
   cmCPackLogger(cmCPackLog::LOG_DEBUG,
                 "Toplevel: " << this->toplevel << std::endl);
 
-  if (!this->ReadListFile("Internal/CPack/CPackAPK.cmake")) {
+  if (!this->ReadListFile("Internal/CPack/CPackAPK.rblxbuild")) {
     cmCPackLogger(cmCPackLog::LOG_ERROR,
-                  "Error while executing CPackAPK.cmake" << std::endl);
+                  "Error while executing CPackAPK.rblxbuild" << std::endl);
     return 0;
   }
 
-  // CPackAPK.cmake writes the package to the file name CPack asked for.
+  // CPackAPK.rblxbuild writes the package to the file name CPack asked for.
   for (std::string const& packageFileName : this->packageFileNames) {
     if (!cmSystemTools::FileExists(packageFileName)) {
       cmCPackLogger(cmCPackLog::LOG_ERROR,

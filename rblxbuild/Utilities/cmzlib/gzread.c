@@ -408,7 +408,7 @@ z_size_t ZEXPORT gzfread(voidp buf, z_size_t size, z_size_t nitems, gzFile file)
 /* -- see zlib.h -- */
 #ifdef Z_PREFIX_SET
 #  undef z_gzgetc
-#elif 1 /* Hook for mangling inside CMake.  */
+#elif 1 /* Hook for mangling inside RBLXBuild.  */
 #  undef cm_zlib_gzgetc
 #else
 #  undef gzgetc

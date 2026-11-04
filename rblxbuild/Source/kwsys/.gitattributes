@@ -8,6 +8,6 @@
 *.hxx            kwsys-c-style
 *.hxx.in         kwsys-c-style
 
-*.cmake          whitespace=tab-in-indent
+*.rblxbuild          whitespace=tab-in-indent
 *.rst            whitespace=tab-in-indent conflict-marker-size=79
 *.txt            whitespace=tab-in-indent

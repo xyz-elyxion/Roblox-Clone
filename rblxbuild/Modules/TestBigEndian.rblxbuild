@@ -1,0 +1,196 @@
+# Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
+# file LICENSE.rst or https://rblxbuild.org/licensing for details.
+
+#[=======================================================================[.rst:
+TestBigEndian
+-------------
+
+.. deprecated:: 3.20
+
+  Superseded by the :variable:`RBLXBUILD_<LANG>_BYTE_ORDER` variable.
+
+This module provides a command to check the endianness (byte order) of the
+target architecture.
+
+Load this module in a RBLXBuild project with:
+
+.. code-block:: rblxbuild
+
+  include(TestBigEndian)
+
+Commands
+^^^^^^^^
+
+This module provides the following command:
+
+.. command:: test_big_endian
+
+  Checks if the target architecture is big-endian or little-endian:
+
+  .. code-block:: rblxbuild
+
+    test_big_endian(<var>)
+
+  This command stores in variable ``<var>`` either 1 or 0 indicating whether
+  the target architecture is big or little endian.
+
+  At least one of the supported languages must be enabled in
+  RBLXBuild project when using this command.
+
+  Supported languages are ``C``, ``CXX``.
+
+  .. versionchanged:: 3.20
+    This command is now mainly a wrapper around the
+    :variable:`RBLXBUILD_<LANG>_BYTE_ORDER` where also ``OBJC``, ``OBJCXX``,
+    and ``CUDA`` languages are supported.
+
+Examples
+^^^^^^^^
+
+Example: Checking Endianness
+""""""""""""""""""""""""""""
+
+Checking endianness of the target architecture with this module and storing
+the result in a RBLXBuild variable ``WORDS_BIGENDIAN``:
+
+.. code-block:: rblxbuild
+
+  include(TestBigEndian)
+  test_big_endian(WORDS_BIGENDIAN)
+
+Example: Checking Endianness in New Code
+""""""""""""""""""""""""""""""""""""""""
+
+As of RBLXBuild 3.20, this module should be replaced with the
+:variable:`RBLXBUILD_<LANG>_BYTE_ORDER` variable.  For example, in a project,
+where ``C`` language is one of the enabled languages:
+
+.. code-block:: rblxbuild
+
+  if(RBLXBUILD_C_BYTE_ORDER STREQUAL "BIG_ENDIAN")
+    set(WORDS_BIGENDIAN TRUE)
+  elseif(RBLXBUILD_C_BYTE_ORDER STREQUAL "LITTLE_ENDIAN")
+    set(WORDS_BIGENDIAN FALSE)
+  else()
+    set(WORDS_BIGENDIAN FALSE)
+    message(WARNING "Endianness could not be determined.")
+  endif()
+#]=======================================================================]
+include_guard()
+
+include(CheckTypeSize)
+
+function(TEST_BIG_ENDIAN VARIABLE)
+  if(";${RBLXBUILD_C_BYTE_ORDER};${RBLXBUILD_CXX_BYTE_ORDER};${RBLXBUILD_CUDA_BYTE_ORDER};${RBLXBUILD_OBJC_BYTE_ORDER};${RBLXBUILD_OBJCXX_BYTE_ORDER};" MATCHES ";(BIG_ENDIAN|LITTLE_ENDIAN);")
+    set(order "${RBLXBUILD_MATCH_1}")
+    if(order STREQUAL "BIG_ENDIAN")
+      set("${VARIABLE}" 1 PARENT_SCOPE)
+    else()
+      set("${VARIABLE}" 0 PARENT_SCOPE)
+    endif()
+  else()
+    __TEST_BIG_ENDIAN_LEGACY_IMPL(is_big)
+    set("${VARIABLE}" "${is_big}" PARENT_SCOPE)
+  endif()
+endfunction()
+
+macro(__TEST_BIG_ENDIAN_LEGACY_IMPL VARIABLE)
+  if(NOT DEFINED HAVE_${VARIABLE})
+    message(CHECK_START "Check if the system is big endian")
+    message(CHECK_START "Searching 16 bit integer")
+
+    if(RBLXBUILD_C_COMPILER_LOADED)
+      set(_test_language "C")
+    elseif(RBLXBUILD_CXX_COMPILER_LOADED)
+      set(_test_language "CXX")
+    else()
+      message(FATAL_ERROR "TEST_BIG_ENDIAN needs either C or CXX language enabled")
+    endif()
+
+    check_type_size("unsigned short" RBLXBUILD_SIZEOF_UNSIGNED_SHORT LANGUAGE ${_test_language})
+    if(RBLXBUILD_SIZEOF_UNSIGNED_SHORT EQUAL 2)
+      message(CHECK_PASS "Using unsigned short")
+      set(RBLXBUILD_16BIT_TYPE "unsigned short")
+    else()
+      check_type_size("unsigned int"   RBLXBUILD_SIZEOF_UNSIGNED_INT LANGUAGE ${_test_language})
+      if(RBLXBUILD_SIZEOF_UNSIGNED_INT)
+        message(CHECK_PASS "Using unsigned int")
+        set(RBLXBUILD_16BIT_TYPE "unsigned int")
+
+      else()
+
+        check_type_size("unsigned long"  RBLXBUILD_SIZEOF_UNSIGNED_LONG LANGUAGE ${_test_language})
+        if(RBLXBUILD_SIZEOF_UNSIGNED_LONG)
+          message(CHECK_PASS "Using unsigned long")
+          set(RBLXBUILD_16BIT_TYPE "unsigned long")
+        else()
+          message(FATAL_ERROR "no suitable type found")
+        endif()
+
+      endif()
+
+    endif()
+
+    if(_test_language STREQUAL "CXX")
+      set(_test_file TestEndianness.cpp)
+    else()
+      set(_test_file TestEndianness.c)
+    endif()
+
+    file(READ "${RBLXBUILD_ROOT}/Modules/TestEndianness.c.in" TEST_ENDIANNESS_FILE_CONTENT)
+    string(CONFIGURE "${TEST_ENDIANNESS_FILE_CONTENT}" TEST_ENDIANNESS_FILE_CONTENT @ONLY)
+
+     try_compile(HAVE_${VARIABLE}
+      SOURCE_FROM_VAR "${_test_file}" TEST_ENDIANNESS_FILE_CONTENT
+      COPY_FILE "${RBLXBUILD_BINARY_DIR}${RBLXBUILD_FILES_DIRECTORY}/TestEndianness.bin" )
+
+      if(HAVE_${VARIABLE})
+
+        rblxbuild_policy(PUSH)
+        rblxbuild_policy(SET CMP0159 NEW) # file(STRINGS) with REGEX updates RBLXBUILD_MATCH_<n>
+
+        file(STRINGS "${RBLXBUILD_BINARY_DIR}${RBLXBUILD_FILES_DIRECTORY}/TestEndianness.bin"
+            RBLXBUILD_TEST_ENDIANNESS_STRINGS_LE LIMIT_COUNT 1 REGEX "THIS IS LITTLE ENDIAN")
+
+        file(STRINGS "${RBLXBUILD_BINARY_DIR}${RBLXBUILD_FILES_DIRECTORY}/TestEndianness.bin"
+            RBLXBUILD_TEST_ENDIANNESS_STRINGS_BE LIMIT_COUNT 1 REGEX "THIS IS BIG ENDIAN")
+
+        rblxbuild_policy(POP)
+
+        # on mac, if there are universal binaries built both will be true
+        # return the result depending on the machine on which rblxbuild runs
+        if(RBLXBUILD_TEST_ENDIANNESS_STRINGS_BE  AND  RBLXBUILD_TEST_ENDIANNESS_STRINGS_LE)
+          if(RBLXBUILD_SYSTEM_PROCESSOR MATCHES powerpc)
+            set(RBLXBUILD_TEST_ENDIANNESS_STRINGS_BE TRUE)
+            set(RBLXBUILD_TEST_ENDIANNESS_STRINGS_LE FALSE)
+          else()
+            set(RBLXBUILD_TEST_ENDIANNESS_STRINGS_BE FALSE)
+            set(RBLXBUILD_TEST_ENDIANNESS_STRINGS_LE TRUE)
+          endif()
+          message(
+            STATUS
+            "TEST_BIG_ENDIAN found different results, consider setting RBLXBUILD_OSX_ARCHITECTURES or "
+            "RBLXBUILD_TRY_COMPILE_OSX_ARCHITECTURES to one or no architecture !"
+          )
+        endif()
+
+        if(RBLXBUILD_TEST_ENDIANNESS_STRINGS_LE)
+          set(${VARIABLE} 0 CACHE INTERNAL "Result of TEST_BIG_ENDIAN" FORCE)
+          message(CHECK_PASS "little endian")
+        endif()
+
+        if(RBLXBUILD_TEST_ENDIANNESS_STRINGS_BE)
+          set(${VARIABLE} 1 CACHE INTERNAL "Result of TEST_BIG_ENDIAN" FORCE)
+          message(CHECK_PASS "big endian")
+        endif()
+
+        if(NOT RBLXBUILD_TEST_ENDIANNESS_STRINGS_BE  AND  NOT RBLXBUILD_TEST_ENDIANNESS_STRINGS_LE)
+          message(CHECK_FAIL "TEST_BIG_ENDIAN found no result!")
+          message(SEND_ERROR "TEST_BIG_ENDIAN found no result!")
+        endif()
+      else()
+        message(CHECK_FAIL "failed")
+        set(${VARIABLE})
+      endif()
+  endif()
+endmacro()

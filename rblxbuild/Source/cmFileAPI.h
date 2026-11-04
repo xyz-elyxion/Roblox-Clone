@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #pragma once
 
 #include "cmConfigure.h" // IWYU pragma: keep
@@ -14,12 +14,12 @@
 #include <cm3p/json/value.h>
 #include <cm3p/json/writer.h>
 
-class cmake;
+class rblxbuild;
 
 class cmFileAPI
 {
 public:
-  cmFileAPI(cmake* cm);
+  cmFileAPI(rblxbuild* cm);
 
   /** Read fileapi queries from disk.  */
   void ReadQueries();
@@ -39,15 +39,15 @@ public:
   /** Write fileapi replies to disk.  */
   void WriteReplies(IndexFor indexFor);
 
-  /** Get the "cmake" instance with which this was constructed.  */
-  cmake* GetCMakeInstance() const { return this->CMakeInstance; }
+  /** Get the "rblxbuild" instance with which this was constructed.  */
+  rblxbuild* GetRBLXBuildInstance() const { return this->RBLXBuildInstance; }
 
   /** Convert a JSON object or array into an object with a single
       "jsonFile" member specifying a file named with the given prefix
       and holding the original object.  Other JSON types are unchanged.  */
   Json::Value MaybeJsonFile(Json::Value in, std::string const& prefix);
 
-  /** Report file-api capabilities for cmake -E capabilities.  */
+  /** Report file-api capabilities for rblxbuild -E capabilities.  */
   static Json::Value ReportCapabilities();
 
   // Keep in sync with ObjectKindName.
@@ -56,7 +56,7 @@ public:
     CodeModel,
     ConfigureLog,
     Cache,
-    CMakeFiles,
+    RBLXBuildFiles,
     Toolchains,
     InternalTest
   };
@@ -111,12 +111,12 @@ public:
   }
 
 private:
-  cmake* CMakeInstance;
+  rblxbuild* RBLXBuildInstance;
 
   /** The api/v1 directory location.  */
   std::string APIv1;
 
-  /** api/v1 directory in the user's shared CMake config directory.  */
+  /** api/v1 directory in the user's shared RBLXBuild config directory.  */
   std::string UserAPIv1;
 
   /** The set of files we have just written to the reply directory.  */
@@ -229,7 +229,7 @@ private:
   void ReadClientQuery(std::string const& client, ClientQueryJson& q);
 
   Json::Value BuildReplyIndex();
-  Json::Value BuildCMake();
+  Json::Value BuildRBLXBuild();
   Json::Value BuildReply(Query const& q);
   Json::Value BuildReplyEntry(Object object);
   static Json::Value BuildReplyError(std::string const& error);
@@ -272,9 +272,9 @@ private:
                                std::vector<RequestVersion> const& versions);
   Json::Value BuildCache(Object object);
 
-  void BuildClientRequestCMakeFiles(
+  void BuildClientRequestRBLXBuildFiles(
     ClientRequest& r, std::vector<RequestVersion> const& versions);
-  Json::Value BuildCMakeFiles(Object object);
+  Json::Value BuildRBLXBuildFiles(Object object);
 
   void BuildClientRequestToolchains(
     ClientRequest& r, std::vector<RequestVersion> const& versions);

@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmFindPackageCommand.h"
 
 #include <algorithm>
@@ -24,7 +24,7 @@
 #include "cmsys/String.h"
 
 #include "cmAlgorithms.h"
-#include "cmCMakePkgConfigCommand.h"
+#include "cmRBLXBuildPkgConfigCommand.h"
 #include "cmConfigureLog.h"
 #include "cmDependencyProvider.h"
 #include "cmDiagnostics.h"
@@ -547,7 +547,7 @@ cmFindPackageCommand::cmFindPackageCommand(cmExecutionStatus& status)
   , VersionRangeMin(VERSION_ENDPOINT_INCLUDED)
   , VersionRangeMax(VERSION_ENDPOINT_INCLUDED)
 {
-  this->CMakePathName = "PACKAGE";
+  this->RBLXBuildPathName = "PACKAGE";
   this->AppendSearchPathGroups();
 
   this->DeprecatedFindModules["Boost"] = cmPolicies::CMP0167;
@@ -575,10 +575,10 @@ void cmFindPackageCommand::AppendSearchPathGroups()
     &this->PathGroupLabelMap[PathGroup::All];
   labels->insert(labels->begin(), PathLabel::PackageRedirect);
   labels->insert(
-    std::find(labels->begin(), labels->end(), PathLabel::CMakeSystem),
+    std::find(labels->begin(), labels->end(), PathLabel::RBLXBuildSystem),
     PathLabel::UserRegistry);
   labels->insert(
-    std::find(labels->begin(), labels->end(), PathLabel::CMakeSystem),
+    std::find(labels->begin(), labels->end(), PathLabel::RBLXBuildSystem),
     PathLabel::Builds);
   labels->insert(std::find(labels->begin(), labels->end(), PathLabel::Guess),
                  PathLabel::SystemRegistry);
@@ -592,7 +592,7 @@ void cmFindPackageCommand::AppendSearchPathGroups()
 
 void cmFindPackageCommand::InheritOptions(cmFindPackageCommand* other)
 {
-  this->RequiredCMakeVersion = other->RequiredCMakeVersion;
+  this->RequiredRBLXBuildVersion = other->RequiredRBLXBuildVersion;
   this->LibraryArchitecture = other->LibraryArchitecture;
   this->UseLib32Paths = other->UseLib32Paths;
   this->UseLib64Paths = other->UseLib64Paths;
@@ -607,11 +607,11 @@ void cmFindPackageCommand::InheritOptions(cmFindPackageCommand* other)
   this->RegistryView = other->RegistryView;
   this->NoDefaultPath = other->NoDefaultPath;
   this->NoPackageRootPath = other->NoPackageRootPath;
-  this->NoCMakePath = other->NoCMakePath;
-  this->NoCMakeEnvironmentPath = other->NoCMakeEnvironmentPath;
+  this->NoRBLXBuildPath = other->NoRBLXBuildPath;
+  this->NoRBLXBuildEnvironmentPath = other->NoRBLXBuildEnvironmentPath;
   this->NoSystemEnvironmentPath = other->NoSystemEnvironmentPath;
-  this->NoCMakeSystemPath = other->NoCMakeSystemPath;
-  this->NoCMakeInstallPath = other->NoCMakeInstallPath;
+  this->NoRBLXBuildSystemPath = other->NoRBLXBuildSystemPath;
+  this->NoRBLXBuildInstallPath = other->NoRBLXBuildInstallPath;
   this->FindRootPathMode = other->FindRootPathMode;
 
   this->SearchFrameworkLast = other->SearchFrameworkLast;
@@ -649,17 +649,17 @@ bool cmFindPackageCommand::InitialPass(std::vector<std::string> const& args)
     return false;
   }
 
-  // Lookup required version of CMake.
+  // Lookup required version of RBLXBuild.
   if (cmValue const rv =
-        this->Makefile->GetDefinition("CMAKE_MINIMUM_REQUIRED_VERSION")) {
+        this->Makefile->GetDefinition("RBLXBUILD_MINIMUM_REQUIRED_VERSION")) {
     unsigned int v[3] = { 0, 0, 0 };
     std::sscanf(rv->c_str(), "%u.%u.%u", &v[0], &v[1], &v[2]);
-    this->RequiredCMakeVersion = CMake_VERSION_ENCODE(v[0], v[1], v[2]);
+    this->RequiredRBLXBuildVersion = RBLXBuild_VERSION_ENCODE(v[0], v[1], v[2]);
   }
 
   // Lookup target architecture, if any.
   if (cmValue const arch =
-        this->Makefile->GetDefinition("CMAKE_LIBRARY_ARCHITECTURE")) {
+        this->Makefile->GetDefinition("RBLXBUILD_LIBRARY_ARCHITECTURE")) {
     this->LibraryArchitecture = *arch;
   }
 
@@ -685,34 +685,34 @@ bool cmFindPackageCommand::InitialPass(std::vector<std::string> const& args)
   }
 
   // Check if User Package Registry should be disabled
-  // The `CMAKE_FIND_USE_PACKAGE_REGISTRY` has
-  // priority over the deprecated CMAKE_FIND_PACKAGE_NO_PACKAGE_REGISTRY
+  // The `RBLXBUILD_FIND_USE_PACKAGE_REGISTRY` has
+  // priority over the deprecated RBLXBUILD_FIND_PACKAGE_NO_PACKAGE_REGISTRY
   if (cmValue const def =
-        this->Makefile->GetDefinition("CMAKE_FIND_USE_PACKAGE_REGISTRY")) {
+        this->Makefile->GetDefinition("RBLXBUILD_FIND_USE_PACKAGE_REGISTRY")) {
     this->NoUserRegistry = !def.IsOn();
-  } else if (this->Makefile->IsOn("CMAKE_FIND_PACKAGE_NO_PACKAGE_REGISTRY")) {
+  } else if (this->Makefile->IsOn("RBLXBUILD_FIND_PACKAGE_NO_PACKAGE_REGISTRY")) {
     this->NoUserRegistry = true;
   }
 
   // Check if System Package Registry should be disabled
-  // The `CMAKE_FIND_USE_SYSTEM_PACKAGE_REGISTRY` has
-  // priority over the deprecated CMAKE_FIND_PACKAGE_NO_SYSTEM_PACKAGE_REGISTRY
+  // The `RBLXBUILD_FIND_USE_SYSTEM_PACKAGE_REGISTRY` has
+  // priority over the deprecated RBLXBUILD_FIND_PACKAGE_NO_SYSTEM_PACKAGE_REGISTRY
   if (cmValue const def = this->Makefile->GetDefinition(
-        "CMAKE_FIND_USE_SYSTEM_PACKAGE_REGISTRY")) {
+        "RBLXBUILD_FIND_USE_SYSTEM_PACKAGE_REGISTRY")) {
     this->NoSystemRegistry = !def.IsOn();
   } else if (this->Makefile->IsOn(
-               "CMAKE_FIND_PACKAGE_NO_SYSTEM_PACKAGE_REGISTRY")) {
+               "RBLXBUILD_FIND_PACKAGE_NO_SYSTEM_PACKAGE_REGISTRY")) {
     this->NoSystemRegistry = true;
   }
 
   // Check whether we should resolve symlinks when finding packages
-  if (this->Makefile->IsOn("CMAKE_FIND_PACKAGE_RESOLVE_SYMLINKS")) {
+  if (this->Makefile->IsOn("RBLXBUILD_FIND_PACKAGE_RESOLVE_SYMLINKS")) {
     this->UseRealPath = true;
   }
 
   // Check if Sorting should be enabled
   if (cmValue const so =
-        this->Makefile->GetDefinition("CMAKE_FIND_PACKAGE_SORT_ORDER")) {
+        this->Makefile->GetDefinition("RBLXBUILD_FIND_PACKAGE_SORT_ORDER")) {
 
     if (*so == "NAME") {
       this->SortOrder = Name_order;
@@ -723,7 +723,7 @@ bool cmFindPackageCommand::InitialPass(std::vector<std::string> const& args)
     }
   }
   if (cmValue const sd =
-        this->Makefile->GetDefinition("CMAKE_FIND_PACKAGE_SORT_DIRECTION")) {
+        this->Makefile->GetDefinition("RBLXBUILD_FIND_PACKAGE_SORT_DIRECTION")) {
     this->SortDirection = (*sd == "DEC") ? Dec : Asc;
   }
 
@@ -830,17 +830,17 @@ bool cmFindPackageCommand::InitialPass(std::vector<std::string> const& args)
     } else if (args[i] == "NO_POLICY_SCOPE") {
       this->PolicyScope = false;
       doing = DoingNone;
-    } else if (args[i] == "NO_CMAKE_PACKAGE_REGISTRY") {
+    } else if (args[i] == "NO_RBLXBUILD_PACKAGE_REGISTRY") {
       this->NoUserRegistry = true;
       configArgs.push_back(i);
       doing = DoingNone;
-    } else if (args[i] == "NO_CMAKE_SYSTEM_PACKAGE_REGISTRY") {
+    } else if (args[i] == "NO_RBLXBUILD_SYSTEM_PACKAGE_REGISTRY") {
       this->NoSystemRegistry = true;
       configArgs.push_back(i);
       doing = DoingNone;
       // XXX(clang-tidy): https://bugs.llvm.org/show_bug.cgi?id=44165
       // NOLINTNEXTLINE(bugprone-branch-clone)
-    } else if (args[i] == "NO_CMAKE_BUILDS_PATH") {
+    } else if (args[i] == "NO_RBLXBUILD_BUILDS_PATH") {
       // Ignore legacy option.
       configArgs.push_back(i);
       doing = DoingNone;
@@ -893,14 +893,14 @@ bool cmFindPackageCommand::InitialPass(std::vector<std::string> const& args)
       this->AddPathSuffix(args[i]);
     } else if (doing == DoingConfigs) {
       if (args[i].find_first_of(":/\\") != std::string::npos ||
-          !cmHasSuffix(args[i], ".cmake"_s)) {
+          !cmHasSuffix(args[i], ".rblxbuild"_s)) {
         this->SetError(cmStrCat(
           "given CONFIGS option followed by invalid file name \"", args[i],
           "\".  The names given must be file names without "
-          "a path and with a \".cmake\" extension."));
+          "a path and with a \".rblxbuild\" extension."));
         return false;
       }
-      this->Configs.emplace_back(args[i], pdt::CMake);
+      this->Configs.emplace_back(args[i], pdt::RBLXBuild);
     } else if (!haveVersion && versionRegex.find(args[i])) {
       haveVersion = true;
       this->VersionComplete = args[i];
@@ -912,13 +912,13 @@ bool cmFindPackageCommand::InitialPass(std::vector<std::string> const& args)
   }
 
   if (this->Required == RequiredStatus::Optional &&
-      this->Makefile->IsOn("CMAKE_FIND_REQUIRED")) {
+      this->Makefile->IsOn("RBLXBUILD_FIND_REQUIRED")) {
     this->Required = RequiredStatus::RequiredFromFindVar;
   }
 
   if (!this->GlobalScope) {
     cmValue value(
-      this->Makefile->GetDefinition("CMAKE_FIND_PACKAGE_TARGETS_GLOBAL"));
+      this->Makefile->GetDefinition("RBLXBUILD_FIND_PACKAGE_TARGETS_GLOBAL"));
     this->GlobalScope = value.IsOn();
   }
 
@@ -1001,7 +1001,7 @@ bool cmFindPackageCommand::InitialPass(std::vector<std::string> const& args)
   }
 
   if (this->VersionComplete.empty() || this->Components.empty()) {
-    // Check whether we are recursing inside "Find<name>.cmake" within
+    // Check whether we are recursing inside "Find<name>.rblxbuild" within
     // another find_package(<name>) call.
     std::string const mod = cmStrCat(this->Name, "_FIND_MODULE");
     if (this->Makefile->IsOn(mod)) {
@@ -1095,7 +1095,7 @@ bool cmFindPackageCommand::FindPackage(
   std::vector<std::string> const& argsForProvider)
 {
   std::string const makePackageRequiredVar =
-    cmStrCat("CMAKE_REQUIRE_FIND_PACKAGE_", this->Name);
+    cmStrCat("RBLXBUILD_REQUIRE_FIND_PACKAGE_", this->Name);
   bool const makePackageRequiredSet =
     this->Makefile->IsOn(makePackageRequiredVar);
   if (makePackageRequiredSet) {
@@ -1111,7 +1111,7 @@ bool cmFindPackageCommand::FindPackage(
   }
 
   std::string const disableFindPackageVar =
-    cmStrCat("CMAKE_DISABLE_FIND_PACKAGE_", this->Name);
+    cmStrCat("RBLXBUILD_DISABLE_FIND_PACKAGE_", this->Name);
   if (this->Makefile->IsOn(disableFindPackageVar)) {
     if (this->IsRequired()) {
       this->SetError(
@@ -1247,7 +1247,7 @@ bool cmFindPackageCommand::FindPackage(
   }
   bool forceConfigMode = false;
   auto const redirectsDir =
-    this->Makefile->GetSafeDefinition("CMAKE_FIND_PACKAGE_REDIRECTS_DIR");
+    this->Makefile->GetSafeDefinition("RBLXBUILD_FIND_PACKAGE_REDIRECTS_DIR");
   for (auto const& overrideName : overrideNames) {
     auto const nameLower = cmSystemTools::LowerCase(overrideName);
     auto const delegatePropName =
@@ -1259,7 +1259,7 @@ bool cmFindPackageCommand::FindPackage(
       // included at least once, so we know the FetchContent_MakeAvailable()
       // command will be defined. Any future find_package() calls after this
       // one for this package will bypass this once-only delegation.
-      // The following call will typically create a <name>-config.cmake file
+      // The following call will typically create a <name>-config.rblxbuild file
       // in the redirectsDir, which we still want to process like any other
       // config file to ensure we follow normal find_package() processing.
       cmListFileFunction func(
@@ -1271,9 +1271,9 @@ bool cmFindPackageCommand::FindPackage(
     }
 
     if (cmSystemTools::FileExists(
-          cmStrCat(redirectsDir, '/', nameLower, "-config.cmake")) ||
+          cmStrCat(redirectsDir, '/', nameLower, "-config.rblxbuild")) ||
         cmSystemTools::FileExists(
-          cmStrCat(redirectsDir, '/', overrideName, "Config.cmake"))) {
+          cmStrCat(redirectsDir, '/', overrideName, "Config.rblxbuild"))) {
       // Force the use of this redirected config package file, regardless of
       // the type of find_package() call. Files in the redirectsDir must always
       // take priority over everything else.
@@ -1290,11 +1290,11 @@ bool cmFindPackageCommand::FindPackage(
     }
   }
 
-  // See if there is a Find<PackageName>.cmake module.
+  // See if there is a Find<PackageName>.rblxbuild module.
   bool loadedPackage = false;
   if (forceConfigMode) {
     loadedPackage = this->FindPackageUsingConfigMode();
-  } else if (this->Makefile->IsOn("CMAKE_FIND_PACKAGE_PREFER_CONFIG")) {
+  } else if (this->Makefile->IsOn("RBLXBUILD_FIND_PACKAGE_PREFER_CONFIG")) {
     if (this->UseConfigFiles && this->FindPackageUsingConfigMode()) {
       loadedPackage = true;
     } else {
@@ -1311,41 +1311,41 @@ bool cmFindPackageCommand::FindPackage(
     if (this->UseFindModules && this->FindPackageUsingModuleMode()) {
       loadedPackage = true;
     } else {
-      // Handle CMAKE_FIND_PACKAGE_WARN_NO_MODULE (warn when CONFIG mode is
+      // Handle RBLXBUILD_FIND_PACKAGE_WARN_NO_MODULE (warn when CONFIG mode is
       // implicitly assumed)
       if (this->UseFindModules && this->UseConfigFiles &&
-          this->Makefile->IsOn("CMAKE_FIND_PACKAGE_WARN_NO_MODULE")) {
+          this->Makefile->IsOn("RBLXBUILD_FIND_PACKAGE_WARN_NO_MODULE")) {
         std::ostringstream aw;
-        if (this->RequiredCMakeVersion >= CMake_VERSION_ENCODE(2, 8, 8)) {
+        if (this->RequiredRBLXBuildVersion >= RBLXBuild_VERSION_ENCODE(2, 8, 8)) {
           aw << "find_package called without either MODULE or CONFIG option "
                 "and "
                 "no Find"
              << this->Name
-             << ".cmake module is in CMAKE_MODULE_PATH.  "
+             << ".rblxbuild module is in RBLXBUILD_MODULE_PATH.  "
                 "Add MODULE to exclusively request Module mode and fail if "
                 "Find"
              << this->Name
-             << ".cmake is missing.  "
+             << ".rblxbuild is missing.  "
                 "Add CONFIG to exclusively request Config mode and search for "
                 "a "
                 "package configuration file provided by "
-             << this->Name << " (" << this->Name << "Config.cmake or "
-             << cmSystemTools::LowerCase(this->Name) << "-config.cmake).  ";
+             << this->Name << " (" << this->Name << "Config.rblxbuild or "
+             << cmSystemTools::LowerCase(this->Name) << "-config.rblxbuild).  ";
         } else {
           aw << "find_package called without NO_MODULE option and no "
                 "Find"
              << this->Name
-             << ".cmake module is in CMAKE_MODULE_PATH.  "
+             << ".rblxbuild module is in RBLXBUILD_MODULE_PATH.  "
                 "Add NO_MODULE to exclusively request Config mode and search "
                 "for a "
                 "package configuration file provided by "
-             << this->Name << " (" << this->Name << "Config.cmake or "
+             << this->Name << " (" << this->Name << "Config.rblxbuild or "
              << cmSystemTools::LowerCase(this->Name)
-             << "-config.cmake).  Otherwise make Find" << this->Name
-             << ".cmake available in CMAKE_MODULE_PATH.";
+             << "-config.rblxbuild).  Otherwise make Find" << this->Name
+             << ".rblxbuild available in RBLXBUILD_MODULE_PATH.";
         }
         aw << "\n"
-              "(Variable CMAKE_FIND_PACKAGE_WARN_NO_MODULE enabled this "
+              "(Variable RBLXBUILD_FIND_PACKAGE_WARN_NO_MODULE enabled this "
               "warning.)";
         this->Makefile->IssueDiagnostic(cmDiagnostics::CMD_AUTHOR, aw.str());
       }
@@ -1392,11 +1392,11 @@ bool cmFindPackageCommand::FindPackageUsingConfigMode()
         }
       }
 
-      config = cmStrCat(n, "Config.cmake");
-      this->Configs.emplace_back(std::move(config), pdt::CMake);
+      config = cmStrCat(n, "Config.rblxbuild");
+      this->Configs.emplace_back(std::move(config), pdt::RBLXBuild);
 
-      config = cmStrCat(cmSystemTools::LowerCase(n), "-config.cmake");
-      this->Configs.emplace_back(std::move(config), pdt::CMake);
+      config = cmStrCat(cmSystemTools::LowerCase(n), "-config.rblxbuild");
+      this->Configs.emplace_back(std::move(config), pdt::RBLXBuild);
     }
   }
 
@@ -1447,10 +1447,10 @@ void cmFindPackageCommand::SetVersionVariables(
 
 void cmFindPackageCommand::SetModuleVariables()
 {
-  this->AddFindDefinition("CMAKE_FIND_PACKAGE_NAME", this->Name);
+  this->AddFindDefinition("RBLXBUILD_FIND_PACKAGE_NAME", this->Name);
 
   // Nested find calls are not automatically required.
-  this->AddFindDefinition("CMAKE_FIND_REQUIRED", ""_s);
+  this->AddFindDefinition("RBLXBUILD_FIND_REQUIRED", ""_s);
 
   // Store the list of components and associated variable definitions.
   std::string components_var = this->Name + "_FIND_COMPONENTS";
@@ -1554,7 +1554,7 @@ void cmFindPackageCommand::RestoreFindDefinitions()
 
 bool cmFindPackageCommand::FindModule(bool& found)
 {
-  std::string moduleFileName = cmStrCat("Find", this->Name, ".cmake");
+  std::string moduleFileName = cmStrCat("Find", this->Name, ".rblxbuild");
 
   bool system = false;
   std::string debugBuffer = cmStrCat(
@@ -1752,7 +1752,7 @@ bool cmFindPackageCommand::HandlePackageMode(
 
   if (this->UseFindModules && !found &&
       handlePackageModeType == HandlePackageModeType::Config &&
-      this->Makefile->IsOn("CMAKE_FIND_PACKAGE_PREFER_CONFIG")) {
+      this->Makefile->IsOn("RBLXBUILD_FIND_PACKAGE_PREFER_CONFIG")) {
     // Config mode failed. Allow Module case.
     result = false;
   }
@@ -1790,7 +1790,7 @@ bool cmFindPackageCommand::HandlePackageMode(
           << cmJoin(cmMakeRange(missingTargets), ", "_s);
       } else if (!this->ConsideredConfigs.empty()) {
         // If there are files in ConsideredConfigs, it means that
-        // FooConfig.cmake have been found, but they didn't have appropriate
+        // FooConfig.rblxbuild have been found, but they didn't have appropriate
         // versions.
         auto duplicate_end = cmRemoveDuplicates(this->ConsideredConfigs);
         e << "Could not find a configuration file for package \"" << this->Name
@@ -1818,12 +1818,12 @@ bool cmFindPackageCommand::HandlePackageMode(
         if (this->UseConfigFiles) {
           if (this->UseFindModules) {
             e << "By not providing \"Find" << this->Name
-              << ".cmake\" in "
-                 "CMAKE_MODULE_PATH this project has asked CMake to find a "
+              << ".rblxbuild\" in "
+                 "RBLXBUILD_MODULE_PATH this project has asked RBLXBuild to find a "
                  "package configuration file provided by \""
               << this->Name
               << "\", "
-                 "but CMake did not find one.\n";
+                 "but RBLXBuild did not find one.\n";
           }
 
           if (this->Configs.size() == 1) {
@@ -1841,7 +1841,7 @@ bool cmFindPackageCommand::HandlePackageMode(
           }
 
           e << "Add the installation prefix of \"" << this->Name
-            << "\" to CMAKE_PREFIX_PATH or set \"" << this->Variable
+            << "\" to RBLXBUILD_PREFIX_PATH or set \"" << this->Variable
             << "\" to a directory containing one of the above files. "
                "If \""
             << this->Name
@@ -1850,21 +1850,21 @@ bool cmFindPackageCommand::HandlePackageMode(
         } else // if(!this->UseFindModules && !this->UseConfigFiles)
         {
           e << "No \"Find" << this->Name
-            << ".cmake\" found in "
-               "CMAKE_MODULE_PATH.";
+            << ".rblxbuild\" found in "
+               "RBLXBUILD_MODULE_PATH.";
 
           aw
             << "Find" << this->Name
-            << ".cmake must either be part of this "
-               "project itself, in this case adjust CMAKE_MODULE_PATH so that "
+            << ".rblxbuild must either be part of this "
+               "project itself, in this case adjust RBLXBUILD_MODULE_PATH so that "
                "it points to the correct location inside its source tree.\n"
                "Or it must be installed by a package which has already been "
                "found via find_package().  In this case make sure that "
-               "package has indeed been found and adjust CMAKE_MODULE_PATH to "
+               "package has indeed been found and adjust RBLXBUILD_MODULE_PATH to "
                "contain the location where that package has installed "
                "Find"
             << this->Name
-            << ".cmake.  This must be a location "
+            << ".rblxbuild.  This must be a location "
                "provided by that package.  This error in general means that "
                "the buildsystem of this project is relying on a Find-module "
                "without ensuring that it is actually available.\n";
@@ -1872,10 +1872,10 @@ bool cmFindPackageCommand::HandlePackageMode(
       }
       if (this->Required == RequiredStatus::RequiredFromFindVar) {
         e << "\nThis package is considered required because the "
-             "CMAKE_FIND_REQUIRED variable has been enabled.\n";
+             "RBLXBUILD_FIND_REQUIRED variable has been enabled.\n";
       } else if (this->Required == RequiredStatus::RequiredFromPackageVar) {
         e << "\nThis package is considered required because the "
-          << cmStrCat("CMAKE_REQUIRE_FIND_PACKAGE_", this->Name)
+          << cmStrCat("RBLXBUILD_REQUIRE_FIND_PACKAGE_", this->Name)
           << " variable has been enabled.\n";
       }
 
@@ -2006,7 +2006,7 @@ bool cmFindPackageCommand::FindConfig()
 void cmFindPackageCommand::SetConfigDirCacheVariable(std::string const& value)
 {
   std::string const help =
-    cmStrCat("The directory containing a CMake configuration file for ",
+    cmStrCat("The directory containing a RBLXBuild configuration file for ",
              this->Name, '.');
   this->Makefile->AddCacheDefinition(this->Variable, value, help,
                                      cmStateEnums::PATH, true);
@@ -2133,7 +2133,7 @@ bool cmFindPackageCommand::ReadListFile(std::string const& f,
 
   if (!result) {
     std::string const e =
-      cmStrCat("Error reading CMake code from \"", f, "\".");
+      cmStrCat("Error reading RBLXBuild code from \"", f, "\".");
     this->SetError(e);
   }
 
@@ -2230,7 +2230,7 @@ bool cmFindPackageCommand::FindPackageDependencies(
 {
   for (auto const& dep : reader.GetRequirements()) {
     // Try domain-based resolution first.
-#ifndef CMAKE_BOOTSTRAP
+#ifndef RBLXBUILD_BOOTSTRAP
     if (cm::contains(dep.Domains, cm::PackageDomain::PkgConfig)) {
       cmExecutionStatus status{ *this->Makefile };
       if (cmImportPkgConfigPackage(*this->Makefile, status, dep.Name)) {
@@ -2356,7 +2356,7 @@ void cmFindPackageCommand::AppendSuccessInformation()
 {
   {
     std::string const transitivePropName =
-      cmStrCat("_CMAKE_", this->Name, "_TRANSITIVE_DEPENDENCY");
+      cmStrCat("_RBLXBUILD_", this->Name, "_TRANSITIVE_DEPENDENCY");
     this->Makefile->GetState()->SetGlobalProperty(transitivePropName, "False");
   }
   std::string const found = cmStrCat(this->Name, "_FOUND");
@@ -2369,15 +2369,15 @@ void cmFindPackageCommand::AppendSuccessInformation()
   this->AppendToFoundProperty(packageFound);
 
   // Record whether the find was quiet or not, so this can be used
-  // e.g. in FeatureSummary.cmake
+  // e.g. in FeatureSummary.rblxbuild
   std::string const quietInfoPropName =
-    cmStrCat("_CMAKE_", this->Name, "_QUIET");
+    cmStrCat("_RBLXBUILD_", this->Name, "_QUIET");
   this->Makefile->GetState()->SetGlobalProperty(
     quietInfoPropName, this->Quiet ? "TRUE" : "FALSE");
 
   // set a global property to record the required version of this package
   std::string const versionInfoPropName =
-    cmStrCat("_CMAKE_", this->Name, "_REQUIRED_VERSION");
+    cmStrCat("_RBLXBUILD_", this->Name, "_REQUIRED_VERSION");
   std::string versionInfo;
   if (!this->VersionRange.empty()) {
     versionInfo = this->VersionRange;
@@ -2389,7 +2389,7 @@ void cmFindPackageCommand::AppendSuccessInformation()
                                                 versionInfo);
   if (this->IsRequired()) {
     std::string const requiredInfoPropName =
-      cmStrCat("_CMAKE_", this->Name, "_TYPE");
+      cmStrCat("_RBLXBUILD_", this->Name, "_TYPE");
     this->Makefile->GetState()->SetGlobalProperty(requiredInfoPropName,
                                                   "REQUIRED");
   }
@@ -2402,7 +2402,7 @@ void cmFindPackageCommand::PushFindPackageRootPathStack()
   std::vector<std::string>& rootPaths =
     this->Makefile->FindPackageRootPathStack.back();
 
-  // Add root paths from <PackageName>_ROOT CMake and environment variables,
+  // Add root paths from <PackageName>_ROOT RBLXBuild and environment variables,
   // subject to CMP0074.
   std::string const rootVar = this->Name + "_ROOT";
   cmValue rootDef = this->Makefile->GetDefinition(rootVar);
@@ -2425,7 +2425,7 @@ void cmFindPackageCommand::PushFindPackageRootPathStack()
     } break;
   }
 
-  // Add root paths from <PACKAGENAME>_ROOT CMake and environment variables,
+  // Add root paths from <PACKAGENAME>_ROOT RBLXBuild and environment variables,
   // if they are different than <PackageName>_ROOT, and subject to CMP0144.
   std::string const rootVAR = cmSystemTools::UpperCase(rootVar);
   cmValue rootDEF;
@@ -2486,11 +2486,11 @@ void cmFindPackageCommand::ComputePrefixes()
     if (!this->NoPackageRootPath) {
       this->FillPrefixesPackageRoot();
     }
-    if (!this->NoCMakePath) {
-      this->FillPrefixesCMakeVariable();
+    if (!this->NoRBLXBuildPath) {
+      this->FillPrefixesRBLXBuildVariable();
     }
-    if (!this->NoCMakeEnvironmentPath) {
-      this->FillPrefixesCMakeEnvironment();
+    if (!this->NoRBLXBuildEnvironmentPath) {
+      this->FillPrefixesRBLXBuildEnvironment();
     }
   }
 
@@ -2503,8 +2503,8 @@ void cmFindPackageCommand::ComputePrefixes()
     if (!this->NoUserRegistry) {
       this->FillPrefixesUserRegistry();
     }
-    if (!this->NoCMakeSystemPath) {
-      this->FillPrefixesCMakeSystemVariable();
+    if (!this->NoRBLXBuildSystemPath) {
+      this->FillPrefixesRBLXBuildSystemVariable();
     }
     if (!this->NoSystemRegistry) {
       this->FillPrefixesSystemRegistry();
@@ -2520,13 +2520,13 @@ void cmFindPackageCommand::FillPrefixesPackageRedirect()
   cmSearchPath& paths = this->LabeledPaths[PathLabel::PackageRedirect];
 
   auto const redirectDir =
-    this->Makefile->GetDefinition("CMAKE_FIND_PACKAGE_REDIRECTS_DIR");
+    this->Makefile->GetDefinition("RBLXBUILD_FIND_PACKAGE_REDIRECTS_DIR");
   if (redirectDir && !redirectDir->empty()) {
     paths.AddPath(*redirectDir);
   }
   if (this->DebugModeEnabled()) {
     std::string debugBuffer =
-      "The internally managed CMAKE_FIND_PACKAGE_REDIRECTS_DIR.\n";
+      "The internally managed RBLXBUILD_FIND_PACKAGE_REDIRECTS_DIR.\n";
     collectPathsForDebug(debugBuffer, paths);
     this->DebugBuffer = cmStrCat(this->DebugBuffer, debugBuffer);
   }
@@ -2545,16 +2545,16 @@ void cmFindPackageCommand::FillPrefixesPackageRoot()
     }
   }
   if (this->DebugModeEnabled()) {
-    std::string debugBuffer = "<PackageName>_ROOT CMake variable "
-                              "[CMAKE_FIND_USE_PACKAGE_ROOT_PATH].\n";
+    std::string debugBuffer = "<PackageName>_ROOT RBLXBuild variable "
+                              "[RBLXBUILD_FIND_USE_PACKAGE_ROOT_PATH].\n";
     collectPathsForDebug(debugBuffer, paths);
     this->DebugBuffer = cmStrCat(this->DebugBuffer, debugBuffer);
   }
 }
 
-void cmFindPackageCommand::FillPrefixesCMakeEnvironment()
+void cmFindPackageCommand::FillPrefixesRBLXBuildEnvironment()
 {
-  cmSearchPath& paths = this->LabeledPaths[PathLabel::CMakeEnvironment];
+  cmSearchPath& paths = this->LabeledPaths[PathLabel::RBLXBuildEnvironment];
   std::string debugBuffer;
   std::size_t debugOffset = 0;
 
@@ -2563,50 +2563,50 @@ void cmFindPackageCommand::FillPrefixesCMakeEnvironment()
   paths.AddEnvPath(this->Variable);
   if (this->DebugModeEnabled()) {
     debugBuffer = cmStrCat("Env variable ", this->Variable,
-                           " [CMAKE_FIND_USE_CMAKE_ENVIRONMENT_PATH].\n");
+                           " [RBLXBUILD_FIND_USE_RBLXBUILD_ENVIRONMENT_PATH].\n");
     debugOffset = collectPathsForDebug(debugBuffer, paths);
   }
 
-  // And now the general CMake environment variables
-  paths.AddEnvPath("CMAKE_PREFIX_PATH");
+  // And now the general RBLXBuild environment variables
+  paths.AddEnvPath("RBLXBUILD_PREFIX_PATH");
   if (this->DebugModeEnabled()) {
     debugBuffer = cmStrCat(std::move(debugBuffer),
-                           "CMAKE_PREFIX_PATH env variable "
-                           "[CMAKE_FIND_USE_CMAKE_ENVIRONMENT_PATH].\n");
+                           "RBLXBUILD_PREFIX_PATH env variable "
+                           "[RBLXBUILD_FIND_USE_RBLXBUILD_ENVIRONMENT_PATH].\n");
     debugOffset = collectPathsForDebug(debugBuffer, paths, debugOffset);
   }
 
-  paths.AddEnvPath("CMAKE_FRAMEWORK_PATH");
-  paths.AddEnvPath("CMAKE_APPBUNDLE_PATH");
+  paths.AddEnvPath("RBLXBUILD_FRAMEWORK_PATH");
+  paths.AddEnvPath("RBLXBUILD_APPBUNDLE_PATH");
   if (this->DebugModeEnabled()) {
     debugBuffer =
       cmStrCat(std::move(debugBuffer),
-               "CMAKE_FRAMEWORK_PATH and CMAKE_APPBUNDLE_PATH env "
-               "variables [CMAKE_FIND_USE_CMAKE_ENVIRONMENT_PATH].\n");
+               "RBLXBUILD_FRAMEWORK_PATH and RBLXBUILD_APPBUNDLE_PATH env "
+               "variables [RBLXBUILD_FIND_USE_RBLXBUILD_ENVIRONMENT_PATH].\n");
     collectPathsForDebug(debugBuffer, paths, debugOffset);
     this->DebugBuffer = cmStrCat(this->DebugBuffer, debugBuffer);
   }
 }
 
-void cmFindPackageCommand::FillPrefixesCMakeVariable()
+void cmFindPackageCommand::FillPrefixesRBLXBuildVariable()
 {
-  cmSearchPath& paths = this->LabeledPaths[PathLabel::CMake];
+  cmSearchPath& paths = this->LabeledPaths[PathLabel::RBLXBuild];
   std::string debugBuffer;
   std::size_t debugOffset = 0;
 
-  paths.AddCMakePath("CMAKE_PREFIX_PATH");
+  paths.AddRBLXBuildPath("RBLXBUILD_PREFIX_PATH");
   if (this->DebugModeEnabled()) {
-    debugBuffer = "CMAKE_PREFIX_PATH variable [CMAKE_FIND_USE_CMAKE_PATH].\n";
+    debugBuffer = "RBLXBUILD_PREFIX_PATH variable [RBLXBUILD_FIND_USE_RBLXBUILD_PATH].\n";
     debugOffset = collectPathsForDebug(debugBuffer, paths);
   }
 
-  paths.AddCMakePath("CMAKE_FRAMEWORK_PATH");
-  paths.AddCMakePath("CMAKE_APPBUNDLE_PATH");
+  paths.AddRBLXBuildPath("RBLXBUILD_FRAMEWORK_PATH");
+  paths.AddRBLXBuildPath("RBLXBUILD_APPBUNDLE_PATH");
   if (this->DebugModeEnabled()) {
     debugBuffer =
       cmStrCat(std::move(debugBuffer),
-               "CMAKE_FRAMEWORK_PATH and CMAKE_APPBUNDLE_PATH variables "
-               "[CMAKE_FIND_USE_CMAKE_PATH].\n");
+               "RBLXBUILD_FRAMEWORK_PATH and RBLXBUILD_APPBUNDLE_PATH variables "
+               "[RBLXBUILD_FIND_USE_RBLXBUILD_PATH].\n");
     collectPathsForDebug(debugBuffer, paths, debugOffset);
     this->DebugBuffer = cmStrCat(this->DebugBuffer, debugBuffer);
   }
@@ -2631,7 +2631,7 @@ void cmFindPackageCommand::FillPrefixesSystemEnvironment()
   }
   if (this->DebugModeEnabled()) {
     std::string debugBuffer = "Standard system environment variables "
-                              "[CMAKE_FIND_USE_SYSTEM_ENVIRONMENT_PATH].\n";
+                              "[RBLXBUILD_FIND_USE_SYSTEM_ENVIRONMENT_PATH].\n";
     collectPathsForDebug(debugBuffer, paths);
     this->DebugBuffer = cmStrCat(this->DebugBuffer, debugBuffer);
   }
@@ -2645,14 +2645,14 @@ void cmFindPackageCommand::FillPrefixesUserRegistry()
   char dir[B_PATH_NAME_LENGTH];
   if (find_directory(B_USER_SETTINGS_DIRECTORY, -1, false, dir, sizeof(dir)) ==
       B_OK) {
-    std::string fname = cmStrCat(dir, "/cmake/packages/", Name);
+    std::string fname = cmStrCat(dir, "/rblxbuild/packages/", Name);
     this->LoadPackageRegistryDir(fname,
                                  this->LabeledPaths[PathLabel::UserRegistry]);
   }
 #else
   std::string dir;
   if (cmSystemTools::GetEnv("HOME", dir)) {
-    dir += "/.cmake/packages/";
+    dir += "/.rblxbuild/packages/";
     dir += this->Name;
     this->LoadPackageRegistryDir(dir,
                                  this->LabeledPaths[PathLabel::UserRegistry]);
@@ -2660,7 +2660,7 @@ void cmFindPackageCommand::FillPrefixesUserRegistry()
 #endif
   if (this->DebugModeEnabled()) {
     std::string debugBuffer =
-      "CMake User Package Registry [CMAKE_FIND_USE_PACKAGE_REGISTRY].\n";
+      "RBLXBuild User Package Registry [RBLXBUILD_FIND_USE_PACKAGE_REGISTRY].\n";
     collectPathsForDebug(debugBuffer,
                          this->LabeledPaths[PathLabel::UserRegistry]);
     this->DebugBuffer = cmStrCat(this->DebugBuffer, debugBuffer);
@@ -2679,8 +2679,8 @@ void cmFindPackageCommand::FillPrefixesSystemRegistry()
 
   if (this->DebugModeEnabled()) {
     std::string debugBuffer =
-      "CMake System Package Registry "
-      "[CMAKE_FIND_PACKAGE_NO_SYSTEM_PACKAGE_REGISTRY].\n";
+      "RBLXBuild System Package Registry "
+      "[RBLXBUILD_FIND_PACKAGE_NO_SYSTEM_PACKAGE_REGISTRY].\n";
     collectPathsForDebug(debugBuffer,
                          this->LabeledPaths[PathLabel::SystemRegistry]);
     this->DebugBuffer = cmStrCat(this->DebugBuffer, debugBuffer);
@@ -2714,7 +2714,7 @@ void cmFindPackageCommand::LoadPackageRegistryWin(bool const user,
                                                   unsigned int const view,
                                                   cmSearchPath& outPaths)
 {
-  std::wstring key = L"Software\\Kitware\\CMake\\Packages\\";
+  std::wstring key = L"Software\\Kitware\\RBLXBuild\\Packages\\";
   key += cmsys::Encoding::ToWide(this->Name);
   std::set<std::wstring> bad;
   HKEY hKey;
@@ -2819,39 +2819,39 @@ bool cmFindPackageCommand::CheckPackageRegistryEntry(std::string const& fname,
   }
   // The first line in the stream is not the full path to a file or
   // directory.  Assume the stream content was created by a future
-  // version of CMake that uses a different format, and leave it.
+  // version of RBLXBuild that uses a different format, and leave it.
   return true;
 }
 
-void cmFindPackageCommand::FillPrefixesCMakeSystemVariable()
+void cmFindPackageCommand::FillPrefixesRBLXBuildSystemVariable()
 {
-  cmSearchPath& paths = this->LabeledPaths[PathLabel::CMakeSystem];
+  cmSearchPath& paths = this->LabeledPaths[PathLabel::RBLXBuildSystem];
 
   bool const install_prefix_in_list =
-    !this->Makefile->IsOn("CMAKE_FIND_NO_INSTALL_PREFIX");
-  bool const remove_install_prefix = this->NoCMakeInstallPath;
-  bool const add_install_prefix = !this->NoCMakeInstallPath &&
-    this->Makefile->IsDefinitionSet("CMAKE_FIND_USE_INSTALL_PREFIX");
+    !this->Makefile->IsOn("RBLXBUILD_FIND_NO_INSTALL_PREFIX");
+  bool const remove_install_prefix = this->NoRBLXBuildInstallPath;
+  bool const add_install_prefix = !this->NoRBLXBuildInstallPath &&
+    this->Makefile->IsDefinitionSet("RBLXBUILD_FIND_USE_INSTALL_PREFIX");
 
-  // We have 3 possible states for `CMAKE_SYSTEM_PREFIX_PATH` and
-  // `CMAKE_INSTALL_PREFIX`.
-  // Either we need to remove `CMAKE_INSTALL_PREFIX`, add
-  // `CMAKE_INSTALL_PREFIX`, or do nothing.
+  // We have 3 possible states for `RBLXBUILD_SYSTEM_PREFIX_PATH` and
+  // `RBLXBUILD_INSTALL_PREFIX`.
+  // Either we need to remove `RBLXBUILD_INSTALL_PREFIX`, add
+  // `RBLXBUILD_INSTALL_PREFIX`, or do nothing.
   //
-  // When we need to remove `CMAKE_INSTALL_PREFIX` we remove the Nth occurrence
-  // of `CMAKE_INSTALL_PREFIX` from `CMAKE_SYSTEM_PREFIX_PATH`, where `N` is
-  // computed by `CMakeSystemSpecificInformation.cmake` while constructing
-  // `CMAKE_SYSTEM_PREFIX_PATH`. This ensures that if projects / toolchains
-  // have removed `CMAKE_INSTALL_PREFIX` from the list, we don't remove
+  // When we need to remove `RBLXBUILD_INSTALL_PREFIX` we remove the Nth occurrence
+  // of `RBLXBUILD_INSTALL_PREFIX` from `RBLXBUILD_SYSTEM_PREFIX_PATH`, where `N` is
+  // computed by `RBLXBuildSystemSpecificInformation.rblxbuild` while constructing
+  // `RBLXBUILD_SYSTEM_PREFIX_PATH`. This ensures that if projects / toolchains
+  // have removed `RBLXBUILD_INSTALL_PREFIX` from the list, we don't remove
   // some other entry by mistake
   long install_prefix_count = -1;
   std::string install_path_to_remove;
   if (cmValue to_skip = this->Makefile->GetDefinition(
-        "_CMAKE_SYSTEM_PREFIX_PATH_INSTALL_PREFIX_COUNT")) {
+        "_RBLXBUILD_SYSTEM_PREFIX_PATH_INSTALL_PREFIX_COUNT")) {
     cmStrToLong(*to_skip, &install_prefix_count);
   }
   if (cmValue install_value = this->Makefile->GetDefinition(
-        "_CMAKE_SYSTEM_PREFIX_PATH_INSTALL_PREFIX_VALUE")) {
+        "_RBLXBUILD_SYSTEM_PREFIX_PATH_INSTALL_PREFIX_VALUE")) {
     install_path_to_remove = *install_value;
   }
 
@@ -2859,8 +2859,8 @@ void cmFindPackageCommand::FillPrefixesCMakeSystemVariable()
       install_prefix_count > 0 && !install_path_to_remove.empty()) {
 
     cmValue prefix_paths =
-      this->Makefile->GetDefinition("CMAKE_SYSTEM_PREFIX_PATH");
-    // remove entry from CMAKE_SYSTEM_PREFIX_PATH
+      this->Makefile->GetDefinition("RBLXBUILD_SYSTEM_PREFIX_PATH");
+    // remove entry from RBLXBUILD_SYSTEM_PREFIX_PATH
     cmList expanded{ *prefix_paths };
     long count = 0;
     for (auto const& path : expanded) {
@@ -2871,19 +2871,19 @@ void cmFindPackageCommand::FillPrefixesCMakeSystemVariable()
       }
     }
   } else if (add_install_prefix && !install_prefix_in_list) {
-    paths.AddCMakePath("CMAKE_INSTALL_PREFIX");
-    paths.AddCMakePath("CMAKE_SYSTEM_PREFIX_PATH");
+    paths.AddRBLXBuildPath("RBLXBUILD_INSTALL_PREFIX");
+    paths.AddRBLXBuildPath("RBLXBUILD_SYSTEM_PREFIX_PATH");
   } else {
-    // Otherwise the current setup of `CMAKE_SYSTEM_PREFIX_PATH` is correct
-    paths.AddCMakePath("CMAKE_SYSTEM_PREFIX_PATH");
+    // Otherwise the current setup of `RBLXBUILD_SYSTEM_PREFIX_PATH` is correct
+    paths.AddRBLXBuildPath("RBLXBUILD_SYSTEM_PREFIX_PATH");
   }
 
-  paths.AddCMakePath("CMAKE_SYSTEM_FRAMEWORK_PATH");
-  paths.AddCMakePath("CMAKE_SYSTEM_APPBUNDLE_PATH");
+  paths.AddRBLXBuildPath("RBLXBUILD_SYSTEM_FRAMEWORK_PATH");
+  paths.AddRBLXBuildPath("RBLXBUILD_SYSTEM_APPBUNDLE_PATH");
 
   if (this->DebugModeEnabled()) {
-    std::string debugBuffer = "CMake variables defined in the Platform file "
-                              "[CMAKE_FIND_USE_CMAKE_SYSTEM_PATH].\n";
+    std::string debugBuffer = "RBLXBuild variables defined in the Platform file "
+                              "[RBLXBUILD_FIND_USE_RBLXBUILD_SYSTEM_PATH].\n";
     collectPathsForDebug(debugBuffer, paths);
     this->DebugBuffer = cmStrCat(this->DebugBuffer, debugBuffer);
   }
@@ -3167,18 +3167,18 @@ bool cmFindPackageCommand::CheckVersion(std::string const& config_file)
       reason = SearchResult::Error;
     }
   } else {
-    // Get the filename without the .cmake extension.
+    // Get the filename without the .rblxbuild extension.
     std::string version_file_base = config_file.substr(0, pos);
 
-    // Look for foo-config-version.cmake
-    std::string version_file = cmStrCat(version_file_base, "-version.cmake");
+    // Look for foo-config-version.rblxbuild
+    std::string version_file = cmStrCat(version_file_base, "-version.rblxbuild");
     if (!haveResult && cmSystemTools::FileExists(version_file, true)) {
       result = this->CheckVersionFile(version_file, version);
       haveResult = true;
     }
 
-    // Look for fooConfigVersion.cmake
-    version_file = cmStrCat(version_file_base, "Version.cmake");
+    // Look for fooConfigVersion.rblxbuild
+    version_file = cmStrCat(version_file_base, "Version.rblxbuild");
     if (!haveResult && cmSystemTools::FileExists(version_file, true)) {
       result = this->CheckVersionFile(version_file, version);
       haveResult = true;
@@ -3355,13 +3355,13 @@ bool cmFindPackageCommand::SearchPrefix(std::string const& prefix)
   };
 
   auto iCpsGen = cmCaseInsensitiveDirectoryListGenerator{ "cps"_s };
-  auto iCMakeGen = cmCaseInsensitiveDirectoryListGenerator{ "cmake"_s };
+  auto iRBLXBuildGen = cmCaseInsensitiveDirectoryListGenerator{ "rblxbuild"_s };
   auto anyDirGen =
     cmAnyDirectoryListGenerator{ this->SortOrder, this->SortDirection };
   auto cpsPkgDirGen =
     cmProjectDirectoryListGenerator{ &this->Names, this->SortOrder,
                                      this->SortDirection, true };
-  auto cmakePkgDirGen =
+  auto rblxbuildPkgDirGen =
     cmProjectDirectoryListGenerator{ &this->Names, this->SortOrder,
                                      this->SortDirection, false };
 
@@ -3408,23 +3408,23 @@ bool cmFindPackageCommand::SearchPrefix(std::string const& prefix)
   }
 
   // PREFIX/ (useful on windows or in build trees)
-  if (this->SearchDirectory(prefix, pdt::CMake)) {
+  if (this->SearchDirectory(prefix, pdt::RBLXBuild)) {
     return true;
   }
 
-  // PREFIX/(cmake|CMake)/ (useful on windows or in build trees)
-  if (TryGeneratedPaths(searchFn, pdt::CMake, prefix, iCMakeGen)) {
+  // PREFIX/(rblxbuild|RBLXBuild)/ (useful on windows or in build trees)
+  if (TryGeneratedPaths(searchFn, pdt::RBLXBuild, prefix, iRBLXBuildGen)) {
     return true;
   }
 
   // PREFIX/(Foo|foo|FOO).*/
-  if (TryGeneratedPaths(searchFn, pdt::CMake, prefix, cmakePkgDirGen)) {
+  if (TryGeneratedPaths(searchFn, pdt::RBLXBuild, prefix, rblxbuildPkgDirGen)) {
     return true;
   }
 
-  // PREFIX/(Foo|foo|FOO).*/(cmake|CMake)/
-  if (TryGeneratedPaths(searchFn, pdt::CMake, prefix, cmakePkgDirGen,
-                        iCMakeGen)) {
+  // PREFIX/(Foo|foo|FOO).*/(rblxbuild|RBLXBuild)/
+  if (TryGeneratedPaths(searchFn, pdt::RBLXBuild, prefix, rblxbuildPkgDirGen,
+                        iRBLXBuildGen)) {
     return true;
   }
 
@@ -3432,9 +3432,9 @@ bool cmFindPackageCommand::SearchPrefix(std::string const& prefix)
     cmProjectDirectoryListGenerator{ &this->Names, this->SortOrder,
                                      this->SortDirection, false };
 
-  // PREFIX/(Foo|foo|FOO).*/(cmake|CMake)/(Foo|foo|FOO).*/
-  if (TryGeneratedPaths(searchFn, pdt::CMake, prefix, cmakePkgDirGen,
-                        iCMakeGen, secondPkgDirGen)) {
+  // PREFIX/(Foo|foo|FOO).*/(rblxbuild|RBLXBuild)/(Foo|foo|FOO).*/
+  if (TryGeneratedPaths(searchFn, pdt::RBLXBuild, prefix, rblxbuildPkgDirGen,
+                        iRBLXBuildGen, secondPkgDirGen)) {
     return true;
   }
 
@@ -3458,7 +3458,7 @@ bool cmFindPackageCommand::SearchPrefix(std::string const& prefix)
   common.emplace_back("share"_s);
 
   auto commonGen = cmEnumPathSegmentsGenerator{ common };
-  auto cmakeGen = cmAppendPathSegmentGenerator{ "cmake"_s };
+  auto rblxbuildGen = cmAppendPathSegmentGenerator{ "rblxbuild"_s };
   auto cpsGen = cmAppendPathSegmentGenerator{ "cps"_s };
 
   // PREFIX/(lib/ARCH|lib*|share)/cps/(Foo|foo|FOO)/
@@ -3481,39 +3481,39 @@ bool cmFindPackageCommand::SearchPrefix(std::string const& prefix)
     return true;
   }
 
-  // PREFIX/(lib/ARCH|lib*|share)/cmake/(Foo|foo|FOO).*/
-  if (TryGeneratedPaths(searchFn, pdt::CMake, prefix, commonGen, cmakeGen,
-                        cmakePkgDirGen)) {
+  // PREFIX/(lib/ARCH|lib*|share)/rblxbuild/(Foo|foo|FOO).*/
+  if (TryGeneratedPaths(searchFn, pdt::RBLXBuild, prefix, commonGen, rblxbuildGen,
+                        rblxbuildPkgDirGen)) {
     return true;
   }
 
   // PREFIX/(lib/ARCH|lib*|share)/(Foo|foo|FOO).*/
-  if (TryGeneratedPaths(searchFn, pdt::CMake, prefix, commonGen,
-                        cmakePkgDirGen)) {
+  if (TryGeneratedPaths(searchFn, pdt::RBLXBuild, prefix, commonGen,
+                        rblxbuildPkgDirGen)) {
     return true;
   }
 
-  // PREFIX/(lib/ARCH|lib*|share)/(Foo|foo|FOO).*/(cmake|CMake)/
-  if (TryGeneratedPaths(searchFn, pdt::CMake, prefix, commonGen,
-                        cmakePkgDirGen, iCMakeGen)) {
+  // PREFIX/(lib/ARCH|lib*|share)/(Foo|foo|FOO).*/(rblxbuild|RBLXBuild)/
+  if (TryGeneratedPaths(searchFn, pdt::RBLXBuild, prefix, commonGen,
+                        rblxbuildPkgDirGen, iRBLXBuildGen)) {
     return true;
   }
 
-  // PREFIX/(Foo|foo|FOO).*/(lib/ARCH|lib*|share)/cmake/(Foo|foo|FOO).*/
-  if (TryGeneratedPaths(searchFn, pdt::CMake, prefix, cmakePkgDirGen,
-                        commonGen, cmakeGen, secondPkgDirGen)) {
+  // PREFIX/(Foo|foo|FOO).*/(lib/ARCH|lib*|share)/rblxbuild/(Foo|foo|FOO).*/
+  if (TryGeneratedPaths(searchFn, pdt::RBLXBuild, prefix, rblxbuildPkgDirGen,
+                        commonGen, rblxbuildGen, secondPkgDirGen)) {
     return true;
   }
 
   // PREFIX/(Foo|foo|FOO).*/(lib/ARCH|lib*|share)/(Foo|foo|FOO).*/
-  if (TryGeneratedPaths(searchFn, pdt::CMake, prefix, cmakePkgDirGen,
+  if (TryGeneratedPaths(searchFn, pdt::RBLXBuild, prefix, rblxbuildPkgDirGen,
                         commonGen, secondPkgDirGen)) {
     return true;
   }
 
-  // PREFIX/(Foo|foo|FOO).*/(lib/ARCH|lib*|share)/(Foo|foo|FOO).*/(cmake|CMake)/
-  return TryGeneratedPaths(searchFn, pdt::CMake, prefix, cmakePkgDirGen,
-                           commonGen, secondPkgDirGen, iCMakeGen);
+  // PREFIX/(Foo|foo|FOO).*/(lib/ARCH|lib*|share)/(Foo|foo|FOO).*/(rblxbuild|RBLXBuild)/
+  return TryGeneratedPaths(searchFn, pdt::RBLXBuild, prefix, rblxbuildPkgDirGen,
+                           commonGen, secondPkgDirGen, iRBLXBuildGen);
 }
 
 bool cmFindPackageCommand::SearchFrameworkPrefix(std::string const& prefix)
@@ -3525,7 +3525,7 @@ bool cmFindPackageCommand::SearchFrameworkPrefix(std::string const& prefix)
     return this->SearchDirectory(fullPath, type);
   };
 
-  auto iCMakeGen = cmCaseInsensitiveDirectoryListGenerator{ "cmake"_s };
+  auto iRBLXBuildGen = cmCaseInsensitiveDirectoryListGenerator{ "rblxbuild"_s };
   auto iCpsGen = cmCaseInsensitiveDirectoryListGenerator{ "cps"_s };
   auto fwGen =
     cmMacProjectDirectoryListGenerator{ &this->Names, ".framework"_s };
@@ -3554,25 +3554,25 @@ bool cmFindPackageCommand::SearchFrameworkPrefix(std::string const& prefix)
   }
 
   // <prefix>/Foo.framework/Resources/
-  if (TryGeneratedPaths(searchFn, pdt::CMake, prefix, fwGen, rGen)) {
+  if (TryGeneratedPaths(searchFn, pdt::RBLXBuild, prefix, fwGen, rGen)) {
     return true;
   }
 
-  // <prefix>/Foo.framework/Resources/CMake/
-  if (TryGeneratedPaths(searchFn, pdt::CMake, prefix, fwGen, rGen,
-                        iCMakeGen)) {
+  // <prefix>/Foo.framework/Resources/RBLXBuild/
+  if (TryGeneratedPaths(searchFn, pdt::RBLXBuild, prefix, fwGen, rGen,
+                        iRBLXBuildGen)) {
     return true;
   }
 
   // <prefix>/Foo.framework/Versions/*/Resources/
-  if (TryGeneratedPaths(searchFn, pdt::CMake, prefix, fwGen, vGen, anyGen,
+  if (TryGeneratedPaths(searchFn, pdt::RBLXBuild, prefix, fwGen, vGen, anyGen,
                         rGen)) {
     return true;
   }
 
-  // <prefix>/Foo.framework/Versions/*/Resources/CMake/
-  return TryGeneratedPaths(searchFn, pdt::CMake, prefix, fwGen, vGen, anyGen,
-                           rGen, iCMakeGen);
+  // <prefix>/Foo.framework/Versions/*/Resources/RBLXBuild/
+  return TryGeneratedPaths(searchFn, pdt::RBLXBuild, prefix, fwGen, vGen, anyGen,
+                           rGen, iRBLXBuildGen);
 }
 
 bool cmFindPackageCommand::SearchAppBundlePrefix(std::string const& prefix)
@@ -3598,14 +3598,14 @@ bool cmFindPackageCommand::SearchAppBundlePrefix(std::string const& prefix)
   }
 
   // <prefix>/Foo.app/Contents/Resources/
-  if (TryGeneratedPaths(searchFn, pdt::CMake, prefix, appGen, crGen)) {
+  if (TryGeneratedPaths(searchFn, pdt::RBLXBuild, prefix, appGen, crGen)) {
     return true;
   }
 
-  // <prefix>/Foo.app/Contents/Resources/CMake/
+  // <prefix>/Foo.app/Contents/Resources/RBLXBuild/
   return TryGeneratedPaths(
-    searchFn, pdt::CMake, prefix, appGen, crGen,
-    cmCaseInsensitiveDirectoryListGenerator{ "cmake"_s });
+    searchFn, pdt::RBLXBuild, prefix, appGen, crGen,
+    cmCaseInsensitiveDirectoryListGenerator{ "rblxbuild"_s });
 }
 
 bool cmFindPackageCommand::SearchEnvironmentPrefix(std::string const& prefix)
@@ -3649,7 +3649,7 @@ cmFindPackageCommand::FoundPackageMode cmFindPackageCommand::FoundMode(
   switch (type) {
     case PackageDescriptionType::Any:
       return FoundPackageMode::None;
-    case PackageDescriptionType::CMake:
+    case PackageDescriptionType::RBLXBuild:
       return FoundPackageMode::Config;
     case PackageDescriptionType::Cps:
       return FoundPackageMode::Cps;
@@ -3705,7 +3705,7 @@ void cmFindPackageDebugState::WriteDebug() const
 {
 }
 
-#ifndef CMAKE_BOOTSTRAP
+#ifndef RBLXBUILD_BOOTSTRAP
 void cmFindPackageDebugState::WriteEvent(cmConfigureLog& log,
                                          cmMakefile const& mf) const
 {
@@ -3738,8 +3738,8 @@ void cmFindPackageDebugState::WriteEvent(cmConfigureLog& log,
       switch (type) {
         case pdt::Any:
           return "any";
-        case pdt::CMake:
-          return "cmake";
+        case pdt::RBLXBuild:
+          return "rblxbuild";
         case pdt::Cps:
           return "cps";
       }
@@ -3828,22 +3828,22 @@ void cmFindPackageDebugState::WriteEvent(cmConfigureLog& log,
         return "<UNKNOWN>";
       };
       log.BeginObject("paths"_s);
-      log.WriteValue("CMAKE_FIND_USE_CMAKE_PATH"_s, !fpc->NoDefaultPath);
-      log.WriteValue("CMAKE_FIND_USE_CMAKE_ENVIRONMENT_PATH"_s,
-                     !fpc->NoCMakeEnvironmentPath);
-      log.WriteValue("CMAKE_FIND_USE_SYSTEM_ENVIRONMENT_PATH"_s,
+      log.WriteValue("RBLXBUILD_FIND_USE_RBLXBUILD_PATH"_s, !fpc->NoDefaultPath);
+      log.WriteValue("RBLXBUILD_FIND_USE_RBLXBUILD_ENVIRONMENT_PATH"_s,
+                     !fpc->NoRBLXBuildEnvironmentPath);
+      log.WriteValue("RBLXBUILD_FIND_USE_SYSTEM_ENVIRONMENT_PATH"_s,
                      !fpc->NoSystemEnvironmentPath);
-      log.WriteValue("CMAKE_FIND_USE_CMAKE_SYSTEM_PATH"_s,
-                     !fpc->NoCMakeSystemPath);
-      log.WriteValue("CMAKE_FIND_USE_INSTALL_PREFIX"_s,
-                     !fpc->NoCMakeInstallPath);
-      log.WriteValue("CMAKE_FIND_USE_PACKAGE_ROOT_PATH"_s,
+      log.WriteValue("RBLXBUILD_FIND_USE_RBLXBUILD_SYSTEM_PATH"_s,
+                     !fpc->NoRBLXBuildSystemPath);
+      log.WriteValue("RBLXBUILD_FIND_USE_INSTALL_PREFIX"_s,
+                     !fpc->NoRBLXBuildInstallPath);
+      log.WriteValue("RBLXBUILD_FIND_USE_PACKAGE_ROOT_PATH"_s,
                      !fpc->NoPackageRootPath);
-      log.WriteValue("CMAKE_FIND_USE_CMAKE_PACKAGE_REGISTRY"_s,
+      log.WriteValue("RBLXBUILD_FIND_USE_RBLXBUILD_PACKAGE_REGISTRY"_s,
                      !fpc->NoUserRegistry);
-      log.WriteValue("CMAKE_FIND_USE_SYSTEM_PACKAGE_REGISTRY"_s,
+      log.WriteValue("RBLXBUILD_FIND_USE_SYSTEM_PACKAGE_REGISTRY"_s,
                      !fpc->NoSystemRegistry);
-      log.WriteValue("CMAKE_FIND_ROOT_PATH_MODE"_s,
+      log.WriteValue("RBLXBUILD_FIND_ROOT_PATH_MODE"_s,
                      find_root_path_mode(fpc->FindRootPathMode));
       log.EndObject();
     }
@@ -3928,7 +3928,7 @@ cmFindPackageDebugState::ExtraSearchVariables() const
   std::vector<std::pair<cmFindCommonDebugState::VariableSource, std::string>>
     extraSearches;
   if (this->FindPackageCommand->UseFindModules) {
-    extraSearches.emplace_back(VariableSource::PathList, "CMAKE_MODULE_PATH");
+    extraSearches.emplace_back(VariableSource::PathList, "RBLXBUILD_MODULE_PATH");
   }
   return extraSearches;
 }

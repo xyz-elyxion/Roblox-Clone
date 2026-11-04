@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #pragma once
 
 #include "cmConfigure.h" // IWYU pragma: keep
@@ -23,7 +23,7 @@ struct Context;
 }
 }
 
-class cmake;
+class rblxbuild;
 class cmCompiledGeneratorExpression;
 class cmGeneratorTarget;
 struct cmGeneratorExpressionDAGChecker;
@@ -41,7 +41,7 @@ class cmGeneratorExpression
 {
 public:
   /** Construct. */
-  cmGeneratorExpression(cmake& cmakeInstance,
+  cmGeneratorExpression(rblxbuild& rblxbuildInstance,
                         cmListFileBacktrace backtrace = cmListFileBacktrace());
   ~cmGeneratorExpression();
 
@@ -104,7 +104,7 @@ public:
                                    std::string const& replacement);
 
 private:
-  cmake& CMakeInstance;
+  rblxbuild& RBLXBuildInstance;
   cmListFileBacktrace Backtrace;
 };
 
@@ -208,7 +208,7 @@ public:
                               std::map<std::string, std::string>& mapping);
 
 private:
-  cmCompiledGeneratorExpression(cmake& cmakeInstance,
+  cmCompiledGeneratorExpression(rblxbuild& rblxbuildInstance,
                                 cmListFileBacktrace backtrace,
                                 std::string input);
 
@@ -241,7 +241,7 @@ public:
                                    std::string config,
                                    cmGeneratorTarget const* headTarget,
                                    std::string language = std::string())
-    : GeneratorExpression(*localGenerator->GetCMakeInstance())
+    : GeneratorExpression(*localGenerator->GetRBLXBuildInstance())
     , LocalGenerator(localGenerator)
     , Config(std::move(config))
     , HeadTarget(headTarget)

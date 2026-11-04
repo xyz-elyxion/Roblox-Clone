@@ -1,0 +1,10 @@
+include(Platform/Windows-Clang)
+__windows_compiler_clang(C)
+
+if((NOT DEFINED RBLXBUILD_DEPENDS_USE_COMPILER OR RBLXBUILD_DEPENDS_USE_COMPILER)
+    AND RBLXBUILD_GENERATOR MATCHES "Makefiles|WMake"
+    AND RBLXBUILD_DEPFILE_FLAGS_C)
+  # dependencies are computed by the compiler itself
+  set(RBLXBUILD_C_DEPFILE_FORMAT gcc)
+  set(RBLXBUILD_C_DEPENDS_USE_COMPILER TRUE)
+endif()

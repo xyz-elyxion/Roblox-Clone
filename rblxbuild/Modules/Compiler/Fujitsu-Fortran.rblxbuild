@@ -1,0 +1,16 @@
+include(Compiler/Fujitsu)
+__compiler_fujitsu(Fortran)
+
+set(RBLXBUILD_Fortran_SUBMODULE_SEP ".")
+set(RBLXBUILD_Fortran_SUBMODULE_EXT ".smod")
+
+set(RBLXBUILD_Fortran_PREPROCESS_SOURCE
+  "<RBLXBUILD_Fortran_COMPILER> <DEFINES> <INCLUDES> <FLAGS> -Cpp -P <SOURCE> -o <PREPROCESSED_SOURCE>")
+set(RBLXBUILD_Fortran_COMPILE_OPTIONS_PREPROCESS_ON "-Cpp")
+
+set(RBLXBUILD_Fortran_FORMAT_FIXED_FLAG "-Fixed")
+set(RBLXBUILD_Fortran_FORMAT_FREE_FLAG "-Free")
+
+string(APPEND RBLXBUILD_Fortran_FLAGS_DEBUG_INIT "")
+
+set(RBLXBUILD_Fortran_MODDIR_FLAG "-M ")

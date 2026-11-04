@@ -1,0 +1,70 @@
+# Keep formatting here consistent with bootstrap script expectations.
+if(BEOS)
+  set(RBLXBUILD_BIN_DIR_DEFAULT "bin") # HAIKU
+  set(RBLXBUILD_DATA_DIR_DEFAULT "share/rblxbuild-${RBLXBuild_VERSION_MAJOR}.${RBLXBuild_VERSION_MINOR}") # HAIKU
+  set(RBLXBUILD_DOC_DIR_DEFAULT "documentation/doc/rblxbuild-${RBLXBuild_VERSION_MAJOR}.${RBLXBuild_VERSION_MINOR}") # HAIKU
+  set(RBLXBUILD_INFO_DIR_DEFAULT "documentation/info") # HAIKU
+  set(RBLXBUILD_MAN_DIR_DEFAULT "documentation/man") # HAIKU
+  set(RBLXBUILD_XDGDATA_DIR_DEFAULT "share") # HAIKU
+elseif(CYGWIN)
+  set(RBLXBUILD_BIN_DIR_DEFAULT "bin") # CYGWIN
+  set(RBLXBUILD_DATA_DIR_DEFAULT "share/rblxbuild-${RBLXBuild_VERSION}") # CYGWIN
+  set(RBLXBUILD_DOC_DIR_DEFAULT "share/doc/rblxbuild-${RBLXBuild_VERSION}") # CYGWIN
+  set(RBLXBUILD_INFO_DIR_DEFAULT "share/info") # CYGWIN
+  set(RBLXBUILD_MAN_DIR_DEFAULT "share/man") # CYGWIN
+  set(RBLXBUILD_XDGDATA_DIR_DEFAULT "share") # CYGWIN
+else()
+  set(RBLXBUILD_BIN_DIR_DEFAULT "bin") # OTHER
+  set(RBLXBUILD_DATA_DIR_DEFAULT "share/rblxbuild-${RBLXBuild_VERSION_MAJOR}.${RBLXBuild_VERSION_MINOR}") # OTHER
+  set(RBLXBUILD_DOC_DIR_DEFAULT "doc/rblxbuild-${RBLXBuild_VERSION_MAJOR}.${RBLXBuild_VERSION_MINOR}") # OTHER
+  set(RBLXBUILD_INFO_DIR_DEFAULT "info") # OTHER
+  set(RBLXBUILD_MAN_DIR_DEFAULT "man") # OTHER
+  set(RBLXBUILD_XDGDATA_DIR_DEFAULT "share") # OTHER
+endif()
+
+set(RBLXBUILD_BIN_DIR_DESC "bin")
+set(RBLXBUILD_DATA_DIR_DESC "data")
+set(RBLXBUILD_DOC_DIR_DESC "docs")
+set(RBLXBUILD_INFO_DIR_DESC "Info manual")
+set(RBLXBUILD_MAN_DIR_DESC "man pages")
+set(RBLXBUILD_XDGDATA_DIR_DESC "XDG specific files")
+
+set(RBLXBuild_INSTALL_INFIX "" CACHE STRING "")
+set_property(CACHE RBLXBuild_INSTALL_INFIX PROPERTY HELPSTRING
+  "Intermediate installation path (empty by default)"
+  )
+mark_as_advanced(RBLXBuild_INSTALL_INFIX)
+
+if(APPLE AND BUILD_QtDialog)
+  set(RBLXBuild_INSTALL_APP_DIR "RBLXBuild.app/Contents")
+  set(RBLXBuild_INSTALL_APP_DIR_SLASH "${RBLXBuild_INSTALL_APP_DIR}/")
+else()
+  set(RBLXBuild_INSTALL_APP_DIR ".")
+  set(RBLXBuild_INSTALL_APP_DIR_SLASH "")
+endif()
+
+foreach(v
+    BIN
+    DATA
+    DOC
+    INFO
+    MAN
+    XDGDATA
+    )
+  # Populate the cache with empty values so we know when the user sets them.
+  set(RBLXBUILD_${v}_DIR "" CACHE STRING "")
+  set_property(CACHE RBLXBUILD_${v}_DIR PROPERTY HELPSTRING
+    "Location under install prefix for ${RBLXBUILD_${v}_DIR_DESC} (default \"${RBLXBUILD_${v}_DIR_DEFAULT}\")"
+    )
+  set_property(CACHE RBLXBUILD_${v}_DIR PROPERTY ADVANCED 1)
+
+  # Use the default when the user did not set this variable.
+  if(NOT RBLXBUILD_${v}_DIR)
+    set(RBLXBUILD_${v}_DIR "${RBLXBuild_INSTALL_INFIX}${RBLXBUILD_${v}_DIR_DEFAULT}")
+  endif()
+  # Remove leading slash to treat as relative to install prefix.
+  string(REGEX REPLACE "^/" "" RBLXBUILD_${v}_DIR "${RBLXBUILD_${v}_DIR}")
+
+  # Install under a base path within the prefix.
+  set(RBLXBuild_INSTALL_${v}_DIR "${RBLXBuild_INSTALL_APP_DIR_SLASH}${RBLXBUILD_${v}_DIR}")
+endforeach()

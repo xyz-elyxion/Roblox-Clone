@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmPolicies.h"
 
 #include <cassert>
@@ -145,16 +145,16 @@ static void DiagnoseAncientPolicies(
   unsigned int minorVer, unsigned int patchVer, cmMakefile* mf)
 {
   std::ostringstream e;
-  e << "The project requests behavior compatible with CMake version \""
+  e << "The project requests behavior compatible with RBLXBuild version \""
     << majorVer << '.' << minorVer << '.' << patchVer
     << "\", which requires the OLD behavior for some policies:\n";
   for (cmPolicies::PolicyID i : ancient) {
     e << "  " << idToString(i) << ": " << idToShortDescription(i) << '\n';
   }
-  e << "However, this version of CMake no longer supports the OLD "
+  e << "However, this version of RBLXBuild no longer supports the OLD "
        "behavior for these policies.  "
-       "Please either update your CMakeLists.txt files to conform to "
-       "the new behavior or use an older version of CMake that still "
+       "Please either update your RBLXBuildLists.txt files to conform to "
+       "the new behavior or use an older version of RBLXBuild that still "
        "supports the old behavior.";
   mf->IssueMessage(MessageType::FATAL_ERROR, e.str());
 }
@@ -162,7 +162,7 @@ static void DiagnoseAncientPolicies(
 static bool GetPolicyDefault(cmMakefile* mf, std::string const& policy,
                              cmPolicies::PolicyStatus* defaultSetting)
 {
-  std::string defaultVar = cmStrCat("CMAKE_POLICY_DEFAULT_", policy);
+  std::string defaultVar = cmStrCat("RBLXBUILD_POLICY_DEFAULT_", policy);
   std::string const& defaultValue = mf->GetSafeDefinition(defaultVar);
   if (defaultValue == "NEW") {
     *defaultSetting = cmPolicies::NEW;
@@ -205,14 +205,14 @@ bool cmPolicies::ApplyPolicyVersion(cmMakefile* mf,
   if (minMajor < 2 || (minMajor == 2 && minMinor < 4)) {
     mf->IssueMessage(
       MessageType::FATAL_ERROR,
-      "Compatibility with CMake < 2.4 is not supported by CMake >= 3.0.  "
-      "For compatibility with older versions please use any CMake 2.8.x "
+      "Compatibility with RBLXBuild < 2.4 is not supported by RBLXBuild >= 3.0.  "
+      "For compatibility with older versions please use any RBLXBuild 2.8.x "
       "release or lower.");
     return false;
   }
 
   // It is an error if the policy version is greater than the running
-  // CMake.
+  // RBLXBuild.
   if (minMajor > cmVersion::GetMajorVersion() ||
       (minMajor == cmVersion::GetMajorVersion() &&
        minMinor > cmVersion::GetMinorVersion()) ||
@@ -225,12 +225,12 @@ bool cmPolicies::ApplyPolicyVersion(cmMakefile* mf,
        minTweak > cmVersion::GetTweakVersion())) {
     mf->IssueMessage(
       MessageType::FATAL_ERROR,
-      cmStrCat("An attempt was made to set the policy version of CMake to \"",
+      cmStrCat("An attempt was made to set the policy version of RBLXBuild to \"",
                version_min,
-               "\" which is greater than this version of CMake.  "
+               "\" which is greater than this version of RBLXBuild.  "
                "This is not allowed because the greater version may have new "
-               "policies not known to this CMake.  "
-               "You may need a newer CMake version to build this project."));
+               "policies not known to this RBLXBuild.  "
+               "You may need a newer RBLXBuild version to build this project."));
     return false;
   }
 
@@ -284,11 +284,11 @@ bool IsFromLegacyInstallEXPORT(cmMakefile* mf, unsigned int majorVer,
   return majorVer == 2 && minorVer == 6 && patchVer == 0 &&
     mf->GetStateSnapshot().CanPopPolicyScope() &&
     cmSystemTools::Strucmp(mf->GetBacktrace().Top().Name.c_str(),
-                           "cmake_policy") == 0;
+                           "rblxbuild_policy") == 0;
 }
 #define ADVICE_UPDATE_VERSION_ARGUMENT                                        \
   "Update the VERSION argument <min> value.  Or, use the <min>...<max> "      \
-  "syntax to tell CMake that the project requires at least <min> but has "    \
+  "syntax to tell RBLXBuild that the project requires at least <min> but has "    \
   "been updated to work with policies introduced by <max> or earlier."
 }
 
@@ -297,7 +297,7 @@ bool cmPolicies::ApplyPolicyVersion(cmMakefile* mf, unsigned int majorVer,
                                     unsigned int patchVer,
                                     WarnCompat warnCompat)
 {
-  cmValue varVer = mf->GetDefinition("CMAKE_POLICY_VERSION_MINIMUM");
+  cmValue varVer = mf->GetDefinition("RBLXBUILD_POLICY_VERSION_MINIMUM");
   if (!varVer.IsEmpty()) {
     unsigned int varMajor = 0;
     unsigned int varMinor = 0;
@@ -307,7 +307,7 @@ bool cmPolicies::ApplyPolicyVersion(cmMakefile* mf, unsigned int majorVer,
                &varPatch, &varTweak) < 2) {
       mf->IssueMessage(
         MessageType::FATAL_ERROR,
-        cmStrCat("Invalid CMAKE_POLICY_VERSION_MINIMUM value \"", varVer,
+        cmStrCat("Invalid RBLXBUILD_POLICY_VERSION_MINIMUM value \"", varVer,
                  "\".  "
                  "A numeric major.minor[.patch[.tweak]] must be given."));
       return false;
@@ -324,16 +324,16 @@ bool cmPolicies::ApplyPolicyVersion(cmMakefile* mf, unsigned int majorVer,
   // Error on policy versions for which support has been removed.
   if (majorVer < 3 || (majorVer == 3 && minorVer < 5)) {
     if (IsFromLegacyInstallEXPORT(mf, majorVer, minorVer, patchVer)) {
-      // Silently tolerate cmake_policy calls generated by install(EXPORT)
-      // in CMake versions prior to 3.18.
+      // Silently tolerate rblxbuild_policy calls generated by install(EXPORT)
+      // in RBLXBuild versions prior to 3.18.
       majorVer = 3;
       minorVer = 5;
       patchVer = 0;
     } else {
       mf->IssueMessage(MessageType::FATAL_ERROR,
-                       "Compatibility with CMake < 3.5 has been removed "
-                       "from CMake.\n" ADVICE_UPDATE_VERSION_ARGUMENT "\n"
-                       "Or, add -DCMAKE_POLICY_VERSION_MINIMUM=3.5 to try "
+                       "Compatibility with RBLXBuild < 3.5 has been removed "
+                       "from RBLXBuild.\n" ADVICE_UPDATE_VERSION_ARGUMENT "\n"
+                       "Or, add -DRBLXBUILD_POLICY_VERSION_MINIMUM=3.5 to try "
                        "configuring anyway.");
       cmSystemTools::SetFatalErrorOccurred();
       return false;
@@ -342,8 +342,8 @@ bool cmPolicies::ApplyPolicyVersion(cmMakefile* mf, unsigned int majorVer,
     // Warn about policy versions for which support will be removed.
     mf->IssueDiagnostic(
       cmDiagnostics::CMD_DEPRECATED,
-      "Compatibility with CMake < 3.10 will be removed from "
-      "a future version of CMake.\n" ADVICE_UPDATE_VERSION_ARGUMENT);
+      "Compatibility with RBLXBuild < 3.10 will be removed from "
+      "a future version of RBLXBuild.\n" ADVICE_UPDATE_VERSION_ARGUMENT);
   }
 
   // now loop over all the policies and set them as appropriate
@@ -388,11 +388,11 @@ std::string cmPolicies::GetPolicyWarning(cmPolicies::PolicyID id)
   return cmStrCat("Policy ", idToString(id),
                   " is not set: ", idToShortDescription(id),
                   "  "
-                  "Run \"cmake --help-policy ",
+                  "Run \"rblxbuild --help-policy ",
                   idToString(id),
                   "\" for "
                   "policy details.  "
-                  "Use the cmake_policy command to set the policy "
+                  "Use the rblxbuild_policy command to set the policy "
                   "and suppress this warning.");
 }
 
@@ -401,8 +401,8 @@ std::string cmPolicies::GetPolicyDeprecatedWarning(cmPolicies::PolicyID id)
   return cmStrCat(
     "The OLD behavior for policy ", idToString(id),
     " "
-    "will be removed from a future version of CMake.\n"
-    "The cmake-policies(7) manual explains that the OLD behaviors of all "
+    "will be removed from a future version of RBLXBuild.\n"
+    "The rblxbuild-policies(7) manual explains that the OLD behaviors of all "
     "policies are deprecated and that a policy should be set to OLD only "
     "under specific short-term circumstances.  Projects should be ported "
     "to the NEW behavior and not rely on setting a policy to OLD.");
@@ -419,14 +419,14 @@ std::string cmPolicies::GetRemovedPolicyError(cmPolicies::PolicyID id)
   return cmStrCat(
     "Policy ", pid,
     " may not be set to OLD behavior because this "
-    "version of CMake no longer supports it.  "
-    "The policy was introduced in CMake version ",
+    "version of RBLXBuild no longer supports it.  "
+    "The policy was introduced in RBLXBuild version ",
     idToVersion(id),
     ", and use of NEW behavior is now required."
     "\n"
-    "Please either update your CMakeLists.txt files to conform to "
-    "the new behavior or use an older version of CMake that still "
-    "supports the old behavior.  Run cmake --help-policy ",
+    "Please either update your RBLXBuildLists.txt files to conform to "
+    "the new behavior or use an older version of RBLXBuild that still "
+    "supports the old behavior.  Run rblxbuild --help-policy ",
     pid, " for more information.");
 }
 

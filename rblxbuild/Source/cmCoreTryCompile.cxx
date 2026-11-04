@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmCoreTryCompile.h"
 
 #include <array>
@@ -35,10 +35,10 @@
 #include "cmTargetTypes.h"
 #include "cmValue.h"
 #include "cmVersion.h"
-#include "cmake.h"
+#include "rblxbuild.h"
 
 namespace {
-constexpr char const* unique_binary_directory = "CMAKE_BINARY_DIR_USE_MKDTEMP";
+constexpr char const* unique_binary_directory = "RBLXBUILD_BINARY_DIR_USE_MKDTEMP";
 
 std::array<cm::string_view, 10> const kLanguageNames{ {
   "C"_s,
@@ -53,47 +53,47 @@ std::array<cm::string_view, 10> const kLanguageNames{ {
   "Swift"_s,
 } };
 
-std::string const kCMAKE_CUDA_ARCHITECTURES = "CMAKE_CUDA_ARCHITECTURES";
-std::string const kCMAKE_CUDA_RUNTIME_LIBRARY = "CMAKE_CUDA_RUNTIME_LIBRARY";
-std::string const kCMAKE_CXX_SCAN_FOR_MODULES = "CMAKE_CXX_SCAN_FOR_MODULES";
-std::string const kCMAKE_ENABLE_EXPORTS = "CMAKE_ENABLE_EXPORTS";
-std::string const kCMAKE_EXECUTABLE_ENABLE_EXPORTS =
-  "CMAKE_EXECUTABLE_ENABLE_EXPORTS";
-std::string const kCMAKE_SHARED_LIBRARY_ENABLE_EXPORTS =
-  "CMAKE_SHARED_LIBRARY_ENABLE_EXPORTS";
-std::string const kCMAKE_HIP_ARCHITECTURES = "CMAKE_HIP_ARCHITECTURES";
-std::string const kCMAKE_HIP_PLATFORM = "CMAKE_HIP_PLATFORM";
-std::string const kCMAKE_HIP_RUNTIME_LIBRARY = "CMAKE_HIP_RUNTIME_LIBRARY";
-std::string const kCMAKE_ISPC_INSTRUCTION_SETS = "CMAKE_ISPC_INSTRUCTION_SETS";
-std::string const kCMAKE_ISPC_HEADER_SUFFIX = "CMAKE_ISPC_HEADER_SUFFIX";
-std::string const kCMAKE_LINKER_TYPE = "CMAKE_LINKER_TYPE";
-std::string const kCMAKE_LINK_SEARCH_END_STATIC =
-  "CMAKE_LINK_SEARCH_END_STATIC";
-std::string const kCMAKE_LINK_SEARCH_START_STATIC =
-  "CMAKE_LINK_SEARCH_START_STATIC";
-std::string const kCMAKE_MSVC_RUNTIME_LIBRARY_DEFAULT =
-  "CMAKE_MSVC_RUNTIME_LIBRARY_DEFAULT";
-std::string const kCMAKE_OSX_ARCHITECTURES = "CMAKE_OSX_ARCHITECTURES";
-std::string const kCMAKE_OSX_DEPLOYMENT_TARGET = "CMAKE_OSX_DEPLOYMENT_TARGET";
-std::string const kCMAKE_OSX_SYSROOT = "CMAKE_OSX_SYSROOT";
-std::string const kCMAKE_APPLE_ARCH_SYSROOTS = "CMAKE_APPLE_ARCH_SYSROOTS";
-std::string const kCMAKE_POSITION_INDEPENDENT_CODE =
-  "CMAKE_POSITION_INDEPENDENT_CODE";
-std::string const kCMAKE_SYSROOT = "CMAKE_SYSROOT";
-std::string const kCMAKE_SYSROOT_COMPILE = "CMAKE_SYSROOT_COMPILE";
-std::string const kCMAKE_SYSROOT_LINK = "CMAKE_SYSROOT_LINK";
-std::string const kCMAKE_ARMClang_CMP0123 = "CMAKE_ARMClang_CMP0123";
-std::string const kCMAKE_TRY_COMPILE_OSX_ARCHITECTURES =
-  "CMAKE_TRY_COMPILE_OSX_ARCHITECTURES";
-std::string const kCMAKE_TRY_COMPILE_PLATFORM_VARIABLES =
-  "CMAKE_TRY_COMPILE_PLATFORM_VARIABLES";
-std::string const kCMAKE_WATCOM_RUNTIME_LIBRARY_DEFAULT =
-  "CMAKE_WATCOM_RUNTIME_LIBRARY_DEFAULT";
-std::string const kCMAKE_MSVC_DEBUG_INFORMATION_FORMAT_DEFAULT =
-  "CMAKE_MSVC_DEBUG_INFORMATION_FORMAT_DEFAULT";
-std::string const kCMAKE_MSVC_RUNTIME_CHECKS_DEFAULT =
-  "CMAKE_MSVC_RUNTIME_CHECKS_DEFAULT";
-std::string const kCMAKE_MSVC_CMP0197 = "CMAKE_MSVC_CMP0197";
+std::string const kRBLXBUILD_CUDA_ARCHITECTURES = "RBLXBUILD_CUDA_ARCHITECTURES";
+std::string const kRBLXBUILD_CUDA_RUNTIME_LIBRARY = "RBLXBUILD_CUDA_RUNTIME_LIBRARY";
+std::string const kRBLXBUILD_CXX_SCAN_FOR_MODULES = "RBLXBUILD_CXX_SCAN_FOR_MODULES";
+std::string const kRBLXBUILD_ENABLE_EXPORTS = "RBLXBUILD_ENABLE_EXPORTS";
+std::string const kRBLXBUILD_EXECUTABLE_ENABLE_EXPORTS =
+  "RBLXBUILD_EXECUTABLE_ENABLE_EXPORTS";
+std::string const kRBLXBUILD_SHARED_LIBRARY_ENABLE_EXPORTS =
+  "RBLXBUILD_SHARED_LIBRARY_ENABLE_EXPORTS";
+std::string const kRBLXBUILD_HIP_ARCHITECTURES = "RBLXBUILD_HIP_ARCHITECTURES";
+std::string const kRBLXBUILD_HIP_PLATFORM = "RBLXBUILD_HIP_PLATFORM";
+std::string const kRBLXBUILD_HIP_RUNTIME_LIBRARY = "RBLXBUILD_HIP_RUNTIME_LIBRARY";
+std::string const kRBLXBUILD_ISPC_INSTRUCTION_SETS = "RBLXBUILD_ISPC_INSTRUCTION_SETS";
+std::string const kRBLXBUILD_ISPC_HEADER_SUFFIX = "RBLXBUILD_ISPC_HEADER_SUFFIX";
+std::string const kRBLXBUILD_LINKER_TYPE = "RBLXBUILD_LINKER_TYPE";
+std::string const kRBLXBUILD_LINK_SEARCH_END_STATIC =
+  "RBLXBUILD_LINK_SEARCH_END_STATIC";
+std::string const kRBLXBUILD_LINK_SEARCH_START_STATIC =
+  "RBLXBUILD_LINK_SEARCH_START_STATIC";
+std::string const kRBLXBUILD_MSVC_RUNTIME_LIBRARY_DEFAULT =
+  "RBLXBUILD_MSVC_RUNTIME_LIBRARY_DEFAULT";
+std::string const kRBLXBUILD_OSX_ARCHITECTURES = "RBLXBUILD_OSX_ARCHITECTURES";
+std::string const kRBLXBUILD_OSX_DEPLOYMENT_TARGET = "RBLXBUILD_OSX_DEPLOYMENT_TARGET";
+std::string const kRBLXBUILD_OSX_SYSROOT = "RBLXBUILD_OSX_SYSROOT";
+std::string const kRBLXBUILD_APPLE_ARCH_SYSROOTS = "RBLXBUILD_APPLE_ARCH_SYSROOTS";
+std::string const kRBLXBUILD_POSITION_INDEPENDENT_CODE =
+  "RBLXBUILD_POSITION_INDEPENDENT_CODE";
+std::string const kRBLXBUILD_SYSROOT = "RBLXBUILD_SYSROOT";
+std::string const kRBLXBUILD_SYSROOT_COMPILE = "RBLXBUILD_SYSROOT_COMPILE";
+std::string const kRBLXBUILD_SYSROOT_LINK = "RBLXBUILD_SYSROOT_LINK";
+std::string const kRBLXBUILD_ARMClang_CMP0123 = "RBLXBUILD_ARMClang_CMP0123";
+std::string const kRBLXBUILD_TRY_COMPILE_OSX_ARCHITECTURES =
+  "RBLXBUILD_TRY_COMPILE_OSX_ARCHITECTURES";
+std::string const kRBLXBUILD_TRY_COMPILE_PLATFORM_VARIABLES =
+  "RBLXBUILD_TRY_COMPILE_PLATFORM_VARIABLES";
+std::string const kRBLXBUILD_WATCOM_RUNTIME_LIBRARY_DEFAULT =
+  "RBLXBUILD_WATCOM_RUNTIME_LIBRARY_DEFAULT";
+std::string const kRBLXBUILD_MSVC_DEBUG_INFORMATION_FORMAT_DEFAULT =
+  "RBLXBUILD_MSVC_DEBUG_INFORMATION_FORMAT_DEFAULT";
+std::string const kRBLXBUILD_MSVC_RUNTIME_CHECKS_DEFAULT =
+  "RBLXBUILD_MSVC_RUNTIME_CHECKS_DEFAULT";
+std::string const kRBLXBUILD_MSVC_CMP0197 = "RBLXBUILD_MSVC_CMP0197";
 
 /* GHS Multi platform variables */
 std::set<std::string> const ghs_platform_vars{
@@ -149,8 +149,8 @@ auto const TryCompileBaseArgParser =
     .Bind("LOG_DESCRIPTION"_s, &Arguments::LogDescription)
     .Bind("NO_CACHE"_s, &Arguments::NoCache)
     .Bind("NO_LOG"_s, &Arguments::NoLog)
-    .Bind("CMAKE_FLAGS"_s, &Arguments::CMakeFlags)
-    .Bind("__CMAKE_INTERNAL"_s, &Arguments::CMakeInternal)
+    .Bind("RBLXBUILD_FLAGS"_s, &Arguments::RBLXBuildFlags)
+    .Bind("__RBLXBUILD_INTERNAL"_s, &Arguments::RBLXBuildInternal)
   /* keep semicolon on own line */;
 
 auto const TryCompileBaseSourcesArgParser =
@@ -341,7 +341,7 @@ cm::optional<cmTryCompileResult> cmCoreTryCompile::TryCompileCode(
       targetName = *arguments.TargetName;
     }
   } else {
-    projectName = "CMAKE_TRY_COMPILE";
+    projectName = "RBLXBUILD_TRY_COMPILE";
     /* Use a random file name to avoid rapid creation and deletion
        of the same executable name (some filesystems fail on that).  */
     char targetNameBuf[64];
@@ -372,7 +372,7 @@ cm::optional<cmTryCompileResult> cmCoreTryCompile::TryCompileCode(
     // compute the binary dir when TRY_COMPILE is called with a src file
     // signature
     if (this->SrcFileSignature) {
-      this->BinaryDirectory += "/CMakeFiles/CMakeTmp";
+      this->BinaryDirectory += "/RBLXBuildFiles/RBLXBuildTmp";
     }
   }
 
@@ -486,7 +486,7 @@ cm::optional<cmTryCompileResult> cmCoreTryCompile::TryCompileCode(
   if (useUniqueBinaryDirectory) {
     this->BinaryDirectory =
       cmStrCat(this->Makefile->GetHomeOutputDirectory(),
-               "/CMakeFiles/CMakeScratch/TryCompile-XXXXXX");
+               "/RBLXBuildFiles/RBLXBuildScratch/TryCompile-XXXXXX");
     cmSystemTools::MakeTempDirectory(this->BinaryDirectory);
   } else {
     cmSystemTools::MakeDirectory(this->BinaryDirectory);
@@ -502,13 +502,13 @@ cm::optional<cmTryCompileResult> cmCoreTryCompile::TryCompileCode(
     return cm::nullopt;
   }
 
-  std::map<std::string, std::string> cmakeVariables;
+  std::map<std::string, std::string> rblxbuildVariables;
 
-  std::string outFileName = cmStrCat(this->BinaryDirectory, "/CMakeLists.txt");
+  std::string outFileName = cmStrCat(this->BinaryDirectory, "/RBLXBuildLists.txt");
   // which signature are we using? If we are using var srcfile bindir
   if (this->SrcFileSignature) {
-    // remove any CMakeCache.txt files so we will have a clean test
-    std::string ccFile = cmStrCat(this->BinaryDirectory, "/CMakeCache.txt");
+    // remove any RBLXBuildCache.txt files so we will have a clean test
+    std::string ccFile = cmStrCat(this->BinaryDirectory, "/RBLXBuildCache.txt");
     cmSystemTools::RemoveFile(ccFile);
 
     // Choose sources.
@@ -608,13 +608,13 @@ cm::optional<cmTryCompileResult> cmCoreTryCompile::TryCompileCode(
     }
 
     std::string const tcConfig =
-      this->Makefile->GetSafeDefinition("CMAKE_TRY_COMPILE_CONFIGURATION");
+      this->Makefile->GetSafeDefinition("RBLXBUILD_TRY_COMPILE_CONFIGURATION");
 
-    // we need to create a directory and CMakeLists file etc...
+    // we need to create a directory and RBLXBuildLists file etc...
     // first create the directories
     sourceDirectory = this->BinaryDirectory;
 
-    // now create a CMakeLists.txt file in that directory
+    // now create a RBLXBuildLists.txt file in that directory
     FILE* fout = cmsys::SystemTools::Fopen(outFileName, "w");
     if (!fout) {
       this->Makefile->IssueMessage(
@@ -625,26 +625,26 @@ cm::optional<cmTryCompileResult> cmCoreTryCompile::TryCompileCode(
       return cm::nullopt;
     }
 
-    cmValue def = this->Makefile->GetDefinition("CMAKE_MODULE_PATH");
-    fprintf(fout, "cmake_minimum_required(VERSION %u.%u.%u.%u)\n",
+    cmValue def = this->Makefile->GetDefinition("RBLXBUILD_MODULE_PATH");
+    fprintf(fout, "rblxbuild_minimum_required(VERSION %u.%u.%u.%u)\n",
             cmVersion::GetMajorVersion(), cmVersion::GetMinorVersion(),
             cmVersion::GetPatchVersion(), cmVersion::GetTweakVersion());
     if (def) {
-      fprintf(fout, "set(CMAKE_MODULE_PATH \"%s\")\n", def->c_str());
-      cmakeVariables.emplace("CMAKE_MODULE_PATH", *def);
+      fprintf(fout, "set(RBLXBUILD_MODULE_PATH \"%s\")\n", def->c_str());
+      rblxbuildVariables.emplace("RBLXBUILD_MODULE_PATH", *def);
     }
 
     /* Set MSVC runtime library policy to match our selection.  */
     if (cmValue msvcRuntimeLibraryDefault =
-          this->Makefile->GetDefinition(kCMAKE_MSVC_RUNTIME_LIBRARY_DEFAULT)) {
-      fprintf(fout, "cmake_policy(SET CMP0091 %s)\n",
+          this->Makefile->GetDefinition(kRBLXBUILD_MSVC_RUNTIME_LIBRARY_DEFAULT)) {
+      fprintf(fout, "rblxbuild_policy(SET CMP0091 %s)\n",
               !msvcRuntimeLibraryDefault->empty() ? "NEW" : "OLD");
     }
 
     /* Set Watcom runtime library policy to match our selection.  */
     if (cmValue watcomRuntimeLibraryDefault = this->Makefile->GetDefinition(
-          kCMAKE_WATCOM_RUNTIME_LIBRARY_DEFAULT)) {
-      fprintf(fout, "cmake_policy(SET CMP0136 %s)\n",
+          kRBLXBUILD_WATCOM_RUNTIME_LIBRARY_DEFAULT)) {
+      fprintf(fout, "rblxbuild_policy(SET CMP0136 %s)\n",
               !watcomRuntimeLibraryDefault->empty() ? "NEW" : "OLD");
     }
 
@@ -652,29 +652,29 @@ cm::optional<cmTryCompileResult> cmCoreTryCompile::TryCompileCode(
     if (this->Makefile->GetPolicyStatus(cmPolicies::CMP0104) !=
           cmPolicies::NEW &&
         testLangs.find("CUDA") != testLangs.end() &&
-        this->Makefile->GetSafeDefinition(kCMAKE_CUDA_ARCHITECTURES).empty()) {
-      fprintf(fout, "cmake_policy(SET CMP0104 OLD)\n");
+        this->Makefile->GetSafeDefinition(kRBLXBUILD_CUDA_ARCHITECTURES).empty()) {
+      fprintf(fout, "rblxbuild_policy(SET CMP0104 OLD)\n");
     }
 
     /* Set ARMClang cpu/arch policy to match outer project.  */
     if (cmValue cmp0123 =
-          this->Makefile->GetDefinition(kCMAKE_ARMClang_CMP0123)) {
-      fprintf(fout, "cmake_policy(SET CMP0123 %s)\n",
+          this->Makefile->GetDefinition(kRBLXBUILD_ARMClang_CMP0123)) {
+      fprintf(fout, "rblxbuild_policy(SET CMP0123 %s)\n",
               *cmp0123 == "NEW"_s ? "NEW" : "OLD");
     }
 
     /* Set MSVC debug information format policy to match our selection.  */
     if (cmValue msvcDebugInformationFormatDefault =
           this->Makefile->GetDefinition(
-            kCMAKE_MSVC_DEBUG_INFORMATION_FORMAT_DEFAULT)) {
-      fprintf(fout, "cmake_policy(SET CMP0141 %s)\n",
+            kRBLXBUILD_MSVC_DEBUG_INFORMATION_FORMAT_DEFAULT)) {
+      fprintf(fout, "rblxbuild_policy(SET CMP0141 %s)\n",
               !msvcDebugInformationFormatDefault->empty() ? "NEW" : "OLD");
     }
 
     /* Set MSVC runtime checks policy to match our selection.  */
     if (cmValue msvcRuntimeChecksDefault =
-          this->Makefile->GetDefinition(kCMAKE_MSVC_RUNTIME_CHECKS_DEFAULT)) {
-      fprintf(fout, "cmake_policy(SET CMP0184 %s)\n",
+          this->Makefile->GetDefinition(kRBLXBUILD_MSVC_RUNTIME_CHECKS_DEFAULT)) {
+      fprintf(fout, "rblxbuild_policy(SET CMP0184 %s)\n",
               !msvcRuntimeChecksDefault->empty() ? "NEW" : "OLD");
     }
 
@@ -682,24 +682,24 @@ cm::optional<cmTryCompileResult> cmCoreTryCompile::TryCompileCode(
        It may affect toolchain files.  */
     if (this->Makefile->GetPolicyStatus(cmPolicies::CMP0126) !=
         cmPolicies::NEW) {
-      fprintf(fout, "cmake_policy(SET CMP0126 OLD)\n");
+      fprintf(fout, "rblxbuild_policy(SET CMP0126 OLD)\n");
     }
 
     /* Set language extensions policy to match outer project.  */
     if (this->Makefile->GetPolicyStatus(cmPolicies::CMP0128) !=
         cmPolicies::NEW) {
-      fprintf(fout, "cmake_policy(SET CMP0128 OLD)\n");
+      fprintf(fout, "rblxbuild_policy(SET CMP0128 OLD)\n");
     }
 
     // Set LINKER: prefix expansion to match outer project.
     if (this->Makefile->GetPolicyStatus(cmPolicies::CMP0181) !=
         cmPolicies::NEW) {
-      fprintf(fout, "cmake_policy(SET CMP0181 OLD)\n");
+      fprintf(fout, "rblxbuild_policy(SET CMP0181 OLD)\n");
     }
 
     /* Set MSVC link -machine: policy to match outer project.  */
-    if (cmValue cmp0197 = this->Makefile->GetDefinition(kCMAKE_MSVC_CMP0197)) {
-      fprintf(fout, "cmake_policy(SET CMP0197 %s)\n",
+    if (cmValue cmp0197 = this->Makefile->GetDefinition(kRBLXBUILD_MSVC_CMP0197)) {
+      fprintf(fout, "rblxbuild_policy(SET CMP0197 %s)\n",
               *cmp0197 == "NEW"_s ? "NEW" : "OLD");
     }
 
@@ -707,28 +707,28 @@ cm::optional<cmTryCompileResult> cmCoreTryCompile::TryCompileCode(
        It affects platform modules.  */
     if (this->Makefile->GetPolicyStatus(cmPolicies::CMP0210) !=
         cmPolicies::NEW) {
-      fprintf(fout, "cmake_policy(SET CMP0210 OLD)\n");
+      fprintf(fout, "rblxbuild_policy(SET CMP0210 OLD)\n");
     }
 
     std::string projectLangs;
     for (std::string const& li : testLangs) {
       projectLangs = cmStrCat(std::move(projectLangs), ' ', li);
-      std::string rulesOverrideBase = "CMAKE_USER_MAKE_RULES_OVERRIDE";
+      std::string rulesOverrideBase = "RBLXBUILD_USER_MAKE_RULES_OVERRIDE";
       std::string rulesOverrideLang = cmStrCat(rulesOverrideBase, '_', li);
       if (cmValue rulesOverridePath =
             this->Makefile->GetDefinition(rulesOverrideLang)) {
         fprintf(fout, "set(%s \"%s\")\n", rulesOverrideLang.c_str(),
                 rulesOverridePath->c_str());
-        cmakeVariables.emplace(rulesOverrideLang, *rulesOverridePath);
+        rblxbuildVariables.emplace(rulesOverrideLang, *rulesOverridePath);
       } else if (cmValue rulesOverridePath2 =
                    this->Makefile->GetDefinition(rulesOverrideBase)) {
         fprintf(fout, "set(%s \"%s\")\n", rulesOverrideBase.c_str(),
                 rulesOverridePath2->c_str());
-        cmakeVariables.emplace(rulesOverrideBase, *rulesOverridePath2);
+        rblxbuildVariables.emplace(rulesOverrideBase, *rulesOverridePath2);
       }
     }
-    fprintf(fout, "project(CMAKE_TRY_COMPILE%s)\n", projectLangs.c_str());
-    if (arguments.CMakeInternal == "ABI") {
+    fprintf(fout, "project(RBLXBUILD_TRY_COMPILE%s)\n", projectLangs.c_str());
+    if (arguments.RBLXBuildInternal == "ABI") {
       // This is the ABI detection step, also used for implicit includes.
       // Erase any include_directories() calls from the toolchain file so
       // that we do not see them as implicit.  Our ABI detection source
@@ -742,38 +742,38 @@ cm::optional<cmTryCompileResult> cmCoreTryCompile::TryCompileCode(
       static std::array<std::string, 2> const noRSP{ { "CUDA", "HIP" } };
       for (std::string const& lang : noRSP) {
         if (testLangs.find(lang) != testLangs.end()) {
-          fprintf(fout, "set(CMAKE_%s_USE_RESPONSE_FILE_FOR_INCLUDES OFF)\n",
+          fprintf(fout, "set(RBLXBUILD_%s_USE_RESPONSE_FILE_FOR_INCLUDES OFF)\n",
                   lang.c_str());
-          fprintf(fout, "set(CMAKE_%s_USE_RESPONSE_FILE_FOR_LIBRARIES OFF)\n",
+          fprintf(fout, "set(RBLXBUILD_%s_USE_RESPONSE_FILE_FOR_LIBRARIES OFF)\n",
                   lang.c_str());
-          fprintf(fout, "set(CMAKE_%s_USE_RESPONSE_FILE_FOR_OBJECTS OFF)\n",
+          fprintf(fout, "set(RBLXBUILD_%s_USE_RESPONSE_FILE_FOR_OBJECTS OFF)\n",
                   lang.c_str());
         }
       }
     }
-    fprintf(fout, "set(CMAKE_VERBOSE_MAKEFILE 1)\n");
+    fprintf(fout, "set(RBLXBUILD_VERBOSE_MAKEFILE 1)\n");
     for (std::string const& li : testLangs) {
-      std::string langFlags = cmStrCat("CMAKE_", li, "_FLAGS");
+      std::string langFlags = cmStrCat("RBLXBUILD_", li, "_FLAGS");
       cmValue flags = this->Makefile->GetDefinition(langFlags);
-      fprintf(fout, "set(CMAKE_%s_FLAGS %s)\n", li.c_str(),
+      fprintf(fout, "set(RBLXBUILD_%s_FLAGS %s)\n", li.c_str(),
               cmScriptGenerator::Quote(*flags).str().c_str());
       fprintf(fout,
-              "set(CMAKE_%s_FLAGS \"${CMAKE_%s_FLAGS}"
+              "set(RBLXBUILD_%s_FLAGS \"${RBLXBUILD_%s_FLAGS}"
               " ${COMPILE_DEFINITIONS}\")\n",
               li.c_str(), li.c_str());
       if (flags) {
-        cmakeVariables.emplace(langFlags, *flags);
+        rblxbuildVariables.emplace(langFlags, *flags);
       }
     }
     switch (this->Makefile->GetPolicyStatus(cmPolicies::CMP0066)) {
       case cmPolicies::WARN:
         if (this->Makefile->PolicyOptionalWarningEnabled(
-              "CMAKE_POLICY_WARNING_CMP0066")) {
+              "RBLXBUILD_POLICY_WARNING_CMP0066")) {
           this->Makefile->IssuePolicyWarning(
             cmPolicies::CMP0066, {},
-            "For compatibility with older versions of CMake, try_compile "
+            "For compatibility with older versions of RBLXBuild, try_compile "
             "is not honoring caller config-specific compiler flags "
-            "(e.g. CMAKE_C_FLAGS_DEBUG) in the test project."_s);
+            "(e.g. RBLXBUILD_C_FLAGS_DEBUG) in the test project."_s);
         }
         CM_FALLTHROUGH;
       case cmPolicies::OLD:
@@ -786,27 +786,27 @@ cm::optional<cmTryCompileResult> cmCoreTryCompile::TryCompileCode(
           : TryCompileDefaultConfig;
         for (std::string const& li : testLangs) {
           std::string const langFlagsCfg =
-            cmStrCat("CMAKE_", li, "_FLAGS_", cfg);
+            cmStrCat("RBLXBUILD_", li, "_FLAGS_", cfg);
           cmValue flagsCfg = this->Makefile->GetDefinition(langFlagsCfg);
           fprintf(fout, "set(%s %s)\n", langFlagsCfg.c_str(),
                   cmScriptGenerator::Quote(*flagsCfg).str().c_str());
           if (flagsCfg) {
-            cmakeVariables.emplace(langFlagsCfg, *flagsCfg);
+            rblxbuildVariables.emplace(langFlagsCfg, *flagsCfg);
           }
         }
       } break;
     }
     {
       cmValue exeLinkFlags =
-        this->Makefile->GetDefinition("CMAKE_EXE_LINKER_FLAGS");
-      fprintf(fout, "set(CMAKE_EXE_LINKER_FLAGS %s)\n",
+        this->Makefile->GetDefinition("RBLXBUILD_EXE_LINKER_FLAGS");
+      fprintf(fout, "set(RBLXBUILD_EXE_LINKER_FLAGS %s)\n",
               cmScriptGenerator::Quote(*exeLinkFlags).str().c_str());
       if (exeLinkFlags) {
-        cmakeVariables.emplace("CMAKE_EXE_LINKER_FLAGS", *exeLinkFlags);
+        rblxbuildVariables.emplace("RBLXBUILD_EXE_LINKER_FLAGS", *exeLinkFlags);
       }
     }
     fprintf(fout,
-            "set(CMAKE_EXE_LINKER_FLAGS \"${CMAKE_EXE_LINKER_FLAGS}"
+            "set(RBLXBUILD_EXE_LINKER_FLAGS \"${RBLXBUILD_EXE_LINKER_FLAGS}"
             " ${EXE_LINKER_FLAGS}\")\n");
 
     switch (this->Makefile->GetPolicyStatus(cmPolicies::CMP0210)) {
@@ -814,7 +814,7 @@ cm::optional<cmTryCompileResult> cmCoreTryCompile::TryCompileCode(
         // This policy does WARN, but not during try_compile.
         CM_FALLTHROUGH;
       case cmPolicies::OLD:
-        // OLD behavior is to do nothing here. CMAKE_<LANG>_LINK_FLAGS was
+        // OLD behavior is to do nothing here. RBLXBUILD_<LANG>_LINK_FLAGS was
         // previously used internally by executables only, and not during
         // try_compile.
         break;
@@ -823,30 +823,30 @@ cm::optional<cmTryCompileResult> cmCoreTryCompile::TryCompileCode(
         // in both the default and per-configuration variables, similar to the
         // NEW behavior of CMP0066) to the test project.
         for (std::string const& li : testLangs) {
-          std::string langLinkFlags = cmStrCat("CMAKE_", li, "_LINK_FLAGS");
+          std::string langLinkFlags = cmStrCat("RBLXBUILD_", li, "_LINK_FLAGS");
           cmValue flags = this->Makefile->GetDefinition(langLinkFlags);
-          fprintf(fout, "set(CMAKE_%s_LINK_FLAGS %s)\n", li.c_str(),
+          fprintf(fout, "set(RBLXBUILD_%s_LINK_FLAGS %s)\n", li.c_str(),
                   cmScriptGenerator::Quote(*flags).str().c_str());
           std::string langLinkFlagsConfig =
-            cmStrCat("CMAKE_", li, "_LINK_FLAGS_", tcConfig);
+            cmStrCat("RBLXBUILD_", li, "_LINK_FLAGS_", tcConfig);
           cmValue flagsConfig =
             this->Makefile->GetDefinition(langLinkFlagsConfig);
-          fprintf(fout, "set(CMAKE_%s_LINK_FLAGS_%s %s)\n", li.c_str(),
+          fprintf(fout, "set(RBLXBUILD_%s_LINK_FLAGS_%s %s)\n", li.c_str(),
                   tcConfig.c_str(),
                   cmScriptGenerator::Quote(*flagsConfig).str().c_str());
 
           if (flags) {
-            cmakeVariables.emplace(langLinkFlags, *flags);
+            rblxbuildVariables.emplace(langLinkFlags, *flags);
           }
           if (flagsConfig) {
-            cmakeVariables.emplace(langLinkFlagsConfig, *flagsConfig);
+            rblxbuildVariables.emplace(langLinkFlagsConfig, *flagsConfig);
           }
         }
         break;
     }
 
     fprintf(fout, "include_directories(${INCLUDE_DIRECTORIES})\n");
-    fprintf(fout, "set(CMAKE_SUPPRESS_REGENERATION 1)\n");
+    fprintf(fout, "set(RBLXBUILD_SUPPRESS_REGENERATION 1)\n");
     fprintf(fout, "link_directories(${LINK_DIRECTORIES})\n");
     // handle any compile flags we need to pass on
     if (!arguments.CompileDefs.empty()) {
@@ -856,7 +856,7 @@ cm::optional<cmTryCompileResult> cmCoreTryCompile::TryCompileCode(
     }
 
     if (!targets.empty()) {
-      std::string fname = cmStrCat('/', targetName, "Targets.cmake");
+      std::string fname = cmStrCat('/', targetName, "Targets.rblxbuild");
       cmExportTryCompileFileGenerator tcfg(gg, targets, this->Makefile,
                                            testLangs);
       tcfg.SetExportFile(cmStrCat(this->BinaryDirectory, fname).c_str());
@@ -868,7 +868,7 @@ cm::optional<cmTryCompileResult> cmCoreTryCompile::TryCompileCode(
         fclose(fout);
         return cm::nullopt;
       }
-      fprintf(fout, "\ninclude(\"${CMAKE_CURRENT_LIST_DIR}/%s\")\n",
+      fprintf(fout, "\ninclude(\"${RBLXBUILD_CURRENT_LIST_DIR}/%s\")\n",
               fname.c_str());
       // Create all relevant alias targets
       if (arguments.LinkLibraries) {
@@ -896,14 +896,14 @@ cm::optional<cmTryCompileResult> cmCoreTryCompile::TryCompileCode(
     }
 
     /* Set the appropriate policy information for PIE link flags */
-    fprintf(fout, "cmake_policy(SET CMP0083 %s)\n",
+    fprintf(fout, "rblxbuild_policy(SET CMP0083 %s)\n",
             this->Makefile->GetPolicyStatus(cmPolicies::CMP0083) ==
                 cmPolicies::NEW
               ? "NEW"
               : "OLD");
 
     /* Set the appropriate policy information for C++ module support */
-    fprintf(fout, "cmake_policy(SET CMP0155 %s)\n",
+    fprintf(fout, "rblxbuild_policy(SET CMP0155 %s)\n",
             this->Makefile->GetPolicyStatus(cmPolicies::CMP0155) ==
                 cmPolicies::NEW
               ? "NEW"
@@ -911,14 +911,14 @@ cm::optional<cmTryCompileResult> cmCoreTryCompile::TryCompileCode(
 
     /* Set the appropriate policy information for Swift compilation mode */
     fprintf(
-      fout, "cmake_policy(SET CMP0157 %s)\n",
-      this->Makefile->GetDefinition("CMAKE_Swift_COMPILATION_MODE_DEFAULT")
+      fout, "rblxbuild_policy(SET CMP0157 %s)\n",
+      this->Makefile->GetDefinition("RBLXBUILD_Swift_COMPILATION_MODE_DEFAULT")
           .IsEmpty()
         ? "OLD"
         : "NEW");
 
-    // Honor CMAKE_EXE_LINKER_FLAGS in Swift if the outer project does.
-    fprintf(fout, "cmake_policy(SET CMP0214 %s)\n",
+    // Honor RBLXBUILD_EXE_LINKER_FLAGS in Swift if the outer project does.
+    fprintf(fout, "rblxbuild_policy(SET CMP0214 %s)\n",
             this->Makefile->GetPolicyStatus(cmPolicies::CMP0214) ==
                 cmPolicies::NEW
               ? "NEW"
@@ -927,19 +927,19 @@ cm::optional<cmTryCompileResult> cmCoreTryCompile::TryCompileCode(
     // Workaround for -Wl,-headerpad_max_install_names issue until we can
     // avoid adding that flag in the platform and compiler language files
     fprintf(fout,
-            "include(\"${CMAKE_ROOT}/Modules/Internal/"
-            "HeaderpadWorkaround.cmake\")\n");
+            "include(\"${RBLXBUILD_ROOT}/Modules/Internal/"
+            "HeaderpadWorkaround.rblxbuild\")\n");
 
     if (targetType == cm::TargetType::EXECUTABLE) {
       /* Put the executable at a known location (for COPY_FILE).  */
-      fprintf(fout, "set(CMAKE_RUNTIME_OUTPUT_DIRECTORY \"%s\")\n",
+      fprintf(fout, "set(RBLXBUILD_RUNTIME_OUTPUT_DIRECTORY \"%s\")\n",
               this->BinaryDirectory.c_str());
       /* Create the actual executable.  */
       fprintf(fout, "add_executable(%s)\n", targetName.c_str());
     } else // if (targetType == cm::TargetType::STATIC_LIBRARY)
     {
       /* Put the static library at a known location (for COPY_FILE).  */
-      fprintf(fout, "set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY \"%s\")\n",
+      fprintf(fout, "set(RBLXBUILD_ARCHIVE_OUTPUT_DIRECTORY \"%s\")\n",
               this->BinaryDirectory.c_str());
       /* Create the actual static library.  */
       fprintf(fout, "add_library(%s STATIC)\n", targetName.c_str());
@@ -977,7 +977,7 @@ cm::optional<cmTryCompileResult> cmCoreTryCompile::TryCompileCode(
 
       // Add dependencies on any non-temporary sources.
       if (!IsTemporary(si)) {
-        this->Makefile->AddCMakeDependFile(si);
+        this->Makefile->AddRBLXBuildDependFile(si);
       }
     }
     fprintf(fout, ")\n");
@@ -989,7 +989,7 @@ cm::optional<cmTryCompileResult> cmCoreTryCompile::TryCompileCode(
     }
     fprintf(fout,
             "file(GENERATE OUTPUT "
-            "\"${CMAKE_BINARY_DIR}/%s%s_loc\"\n",
+            "\"${RBLXBUILD_BINARY_DIR}/%s%s_loc\"\n",
             targetName.c_str(), perConfigGenex.c_str());
     fprintf(fout, "     CONTENT $<TARGET_FILE:%s>)\n", targetName.c_str());
 
@@ -1000,7 +1000,7 @@ cm::optional<cmTryCompileResult> cmCoreTryCompile::TryCompileCode(
       switch (this->Makefile->GetPolicyStatus(cmPolicies::CMP0067)) {
         case cmPolicies::WARN:
           warnCMP0067 = this->Makefile->PolicyOptionalWarningEnabled(
-            "CMAKE_POLICY_WARNING_CMP0067");
+            "RBLXBUILD_POLICY_WARNING_CMP0067");
           CM_FALLTHROUGH;
         case cmPolicies::OLD:
           // OLD behavior is to not honor the language standard variables.
@@ -1032,7 +1032,7 @@ cm::optional<cmTryCompileResult> cmCoreTryCompile::TryCompileCode(
                                                             : lang,
             propSuffix);
           if (!arguments.LangProps.count(langProp)) {
-            std::string langPropVar = cmStrCat("CMAKE_"_s, langProp);
+            std::string langPropVar = cmStrCat("RBLXBUILD_"_s, langProp);
             std::string value = this->Makefile->GetSafeDefinition(langPropVar);
             if (warnCMP0067 && !value.empty()) {
               value.clear();
@@ -1049,7 +1049,7 @@ cm::optional<cmTryCompileResult> cmCoreTryCompile::TryCompileCode(
     if (!warnCMP0067Variables.empty()) {
       this->Makefile->IssuePolicyWarning(
         cmPolicies::CMP0067, {},
-        cmStrCat("For compatibility with older versions of CMake, try_compile "
+        cmStrCat("For compatibility with older versions of RBLXBuild, try_compile "
                  "is not honoring language standard variables in the test "
                  "project:\n",
                  cmWrap("  ", warnCMP0067Variables, "\n", "")));
@@ -1111,64 +1111,64 @@ cm::optional<cmTryCompileResult> cmCoreTryCompile::TryCompileCode(
   }
 
   // Forward a set of variables to the inner project cache.
-  if (cmValue val = this->Makefile->GetDefinition("CMAKE_EXPERIMENTAL_SYCL")) {
-    arguments.CMakeFlags.emplace_back(
-      cmStrCat("-DCMAKE_EXPERIMENTAL_SYCL=", *val));
-    cmakeVariables.emplace("CMAKE_EXPERIMENTAL_SYCL", *val);
+  if (cmValue val = this->Makefile->GetDefinition("RBLXBUILD_EXPERIMENTAL_SYCL")) {
+    arguments.RBLXBuildFlags.emplace_back(
+      cmStrCat("-DRBLXBUILD_EXPERIMENTAL_SYCL=", *val));
+    rblxbuildVariables.emplace("RBLXBUILD_EXPERIMENTAL_SYCL", *val);
   }
 
   if ((this->SrcFileSignature ||
        this->Makefile->GetPolicyStatus(cmPolicies::CMP0137) ==
          cmPolicies::NEW) &&
-      !this->Makefile->IsOn("CMAKE_TRY_COMPILE_NO_PLATFORM_VARIABLES")) {
+      !this->Makefile->IsOn("RBLXBUILD_TRY_COMPILE_NO_PLATFORM_VARIABLES")) {
     std::set<std::string> vars;
     for (cm::string_view l : kLanguageNames) {
-      vars.emplace(cmStrCat("CMAKE_", l, "_COMPILER_EXTERNAL_TOOLCHAIN"));
-      vars.emplace(cmStrCat("CMAKE_", l, "_COMPILER_TARGET"));
+      vars.emplace(cmStrCat("RBLXBUILD_", l, "_COMPILER_EXTERNAL_TOOLCHAIN"));
+      vars.emplace(cmStrCat("RBLXBUILD_", l, "_COMPILER_TARGET"));
     }
-    vars.insert(kCMAKE_CUDA_ARCHITECTURES);
-    vars.insert(kCMAKE_CUDA_RUNTIME_LIBRARY);
-    vars.insert(kCMAKE_CXX_SCAN_FOR_MODULES);
-    vars.insert(kCMAKE_ENABLE_EXPORTS);
-    vars.insert(kCMAKE_EXECUTABLE_ENABLE_EXPORTS);
-    vars.insert(kCMAKE_SHARED_LIBRARY_ENABLE_EXPORTS);
-    vars.insert(kCMAKE_HIP_ARCHITECTURES);
-    vars.insert(kCMAKE_HIP_PLATFORM);
-    vars.insert(kCMAKE_HIP_RUNTIME_LIBRARY);
-    vars.insert(kCMAKE_ISPC_INSTRUCTION_SETS);
-    vars.insert(kCMAKE_ISPC_HEADER_SUFFIX);
-    vars.insert(kCMAKE_LINK_SEARCH_END_STATIC);
-    vars.insert(kCMAKE_LINK_SEARCH_START_STATIC);
-    vars.insert(kCMAKE_OSX_ARCHITECTURES);
-    vars.insert(kCMAKE_OSX_DEPLOYMENT_TARGET);
-    vars.insert(kCMAKE_OSX_SYSROOT);
-    vars.insert(kCMAKE_APPLE_ARCH_SYSROOTS);
-    vars.insert(kCMAKE_POSITION_INDEPENDENT_CODE);
-    vars.insert(kCMAKE_SYSROOT);
-    vars.insert(kCMAKE_SYSROOT_COMPILE);
-    vars.insert(kCMAKE_SYSROOT_LINK);
-    vars.insert("CMAKE_SYCL_DEVICE_TARGETS");
-    vars.emplace("CMAKE_MSVC_RUNTIME_LIBRARY"_s);
-    vars.emplace("CMAKE_WATCOM_RUNTIME_LIBRARY"_s);
-    vars.emplace("CMAKE_EMBT_RUNTIME_LIBRARY"_s);
-    vars.emplace("CMAKE_MSVC_DEBUG_INFORMATION_FORMAT"_s);
-    vars.emplace("CMAKE_MSVC_RUNTIME_CHECKS"_s);
-    vars.emplace("CMAKE_CXX_COMPILER_CLANG_SCAN_DEPS"_s);
-    vars.emplace("CMAKE_VS_USE_DEBUG_LIBRARIES"_s);
-    vars.emplace("CMAKE_CXX_STDLIB_MODULES_JSON"_s);
+    vars.insert(kRBLXBUILD_CUDA_ARCHITECTURES);
+    vars.insert(kRBLXBUILD_CUDA_RUNTIME_LIBRARY);
+    vars.insert(kRBLXBUILD_CXX_SCAN_FOR_MODULES);
+    vars.insert(kRBLXBUILD_ENABLE_EXPORTS);
+    vars.insert(kRBLXBUILD_EXECUTABLE_ENABLE_EXPORTS);
+    vars.insert(kRBLXBUILD_SHARED_LIBRARY_ENABLE_EXPORTS);
+    vars.insert(kRBLXBUILD_HIP_ARCHITECTURES);
+    vars.insert(kRBLXBUILD_HIP_PLATFORM);
+    vars.insert(kRBLXBUILD_HIP_RUNTIME_LIBRARY);
+    vars.insert(kRBLXBUILD_ISPC_INSTRUCTION_SETS);
+    vars.insert(kRBLXBUILD_ISPC_HEADER_SUFFIX);
+    vars.insert(kRBLXBUILD_LINK_SEARCH_END_STATIC);
+    vars.insert(kRBLXBUILD_LINK_SEARCH_START_STATIC);
+    vars.insert(kRBLXBUILD_OSX_ARCHITECTURES);
+    vars.insert(kRBLXBUILD_OSX_DEPLOYMENT_TARGET);
+    vars.insert(kRBLXBUILD_OSX_SYSROOT);
+    vars.insert(kRBLXBUILD_APPLE_ARCH_SYSROOTS);
+    vars.insert(kRBLXBUILD_POSITION_INDEPENDENT_CODE);
+    vars.insert(kRBLXBUILD_SYSROOT);
+    vars.insert(kRBLXBUILD_SYSROOT_COMPILE);
+    vars.insert(kRBLXBUILD_SYSROOT_LINK);
+    vars.insert("RBLXBUILD_SYCL_DEVICE_TARGETS");
+    vars.emplace("RBLXBUILD_MSVC_RUNTIME_LIBRARY"_s);
+    vars.emplace("RBLXBUILD_WATCOM_RUNTIME_LIBRARY"_s);
+    vars.emplace("RBLXBUILD_EMBT_RUNTIME_LIBRARY"_s);
+    vars.emplace("RBLXBUILD_MSVC_DEBUG_INFORMATION_FORMAT"_s);
+    vars.emplace("RBLXBUILD_MSVC_RUNTIME_CHECKS"_s);
+    vars.emplace("RBLXBUILD_CXX_COMPILER_CLANG_SCAN_DEPS"_s);
+    vars.emplace("RBLXBUILD_VS_USE_DEBUG_LIBRARIES"_s);
+    vars.emplace("RBLXBUILD_CXX_STDLIB_MODULES_JSON"_s);
 
     if (cmValue varListStr = this->Makefile->GetDefinition(
-          kCMAKE_TRY_COMPILE_PLATFORM_VARIABLES)) {
+          kRBLXBUILD_TRY_COMPILE_PLATFORM_VARIABLES)) {
       cmList varList{ *varListStr };
       vars.insert(varList.begin(), varList.end());
     }
 
-    if (this->Makefile->GetDefinition(kCMAKE_LINKER_TYPE)) {
+    if (this->Makefile->GetDefinition(kRBLXBUILD_LINKER_TYPE)) {
       // propagate various variables to support linker selection
-      vars.insert(kCMAKE_LINKER_TYPE);
+      vars.insert(kRBLXBUILD_LINKER_TYPE);
       auto defs = this->Makefile->GetDefinitions();
       cmsys::RegularExpression linkerTypeDef{
-        "^CMAKE_[A-Za-z_-]+_USING_LINKER_"
+        "^RBLXBUILD_[A-Za-z_-]+_USING_LINKER_"
       };
       for (auto const& def : defs) {
         if (linkerTypeDef.find(def)) {
@@ -1182,27 +1182,27 @@ cm::optional<cmTryCompileResult> cmCoreTryCompile::TryCompileCode(
       // To ensure full support of PIE, propagate cache variables
       // driving the link options
       for (cm::string_view l : kLanguageNames) {
-        vars.emplace(cmStrCat("CMAKE_", l, "_LINK_NO_PIE_SUPPORTED"));
-        vars.emplace(cmStrCat("CMAKE_", l, "_LINK_PIE_SUPPORTED"));
+        vars.emplace(cmStrCat("RBLXBUILD_", l, "_LINK_NO_PIE_SUPPORTED"));
+        vars.emplace(cmStrCat("RBLXBUILD_", l, "_LINK_PIE_SUPPORTED"));
       }
     }
 
     /* for the TRY_COMPILEs we want to be able to specify the architecture.
-       So the user can set CMAKE_OSX_ARCHITECTURES to i386;ppc and then set
-       CMAKE_TRY_COMPILE_OSX_ARCHITECTURES first to i386 and then to ppc to
+       So the user can set RBLXBUILD_OSX_ARCHITECTURES to i386;ppc and then set
+       RBLXBUILD_TRY_COMPILE_OSX_ARCHITECTURES first to i386 and then to ppc to
        have the tests run for each specific architecture. Since
        cmLocalGenerator doesn't allow building for "the other"
-       architecture only via CMAKE_OSX_ARCHITECTURES.
+       architecture only via RBLXBUILD_OSX_ARCHITECTURES.
        */
     if (cmValue tcArchs = this->Makefile->GetDefinition(
-          kCMAKE_TRY_COMPILE_OSX_ARCHITECTURES)) {
-      vars.erase(kCMAKE_OSX_ARCHITECTURES);
-      std::string flag = cmStrCat("-DCMAKE_OSX_ARCHITECTURES=", *tcArchs);
-      arguments.CMakeFlags.emplace_back(std::move(flag));
-      cmakeVariables.emplace("CMAKE_OSX_ARCHITECTURES", *tcArchs);
+          kRBLXBUILD_TRY_COMPILE_OSX_ARCHITECTURES)) {
+      vars.erase(kRBLXBUILD_OSX_ARCHITECTURES);
+      std::string flag = cmStrCat("-DRBLXBUILD_OSX_ARCHITECTURES=", *tcArchs);
+      arguments.RBLXBuildFlags.emplace_back(std::move(flag));
+      rblxbuildVariables.emplace("RBLXBUILD_OSX_ARCHITECTURES", *tcArchs);
     }
 
-    // Pass down CMAKE_EXPERIMENTAL_* feature flags
+    // Pass down RBLXBUILD_EXPERIMENTAL_* feature flags
     for (std::size_t i = 0;
          i < static_cast<std::size_t>(cmExperimental::Feature::Sentinel);
          i++) {
@@ -1212,8 +1212,8 @@ cm::optional<cmTryCompileResult> cmCoreTryCompile::TryCompileCode(
             cmExperimental::TryCompileCondition::Always ||
           (data.ForwardThroughTryCompile ==
              cmExperimental::TryCompileCondition::SkipCompilerChecks &&
-           arguments.CMakeInternal != "ABI"_s &&
-           arguments.CMakeInternal != "FEATURE_TESTING"_s)) {
+           arguments.RBLXBuildInternal != "ABI"_s &&
+           arguments.RBLXBuildInternal != "FEATURE_TESTING"_s)) {
         vars.insert(data.Variable);
         for (auto const& var : data.TryCompileVariables) {
           vars.insert(var);
@@ -1224,8 +1224,8 @@ cm::optional<cmTryCompileResult> cmCoreTryCompile::TryCompileCode(
     for (std::string const& var : vars) {
       if (cmValue val = this->Makefile->GetDefinition(var)) {
         std::string flag = cmStrCat("-D", var, '=', *val);
-        arguments.CMakeFlags.emplace_back(std::move(flag));
-        cmakeVariables.emplace(var, *val);
+        arguments.RBLXBuildFlags.emplace_back(std::move(flag));
+        rblxbuildVariables.emplace(var, *val);
       }
     }
   }
@@ -1233,11 +1233,11 @@ cm::optional<cmTryCompileResult> cmCoreTryCompile::TryCompileCode(
   if (!this->SrcFileSignature &&
       this->Makefile->GetState()->GetGlobalPropertyAsBool(
         "PROPAGATE_TOP_LEVEL_INCLUDES_TO_TRY_COMPILE")) {
-    std::string const var = "CMAKE_PROJECT_TOP_LEVEL_INCLUDES";
+    std::string const var = "RBLXBUILD_PROJECT_TOP_LEVEL_INCLUDES";
     if (cmValue val = this->Makefile->GetDefinition(var)) {
       std::string flag = cmStrCat("-D", var, "=\'", *val, '\'');
-      arguments.CMakeFlags.emplace_back(std::move(flag));
-      cmakeVariables.emplace(var, *val);
+      arguments.RBLXBuildFlags.emplace_back(std::move(flag));
+      rblxbuildVariables.emplace(var, *val);
     }
   }
 
@@ -1246,13 +1246,13 @@ cm::optional<cmTryCompileResult> cmCoreTryCompile::TryCompileCode(
     for (std::string const& var : ghs_platform_vars) {
       if (cmValue val = this->Makefile->GetDefinition(var)) {
         std::string flag = cmStrCat("-D", var, "=\'", *val, '\'');
-        arguments.CMakeFlags.emplace_back(std::move(flag));
-        cmakeVariables.emplace(var, *val);
+        arguments.RBLXBuildFlags.emplace_back(std::move(flag));
+        rblxbuildVariables.emplace(var, *val);
       }
     }
   }
 
-  if (this->Makefile->GetCMakeInstance()->GetDebugTryCompile()) {
+  if (this->Makefile->GetRBLXBuildInstance()->GetDebugTryCompile()) {
     auto msg =
       cmStrCat("Executing try_compile (", *arguments.CompileResultVariable,
                ") in:\n  ", this->BinaryDirectory);
@@ -1265,8 +1265,8 @@ cm::optional<cmTryCompileResult> cmCoreTryCompile::TryCompileCode(
   // actually do the try compile now that everything is setup
   int res = this->Makefile->TryCompile(
     sourceDirectory, this->BinaryDirectory, projectName, targetName,
-    this->SrcFileSignature, cmake::NO_BUILD_PARALLEL_LEVEL,
-    &arguments.CMakeFlags, output);
+    this->SrcFileSignature, rblxbuild::NO_BUILD_PARALLEL_LEVEL,
+    &arguments.RBLXBuildFlags, output);
   if (erroroc) {
     cmSystemTools::SetErrorOccurred();
   }
@@ -1345,7 +1345,7 @@ cm::optional<cmTryCompileResult> cmCoreTryCompile::TryCompileCode(
   if (arguments.LogDescription) {
     result.LogDescription = *arguments.LogDescription;
   }
-  result.CMakeVariables = std::move(cmakeVariables);
+  result.RBLXBuildVariables = std::move(rblxbuildVariables);
   result.SourceDirectory = sourceDirectory;
   result.BinaryDirectory = this->BinaryDirectory;
   result.Variable = *arguments.CompileResultVariable;
@@ -1357,8 +1357,8 @@ cm::optional<cmTryCompileResult> cmCoreTryCompile::TryCompileCode(
 
 bool cmCoreTryCompile::IsTemporary(std::string const& path)
 {
-  return ((path.find("CMakeTmp") != std::string::npos) ||
-          (path.find("CMakeScratch") != std::string::npos));
+  return ((path.find("RBLXBuildTmp") != std::string::npos) ||
+          (path.find("RBLXBuildScratch") != std::string::npos));
 }
 
 void cmCoreTryCompile::CleanupFiles(std::string const& binDir)
@@ -1370,13 +1370,13 @@ void cmCoreTryCompile::CleanupFiles(std::string const& binDir)
   if (!IsTemporary(binDir)) {
     cmSystemTools::Error(cmStrCat(
       "TRY_COMPILE attempt to remove -rf directory that does not contain "
-      "CMakeTmp or CMakeScratch: \"",
+      "RBLXBuildTmp or RBLXBuildScratch: \"",
       binDir, '"'));
     return;
   }
 
   // Cached knowledge of the removed files becomes stale.
-  this->Makefile->GetCMakeInstance()->InvalidateFileSystemCaches();
+  this->Makefile->GetRBLXBuildInstance()->InvalidateFileSystemCaches();
 
   cmsys::Directory dir;
   dir.Load(binDir);
@@ -1420,7 +1420,7 @@ void cmCoreTryCompile::CleanupFiles(std::string const& binDir)
     }
   }
 
-  if (binDir.find("CMakeScratch") != std::string::npos) {
+  if (binDir.find("RBLXBuildScratch") != std::string::npos) {
     cmSystemTools::RemoveADirectory(binDir);
   }
 }
@@ -1434,7 +1434,7 @@ void cmCoreTryCompile::FindOutputFile(std::string const& targetName)
 
   if (this->Makefile->GetGlobalGenerator()->IsMultiConfig()) {
     std::string const tcConfig =
-      this->Makefile->GetSafeDefinition("CMAKE_TRY_COMPILE_CONFIGURATION");
+      this->Makefile->GetSafeDefinition("RBLXBUILD_TRY_COMPILE_CONFIGURATION");
     std::string const cfg = !tcConfig.empty()
       ? cmSystemTools::UpperCase(tcConfig)
       : TryCompileDefaultConfig;
@@ -1499,7 +1499,7 @@ std::string cmCoreTryCompile::WriteSource(std::string const& filename,
 void cmCoreTryCompile::WriteTryCompileEventFields(
   cmConfigureLog& log, cmTryCompileResult const& compileResult)
 {
-#ifndef CMAKE_BOOTSTRAP
+#ifndef RBLXBUILD_BOOTSTRAP
   if (compileResult.LogDescription) {
     log.WriteValue("description"_s, *compileResult.LogDescription);
   }
@@ -1507,8 +1507,8 @@ void cmCoreTryCompile::WriteTryCompileEventFields(
   log.WriteValue("source"_s, compileResult.SourceDirectory);
   log.WriteValue("binary"_s, compileResult.BinaryDirectory);
   log.EndObject();
-  if (!compileResult.CMakeVariables.empty()) {
-    log.WriteValue("cmakeVariables"_s, compileResult.CMakeVariables);
+  if (!compileResult.RBLXBuildVariables.empty()) {
+    log.WriteValue("rblxbuildVariables"_s, compileResult.RBLXBuildVariables);
   }
   log.BeginObject("buildResult"_s);
   log.WriteValue("variable"_s, compileResult.Variable);

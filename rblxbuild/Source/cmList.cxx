@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 
 #include "cmConfigure.h" // IWYU pragma: keep
 
@@ -30,7 +30,7 @@
 #include "cmSystemTools.h"
 #include "cmValue.h"
 
-#ifndef CMAKE_BOOTSTRAP
+#ifndef RBLXBUILD_BOOTSTRAP
 #  include "cmListFileCoverage.h"
 #endif
 
@@ -124,7 +124,7 @@ public:
     : FunctionName(std::move(functionName))
     , Makefile(&makefile)
     , ErrorPrefix(std::move(errorPrefix))
-    , OutputVar(OutputVarFor("_cmake_predicate_out_", makefile))
+    , OutputVar(OutputVarFor("_rblxbuild_predicate_out_", makefile))
   {
     RequireFunction(makefile, this->FunctionName, this->ErrorPrefix);
   }
@@ -141,7 +141,7 @@ public:
     cmListFileFunction func{ this->FunctionName, context.Line, context.Line,
                              std::move(funcArgs) };
 
-#ifndef CMAKE_BOOTSTRAP
+#ifndef RBLXBUILD_BOOTSTRAP
     cm::optional<cmListFileCoverage::SyntheticCommandScope> syntheticScope;
     if (cmListFileCoverage::Get()) {
       syntheticScope.emplace(func);
@@ -199,7 +199,7 @@ public:
   ComparatorEvaluator(std::string functionName, cmMakefile& makefile)
     : FunctionName(std::move(functionName))
     , Makefile(&makefile)
-    , OutputVar(OutputVarFor("_cmake_comparator_out_", makefile))
+    , OutputVar(OutputVarFor("_rblxbuild_comparator_out_", makefile))
   {
     RequireFunction(makefile, this->FunctionName,
                     "sub-command SORT, COMPARATOR");
@@ -218,7 +218,7 @@ public:
     cmListFileFunction func{ this->FunctionName, context.Line, context.Line,
                              std::move(funcArgs) };
 
-#ifndef CMAKE_BOOTSTRAP
+#ifndef RBLXBUILD_BOOTSTRAP
     cm::optional<cmListFileCoverage::SyntheticCommandScope> syntheticScope;
     if (cmListFileCoverage::Get()) {
       syntheticScope.emplace(func);
@@ -820,7 +820,7 @@ public:
     : TransformAction(selector)
     , FunctionName(std::move(functionName))
     , Makefile(&makefile)
-    , OutputVar(OutputVarFor("_cmake_transform_apply_out_", makefile))
+    , OutputVar(OutputVarFor("_rblxbuild_transform_apply_out_", makefile))
   {
     RequireFunction(makefile, this->FunctionName,
                     "sub-command TRANSFORM, action APPLY");
@@ -841,7 +841,7 @@ protected:
     cmListFileFunction func{ this->FunctionName, context.Line, context.Line,
                              std::move(funcArgs) };
 
-#ifndef CMAKE_BOOTSTRAP
+#ifndef RBLXBUILD_BOOTSTRAP
     cm::optional<cmListFileCoverage::SyntheticCommandScope> syntheticScope;
     if (cmListFileCoverage::Get()) {
       syntheticScope.emplace(func);
@@ -880,7 +880,7 @@ private:
 
 // Arity: number of arguments required for the action.
 //
-// Keep this a bare aggregate of literal types: CMake still builds as C++11,
+// Keep this a bare aggregate of literal types: RBLXBuild still builds as C++11,
 // where a member initializer, a constructor, or a cm::string_view member
 // would break the constexpr table below.
 struct ActionDescriptor

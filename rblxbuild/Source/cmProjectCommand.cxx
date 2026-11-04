@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmProjectCommand.h"
 
 #include <array>
@@ -31,7 +31,7 @@
 namespace {
 
 bool IncludeByVariable(cmExecutionStatus& status, std::string const& variable);
-void TopLevelCMakeVarCondSet(cmMakefile& mf, std::string const& name,
+void TopLevelRBLXBuildVarCondSet(cmMakefile& mf, std::string const& name,
                              std::string const& value);
 
 struct ProjectArguments : ArgumentParser::ParseResult
@@ -87,27 +87,27 @@ bool cmProjectCommand(std::vector<std::string> const& args,
       cmStrCat(
         "project() called with '", projectName,
         "' as first argument. The first parameter should be the project name, "
-        "not a keyword argument. See the cmake-commands(7) manual for correct "
+        "not a keyword argument. See the rblxbuild-commands(7) manual for correct "
         "usage of the project() command."));
   }
 
   parser.Parse(cmMakeRange(args).advance(1), &unparsedArgs, 1);
 
   if (mf.IsRootMakefile() &&
-      !mf.GetDefinition("CMAKE_MINIMUM_REQUIRED_VERSION")) {
+      !mf.GetDefinition("RBLXBUILD_MINIMUM_REQUIRED_VERSION")) {
     mf.IssueDiagnostic(
       cmDiagnostics::CMD_AUTHOR,
-      "cmake_minimum_required() should be called prior to this top-level "
-      "project() call. Please see the cmake-commands(7) manual for usage "
+      "rblxbuild_minimum_required() should be called prior to this top-level "
+      "project() call. Please see the rblxbuild-commands(7) manual for usage "
       "documentation of both commands.");
   }
 
-  if (!IncludeByVariable(status, "CMAKE_PROJECT_INCLUDE_BEFORE")) {
+  if (!IncludeByVariable(status, "RBLXBUILD_PROJECT_INCLUDE_BEFORE")) {
     return false;
   }
 
   if (!IncludeByVariable(
-        status, cmStrCat("CMAKE_PROJECT_", projectName, "_INCLUDE_BEFORE"))) {
+        status, cmStrCat("RBLXBUILD_PROJECT_", projectName, "_INCLUDE_BEFORE"))) {
     return false;
   }
 
@@ -118,7 +118,7 @@ bool cmProjectCommand(std::vector<std::string> const& args,
   std::string varName = cmStrCat(projectName, "_BINARY_DIR"_s);
   bool nonCacheVarAlreadySet = mf.IsNormalDefinitionSet(varName);
   mf.AddCacheDefinition(varName, mf.GetCurrentBinaryDirectory(),
-                        "Value Computed by CMake", cmStateEnums::STATIC);
+                        "Value Computed by RBLXBuild", cmStateEnums::STATIC);
   if (cmp0180 == cmPolicies::NEW || nonCacheVarAlreadySet) {
     mf.AddDefinition(varName, mf.GetCurrentBinaryDirectory());
   }
@@ -126,7 +126,7 @@ bool cmProjectCommand(std::vector<std::string> const& args,
   varName = cmStrCat(projectName, "_SOURCE_DIR"_s);
   nonCacheVarAlreadySet = mf.IsNormalDefinitionSet(varName);
   mf.AddCacheDefinition(varName, mf.GetCurrentSourceDirectory(),
-                        "Value Computed by CMake", cmStateEnums::STATIC);
+                        "Value Computed by RBLXBuild", cmStateEnums::STATIC);
   if (cmp0180 == cmPolicies::NEW || nonCacheVarAlreadySet) {
     mf.AddDefinition(varName, mf.GetCurrentSourceDirectory());
   }
@@ -141,12 +141,12 @@ bool cmProjectCommand(std::vector<std::string> const& args,
   varName = cmStrCat(projectName, "_IS_TOP_LEVEL"_s);
   nonCacheVarAlreadySet = mf.IsNormalDefinitionSet(varName);
   mf.AddCacheDefinition(varName, mf.IsRootMakefile() ? "ON" : "OFF",
-                        "Value Computed by CMake", cmStateEnums::STATIC);
+                        "Value Computed by RBLXBuild", cmStateEnums::STATIC);
   if (cmp0180 == cmPolicies::NEW || nonCacheVarAlreadySet) {
     mf.AddDefinition(varName, mf.IsRootMakefile() ? "ON" : "OFF");
   }
 
-  TopLevelCMakeVarCondSet(mf, "CMAKE_PROJECT_NAME", projectName);
+  TopLevelRBLXBuildVarCondSet(mf, "RBLXBUILD_PROJECT_NAME", projectName);
 
   std::set<cm::string_view> seenKeywords;
   for (cm::string_view keyword : parsedKeywords) {
@@ -261,7 +261,7 @@ bool cmProjectCommand(std::vector<std::string> const& args,
   auto createVariables = [&](cm::string_view var, std::string const& val) {
     mf.AddDefinition(cmStrCat("PROJECT_"_s, var), val);
     mf.AddDefinition(cmStrCat(projectName, "_"_s, var), val);
-    TopLevelCMakeVarCondSet(mf, cmStrCat("CMAKE_PROJECT_"_s, var), val);
+    TopLevelRBLXBuildVarCondSet(mf, cmStrCat("RBLXBUILD_PROJECT_"_s, var), val);
   };
 
   // Note, this intentionally doesn't touch cache variables as the legacy
@@ -269,7 +269,7 @@ bool cmProjectCommand(std::vector<std::string> const& args,
   auto checkAndClearVariables = [&](cm::string_view var) {
     std::vector<std::string> vv = { "PROJECT_", cmStrCat(projectName, '_') };
     if (mf.IsRootMakefile()) {
-      vv.push_back("CMAKE_PROJECT_");
+      vv.push_back("RBLXBUILD_PROJECT_");
     }
     for (std::string const& prefix : vv) {
       std::string def = cmStrCat(prefix, var);
@@ -315,12 +315,12 @@ bool cmProjectCommand(std::vector<std::string> const& args,
     }
   }
 
-  if (!IncludeByVariable(status, "CMAKE_PROJECT_INCLUDE")) {
+  if (!IncludeByVariable(status, "RBLXBUILD_PROJECT_INCLUDE")) {
     return false;
   }
 
   if (!IncludeByVariable(
-        status, cmStrCat("CMAKE_PROJECT_", projectName, "_INCLUDE"))) {
+        status, cmStrCat("RBLXBUILD_PROJECT_", projectName, "_INCLUDE"))) {
     return false;
   }
 
@@ -339,12 +339,12 @@ bool IncludeByVariable(cmExecutionStatus& status, std::string const& variable)
 
   bool failed = false;
   for (auto filePath : includeFiles) {
-    // Any relative path without a .cmake extension is checked for valid cmake
-    // modules. This logic should be consistent with CMake's include() command.
+    // Any relative path without a .rblxbuild extension is checked for valid rblxbuild
+    // modules. This logic should be consistent with RBLXBuild's include() command.
     // Otherwise default to checking relative path w.r.t. source directory
     if (!cmSystemTools::FileIsFullPath(filePath) &&
-        !cmHasLiteralSuffix(filePath, ".cmake")) {
-      std::string mfile = mf.GetModulesFile(cmStrCat(filePath, ".cmake"));
+        !cmHasLiteralSuffix(filePath, ".rblxbuild")) {
+      std::string mfile = mf.GetModulesFile(cmStrCat(filePath, ".rblxbuild"));
       if (mfile.empty()) {
         status.SetError(
           cmStrCat("could not find requested module:\n  ", filePath));
@@ -386,16 +386,16 @@ bool IncludeByVariable(cmExecutionStatus& status, std::string const& variable)
   return !failed;
 }
 
-void TopLevelCMakeVarCondSet(cmMakefile& mf, std::string const& name,
+void TopLevelRBLXBuildVarCondSet(cmMakefile& mf, std::string const& name,
                              std::string const& value)
 {
-  // Set the CMAKE_PROJECT_XXX variable to be the highest-level
+  // Set the RBLXBUILD_PROJECT_XXX variable to be the highest-level
   // project name in the tree. If there are two project commands
-  // in the same CMakeLists.txt file, and it is the top level
-  // CMakeLists.txt file, then go with the last one.
+  // in the same RBLXBuildLists.txt file, and it is the top level
+  // RBLXBuildLists.txt file, then go with the last one.
   if (!mf.GetDefinition(name) || mf.IsRootMakefile()) {
     mf.RemoveDefinition(name);
-    mf.AddCacheDefinition(name, value, "Value Computed by CMake",
+    mf.AddCacheDefinition(name, value, "Value Computed by RBLXBuild",
                           cmStateEnums::STATIC);
   }
 }

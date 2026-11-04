@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #pragma once
 
 #include "cmConfigure.h" // IWYU pragma: keep
@@ -51,7 +51,7 @@ private:
   // create .cproject file
   void CreateCProjectFile() const;
 
-  // If built with cygwin cmake, convert posix to windows path.
+  // If built with cygwin rblxbuild, convert posix to windows path.
   static std::string GetEclipsePath(std::string const& path);
 
   // Extract basename.

@@ -1,0 +1,12 @@
+set(RBLXBUILD_Swift_IMPLIB_LINKER_FLAGS "-Xlinker -implib:<TARGET_IMPLIB>")
+set(RBLXBUILD_Swift_PDB_LINKER_FLAGS "-Xlinker -pdb:<TARGET_PDB>")
+set(RBLXBUILD_Swift_LINKER_SUPPORTS_PDB ON)
+set(RBLXBUILD_Swift_FLAGS_DEBUG_LINKER_FLAGS "-Xlinker -debug")
+set(RBLXBUILD_Swift_FLAGS_RELWITHDEBINFO_LINKER_FLAGS "-Xlinker -debug")
+
+# Linker Selection
+set(RBLXBUILD_Swift_USING_LINKER_SYSTEM "-use-ld=link")
+set(RBLXBUILD_Swift_USING_LINKER_LLD "-use-ld=lld")
+set(RBLXBUILD_Swift_USING_LINKER_MSVC "-use-ld=link")
+
+set(RBLXBUILD_Swift_LINK_MODE DRIVER)

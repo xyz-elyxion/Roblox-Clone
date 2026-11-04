@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmSourceGroupCommand.h"
 
 #include <functional>
@@ -16,7 +16,7 @@
 
 #include "cmArgumentParser.h"
 #include "cmArgumentParserTypes.h"
-#include "cmCMakePath.h"
+#include "cmRBLXBuildPath.h"
 #include "cmDiagnostics.h"
 #include "cmExecutionStatus.h"
 #include "cmMakefile.h"
@@ -58,9 +58,9 @@ bool ProcessTree(Args const& args, cmExecutionStatus& status)
   }
 
   // final checks
-  cmCMakePath const root{ cmSystemTools::CollapseFullPath(*args.Tree) };
-  cmCMakePath const prefix{
-    cmCMakePath{ args.Prefix ? *args.Prefix : "" }.Normal()
+  cmRBLXBuildPath const root{ cmSystemTools::CollapseFullPath(*args.Tree) };
+  cmRBLXBuildPath const prefix{
+    cmRBLXBuildPath{ args.Prefix ? *args.Prefix : "" }.Normal()
   };
 
   auto it = files.begin();
@@ -72,7 +72,7 @@ bool ProcessTree(Args const& args, cmExecutionStatus& status)
       continue;
     }
 
-    cmCMakePath file{ *it };
+    cmRBLXBuildPath file{ *it };
     if (!root.IsPrefix(file)) {
       status.SetError(cmStrCat('"', root.GenericString(),
                                "\" is not a prefix of file \"",
@@ -81,7 +81,7 @@ bool ProcessTree(Args const& args, cmExecutionStatus& status)
     }
 
     // source groups generation
-    cmCMakePath sourceGroup = prefix / file.Relative(root);
+    cmRBLXBuildPath sourceGroup = prefix / file.Relative(root);
     if (sourceGroup.HasParentPath()) {
       sourceGroup = sourceGroup.GetParentPath();
     }

@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-file LICENSE.rst or https://cmake.org/licensing for details.  */
+file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmInstrumentationCommand.h"
 
 #include <algorithm>
@@ -25,7 +25,7 @@ file LICENSE.rst or https://cmake.org/licensing for details.  */
 #include "cmMessageType.h"
 #include "cmStringAlgorithms.h"
 #include "cmValue.h"
-#include "cmake.h"
+#include "rblxbuild.h"
 
 namespace {
 
@@ -112,10 +112,10 @@ bool cmInstrumentationCommand(std::vector<std::string> const& args,
     return false;
   }
 
-  if (status.GetMakefile().GetCMakeInstance()->GetInInitialCache()) {
+  if (status.GetMakefile().GetRBLXBuildInstance()->GetInInitialCache()) {
     status.GetMakefile().IssueMessage(
       MessageType::FATAL_ERROR,
-      "Cannot invoke cmake_instrumentation() within an initial cache file.");
+      "Cannot invoke rblxbuild_instrumentation() within an initial cache file.");
     return false;
   }
 
@@ -186,7 +186,7 @@ bool cmInstrumentationCommand(std::vector<std::string> const& args,
 
   // Generate custom content
   cmInstrumentation* instrumentation =
-    status.GetMakefile().GetCMakeInstance()->GetInstrumentation();
+    status.GetMakefile().GetRBLXBuildInstance()->GetInstrumentation();
   for (auto const& content : arguments.CustomContent) {
     if (content.size() != 3) {
       status.SetError("CUSTOM_CONTENT expected 3 arguments");

@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 /* clang-format off */
 #include "cmGeneratorTarget.h"
 /* clang-format on */
@@ -164,7 +164,7 @@ void checkPropertyConsistency(cmGeneratorTarget const* depender,
 
   cmList props{ *prop };
   std::string pdir =
-    cmStrCat(cmSystemTools::GetCMakeRoot(), "/Help/prop_tgt/");
+    cmStrCat(cmSystemTools::GetRBLXBuildRoot(), "/Help/prop_tgt/");
 
   for (std::string const& p : props) {
     std::string pname = cmSystemTools::HelpFileName(p);

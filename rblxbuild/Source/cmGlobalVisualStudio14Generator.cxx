@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmGlobalVisualStudio14Generator.h"
 
 #include <cstring>
@@ -17,7 +17,7 @@
 #include "cmValue.h"
 
 cmGlobalVisualStudio14Generator::cmGlobalVisualStudio14Generator(
-  cmake* cm, std::string const& name)
+  rblxbuild* cm, std::string const& name)
   : cmGlobalVisualStudio12Generator(cm, name)
 {
 }
@@ -149,10 +149,10 @@ bool cmGlobalVisualStudio14Generator::InitializeWindowsStore(cmMakefile* mf)
       e = cmStrCat(this->GetName(),
                    " supports Windows Store '8.0', '8.1' and "
                    "'10.0', but not '",
-                   this->SystemVersion, "'.  Check CMAKE_SYSTEM_VERSION.");
+                   this->SystemVersion, "'.  Check RBLXBUILD_SYSTEM_VERSION.");
     } else {
       e = cmStrCat(
-        "A Windows Store component with CMake requires both the Windows "
+        "A Windows Store component with RBLXBuild requires both the Windows "
         "Desktop SDK as well as the Windows Store '",
         this->SystemVersion,
         "' SDK. Please make sure that you have both installed");
@@ -220,7 +220,7 @@ void cmGlobalVisualStudio14Generator::SetWindowsTargetPlatformVersion(
                                '.'),
                       -1);
   }
-  mf->AddDefinition("CMAKE_VS_WINDOWS_TARGET_PLATFORM_VERSION",
+  mf->AddDefinition("RBLXBUILD_VS_WINDOWS_TARGET_PLATFORM_VERSION",
                     this->WindowsTargetPlatformVersion);
 }
 
@@ -271,7 +271,7 @@ std::string cmGlobalVisualStudio14Generator::GetWindows10SDKMaxVersion(
   // if the given value is set, it can either be OFF/FALSE or a valid SDK
   // string
   if (cmValue value = mf->GetDefinition(
-        "CMAKE_VS_WINDOWS_TARGET_PLATFORM_VERSION_MAXIMUM")) {
+        "RBLXBUILD_VS_WINDOWS_TARGET_PLATFORM_VERSION_MAXIMUM")) {
 
     // If the value is some off/false value, then there is NO maximum set.
     if (value.IsOff()) {
@@ -319,7 +319,7 @@ std::string cmGlobalVisualStudio14Generator::GetWindows10SDKVersion(
 
   {
     std::string win10Root;
-    if (cmSystemTools::GetEnv("CMAKE_WINDOWS_KITS_10_DIR", win10Root)) {
+    if (cmSystemTools::GetEnv("RBLXBUILD_WINDOWS_KITS_10_DIR", win10Root)) {
       cmSystemTools::ConvertToUnixSlashes(win10Root);
       win10Roots.push_back(win10Root);
     }

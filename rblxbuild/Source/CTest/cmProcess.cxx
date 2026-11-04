@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmProcess.h"
 
 #include <csignal>
@@ -109,12 +109,12 @@ bool cmProcess::StartProcess(uv_loop_t& loop, std::vector<size_t>* affinity)
   options.stdio_count = 3; // in, out and err
   options.exit_cb = &cmProcess::OnExitCB;
   options.stdio = stdio;
-#if UV_VERSION_MAJOR > 1 || !defined(CMAKE_USE_SYSTEM_LIBUV)
+#if UV_VERSION_MAJOR > 1 || !defined(RBLXBUILD_USE_SYSTEM_LIBUV)
   if (!this->Runner->GetCTest()->GetInteractiveDebugMode()) {
     options.flags = UV_PROCESS_WINDOWS_USE_PARENT_ERROR_MODE;
   }
 #endif
-#if !defined(CMAKE_USE_SYSTEM_LIBUV)
+#if !defined(RBLXBUILD_USE_SYSTEM_LIBUV)
   std::vector<char> cpumask;
   if (affinity && !affinity->empty()) {
     cpumask.resize(static_cast<size_t>(uv_cpumask_size()), 0);

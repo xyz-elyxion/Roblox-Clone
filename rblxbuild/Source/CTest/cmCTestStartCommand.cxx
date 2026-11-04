@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmCTestStartCommand.h"
 
 #include <cstddef>
@@ -158,10 +158,10 @@ bool cmCTestStartCommand::InitialPass(std::vector<std::string> const& args,
 
   std::string fname;
 
-  std::string src_dir_fname = cmStrCat(sourceDir, "/CTestConfig.cmake");
+  std::string src_dir_fname = cmStrCat(sourceDir, "/CTestConfig.rblxbuild");
   cmSystemTools::ConvertToUnixSlashes(src_dir_fname);
 
-  std::string bld_dir_fname = cmStrCat(binaryDir, "/CTestConfig.cmake");
+  std::string bld_dir_fname = cmStrCat(binaryDir, "/CTestConfig.rblxbuild");
   cmSystemTools::ConvertToUnixSlashes(bld_dir_fname);
 
   if (cmSystemTools::FileExists(bld_dir_fname)) {
@@ -181,11 +181,11 @@ bool cmCTestStartCommand::InitialPass(std::vector<std::string> const& args,
     }
   }
 
-  this->CTest->SetCTestConfigurationFromCMakeVariable(
+  this->CTest->SetCTestConfigurationFromRBLXBuildVariable(
     &mf, "NightlyStartTime", "CTEST_NIGHTLY_START_TIME", quiet);
-  this->CTest->SetCTestConfigurationFromCMakeVariable(&mf, "Site",
+  this->CTest->SetCTestConfigurationFromRBLXBuildVariable(&mf, "Site",
                                                       "CTEST_SITE", quiet);
-  this->CTest->SetCTestConfigurationFromCMakeVariable(
+  this->CTest->SetCTestConfigurationFromRBLXBuildVariable(
     &mf, "BuildName", "CTEST_BUILD_NAME", quiet);
 
   this->CTest->Initialize(binaryDir, outputDir);
@@ -201,8 +201,8 @@ bool cmCTestStartCommand::InitialPass(std::vector<std::string> const& args,
       this->CTest->GetCTestConfiguration("NightlyStartTime").empty()) {
     cmCTestOptionalLog(
       this->CTest, WARNING, quiet,
-      "WARNING: No nightly start time found please set in CTestConfig.cmake"
-      " or DartConfig.cmake\n");
+      "WARNING: No nightly start time found please set in CTestConfig.rblxbuild"
+      " or DartConfig.rblxbuild\n");
     return false;
   }
 

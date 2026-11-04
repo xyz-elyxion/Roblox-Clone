@@ -1737,7 +1737,7 @@ int uv_os_setpriority(uv_pid_t pid, int priority) {
 #endif
 }
 
-#ifndef CMAKE_BOOTSTRAP
+#ifndef RBLXBUILD_BOOTSTRAP
 /**
  * If the function succeeds, the return value is 0.
  * If the function fails, the return value is non-zero.
@@ -1792,7 +1792,7 @@ static int set_nice_for_calling_thread(int priority) {
 }
 #endif
 
-#ifndef CMAKE_BOOTSTRAP
+#ifndef RBLXBUILD_BOOTSTRAP
 /**
  * If the function succeeds, the return value is 0.
  * If the function fails, the return value is non-zero.

@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmGlobalJOMMakefileGenerator.h"
 
 #include <ostream>
@@ -10,12 +10,12 @@
 #include "cmGlobalGenerator.h"
 #include "cmMakefile.h"
 #include "cmState.h"
-#include "cmake.h"
+#include "rblxbuild.h"
 
-cmGlobalJOMMakefileGenerator::cmGlobalJOMMakefileGenerator(cmake* cm)
+cmGlobalJOMMakefileGenerator::cmGlobalJOMMakefileGenerator(rblxbuild* cm)
   : cmGlobalUnixMakefileGenerator3(cm)
 {
-  this->FindMakeProgramFile = "CMakeJOMFindMake.cmake";
+  this->FindMakeProgramFile = "RBLXBuildJOMFindMake.rblxbuild";
   this->ForceUnixPaths = false;
   this->ToolSupportsColor = true;
   this->UseLinkScript = false;
@@ -31,8 +31,8 @@ void cmGlobalJOMMakefileGenerator::EnableLanguage(
   std::vector<std::string> const& l, cmMakefile* mf, bool optional)
 {
   // pick a default
-  mf->AddDefinition("CMAKE_GENERATOR_CC", "cl");
-  mf->AddDefinition("CMAKE_GENERATOR_CXX", "cl");
+  mf->AddDefinition("RBLXBUILD_GENERATOR_CC", "cl");
+  mf->AddDefinition("RBLXBUILD_GENERATOR_CXX", "cl");
   this->cmGlobalUnixMakefileGenerator3::EnableLanguage(l, mf, optional);
 }
 
@@ -49,10 +49,10 @@ void cmGlobalJOMMakefileGenerator::PrintCompilerAdvice(std::ostream& os,
   if (lang == "CXX"_s || lang == "C"_s) {
     /* clang-format off */
     os <<
-      "To use the JOM generator with Visual C++, cmake must be run from a "
+      "To use the JOM generator with Visual C++, rblxbuild must be run from a "
       "shell that can use the compiler cl from the command line. This "
       "environment is unable to invoke the cl compiler. To fix this problem, "
-      "run cmake from the Visual Studio Command Prompt (vcvarsall.bat).\n";
+      "run rblxbuild from the Visual Studio Command Prompt (vcvarsall.bat).\n";
     /* clang-format on */
   }
   this->cmGlobalUnixMakefileGenerator3::PrintCompilerAdvice(os, lang, envVar);
@@ -76,8 +76,8 @@ cmGlobalJOMMakefileGenerator::GenerateBuildCommand(
   // JOM does parallel builds by default, the -j is only needed if a specific
   // number is given
   // see https://github.com/qt-labs/jom/blob/v1.1.2/src/jomlib/options.cpp
-  if (jobs == cmake::DEFAULT_BUILD_PARALLEL_LEVEL) {
-    jobs = cmake::NO_BUILD_PARALLEL_LEVEL;
+  if (jobs == rblxbuild::DEFAULT_BUILD_PARALLEL_LEVEL) {
+    jobs = rblxbuild::NO_BUILD_PARALLEL_LEVEL;
   }
 
   return cmGlobalUnixMakefileGenerator3::GenerateBuildCommand(

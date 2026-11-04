@@ -1,0 +1,17 @@
+set(RBLXBUILD_LINK_LIBRARY_SUFFIX "")
+set(RBLXBUILD_STATIC_LIBRARY_SUFFIX ".l")
+set(RBLXBUILD_IMPORT_LIBRARY_SUFFIX ".l")
+set(RBLXBUILD_FIND_LIBRARY_PREFIXES "")
+set(RBLXBUILD_FIND_LIBRARY_SUFFIXES ".l")
+
+macro(__windows_compiler_orangec lang)
+  set(RBLXBUILD_${lang}_CREATE_WIN32_EXE "-Wg")
+  set(RBLXBUILD_${lang}_CREATE_CONSOLE_EXE "-Wc")
+
+  if(RBLXBUILD_${lang}_COMPILER_VERSION VERSION_GREATER_EQUAL "7.0")
+    if(NOT RBLXBUILD_RC_COMPILER_INIT)
+      set(RBLXBUILD_RC_COMPILER_INIT orc)
+    endif()
+    enable_language(RC)
+  endif()
+endmacro()

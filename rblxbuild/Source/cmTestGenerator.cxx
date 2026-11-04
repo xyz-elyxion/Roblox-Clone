@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmTestGenerator.h"
 
 #include <cstddef> // IWYU pragma: keep
@@ -107,7 +107,7 @@ bool cmTestGenerator::EvaluateBuildDependencies(
   std::set<cmGeneratorTarget*> dependencies;
 
   // Get dependencies from generator expressions
-  cmGeneratorExpression ge(*mf->GetCMakeInstance(), backtrace);
+  cmGeneratorExpression ge(*mf->GetRBLXBuildInstance(), backtrace);
   std::string exe;
   for (std::string const& arg : command) {
     auto parsed = ge.Parse(arg);
@@ -279,7 +279,7 @@ void cmTestGenerator::GenerateCommand(std::ostream& os,
 
     // Prepend with the emulator when cross compiling if required.
     if (cmp0158 != cmPolicies::NEW ||
-        this->LG->GetMakefile()->IsOn("CMAKE_CROSSCOMPILING")) {
+        this->LG->GetMakefile()->IsOn("RBLXBUILD_CROSSCOMPILING")) {
       addLauncher("CROSSCOMPILING_EMULATOR");
     }
   } else {
@@ -302,7 +302,7 @@ void cmTestGenerator::GenerateScriptForConfig(std::ostream& os,
   this->TestGenerated = true;
 
   // Set up generator expression evaluation context.
-  cmGeneratorExpression ge(*this->Test->GetMakefile()->GetCMakeInstance(),
+  cmGeneratorExpression ge(*this->Test->GetMakefile()->GetRBLXBuildInstance(),
                            this->Test->GetBacktrace());
 
   auto const test_name = TestName(this->Test);
@@ -327,7 +327,7 @@ void cmTestGenerator::GenerateScriptForConfig(std::ostream& os,
                                                                      deps)) {
       depList.append(dep);
     }
-    os << " _CMAKE_TEST_BUILD_DEPENDS "
+    os << " _RBLXBUILD_TEST_BUILD_DEPENDS "
        << cmScriptGenerator::Quote(depList.to_string());
   }
   this->GenerateDefaultFixtureRepeatMode(os);
@@ -403,7 +403,7 @@ void cmTestGenerator::GenerateDefaultFixtureRepeatMode(std::ostream& os)
   // Write the mode the policy chose into the test file, so that ctest reads
   // a mode rather than the policy settings behind it.  Only NEW needs
   // writing: with nothing written, ctest already uses the
-  // EACH_TEST_SEPARATELY behavior of CMake 4.4 and below.
+  // EACH_TEST_SEPARATELY behavior of RBLXBuild 4.4 and below.
   switch (this->Test->GetCMP0224()) {
     case cmPolicies::WARN:
       // Warn only on request.  Fixtures are common, and the choice of mode
@@ -411,7 +411,7 @@ void cmTestGenerator::GenerateDefaultFixtureRepeatMode(std::ostream& os)
       // rather than warning about each: a project that sets its fixtures up
       // in an add_test() wrapper would fill the console.
       if (this->Test->GetMakefile()->PolicyOptionalWarningEnabled(
-            "CMAKE_POLICY_WARNING_CMP0224")) {
+            "RBLXBUILD_POLICY_WARNING_CMP0224")) {
         this->LG->GetGlobalGenerator()->AddCMP0224WarnTest(
           this->Test->GetName());
       }
@@ -419,7 +419,7 @@ void cmTestGenerator::GenerateDefaultFixtureRepeatMode(std::ostream& os)
     case cmPolicies::OLD:
       break;
     case cmPolicies::NEW:
-      os << " _CMAKE_DEFAULT_FIXTURE_REPEAT_MODE AROUND_EACH_REPEAT";
+      os << " _RBLXBUILD_DEFAULT_FIXTURE_REPEAT_MODE AROUND_EACH_REPEAT";
       break;
   }
 }

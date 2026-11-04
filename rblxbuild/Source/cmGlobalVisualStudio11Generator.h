@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #pragma once
 
 #include "cmConfigure.h" // IWYU pragma: keep
@@ -14,7 +14,7 @@
 #include "cmTransformDepfile.h"
 
 class cmMakefile;
-class cmake;
+class rblxbuild;
 
 /** \class cmGlobalVisualStudio11Generator  */
 class cmGlobalVisualStudio11Generator : public cmGlobalVisualStudio10Generator
@@ -31,7 +31,7 @@ public:
   }
 
 protected:
-  cmGlobalVisualStudio11Generator(cmake* cm, std::string const& name);
+  cmGlobalVisualStudio11Generator(rblxbuild* cm, std::string const& name);
 
   bool InitializeWindowsPhone(cmMakefile* mf) override;
   bool InitializeWindowsStore(cmMakefile* mf) override;

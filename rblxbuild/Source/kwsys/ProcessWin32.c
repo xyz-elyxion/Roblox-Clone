@@ -1,10 +1,10 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file Copyright.txt or https://cmake.org/licensing#kwsys for details.  */
+   file Copyright.txt or https://rblxbuild.org/licensing#kwsys for details.  */
 #include "kwsysPrivate.h"
 #include KWSYS_HEADER(Process.h)
 #include KWSYS_HEADER(Encoding.h)
 
-/* Work-around CMake dependency scanning limitation.  This must
+/* Work-around RBLXBuild dependency scanning limitation.  This must
    duplicate the above list of headers.  */
 #if 0
 #  include "Encoding.h.in"
@@ -1694,7 +1694,7 @@ DWORD kwsysProcessCreate(kwsysProcess* cp, int index,
   if (!kwsysTryEnterCreateProcessSection()) {
     /* The Ctrl handler is currently working on exiting our process.  Rather
     than return an error code, which could cause incorrect conclusions to be
-    reached by the caller, we simply hang.  (For example, a CMake try_run
+    reached by the caller, we simply hang.  (For example, a RBLXBuild try_run
     configure step might cause the project to configure wrong.)  */
     Sleep(INFINITE);
   }

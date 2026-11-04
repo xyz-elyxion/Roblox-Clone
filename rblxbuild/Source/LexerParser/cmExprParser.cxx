@@ -75,7 +75,7 @@
 #line 1 "cmExprParser.y"
 
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 /*
 
 This file must be translated to C and modified to build everywhere.

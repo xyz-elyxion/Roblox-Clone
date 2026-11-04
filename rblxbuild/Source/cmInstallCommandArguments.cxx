@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmInstallCommandArguments.h"
 
 #include <algorithm>
@@ -9,7 +9,7 @@
 #include <cm/string_view>
 #include <cmext/string_view>
 
-#include "cmCMakePath.h"
+#include "cmRBLXBuildPath.h"
 #include "cmGeneratorExpression.h"
 #include "cmMakefile.h"
 #include "cmPolicies.h"
@@ -46,7 +46,7 @@ cmInstallCommandArguments::cmInstallCommandArguments(
         // We can't be certain if a warning is appropriate if there are any
         // generator expressions
         if (cmGeneratorExpression::Find(arg) == cm::string_view::npos &&
-            arg != cmCMakePath(arg).Normal().String()) {
+            arg != cmRBLXBuildPath(arg).Normal().String()) {
           makefile.IssuePolicyWarning(cmPolicies::CMP0177);
         }
         return ArgumentParser::Continue::No;
@@ -55,10 +55,10 @@ cmInstallCommandArguments::cmInstallCommandArguments(
     case cmPolicies::NEW:
       normalizeDest = [this](cm::string_view arg) -> ArgumentParser::Continue {
         if (cmGeneratorExpression::Find(arg) == cm::string_view::npos) {
-          this->Destination = cmCMakePath(arg).Normal().String();
+          this->Destination = cmRBLXBuildPath(arg).Normal().String();
         } else {
           this->Destination =
-            cmStrCat("$<PATH:CMAKE_PATH,NORMALIZE,", arg, '>');
+            cmStrCat("$<PATH:RBLXBUILD_PATH,NORMALIZE,", arg, '>');
         }
         return ArgumentParser::Continue::No;
       };

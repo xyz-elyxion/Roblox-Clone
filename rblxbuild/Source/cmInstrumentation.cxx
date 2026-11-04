@@ -24,7 +24,7 @@
 #include "cmsys/RegularExpression.hxx"
 #include "cmsys/SystemInformation.hxx"
 
-#include "cmCMakePath.h"
+#include "cmRBLXBuildPath.h"
 #include "cmCryptoHash.h"
 #include "cmFileLock.h"
 #include "cmFileLockResult.h"
@@ -43,7 +43,7 @@
 #include "cmTimestamp.h"
 #include "cmUVProcessChain.h"
 #include "cmValue.h"
-#include "cmake.h"
+#include "rblxbuild.h"
 
 using LoadQueriesAfter = cmInstrumentation::LoadQueriesAfter;
 
@@ -79,11 +79,11 @@ std::map<std::string, std::string> cmInstrumentation::cdashSnippetsMap = {
     "skip",
   },
   {
-    "cmakeBuild",
+    "rblxbuildBuild",
     "build",
   },
   {
-    "cmakeInstall",
+    "rblxbuildInstall",
     "build",
   },
   {
@@ -104,11 +104,11 @@ cmInstrumentation::cmInstrumentation(std::string const& binary_dir,
                                      LoadQueriesAfter loadQueries)
 {
   this->binaryDir = binary_dir;
-  this->timingDirv1 = cmStrCat(this->binaryDir, "/.cmake/instrumentation/v1");
+  this->timingDirv1 = cmStrCat(this->binaryDir, "/.rblxbuild/instrumentation/v1");
   this->cdashDir = cmStrCat(this->timingDirv1, "/cdash");
   this->dataDir = cmStrCat(this->timingDirv1, "/data");
   if (cm::optional<std::string> configDir =
-        cmSystemTools::GetCMakeConfigDirectory()) {
+        cmSystemTools::GetRBLXBuildConfigDirectory()) {
     this->userTimingDirv1 = cmStrCat(configDir.value(), "/instrumentation/v1");
   }
   if (loadQueries == LoadQueriesAfter::Yes) {
@@ -236,17 +236,17 @@ void cmInstrumentation::AddCustomContent(std::string const& name,
   this->customContent[name] = contents;
 }
 
-void cmInstrumentation::WriteCMakeContent(
+void cmInstrumentation::WriteRBLXBuildContent(
   std::unique_ptr<cmGlobalGenerator> const& gg)
 {
   Json::Value root;
   root["targets"] = this->DumpTargets(gg);
   root["custom"] = this->customContent;
   root["project"] =
-    gg->GetCMakeInstance()->GetCacheDefinition("CMAKE_PROJECT_NAME").GetCStr();
+    gg->GetRBLXBuildInstance()->GetCacheDefinition("RBLXBUILD_PROJECT_NAME").GetCStr();
   this->WriteInstrumentationJson(
     latestDataVersion, root, "data/content",
-    cmStrCat("cmake-", this->ComputeSuffixTime(), ".json"));
+    cmStrCat("rblxbuild-", this->ComputeSuffixTime(), ".json"));
 }
 
 Json::Value cmInstrumentation::DumpTargets(
@@ -662,7 +662,7 @@ int cmInstrumentation::InstrumentCommand(
   LoadQueriesAfter reloadQueriesAfterCommand)
 {
 
-  // Always begin gathering data for configure in case cmake_instrumentation
+  // Always begin gathering data for configure in case rblxbuild_instrumentation
   // command creates a query
   if (!this->hasQuery && reloadQueriesAfterCommand == LoadQueriesAfter::No) {
     return callback().ExitCode;
@@ -799,16 +799,16 @@ int cmInstrumentation::InstrumentCommand(
     }
   }
 
-  auto addCMakeContent = [this](Json::Value& root_) -> void {
+  auto addRBLXBuildContent = [this](Json::Value& root_) -> void {
     std::string contentFile =
       this->GetFileByTimestamp(LatestOrOldest::Latest, "content");
     if (!contentFile.empty()) {
-      root_["cmakeContent"] = cmStrCat("content/", contentFile);
+      root_["rblxbuildContent"] = cmStrCat("content/", contentFile);
     }
   };
-  // Don't insert path to CMake content until generate time
+  // Don't insert path to RBLXBuild content until generate time
   if (command_type != "configure") {
-    addCMakeContent(root);
+    addRBLXBuildContent(root);
   }
 
   // Compute file name properties
@@ -835,28 +835,28 @@ int cmInstrumentation::InstrumentCommand(
   if (command_type == "configure") {
     this->configureSnippetData[file_name] = root;
   } else {
-    // Add reference to CMake content and write out configure snippet after
+    // Add reference to RBLXBuild content and write out configure snippet after
     // generate
     if (command_type == "generate") {
       for (auto it = this->configureSnippetData.begin();
            it != this->configureSnippetData.end(); ++it) {
         if (std::next(it) != this->configureSnippetData.end()) {
-          it->second["cmakeContent"] = Json::nullValue;
+          it->second["rblxbuildContent"] = Json::nullValue;
         } else {
-          addCMakeContent(it->second);
+          addRBLXBuildContent(it->second);
         }
         this->WriteInstrumentationJson(latestDataVersion, it->second, "data",
                                        it->first);
       }
       this->configureSnippetData.clear();
     }
-    // Write the cmakeBuild/cmakeInstall/ctest envelope atomically (temp file +
+    // Write the rblxbuildBuild/rblxbuildInstall/ctest envelope atomically (temp file +
     // rename).  This is the snippet flushed while unwinding from a user
     // interrupt, where a second Ctrl+C could otherwise truncate it mid-write;
     // the atomic write guarantees it is either absent or complete.  Per-step
     // snippets are never flushed under interrupt and are left non-atomic.
-    bool const atomicEnvelope = command_type == "cmakeBuild" ||
-      command_type == "cmakeInstall" || command_type == "ctest";
+    bool const atomicEnvelope = command_type == "rblxbuildBuild" ||
+      command_type == "rblxbuildInstall" || command_type == "ctest";
     this->WriteInstrumentationJson(latestDataVersion, root, "data", file_name,
                                    atomicEnvelope ? Atomic::Yes : Atomic::No);
   }
@@ -1292,7 +1292,7 @@ Json::Value cmInstrumentation::BuildTraceEvent(std::vector<uint64_t>& workers,
   } else if (snippetData["role"] == "link") {
     nameSuffix = snippetData["target"].asString();
   } else if (snippetData["role"] == "install") {
-    cmCMakePath workingDir(snippetData["workingDir"].asCString());
+    cmRBLXBuildPath workingDir(snippetData["workingDir"].asCString());
     nameSuffix = workingDir.GetFileName().String();
   } else if (snippetData["role"] == "custom") {
     nameSuffix = snippetData["command"].asString();
@@ -1320,9 +1320,9 @@ Json::Value cmInstrumentation::BuildTraceEvent(std::vector<uint64_t>& workers,
   snippetTraceEvent["pid"] = 0;
   // Assign TID of 0 for snippets which will have other snippet data
   // visualized "underneath" them. (For others, start from 1.)
-  if (snippetData["role"] == "build" || snippetData["role"] == "cmakeBuild" ||
+  if (snippetData["role"] == "build" || snippetData["role"] == "rblxbuildBuild" ||
       snippetData["role"] == "ctest" ||
-      snippetData["role"] == "cmakeInstall") {
+      snippetData["role"] == "rblxbuildInstall") {
     snippetTraceEvent["tid"] = 0;
   } else {
     snippetTraceEvent["tid"] = static_cast<Json::Value::UInt64>(

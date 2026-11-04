@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #pragma once
 
 #include "cmConfigure.h" // IWYU pragma: keep
@@ -14,7 +14,7 @@ class cmInstalledFile;
 class cmLocalGenerator;
 
 /** \class cmCPackPropertiesGenerator
- * \brief Support class for generating CPackProperties.cmake.
+ * \brief Support class for generating CPackProperties.rblxbuild.
  *
  */
 class cmCPackPropertiesGenerator : public cmScriptGenerator

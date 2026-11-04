@@ -1,0 +1,18 @@
+# Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
+# file LICENSE.rst or https://rblxbuild.org/licensing for details.
+
+
+# This file contains common code blocks used by all the linker information
+# files
+
+macro(_rblxbuild_common_linker_platform_flags lang)
+  # Define configuration for LINK_WHAT_YOU_USE feature
+  if(RBLXBUILD_EXECUTABLE_FORMAT STREQUAL "ELF")
+    if(NOT DEFINED RBLXBUILD_${lang}_LINK_WHAT_YOU_USE_FLAG)
+      set(RBLXBUILD_${lang}_LINK_WHAT_YOU_USE_FLAG "LINKER:--no-as-needed")
+    endif()
+    if(NOT DEFINED RBLXBUILD_LINK_WHAT_YOU_USE_CHECK)
+      set(RBLXBUILD_LINK_WHAT_YOU_USE_CHECK ldd -u -r)
+    endif()
+  endif()
+endmacro ()

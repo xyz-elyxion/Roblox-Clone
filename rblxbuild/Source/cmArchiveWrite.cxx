@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmArchiveWrite.h"
 
 #include <cstdlib>
@@ -271,7 +271,7 @@ cmArchiveWrite::cmArchiveWrite(std::ostream& os, Compress c,
 #if ARCHIVE_VERSION_NUMBER < 3008000
         if (isZip) {
           this->Error = cmStrCat("BZip2 is not supported for ", format,
-                                 ". Please, build CMake with libarchive 3.8.0 "
+                                 ". Please, build RBLXBuild with libarchive 3.8.0 "
                                  "or newer if you want to use it.");
           return;
         }
@@ -282,7 +282,7 @@ cmArchiveWrite::cmArchiveWrite(std::ostream& os, Compress c,
 #if ARCHIVE_VERSION_NUMBER < 3008000
         if (isZip) {
           this->Error = cmStrCat("LZMA is not supported for ", format,
-                                 ". Please, build CMake with libarchive 3.8.0 "
+                                 ". Please, build RBLXBuild with libarchive 3.8.0 "
                                  "or newer if you want to use it.");
           return;
         }
@@ -297,7 +297,7 @@ cmArchiveWrite::cmArchiveWrite(std::ostream& os, Compress c,
 #if ARCHIVE_VERSION_NUMBER < 3008000
         if (isZip) {
           this->Error = cmStrCat("LZMA2 (XZ) is not supported for ", format,
-                                 ". Please, build CMake with libarchive 3.8.0 "
+                                 ". Please, build RBLXBuild with libarchive 3.8.0 "
                                  "or newer if you want to use it.");
           return;
         }
@@ -312,7 +312,7 @@ cmArchiveWrite::cmArchiveWrite(std::ostream& os, Compress c,
 #if ARCHIVE_VERSION_NUMBER < 3008000
         if (is7zip || isZip) {
           this->Error = cmStrCat("Zstd is not supported for ", format,
-                                 ". Please, build CMake with libarchive 3.8.0 "
+                                 ". Please, build RBLXBuild with libarchive 3.8.0 "
                                  "or newer if you want to use it.");
           return;
         }

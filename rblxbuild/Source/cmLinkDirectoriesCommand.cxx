@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmLinkDirectoriesCommand.h"
 
 #include <utility>
@@ -28,7 +28,7 @@ bool cmLinkDirectoriesCommand(std::vector<std::string> const& args,
     return true;
   }
 
-  bool before = mf.IsOn("CMAKE_LINK_DIRECTORIES_BEFORE");
+  bool before = mf.IsOn("RBLXBUILD_LINK_DIRECTORIES_BEFORE");
 
   auto i = args.cbegin();
   if ((*i) == "BEFORE") {

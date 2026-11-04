@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmInstallScriptGenerator.h"
 
 #include <ostream>
@@ -69,7 +69,7 @@ std::string cmInstallScriptGenerator::GetScript(
   std::string script = this->Script;
   if (this->AllowGenex && this->ActionsPerConfig) {
     cmGeneratorExpression::ReplaceInstallPrefix(script,
-                                                "${CMAKE_INSTALL_PREFIX}");
+                                                "${RBLXBUILD_INSTALL_PREFIX}");
     script =
       cmGeneratorExpression::Evaluate(script, this->LocalGenerator, config);
   }

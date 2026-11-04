@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmGlobalMSYSMakefileGenerator.h"
 
 #include <cmext/string_view>
@@ -10,12 +10,12 @@
 #include "cmState.h"
 #include "cmStringAlgorithms.h"
 #include "cmSystemTools.h"
-#include "cmake.h"
+#include "rblxbuild.h"
 
-cmGlobalMSYSMakefileGenerator::cmGlobalMSYSMakefileGenerator(cmake* cm)
+cmGlobalMSYSMakefileGenerator::cmGlobalMSYSMakefileGenerator(rblxbuild* cm)
   : cmGlobalUnixMakefileGenerator3(cm)
 {
-  this->FindMakeProgramFile = "CMakeMSYSFindMake.cmake";
+  this->FindMakeProgramFile = "RBLXBuildMSYSFindMake.rblxbuild";
   this->ForceUnixPaths = true;
   this->ToolSupportsColor = true;
   this->UseLinkScript = false;

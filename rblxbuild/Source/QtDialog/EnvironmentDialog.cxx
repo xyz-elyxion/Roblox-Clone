@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "EnvironmentDialog.h"
 
 #include <QDialogButtonBox>
@@ -10,7 +10,7 @@
 #include <QMessageBox>
 #include <QStandardItem>
 
-#include "QCMakeWidgets.h"
+#include "QRBLXBuildWidgets.h"
 
 EnvironmentItemModel::EnvironmentItemModel(
   QProcessEnvironment const& environment, QObject* parent)
@@ -114,8 +114,8 @@ EnvironmentDialog::EnvironmentDialog(QProcessEnvironment const& environment,
                    &EnvironmentDialog::removeSelectedEntries);
   QObject::connect(
     this->Search, &QLineEdit::textChanged, [this](QString const& text) {
-      bool const valid = QtCMake::setSearchFilter(this->m_filter, text);
-      QtCMake::setSearchFilterColor(this->Search, valid);
+      bool const valid = QtRBLXBuild::setSearchFilter(this->m_filter, text);
+      QtRBLXBuild::setSearchFilterColor(this->Search, valid);
     });
   QObject::connect(this->Environment->selectionModel(),
                    &QItemSelectionModel::selectionChanged, this,

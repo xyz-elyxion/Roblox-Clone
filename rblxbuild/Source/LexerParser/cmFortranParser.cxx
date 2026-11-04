@@ -75,7 +75,7 @@
 #line 1 "cmFortranParser.y"
 
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 /*-------------------------------------------------------------------------
   Portions of this source have been derived from makedepf90 version 2.8.8,
 
@@ -83,7 +83,7 @@
 
   The code was originally distributed under the GPL but permission
   from the copyright holder has been obtained to distribute this
-  derived work under the CMake license.
+  derived work under the RBLXBuild license.
 -------------------------------------------------------------------------*/
 
 /*

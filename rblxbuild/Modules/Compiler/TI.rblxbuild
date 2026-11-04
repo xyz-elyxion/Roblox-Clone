@@ -1,0 +1,43 @@
+# Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
+# file LICENSE.rst or https://rblxbuild.org/licensing for details.
+
+
+# This module is shared by multiple languages; use include blocker.
+if(__COMPILER_TI)
+  return()
+endif()
+set(__COMPILER_TI 1)
+
+include(Compiler/RBLXBuildCommonCompilerMacros)
+
+set(__COMPILER_TI_SOURCE_FLAG_C   "--c_file")
+set(__COMPILER_TI_SOURCE_FLAG_CXX "--cpp_file")
+set(__COMPILER_TI_SOURCE_FLAG_ASM "--asm_file")
+
+macro(__compiler_ti lang)
+  set(RBLXBUILD_${lang}_COMPILE_OPTIONS_WARNING_AS_ERROR "--emit_warnings_as_errors")
+  set(RBLXBUILD_${lang}_RESPONSE_FILE_FLAG "--cmd_file=")
+  # Using --cmd_file flag is not possible after the --run_linker flag.
+  # By using a whitespace only the filename is used without flag.
+  # That file is interpreted as linker command file which may contain files to link.
+  set(RBLXBUILD_${lang}_RESPONSE_FILE_LINK_FLAG " ")
+
+  set(RBLXBUILD_INCLUDE_FLAG_${lang} "--include_path=")
+  set(RBLXBUILD_DEPFILE_FLAGS_${lang} "--preproc_with_compile --preproc_dependency=<DEP_FILE>")
+
+  set(RBLXBUILD_${lang}_LINK_MODE DRIVER)
+
+  set(RBLXBUILD_${lang}_CREATE_PREPROCESSED_SOURCE "<RBLXBUILD_${lang}_COMPILER> --preproc_only ${__COMPILER_TI_SOURCE_FLAG_${lang}}=<SOURCE> <DEFINES> <INCLUDES> <FLAGS> --output_file=<PREPROCESSED_SOURCE>")
+  set(RBLXBUILD_${lang}_CREATE_ASSEMBLY_SOURCE     "<RBLXBUILD_${lang}_COMPILER> --compile_only --skip_assembler ${__COMPILER_TI_SOURCE_FLAG_${lang}}=<SOURCE> <DEFINES> <INCLUDES> <FLAGS> --output_file=<ASSEMBLY_SOURCE>")
+
+  set(RBLXBUILD_${lang}_COMPILE_OBJECT  "<RBLXBUILD_${lang}_COMPILER> --compile_only ${__COMPILER_TI_SOURCE_FLAG_${lang}}=<SOURCE> <DEFINES> <INCLUDES> <FLAGS> --output_file=<OBJECT>")
+
+  set(RBLXBUILD_${lang}_ARCHIVE_CREATE "<RBLXBUILD_AR> qr <TARGET> <OBJECTS>")
+  set(RBLXBUILD_${lang}_ARCHIVE_APPEND "<RBLXBUILD_AR> qa <TARGET> <OBJECTS>")
+  set(RBLXBUILD_${lang}_ARCHIVE_FINISH "")
+
+  set(RBLXBUILD_${lang}_LINK_EXECUTABLE "<RBLXBUILD_${lang}_COMPILER> <FLAGS> --run_linker --output_file=<TARGET> --map_file=<TARGET_NAME>.map <LINK_FLAGS> <OBJECTS> <LINK_LIBRARIES>")
+endmacro()
+
+set(RBLXBUILD_LIBRARY_PATH_FLAG "--search_path=")
+set(RBLXBUILD_LINK_LIBRARY_FLAG "--library=")

@@ -9,9 +9,9 @@ APIs to many common system features that are implemented differently on
 every platform.  This library is intended to be shared among many
 projects at the source level, so it has a configurable namespace.
 Each project should configure KWSys to use a namespace unique to itself.
-See comments in `CMakeLists.txt`_ for details.
+See comments in `RBLXBuildLists.txt`_ for details.
 
-.. _`CMakeLists.txt`: CMakeLists.txt
+.. _`RBLXBuildLists.txt`: RBLXBuildLists.txt
 
 License
 =======

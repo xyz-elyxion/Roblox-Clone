@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 
 #include <algorithm>
 #include <cstddef>
@@ -18,8 +18,8 @@
 
 #include "cmsys/Encoding.hxx"
 
-#include "cmCMakePresetsArgs.h"
-#include "cmCMakePresetsGraph.h"
+#include "cmRBLXBuildPresetsArgs.h"
+#include "cmRBLXBuildPresetsGraph.h"
 #include "cmCPackGenerator.h"
 #include "cmCPackGeneratorFactory.h"
 #include "cmCPackLog.h"
@@ -37,12 +37,12 @@
 #include "cmStringAlgorithms.h"
 #include "cmSystemTools.h"
 #include "cmValue.h"
-#include "cmake.h"
+#include "rblxbuild.h"
 
 namespace {
 cmDocumentationEntry const cmDocumentationName = {
   {},
-  "  cpack - Packaging driver provided by CMake."
+  "  cpack - Packaging driver provided by RBLXBuild."
 };
 
 cmDocumentationEntry const cmDocumentationUsage = { {}, "  cpack [options]" };
@@ -53,8 +53,8 @@ cmDocumentationEntry const cmDocumentationOptions[] = {
   { "-D <var>=<value>", "Set a CPack variable." },
   { "--config <configFile>", "Specify the config file." },
   { "-V,--verbose", "Enable verbose output" },
-  { "--trace", "Put underlying cmake scripts in trace mode." },
-  { "--trace-expand", "Put underlying cmake scripts in expanded trace mode." },
+  { "--trace", "Put underlying rblxbuild scripts in trace mode." },
+  { "--trace-expand", "Put underlying rblxbuild scripts in expanded trace mode." },
   { "--debug", "Enable debug output (for CPack developers)" },
   { "-P <packageName>", "Override/define CPACK_PACKAGE_NAME" },
   { "-R <packageVersion>", "Override/define CPACK_PACKAGE_VERSION" },
@@ -87,7 +87,7 @@ std::vector<cmDocumentationEntry> makeGeneratorDocs(
   return docs;
 }
 
-// Write the CMake listfile coverage of this process on every return.
+// Write the RBLXBuild listfile coverage of this process on every return.
 struct ListFileCoverageFinisher
 {
   ~ListFileCoverageFinisher() { cmListFileCoverage::Finish(); }
@@ -108,7 +108,7 @@ int main(int argc, char const* const* argv)
   inputArgs.reserve(argc - 1);
   cm::append(inputArgs, argv + 1, argv + argc);
 
-  cmSystemTools::InitializeCMake(argv[0]);
+  cmSystemTools::InitializeRBLXBuild(argv[0]);
   cmCPackLog log;
 
   log.SetErrorPrefix("CPack Error: ");
@@ -137,31 +137,31 @@ int main(int argc, char const* const* argv)
   std::string cpackProjectVendor;
   std::string cpackConfigFile;
 
-  cmCMakePresetsArgs presetsArgs;
+  cmRBLXBuildPresetsArgs presetsArgs;
 
   std::map<std::string, std::string> definitions;
 
-  auto const verboseLambda = [&log](std::string const&, cmake*,
+  auto const verboseLambda = [&log](std::string const&, rblxbuild*,
                                     cmMakefile*) -> bool {
     log.SetVerbose(true);
     cmCPack_Log(&log, cmCPackLog::LOG_OUTPUT, "Enable Verbose\n");
     return true;
   };
 
-  auto const debugLambda = [&log](std::string const&, cmake*,
+  auto const debugLambda = [&log](std::string const&, rblxbuild*,
                                   cmMakefile*) -> bool {
     log.SetDebug(true);
     cmCPack_Log(&log, cmCPackLog::LOG_OUTPUT, "Enable Debug\n");
     return true;
   };
 
-  auto const traceLambda = [](std::string const&, cmake* state,
+  auto const traceLambda = [](std::string const&, rblxbuild* state,
                               cmMakefile*) -> bool {
     state->SetTrace(true);
     return true;
   };
 
-  auto const traceExpandLambda = [](std::string const&, cmake* state,
+  auto const traceExpandLambda = [](std::string const&, rblxbuild* state,
                                     cmMakefile*) -> bool {
     state->SetTrace(true);
     state->SetTraceExpand(true);
@@ -169,13 +169,13 @@ int main(int argc, char const* const* argv)
   };
 
   auto const presetFileLambda = [&presetsArgs](std::string const& value,
-                                               cmake*, cmMakefile*) -> bool {
+                                               rblxbuild*, cmMakefile*) -> bool {
     presetsArgs.PresetsFile = cmSystemTools::ToNormalizedPathOnDisk(value);
     return true;
   };
 
   using CommandArgument =
-    cmCommandLineArgument<bool(std::string const&, cmake*, cmMakefile*)>;
+    cmCommandLineArgument<bool(std::string const&, rblxbuild*, cmMakefile*)>;
 
   std::vector<CommandArgument> arguments = {
     CommandArgument{ "--help", CommandArgument::Values::Zero,
@@ -216,7 +216,7 @@ int main(int argc, char const* const* argv)
                      CommandArgument::setToValue(presetsArgs.PresetName) },
     CommandArgument{
       "--list-presets", CommandArgument::Values::ZeroOrOne,
-      [&presetsArgs](std::string const& value, cmake*, cmMakefile*) -> bool {
+      [&presetsArgs](std::string const& value, rblxbuild*, cmMakefile*) -> bool {
         if (presetsArgs.SetListPresets(value)) {
           return true;
         }
@@ -228,7 +228,7 @@ int main(int argc, char const* const* argv)
                      CommandArgument::Values::One, presetFileLambda },
     CommandArgument{ "-D", CommandArgument::Values::One,
                      CommandArgument::RequiresSeparator::No,
-                     [&log, &definitions](std::string const& arg, cmake*,
+                     [&log, &definitions](std::string const& arg, rblxbuild*,
                                           cmMakefile*) -> bool {
                        std::string value = arg;
                        size_t pos = value.find_first_of('=');
@@ -248,7 +248,7 @@ int main(int argc, char const* const* argv)
                      } },
   };
 
-  cmake cminst(cmState::Role::CPack);
+  rblxbuild cminst(cmState::Role::CPack);
   cminst.SetProgressCallback(cpackProgressCallback);
   cminst.GetCurrentSnapshot().SetDefaultDefinitions();
   cmGlobalGenerator cmgg(&cminst);
@@ -288,7 +288,7 @@ int main(int argc, char const* const* argv)
     auto const workingDirectory = cmSystemTools::GetLogicalWorkingDirectory();
 
     auto const presetGeneratorsPresent =
-      [&generators](cmCMakePresetsGraph::PackagePreset const& p) {
+      [&generators](cmRBLXBuildPresetsGraph::PackagePreset const& p) {
         return std::all_of(p.Generators.begin(), p.Generators.end(),
                            [&generators](std::string const& gen) {
                              return generators.GetGeneratorsList().count(
@@ -298,7 +298,7 @@ int main(int argc, char const* const* argv)
     auto configureUsabilityCheck =
       cminst.CreateConfigurePresetUsabilityCheck();
 
-    cmCMakePresetsGraph presetsGraph;
+    cmRBLXBuildPresetsGraph presetsGraph;
     auto result = presetsGraph.ReadProjectPresets(workingDirectory,
                                                   presetsArgs.PresetsFile);
     if (result != true) {
@@ -318,15 +318,15 @@ int main(int argc, char const* const* argv)
 
     auto resolveResult = presetsGraph.ResolvePreset(
       presetsArgs.PresetName, presetsGraph.PackagePresets);
-    auto resolveError = cmCMakePresetsGraph::FormatPresetError<
-      cmCMakePresetsGraph::PackagePreset>(
+    auto resolveError = cmRBLXBuildPresetsGraph::FormatPresetError<
+      cmRBLXBuildPresetsGraph::PackagePreset>(
       resolveResult.StatusCode, resolveResult.ErrorPresetName,
       resolveResult.Suggestion, workingDirectory);
     if (resolveError) {
       cmCPack_Log(&log, cmCPackLog::LOG_ERROR, *resolveError << "\n");
       presetsGraph.PrintPackagePresetList(
         presetGeneratorsPresent,
-        cmCMakePresetsGraph::PresetListMode::Available,
+        cmRBLXBuildPresetsGraph::PresetListMode::Available,
         configureUsabilityCheck);
       return 1;
     }
@@ -336,7 +336,7 @@ int main(int argc, char const* const* argv)
       cmCPack_Log(&log, cmCPackLog::LOG_ERROR, "Cannot use preset");
       presetsGraph.PrintPackagePresetList(
         presetGeneratorsPresent,
-        cmCMakePresetsGraph::PresetListMode::Available,
+        cmRBLXBuildPresetsGraph::PresetListMode::Available,
         configureUsabilityCheck);
       return 1;
     }
@@ -349,7 +349,7 @@ int main(int argc, char const* const* argv)
                     << workingDirectory << ": \""
                     << expandedPreset->ConfigurePreset << "\"\n");
       presetsGraph.PrintConfigurePresetList(
-        cmCMakePresetsGraph::PresetListMode::Available,
+        cmRBLXBuildPresetsGraph::PresetListMode::Available,
         configureUsabilityCheck);
       return 1;
     }
@@ -360,7 +360,7 @@ int main(int argc, char const* const* argv)
                     << workingDirectory << ": \""
                     << expandedPreset->ConfigurePreset << "\"\n");
       presetsGraph.PrintConfigurePresetList(
-        cmCMakePresetsGraph::PresetListMode::Available,
+        cmRBLXBuildPresetsGraph::PresetListMode::Available,
         configureUsabilityCheck);
       return 1;
     }
@@ -434,25 +434,25 @@ int main(int argc, char const* const* argv)
     cpackConfigFile = cmSystemTools::ToNormalizedPathOnDisk(cpackConfigFile);
   } else {
     cpackConfigFile = cmStrCat(cmSystemTools::GetLogicalWorkingDirectory(),
-                               "/CPackConfig.cmake");
+                               "/CPackConfig.rblxbuild");
     cpackConfigFileSpecified = false;
   }
 
   cmDocumentation doc;
   doc.addCPackStandardDocSections();
   /* Were we invoked to display doc or to do some work ?
-   * Unlike cmake launching cpack with zero argument
+   * Unlike rblxbuild launching cpack with zero argument
    * should launch cpack using "cpackConfigFile" if it exists
    * in the current directory.
    */
   help = doc.CheckOptions(argc, argv, "-G") && argc != 1;
 
   // This part is used for cpack documentation lookup as well.
-  cminst.AddCMakePaths();
+  cminst.AddRBLXBuildPaths();
 
   ListFileCoverageFinisher const coverageFinisher{};
   if (parsed && !help) {
-    // Record coverage of the CMake code that cpack runs, such as the CPack
+    // Record coverage of the RBLXBuild code that cpack runs, such as the CPack
     // generator modules and the install scripts of the project.
     std::string error;
     if (!cmListFileCoverage::Start(error)) {
@@ -463,18 +463,18 @@ int main(int argc, char const* const* argv)
     // find out which system cpack is running on, so it can setup the search
     // paths, so FIND_XXX() commands can be used in scripts
     std::string systemFile =
-      globalMF.GetModulesFile("CMakeDetermineSystem.cmake");
+      globalMF.GetModulesFile("RBLXBuildDetermineSystem.rblxbuild");
     if (!globalMF.ReadListFile(systemFile)) {
       cmCPack_Log(&log, cmCPackLog::LOG_ERROR,
-                  "Error reading CMakeDetermineSystem.cmake\n");
+                  "Error reading RBLXBuildDetermineSystem.rblxbuild\n");
       return 1;
     }
 
     systemFile =
-      globalMF.GetModulesFile("CMakeSystemSpecificInformation.cmake");
+      globalMF.GetModulesFile("RBLXBuildSystemSpecificInformation.rblxbuild");
     if (!globalMF.ReadListFile(systemFile)) {
       cmCPack_Log(&log, cmCPackLog::LOG_ERROR,
-                  "Error reading CMakeSystemSpecificInformation.cmake\n");
+                  "Error reading RBLXBuildSystemSpecificInformation.rblxbuild\n");
       return 1;
     }
 
@@ -533,7 +533,7 @@ int main(int argc, char const* const* argv)
 
     cmValue cpackModulesPath = globalMF.GetDefinition("CPACK_MODULE_PATH");
     if (cpackModulesPath) {
-      globalMF.AddDefinition("CMAKE_MODULE_PATH", *cpackModulesPath);
+      globalMF.AddDefinition("RBLXBUILD_MODULE_PATH", *cpackModulesPath);
     }
     cmValue genList = globalMF.GetDefinition("CPACK_GENERATOR");
     if (!genList) {
@@ -592,11 +592,11 @@ int main(int argc, char const* const* argv)
           if (!mf->GetDefinition("CPACK_INSTALL_COMMANDS") &&
               !mf->GetDefinition("CPACK_INSTALL_SCRIPT") &&
               !mf->GetDefinition("CPACK_INSTALLED_DIRECTORIES") &&
-              !mf->GetDefinition("CPACK_INSTALL_CMAKE_PROJECTS")) {
+              !mf->GetDefinition("CPACK_INSTALL_RBLXBUILD_PROJECTS")) {
             cmCPack_Log(
               &log, cmCPackLog::LOG_ERROR,
-              "Please specify build tree of the project that uses CMake "
-              "using CPACK_INSTALL_CMAKE_PROJECTS, specify "
+              "Please specify build tree of the project that uses RBLXBuild "
+              "using CPACK_INSTALL_RBLXBUILD_PROJECTS, specify "
               "CPACK_INSTALL_COMMANDS, CPACK_INSTALL_SCRIPT, or "
               "CPACK_INSTALLED_DIRECTORIES.\n");
             parsed = false;

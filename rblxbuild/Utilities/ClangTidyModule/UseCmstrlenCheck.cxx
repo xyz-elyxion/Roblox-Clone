@@ -1,12 +1,12 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "UseCmstrlenCheck.h"
 
 #include <clang/ASTMatchers/ASTMatchFinder.h>
 
 namespace clang {
 namespace tidy {
-namespace cmake {
+namespace rblxbuild {
 using namespace ast_matchers;
 
 UseCmstrlenCheck::UseCmstrlenCheck(StringRef Name, ClangTidyContext* Context)

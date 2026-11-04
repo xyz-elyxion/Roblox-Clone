@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 
 #include "cmStandardLevelResolver.h"
 
@@ -33,7 +33,7 @@
 #include "cmStringAlgorithms.h"
 #include "cmTarget.h"
 #include "cmValue.h"
-#include "cmake.h"
+#include "rblxbuild.h"
 
 namespace {
 
@@ -162,7 +162,7 @@ struct StandardLevelComputer
     auto const& stdsStrings = this->LevelsAsStrings;
 
     cmValue defaultStd = makefile->GetDefinition(
-      cmStrCat("CMAKE_", this->Language, "_STANDARD_DEFAULT"));
+      cmStrCat("RBLXBUILD_", this->Language, "_STANDARD_DEFAULT"));
     if (!cmNonempty(defaultStd)) {
       // this compiler has no notion of language standard levels
       return std::string{};
@@ -171,7 +171,7 @@ struct StandardLevelComputer
     cmPolicies::PolicyStatus const cmp0128{ makefile->GetPolicyStatus(
       cmPolicies::CMP0128) };
     bool const defaultExt{ makefile
-                             ->GetDefinition(cmStrCat("CMAKE_", this->Language,
+                             ->GetDefinition(cmStrCat("RBLXBUILD_", this->Language,
                                                       "_EXTENSIONS_DEFAULT"))
                              .IsOn() };
     bool ext = true;
@@ -191,18 +191,18 @@ struct StandardLevelComputer
       if (cmp0128 == cmPolicies::NEW) {
         // Add extension flag if compiler's default doesn't match.
         if (ext != defaultExt) {
-          return cmStrCat("CMAKE_", this->Language, *defaultStd, '_', type,
+          return cmStrCat("RBLXBUILD_", this->Language, *defaultStd, '_', type,
                           "_COMPILE_OPTION");
         }
       } else {
         if (cmp0128 == cmPolicies::WARN &&
             makefile->PolicyOptionalWarningEnabled(
-              "CMAKE_POLICY_WARNING_CMP0128") &&
+              "RBLXBUILD_POLICY_WARNING_CMP0128") &&
             ext != defaultExt) {
           char const* state{};
           if (ext) {
             if (!makefile->GetDefinition(cmStrCat(
-                  "CMAKE_", this->Language, "_EXTENSION_COMPILE_OPTION"))) {
+                  "RBLXBUILD_", this->Language, "_EXTENSION_COMPILE_OPTION"))) {
               state = "enabled";
             }
           } else {
@@ -211,14 +211,14 @@ struct StandardLevelComputer
           if (state) {
             makefile->IssuePolicyWarning(
               cmPolicies::CMP0128, {},
-              cmStrCat("For compatibility with older versions of CMake, "
+              cmStrCat("For compatibility with older versions of RBLXBuild, "
                        "compiler extensions won't be "_s,
                        state, '.'));
           }
         }
 
         if (ext) {
-          return cmStrCat("CMAKE_", this->Language,
+          return cmStrCat("RBLXBUILD_", this->Language,
                           "_EXTENSION_COMPILE_OPTION");
         }
       }
@@ -227,7 +227,7 @@ struct StandardLevelComputer
 
     if (target->GetLanguageStandardRequired(this->Language)) {
       std::string option_flag = cmStrCat(
-        "CMAKE_", this->Language, *standardProp, '_', type, "_COMPILE_OPTION");
+        "RBLXBUILD_", this->Language, *standardProp, '_', type, "_COMPILE_OPTION");
 
       cmValue opt = target->Target->GetMakefile()->GetDefinition(option_flag);
       if (!opt) {
@@ -239,9 +239,9 @@ struct StandardLevelComputer
                    ext ? "(with compiler extensions)" : "",
                    ". But the current compiler \"",
                    makefile->GetSafeDefinition(
-                     cmStrCat("CMAKE_", this->Language, "_COMPILER_ID")),
+                     cmStrCat("RBLXBUILD_", this->Language, "_COMPILER_ID")),
                    "\" does not support this, or "
-                   "CMake does not know the flags to enable it."));
+                   "RBLXBuild does not know the flags to enable it."));
       }
       return option_flag;
     }
@@ -255,10 +255,10 @@ struct StandardLevelComputer
 
       if (cmp0128 == cmPolicies::WARN &&
           makefile->PolicyOptionalWarningEnabled(
-            "CMAKE_POLICY_WARNING_CMP0128")) {
+            "RBLXBUILD_POLICY_WARNING_CMP0128")) {
         makefile->IssuePolicyWarning(
           cmPolicies::CMP0128, {},
-          "For compatibility with older versions of CMake, unnecessary flags "
+          "For compatibility with older versions of RBLXBuild, unnecessary flags "
           "for language standard or compiler extensions may be added."_s);
       }
     }
@@ -274,7 +274,7 @@ struct StandardLevelComputer
       std::string e = cmStrCat(
         cmStandardLevelResolver::GetStandardPropertyName(this->Language),
         " is set to invalid value '", standardStr, '\'');
-      makefile->GetCMakeInstance()->IssueMessage(MessageType::FATAL_ERROR, e,
+      makefile->GetRBLXBuildInstance()->IssueMessage(MessageType::FATAL_ERROR, e,
                                                  target->GetBacktrace());
       return std::string{};
     }
@@ -282,7 +282,7 @@ struct StandardLevelComputer
     auto defaultStdIt =
       std::find(cm::cbegin(stds), cm::cend(stds), ParseStd(*defaultStd));
     if (defaultStdIt == cm::cend(stds)) {
-      std::string e = cmStrCat("CMAKE_", this->Language,
+      std::string e = cmStrCat("RBLXBUILD_", this->Language,
                                "_STANDARD_DEFAULT is set to invalid value '",
                                *defaultStd, '\'');
       makefile->IssueMessage(MessageType::INTERNAL_ERROR, e);
@@ -295,7 +295,7 @@ struct StandardLevelComputer
         (cmp0128 == cmPolicies::NEW &&
          (stdIt < defaultStdIt || ext != defaultExt))) {
       auto offset = std::distance(cm::cbegin(stds), stdIt);
-      return cmStrCat("CMAKE_", this->Language, stdsStrings[offset], '_', type,
+      return cmStrCat("RBLXBUILD_", this->Language, stdsStrings[offset], '_', type,
                       "_COMPILE_OPTION");
     }
 
@@ -305,7 +305,7 @@ struct StandardLevelComputer
     for (; defaultStdIt < stdIt; --stdIt) {
       auto offset = std::distance(cm::cbegin(stds), stdIt);
       std::string option_flag =
-        cmStrCat("CMAKE_", this->Language, stdsStrings[offset], '_', type,
+        cmStrCat("RBLXBUILD_", this->Language, stdsStrings[offset], '_', type,
                  "_COMPILE_OPTION");
       if (target->Target->GetMakefile()->GetDefinition(option_flag)) {
         return option_flag;
@@ -323,7 +323,7 @@ struct StandardLevelComputer
     auto const& stdsStrings = this->LevelsAsStrings;
 
     cmValue defaultStd = makefile->GetDefinition(
-      cmStrCat("CMAKE_", this->Language, "_STANDARD_DEFAULT"));
+      cmStrCat("RBLXBUILD_", this->Language, "_STANDARD_DEFAULT"));
     if (!cmNonempty(defaultStd)) {
       // this compiler has no notion of language standard levels
       return std::string{};
@@ -332,7 +332,7 @@ struct StandardLevelComputer
     cmPolicies::PolicyStatus const cmp0128{ makefile->GetPolicyStatus(
       cmPolicies::CMP0128) };
     bool const defaultExt{ makefile
-                             ->GetDefinition(cmStrCat("CMAKE_", this->Language,
+                             ->GetDefinition(cmStrCat("RBLXBUILD_", this->Language,
                                                       "_EXTENSIONS_DEFAULT"))
                              .IsOn() };
     bool ext = true;
@@ -406,7 +406,7 @@ struct StandardLevelComputer
     for (; defaultStdIt < stdIt; --stdIt) {
       auto offset = std::distance(cm::cbegin(stds), stdIt);
       std::string option_flag =
-        cmStrCat("CMAKE_", this->Language, stdsStrings[offset], '_', type,
+        cmStrCat("RBLXBUILD_", this->Language, stdsStrings[offset], '_', type,
                  "_COMPILE_OPTION");
       if (target->Target->GetMakefile()->GetDefinition(option_flag)) {
         return stdsStrings[offset];
@@ -432,7 +432,7 @@ struct StandardLevelComputer
     cmValue existingStandard = currentLangStandardValue;
     if (!existingStandard) {
       cmValue defaultStandard = makefile->GetDefinition(
-        cmStrCat("CMAKE_", this->Language, "_STANDARD_DEFAULT"));
+        cmStrCat("RBLXBUILD_", this->Language, "_STANDARD_DEFAULT"));
       if (cmNonempty(defaultStandard)) {
         existingStandard = defaultStandard;
       }
@@ -476,11 +476,11 @@ struct StandardLevelComputer
                              std::string const& feature) const
   {
     cmValue defaultStandard = makefile->GetDefinition(
-      cmStrCat("CMAKE_", this->Language, "_STANDARD_DEFAULT"));
+      cmStrCat("RBLXBUILD_", this->Language, "_STANDARD_DEFAULT"));
     if (!defaultStandard) {
       makefile->IssueMessage(
         MessageType::INTERNAL_ERROR,
-        cmStrCat("CMAKE_", this->Language,
+        cmStrCat("RBLXBUILD_", this->Language,
                  "_STANDARD_DEFAULT is not set.  COMPILE_FEATURES support "
                  "not fully configured for this compiler."));
       // Return true so the caller does not try to lookup the default standard.
@@ -489,7 +489,7 @@ struct StandardLevelComputer
     // convert defaultStandard to an integer
     if (std::find(cm::cbegin(this->Levels), cm::cend(this->Levels),
                   ParseStd(*defaultStandard)) == cm::cend(this->Levels)) {
-      std::string const e = cmStrCat("The CMAKE_", this->Language,
+      std::string const e = cmStrCat("The RBLXBUILD_", this->Language,
                                      "_STANDARD_DEFAULT variable contains an "
                                      "invalid value: \"",
                                      *defaultStandard, "\".");
@@ -526,7 +526,7 @@ struct StandardLevelComputer
   cm::optional<cmStandardLevel> CompileFeatureStandardLevel(
     cmMakefile* makefile, std::string const& feature) const
   {
-    std::string prefix = cmStrCat("CMAKE_", this->Language);
+    std::string prefix = cmStrCat("RBLXBUILD_", this->Language);
     cm::optional<cmStandardLevel> maxLevel;
     for (size_t i = 0; i < this->Levels.size(); ++i) {
       if (cmValue prop = makefile->GetDefinition(
@@ -702,10 +702,10 @@ bool cmStandardLevelResolver::CheckCompileFeaturesAvailable(
     std::string e = cmStrCat("The compiler feature \"", feature,
                              "\" is not known to ", lang, " compiler\n\"",
                              this->Makefile->GetSafeDefinition(
-                               cmStrCat("CMAKE_", lang, "_COMPILER_ID")),
+                               cmStrCat("RBLXBUILD_", lang, "_COMPILER_ID")),
                              "\"\nversion ",
                              this->Makefile->GetSafeDefinition(
-                               cmStrCat("CMAKE_", lang, "_COMPILER_VERSION")),
+                               cmStrCat("RBLXBUILD_", lang, "_COMPILER_VERSION")),
                              '.');
     if (error) {
       *error = std::move(e);
@@ -808,16 +808,16 @@ cmValue cmStandardLevelResolver::CompileFeaturesAvailable(
   }
 
   cmValue featuresKnown = this->Makefile->GetDefinition(
-    cmStrCat("CMAKE_", lang, "_COMPILE_FEATURES"));
+    cmStrCat("RBLXBUILD_", lang, "_COMPILE_FEATURES"));
 
   if (!cmNonempty(featuresKnown)) {
     std::string e = cmStrCat(error ? "no"_s : "No"_s, " known features for ",
                              lang, " compiler\n\"",
                              this->Makefile->GetSafeDefinition(
-                               cmStrCat("CMAKE_", lang, "_COMPILER_ID")),
+                               cmStrCat("RBLXBUILD_", lang, "_COMPILER_ID")),
                              "\"\nversion ",
                              this->Makefile->GetSafeDefinition(
-                               cmStrCat("CMAKE_", lang, "_COMPILER_VERSION")),
+                               cmStrCat("RBLXBUILD_", lang, "_COMPILER_VERSION")),
                              '.');
     if (error) {
       *error = std::move(e);

@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmFileCommand_ReadMacho.h"
 
 #include "cmArgumentParser.h"
@@ -8,7 +8,7 @@
 #include "cmRange.h"
 #include "cmStringAlgorithms.h"
 #include "cmSystemTools.h"
-#if defined(CMake_USE_MACH_PARSER)
+#if defined(RBLXBuild_USE_MACH_PARSER)
 #  include "cmMachO.h"
 #endif
 
@@ -53,7 +53,7 @@ bool HandleReadMachoCommand(std::vector<std::string> const& args,
     return true;
   }
 
-#if defined(CMake_USE_MACH_PARSER)
+#if defined(RBLXBuild_USE_MACH_PARSER)
   cmMachO macho(fileNameArg.c_str());
   if (!macho) {
     if (arguments.Error.empty()) {
@@ -94,6 +94,6 @@ bool HandleReadMachoCommand(std::vector<std::string> const& args,
   }
   status.GetMakefile().AddDefinition(
     arguments.Error, "READ_MACHO support not available on this platform.");
-#endif // CMake_USE_MACH_PARSER
+#endif // RBLXBuild_USE_MACH_PARSER
   return true;
 }

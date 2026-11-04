@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 
 #include "cmCxxModuleMetadata.h"
 
@@ -74,7 +74,7 @@ bool ParsePreprocessorDefine(Json::Value& dval,
   return true;
 }
 
-bool ParseCMakeLocalArgumentsVendor(
+bool ParseRBLXBuildLocalArgumentsVendor(
   Json::Value& cmlav, cmCxxModuleMetadata::LocalArgumentsData& out,
   cmJSONState* state)
 {
@@ -157,7 +157,7 @@ bool ParseLocalArguments(Json::Value& lav,
   }
 
   if (lav.isMember("vendor")) {
-    if (!ParseCMakeLocalArgumentsVendor(lav["vendor"], out, state)) {
+    if (!ParseRBLXBuildLocalArgumentsVendor(lav["vendor"], out, state)) {
       return false;
     }
   }
@@ -308,7 +308,7 @@ Json::Value SerializePreprocessorDefine(
   return dv;
 }
 
-Json::Value SerializeCMakeLocalArgumentsVendor(
+Json::Value SerializeRBLXBuildLocalArgumentsVendor(
   cmCxxModuleMetadata::LocalArgumentsData const& la)
 {
   Json::Value vend(Json::objectValue);
@@ -356,10 +356,10 @@ Json::Value SerializeLocalArguments(
     }
   }
 
-  Json::Value vend = SerializeCMakeLocalArgumentsVendor(la);
+  Json::Value vend = SerializeRBLXBuildLocalArgumentsVendor(la);
   if (!vend.empty()) {
     Json::Value& cmvend = lav["vendor"] = Json::objectValue;
-    cmvend["cmake"] = std::move(vend);
+    cmvend["rblxbuild"] = std::move(vend);
   }
 
   return lav;

@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmVariableWatchCommand.h"
 
 #include <limits>
@@ -15,7 +15,7 @@
 #include "cmSystemTools.h"
 #include "cmValue.h"
 #include "cmVariableWatch.h"
-#include "cmake.h"
+#include "rblxbuild.h"
 
 class cmLocalGenerator;
 
@@ -46,7 +46,7 @@ void cmVariableWatchCommandVariableAccessed(
   std::string stack = *mf->GetProperty("LISTFILE_STACK");
   if (!data->Command.empty()) {
     cmValue const currentListFile =
-      mf->GetDefinition("CMAKE_CURRENT_LIST_FILE");
+      mf->GetDefinition("RBLXBUILD_CURRENT_LIST_FILE");
     auto const fakeLineNo =
       std::numeric_limits<decltype(cmListFileArgument::Line)>::max();
 
@@ -74,7 +74,7 @@ void cmVariableWatchCommandVariableAccessed(
     cmExecutionStatus status(*makefile);
     if (!makefile->ExecuteCommand(newLFF, status)) {
       cmSystemTools::Error(
-        cmStrCat("Error in cmake code at\nUnknown:0:\nA command failed "
+        cmStrCat("Error in rblxbuild code at\nUnknown:0:\nA command failed "
                  "during the invocation of callback \"",
                  data->Command, "\"."));
     }
@@ -119,7 +119,7 @@ private:
 
     ~Impl()
     {
-      this->Makefile->GetCMakeInstance()->GetVariableWatch()->RemoveWatch(
+      this->Makefile->GetRBLXBuildInstance()->GetVariableWatch()->RemoveWatch(
         this->Variable, cmVariableWatchCommandVariableAccessed);
     }
 
@@ -143,7 +143,7 @@ bool cmVariableWatchCommand(std::vector<std::string> const& args,
   if (args.size() > 1) {
     command = args[1];
   }
-  if (variable == "CMAKE_CURRENT_LIST_FILE") {
+  if (variable == "RBLXBUILD_CURRENT_LIST_FILE") {
     status.SetError(cmStrCat("cannot be set on the variable: ", variable));
     return false;
   }
@@ -153,7 +153,7 @@ bool cmVariableWatchCommand(std::vector<std::string> const& args,
   data->InCallback = false;
   data->Command = std::move(command);
 
-  if (!status.GetMakefile().GetCMakeInstance()->GetVariableWatch()->AddWatch(
+  if (!status.GetMakefile().GetRBLXBuildInstance()->GetVariableWatch()->AddWatch(
         variable, cmVariableWatchCommandVariableAccessed, data,
         deleteVariableWatchCallbackData)) {
     deleteVariableWatchCallbackData(data);

@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #pragma once
 
 #include "cmConfigure.h" // IWYU pragma: keep
@@ -29,7 +29,7 @@
 class cmCustomCommand;
 class cmGeneratorTarget;
 class cmMakefile;
-class cmake;
+class rblxbuild;
 struct cmCxxModuleExportInfo;
 
 namespace Json {
@@ -171,7 +171,7 @@ public:
   bool IsGCCOnWindows() const { return this->UsingGCCOnWindows; }
   void MarkAsGCCOnWindows() { this->UsingGCCOnWindows = true; }
 
-  cmGlobalNinjaGenerator(cmake* cm);
+  cmGlobalNinjaGenerator(rblxbuild* cm);
 
   static std::unique_ptr<cmGlobalGeneratorFactory> NewFactory()
   {
@@ -294,12 +294,12 @@ public:
   void AddAdditionalCleanFile(std::string fileName, std::string const& config);
   char const* GetAdditionalCleanTargetName() const
   {
-    return "CMakeFiles/clean.additional";
+    return "RBLXBuildFiles/clean.additional";
   }
 
   static char const* GetByproductsForCleanTargetName()
   {
-    return "CMakeFiles/cmake_byproducts_for_clean_target";
+    return "RBLXBuildFiles/rblxbuild_byproducts_for_clean_target";
   }
 
   void AddCXXCompileCommand(std::string const& commandLine,
@@ -382,7 +382,7 @@ public:
   virtual void AddRebuildManifestOutputs(cmNinjaDeps& outputs) const
   {
     outputs.push_back(this->NinjaOutputPath(NINJA_BUILD_FILE));
-    this->AddCMakeFilesToRebuild(outputs);
+    this->AddRBLXBuildFilesToRebuild(outputs);
   }
 
   int GetRuleCmdLength(std::string const& name)
@@ -556,7 +556,7 @@ private:
   void WriteTargetRebuildManifest(std::ostream& os);
   bool WriteTargetCleanAdditional(std::ostream& os);
   void WriteTargetClean(std::ostream& os);
-#ifndef CMAKE_BOOTSTRAP
+#ifndef RBLXBUILD_BOOTSTRAP
   void WriteTargetInstrument(std::ostream& os);
 #endif
   void WriteTargetHelp(std::ostream& os);
@@ -565,7 +565,7 @@ private:
     cmGeneratorTarget const* target,
     std::set<cmGeneratorTarget const*>& depends);
 
-  std::string CMakeCmd() const;
+  std::string RBLXBuildCmd() const;
   std::string NinjaCmd() const;
 
   /// The file containing the build statement. (the relationship of the
@@ -636,7 +636,7 @@ private:
 
   std::string OutputPathPrefix;
   std::string TargetAll;
-  std::string CMakeCacheFile;
+  std::string RBLXBuildCacheFile;
 
   struct ByConfig
   {
@@ -685,7 +685,7 @@ public:
   /// The default file extension to use for per-config Ninja files.
   static char const* NINJA_FILE_EXTENSION;
 
-  cmGlobalNinjaMultiGenerator(cmake* cm);
+  cmGlobalNinjaMultiGenerator(rblxbuild* cm);
   bool IsMultiConfig() const override { return true; }
   static std::unique_ptr<cmGlobalGeneratorFactory> NewFactory()
   {
@@ -719,7 +719,7 @@ public:
     return "";
   }
 
-  char const* GetCMakeCFGIntDir() const override { return "${CONFIGURATION}"; }
+  char const* GetRBLXBuildCFGIntDir() const override { return "${CONFIGURATION}"; }
 
   std::string ExpandCFGIntDir(std::string const& str,
                               std::string const& config) const override;

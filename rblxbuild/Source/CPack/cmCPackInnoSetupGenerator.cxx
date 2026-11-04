@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-file LICENSE.rst or https://cmake.org/licensing for details. */
+file LICENSE.rst or https://rblxbuild.org/licensing for details. */
 
 #include "cmCPackInnoSetupGenerator.h"
 
@@ -904,7 +904,7 @@ bool cmCPackInnoSetupGenerator::BuildDownloadedComponentArchive(
 
   // Find a ZIP program
   if (!IsSet("ZIP_EXECUTABLE")) {
-    ReadListFile("Internal/CPack/CPackZIP.cmake");
+    ReadListFile("Internal/CPack/CPackZIP.rblxbuild");
 
     if (!IsSet("ZIP_EXECUTABLE")) {
       cmCPackLogger(cmCPackLog::LOG_ERROR,
@@ -1041,8 +1041,8 @@ std::string cmCPackInnoSetupGenerator::TranslateBool(std::string const& value)
     return value;
   }
 
-  SetOptionIfNotSet("CPACK_INNOSETUP_USE_CMAKE_BOOL_FORMAT", "ON");
-  if (GetOption("CPACK_INNOSETUP_USE_CMAKE_BOOL_FORMAT").IsOn()) {
+  SetOptionIfNotSet("CPACK_INNOSETUP_USE_RBLXBUILD_BOOL_FORMAT", "ON");
+  if (GetOption("CPACK_INNOSETUP_USE_RBLXBUILD_BOOL_FORMAT").IsOn()) {
     if (cmIsOn(value)) {
       return "yes";
     }

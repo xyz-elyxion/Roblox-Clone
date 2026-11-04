@@ -37,7 +37,7 @@ extern "C" UINT __stdcall DetectNsisOverwrite(MSIHANDLE msi_handle)
   bool uninstall_exe_exists =
     GetFileAttributesW(uninstall_exe.c_str()) != INVALID_FILE_ATTRIBUTES;
 
-  set_property(msi_handle, L"CMAKE_NSIS_OVERWRITE_DETECTED",
+  set_property(msi_handle, L"RBLXBUILD_NSIS_OVERWRITE_DETECTED",
                uninstall_exe_exists ? L"1" : L"0");
 
   return ERROR_SUCCESS;

@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmCTestDiscoverTests.h"
 
 #include <algorithm>
@@ -168,7 +168,7 @@ bool cmCTestDiscoverTests(cmTestDiscoveryArgs const& args,
       testProperties.push_back(replace(args.TestProperties[i + 1]));
     }
     if (!args.BuildDepends.empty()) {
-      testProperties.push_back("_CMAKE_TEST_BUILD_DEPENDS");
+      testProperties.push_back("_RBLXBUILD_TEST_BUILD_DEPENDS");
       testProperties.push_back(cmList::to_string(args.BuildDepends));
     }
     if (!handler->SetTestsProperties(testProperties)) {

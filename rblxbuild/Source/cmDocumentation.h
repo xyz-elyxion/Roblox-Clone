@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #pragma once
 
 #include "cmConfigure.h" // IWYU pragma: keep
@@ -53,7 +53,7 @@ public:
    * Check command line arguments for documentation options.  Returns
    * true if documentation options are found, and false otherwise.
    * When true is returned, PrintRequestedDocumentation should be
-   * called.  exitOpt can be used for things like cmake -E, so that
+   * called.  exitOpt can be used for things like rblxbuild -E, so that
    * all arguments after the -E are ignored and not searched for
    * help arguments.
    */
@@ -107,8 +107,8 @@ public:
   /** Add common (to all tools) documentation section(s) */
   void addCommonStandardDocSections();
 
-  /** Add the CMake standard documentation section(s) */
-  void addCMakeStandardDocSections();
+  /** Add the RBLXBuild standard documentation section(s) */
+  void addRBLXBuildStandardDocSections();
 
   /** Add the CTest standard documentation section(s) */
   void addCTestStandardDocSections();

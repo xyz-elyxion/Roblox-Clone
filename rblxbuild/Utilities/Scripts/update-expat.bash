@@ -15,16 +15,16 @@ readonly paths="
   expat/lib/*.h
   expat/lib/*.c
   expat/README.md
-  expat/ConfigureChecks.cmake
-  expat/expat_config.h.cmake
+  expat/ConfigureChecks.rblxbuild
+  expat/expat_config.h.rblxbuild
   expat/COPYING
 "
 
 extract_source () {
     git_archive
     pushd "${extractdir}/${name}-reduced"
-    fromdos expat/ConfigureChecks.cmake expat/CMakeLists.txt expat/expat_config.h.cmake
-    chmod a-x expat/ConfigureChecks.cmake expat/CMakeLists.txt expat/expat_config.h.cmake
+    fromdos expat/ConfigureChecks.rblxbuild expat/RBLXBuildLists.txt expat/expat_config.h.rblxbuild
+    chmod a-x expat/ConfigureChecks.rblxbuild expat/RBLXBuildLists.txt expat/expat_config.h.rblxbuild
     mv expat/* .
     rmdir expat
     popd

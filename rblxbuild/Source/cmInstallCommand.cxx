@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmInstallCommand.h"
 
 #include <algorithm>
@@ -18,7 +18,7 @@
 
 #include "cmArgumentParser.h"
 #include "cmArgumentParserTypes.h"
-#include "cmCMakePath.h"
+#include "cmRBLXBuildPath.h"
 #include "cmComputeLinkInformation.h"
 #include "cmDiagnosticContext.h"
 #include "cmDiagnostics.h"
@@ -29,7 +29,7 @@
 #include "cmGeneratorTarget.h"
 #include "cmGlobalGenerator.h"
 #include "cmInstallAndroidMKExportGenerator.h"
-#include "cmInstallCMakeConfigExportGenerator.h"
+#include "cmInstallRBLXBuildConfigExportGenerator.h"
 #include "cmInstallCommandArguments.h"
 #include "cmInstallCxxModuleBmiGenerator.h"
 #include "cmInstallDirectoryGenerator.h"
@@ -214,7 +214,7 @@ public:
     , Makefile(&status.GetMakefile())
   {
     this->DefaultComponentName = this->Makefile->GetSafeDefinition(
-      "CMAKE_INSTALL_DEFAULT_COMPONENT_NAME");
+      "RBLXBUILD_INSTALL_DEFAULT_COMPONENT_NAME");
     if (this->DefaultComponentName == "<PROJECT_NAME>") {
       cmValue projectName = this->Makefile->GetDefinition("PROJECT_NAME");
       if (!projectName->empty()) {
@@ -335,9 +335,9 @@ void AddInstallRuntimeDependenciesGenerator(
   bool& installsLibrary, bool& installsFramework)
 {
   bool dllPlatform =
-    !helper.Makefile->GetSafeDefinition("CMAKE_IMPORT_LIBRARY_SUFFIX").empty();
+    !helper.Makefile->GetSafeDefinition("RBLXBUILD_IMPORT_LIBRARY_SUFFIX").empty();
   bool apple =
-    helper.Makefile->GetSafeDefinition("CMAKE_HOST_SYSTEM_NAME") == "Darwin";
+    helper.Makefile->GetSafeDefinition("RBLXBUILD_HOST_SYSTEM_NAME") == "Darwin";
   auto const& runtimeDependenciesArgsRef =
     dllPlatform ? runtimeArgs : libraryArgs;
   std::vector<std::string> configurations =
@@ -359,8 +359,8 @@ void AddInstallRuntimeDependenciesGenerator(
       std::move(runtimeDependenciesArgs.PostIncludeFiles),
       std::move(runtimeDependenciesArgs.PostExcludeFiles),
       runtimeDependenciesArgsRef.GetComponent(),
-      apple ? frameworkArgs.GetComponent() : "", true, "_CMAKE_DEPS",
-      "_CMAKE_RPATH", configurations,
+      apple ? frameworkArgs.GetComponent() : "", true, "_RBLXBUILD_DEPS",
+      "_RBLXBUILD_RPATH", configurations,
       cmInstallGenerator::SelectMessageLevel(helper.Makefile),
       runtimeDependenciesArgsRef.GetExcludeFromAll() &&
         (apple ? frameworkArgs.GetExcludeFromAll() : true),
@@ -374,7 +374,7 @@ void AddInstallRuntimeDependenciesGenerator(
     cm::make_unique<cmInstallRuntimeDependencySetGenerator>(
       cmInstallRuntimeDependencySetGenerator::DependencyType::Library,
       runtimeDependencySet, std::vector<std::string>{}, true, std::string{},
-      true, "_CMAKE_DEPS", "_CMAKE_RPATH", "_CMAKE_TMP",
+      true, "_RBLXBUILD_DEPS", "_RBLXBUILD_RPATH", "_RBLXBUILD_TMP",
       dllPlatform ? helper.GetRuntimeDestination(&runtimeArgs)
                   : helper.GetLibraryDestination(&libraryArgs),
       runtimeDependenciesArgsRef.GetConfigurations(),
@@ -396,7 +396,7 @@ void AddInstallRuntimeDependenciesGenerator(
       cm::make_unique<cmInstallRuntimeDependencySetGenerator>(
         cmInstallRuntimeDependencySetGenerator::DependencyType::Framework,
         runtimeDependencySet, std::vector<std::string>{}, true, std::string{},
-        true, "_CMAKE_DEPS", "_CMAKE_RPATH", "_CMAKE_TMP",
+        true, "_RBLXBUILD_DEPS", "_RBLXBUILD_RPATH", "_RBLXBUILD_TMP",
         frameworkArgs.GetDestination(), frameworkArgs.GetConfigurations(),
         frameworkArgs.GetComponent(), frameworkArgs.GetPermissions(),
         cmInstallGenerator::SelectMessageLevel(helper.Makefile),
@@ -1385,7 +1385,7 @@ bool HandleTargetsMode(std::vector<std::string> const& args,
                       "RUNTIME_DEPENDENCY_SET.");
       return false;
     }
-    auto system = helper.Makefile->GetSafeDefinition("CMAKE_HOST_SYSTEM_NAME");
+    auto system = helper.Makefile->GetSafeDefinition("RBLXBUILD_HOST_SYSTEM_NAME");
     if (!cmRuntimeDependencyArchive::PlatformSupportsRuntimeDependencies(
           system)) {
       status.SetError(
@@ -1393,12 +1393,12 @@ bool HandleTargetsMode(std::vector<std::string> const& args,
                  system, '"'));
       return false;
     }
-    if (helper.Makefile->IsOn("CMAKE_CROSSCOMPILING")) {
+    if (helper.Makefile->IsOn("RBLXBUILD_CROSSCOMPILING")) {
       status.SetError("TARGETS RUNTIME_DEPENDENCIES is not supported "
                       "when cross-compiling.");
       return false;
     }
-    if (helper.Makefile->GetSafeDefinition("CMAKE_HOST_SYSTEM_NAME") ==
+    if (helper.Makefile->GetSafeDefinition("RBLXBUILD_HOST_SYSTEM_NAME") ==
           "Darwin" &&
         frameworkArgs.GetDestination().empty()) {
       status.SetError(
@@ -1408,7 +1408,7 @@ bool HandleTargetsMode(std::vector<std::string> const& args,
     runtimeDependencySet = helper.Makefile->GetGlobalGenerator()
                              ->CreateAnonymousRuntimeDependencySet();
   } else if (!runtimeDependencySetArg.empty()) {
-    auto system = helper.Makefile->GetSafeDefinition("CMAKE_HOST_SYSTEM_NAME");
+    auto system = helper.Makefile->GetSafeDefinition("RBLXBUILD_HOST_SYSTEM_NAME");
     if (!cmRuntimeDependencyArchive::PlatformSupportsRuntimeDependencies(
           system)) {
       status.SetError(cmStrCat(
@@ -1644,7 +1644,7 @@ bool HandleImportedRuntimeArtifactsMode(std::vector<std::string> const& args,
 
   cmInstallRuntimeDependencySet* runtimeDependencySet = nullptr;
   if (!runtimeDependencySetArg.empty()) {
-    auto system = helper.Makefile->GetSafeDefinition("CMAKE_HOST_SYSTEM_NAME");
+    auto system = helper.Makefile->GetSafeDefinition("RBLXBUILD_HOST_SYSTEM_NAME");
     if (!cmRuntimeDependencyArchive::PlatformSupportsRuntimeDependencies(
           system)) {
       status.SetError(
@@ -1886,7 +1886,7 @@ bool HandleFilesMode(std::vector<std::string> const& args,
                  "was generated by the export() command.  "
                  "It may not be installed with the install() command.  "
                  "Use the install(EXPORT) mechanism instead.  "
-                 "See the cmake-packages(7) manual for more."));
+                 "See the rblxbuild-packages(7) manual for more."));
       return false;
     }
   }
@@ -2120,13 +2120,13 @@ bool HandleDirectoryMode(std::vector<std::string> const& args,
       // preserves it if present
       switch (status.GetMakefile().GetPolicyStatus(cmPolicies::CMP0177)) {
         case cmPolicies::NEW:
-          destination = cmCMakePath(args[i]).Normal().String();
+          destination = cmRBLXBuildPath(args[i]).Normal().String();
           break;
         case cmPolicies::WARN:
           // We can't be certain if a warning is appropriate if there are any
           // generator expressions
           if (cmGeneratorExpression::Find(args[i]) == cm::string_view::npos &&
-              args[i] != cmCMakePath(args[i]).Normal().String()) {
+              args[i] != cmRBLXBuildPath(args[i]).Normal().String()) {
             status.GetMakefile().IssuePolicyWarning(cmPolicies::CMP0177);
           }
           CM_FALLTHROUGH;
@@ -2249,7 +2249,7 @@ bool HandleDirectoryMode(std::vector<std::string> const& args,
 bool HandleExportAndroidMKMode(std::vector<std::string> const& args,
                                cmExecutionStatus& status)
 {
-#ifndef CMAKE_BOOTSTRAP
+#ifndef RBLXBUILD_BOOTSTRAP
   Helper helper(status);
 
   // This is the EXPORT mode.
@@ -2342,12 +2342,12 @@ bool HandleExportAndroidMKMode(std::vector<std::string> const& args,
   return true;
 #else
   static_cast<void>(args);
-  status.SetError("EXPORT_ANDROID_MK not supported in bootstrap cmake");
+  status.SetError("EXPORT_ANDROID_MK not supported in bootstrap rblxbuild");
   return false;
 #endif
 }
 
-#ifndef CMAKE_BOOTSTRAP
+#ifndef RBLXBUILD_BOOTSTRAP
 cm::optional<cm::string_view> MatchExport(cm::string_view directive,
                                           std::string const& exportName)
 {
@@ -2415,7 +2415,7 @@ bool HandleMappedPackageInfo(
 
       if (arguments.Appendix.empty()) {
         status.SetError(cmStrCat(
-          "CMAKE_INSTALL_EXPORTS_AS_PACKAGE_INFO given APPENDIX "
+          "RBLXBUILD_INSTALL_EXPORTS_AS_PACKAGE_INFO given APPENDIX "
           R"(directive for export ")"_s,
           exportSet.GetName(), R"(", but no appendix name was provided.)"_s));
         return false;
@@ -2425,7 +2425,7 @@ bool HandleMappedPackageInfo(
     if (!directive.empty()) {
       if (directive[0] != '/') {
         status.SetError(
-          cmStrCat("CMAKE_INSTALL_EXPORTS_AS_PACKAGE_INFO given unrecognized "
+          cmStrCat("RBLXBUILD_INSTALL_EXPORTS_AS_PACKAGE_INFO given unrecognized "
                    R"(directive  ")"_s,
                    directive, R"(".)"_s));
         return false;
@@ -2440,7 +2440,7 @@ bool HandleMappedPackageInfo(
 
   if (arguments.PackageName.empty()) {
     status.SetError(
-      cmStrCat("CMAKE_INSTALL_EXPORTS_AS_PACKAGE_INFO missing package name "
+      cmStrCat("RBLXBUILD_INSTALL_EXPORTS_AS_PACKAGE_INFO missing package name "
                R"(for export ")"_s,
                exportSet.GetName(), R"(".)"_s));
     return false;
@@ -2449,7 +2449,7 @@ bool HandleMappedPackageInfo(
   // Build destination.
   std::string dest = std::string{ directive };
   if (dest.empty()) {
-    if (helper.Makefile->GetSafeDefinition("CMAKE_SYSTEM_NAME") == "Windows") {
+    if (helper.Makefile->GetSafeDefinition("RBLXBUILD_SYSTEM_NAME") == "Windows") {
       dest = arguments.GetDefaultDestination();
     } else {
       dest =
@@ -2561,17 +2561,17 @@ bool HandleExportMode(std::vector<std::string> const& args,
   }
 
   // Check the file extension.
-  if (!fname.empty() && !cmHasSuffix(fname, ".cmake"_s)) {
+  if (!fname.empty() && !cmHasSuffix(fname, ".rblxbuild"_s)) {
     status.SetError(
       cmStrCat(args[0], " given invalid export file name \"", fname,
                "\".  "
-               "The FILE argument must specify a name ending in \".cmake\"."));
+               "The FILE argument must specify a name ending in \".rblxbuild\"."));
     return false;
   }
 
   // Construct the file name.
   if (fname.empty()) {
-    fname = cmStrCat(exp, ".cmake");
+    fname = cmStrCat(exp, ".rblxbuild");
 
     if (fname.find_first_of(":/\\") != std::string::npos) {
       status.SetError(cmStrCat(
@@ -2595,12 +2595,12 @@ bool HandleExportMode(std::vector<std::string> const& args,
   helper.Makefile->GetGlobalGenerator()->AddInstallComponent(
     ica.GetComponent());
 
-#ifndef CMAKE_BOOTSTRAP
+#ifndef RBLXBUILD_BOOTSTRAP
   // Check if PACKAGE_INFO export has been requested for this export set.
   if (cmExperimental::HasSupportEnabled(
         status.GetMakefile(), cmExperimental::Feature::MappedPackageInfo)) {
     if (cmValue const& piExports = helper.Makefile->GetDefinition(
-          "CMAKE_INSTALL_EXPORTS_AS_PACKAGE_INFO")) {
+          "RBLXBUILD_INSTALL_EXPORTS_AS_PACKAGE_INFO")) {
       for (auto const& pie : cmList{ piExports }) {
         cm::optional<cm::string_view> const directive = MatchExport(pie, exp);
         if (directive) {
@@ -2619,7 +2619,7 @@ bool HandleExportMode(std::vector<std::string> const& args,
 
   // Create the export install generator.
   helper.Makefile->AddInstallGenerator(
-    cm::make_unique<cmInstallCMakeConfigExportGenerator>(
+    cm::make_unique<cmInstallRBLXBuildConfigExportGenerator>(
       &exportSet, ica.GetDestination(), ica.GetPermissions(),
       ica.GetConfigurations(), ica.GetComponent(), message,
       ica.GetExcludeFromAll(), std::move(fname), std::move(exportNamespace),
@@ -2632,7 +2632,7 @@ bool HandleExportMode(std::vector<std::string> const& args,
 bool HandlePackageInfoMode(std::vector<std::string> const& args,
                            cmExecutionStatus& status)
 {
-#ifndef CMAKE_BOOTSTRAP
+#ifndef RBLXBUILD_BOOTSTRAP
   Helper helper(status);
 
   // This is the PACKAGE_INFO mode.
@@ -2669,7 +2669,7 @@ bool HandlePackageInfoMode(std::vector<std::string> const& args,
   // Get or construct the destination path.
   std::string dest = ica.GetDestination();
   if (dest.empty()) {
-    if (helper.Makefile->GetSafeDefinition("CMAKE_SYSTEM_NAME") == "Windows") {
+    if (helper.Makefile->GetSafeDefinition("RBLXBUILD_SYSTEM_NAME") == "Windows") {
       dest = arguments.GetDefaultDestination();
     } else {
       dest =
@@ -2702,7 +2702,7 @@ bool HandlePackageInfoMode(std::vector<std::string> const& args,
   return true;
 #else
   static_cast<void>(args);
-  status.SetError("PACKAGE_INFO not supported in bootstrap cmake");
+  status.SetError("PACKAGE_INFO not supported in bootstrap rblxbuild");
   return false;
 #endif
 }
@@ -2712,7 +2712,7 @@ bool HandleRuntimeDependencySetMode(std::vector<std::string> const& args,
 {
   Helper helper(status);
 
-  auto system = helper.Makefile->GetSafeDefinition("CMAKE_HOST_SYSTEM_NAME");
+  auto system = helper.Makefile->GetSafeDefinition("RBLXBUILD_HOST_SYSTEM_NAME");
   if (!cmRuntimeDependencyArchive::PlatformSupportsRuntimeDependencies(
         system)) {
     status.SetError(cmStrCat(
@@ -2826,7 +2826,7 @@ bool HandleRuntimeDependencySetMode(std::vector<std::string> const& args,
 bool HandleSbomMode(std::vector<std::string> const& args,
                     cmExecutionStatus& status)
 {
-#ifndef CMAKE_BOOTSTRAP
+#ifndef RBLXBUILD_BOOTSTRAP
   Helper helper(status);
   cmInstallCommandArguments ica(helper.DefaultComponentName, *helper.Makefile);
 
@@ -2908,7 +2908,7 @@ bool HandleSbomMode(std::vector<std::string> const& args,
   return true;
 #else
   static_cast<void>(args);
-  status.SetError("SBOM not supported in bootstrap cmake");
+  status.SetError("SBOM not supported in bootstrap rblxbuild");
   return false;
 #endif
 }

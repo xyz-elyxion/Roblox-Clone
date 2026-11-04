@@ -1,0 +1,123 @@
+# Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
+# file LICENSE.rst or https://rblxbuild.org/licensing for details.
+
+
+# this file has flags that are shared across languages and sets
+# cache values that can be initialized in the platform-compiler.rblxbuild file
+# it may be included by more than one language.
+
+string(APPEND RBLXBUILD_EXE_LINKER_FLAGS_INIT " $ENV{LDFLAGS}")
+string(APPEND RBLXBUILD_SHARED_LINKER_FLAGS_INIT " $ENV{LDFLAGS}")
+string(APPEND RBLXBUILD_MODULE_LINKER_FLAGS_INIT " $ENV{LDFLAGS}")
+
+rblxbuild_initialize_per_config_variable(RBLXBUILD_EXE_LINKER_FLAGS    "Flags used by the linker")
+rblxbuild_initialize_per_config_variable(RBLXBUILD_SHARED_LINKER_FLAGS "Flags used by the linker during the creation of shared libraries")
+rblxbuild_initialize_per_config_variable(RBLXBUILD_MODULE_LINKER_FLAGS "Flags used by the linker during the creation of modules")
+rblxbuild_initialize_per_config_variable(RBLXBUILD_STATIC_LINKER_FLAGS "Flags used by the archiver during the creation of static libraries")
+
+# Alias the build tool variable for backward compatibility.
+set(RBLXBUILD_BUILD_TOOL ${RBLXBUILD_MAKE_PROGRAM})
+
+mark_as_advanced(
+RBLXBUILD_VERBOSE_MAKEFILE
+)
+
+# The Platform/* modules set a bunch of platform-specific flags expressed
+# for the C toolchain.  Other languages call this to copy them as defaults.
+macro(_rblxbuild_common_language_platform_flags lang)
+  if(NOT DEFINED RBLXBUILD_SHARED_LIBRARY_CREATE_${lang}_FLAGS)
+    set(RBLXBUILD_SHARED_LIBRARY_CREATE_${lang}_FLAGS ${RBLXBUILD_SHARED_LIBRARY_CREATE_C_FLAGS})
+  endif()
+
+  if(NOT DEFINED RBLXBUILD_${lang}_COMPILE_OPTIONS_PIC)
+    set(RBLXBUILD_${lang}_COMPILE_OPTIONS_PIC ${RBLXBUILD_C_COMPILE_OPTIONS_PIC})
+  endif()
+
+  if(NOT DEFINED RBLXBUILD_${lang}_COMPILE_OPTIONS_PIE)
+    set(RBLXBUILD_${lang}_COMPILE_OPTIONS_PIE ${RBLXBUILD_C_COMPILE_OPTIONS_PIE})
+  endif()
+  if(NOT DEFINED RBLXBUILD_${lang}_LINK_OPTIONS_PIE)
+    set(RBLXBUILD_${lang}_LINK_OPTIONS_PIE ${RBLXBUILD_C_LINK_OPTIONS_PIE})
+  endif()
+  if(NOT DEFINED RBLXBUILD_${lang}_LINK_OPTIONS_NO_PIE)
+    set(RBLXBUILD_${lang}_LINK_OPTIONS_NO_PIE ${RBLXBUILD_C_LINK_OPTIONS_NO_PIE})
+  endif()
+
+  if(NOT DEFINED RBLXBUILD_${lang}_COMPILE_OPTIONS_DLL)
+    set(RBLXBUILD_${lang}_COMPILE_OPTIONS_DLL ${RBLXBUILD_C_COMPILE_OPTIONS_DLL})
+  endif()
+
+  if(NOT DEFINED RBLXBUILD_SHARED_LIBRARY_${lang}_FLAGS)
+    set(RBLXBUILD_SHARED_LIBRARY_${lang}_FLAGS ${RBLXBUILD_SHARED_LIBRARY_C_FLAGS})
+  endif()
+
+  if(NOT DEFINED RBLXBUILD_SHARED_LIBRARY_LINK_${lang}_FLAGS)
+    set(RBLXBUILD_SHARED_LIBRARY_LINK_${lang}_FLAGS ${RBLXBUILD_SHARED_LIBRARY_LINK_C_FLAGS})
+  endif()
+
+  if(NOT DEFINED RBLXBUILD_SHARED_LIBRARY_RUNTIME_${lang}_FLAG)
+    set(RBLXBUILD_SHARED_LIBRARY_RUNTIME_${lang}_FLAG ${RBLXBUILD_SHARED_LIBRARY_RUNTIME_C_FLAG})
+  endif()
+
+  if(NOT DEFINED RBLXBUILD_SHARED_LIBRARY_RUNTIME_${lang}_FLAG_SEP)
+    set(RBLXBUILD_SHARED_LIBRARY_RUNTIME_${lang}_FLAG_SEP ${RBLXBUILD_SHARED_LIBRARY_RUNTIME_C_FLAG_SEP})
+  endif()
+
+  if(NOT DEFINED RBLXBUILD_SHARED_LIBRARY_RPATH_LINK_${lang}_FLAG)
+    set(RBLXBUILD_SHARED_LIBRARY_RPATH_LINK_${lang}_FLAG ${RBLXBUILD_SHARED_LIBRARY_RPATH_LINK_C_FLAG})
+  endif()
+
+  if(NOT DEFINED RBLXBUILD_EXE_EXPORTS_${lang}_FLAG)
+    set(RBLXBUILD_EXE_EXPORTS_${lang}_FLAG ${RBLXBUILD_EXE_EXPORTS_C_FLAG})
+  endif()
+
+  if(NOT DEFINED RBLXBUILD_SHARED_LIBRARY_SONAME_${lang}_FLAG)
+    set(RBLXBUILD_SHARED_LIBRARY_SONAME_${lang}_FLAG ${RBLXBUILD_SHARED_LIBRARY_SONAME_C_FLAG})
+  endif()
+
+  if(NOT DEFINED RBLXBUILD_EXECUTABLE_RUNTIME_${lang}_FLAG)
+    set(RBLXBUILD_EXECUTABLE_RUNTIME_${lang}_FLAG ${RBLXBUILD_SHARED_LIBRARY_RUNTIME_${lang}_FLAG})
+  endif()
+
+  if(NOT DEFINED RBLXBUILD_EXECUTABLE_RUNTIME_${lang}_FLAG_SEP)
+    set(RBLXBUILD_EXECUTABLE_RUNTIME_${lang}_FLAG_SEP ${RBLXBUILD_SHARED_LIBRARY_RUNTIME_${lang}_FLAG_SEP})
+  endif()
+
+  if(NOT DEFINED RBLXBUILD_EXECUTABLE_RPATH_LINK_${lang}_FLAG)
+    set(RBLXBUILD_EXECUTABLE_RPATH_LINK_${lang}_FLAG ${RBLXBUILD_SHARED_LIBRARY_RPATH_LINK_${lang}_FLAG})
+  endif()
+
+  if(NOT DEFINED RBLXBUILD_SHARED_LIBRARY_LINK_${lang}_WITH_RUNTIME_PATH)
+    set(RBLXBUILD_SHARED_LIBRARY_LINK_${lang}_WITH_RUNTIME_PATH ${RBLXBUILD_SHARED_LIBRARY_LINK_C_WITH_RUNTIME_PATH})
+  endif()
+
+  if(NOT DEFINED RBLXBUILD_INCLUDE_FLAG_${lang})
+    set(RBLXBUILD_INCLUDE_FLAG_${lang} ${RBLXBUILD_INCLUDE_FLAG_C})
+  endif()
+
+  # for most systems a module is the same as a shared library
+  # so unless the variable RBLXBUILD_MODULE_EXISTS is set just
+  # copy the values from the LIBRARY variables
+  if(NOT RBLXBUILD_MODULE_EXISTS)
+    set(RBLXBUILD_SHARED_MODULE_${lang}_FLAGS "${RBLXBUILD_SHARED_LIBRARY_${lang}_FLAGS}")
+    set(RBLXBUILD_SHARED_MODULE_CREATE_${lang}_FLAGS "${RBLXBUILD_SHARED_LIBRARY_CREATE_${lang}_FLAGS}")
+  endif()
+
+  if(NOT DEFINED RBLXBUILD_SHARED_MODULE_CREATE_${lang}_FLAGS)
+    set(RBLXBUILD_SHARED_MODULE_CREATE_${lang}_FLAGS "${RBLXBUILD_SHARED_LIBRARY_CREATE_C_FLAGS}")
+  endif()
+  if(NOT DEFINED RBLXBUILD_SHARED_MODULE_${lang}_FLAGS)
+    set(RBLXBUILD_SHARED_MODULE_${lang}_FLAGS "${RBLXBUILD_SHARED_LIBRARY_C_FLAGS}")
+  endif()
+
+  foreach(type IN ITEMS SHARED_LIBRARY SHARED_MODULE EXE)
+    if(NOT DEFINED RBLXBUILD_${type}_LINK_STATIC_${lang}_FLAGS)
+      set(RBLXBUILD_${type}_LINK_STATIC_${lang}_FLAGS
+        ${RBLXBUILD_${type}_LINK_STATIC_C_FLAGS})
+    endif()
+    if(NOT DEFINED RBLXBUILD_${type}_LINK_DYNAMIC_${lang}_FLAGS)
+      set(RBLXBUILD_${type}_LINK_DYNAMIC_${lang}_FLAGS
+        ${RBLXBUILD_${type}_LINK_DYNAMIC_C_FLAGS})
+    endif()
+  endforeach()
+endmacro()

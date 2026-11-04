@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 /* clang-format off */
 #include "cmGeneratorTarget.h"
 /* clang-format on */
@@ -45,7 +45,7 @@
 #include "cmTarget.h"
 #include "cmTargetTypes.h"
 #include "cmValue.h"
-#include "cmake.h"
+#include "rblxbuild.h"
 
 namespace {
 using UseTo = cmGeneratorTarget::UseTo;
@@ -67,7 +67,7 @@ void AddObjectEntries(cmGeneratorTarget const* headTarget,
             lib.Target);
         std::string genex =
           cmStrCat("$<TARGET_OBJECTS:", std::move(uniqueName), '>');
-        cmGeneratorExpression ge(*headTarget->Makefile->GetCMakeInstance(),
+        cmGeneratorExpression ge(*headTarget->Makefile->GetRBLXBuildInstance(),
                                  lib.Backtrace);
         std::unique_ptr<cmCompiledGeneratorExpression> cge =
           ge.Parse(std::move(genex));
@@ -202,7 +202,7 @@ bool processSources(cmGeneratorTarget const* tgt, std::string const& config,
       }
     }
     if (!usedSources.empty()) {
-      tgt->GetLocalGenerator()->GetCMakeInstance()->IssueMessage(
+      tgt->GetLocalGenerator()->GetRBLXBuildInstance()->IssueMessage(
         MessageType::LOG,
         cmStrCat("Used sources for target ", tgt->GetName(), ":\n",
                  usedSources),
@@ -219,7 +219,7 @@ std::vector<BT<std::string>> cmGeneratorTarget::GetSourceFilePaths(
   std::vector<BT<std::string>> files;
 
   cmList debugProperties{ this->Makefile->GetDefinition(
-    "CMAKE_DEBUG_TARGET_PROPERTIES") };
+    "RBLXBUILD_DEBUG_TARGET_PROPERTIES") };
   bool debugSources =
     !this->DebugSourcesDone && cm::contains(debugProperties, "SOURCES");
 
@@ -274,7 +274,7 @@ std::vector<BT<std::string>> cmGeneratorTarget::GetSourceFilePaths(
     cmGeneratorFileSet const* fileSet = this->GetFileSetForSource(config, sf);
     if (fileSet && fileSet->GetType() == cm::FileSetMetadata::HEADERS) {
       sf->SetProperty("HEADER_FILE_ONLY", "TRUE");
-#if !defined(CMAKE_BOOTSTRAP)
+#if !defined(RBLXBUILD_BOOTSTRAP)
       cmMakefile* mf = this->Target->GetMakefile();
       std::string const& path = sf->GetFullPath();
       bool found = false;
@@ -377,7 +377,7 @@ cmGeneratorTarget::KindedSources const& cmGeneratorTarget::GetKindedSources(
   auto it = this->KindedSourcesMap.find(key);
   if (it != this->KindedSourcesMap.end()) {
     if (!it->second.Initialized) {
-      this->GlobalGenerator->GetCMakeInstance()->IssueMessage(
+      this->GlobalGenerator->GetRBLXBuildInstance()->IssueMessage(
         MessageType::FATAL_ERROR,
         cmStrCat("The SOURCES of \"", this->GetName(),
                  "\" use a generator expression that depends on the "
@@ -512,7 +512,7 @@ void cmGeneratorTarget::ComputeKindedSources(KindedSources& files,
                "but may contain only sources that compile, header files, and "
                "other files that would not affect linking of a normal "
                "library.");
-    this->GlobalGenerator->GetCMakeInstance()->IssueMessage(
+    this->GlobalGenerator->GetRBLXBuildInstance()->IssueMessage(
       MessageType::FATAL_ERROR, e, this->GetBacktrace());
   }
 }

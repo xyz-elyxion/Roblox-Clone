@@ -1,10 +1,10 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmAffinity.h"
 
 #include <cm3p/uv.h>
 
-#ifndef CMAKE_USE_SYSTEM_LIBUV
+#ifndef RBLXBUILD_USE_SYSTEM_LIBUV
 #  ifdef _WIN32
 #    define CM_HAVE_CPU_AFFINITY
 #    include <windows.h>

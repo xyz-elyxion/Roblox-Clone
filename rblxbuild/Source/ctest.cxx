@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 
 #include <cstring>
 #include <iostream>
@@ -22,7 +22,7 @@
 namespace {
 cmDocumentationEntry const cmDocumentationName = {
   {},
-  "  ctest - Testing driver provided by CMake."
+  "  ctest - Testing driver provided by RBLXBuild."
 };
 
 cmDocumentationEntry const cmDocumentationUsage = { {}, "  ctest [options]" };
@@ -143,9 +143,9 @@ cmDocumentationEntry const cmDocumentationOptions[] = {
   { "--build-and-test <path-to-source> <path-to-build>",
     "Configure, build and run a test." },
   { "--build-target <tgt>", "Specify a specific target to build." },
-  { "--build-nocmake", "Run the build without running cmake first." },
+  { "--build-norblxbuild", "Run the build without running rblxbuild first." },
   { "--build-run-dir <dir>", "Specify directory to run programs from." },
-  { "--build-two-config", "Run CMake twice" },
+  { "--build-two-config", "Run RBLXBuild twice" },
   { "--build-exe-dir <dir>", "Specify the directory for the executable." },
   { "--build-generator <generator-name>", "Specify the generator to use." },
   { "--build-generator-platform <platform-name>",
@@ -201,7 +201,7 @@ int main(int argc, char const* const* argv)
   argc = encoding_args.argc();
   argv = encoding_args.argv();
 
-  cmSystemTools::InitializeCMake(argv[0]);
+  cmSystemTools::InitializeRBLXBuild(argv[0]);
 
   // Dispatch 'ctest --launch' mode directly.
   if (argc >= 2 && strcmp(argv[1], "--launch") == 0) {
@@ -240,7 +240,7 @@ int main(int argc, char const* const* argv)
     return 1;
   }
 
-  bool const haveTestfile = cmSystemTools::FileExists("CTestTestfile.cmake") ||
+  bool const haveTestfile = cmSystemTools::FileExists("CTestTestfile.rblxbuild") ||
     cmSystemTools::FileExists("DartTestfile.txt");
 
   // If there is a testing input file, check for documentation options
@@ -268,7 +268,7 @@ int main(int argc, char const* const* argv)
   // copy the args to a vector
   auto args = std::vector<std::string>(argv, argv + argc);
 
-  // Record coverage of the CMake code that ctest runs itself.
+  // Record coverage of the RBLXBuild code that ctest runs itself.
   std::string error;
   if (!cmListFileCoverage::Start(error)) {
     cmSystemTools::Error(error);

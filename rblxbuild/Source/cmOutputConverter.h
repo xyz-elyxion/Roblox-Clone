@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #pragma once
 
 #include "cmConfigure.h" // IWYU pragma: keep
@@ -118,7 +118,7 @@ public:
     Wrap,
     NoWrap,
   };
-  static std::string EscapeForCMake(cm::string_view str,
+  static std::string EscapeForRBLXBuild(cm::string_view str,
                                     WrapQuotes wrapQuotes = WrapQuotes::Wrap);
 
   /** Compute an escaped version of the given argument for use in a

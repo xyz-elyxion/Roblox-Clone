@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 
 #include "cmDyndepCollation.h"
 
@@ -561,7 +561,7 @@ bool cmDyndepCollation::WriteDyndepMetadata(
       cmStrCat(exp.Prefix, '/', exp.CxxModuleInfoDir, '/');
     std::string const property_file_path =
       cmStrCat(export_dir, "target-"_s, exp.FilesystemName, '-',
-               export_info.Config, ".cmake"_s);
+               export_info.Config, ".rblxbuild"_s);
     exp_helper.Manifest.MetadataFilePath =
       cmStrCat(exp.Destination, '/', exp.CxxModuleInfoDir, "/target-"_s,
                exp.FilesystemName, '-', export_info.Config, ".modules.json"_s);
@@ -601,7 +601,7 @@ bool cmDyndepCollation::WriteDyndepMetadata(
   }
 
   auto cmEscape = [](cm::string_view str) {
-    return cmOutputConverter::EscapeForCMake(
+    return cmOutputConverter::EscapeForRBLXBuild(
       str, cmOutputConverter::WrapQuotes::NoWrap);
   };
   auto install_destination =
@@ -809,16 +809,16 @@ bool cmDyndepCollation::WriteDyndepMetadata(
       if (bmi_install_script) {
         auto const& bmi_install = *export_info.BmiInstallation;
 
-        *bmi_install_script << "if (CMAKE_INSTALL_COMPONENT STREQUAL \""
+        *bmi_install_script << "if (RBLXBUILD_INSTALL_COMPONENT STREQUAL \""
                             << cmEscape(bmi_install.Component) << '\"';
         if (!bmi_install.ExcludeFromAll) {
-          *bmi_install_script << " OR NOT CMAKE_INSTALL_COMPONENT";
+          *bmi_install_script << " OR NOT RBLXBUILD_INSTALL_COMPONENT";
         }
         *bmi_install_script << ")\n";
         *bmi_install_script << "  file(INSTALL\n"
                                "    DESTINATION \"";
         if (!bmi_dest_is_abs) {
-          *bmi_install_script << "${CMAKE_INSTALL_PREFIX}/";
+          *bmi_install_script << "${RBLXBUILD_INSTALL_PREFIX}/";
         }
         *bmi_install_script << cmEscape(bmi_install.Destination)
                             << "\"\n"
@@ -836,19 +836,19 @@ bool cmDyndepCollation::WriteDyndepMetadata(
         *bmi_install_script << "    FILES \"" << *m << "\")\n";
         if (bmi_dest_is_abs) {
           *bmi_install_script
-            << "  list(APPEND CMAKE_ABSOLUTE_DESTINATION_FILES\n"
+            << "  list(APPEND RBLXBUILD_ABSOLUTE_DESTINATION_FILES\n"
                "    \""
             << cmEscape(cmSystemTools::GetFilenameNameView(*m))
             << "\")\n"
-               "  if (CMAKE_WARN_ON_ABSOLUTE_INSTALL_DESTINATION)\n"
+               "  if (RBLXBUILD_WARN_ON_ABSOLUTE_INSTALL_DESTINATION)\n"
                "    message(WARNING\n"
                "      \"ABSOLUTE path INSTALL DESTINATION : "
-               "${CMAKE_ABSOLUTE_DESTINATION_FILES}\")\n"
+               "${RBLXBUILD_ABSOLUTE_DESTINATION_FILES}\")\n"
                "  endif ()\n"
-               "  if (CMAKE_ERROR_ON_ABSOLUTE_INSTALL_DESTINATION)\n"
+               "  if (RBLXBUILD_ERROR_ON_ABSOLUTE_INSTALL_DESTINATION)\n"
                "    message(FATAL_ERROR\n"
                "      \"ABSOLUTE path INSTALL DESTINATION forbidden (by "
-               "caller): ${CMAKE_ABSOLUTE_DESTINATION_FILES}\")\n"
+               "caller): ${RBLXBUILD_ABSOLUTE_DESTINATION_FILES}\")\n"
                "  endif ()\n";
         }
         *bmi_install_script << "endif ()\n";

@@ -1,0 +1,85 @@
+# Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
+# file LICENSE.rst or https://rblxbuild.org/licensing for details.
+
+#[=======================================================================[.rst:
+TestForSSTREAM
+--------------
+
+This module checks whether the C++ standard header ``<sstream>`` exists and
+functions correctly.
+
+Load this module in a RBLXBuild project with:
+
+.. code-block:: rblxbuild
+
+  include(TestForSSTREAM)
+
+In early versions of C++ (pre-C++98), the ``<sstream>`` header was not
+formally standardized and may not have been available.
+
+This module defines the following cache variables:
+
+``RBLXBUILD_NO_ANSI_STRING_STREAM``
+  A cache variable indicating whether the ``<sstream>`` header is available. It
+  will be set to value ``0`` if ``<sstream>`` is available (``C++ 98`` and
+  newer), and to value ``1`` if ``<sstream>`` is missing (``ANSI C++``).
+
+``RBLXBUILD_HAS_ANSI_STRING_STREAM``
+  A cache variable that is the opposite of ``RBLXBUILD_NO_ANSI_STRING_STREAM``
+  (true if ``<sstream>`` is available and false if ``<sstream>`` is missing).
+
+.. note::
+
+  The ``<sstream>`` header was formally introduced in the ``C++ 98`` standard,
+  making this check obsolete for modern compilers.
+
+Examples
+^^^^^^^^
+
+Including this module will check for ``<sstream>`` support and define the
+``RBLXBUILD_NO_ANSI_STRING_STREAM`` cache variable:
+
+.. code-block:: rblxbuild
+  :caption: ``RBLXBuildLists.txt``
+
+  include(TestForSSTREAM)
+  file(
+    CONFIGURE
+    OUTPUT config.h
+    CONTENT "#rblxbuilddefine RBLXBUILD_NO_ANSI_STRING_STREAM"
+  )
+
+Then it can be used in a C++ program:
+
+.. code-block:: c++
+  :caption: ``example.cxx``
+
+  #include "config.h"
+
+  #ifndef RBLXBUILD_NO_ANSI_STRING_STREAM
+  #  include <sstream>
+  #endif
+
+  int main() { ... }
+
+See Also
+^^^^^^^^
+
+* The :module:`RBLXBuildBackwardCompatibilityCXX` module.
+#]=======================================================================]
+
+if(NOT DEFINED RBLXBUILD_HAS_ANSI_STRING_STREAM)
+  message(CHECK_START "Check for sstream")
+  try_compile(RBLXBUILD_HAS_ANSI_STRING_STREAM
+    SOURCES ${RBLXBUILD_ROOT}/Modules/TestForSSTREAM.cxx
+    )
+  if (RBLXBUILD_HAS_ANSI_STRING_STREAM)
+    message(CHECK_PASS "found")
+    set (RBLXBUILD_NO_ANSI_STRING_STREAM 0 CACHE INTERNAL
+         "Does the compiler support sstream")
+  else ()
+    message(CHECK_FAIL "not found")
+    set (RBLXBUILD_NO_ANSI_STRING_STREAM 1 CACHE INTERNAL
+       "Does the compiler support sstream")
+  endif ()
+endif()

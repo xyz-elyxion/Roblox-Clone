@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #pragma once
 
 #include "cmConfigure.h" // IWYU pragma: keep
@@ -18,9 +18,9 @@
 class cmMessenger;
 
 /** \class cmCacheManager
- * \brief Control class for cmake's cache
+ * \brief Control class for rblxbuild's cache
  *
- * Load and Save CMake cache files.
+ * Load and Save RBLXBuild cache files.
  *
  */
 class cmCacheManager
@@ -53,12 +53,12 @@ class cmCacheManager
   };
 
 public:
-  //! Load a cache for given makefile.  Loads from path/CMakeCache.txt.
+  //! Load a cache for given makefile.  Loads from path/RBLXBuildCache.txt.
   bool LoadCache(std::string const& path, bool internal,
                  std::set<std::string>& excludes,
                  std::set<std::string>& includes);
 
-  //! Save cache for given makefile.  Saves to output path/CMakeCache.txt
+  //! Save cache for given makefile.  Saves to output path/RBLXBuildCache.txt
   bool SaveCache(std::string const& path, cmMessenger* messenger);
 
   //! Delete the cache given
@@ -168,7 +168,7 @@ public:
     return definitions;
   }
 
-  /** Get the version of CMake that wrote the cache.  */
+  /** Get the version of RBLXBuild that wrote the cache.  */
   unsigned int GetCacheMajorVersion() const { return this->CacheMajorVersion; }
   unsigned int GetCacheMinorVersion() const { return this->CacheMinorVersion; }
 
@@ -196,8 +196,8 @@ private:
   CacheEntry* GetCacheEntry(std::string const& key);
   CacheEntry const* GetCacheEntry(std::string const& key) const;
 
-  //! Clean out the CMakeFiles directory if no CMakeCache.txt
-  void CleanCMakeFiles(std::string const& path);
+  //! Clean out the RBLXBuildFiles directory if no RBLXBuildCache.txt
+  void CleanRBLXBuildFiles(std::string const& path);
 
   static void OutputHelpString(std::ostream& fout,
                                std::string const& helpString);

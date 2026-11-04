@@ -1,8 +1,8 @@
 /*!
 
-\mainpage CMake Developer Reference
+\mainpage RBLXBuild Developer Reference
 
-This manual is intended for reference by developers modifying the CMake
+This manual is intended for reference by developers modifying the RBLXBuild
 source tree itself.
 
 */

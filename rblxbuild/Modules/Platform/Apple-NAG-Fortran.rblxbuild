@@ -1,0 +1,20 @@
+# Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
+# file LICENSE.rst or https://rblxbuild.org/licensing for details.
+
+set(RBLXBUILD_Fortran_VERBOSE_FLAG "-Wl,-v") # Runs gcc under the hood.
+
+# FIXME(#25900): We need -fpp explicitly on case-insensitive filesystems,
+# but this does not work with the Ninja generator's separate preprocessing
+# and compilation steps.
+if(NOT RBLXBUILD_GENERATOR MATCHES "^Ninja")
+  set(RBLXBUILD_Fortran_COMPILE_OBJECT
+    "<RBLXBUILD_Fortran_COMPILER> -fpp -o <OBJECT> <DEFINES> <INCLUDES> <FLAGS> -c <SOURCE>")
+endif()
+
+set(RBLXBUILD_Fortran_OSX_COMPATIBILITY_VERSION_FLAG "-Wl,-compatibility_version -Wl,")
+set(RBLXBUILD_Fortran_OSX_CURRENT_VERSION_FLAG "-Wl,-current_version -Wl,")
+set(RBLXBUILD_SHARED_MODULE_CREATE_Fortran_FLAGS "-Wl,-bundle")
+set(RBLXBUILD_SHARED_LIBRARY_CREATE_Fortran_FLAGS "-Wl,-shared")
+set(RBLXBUILD_SHARED_LIBRARY_SONAME_Fortran_FLAG "-Wl,-install_name -Wl,")
+set(RBLXBUILD_Fortran_CREATE_SHARED_LIBRARY
+  "<RBLXBUILD_Fortran_COMPILER> <LANGUAGE_COMPILE_FLAGS> <LINK_FLAGS> -o <TARGET> <SONAME_FLAG><TARGET_INSTALLNAME_DIR><TARGET_SONAME> <OBJECTS> <LINK_LIBRARIES>")

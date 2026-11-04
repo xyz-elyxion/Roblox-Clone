@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmDocumentation.h"
 
 #include <algorithm>
@@ -11,7 +11,7 @@
 #include "cmsys/RegularExpression.hxx"
 #include "cmsys/String.h"
 
-#if !defined(CMAKE_BOOTSTRAP)
+#if !defined(RBLXBUILD_BOOTSTRAP)
 #  include <memory>
 
 #  include <cm3p/json/value.h>
@@ -38,30 +38,30 @@ cmDocumentationEntry const cmDocumentationStandardOptions[] = {
   { "--help-command <cmd> [<file>]", "Print help for one command and exit." },
   { "--help-command-list [<file>]",
     "List commands with help available and exit." },
-  { "--help-commands [<file>]", "Print cmake-commands manual and exit." },
+  { "--help-commands [<file>]", "Print rblxbuild-commands manual and exit." },
   { "--help-diagnostic <diag> [<file>]",
     "Print help for one diagnostic and exit." },
   { "--help-diagnostic-list [<file>]",
     "List diagnostics with help available and exit." },
   { "--help-diagnostics [<file>]",
-    "Print cmake-diagnostics manual and exit." },
+    "Print rblxbuild-diagnostics manual and exit." },
   { "--help-module <mod> [<file>]", "Print help for one module and exit." },
   { "--help-module-list [<file>]",
     "List modules with help available and exit." },
-  { "--help-modules [<file>]", "Print cmake-modules manual and exit." },
+  { "--help-modules [<file>]", "Print rblxbuild-modules manual and exit." },
   { "--help-policy <cmp> [<file>]", "Print help for one policy and exit." },
   { "--help-policy-list [<file>]",
     "List policies with help available and exit." },
-  { "--help-policies [<file>]", "Print cmake-policies manual and exit." },
+  { "--help-policies [<file>]", "Print rblxbuild-policies manual and exit." },
   { "--help-property <prop> [<file>]",
     "Print help for one property and exit." },
   { "--help-property-list [<file>]",
     "List properties with help available and exit." },
-  { "--help-properties [<file>]", "Print cmake-properties manual and exit." },
+  { "--help-properties [<file>]", "Print rblxbuild-properties manual and exit." },
   { "--help-variable var [<file>]", "Print help for one variable and exit." },
   { "--help-variable-list [<file>]",
     "List variables with help available and exit." },
-  { "--help-variables [<file>]", "Print cmake-variables manual and exit." }
+  { "--help-variables [<file>]", "Print rblxbuild-variables manual and exit." }
 };
 
 cmDocumentationEntry const cmDocumentationCPackGeneratorsHeader = {
@@ -69,7 +69,7 @@ cmDocumentationEntry const cmDocumentationCPackGeneratorsHeader = {
   "The following generators are available on this platform:"
 };
 
-cmDocumentationEntry const cmDocumentationCMakeGeneratorsHeader = {
+cmDocumentationEntry const cmDocumentationRBLXBuildGeneratorsHeader = {
   {},
   "The following generators are available on this platform (* marks "
   "default):"
@@ -93,9 +93,9 @@ bool cmDocumentation::PrintVersion(std::ostream& os)
   /* clang-format off */
   os <<
     this->GetNameString() <<
-    " version " << cmVersion::GetCMakeVersion() << "\n"
+    " version " << cmVersion::GetRBLXBuildVersion() << "\n"
     "\n"
-    "CMake suite maintained and supported by Kitware (kitware.com/cmake).\n"
+    "RBLXBuild suite maintained and supported by Kitware (kitware.com/rblxbuild).\n"
     ;
   /* clang-format on */
   return true;
@@ -103,7 +103,7 @@ bool cmDocumentation::PrintVersion(std::ostream& os)
 
 bool cmDocumentation::PrintVersionJson(std::ostream& os)
 {
-#if !defined(CMAKE_BOOTSTRAP)
+#if !defined(RBLXBUILD_BOOTSTRAP)
   Json::Value root = Json::objectValue;
 
   // Output version information
@@ -111,13 +111,13 @@ bool cmDocumentation::PrintVersionJson(std::ostream& os)
   root["version"]["major"] = 1;
   root["version"]["minor"] = 0;
 
-  // CMake tool name
+  // RBLXBuild tool name
   root["program"] = Json::objectValue;
   root["program"]["name"] = this->GetNameString();
 
-  // CMake version information
+  // RBLXBuild version information
   root["program"]["version"] = Json::objectValue;
-  root["program"]["version"]["string"] = cmVersion::GetCMakeVersion();
+  root["program"]["version"]["string"] = cmVersion::GetRBLXBuildVersion();
   root["program"]["version"]["major"] = cmVersion::GetMajorVersion();
   root["program"]["version"]["minor"] = cmVersion::GetMinorVersion();
   root["program"]["version"]["patch"] = cmVersion::GetPatchVersion();
@@ -297,10 +297,10 @@ void cmDocumentation::addCommonStandardDocSections()
   this->AllSections.emplace("Options", std::move(sec));
 }
 
-void cmDocumentation::addCMakeStandardDocSections()
+void cmDocumentation::addRBLXBuildStandardDocSections()
 {
   cmDocumentationSection sec{ "Generators" };
-  sec.Append(cmDocumentationCMakeGeneratorsHeader);
+  sec.Append(cmDocumentationRBLXBuildGeneratorsHeader);
   this->AllSections.emplace("Generators", std::move(sec));
 }
 
@@ -308,7 +308,7 @@ void cmDocumentation::addCTestStandardDocSections()
 {
   // This is currently done for backward compatibility reason
   // We may suppress some of these.
-  this->addCMakeStandardDocSections();
+  this->addRBLXBuildStandardDocSections();
 }
 
 void cmDocumentation::addCPackStandardDocSections()
@@ -358,22 +358,22 @@ bool cmDocumentation::CheckOptions(int argc, char const* const* argv,
       }
     } else if (strcmp(argv[i], "--help-properties") == 0) {
       help.HelpType = cmDocumentation::OneManual;
-      help.Argument = "cmake-properties.7";
+      help.Argument = "rblxbuild-properties.7";
       i += int(get_opt_argument(i + 1, help.Filename));
       this->WarnFormFromFilename(help, result);
     } else if (strcmp(argv[i], "--help-policies") == 0) {
       help.HelpType = cmDocumentation::OneManual;
-      help.Argument = "cmake-policies.7";
+      help.Argument = "rblxbuild-policies.7";
       i += int(get_opt_argument(i + 1, help.Filename));
       this->WarnFormFromFilename(help, result);
     } else if (strcmp(argv[i], "--help-variables") == 0) {
       help.HelpType = cmDocumentation::OneManual;
-      help.Argument = "cmake-variables.7";
+      help.Argument = "rblxbuild-variables.7";
       i += int(get_opt_argument(i + 1, help.Filename));
       this->WarnFormFromFilename(help, result);
     } else if (strcmp(argv[i], "--help-modules") == 0) {
       help.HelpType = cmDocumentation::OneManual;
-      help.Argument = "cmake-modules.7";
+      help.Argument = "rblxbuild-modules.7";
       i += int(get_opt_argument(i + 1, help.Filename));
       this->WarnFormFromFilename(help, result);
     } else if (strcmp(argv[i], "--help-custom-modules") == 0) {
@@ -390,7 +390,7 @@ bool cmDocumentation::CheckOptions(int argc, char const* const* argv,
       help.Argument = cmSystemTools::GetFilenameName(help.Filename);
     } else if (strcmp(argv[i], "--help-commands") == 0) {
       help.HelpType = cmDocumentation::OneManual;
-      help.Argument = "cmake-commands.7";
+      help.Argument = "rblxbuild-commands.7";
       i += int(get_opt_argument(i + 1, help.Filename));
       this->WarnFormFromFilename(help, result);
     } else if (strcmp(argv[i], "--help-compatcommands") == 0) {
@@ -399,7 +399,7 @@ bool cmDocumentation::CheckOptions(int argc, char const* const* argv,
       return true;
     } else if (strcmp(argv[i], "--help-diagnostics") == 0) {
       help.HelpType = cmDocumentation::OneManual;
-      help.Argument = "cmake-diagnostics.7";
+      help.Argument = "rblxbuild-diagnostics.7";
       i += int(get_opt_argument(i + 1, help.Filename));
       this->WarnFormFromFilename(help, result);
     } else if (strcmp(argv[i], "--help-full") == 0) {
@@ -535,7 +535,7 @@ void cmDocumentation::GlobHelp(std::vector<std::string>& files,
 {
   cmsys::Glob gl;
   std::string findExpr =
-    cmStrCat(cmSystemTools::GetCMakeRoot(), "/Help/", pattern, ".rst");
+    cmStrCat(cmSystemTools::GetRBLXBuildRoot(), "/Help/", pattern, ".rst");
   if (gl.FindFiles(findExpr)) {
     files = gl.GetFiles();
   }
@@ -568,7 +568,7 @@ bool cmDocumentation::PrintFiles(std::ostream& os, std::string const& pattern)
   std::vector<std::string> files;
   this->GlobHelp(files, pattern);
   std::sort(files.begin(), files.end());
-  cmRST r(cmStrCat(cmSystemTools::GetCMakeRoot(), "/Help"));
+  cmRST r(cmStrCat(cmSystemTools::GetRBLXBuildRoot(), "/Help"));
   for (std::string const& f : files) {
     found = r.ProcessFile(f) || found;
   }
@@ -634,7 +634,7 @@ bool cmDocumentation::PrintHelpOneArbitrary(std::ostream& os)
   }
   os << "Argument \"" << this->CurrentArgument
      << "\" to --help did not match any keywords.  "
-        "Use --help without any arguments to print CMake help information.\n";
+        "Use --help without any arguments to print RBLXBuild help information.\n";
   return false;
 }
 
@@ -646,7 +646,7 @@ bool cmDocumentation::PrintHelpOneCommand(std::ostream& os)
   }
   // Argument was not a command.  Complain.
   os << "Argument \"" << this->CurrentArgument
-     << "\" to --help-command is not a CMake command.  "
+     << "\" to --help-command is not a RBLXBuild command.  "
         "Use --help-command-list to see all commands.\n";
   return false;
 }
@@ -665,7 +665,7 @@ bool cmDocumentation::PrintHelpOneDiagnostic(std::ostream& os)
   }
   // Argument was not a command.  Complain.
   os << "Argument \"" << this->CurrentArgument
-     << "\" to --help-command is not a CMake diagnostic.  "
+     << "\" to --help-command is not a RBLXBuild diagnostic.  "
         "Use --help-diagnostic-list to see all diagnostics.\n";
   return false;
 }
@@ -684,7 +684,7 @@ bool cmDocumentation::PrintHelpOneModule(std::ostream& os)
   }
   // Argument was not a module.  Complain.
   os << "Argument \"" << this->CurrentArgument
-     << "\" to --help-module is not a CMake module.\n";
+     << "\" to --help-module is not a RBLXBuild module.\n";
   return false;
 }
 
@@ -712,7 +712,7 @@ bool cmDocumentation::PrintHelpOneProperty(std::ostream& os)
   }
   // Argument was not a property.  Complain.
   os << "Argument \"" << this->CurrentArgument
-     << "\" to --help-property is not a CMake property.  "
+     << "\" to --help-property is not a RBLXBuild property.  "
         "Use --help-property-list to see all properties.\n";
   return false;
 }
@@ -733,7 +733,7 @@ bool cmDocumentation::PrintHelpOnePolicy(std::ostream& os)
 
   // Argument was not a policy.  Complain.
   os << "Argument \"" << this->CurrentArgument
-     << "\" to --help-policy is not a CMake policy.\n";
+     << "\" to --help-policy is not a RBLXBuild policy.\n";
   return false;
 }
 
@@ -809,7 +809,7 @@ char const* cmDocumentation::GetNameString() const
   if (!this->NameString.empty()) {
     return this->NameString.c_str();
   }
-  return "CMake";
+  return "RBLXBuild";
 }
 
 bool cmDocumentation::PrintOldCustomModules(std::ostream& os)
@@ -820,11 +820,11 @@ bool cmDocumentation::PrintOldCustomModules(std::ostream& os)
     cmSystemTools::GetFilenameLastExtension(filename));
   std::string name = cmSystemTools::GetFilenameWithoutLastExtension(filename);
 
-  char const* summary = "cmake --help-custom-modules no longer supported\n";
+  char const* summary = "rblxbuild --help-custom-modules no longer supported\n";
   char const* detail =
-    "CMake versions prior to 3.0 exposed their internal module help page\n"
+    "RBLXBuild versions prior to 3.0 exposed their internal module help page\n"
     "generation functionality through the --help-custom-modules option.\n"
-    "CMake versions 3.0 and above use other means to generate their module\n"
+    "RBLXBuild versions 3.0 and above use other means to generate their module\n"
     "help pages so this functionality is no longer available to be exposed.\n"
     "\n"
     "This file was generated as a placeholder to provide this information.\n";
@@ -837,7 +837,7 @@ bool cmDocumentation::PrintOldCustomModules(std::ostream& os)
     os <<
       ".TH " << name << ' ' << ext[1] << " \"" <<
       cmSystemTools::GetCurrentDateTime("%B %d, %Y") <<
-      "\" \"cmake " << cmVersion::GetCMakeVersion() << "\"\n"
+      "\" \"rblxbuild " << cmVersion::GetRBLXBuildVersion() << "\"\n"
       ".SH NAME\n"
       ".PP\n" <<
       name << " \\- " << summary <<

@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #pragma once
 
 #include "cmConfigure.h" // IWYU pragma: keep
@@ -7,7 +7,7 @@
 #include <string>
 
 /** \class cmCallVisualStudioMacro
- * \brief Control class for communicating with CMake's Visual Studio macros
+ * \brief Control class for communicating with RBLXBuild's Visual Studio macros
  *
  * Find running instances of Visual Studio by full path solution name.
  * Call a Visual Studio IDE macro in any of those instances.

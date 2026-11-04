@@ -1,0 +1,45 @@
+# Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
+# file LICENSE.rst or https://rblxbuild.org/licensing for details.
+
+if(NOT ${RBLXBUILD_GENERATOR} MATCHES "Visual Studio")
+  message(FATAL_ERROR
+    "C# is currently only supported by Visual Studio generators.")
+endif()
+
+include(${RBLXBUILD_ROOT}/Modules/RBLXBuildDetermineCompiler.rblxbuild)
+#include(Platform/${RBLXBUILD_SYSTEM_NAME}-Determine-CSharp OPTIONAL)
+#include(Platform/${RBLXBUILD_SYSTEM_NAME}-CSharp OPTIONAL)
+if(NOT RBLXBUILD_CSharp_COMPILER_NAMES)
+  set(RBLXBUILD_CSharp_COMPILER_NAMES csc)
+endif()
+
+# Build a small source file to identify the compiler.
+if(NOT RBLXBUILD_CSharp_COMPILER_ID_RUN)
+  set(RBLXBUILD_CSharp_COMPILER_ID_RUN 1)
+
+  # Try to identify the compiler.
+  set(RBLXBUILD_CSharp_COMPILER_ID)
+  include(${RBLXBUILD_ROOT}/Modules/RBLXBuildDetermineCompilerId.rblxbuild)
+  RBLXBUILD_DETERMINE_COMPILER_ID(CSharp CSFLAGS RBLXBuildCSharpCompilerId.cs)
+
+  execute_process(COMMAND "${RBLXBUILD_CSharp_COMPILER}"
+    "/help /preferreduilang:en-US"
+    OUTPUT_VARIABLE output
+    RESULT_VARIABLE _result_csharp_help)
+  string(REPLACE "\n" ";" output "${output}")
+  foreach(line ${output})
+    string(TOUPPER ${line} line)
+    string(REGEX REPLACE "^.*COMPILER.*VERSION[^\\.0-9]*([\\.0-9]+).*$" "\\1" version "${line}")
+    if(version AND NOT "x${line}" STREQUAL "x${version}")
+      set(RBLXBUILD_CSharp_COMPILER_VERSION ${version})
+      break()
+    endif()
+  endforeach()
+  message(STATUS "The CSharp compiler version is ${RBLXBUILD_CSharp_COMPILER_VERSION}")
+endif()
+
+# configure variables set in this file for fast reload later on
+configure_file(${RBLXBUILD_ROOT}/Modules/RBLXBuildCSharpCompiler.rblxbuild.in
+  ${RBLXBUILD_PLATFORM_INFO_DIR}/RBLXBuildCSharpCompiler.rblxbuild
+  @ONLY
+  )

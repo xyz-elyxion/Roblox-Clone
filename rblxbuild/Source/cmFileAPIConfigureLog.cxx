@@ -1,12 +1,12 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmFileAPIConfigureLog.h"
 
 #include <cm3p/json/value.h>
 
 #include "cmFileAPI.h"
 #include "cmStringAlgorithms.h"
-#include "cmake.h"
+#include "rblxbuild.h"
 
 namespace {
 
@@ -40,8 +40,8 @@ Json::Value ConfigureLog::Dump()
 
 Json::Value ConfigureLog::DumpPath()
 {
-  return cmStrCat(this->FileAPI.GetCMakeInstance()->GetHomeOutputDirectory(),
-                  "/CMakeFiles/CMakeConfigureLog.yaml");
+  return cmStrCat(this->FileAPI.GetRBLXBuildInstance()->GetHomeOutputDirectory(),
+                  "/RBLXBuildFiles/RBLXBuildConfigureLog.yaml");
 }
 
 Json::Value ConfigureLog::DumpEventKindNames()

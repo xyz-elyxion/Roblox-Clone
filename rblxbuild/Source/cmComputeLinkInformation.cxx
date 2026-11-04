@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmComputeLinkInformation.h"
 
 #include <algorithm>
@@ -33,7 +33,7 @@
 #include "cmTargetTypes.h"
 #include "cmValue.h"
 #include "cmXcFramework.h"
-#include "cmake.h"
+#include "rblxbuild.h"
 
 // #define CM_COMPUTE_LINK_INFO_DEBUG
 
@@ -74,7 +74,7 @@ On AIX, more work is needed.
   compiled directly into the binary.
 
   By default the linker places -L paths in the embedded runtime path.
-  In order to implement CMake's RPATH interface correctly, we need the
+  In order to implement RBLXBuild's RPATH interface correctly, we need the
   -blibpath:Path option.  From "man ld":
 
       libpath:Path
@@ -256,7 +256,7 @@ cmComputeLinkInformation::cmComputeLinkInformation(
   : Target(target)
   , Makefile(target->Target->GetMakefile())
   , GlobalGenerator(target->GetLocalGenerator()->GetGlobalGenerator())
-  , CMakeInstance(this->GlobalGenerator->GetCMakeInstance())
+  , RBLXBuildInstance(this->GlobalGenerator->GetRBLXBuildInstance())
   // The configuration being linked.
   , Config(config)
 {
@@ -288,38 +288,38 @@ cmComputeLinkInformation::cmComputeLinkInformation(
   if (!this->Target->IsDLLPlatform() &&
       this->Target->GetType() == cm::TargetType::MODULE_LIBRARY) {
     std::string loader_flag_var =
-      cmStrCat("CMAKE_SHARED_MODULE_LOADER_", this->LinkLanguage, "_FLAG");
+      cmStrCat("RBLXBUILD_SHARED_MODULE_LOADER_", this->LinkLanguage, "_FLAG");
     this->LoaderFlag = this->Makefile->GetDefinition(loader_flag_var);
   }
 
   // Get options needed to link libraries.
   if (cmValue flag = this->Makefile->GetDefinition(
-        cmStrCat("CMAKE_", this->LinkLanguage, "_LINK_LIBRARY_FLAG"))) {
+        cmStrCat("RBLXBUILD_", this->LinkLanguage, "_LINK_LIBRARY_FLAG"))) {
     this->LibLinkFlag = *flag;
   } else {
     this->LibLinkFlag =
-      this->Makefile->GetSafeDefinition("CMAKE_LINK_LIBRARY_FLAG");
+      this->Makefile->GetSafeDefinition("RBLXBUILD_LINK_LIBRARY_FLAG");
   }
   if (cmValue flag = this->Makefile->GetDefinition(
-        cmStrCat("CMAKE_", this->LinkLanguage, "_LINK_LIBRARY_FILE_FLAG"))) {
+        cmStrCat("RBLXBUILD_", this->LinkLanguage, "_LINK_LIBRARY_FILE_FLAG"))) {
     this->LibLinkFileFlag = *flag;
   } else {
     this->LibLinkFileFlag =
-      this->Makefile->GetSafeDefinition("CMAKE_LINK_LIBRARY_FILE_FLAG");
+      this->Makefile->GetSafeDefinition("RBLXBUILD_LINK_LIBRARY_FILE_FLAG");
   }
   if (cmValue suffix = this->Makefile->GetDefinition(
-        cmStrCat("CMAKE_", this->LinkLanguage, "_LINK_LIBRARY_SUFFIX"))) {
+        cmStrCat("RBLXBUILD_", this->LinkLanguage, "_LINK_LIBRARY_SUFFIX"))) {
     this->LibLinkSuffix = *suffix;
   } else {
     this->LibLinkSuffix =
-      this->Makefile->GetSafeDefinition("CMAKE_LINK_LIBRARY_SUFFIX");
+      this->Makefile->GetSafeDefinition("RBLXBUILD_LINK_LIBRARY_SUFFIX");
   }
   if (cmValue flag = this->Makefile->GetDefinition(
-        cmStrCat("CMAKE_", this->LinkLanguage, "_LINK_OBJECT_FILE_FLAG"))) {
+        cmStrCat("RBLXBUILD_", this->LinkLanguage, "_LINK_OBJECT_FILE_FLAG"))) {
     this->ObjLinkFileFlag = *flag;
   } else {
     this->ObjLinkFileFlag =
-      this->Makefile->GetSafeDefinition("CMAKE_LINK_OBJECT_FILE_FLAG");
+      this->Makefile->GetSafeDefinition("RBLXBUILD_LINK_OBJECT_FILE_FLAG");
   }
 
   // Get options needed to specify RPATHs.
@@ -330,24 +330,24 @@ cmComputeLinkInformation::cmComputeLinkInformation(
          ? "EXECUTABLE"
          : "SHARED_LIBRARY");
     std::string rtVar =
-      cmStrCat("CMAKE_", tType, "_RUNTIME_", this->LinkLanguage, "_FLAG");
+      cmStrCat("RBLXBUILD_", tType, "_RUNTIME_", this->LinkLanguage, "_FLAG");
     std::string rtSepVar = cmStrCat(rtVar, "_SEP");
     this->RuntimeFlag = this->Makefile->GetSafeDefinition(rtVar);
     this->RuntimeSep = this->Makefile->GetSafeDefinition(rtSepVar);
     this->RuntimeAlways = (this->Makefile->GetSafeDefinition(
-      "CMAKE_PLATFORM_REQUIRED_RUNTIME_PATH"));
+      "RBLXBUILD_PLATFORM_REQUIRED_RUNTIME_PATH"));
 
     this->RuntimeUseChrpath = this->Target->IsChrpathUsed(config);
 
     // Get options needed to help find dependent libraries.
     std::string rlVar =
-      cmStrCat("CMAKE_", tType, "_RPATH_LINK_", this->LinkLanguage, "_FLAG");
+      cmStrCat("RBLXBUILD_", tType, "_RPATH_LINK_", this->LinkLanguage, "_FLAG");
     this->RPathLinkFlag = this->Makefile->GetSafeDefinition(rlVar);
   }
 
   // Check if we need to include the runtime search path at link time.
   {
-    std::string var = cmStrCat("CMAKE_SHARED_LIBRARY_LINK_",
+    std::string var = cmStrCat("RBLXBUILD_SHARED_LIBRARY_LINK_",
                                this->LinkLanguage, "_WITH_RUNTIME_PATH");
     this->LinkWithRuntimePath = this->Makefile->IsOn(var);
   }
@@ -355,37 +355,37 @@ cmComputeLinkInformation::cmComputeLinkInformation(
   // Define some Feature descriptors to handle standard library and object link
   if (!this->GetLibLinkFileFlag().empty()) {
     this->LibraryFeatureDescriptors.emplace(
-      "__CMAKE_LINK_LIBRARY",
+      "__RBLXBUILD_LINK_LIBRARY",
       LibraryFeatureDescriptor{
-        "__CMAKE_LINK_LIBRARY",
+        "__RBLXBUILD_LINK_LIBRARY",
         cmStrCat(this->GetLibLinkFileFlag(), "<LIBRARY>") });
   }
   if (!this->GetObjLinkFileFlag().empty()) {
     this->LibraryFeatureDescriptors.emplace(
-      "__CMAKE_LINK_OBJECT",
+      "__RBLXBUILD_LINK_OBJECT",
       LibraryFeatureDescriptor{
-        "__CMAKE_LINK_OBJECT",
+        "__RBLXBUILD_LINK_OBJECT",
         cmStrCat(this->GetObjLinkFileFlag(), "<LIBRARY>") });
   }
   if (!this->LoaderFlag->empty()) {
     // Define a Feature descriptor for the link of an executable with exports
     this->LibraryFeatureDescriptors.emplace(
-      "__CMAKE_LINK_EXECUTABLE",
-      LibraryFeatureDescriptor{ "__CMAKE_LINK_EXECUTABLE",
+      "__RBLXBUILD_LINK_EXECUTABLE",
+      LibraryFeatureDescriptor{ "__RBLXBUILD_LINK_EXECUTABLE",
                                 cmStrCat(*this->LoaderFlag, "<LIBRARY>") });
   }
   // To link framework using a full path
   this->LibraryFeatureDescriptors.emplace(
-    "__CMAKE_LINK_FRAMEWORK",
-    LibraryFeatureDescriptor{ "__CMAKE_LINK_FRAMEWORK", "<LIBRARY>" });
+    "__RBLXBUILD_LINK_FRAMEWORK",
+    LibraryFeatureDescriptor{ "__RBLXBUILD_LINK_FRAMEWORK", "<LIBRARY>" });
   // To link xcframework using a full path
   this->LibraryFeatureDescriptors.emplace(
-    "__CMAKE_LINK_XCFRAMEWORK",
-    LibraryFeatureDescriptor{ "__CMAKE_LINK_XCFRAMEWORK", "<LIBRARY>" });
+    "__RBLXBUILD_LINK_XCFRAMEWORK",
+    LibraryFeatureDescriptor{ "__RBLXBUILD_LINK_XCFRAMEWORK", "<LIBRARY>" });
 
   // Check the platform policy for missing soname case.
   this->NoSONameUsesPath =
-    this->Makefile->IsOn("CMAKE_PLATFORM_USES_PATH_WHEN_NO_SONAME");
+    this->Makefile->IsOn("RBLXBUILD_PLATFORM_USES_PATH_WHEN_NO_SONAME");
 
   // Get link type information.
   this->ComputeLinkTypeInfo();
@@ -398,9 +398,9 @@ cmComputeLinkInformation::cmComputeLinkInformation(
 
   // Choose a mode for dealing with shared library dependencies.
   this->SharedDependencyMode = SharedDepModeNone;
-  if (this->Makefile->IsOn("CMAKE_LINK_DEPENDENT_LIBRARY_FILES")) {
+  if (this->Makefile->IsOn("RBLXBUILD_LINK_DEPENDENT_LIBRARY_FILES")) {
     this->SharedDependencyMode = SharedDepModeLink;
-  } else if (this->Makefile->IsOn("CMAKE_LINK_DEPENDENT_LIBRARY_DIRS")) {
+  } else if (this->Makefile->IsOn("RBLXBUILD_LINK_DEPENDENT_LIBRARY_DIRS")) {
     this->SharedDependencyMode = SharedDepModeLibDir;
   } else if (!this->RPathLinkFlag.empty()) {
     this->SharedDependencyMode = SharedDepModeDir;
@@ -542,7 +542,7 @@ bool cmComputeLinkInformation::Compute()
   // We require a link language for the target.
   if (this->LinkLanguage.empty()) {
     cmSystemTools::Error(
-      "CMake can not determine linker language for target: " +
+      "RBLXBuild can not determine linker language for target: " +
       this->Target->GetName());
     return false;
   }
@@ -554,7 +554,7 @@ bool cmComputeLinkInformation::Compute()
     } else if (*s == "REORDER_FREELY"_s) {
       strategy = LinkLibrariesStrategy::REORDER_FREELY;
     } else {
-      this->CMakeInstance->IssueMessage(
+      this->RBLXBuildInstance->IssueMessage(
         MessageType::FATAL_ERROR,
         cmStrCat("LINK_LIBRARIES_STRATEGY value '", *s,
                  "' is not recognized."),
@@ -799,20 +799,20 @@ bool cmComputeLinkInformation::AddLibraryFeature(std::string const& feature)
   }
 
   auto featureName =
-    cmStrCat("CMAKE_", this->LinkLanguage, "_LINK_LIBRARY_USING_", feature);
+    cmStrCat("RBLXBUILD_", this->LinkLanguage, "_LINK_LIBRARY_USING_", feature);
   cmValue featureSupported =
     this->Makefile->GetDefinition(cmStrCat(featureName, "_SUPPORTED"));
   if (!featureSupported) {
     // language specific variable is not defined, fallback to the more generic
     // one
-    featureName = cmStrCat("CMAKE_LINK_LIBRARY_USING_", feature);
+    featureName = cmStrCat("RBLXBUILD_LINK_LIBRARY_USING_", feature);
     featureSupported =
       this->Makefile->GetDefinition(cmStrCat(featureName, "_SUPPORTED"));
   }
   if (!featureSupported.IsOn()) {
     this->LibraryFeatureDescriptors.emplace(feature, FeatureDescriptor{});
 
-    this->CMakeInstance->IssueMessage(
+    this->RBLXBuildInstance->IssueMessage(
       MessageType::FATAL_ERROR,
       cmStrCat(
         "Feature '", feature,
@@ -829,7 +829,7 @@ bool cmComputeLinkInformation::AddLibraryFeature(std::string const& feature)
   if (!langFeature) {
     this->LibraryFeatureDescriptors.emplace(feature, FeatureDescriptor{});
 
-    this->CMakeInstance->IssueMessage(
+    this->RBLXBuildInstance->IssueMessage(
       MessageType::FATAL_ERROR,
       cmStrCat(
         "Feature '", feature,
@@ -848,7 +848,7 @@ bool cmComputeLinkInformation::AddLibraryFeature(std::string const& feature)
   if ((items.size() == 1 && !IsValidFeatureFormat(items.front().Value)) ||
       (items.size() == 3 && !IsValidFeatureFormat(items[1].Value))) {
     this->LibraryFeatureDescriptors.emplace(feature, FeatureDescriptor{});
-    this->CMakeInstance->IssueMessage(
+    this->RBLXBuildInstance->IssueMessage(
       MessageType::FATAL_ERROR,
       cmStrCat("Feature '", feature, "', specified by variable '", featureName,
                "', is malformed (\"<LIBRARY>\", \"<LIB_ITEM>\", or "
@@ -871,7 +871,7 @@ bool cmComputeLinkInformation::AddLibraryFeature(std::string const& feature)
     FinalizeFeatureFormat(items[2].Value, "NAME{", "PATH{");
   } else {
     this->LibraryFeatureDescriptors.emplace(feature, FeatureDescriptor{});
-    this->CMakeInstance->IssueMessage(
+    this->RBLXBuildInstance->IssueMessage(
       MessageType::FATAL_ERROR,
       cmStrCat("Feature '", feature, "', specified by variable '", featureName,
                "', is malformed (wrong number of elements) and cannot be used "
@@ -885,7 +885,7 @@ bool cmComputeLinkInformation::AddLibraryFeature(std::string const& feature)
       (items.size() == 4 && !IsValidFeatureFormat(items[1].Value))) {
     // PATH{} has wrong format
     this->LibraryFeatureDescriptors.emplace(feature, FeatureDescriptor{});
-    this->CMakeInstance->IssueMessage(
+    this->RBLXBuildInstance->IssueMessage(
       MessageType::FATAL_ERROR,
       cmStrCat("Feature '", feature, "', specified by variable '", featureName,
                "', is malformed (\"<LIBRARY>\", \"<LIB_ITEM>\", or "
@@ -901,7 +901,7 @@ bool cmComputeLinkInformation::AddLibraryFeature(std::string const& feature)
       (items.size() == 4 && !IsValidFeatureFormat(items[2].Value))) {
     // NAME{} has wrong format
     this->LibraryFeatureDescriptors.emplace(feature, FeatureDescriptor{});
-    this->CMakeInstance->IssueMessage(
+    this->RBLXBuildInstance->IssueMessage(
       MessageType::FATAL_ERROR,
       cmStrCat("Feature '", feature, "', specified by variable '", featureName,
                "', is malformed (\"<LIBRARY>\", \"<LIB_ITEM>\", or "
@@ -963,18 +963,18 @@ cmComputeLinkInformation::GetGroupFeature(std::string const& feature)
   }
 
   auto featureName =
-    cmStrCat("CMAKE_", this->LinkLanguage, "_LINK_GROUP_USING_", feature);
+    cmStrCat("RBLXBUILD_", this->LinkLanguage, "_LINK_GROUP_USING_", feature);
   cmValue featureSupported =
     this->Makefile->GetDefinition(cmStrCat(featureName, "_SUPPORTED"));
   if (!featureSupported) {
     // language specific variable is not defined, fallback to the more generic
     // one
-    featureName = cmStrCat("CMAKE_LINK_GROUP_USING_", feature);
+    featureName = cmStrCat("RBLXBUILD_LINK_GROUP_USING_", feature);
     featureSupported =
       this->Makefile->GetDefinition(cmStrCat(featureName, "_SUPPORTED"));
   }
   if (!featureSupported.IsOn()) {
-    this->CMakeInstance->IssueMessage(
+    this->RBLXBuildInstance->IssueMessage(
       MessageType::FATAL_ERROR,
       cmStrCat("Feature '", feature,
                "', specified through generator-expression '$<LINK_GROUP>' to "
@@ -988,7 +988,7 @@ cmComputeLinkInformation::GetGroupFeature(std::string const& feature)
 
   cmValue langFeature = this->Makefile->GetDefinition(featureName);
   if (!langFeature) {
-    this->CMakeInstance->IssueMessage(
+    this->RBLXBuildInstance->IssueMessage(
       MessageType::FATAL_ERROR,
       cmStrCat("Feature '", feature,
                "', specified through generator-expression '$<LINK_GROUP>' to "
@@ -1014,7 +1014,7 @@ cmComputeLinkInformation::GetGroupFeature(std::string const& feature)
       .first->second;
   }
 
-  this->CMakeInstance->IssueMessage(
+  this->RBLXBuildInstance->IssueMessage(
     MessageType::FATAL_ERROR,
     cmStrCat("Feature '", feature, "', specified by variable '", featureName,
              "', is malformed (wrong number of elements) and cannot be used "
@@ -1073,7 +1073,7 @@ void cmComputeLinkInformation::AddRuntimeLinkLibrary(std::string const& lang)
     return;
   }
   if (cmValue runtimeLinkOptions = this->Makefile->GetDefinition(cmStrCat(
-        "CMAKE_", lang, "_RUNTIME_LIBRARY_LINK_OPTIONS_", runtimeLibrary))) {
+        "RBLXBUILD_", lang, "_RUNTIME_LIBRARY_LINK_OPTIONS_", runtimeLibrary))) {
     cmList libs{ *runtimeLinkOptions };
     for (auto const& i : libs) {
       if (!cm::contains(this->ImplicitLinkLibs, i)) {
@@ -1091,9 +1091,9 @@ std::string const gcc_s_asneeded = "gcc_s_asneeded";
 void cmComputeLinkInformation::AddImplicitLinkInfo(std::string const& lang)
 {
   std::string const& libraries = this->Makefile->GetSafeDefinition(
-    cmStrCat("CMAKE_", lang, "_IMPLICIT_LINK_LIBRARIES"));
+    cmStrCat("RBLXBUILD_", lang, "_IMPLICIT_LINK_LIBRARIES"));
   std::string const& directories = this->Makefile->GetSafeDefinition(
-    cmStrCat("CMAKE_", lang, "_IMPLICIT_LINK_DIRECTORIES"));
+    cmStrCat("RBLXBUILD_", lang, "_IMPLICIT_LINK_DIRECTORIES"));
   auto const impliedByLinkerLanguage = [this](std::string const& lib) -> bool {
     if (cm::contains(this->ImplicitLinkLibs, lib)) {
       return true;
@@ -1143,7 +1143,7 @@ void cmComputeLinkInformation::AddItem(LinkEntry const& entry)
   }
 
   if (tgt && tgt->IsLinkable()) {
-    // This is a CMake target.  Ask the target for its real name.
+    // This is a RBLXBuild target.  Ask the target for its real name.
     if (impexe && this->LoaderFlag) {
       // This link item is an executable that may provide symbols
       // used by this target.  A special flag is needed on this
@@ -1156,7 +1156,7 @@ void cmComputeLinkInformation::AddItem(LinkEntry const& entry)
       this->Items.emplace_back(
         BT<std::string>(exe, item.Backtrace), ItemIsPath::Yes, tgt, nullptr,
         this->FindLibraryFeature(entry.Feature == DEFAULT
-                                   ? "__CMAKE_LINK_EXECUTABLE"
+                                   ? "__RBLXBUILD_LINK_EXECUTABLE"
                                    : entry.Feature));
       this->Depends.push_back(std::move(exe));
     } else if (tgt->GetType() == cm::TargetType::INTERFACE_LIBRARY) {
@@ -1177,7 +1177,7 @@ void cmComputeLinkInformation::AddItem(LinkEntry const& entry)
       this->Items.emplace_back(
         tgt->GetImportedXcFrameworkPath(config), ItemIsPath::Yes, tgt, nullptr,
         this->FindLibraryFeature(entry.Feature == DEFAULT
-                                   ? "__CMAKE_LINK_XCFRAMEWORK"
+                                   ? "__RBLXBUILD_LINK_XCFRAMEWORK"
                                    : entry.Feature));
     } else {
       // Decide whether to use an import library.
@@ -1198,7 +1198,7 @@ void cmComputeLinkInformation::AddItem(LinkEntry const& entry)
       if (tgt->IsAIX() && cmHasLiteralSuffix(lib.Value, "-NOTFOUND") &&
           artifact == cmStateEnums::ImportLibraryArtifact) {
         // This is an imported executable on AIX that has ENABLE_EXPORTS
-        // but not IMPORTED_IMPLIB.  CMake used to produce and accept such
+        // but not IMPORTED_IMPLIB.  RBLXBuild used to produce and accept such
         // imported executables on AIX before we taught it to use linker
         // import files.  For compatibility, simply skip linking to this
         // executable as we did before.  It works with runtime linking.
@@ -1246,7 +1246,7 @@ void cmComputeLinkInformation::AddItem(LinkEntry const& entry)
       }
     }
   } else {
-    // This is not a CMake target.  Use the name given.
+    // This is not a RBLXBuild target.  Use the name given.
     if (cmHasSuffix(entry.Feature, "FRAMEWORK"_s) ||
         (entry.Feature == DEFAULT &&
          cmSystemTools::IsPathToFramework(item.Value) &&
@@ -1389,7 +1389,7 @@ void cmComputeLinkInformation::ComputeLinkTypeInfo()
 {
   // Check whether archives may actually be shared libraries.
   this->ArchivesMayBeShared =
-    this->CMakeInstance->GetState()->GetGlobalPropertyAsBool(
+    this->RBLXBuildInstance->GetState()->GetGlobalPropertyAsBool(
       "TARGET_ARCHIVES_MAY_BE_SHARED_LIBS");
 
   // First assume we cannot do link type stuff.
@@ -1414,13 +1414,13 @@ void cmComputeLinkInformation::ComputeLinkTypeInfo()
   }
   if (target_type_str) {
     std::string static_link_type_flag_var =
-      cmStrCat("CMAKE_", target_type_str, "_LINK_STATIC_", this->LinkLanguage,
+      cmStrCat("RBLXBUILD_", target_type_str, "_LINK_STATIC_", this->LinkLanguage,
                "_FLAGS");
     static_link_type_flag =
       this->Makefile->GetDefinition(static_link_type_flag_var);
 
     std::string shared_link_type_flag_var =
-      cmStrCat("CMAKE_", target_type_str, "_LINK_DYNAMIC_", this->LinkLanguage,
+      cmStrCat("RBLXBUILD_", target_type_str, "_LINK_DYNAMIC_", this->LinkLanguage,
                "_FLAGS");
     shared_link_type_flag =
       this->Makefile->GetDefinition(shared_link_type_flag_var);
@@ -1444,28 +1444,28 @@ void cmComputeLinkInformation::ComputeItemParserInfo()
 {
   // Get possible library name prefixes.
   cmMakefile* mf = this->Makefile;
-  this->AddLinkPrefix(mf->GetSafeDefinition("CMAKE_STATIC_LIBRARY_PREFIX"));
-  this->AddLinkPrefix(mf->GetSafeDefinition("CMAKE_SHARED_LIBRARY_PREFIX"));
+  this->AddLinkPrefix(mf->GetSafeDefinition("RBLXBUILD_STATIC_LIBRARY_PREFIX"));
+  this->AddLinkPrefix(mf->GetSafeDefinition("RBLXBUILD_SHARED_LIBRARY_PREFIX"));
 
   // Import library names should be matched and treated as shared
   // libraries for the purposes of linking.
-  this->AddLinkExtension(mf->GetSafeDefinition("CMAKE_IMPORT_LIBRARY_SUFFIX"),
+  this->AddLinkExtension(mf->GetSafeDefinition("RBLXBUILD_IMPORT_LIBRARY_SUFFIX"),
                          LinkShared);
-  this->AddLinkExtension(mf->GetSafeDefinition("CMAKE_STATIC_LIBRARY_SUFFIX"),
+  this->AddLinkExtension(mf->GetSafeDefinition("RBLXBUILD_STATIC_LIBRARY_SUFFIX"),
                          LinkStatic);
-  this->AddLinkExtension(mf->GetSafeDefinition("CMAKE_SHARED_LIBRARY_SUFFIX"),
+  this->AddLinkExtension(mf->GetSafeDefinition("RBLXBUILD_SHARED_LIBRARY_SUFFIX"),
                          LinkShared);
-  this->AddLinkExtension(mf->GetSafeDefinition("CMAKE_LINK_LIBRARY_SUFFIX"),
+  this->AddLinkExtension(mf->GetSafeDefinition("RBLXBUILD_LINK_LIBRARY_SUFFIX"),
                          LinkUnknown);
   if (cmValue linkSuffixes =
-        mf->GetDefinition("CMAKE_EXTRA_LINK_EXTENSIONS")) {
+        mf->GetDefinition("RBLXBUILD_EXTRA_LINK_EXTENSIONS")) {
     cmList linkSuffixList{ *linkSuffixes };
     for (auto const& i : linkSuffixList) {
       this->AddLinkExtension(i, LinkUnknown);
     }
   }
   if (cmValue sharedSuffixes =
-        mf->GetDefinition("CMAKE_EXTRA_SHARED_LIBRARY_SUFFIXES")) {
+        mf->GetDefinition("RBLXBUILD_EXTRA_SHARED_LIBRARY_SUFFIXES")) {
     cmList sharedSuffixList{ *sharedSuffixes };
     for (std::string const& i : sharedSuffixList) {
       this->AddLinkExtension(i, LinkShared);
@@ -1651,7 +1651,7 @@ void cmComputeLinkInformation::AddTargetItem(LinkEntry const& entry)
     auto fwDescriptor = this->GlobalGenerator->SplitFrameworkPath(
       item.Value, cmGlobalGenerator::FrameworkFormat::Extended);
     if (!fwDescriptor) {
-      this->CMakeInstance->IssueMessage(
+      this->RBLXBuildInstance->IssueMessage(
         MessageType::FATAL_ERROR,
         cmStrCat("Could not parse framework path \"", item.Value,
                  "\" linked by target ", this->Target->GetName(), '.'),
@@ -1677,7 +1677,7 @@ void cmComputeLinkInformation::AddTargetItem(LinkEntry const& entry)
         this->Items.emplace_back(
           item, ItemIsPath::Yes, target, nullptr,
           this->FindLibraryFeature(entry.Feature == DEFAULT
-                                     ? "__CMAKE_LINK_FRAMEWORK"
+                                     ? "__RBLXBUILD_LINK_FRAMEWORK"
                                      : entry.Feature));
       }
     } else {
@@ -1695,7 +1695,7 @@ void cmComputeLinkInformation::AddTargetItem(LinkEntry const& entry)
         this->Items.emplace_back(
           item, ItemIsPath::Yes, target, nullptr,
           this->FindLibraryFeature(entry.Feature == DEFAULT
-                                     ? "__CMAKE_LINK_LIBRARY"
+                                     ? "__RBLXBUILD_LINK_LIBRARY"
                                      : entry.Feature));
       }
     }
@@ -1704,7 +1704,7 @@ void cmComputeLinkInformation::AddTargetItem(LinkEntry const& entry)
     this->Items.emplace_back(
       item, ItemIsPath::Yes, target, nullptr,
       this->FindLibraryFeature(
-        entry.Feature == DEFAULT ? "__CMAKE_LINK_LIBRARY" : entry.Feature));
+        entry.Feature == DEFAULT ? "__RBLXBUILD_LINK_LIBRARY" : entry.Feature));
   }
 }
 
@@ -1745,8 +1745,8 @@ void cmComputeLinkInformation::AddFullItem(LinkEntry const& entry)
     this->FindLibraryFeature(
       entry.Feature == DEFAULT
         ? (entry.Kind == cmComputeLinkDepends::LinkEntry::Object
-             ? "__CMAKE_LINK_OBJECT"
-             : "__CMAKE_LINK_LIBRARY")
+             ? "__RBLXBUILD_LINK_OBJECT"
+             : "__RBLXBUILD_LINK_LIBRARY")
         : entry.Feature));
 }
 
@@ -1781,7 +1781,7 @@ bool cmComputeLinkInformation::CheckImplicitDirItem(LinkEntry const& entry)
 
 void cmComputeLinkInformation::AddUserItem(LinkEntry const& entry)
 {
-  // This is called to handle a link item that does not match a CMake
+  // This is called to handle a link item that does not match a RBLXBuild
   // target and is not a full path.  We check here if it looks like a
   // library file name to automatically request the proper link type
   // from the linker.  For example:
@@ -1954,7 +1954,7 @@ void cmComputeLinkInformation::AddXcFrameworkItem(LinkEntry const& entry)
       this->Items.emplace_back(
         entry.Item.Value, ItemIsPath::Yes, nullptr, nullptr,
         this->FindLibraryFeature(entry.Feature == DEFAULT
-                                   ? "__CMAKE_LINK_XCFRAMEWORK"
+                                   ? "__RBLXBUILD_LINK_XCFRAMEWORK"
                                    : entry.Feature));
     } else {
       auto libraryPath = cmStrCat(
@@ -1984,11 +1984,11 @@ void cmComputeLinkInformation::DropDirectoryItem(BT<std::string> const& item)
 {
   // A full path to a directory was found as a link item.  Warn the
   // user.
-  this->CMakeInstance->IssueMessage(
+  this->RBLXBuildInstance->IssueMessage(
     MessageType::WARNING,
     cmStrCat("Target \"", this->Target->GetName(),
              "\" requests linking to directory \"", item.Value,
-             "\".  Targets may link only to libraries.  CMake is dropping "
+             "\".  Targets may link only to libraries.  RBLXBuild is dropping "
              "the item."),
     item.Backtrace);
 }
@@ -2000,11 +2000,11 @@ void cmComputeLinkInformation::ComputeFrameworkInfo()
 
   // Get platform-wide implicit directories.
   implicitDirs.assign(this->Makefile->GetDefinition(
-    "CMAKE_PLATFORM_IMPLICIT_LINK_FRAMEWORK_DIRECTORIES"));
+    "RBLXBUILD_PLATFORM_IMPLICIT_LINK_FRAMEWORK_DIRECTORIES"));
 
   // Get language-specific implicit directories.
   std::string implicitDirVar = cmStrCat(
-    "CMAKE_", this->LinkLanguage, "_IMPLICIT_LINK_FRAMEWORK_DIRECTORIES");
+    "RBLXBUILD_", this->LinkLanguage, "_IMPLICIT_LINK_FRAMEWORK_DIRECTORIES");
   implicitDirs.append(this->Makefile->GetDefinition(implicitDirVar));
 
   this->FrameworkPathsEmitted.insert(implicitDirs.begin(), implicitDirs.end());
@@ -2060,12 +2060,12 @@ void cmComputeLinkInformation::LoadImplicitLinkInfo()
 {
   // Get platform-wide implicit directories.
   cmList implicitDirs{ this->Makefile->GetDefinition(
-    "CMAKE_PLATFORM_IMPLICIT_LINK_DIRECTORIES") };
+    "RBLXBUILD_PLATFORM_IMPLICIT_LINK_DIRECTORIES") };
 
   // Append library architecture to all implicit platform directories
   // and add them to the set
   if (cmValue libraryArch =
-        this->Makefile->GetDefinition("CMAKE_LIBRARY_ARCHITECTURE")) {
+        this->Makefile->GetDefinition("RBLXBUILD_LIBRARY_ARCHITECTURE")) {
     for (auto const& i : implicitDirs) {
       this->ImplicitLinkDirs.insert(cmStrCat(i, '/', *libraryArch));
     }
@@ -2073,7 +2073,7 @@ void cmComputeLinkInformation::LoadImplicitLinkInfo()
 
   // Get language-specific implicit directories.
   std::string implicitDirVar =
-    cmStrCat("CMAKE_", this->LinkLanguage, "_IMPLICIT_LINK_DIRECTORIES");
+    cmStrCat("RBLXBUILD_", this->LinkLanguage, "_IMPLICIT_LINK_DIRECTORIES");
   implicitDirs.append(this->Makefile->GetDefinition(implicitDirVar));
 
   // Store implicit link directories.
@@ -2081,7 +2081,7 @@ void cmComputeLinkInformation::LoadImplicitLinkInfo()
 
   // Get language-specific implicit libraries.
   std::string implicitLibVar =
-    cmStrCat("CMAKE_", this->LinkLanguage, "_IMPLICIT_LINK_LIBRARIES");
+    cmStrCat("RBLXBUILD_", this->LinkLanguage, "_IMPLICIT_LINK_LIBRARIES");
   cmList implicitLibs{ this->Makefile->GetDefinition(implicitLibVar) };
 
   // Store implicit link libraries.
@@ -2095,7 +2095,7 @@ void cmComputeLinkInformation::LoadImplicitLinkInfo()
 
   // Get platform specific rpath link directories
   cmList::append(this->RuntimeLinkDirs,
-                 this->Makefile->GetDefinition("CMAKE_PLATFORM_RUNTIME_PATH"));
+                 this->Makefile->GetDefinition("RBLXBUILD_PLATFORM_RUNTIME_PATH"));
 }
 
 std::vector<std::string> const&
@@ -2110,7 +2110,7 @@ void cmComputeLinkInformation::AddLibraryRuntimeInfo(
   // Ignore targets on Apple where install_name is not @rpath.
   // The dependenty library can be found with other means such as
   // @loader_path or full paths.
-  if (this->Makefile->IsOn("CMAKE_PLATFORM_HAS_INSTALLNAME")) {
+  if (this->Makefile->IsOn("RBLXBUILD_PLATFORM_HAS_INSTALLNAME")) {
     if (!target->HasMacOSXRpathInstallNameDir(this->Config)) {
       return;
     }
@@ -2152,7 +2152,7 @@ void cmComputeLinkInformation::AddLibraryRuntimeInfo(
   bool is_shared_library = false;
   std::string file = cmSystemTools::GetFilenameName(fullPath);
 
-  if (this->Makefile->IsOn("CMAKE_PLATFORM_HAS_INSTALLNAME")) {
+  if (this->Makefile->IsOn("RBLXBUILD_PLATFORM_HAS_INSTALLNAME")) {
     // Check that @rpath is part of the install name.
     // If it isn't, return.
     std::string soname;
@@ -2214,7 +2214,7 @@ void cmComputeLinkInformation::GetRPath(std::vector<std::string>& runtimeDirs,
 {
   // Select whether to generate runtime search directories.
   bool outputRuntime =
-    !this->Makefile->IsOn("CMAKE_SKIP_RPATH") && !this->RuntimeFlag.empty();
+    !this->Makefile->IsOn("RBLXBUILD_SKIP_RPATH") && !this->RuntimeFlag.empty();
 
   // Select whether to generate an rpath for the install tree or the
   // build tree.
@@ -2228,12 +2228,12 @@ void cmComputeLinkInformation::GetRPath(std::vector<std::string>& runtimeDirs,
     (outputRuntime && this->Target->HaveBuildTreeRPATH(this->Config) &&
      !linking_for_install);
   bool use_link_rpath = outputRuntime && linking_for_install &&
-    !this->Makefile->IsOn("CMAKE_SKIP_INSTALL_RPATH") &&
+    !this->Makefile->IsOn("RBLXBUILD_SKIP_INSTALL_RPATH") &&
     this->Target->GetPropertyAsBool("INSTALL_RPATH_USE_LINK_PATH");
 
   // Select whether to use $ORIGIN in RPATHs for artifacts in the build tree.
   std::string const& originToken = this->Makefile->GetSafeDefinition(
-    "CMAKE_SHARED_LIBRARY_RPATH_ORIGIN_TOKEN");
+    "RBLXBUILD_SHARED_LIBRARY_RPATH_ORIGIN_TOKEN");
   std::string targetOutputDir = this->Target->GetDirectory(this->Config);
   bool use_relative_build_rpath =
     this->Target->GetPropertyAsBool("BUILD_RPATH_USE_ORIGIN") &&
@@ -2258,18 +2258,18 @@ void cmComputeLinkInformation::GetRPath(std::vector<std::string>& runtimeDirs,
   if (use_build_rpath || use_link_rpath) {
     std::string rootPath;
     if (cmValue sysrootLink =
-          this->Makefile->GetDefinition("CMAKE_SYSROOT_LINK")) {
+          this->Makefile->GetDefinition("RBLXBUILD_SYSROOT_LINK")) {
       rootPath = *sysrootLink;
     } else {
-      rootPath = this->Makefile->GetSafeDefinition("CMAKE_SYSROOT");
+      rootPath = this->Makefile->GetSafeDefinition("RBLXBUILD_SYSROOT");
     }
-    cmValue stagePath = this->Makefile->GetDefinition("CMAKE_STAGING_PREFIX");
+    cmValue stagePath = this->Makefile->GetDefinition("RBLXBUILD_STAGING_PREFIX");
     std::string const& installPrefix =
-      this->Makefile->GetSafeDefinition("CMAKE_INSTALL_PREFIX");
+      this->Makefile->GetSafeDefinition("RBLXBUILD_INSTALL_PREFIX");
     cmSystemTools::ConvertToUnixSlashes(rootPath);
     std::vector<std::string> const& rdirs = this->GetRuntimeSearchPath();
     std::string const& topBinaryDir =
-      this->CMakeInstance->GetHomeOutputDirectory();
+      this->RBLXBuildInstance->GetHomeOutputDirectory();
     for (std::string const& ri : rdirs) {
       // Put this directory in the rpath if using build-tree rpath
       // support or if using the link path as an rpath.
@@ -2300,7 +2300,7 @@ void cmComputeLinkInformation::GetRPath(std::vector<std::string>& runtimeDirs,
       } else if (use_link_rpath) {
         // Do not add any path inside the source or build tree.
         std::string const& topSourceDir =
-          this->CMakeInstance->GetHomeDirectory();
+          this->RBLXBuildInstance->GetHomeDirectory();
         if (!cmSystemTools::ComparePath(ri, topSourceDir) &&
             !cmSystemTools::ComparePath(ri, topBinaryDir) &&
             !cmSystemTools::IsSubDirectory(ri, topSourceDir) &&
@@ -2323,7 +2323,7 @@ void cmComputeLinkInformation::GetRPath(std::vector<std::string>& runtimeDirs,
   }
 
   // Add runtime paths required by the toolchains' runtime libraries.
-  // This is done even when skipping RPATH entries modeled by CMake.
+  // This is done even when skipping RPATH entries modeled by RBLXBuild.
   // However, INSTALL_REMOVE_ENVIRONMENT_RPATH tells us to exclude
   // toolchain-defined RPATH entries from installation.
   bool const removeEnvironmentRPath = for_install &&
@@ -2333,10 +2333,10 @@ void cmComputeLinkInformation::GetRPath(std::vector<std::string>& runtimeDirs,
       this->Target->GetLinkClosure(this->Config);
     for (std::string const& li : lc->Languages) {
       std::string useVar = cmStrCat(
-        "CMAKE_", li, "_USE_IMPLICIT_LINK_DIRECTORIES_IN_RUNTIME_PATH");
+        "RBLXBUILD_", li, "_USE_IMPLICIT_LINK_DIRECTORIES_IN_RUNTIME_PATH");
       if (this->Makefile->IsOn(useVar)) {
         std::string dirVar =
-          cmStrCat("CMAKE_", li, "_IMPLICIT_LINK_DIRECTORIES");
+          cmStrCat("RBLXBUILD_", li, "_IMPLICIT_LINK_DIRECTORIES");
         if (cmValue dirs = this->Makefile->GetDefinition(dirVar)) {
           cmCLI_ExpandListUnique(*dirs, runtimeDirs, emitted);
         }
@@ -2345,7 +2345,7 @@ void cmComputeLinkInformation::GetRPath(std::vector<std::string>& runtimeDirs,
   }
 
   // Add runtime paths required by the platform to always be present.
-  // This is done even when skipping RPATH entries modeled by CMake.
+  // This is done even when skipping RPATH entries modeled by RBLXBuild.
   cmCLI_ExpandListUnique(this->RuntimeAlways, runtimeDirs, emitted);
 }
 

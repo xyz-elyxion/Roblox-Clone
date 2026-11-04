@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmFileAPI.h"
 
 #include <algorithm>
@@ -19,7 +19,7 @@
 #include "cmsys/FStream.hxx"
 
 #include "cmCryptoHash.h"
-#include "cmFileAPICMakeFiles.h"
+#include "cmFileAPIRBLXBuildFiles.h"
 #include "cmFileAPICache.h"
 #include "cmFileAPICodemodel.h"
 #include "cmFileAPIConfigureLog.h"
@@ -30,7 +30,7 @@
 #include "cmSystemTools.h"
 #include "cmTimestamp.h"
 #include "cmUnreachable.h"
-#include "cmake.h"
+#include "rblxbuild.h"
 
 #if defined(__clang__) && defined(__has_warning)
 #  if __has_warning("-Wrange-loop-analysis")
@@ -46,15 +46,15 @@
 #  endif
 #endif
 
-cmFileAPI::cmFileAPI(cmake* cm)
-  : CMakeInstance(cm)
+cmFileAPI::cmFileAPI(rblxbuild* cm)
+  : RBLXBuildInstance(cm)
 {
   this->APIv1 =
-    cmStrCat(this->CMakeInstance->GetHomeOutputDirectory(), "/.cmake/api/v1");
+    cmStrCat(this->RBLXBuildInstance->GetHomeOutputDirectory(), "/.rblxbuild/api/v1");
 
-  if (cm::optional<std::string> cmakeConfigDir =
-        cmSystemTools::GetCMakeConfigDirectory()) {
-    this->UserAPIv1 = cmStrCat(std::move(*cmakeConfigDir), "/api/v1"_s);
+  if (cm::optional<std::string> rblxbuildConfigDir =
+        cmSystemTools::GetRBLXBuildConfigDirectory()) {
+    this->UserAPIv1 = cmStrCat(std::move(*rblxbuildConfigDir), "/api/v1"_s);
   }
 
   Json::StreamWriterBuilder wbuilder;
@@ -337,9 +337,9 @@ bool cmFileAPI::ReadQuery(std::string const& query,
     objects.push_back(o);
     return true;
   }
-  if (kindName == ObjectKindName(ObjectKind::CMakeFiles)) {
+  if (kindName == ObjectKindName(ObjectKind::RBLXBuildFiles)) {
     Object o;
-    o.Kind = ObjectKind::CMakeFiles;
+    o.Kind = ObjectKind::RBLXBuildFiles;
     if (verStr == "v1") {
       o.Version = 1;
     } else {
@@ -419,8 +419,8 @@ Json::Value cmFileAPI::BuildReplyIndex()
 {
   Json::Value index(Json::objectValue);
 
-  // Report information about this version of CMake.
-  index["cmake"] = this->BuildCMake();
+  // Report information about this version of RBLXBuild.
+  index["rblxbuild"] = this->BuildRBLXBuild();
 
   // Reply to all queries that we loaded.
   Json::Value& reply = index["reply"] = this->BuildReply(this->TopQuery);
@@ -439,17 +439,17 @@ Json::Value cmFileAPI::BuildReplyIndex()
   return index;
 }
 
-Json::Value cmFileAPI::BuildCMake()
+Json::Value cmFileAPI::BuildRBLXBuild()
 {
-  Json::Value cmake = Json::objectValue;
-  cmake["version"] = this->CMakeInstance->ReportVersionJson();
-  Json::Value& cmake_paths = cmake["paths"] = Json::objectValue;
-  cmake_paths["cmake"] = cmSystemTools::GetCMakeCommand();
-  cmake_paths["ctest"] = cmSystemTools::GetCTestCommand();
-  cmake_paths["cpack"] = cmSystemTools::GetCPackCommand();
-  cmake_paths["root"] = cmSystemTools::GetCMakeRoot();
-  cmake["generator"] = this->CMakeInstance->GetGlobalGenerator()->GetJson();
-  return cmake;
+  Json::Value rblxbuild = Json::objectValue;
+  rblxbuild["version"] = this->RBLXBuildInstance->ReportVersionJson();
+  Json::Value& rblxbuild_paths = rblxbuild["paths"] = Json::objectValue;
+  rblxbuild_paths["rblxbuild"] = cmSystemTools::GetRBLXBuildCommand();
+  rblxbuild_paths["ctest"] = cmSystemTools::GetCTestCommand();
+  rblxbuild_paths["cpack"] = cmSystemTools::GetCPackCommand();
+  rblxbuild_paths["root"] = cmSystemTools::GetRBLXBuildRoot();
+  rblxbuild["generator"] = this->RBLXBuildInstance->GetGlobalGenerator()->GetJson();
+  return rblxbuild;
 }
 
 Json::Value cmFileAPI::BuildReply(Query const& q)
@@ -481,7 +481,7 @@ Json::Value cmFileAPI::BuildReplyEntry(Object object)
         break;
       case ObjectKind::CodeModel:
       case ObjectKind::Cache:
-      case ObjectKind::CMakeFiles:
+      case ObjectKind::RBLXBuildFiles:
       case ObjectKind::Toolchains:
       case ObjectKind::InternalTest:
         return this->BuildReplyError("no buildsystem generated");
@@ -524,7 +524,7 @@ char const* cmFileAPI::ObjectKindName(ObjectKind kind)
     "codemodel",    //
     "configureLog", //
     "cache",        //
-    "cmakeFiles",   //
+    "rblxbuildFiles",   //
     "toolchains",   //
     "__test"        //
   };
@@ -559,8 +559,8 @@ Json::Value cmFileAPI::BuildObject(Object object)
     case ObjectKind::Cache:
       value = this->BuildCache(object);
       break;
-    case ObjectKind::CMakeFiles:
-      value = this->BuildCMakeFiles(object);
+    case ObjectKind::RBLXBuildFiles:
+      value = this->BuildRBLXBuildFiles(object);
       break;
     case ObjectKind::Toolchains:
       value = this->BuildToolchains(object);
@@ -621,8 +621,8 @@ cmFileAPI::ClientRequest cmFileAPI::BuildClientRequest(
     r.Kind = ObjectKind::ConfigureLog;
   } else if (kindName == this->ObjectKindName(ObjectKind::Cache)) {
     r.Kind = ObjectKind::Cache;
-  } else if (kindName == this->ObjectKindName(ObjectKind::CMakeFiles)) {
-    r.Kind = ObjectKind::CMakeFiles;
+  } else if (kindName == this->ObjectKindName(ObjectKind::RBLXBuildFiles)) {
+    r.Kind = ObjectKind::RBLXBuildFiles;
   } else if (kindName == this->ObjectKindName(ObjectKind::Toolchains)) {
     r.Kind = ObjectKind::Toolchains;
   } else if (kindName == this->ObjectKindName(ObjectKind::InternalTest)) {
@@ -652,8 +652,8 @@ cmFileAPI::ClientRequest cmFileAPI::BuildClientRequest(
     case ObjectKind::Cache:
       this->BuildClientRequestCache(r, versions);
       break;
-    case ObjectKind::CMakeFiles:
-      this->BuildClientRequestCMakeFiles(r, versions);
+    case ObjectKind::RBLXBuildFiles:
+      this->BuildClientRequestRBLXBuildFiles(r, versions);
       break;
     case ObjectKind::Toolchains:
       this->BuildClientRequestToolchains(r, versions);
@@ -805,8 +805,8 @@ std::string cmFileAPI::NoSupportedVersion(
 // The "codemodel" object kind.
 
 // Update the following files as well when updating this constant:
-//   Help/manual/cmake-file-api.7.rst
-//   Tests/RunCMake/FileAPI/codemodel-v2-check.py (check_objects())
+//   Help/manual/rblxbuild-file-api.7.rst
+//   Tests/RunRBLXBuild/FileAPI/codemodel-v2-check.py (check_objects())
 static unsigned int const CodeModelV2Minor = 12;
 
 void cmFileAPI::BuildClientRequestCodeModel(
@@ -843,7 +843,7 @@ Json::Value cmFileAPI::BuildCodeModel(Object object)
 
 // The "configureLog" object kind.
 
-// Update Help/manual/cmake-file-api.7.rst when updating this constant.
+// Update Help/manual/rblxbuild-file-api.7.rst when updating this constant.
 static unsigned int const ConfigureLogV1Minor = 0;
 
 void cmFileAPI::BuildClientRequestConfigureLog(
@@ -910,16 +910,16 @@ Json::Value cmFileAPI::BuildCache(Object object)
   return cache;
 }
 
-// The "cmakeFiles" object kind.
+// The "rblxbuildFiles" object kind.
 
-static unsigned int const CMakeFilesV1Minor = 1;
+static unsigned int const RBLXBuildFilesV1Minor = 1;
 
-void cmFileAPI::BuildClientRequestCMakeFiles(
+void cmFileAPI::BuildClientRequestRBLXBuildFiles(
   ClientRequest& r, std::vector<RequestVersion> const& versions)
 {
   // Select a known version from those requested.
   for (RequestVersion const& v : versions) {
-    if ((v.Major == 1 && v.Minor <= CMakeFilesV1Minor)) {
+    if ((v.Major == 1 && v.Minor <= RBLXBuildFilesV1Minor)) {
       r.Version = v.Major;
       break;
     }
@@ -929,19 +929,19 @@ void cmFileAPI::BuildClientRequestCMakeFiles(
   }
 }
 
-Json::Value cmFileAPI::BuildCMakeFiles(Object object)
+Json::Value cmFileAPI::BuildRBLXBuildFiles(Object object)
 {
-  Json::Value cmakeFiles = cmFileAPICMakeFilesDump(*this, object.Version);
-  cmakeFiles["kind"] = this->ObjectKindName(object.Kind);
+  Json::Value rblxbuildFiles = cmFileAPIRBLXBuildFilesDump(*this, object.Version);
+  rblxbuildFiles["kind"] = this->ObjectKindName(object.Kind);
 
-  Json::Value& version = cmakeFiles["version"];
+  Json::Value& version = rblxbuildFiles["version"];
   if (object.Version == 1) {
-    version = BuildVersion(1, CMakeFilesV1Minor);
+    version = BuildVersion(1, RBLXBuildFilesV1Minor);
   } else {
     CM_UNREACHABLE;
   }
 
-  return cmakeFiles;
+  return rblxbuildFiles;
 }
 
 // The "toolchains" object kind.
@@ -978,7 +978,7 @@ Json::Value cmFileAPI::BuildToolchains(Object object)
   return toolchains;
 }
 
-// The "__test" object kind is for internal testing of CMake.
+// The "__test" object kind is for internal testing of RBLXBuild.
 
 static unsigned int const InternalTestV1Minor = 3;
 static unsigned int const InternalTestV2Minor = 0;
@@ -1043,9 +1043,9 @@ Json::Value cmFileAPI::ReportCapabilities()
 
   {
     Json::Value request = Json::objectValue;
-    request["kind"] = ObjectKindName(ObjectKind::CMakeFiles);
+    request["kind"] = ObjectKindName(ObjectKind::RBLXBuildFiles);
     Json::Value& versions = request["version"] = Json::arrayValue;
-    versions.append(BuildVersion(1, CMakeFilesV1Minor));
+    versions.append(BuildVersion(1, RBLXBuildFilesV1Minor));
     requests.append(std::move(request)); // NOLINT(*)
   }
 
@@ -1074,8 +1074,8 @@ bool cmFileAPI::AddProjectQuery(cmFileAPI::ObjectKind kind,
         return false;
       }
       break;
-    case ObjectKind::CMakeFiles:
-      if (majorVersion != 1 || minorVersion > CMakeFilesV1Minor) {
+    case ObjectKind::RBLXBuildFiles:
+      if (majorVersion != 1 || minorVersion > RBLXBuildFilesV1Minor) {
         return false;
       }
       break;

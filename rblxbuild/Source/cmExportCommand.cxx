@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmExportCommand.h"
 
 #include <map>
@@ -22,7 +22,7 @@
 #include "cmExecutionStatus.h"
 #include "cmExperimental.h"
 #include "cmExportBuildAndroidMKGenerator.h"
-#include "cmExportBuildCMakeConfigGenerator.h"
+#include "cmExportBuildRBLXBuildConfigGenerator.h"
 #include "cmExportBuildFileGenerator.h"
 #include "cmExportBuildPackageInfoGenerator.h"
 #include "cmExportSet.h"
@@ -148,13 +148,13 @@ static bool HandleTargetsMode(std::vector<std::string> const& args,
     fname = arguments.AndroidMKFile;
     android = true;
   } else if (arguments.Filename.empty()) {
-    fname = arguments.ExportSetName + ".cmake";
+    fname = arguments.ExportSetName + ".rblxbuild";
   } else {
-    // Make sure the file has a .cmake extension.
-    if (!cmHasSuffix(arguments.Filename, ".cmake"_s)) {
+    // Make sure the file has a .rblxbuild extension.
+    if (!cmHasSuffix(arguments.Filename, ".rblxbuild"_s)) {
       status.SetError(
         cmStrCat("FILE option given filename \"", arguments.Filename,
-                 "\" which does not have an extension of \".cmake\".\n"));
+                 "\" which does not have an extension of \".rblxbuild\".\n"));
       return false;
     }
     fname = arguments.Filename;
@@ -222,7 +222,7 @@ static bool HandleTargetsMode(std::vector<std::string> const& args,
     ebfg = std::move(ebag);
   } else {
     auto ebcg =
-      cm::make_unique<cmExportBuildCMakeConfigGenerator>(std::move(context));
+      cm::make_unique<cmExportBuildRBLXBuildConfigGenerator>(std::move(context));
     ebcg->SetNamespace(arguments.Namespace);
     ebcg->SetAppendMode(arguments.Append);
     ebcg->SetExportOld(arguments.ExportOld);
@@ -291,12 +291,12 @@ static bool HandleExportMode(std::vector<std::string> const& args,
 
   std::string fname;
   if (arguments.Filename.empty()) {
-    fname = arguments.ExportSetName + ".cmake";
+    fname = arguments.ExportSetName + ".rblxbuild";
   } else {
-    if (!cmHasSuffix(arguments.Filename, ".cmake"_s)) {
+    if (!cmHasSuffix(arguments.Filename, ".rblxbuild"_s)) {
       status.SetError(
         cmStrCat("FILE option given filename \"", arguments.Filename,
-                 "\" which does not have an extension of \".cmake\".\n"));
+                 "\" which does not have an extension of \".rblxbuild\".\n"));
       return false;
     }
     fname = arguments.Filename;
@@ -321,7 +321,7 @@ static bool HandleExportMode(std::vector<std::string> const& args,
   }
 
   // Set up export file generation.
-  auto ebcg = cm::make_unique<cmExportBuildCMakeConfigGenerator>(
+  auto ebcg = cm::make_unique<cmExportBuildRBLXBuildConfigGenerator>(
     cmExportBuildFileGenerator::CaptureContext(mf));
   ebcg->SetNamespace(arguments.Namespace);
   ebcg->SetExportPackageDependencies(arguments.ExportPackageDependencies);
@@ -623,13 +623,13 @@ static bool HandlePackageMode(std::vector<std::string> const& args,
       CM_FALLTHROUGH;
     case cmPolicies::OLD:
       // Default is to export, but can be disabled.
-      if (mf.IsOn("CMAKE_EXPORT_NO_PACKAGE_REGISTRY")) {
+      if (mf.IsOn("RBLXBUILD_EXPORT_NO_PACKAGE_REGISTRY")) {
         return true;
       }
       break;
     case cmPolicies::NEW:
       // Default is to not export, but can be enabled.
-      if (!mf.IsOn("CMAKE_EXPORT_PACKAGE_REGISTRY")) {
+      if (!mf.IsOn("RBLXBUILD_EXPORT_PACKAGE_REGISTRY")) {
         return true;
       }
       break;
@@ -665,7 +665,7 @@ static void ReportRegistryError(cmMakefile& mf, std::string const& msg,
 static void StorePackageRegistry(cmMakefile& mf, std::string const& package,
                                  char const* content, char const* hash)
 {
-  std::string key = cmStrCat("Software\\Kitware\\CMake\\Packages\\", package);
+  std::string key = cmStrCat("Software\\Kitware\\RBLXBuild\\Packages\\", package);
   HKEY hKey;
   LONG err =
     RegCreateKeyExW(HKEY_CURRENT_USER, cmsys::Encoding::ToWide(key).c_str(), 0,
@@ -698,14 +698,14 @@ static void StorePackageRegistry(cmMakefile& mf, std::string const& package,
       B_OK) {
     return;
   }
-  std::string fname = cmStrCat(dir, "/cmake/packages/", package);
+  std::string fname = cmStrCat(dir, "/rblxbuild/packages/", package);
 #  else
   std::string fname;
   if (!cmSystemTools::GetEnv("HOME", fname)) {
     return;
   }
   cmSystemTools::ConvertToUnixSlashes(fname);
-  fname += "/.cmake/packages/";
+  fname += "/.rblxbuild/packages/";
   fname += package;
 #  endif
   cmSystemTools::MakeDirectory(fname);

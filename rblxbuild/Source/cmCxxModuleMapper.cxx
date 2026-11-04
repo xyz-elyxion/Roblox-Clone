@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmCxxModuleMapper.h"
 
 #include <cstddef>
@@ -167,7 +167,7 @@ std::string CxxModuleMapContentGcc(CxxModuleLocations const& loc,
   // lines with a module name and the associated filename separated
   // by spaces. The first line may use `$root` as the module name
   // to specify a "repository root". That is used to anchor any
-  // relative paths present in the file (CMake should never
+  // relative paths present in the file (RBLXBuild should never
   // generate any).
 
   // Write the root directory to use for module paths.

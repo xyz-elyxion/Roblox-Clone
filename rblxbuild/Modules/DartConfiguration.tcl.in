@@ -1,5 +1,5 @@
-# This file is configured by CMake automatically as DartConfiguration.tcl
-# If you choose not to use CMake, this file may be hand configured, by
+# This file is configured by RBLXBuild automatically as DartConfiguration.tcl
+# If you choose not to use RBLXBuild, this file may be hand configured, by
 # filling in the required variables.
 
 
@@ -27,7 +27,7 @@ SubmitInactivityTimeout: @CTEST_SUBMIT_INACTIVITY_TIMEOUT@
 NightlyStartTime: @NIGHTLY_START_TIME@
 
 # Commands for the build/test/submit cycle
-ConfigureCommand: "@CMAKE_COMMAND@" "@PROJECT_SOURCE_DIR@"
+ConfigureCommand: "@RBLXBUILD_COMMAND@" "@PROJECT_SOURCE_DIR@"
 MakeCommand: @MAKECOMMAND@
 DefaultCTestConfigurationType: @DEFAULT_CTEST_CONFIGURATION_TYPE@
 
@@ -63,8 +63,8 @@ UpdateOptions: @UPDATE_OPTIONS@
 UpdateType: @UPDATE_TYPE@
 
 # Compiler info
-Compiler: @CMAKE_CXX_COMPILER@
-CompilerVersion: @CMAKE_CXX_COMPILER_VERSION@
+Compiler: @RBLXBUILD_CXX_COMPILER@
+CompilerVersion: @RBLXBUILD_CXX_COMPILER_VERSION@
 
 # Dynamic analysis (MemCheck)
 PurifyCommand: @PURIFYCOMMAND@

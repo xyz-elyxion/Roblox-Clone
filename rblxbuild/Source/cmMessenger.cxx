@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmMessenger.h"
 
 #include <algorithm>
@@ -17,11 +17,11 @@
 #include "cmStringAlgorithms.h"
 #include "cmSystemTools.h"
 
-#if !defined(CMAKE_BOOTSTRAP)
+#if !defined(RBLXBUILD_BOOTSTRAP)
 #  include "cmsys/SystemInformation.hxx"
 #endif
 
-#ifdef CMake_ENABLE_DEBUGGER
+#ifdef RBLXBuild_ENABLE_DEBUGGER
 #  include "cmDebuggerAdapter.h"
 #endif
 
@@ -110,7 +110,7 @@ void displayMessage(MessageType type, cmDiagnosticCategory category,
     msg << '\n';
   }
 
-#if !defined(CMAKE_BOOTSTRAP)
+#if !defined(RBLXBUILD_BOOTSTRAP)
   // Add a C++ stack trace to internal errors.
   if (type == MessageType::INTERNAL_ERROR) {
     std::string stack = cmsys::SystemInformation::GetProgramStack(0, 0);
@@ -233,7 +233,7 @@ void cmMessenger::DisplayMessage(MessageType type,
   std::ostringstream msg;
 
   // Print the message preamble.
-  msg << "CMake " << getMessageTypeStr(type);
+  msg << "RBLXBuild " << getMessageTypeStr(type);
   if (category != cmDiagnostics::CMD_NONE) {
     msg << " (" << getDiagnosticCategoryStr(category) << ')';
   }
@@ -252,7 +252,7 @@ void cmMessenger::DisplayMessage(MessageType type,
   this->DisplayedMessages.emplace_back(
     Message{ type, category, backtrace, text });
 
-#ifdef CMake_ENABLE_DEBUGGER
+#ifdef RBLXBuild_ENABLE_DEBUGGER
   if (DebuggerAdapter) {
     DebuggerAdapter->OnMessageOutput(type, msg.str());
   }

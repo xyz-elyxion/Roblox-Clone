@@ -1,7 +1,7 @@
 # Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-# file LICENSE.rst or https://cmake.org/licensing for details.
+# file LICENSE.rst or https://rblxbuild.org/licensing for details.
 
-# Run this script on a Windows host in a CMake single-config build tree.
+# Run this script on a Windows host in a RBLXBuild single-config build tree.
 
 param (
   [string]$signtool = 'signtool',
@@ -90,5 +90,5 @@ if (-not $?) { Exit $LastExitCode }
 if (-not $?) { Exit $LastExitCode }
 
 # Sign installer with SHA-256.
-& $signtool sign -v $cert -tr http://timestamp.digicert.com -fd sha256 -td sha256 -d "CMake Windows Installer" cmake-*-win*.msi
+& $signtool sign -v $cert -tr http://timestamp.digicert.com -fd sha256 -td sha256 -d "RBLXBuild Windows Installer" rblxbuild-*-win*.msi
 if (-not $?) { Exit $LastExitCode }

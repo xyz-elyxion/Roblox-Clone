@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #pragma once
 
 #include "cmConfigure.h" // IWYU pragma: keep
@@ -34,7 +34,7 @@ public:
 protected:
   struct BasicArguments : ArgumentParser::ParseResult
   {
-    std::string CaptureCMakeError;
+    std::string CaptureRBLXBuildError;
     std::vector<cm::string_view> ParsedKeywords;
   };
 
@@ -43,7 +43,7 @@ protected:
   {
     static_assert(std::is_base_of<BasicArguments, Args>::value, "");
     return cmArgumentParser<Args>{}
-      .Bind("CAPTURE_CMAKE_ERROR"_s, &BasicArguments::CaptureCMakeError)
+      .Bind("CAPTURE_RBLXBUILD_ERROR"_s, &BasicArguments::CaptureRBLXBuildError)
       .BindParsedKeywords(&BasicArguments::ParsedKeywords);
   }
 

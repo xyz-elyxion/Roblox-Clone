@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmNinjaTargetGenerator.h"
 
 #include <algorithm>
@@ -57,7 +57,7 @@
 #include "cmTargetDepend.h"
 #include "cmTargetTypes.h"
 #include "cmValue.h"
-#include "cmake.h"
+#include "rblxbuild.h"
 
 std::unique_ptr<cmNinjaTargetGenerator> cmNinjaTargetGenerator::New(
   cmGeneratorTarget* target)
@@ -157,7 +157,7 @@ bool cmNinjaTargetGenerator::NeedExplicitPreprocessing(
 bool cmNinjaTargetGenerator::CompileWithDefines(std::string const& lang) const
 {
   return this->Makefile->IsOn(
-    cmStrCat("CMAKE_", lang, "_COMPILE_WITH_DEFINES"));
+    cmStrCat("RBLXBUILD_", lang, "_COMPILE_WITH_DEFINES"));
 }
 
 std::string cmNinjaTargetGenerator::LanguageDyndepRule(
@@ -286,10 +286,10 @@ std::string cmNinjaTargetGenerator::ComputeFlagsForObject(
     if (!this->GeneratorTarget->Target->IsNormal() &&
         !this->GeneratorTarget->Target->CxxModuleNeedsInterfaceObjects()) {
       if (this->GetMakefile()
-            ->GetDefinition("CMAKE_CXX_COMPILE_BMI")
+            ->GetDefinition("RBLXBUILD_CXX_COMPILE_BMI")
             .IsEmpty()) {
         auto flag = this->GetMakefile()->GetSafeDefinition(
-          "CMAKE_CXX_MODULE_BMI_ONLY_FLAG");
+          "RBLXBUILD_CXX_MODULE_BMI_ONLY_FLAG");
         cmRulePlaceholderExpander::RuleVariables compileObjectVars;
         compileObjectVars.Object = objectFileName.c_str();
         auto rulePlaceholderExpander =
@@ -333,7 +333,7 @@ std::string cmNinjaTargetGenerator::ComputeDefines(cmSourceFile const* source,
 
   // Seriously??
   if (this->GetGlobalGenerator()->IsMultiConfig()) {
-    defines.insert(cmStrCat("CMAKE_INTDIR=\"", config, '"'));
+    defines.insert(cmStrCat("RBLXBUILD_INTDIR=\"", config, '"'));
   }
 
   std::string const COMPILE_DEFINITIONS("COMPILE_DEFINITIONS");
@@ -593,7 +593,7 @@ bool cmNinjaTargetGenerator::SetMsvcTargetPdbVariable(
     std::string const linkLanguage =
       this->GeneratorTarget->GetLinkerLanguage(config);
     supportsPDB =
-      mf->IsOn(cmStrCat("CMAKE_", linkLanguage, "_LINKER_SUPPORTS_PDB"));
+      mf->IsOn(cmStrCat("RBLXBUILD_", linkLanguage, "_LINKER_SUPPORTS_PDB"));
   }
   if (supportsPDB) {
     std::string pdbPath;
@@ -630,11 +630,11 @@ void cmNinjaTargetGenerator::WriteLanguageRules(std::string const& language,
 namespace {
 // Create the command to run the dependency scanner
 std::string GetScanCommand(
-  cm::string_view cmakeCmd, cm::string_view tdi, cm::string_view lang,
+  cm::string_view rblxbuildCmd, cm::string_view tdi, cm::string_view lang,
   cm::string_view srcFile, cm::string_view ddiFile,
   cm::optional<cm::string_view> srcOrigFile = cm::nullopt)
 {
-  return cmStrCat(cmakeCmd, " -E cmake_ninja_depends --tdi=", tdi,
+  return cmStrCat(rblxbuildCmd, " -E rblxbuild_ninja_depends --tdi=", tdi,
                   " --lang=", lang, " --src=", srcFile,
                   " --out=$out"
                   " --dep=$DEP_FILE --obj=$OBJ_FILE --ddi=",
@@ -733,7 +733,7 @@ cmList ExpandRuleCommands(std::string const& command,
                           cmRulePlaceholderExpander* rulePlaceholderExpander)
 {
   std::string const extraCommands =
-    mf->GetSafeDefinition(cmStrCat("CMAKE_", lang, "_DEPENDS_EXTRA_COMMANDS"));
+    mf->GetSafeDefinition(cmStrCat("RBLXBUILD_", lang, "_DEPENDS_EXTRA_COMMANDS"));
   cmList commands(command);
   if (!commands.empty()) {
     commands.front().insert(0, "${CODE_CHECK}");
@@ -768,10 +768,10 @@ void cmNinjaTargetGenerator::WriteCompileRule(std::string const& lang,
 std::string cmNinjaTargetGenerator::GetCompileTemplateVar(
   std::string const& lang) const
 {
-  std::string cmdVar = cmStrCat("CMAKE_", lang, "_COMPILE_OBJECT");
+  std::string cmdVar = cmStrCat("RBLXBUILD_", lang, "_COMPILE_OBJECT");
   if (!this->GetGeneratorTarget()->IsNormal() &&
       !this->GeneratorTarget->Target->CxxModuleNeedsInterfaceObjects()) {
-    std::string bmiCmdVar = cmStrCat("CMAKE_", lang, "_COMPILE_BMI");
+    std::string bmiCmdVar = cmStrCat("RBLXBUILD_", lang, "_COMPILE_BMI");
     if (!this->GetMakefile()->GetDefinition(bmiCmdVar).IsEmpty()) {
       cmdVar = std::move(bmiCmdVar);
     }
@@ -815,14 +815,14 @@ void cmNinjaTargetGenerator::WriteCompileRule(std::string const& lang,
   bool const lang_supports_response = lang != "RC";
   if (lang_supports_response && this->ForceResponseFile()) {
     std::string const responseFlagVar =
-      cmStrCat("CMAKE_", lang, "_RESPONSE_FILE_FLAG");
+      cmStrCat("RBLXBUILD_", lang, "_RESPONSE_FILE_FLAG");
     responseFlag = this->Makefile->GetSafeDefinition(responseFlagVar);
     if (responseFlag.empty() && lang != "CUDA") {
       responseFlag = "@";
     }
   }
   std::string const modmapFormatVar =
-    cmStrCat("CMAKE_", lang, "_MODULE_MAP_FORMAT");
+    cmStrCat("RBLXBUILD_", lang, "_MODULE_MAP_FORMAT");
   std::string const modmapFormat =
     this->Makefile->GetSafeDefinition(modmapFormatVar);
 
@@ -839,12 +839,12 @@ void cmNinjaTargetGenerator::WriteCompileRule(std::string const& lang,
     launcher = cmStrCat(val, ' ');
   }
 
-  std::string const cmakeCmd =
-    this->ConvertToOutputFormatForShell(cmSystemTools::GetCMakeCommand());
+  std::string const rblxbuildCmd =
+    this->ConvertToOutputFormatForShell(cmSystemTools::GetRBLXBuildCommand());
 
   if (withScanning == WithScanning::Yes) {
     auto const& scanDepType = this->GetMakefile()->GetSafeDefinition(
-      cmStrCat("CMAKE_", lang, "_SCANDEP_DEPFILE_FORMAT"));
+      cmStrCat("RBLXBUILD_", lang, "_SCANDEP_DEPFILE_FORMAT"));
 
     // Rule to scan dependencies of sources that need preprocessing.
     {
@@ -855,7 +855,7 @@ void cmNinjaTargetGenerator::WriteCompileRule(std::string const& lang,
         scanRuleName = this->LanguageScanRule(lang, config);
         ppFileName = "$PREPROCESSED_OUTPUT_FILE";
         std::string const& scanCommand = mf->GetRequiredDefinition(
-          cmStrCat("CMAKE_", lang, "_SCANDEP_SOURCE"));
+          cmStrCat("RBLXBUILD_", lang, "_SCANDEP_SOURCE"));
         scanCommands.assign(scanCommand);
         for (auto& i : scanCommands) {
           i = cmStrCat(launcher, std::move(i));
@@ -864,13 +864,13 @@ void cmNinjaTargetGenerator::WriteCompileRule(std::string const& lang,
         scanRuleName = this->LanguagePreprocessAndScanRule(lang, config);
         ppFileName = "$out";
         std::string const& ppCommand = mf->GetRequiredDefinition(
-          cmStrCat("CMAKE_", lang, "_PREPROCESS_SOURCE"));
+          cmStrCat("RBLXBUILD_", lang, "_PREPROCESS_SOURCE"));
         scanCommands.assign(ppCommand);
         for (auto& i : scanCommands) {
           i = cmStrCat(launcher, std::move(i));
         }
         scanCommands.emplace_back(GetScanCommand(
-          cmakeCmd, tdi, lang, "$out", "$DYNDEP_INTERMEDIATE_FILE", "$in"));
+          rblxbuildCmd, tdi, lang, "$out", "$DYNDEP_INTERMEDIATE_FILE", "$in"));
       }
 
       auto scanRule = GetScanRule(
@@ -902,7 +902,7 @@ void cmNinjaTargetGenerator::WriteCompileRule(std::string const& lang,
       std::string const& scanRuleName = this->LanguageScanRule(lang, config);
       std::vector<std::string> scanCommands;
       scanCommands.emplace_back(
-        GetScanCommand(cmakeCmd, tdi, lang, "$in", "$out"));
+        GetScanCommand(rblxbuildCmd, tdi, lang, "$in", "$out"));
 
       auto scanRule =
         GetScanRule(scanRuleName, "", scanDepType, vars, "", flags,
@@ -930,7 +930,7 @@ void cmNinjaTargetGenerator::WriteCompileRule(std::string const& lang,
     // the timestamp again.
     rule.Restat = "1";
 
-    // Run CMake dependency scanner on the source file (using the preprocessed
+    // Run RBLXBuild dependency scanner on the source file (using the preprocessed
     // source if that was performed).
     std::string ddModmapArg;
     if (!modmapFormat.empty()) {
@@ -941,7 +941,7 @@ void cmNinjaTargetGenerator::WriteCompileRule(std::string const& lang,
       std::vector<std::string> ddCmds;
       {
         std::string ccmd = cmStrCat(
-          cmakeCmd, " -E cmake_ninja_dyndep --tdi=", tdi, " --lang=", lang,
+          rblxbuildCmd, " -E rblxbuild_ninja_dyndep --tdi=", tdi, " --lang=", lang,
           ddModmapArg, " --dd=$out @", rule.RspFile);
         ddCmds.emplace_back(std::move(ccmd));
       }
@@ -964,26 +964,26 @@ void cmNinjaTargetGenerator::WriteCompileRule(std::string const& lang,
   std::string cldeps;
   if (!compilationPreprocesses) {
     // The compiler will not do preprocessing, so it has no such dependencies.
-  } else if (mf->IsOn(cmStrCat("CMAKE_NINJA_CMCLDEPS_", lang))) {
+  } else if (mf->IsOn(cmStrCat("RBLXBUILD_NINJA_CMCLDEPS_", lang))) {
     // For the MS resource compiler we need cmcldeps, but skip dependencies
     // for source-file try_compile cases because they are always fresh.
     if (!mf->GetIsSourceFileTryCompile()) {
       rule.DepType = "gcc";
       rule.DepFile = "$DEP_FILE";
-      cmValue d = mf->GetDefinition("CMAKE_C_COMPILER");
+      cmValue d = mf->GetDefinition("RBLXBUILD_C_COMPILER");
       std::string const cl =
-        d ? *d : mf->GetSafeDefinition("CMAKE_CXX_COMPILER");
+        d ? *d : mf->GetSafeDefinition("RBLXBUILD_CXX_COMPILER");
       std::string cmcldepsPath;
       cmSystemTools::GetShortPath(cmSystemTools::GetCMClDepsCommand(),
                                   cmcldepsPath);
       cldeps = cmStrCat(cmcldepsPath, ' ', lang, ' ', vars.Source,
                         " $DEP_FILE $out \"",
-                        mf->GetSafeDefinition("CMAKE_CL_SHOWINCLUDES_PREFIX"),
+                        mf->GetSafeDefinition("RBLXBUILD_CL_SHOWINCLUDES_PREFIX"),
                         "\" \"", cl, "\" ");
     }
   } else {
     auto const& depType = this->GetMakefile()->GetSafeDefinition(
-      cmStrCat("CMAKE_", lang, "_DEPFILE_FORMAT"));
+      cmStrCat("RBLXBUILD_", lang, "_DEPFILE_FORMAT"));
     if (depType == "msvc"_s) {
       rule.DepType = "msvc";
       rule.DepFile.clear();
@@ -994,7 +994,7 @@ void cmNinjaTargetGenerator::WriteCompileRule(std::string const& lang,
     vars.DependencyFile = rule.DepFile.c_str();
     vars.DependencyTarget = "$out";
 
-    std::string const flagsName = cmStrCat("CMAKE_DEPFILE_FLAGS_", lang);
+    std::string const flagsName = cmStrCat("RBLXBUILD_DEPFILE_FLAGS_", lang);
     std::string depfileFlags = mf->GetSafeDefinition(flagsName);
     if (!depfileFlags.empty()) {
       rulePlaceholderExpander->ExpandRuleVariables(this->GetLocalGenerator(),
@@ -1005,7 +1005,7 @@ void cmNinjaTargetGenerator::WriteCompileRule(std::string const& lang,
 
   if (withScanning == WithScanning::Yes && !modmapFormat.empty()) {
     std::string modmapFlags =
-      mf->GetRequiredDefinition(cmStrCat("CMAKE_", lang, "_MODULE_MAP_FLAG"));
+      mf->GetRequiredDefinition(cmStrCat("RBLXBUILD_", lang, "_MODULE_MAP_FLAG"));
     cmSystemTools::ReplaceString(modmapFlags, "<MODULE_MAP_FILE>",
                                  "$DYNDEP_MODULE_MAP_FILE");
     flags = cmStrCat(std::move(flags), ' ', modmapFlags);
@@ -1019,7 +1019,7 @@ void cmNinjaTargetGenerator::WriteCompileRule(std::string const& lang,
     if (this->GeneratorTarget->GetPropertyAsBool(
           "CUDA_SEPARABLE_COMPILATION")) {
       std::string const& rdcFlag =
-        this->Makefile->GetRequiredDefinition("_CMAKE_CUDA_RDC_FLAG");
+        this->Makefile->GetRequiredDefinition("_RBLXBUILD_CUDA_RDC_FLAG");
       cudaCompileMode = cmStrCat(std::move(cudaCompileMode), rdcFlag, ' ');
     }
     static std::array<cm::string_view, 4> const compileModes{
@@ -1028,7 +1028,7 @@ void cmNinjaTargetGenerator::WriteCompileRule(std::string const& lang,
     bool useNormalCompileMode = true;
     for (cm::string_view mode : compileModes) {
       auto propName = cmStrCat("CUDA_", mode, "_COMPILATION");
-      auto defName = cmStrCat("_CMAKE_CUDA_", mode, "_FLAG");
+      auto defName = cmStrCat("_RBLXBUILD_CUDA_", mode, "_FLAG");
       if (this->GeneratorTarget->GetPropertyAsBool(propName)) {
         std::string const& flag =
           this->Makefile->GetRequiredDefinition(defName);
@@ -1039,7 +1039,7 @@ void cmNinjaTargetGenerator::WriteCompileRule(std::string const& lang,
     }
     if (useNormalCompileMode) {
       std::string const& wholeFlag =
-        this->Makefile->GetRequiredDefinition("_CMAKE_CUDA_WHOLE_FLAG");
+        this->Makefile->GetRequiredDefinition("_RBLXBUILD_CUDA_WHOLE_FLAG");
       cudaCompileMode = cmStrCat(std::move(cudaCompileMode), wholeFlag);
     }
     vars.CudaCompileMode = cudaCompileMode.c_str();
@@ -1101,7 +1101,7 @@ void cmNinjaTargetGenerator::WriteObjectBuildStatements(
   }
   if (firstForConfig) {
     cmValue pchExtension =
-      this->GetMakefile()->GetDefinition("CMAKE_PCH_EXTENSION");
+      this->GetMakefile()->GetDefinition("RBLXBUILD_PCH_EXTENSION");
 
     std::vector<cmSourceFile const*> externalObjects;
     this->GeneratorTarget->GetExternalObjects(externalObjects, config);
@@ -1553,19 +1553,19 @@ void cmNinjaTargetGenerator::WriteObjectBuildStatement(
   std::string const objectFileDir =
     cmSystemTools::GetFilenamePath(objectFileName);
 
-  std::string cmakeVarLang = cmStrCat("CMAKE_", language);
+  std::string rblxbuildVarLang = cmStrCat("RBLXBUILD_", language);
 
   // build response file name
-  std::string cmakeLinkVar = cmStrCat(cmakeVarLang, "_RESPONSE_FILE_FLAG");
+  std::string rblxbuildLinkVar = cmStrCat(rblxbuildVarLang, "_RESPONSE_FILE_FLAG");
 
-  cmValue flag = this->GetMakefile()->GetDefinition(cmakeLinkVar);
+  cmValue flag = this->GetMakefile()->GetDefinition(rblxbuildLinkVar);
 
   bool const lang_supports_response =
     !(language == "RC" || (language == "CUDA" && !flag));
   int const commandLineLengthLimit =
     ((lang_supports_response && this->ForceResponseFile())) ? -1 : 0;
   cmValue pchExtension =
-    this->GetMakefile()->GetDefinition("CMAKE_PCH_EXTENSION");
+    this->GetMakefile()->GetDefinition("RBLXBUILD_PCH_EXTENSION");
   bool const isPch = cmHasSuffix(objectFileName, pchExtension);
   bool const needDyndep = !isPch &&
     this->GeneratorTarget->NeedDyndepForSource(language, config, source);
@@ -1602,10 +1602,10 @@ void cmNinjaTargetGenerator::WriteObjectBuildStatement(
          : this->GetGeneratorTarget()->GetPropertyAsBool("SKIP_LINTING"));
 
   if (!skipCodeCheck) {
-    auto const cmakeCmd =
-      this->ConvertToOutputFormatForShell(cmSystemTools::GetCMakeCommand());
+    auto const rblxbuildCmd =
+      this->ConvertToOutputFormatForShell(cmSystemTools::GetRBLXBuildCommand());
     vars["CODE_CHECK"] =
-      this->GenerateCodeCheckRules(*source, compilerLauncher, cmakeCmd, config,
+      this->GenerateCodeCheckRules(*source, compilerLauncher, rblxbuildCmd, config,
                                    [this](std::string const& path) {
                                      return this->ConvertToNinjaPath(path);
                                    });
@@ -1619,11 +1619,11 @@ void cmNinjaTargetGenerator::WriteObjectBuildStatement(
   }
 
   if (this->GetMakefile()->GetSafeDefinition(
-        cmStrCat("CMAKE_", language, "_DEPFILE_FORMAT")) != "msvc"_s) {
+        cmStrCat("RBLXBUILD_", language, "_DEPFILE_FORMAT")) != "msvc"_s) {
     bool replaceExt = false;
     if (!language.empty()) {
       std::string repVar =
-        cmStrCat("CMAKE_", language, "_DEPFILE_EXTENSION_REPLACE");
+        cmStrCat("RBLXBUILD_", language, "_DEPFILE_EXTENSION_REPLACE");
       replaceExt = this->Makefile->IsOn(repVar);
     }
     this->AddDepfileBinding(
@@ -1711,7 +1711,7 @@ void cmNinjaTargetGenerator::WriteObjectBuildStatement(
   // the target dependencies, OBJECT_DEPENDS or header file custom commands
   // will rebuild the file.
   if (source->GetIsGenerated() &&
-      !source->GetPropertyAsBool("__CMAKE_GENERATED_BY_CMAKE") &&
+      !source->GetPropertyAsBool("__RBLXBUILD_GENERATED_BY_RBLXBUILD") &&
       !source->GetCustomCommand() &&
       !this->GetGlobalGenerator()->HasCustomCommandOutput(sourceFilePath)) {
     this->GetGlobalGenerator()->AddAssumedSourceDependencies(
@@ -1725,7 +1725,7 @@ void cmNinjaTargetGenerator::WriteObjectBuildStatement(
   std::string modmapFormat;
   if (needDyndep) {
     std::string const modmapFormatVar =
-      cmStrCat("CMAKE_", language, "_MODULE_MAP_FORMAT");
+      cmStrCat("RBLXBUILD_", language, "_MODULE_MAP_FORMAT");
     modmapFormat = this->Makefile->GetSafeDefinition(modmapFormatVar);
   }
 
@@ -1765,7 +1765,7 @@ void cmNinjaTargetGenerator::WriteObjectBuildStatement(
       // In case compilation requires flags that are incompatible with
       // preprocessing, include them here.
       std::string const& postFlag = this->Makefile->GetSafeDefinition(
-        cmStrCat("CMAKE_", language, "_POSTPROCESS_FLAG"));
+        cmStrCat("RBLXBUILD_", language, "_POSTPROCESS_FLAG"));
       this->LocalGenerator->AppendFlags(vars["FLAGS"], postFlag);
 
       // Prepend source file's original directory as an include directory
@@ -1961,11 +1961,11 @@ void cmNinjaTargetGenerator::WriteCxxModuleBmiBuildStatement(
   vars["CONFIG"] = config;
 
   if (this->GetMakefile()->GetSafeDefinition(
-        cmStrCat("CMAKE_", language, "_DEPFILE_FORMAT")) != "msvc"_s) {
+        cmStrCat("RBLXBUILD_", language, "_DEPFILE_FORMAT")) != "msvc"_s) {
     bool replaceExt = false;
     if (!language.empty()) {
       std::string repVar =
-        cmStrCat("CMAKE_", language, "_DEPFILE_EXTENSION_REPLACE");
+        cmStrCat("RBLXBUILD_", language, "_DEPFILE_EXTENSION_REPLACE");
       replaceExt = this->Makefile->IsOn(repVar);
     }
     this->AddDepfileBinding(
@@ -2015,7 +2015,7 @@ void cmNinjaTargetGenerator::WriteCxxModuleBmiBuildStatement(
   std::string modmapFormat;
   if (true) {
     std::string const modmapFormatVar =
-      cmStrCat("CMAKE_", language, "_MODULE_MAP_FORMAT");
+      cmStrCat("RBLXBUILD_", language, "_MODULE_MAP_FORMAT");
     modmapFormat = this->Makefile->GetSafeDefinition(modmapFormatVar);
   }
 
@@ -2081,7 +2081,7 @@ void cmNinjaTargetGenerator::WriteSwiftObjectBuildStatement(
   // Swift sources are compiled as a module, not individually like with C/C++.
   // Flags, header search paths, and definitions are passed to the entire
   // module build, but we still need to emit compile-commands for each source
-  // file in order to support CMAKE_EXPORT_COMPILE_COMMANDS.
+  // file in order to support RBLXBUILD_EXPORT_COMPILE_COMMANDS.
   // In whole-module mode, with a single thread, the Swift compiler will
   // only emit a single object file, but if more than one thread is specified,
   // or building in other modes, the compiler will emit multiple object files.
@@ -2154,7 +2154,7 @@ void cmNinjaTargetGenerator::WriteSwiftObjectBuildStatement(
   bool const isSingleOutput = [this, compileMode]() -> bool {
     bool isMultiThread = false;
     if (cmValue numThreadStr =
-          this->GetMakefile()->GetDefinition("CMAKE_Swift_NUM_THREADS")) {
+          this->GetMakefile()->GetDefinition("RBLXBUILD_Swift_NUM_THREADS")) {
       unsigned long numThreads;
       cmStrToULong(*numThreadStr, &numThreads);
       // numThreads == 1 is multi-threaded according to swiftc
@@ -2392,11 +2392,11 @@ void cmNinjaTargetGenerator::WriteTargetDependInfo(std::string const& lang,
   Json::Value tdi(Json::objectValue);
   tdi["language"] = lang;
   tdi["compiler-id"] = this->Makefile->GetSafeDefinition(
-    cmStrCat("CMAKE_", lang, "_COMPILER_ID"));
+    cmStrCat("RBLXBUILD_", lang, "_COMPILER_ID"));
   tdi["compiler-simulate-id"] = this->Makefile->GetSafeDefinition(
-    cmStrCat("CMAKE_", lang, "_SIMULATE_ID"));
+    cmStrCat("RBLXBUILD_", lang, "_SIMULATE_ID"));
   tdi["compiler-frontend-variant"] = this->Makefile->GetSafeDefinition(
-    cmStrCat("CMAKE_", lang, "_COMPILER_FRONTEND_VARIANT"));
+    cmStrCat("RBLXBUILD_", lang, "_COMPILER_FRONTEND_VARIANT"));
 
   std::string mod_dir;
   if (lang == "Fortran") {
@@ -2414,9 +2414,9 @@ void cmNinjaTargetGenerator::WriteTargetDependInfo(std::string const& lang,
 
   if (lang == "Fortran") {
     tdi["submodule-sep"] =
-      this->Makefile->GetSafeDefinition("CMAKE_Fortran_SUBMODULE_SEP");
+      this->Makefile->GetSafeDefinition("RBLXBUILD_Fortran_SUBMODULE_SEP");
     tdi["submodule-ext"] =
-      this->Makefile->GetSafeDefinition("CMAKE_Fortran_SUBMODULE_EXT");
+      this->Makefile->GetSafeDefinition("RBLXBUILD_Fortran_SUBMODULE_EXT");
     tdi["building-intrinsic-modules"] =
       this->GeneratorTarget->IsFortranBuildingIntrinsicModules();
   } else if (lang == "CXX") {
@@ -2476,7 +2476,7 @@ void cmNinjaTargetGenerator::WriteTargetDependInfo(std::string const& lang,
     return this->GetBmiFilePath(sf, cnf);
   };
 
-#if !defined(CMAKE_BOOTSTRAP)
+#if !defined(RBLXBUILD_BOOTSTRAP)
   cmDyndepCollation::AddCollationInformation(tdi, this->GeneratorTarget,
                                              config, cb);
 #endif
@@ -2576,7 +2576,7 @@ void cmNinjaTargetGenerator::EmitSwiftDependencyInfo(
     std::string const objectFileDir =
       cmSystemTools::GetFilenamePath(objectFileName);
 
-    if (this->Makefile->IsOn("CMAKE_Swift_DEPFLE_EXTNSION_REPLACE")) {
+    if (this->Makefile->IsOn("RBLXBUILD_Swift_DEPFLE_EXTNSION_REPLACE")) {
       std::string dependFileName = cmStrCat(
         cmSystemTools::GetFilenameWithoutLastExtension(objectFileName), ".d");
       return local->ConvertToOutputFormat(
@@ -2619,7 +2619,7 @@ void cmNinjaTargetGenerator::ExportObjectCompileCommand(
     escapedSourceFileName =
       cmSystemTools::CollapseFullPath(escapedSourceFileName,
                                       this->GetGlobalGenerator()
-                                        ->GetCMakeInstance()
+                                        ->GetRBLXBuildInstance()
                                         ->GetHomeOutputDirectory());
   }
 
@@ -2629,12 +2629,12 @@ void cmNinjaTargetGenerator::ExportObjectCompileCommand(
   std::string fullFlags = flags;
   if (withScanning == WithScanning::Yes) {
     std::string const modmapFormatVar =
-      cmStrCat("CMAKE_", language, "_MODULE_MAP_FORMAT");
+      cmStrCat("RBLXBUILD_", language, "_MODULE_MAP_FORMAT");
     std::string const modmapFormat =
       this->Makefile->GetSafeDefinition(modmapFormatVar);
     if (!modmapFormat.empty()) {
       std::string modmapFlags = this->GetMakefile()->GetRequiredDefinition(
-        cmStrCat("CMAKE_", language, "_MODULE_MAP_FLAG"));
+        cmStrCat("RBLXBUILD_", language, "_MODULE_MAP_FLAG"));
       // XXX(modmap): If changing this path construction, change
       // `cmGlobalNinjaGenerator::WriteDyndep` and
       // `cmNinjaTargetGenerator::WriteObjectBuildStatement` to expect the
@@ -2667,7 +2667,7 @@ void cmNinjaTargetGenerator::ExportObjectCompileCommand(
     if (this->GeneratorTarget->GetPropertyAsBool(
           "CUDA_SEPARABLE_COMPILATION")) {
       std::string const& rdcFlag =
-        this->Makefile->GetRequiredDefinition("_CMAKE_CUDA_RDC_FLAG");
+        this->Makefile->GetRequiredDefinition("_RBLXBUILD_CUDA_RDC_FLAG");
       cudaCompileMode = cmStrCat(std::move(cudaCompileMode), rdcFlag, ' ');
     }
     static std::array<cm::string_view, 4> const compileModes{
@@ -2676,7 +2676,7 @@ void cmNinjaTargetGenerator::ExportObjectCompileCommand(
     bool useNormalCompileMode = true;
     for (cm::string_view mode : compileModes) {
       auto propName = cmStrCat("CUDA_", mode, "_COMPILATION");
-      auto defName = cmStrCat("_CMAKE_CUDA_", mode, "_FLAG");
+      auto defName = cmStrCat("_RBLXBUILD_CUDA_", mode, "_FLAG");
       if (this->GeneratorTarget->GetPropertyAsBool(propName)) {
         std::string const& flag =
           this->Makefile->GetRequiredDefinition(defName);
@@ -2687,7 +2687,7 @@ void cmNinjaTargetGenerator::ExportObjectCompileCommand(
     }
     if (useNormalCompileMode) {
       std::string const& wholeFlag =
-        this->Makefile->GetRequiredDefinition("_CMAKE_CUDA_WHOLE_FLAG");
+        this->Makefile->GetRequiredDefinition("_RBLXBUILD_CUDA_WHOLE_FLAG");
       cudaCompileMode = cmStrCat(std::move(cudaCompileMode), wholeFlag);
     }
     compileObjectVars.CudaCompileMode = cudaCompileMode.c_str();
@@ -2702,7 +2702,7 @@ void cmNinjaTargetGenerator::ExportObjectCompileCommand(
     this->GetLocalGenerator()->CreateRulePlaceholderExpander();
 
   for (auto& i : compileCmds) {
-    // no launcher for CMAKE_EXPORT_COMPILE_COMMANDS
+    // no launcher for RBLXBUILD_EXPORT_COMPILE_COMMANDS
     rulePlaceholderExpander->ExpandRuleVariables(this->GetLocalGenerator(), i,
                                                  compileObjectVars);
   }
@@ -2730,7 +2730,7 @@ void cmNinjaTargetGenerator::ExportSwiftObjectCompileCommand(
       srcFilename =
         cmSystemTools::CollapseFullPath(srcFilename,
                                         this->GetGlobalGenerator()
-                                          ->GetCMakeInstance()
+                                          ->GetRBLXBuildInstance()
                                           ->GetHomeOutputDirectory());
     }
 
@@ -2759,7 +2759,7 @@ void cmNinjaTargetGenerator::ExportSwiftObjectCompileCommand(
   compileObjectVars.Source = escapedSourceFilenames.c_str();
 
   std::string const& compileCommand =
-    this->Makefile->GetRequiredDefinition("CMAKE_Swift_COMPILE_OBJECT");
+    this->Makefile->GetRequiredDefinition("RBLXBUILD_Swift_COMPILE_OBJECT");
   cmList compileCmds(compileCommand);
 
   auto rulePlaceholderExpander =
@@ -2833,7 +2833,7 @@ void cmNinjaTargetGenerator::EnsureDirectoryExists(
   if (cmSystemTools::FileIsFullPath(path)) {
     gg->EnsureDirectoryExists(path);
   } else {
-    std::string fullPath = gg->GetCMakeInstance()->GetHomeOutputDirectory();
+    std::string fullPath = gg->GetRBLXBuildInstance()->GetHomeOutputDirectory();
     // Also ensures there is a trailing slash.
     gg->StripNinjaOutputPathPrefixAsSuffix(fullPath);
     fullPath += path;
@@ -2930,7 +2930,7 @@ void cmNinjaTargetGenerator::addPoolNinjaVariable(
 
 bool cmNinjaTargetGenerator::ForceResponseFile()
 {
-  static std::string const forceRspFile = "CMAKE_NINJA_FORCE_RESPONSE_FILE";
+  static std::string const forceRspFile = "RBLXBUILD_NINJA_FORCE_RESPONSE_FILE";
   return (this->GetMakefile()->IsDefinitionSet(forceRspFile) ||
           cmSystemTools::HasEnv(forceRspFile));
 }

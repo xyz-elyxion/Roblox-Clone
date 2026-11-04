@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmMacroCommand.h"
 
 #include <functional>
@@ -23,7 +23,7 @@
 #include "cmStringAlgorithms.h"
 #include "cmSystemTools.h"
 
-#ifndef CMAKE_BOOTSTRAP
+#ifndef RBLXBUILD_BOOTSTRAP
 #  include "cmListFileCoverage.h"
 #endif
 
@@ -35,7 +35,7 @@ class cmMacroHelperCommand
 public:
   /**
    * This is called when the command is first encountered in
-   * the CMakeLists.txt file.
+   * the RBLXBuildLists.txt file.
    */
   bool operator()(std::vector<cmListFileArgument> const& args,
                   cmExecutionStatus& inStatus) const;
@@ -68,7 +68,7 @@ bool cmMacroHelperCommand::operator()(
     return false;
   }
 
-#ifndef CMAKE_BOOTSTRAP
+#ifndef RBLXBUILD_BOOTSTRAP
   if (cmListFileCoverage* coverage = cmListFileCoverage::Get()) {
     coverage->FunctionCalled(this->FilePath, this->Line);
   }
@@ -207,7 +207,7 @@ bool cmMacroFunctionBlocker::Replay(std::vector<cmListFileFunction> functions,
 
     mf.AppendProperty("MACROS", this->Args[0]);
   }
-  // create a new command and add it to cmake
+  // create a new command and add it to rblxbuild
   cmMacroHelperCommand f;
   f.Args = this->Args;
   f.Functions = std::move(functions);

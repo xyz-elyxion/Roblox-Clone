@@ -1,0 +1,12 @@
+add_subdirectory(CustomAction)
+
+if(RBLXBUILD_CONFIGURATION_TYPES)
+  set(CUSTOM_ACTION_OUTPUT "${RBLXBUILD_CURRENT_BINARY_DIR}/custom_action_dll-$<CONFIG>.wxs")
+else()
+  set(CUSTOM_ACTION_OUTPUT "${RBLXBUILD_CURRENT_BINARY_DIR}/custom_action_dll.wxs")
+endif()
+
+file(GENERATE
+  OUTPUT "${CUSTOM_ACTION_OUTPUT}"
+  INPUT "${RBLXBUILD_CURRENT_SOURCE_DIR}/custom_action_dll.wxs.in"
+  )

@@ -2,6 +2,6 @@
 
 \dir
 
-\brief Generated \c ${CMake_BINARY_DIR}/Source directory
+\brief Generated \c ${RBLXBuild_BINARY_DIR}/Source directory
 
 */

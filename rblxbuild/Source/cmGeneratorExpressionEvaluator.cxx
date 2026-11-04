@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmGeneratorExpressionEvaluator.h"
 
 #include <iterator>
@@ -7,7 +7,7 @@
 #include <cm/string_view>
 #include <cmext/string_view>
 
-#ifndef CMAKE_BOOTSTRAP
+#ifndef RBLXBUILD_BOOTSTRAP
 #  include <cm3p/json/value.h>
 #endif
 #include "cmGenExContext.h"
@@ -15,7 +15,7 @@
 #include "cmGeneratorExpressionNode.h"
 #include "cmLocalGenerator.h"
 #include "cmStringAlgorithms.h"
-#include "cmake.h"
+#include "rblxbuild.h"
 
 GeneratorExpressionContent::GeneratorExpressionContent(
   char const* startContent, size_t length)
@@ -70,9 +70,9 @@ std::string GeneratorExpressionContent::Evaluate(
   cm::GenEx::Evaluation* eval,
   cmGeneratorExpressionDAGChecker* dagChecker) const
 {
-#ifndef CMAKE_BOOTSTRAP
+#ifndef RBLXBUILD_BOOTSTRAP
   auto evalProfilingRAII =
-    eval->Context.LG->GetCMakeInstance()->CreateProfilingEntry(
+    eval->Context.LG->GetRBLXBuildInstance()->CreateProfilingEntry(
       "genex_eval", this->GetOriginalExpression());
 #endif
 
@@ -144,9 +144,9 @@ std::string GeneratorExpressionContent::Evaluate(
   }
 
   {
-#ifndef CMAKE_BOOTSTRAP
+#ifndef RBLXBUILD_BOOTSTRAP
     auto execProfilingRAII =
-      eval->Context.LG->GetCMakeInstance()->CreateProfilingEntry(
+      eval->Context.LG->GetRBLXBuildInstance()->CreateProfilingEntry(
         "genex_exec", identifier, [&parameters]() -> Json::Value {
           Json::Value args = Json::objectValue;
           if (!parameters.empty()) {

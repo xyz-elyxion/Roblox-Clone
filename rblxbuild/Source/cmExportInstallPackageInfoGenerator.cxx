@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmExportInstallPackageInfoGenerator.h"
 
 #include <functional>
@@ -180,7 +180,7 @@ std::string cmExportInstallPackageInfoGenerator::GenerateImportPrefix() const
   if (cmSystemTools::FileIsFullPath(expDest)) {
     std::string const& installPrefix =
       this->IEGen->GetLocalGenerator()->GetMakefile()->GetSafeDefinition(
-        "CMAKE_INSTALL_PREFIX");
+        "RBLXBUILD_INSTALL_PREFIX");
     if (cmHasPrefix(expDest, installPrefix)) {
       auto n = installPrefix.length();
       while (n < expDest.length() && expDest[n] == '/') {
@@ -208,7 +208,7 @@ std::string cmExportInstallPackageInfoGenerator::InstallNameDir(
   std::string install_name_dir;
 
   cmMakefile* mf = target->Target->GetMakefile();
-  if (mf->IsOn("CMAKE_PLATFORM_HAS_INSTALLNAME")) {
+  if (mf->IsOn("RBLXBUILD_PLATFORM_HAS_INSTALLNAME")) {
     install_name_dir =
       target->GetInstallNameDirForInstallTree(config, "@prefix@");
   }
@@ -236,7 +236,7 @@ cmExportInstallPackageInfoGenerator::GetFileSetDirectory(
   }
 
   // Use cm::optional here to enable NRVO.
-  cm::optional<std::string> dest = cmOutputConverter::EscapeForCMake(
+  cm::optional<std::string> dest = cmOutputConverter::EscapeForRBLXBuild(
     result.UnescapedDestination, cmOutputConverter::WrapQuotes::NoWrap);
 
   if (!cmSystemTools::FileIsFullPath(result.UnescapedDestination)) {

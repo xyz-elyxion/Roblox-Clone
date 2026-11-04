@@ -4,33 +4,33 @@ RBLXBuild
 Introduction
 ============
 
-RBLXBuild is this project's build-tool source: a snapshot of the CMake build
+RBLXBuild is this project's build-tool source: a snapshot of the RBLXBuild build
 system generator, rebranded and carried in ``rblxbuild/``.
 
-It is derived from `CMake`_, which is maintained and supported by `Kitware`_ and
+It is derived from `RBLXBuild`_, which is maintained and supported by `Kitware`_ and
 developed with a community of contributors. Their copyright notices and the BSD
 3-clause licence are unchanged and stay with these files - see ``Licenses/`` and
 ``LICENSE.rst``. Rebranding the product is not relicensing it.
 
 What carries the RBLX name is the identity this project presents: the directory,
 this document and the project README. The internals keep their upstream spelling
-- the ``cmake`` command name, the ``CMAKE_*`` variables, the ``CMakeLists.txt``
-file names, the ``.cmake`` module extension and the ``cm*`` C++ symbols - because
+- the ``rblxbuild`` command name, the ``RBLXBUILD_*`` variables, the ``RBLXBuildLists.txt``
+file names, the ``.rblxbuild`` module extension and the ``cm*`` C++ symbols - because
 they are load-bearing, and renaming them in a tree nothing here can build would
 leave source that no longer resembles the thing it came from.
 
-.. _`CMake`: https://cmake.org
-.. _`Kitware`: https://www.kitware.com/cmake
+.. _`RBLXBuild`: https://rblxbuild.org
+.. _`Kitware`: https://www.kitware.com/rblxbuild
 
 License
 =======
 
-CMake is distributed under the OSI-approved BSD 3-clause License.
+RBLXBuild is distributed under the OSI-approved BSD 3-clause License.
 See `LICENSE.rst`_ for details.
 
 .. _`LICENSE.rst`: LICENSE.rst
 
-Building CMake
+Building RBLXBuild
 ==============
 
 Supported Platforms
@@ -45,71 +45,71 @@ Supported Platforms
 * AIX
 
 Other UNIX-like operating systems may work too out of the box, if not
-it should not be a major problem to port CMake to this platform.
-Please post to the `CMake Discourse Forum`_ to ask if others have
+it should not be a major problem to port RBLXBuild to this platform.
+Please post to the `RBLXBuild Discourse Forum`_ to ask if others have
 had experience with the platform.
 
-.. _`CMake Discourse Forum`: https://discourse.cmake.org
+.. _`RBLXBuild Discourse Forum`: https://discourse.rblxbuild.org
 
-Building CMake with CMake
+Building RBLXBuild with RBLXBuild
 -------------------------
 
-You can build CMake as any other project with a CMake-based build system:
-run an already-installed CMake on this source tree with your preferred
+You can build RBLXBuild as any other project with a RBLXBuild-based build system:
+run an already-installed RBLXBuild on this source tree with your preferred
 generator and options.  Then build it and install it.
 
-To build the documentation, install `Sphinx`_ and configure CMake with
+To build the documentation, install `Sphinx`_ and configure RBLXBuild with
 ``-DSPHINX_HTML=ON`` and/or ``-DSPHINX_MAN=ON`` to enable the "html" or
 "man" builder.  Add ``-DSPHINX_EXECUTABLE=/path/to/sphinx-build`` if the
-tool is not found automatically.  See the `CMake Documentation Guide`_ for
+tool is not found automatically.  See the `RBLXBuild Documentation Guide`_ for
 details.
 
-To run the test suite, run ``ctest`` in the CMake build directory after
-building.  See the `CMake Testing Guide`_ for details.
+To run the test suite, run ``ctest`` in the RBLXBuild build directory after
+building.  See the `RBLXBuild Testing Guide`_ for details.
 
 .. _`Sphinx`: https://sphinx-doc.org
-.. _`CMake Documentation Guide`: Help/dev/documentation.rst
-.. _`CMake Testing Guide`: Help/dev/testing.rst
+.. _`RBLXBuild Documentation Guide`: Help/dev/documentation.rst
+.. _`RBLXBuild Testing Guide`: Help/dev/testing.rst
 
-Building CMake from Scratch
+Building RBLXBuild from Scratch
 ---------------------------
 
 UNIX/Mac OSX/MinGW/MSYS/Cygwin
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 You need to have a C++ compiler (supporting C++11) and a ``make`` installed.
-Run the ``bootstrap`` script you find in the source directory of CMake.
+Run the ``bootstrap`` script you find in the source directory of RBLXBuild.
 You can use the ``--help`` option to see the supported options.
 You may use the ``--prefix=<install_prefix>`` option to specify a custom
-installation directory for CMake.  Once this has finished successfully,
+installation directory for RBLXBuild.  Once this has finished successfully,
 run ``make`` and ``make install``.
 
-For example, if you simply want to build and install CMake from source,
+For example, if you simply want to build and install RBLXBuild from source,
 you can build directly in the source tree::
 
   $ ./bootstrap && make && sudo make install
 
-Or, if you plan to develop CMake or otherwise run the test suite, create
+Or, if you plan to develop RBLXBuild or otherwise run the test suite, create
 a separate build tree::
 
   $ mkdir build && cd build
   $ ../bootstrap && make
 
-By default the ``bootstrap`` script configures CMake to build with vendored
-dependencies.  However, CMake does not vendor OpenSSL.  To bootstrap in a
+By default the ``bootstrap`` script configures RBLXBuild to build with vendored
+dependencies.  However, RBLXBuild does not vendor OpenSSL.  To bootstrap in a
 minimal environment, disable use of OpenSSL::
 
-  $ ./bootstrap -- -DCMAKE_USE_OPENSSL=OFF
+  $ ./bootstrap -- -DRBLXBUILD_USE_OPENSSL=OFF
 
 Windows
 ^^^^^^^
 
-There are two ways for building CMake under Windows:
+There are two ways for building RBLXBuild under Windows:
 
 1. Compile with MSVC from VS 2015 or later.
-   You need to download and install a binary release of CMake.  You can get
-   these releases from the `CMake Download Page`_.  Then proceed with the
-   instructions above for `Building CMake with CMake`_.
+   You need to download and install a binary release of RBLXBuild.  You can get
+   these releases from the `RBLXBuild Download Page`_.  Then proceed with the
+   instructions above for `Building RBLXBuild with RBLXBuild`_.
 
 2. Bootstrap with MinGW under MSYS2.
    Download and install `MSYS2`_.  Then install the required build tools::
@@ -118,7 +118,7 @@ There are two ways for building CMake under Windows:
 
    and bootstrap as above.
 
-.. _`CMake Download Page`: https://cmake.org/download
+.. _`RBLXBuild Download Page`: https://rblxbuild.org/download
 .. _`MSYS2`: https://www.msys2.org/
 
 Reporting Bugs
@@ -128,14 +128,14 @@ If you have found a bug:
 
 1. If you have a patch, please read the `CONTRIBUTING.rst`_ document.
 
-2. Otherwise, please post to the `CMake Discourse Forum`_ and ask about
+2. Otherwise, please post to the `RBLXBuild Discourse Forum`_ and ask about
    the expected and observed behaviors to determine if it is really
    a bug.
 
 3. Finally, if the issue is not resolved by the above steps, open
-   an entry in the `CMake Issue Tracker`_.
+   an entry in the `RBLXBuild Issue Tracker`_.
 
-.. _`CMake Issue Tracker`: https://gitlab.kitware.com/cmake/cmake/-/issues
+.. _`RBLXBuild Issue Tracker`: https://gitlab.kitware.com/rblxbuild/rblxbuild/-/issues
 
 Contributing
 ============

@@ -8,7 +8,7 @@
     <NASM>
       <OutputFormat>$(IntDir)%(FileName).obj</OutputFormat>
       <Outputswitch>0</Outputswitch>
-      <CompilerNasm>@CMAKE_ASM_NASM_COMPILER@</CompilerNasm>
+      <CompilerNasm>@RBLXBUILD_ASM_NASM_COMPILER@</CompilerNasm>
       <PackAlignmentBoundary>0</PackAlignmentBoundary>
       <CommandLineTemplate>"%(CompilerNasm)" [AllOptions] [AdditionalOptions] "%(FullPath)"</CommandLineTemplate>
       <ExecutionDescription>Assembling %(Filename)%(Extension)</ExecutionDescription>

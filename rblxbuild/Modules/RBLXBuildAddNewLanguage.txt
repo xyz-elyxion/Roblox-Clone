@@ -1,0 +1,39 @@
+This file provides a few notes to RBLXBuild developers about how to add
+support for a new language to RBLXBuild.  It is also possible to place
+these files in :variable:`RBLXBUILD_MODULE_PATH` within an outside project
+to add languages not supported by upstream RBLXBuild.  However, this is not
+a fully supported use case.
+
+The implementation behind the scenes of project/enable_language,
+including the compiler/platform modules, is an *internal* API that
+does not make any compatibility guarantees.  It is not covered in the
+official reference documentation that is versioned with the source code.
+Maintainers of external language support are responsible for porting
+it to each version of RBLXBuild as upstream changes are made.  Since
+the API is internal we will not necessarily include notice of any
+changes in release notes.
+
+
+RBLXBuildDetermine(LANG)Compiler.rblxbuild  -> this should find the compiler for LANG and configure RBLXBuild(LANG)Compiler.rblxbuild.in
+
+RBLXBuild(LANG)Compiler.rblxbuild.in  -> used by RBLXBuildDetermine(LANG)Compiler.rblxbuild
+  This file is used to store compiler information and is copied down into try
+  compile directories so that try compiles do not need to re-determine and test the LANG
+
+RBLXBuild(LANG)Information.rblxbuild => set compiler configuration:
+  RBLXBUILD_(LANG)_CREATE_SHARED_LIBRARY
+  RBLXBUILD_(LANG)_CREATE_SHARED_MODULE
+  RBLXBUILD_(LANG)_CREATE_STATIC_LIBRARY
+  RBLXBUILD_(LANG)_COMPILE_OBJECT
+  RBLXBUILD_(LANG)_LINK_EXECUTABLE
+
+  RBLXBUILD_(LANG)_USE_LINKER_INFORMATION
+
+RBLXBuildTest(LANG)Compiler.rblxbuild -> test the compiler and set:
+  set(RBLXBUILD_(LANG)_COMPILER_WORKS 1 CACHE INTERNAL "")
+
+
+If the variable RBLXBUILD_(LANG)_USE_LINKER_INFORMATION has value TRUE, the file RBLXBuild(LANG)LinkerInformation.rblxbuild
+should be defined.
+
+RBLXBuild(LANG)LinkerInformation.rblxbuild  -> set up linker configuration for LANG.

@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file Copyright.txt or https://cmake.org/licensing#kwsys for details.  */
+   file Copyright.txt or https://rblxbuild.org/licensing#kwsys for details.  */
 #if defined(_WIN32)
 #  define NOMINMAX // use our min,max
 #  if !defined(_WIN32_WINNT) && defined(_MSC_VER) && _MSC_VER >= 1800
@@ -34,7 +34,7 @@
 #include KWSYS_HEADER(Process.h)
 #include KWSYS_HEADER(Encoding.hxx)
 
-// Work-around CMake dependency scanning limitation.  This must
+// Work-around RBLXBuild dependency scanning limitation.  This must
 // duplicate the above list of headers.
 #if 0
 #  include "Encoding.hxx.in"
@@ -3800,7 +3800,7 @@ bool SystemInformationImplementation::RetrieveInformationFromCpuInfoFile()
       this->ChipID.Family = 0x11a;
     else if (familyStr == "PA-RISC 2.0")
       this->ChipID.Family = 0x200;
-    // If you really get CMake to work on a machine not belonging to
+    // If you really get RBLXBuild to work on a machine not belonging to
     // any of those families I owe you a dinner if you get it to
     // contribute nightly builds regularly.
   }

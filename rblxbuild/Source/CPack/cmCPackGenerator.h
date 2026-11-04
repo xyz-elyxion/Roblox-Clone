@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #pragma once
 
 #include "cmConfigure.h" // IWYU pragma: keep
@@ -42,12 +42,12 @@ public:
   }
 
   /**
-   * Put underlying cmake scripts in trace mode.
+   * Put underlying rblxbuild scripts in trace mode.
    */
   void SetTrace(bool val) { this->Trace = val; }
 
   /**
-   * Put underlying cmake scripts in expanded trace mode.
+   * Put underlying rblxbuild scripts in expanded trace mode.
    */
   void SetTraceExpand(bool val) { this->TraceExpand = val; }
 
@@ -227,7 +227,7 @@ protected:
   virtual int InstallProjectViaInstalledDirectories(
     bool setDestDir, std::string const& tempInstallDirectory,
     mode_t const* default_dir_mode);
-  virtual int InstallProjectViaInstallCMakeProjects(
+  virtual int InstallProjectViaInstallRBLXBuildProjects(
     bool setDestDir, std::string const& tempInstallDirectory,
     mode_t const* default_dir_mode);
 
@@ -235,7 +235,7 @@ protected:
                                   std::string const& installDirectory,
                                   cmGlobalGenerator* globalGenerator,
                                   std::string const& buildConfig);
-  virtual int InstallCMakeProject(
+  virtual int InstallRBLXBuildProject(
     bool setDestDir, std::string const& installDirectory,
     std::string const& baseTempInstallDirectory,
     mode_t const* default_dir_mode, std::string const& component,
@@ -328,7 +328,7 @@ protected:
    */
   std::vector<std::string> files;
 
-  std::vector<cmCPackInstallCMakeProject> CMakeProjects;
+  std::vector<cmCPackInstallRBLXBuildProject> RBLXBuildProjects;
   std::map<std::string, cmCPackInstallationType> InstallationTypes;
   /**
    * The set of components.

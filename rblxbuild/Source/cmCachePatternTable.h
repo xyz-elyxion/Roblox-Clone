@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #pragma once
 
 #include "cmConfigure.h" // IWYU pragma: keep
@@ -11,12 +11,12 @@
 #include "cmCacheDocumentationTable.h"
 
 /** \namespace cmCachePatternTable
- * \brief Compile-time pattern-matching fallback for built-in CMake cache
+ * \brief Compile-time pattern-matching fallback for built-in RBLXBuild cache
  *        variable documentation.
  *
  * The pattern table is a hand-maintained list of placeholder-shaped
- * tooltips, e.g. ``CMAKE_<LANG>_FLAGS`` or
- * ``CMAKE_POLICY_DEFAULT_CMP<NNNN>``, that complement the exact-match
+ * tooltips, e.g. ``RBLXBUILD_<LANG>_FLAGS`` or
+ * ``RBLXBUILD_POLICY_DEFAULT_CMP<NNNN>``, that complement the exact-match
  * entries in ``cmCacheDocumentationTable``.  It is consulted only on
  * the miss path: ``cmCacheDocumentationTable::Get`` first attempts an
  * exact-match lookup, then falls back to ``cmCachePatternTable::Match``
@@ -72,7 +72,7 @@ cmCacheDocumentationTable::LookupResult Match(cm::string_view varName);
 /** \brief Iterate the underlying pattern table.
  *
  * Exposed for the ``testCacheDocumentationTable`` unit test in
- * ``Tests/CMakeLib``, which verifies that the entries are well-formed
+ * ``Tests/RBLXBuildLib``, which verifies that the entries are well-formed
  * and obey the canonical ordering rule.  Callers should not rely on a
  * particular entry count or ordering beyond what the unit test
  * asserts.

@@ -1,4 +1,4 @@
-// controlscript.qs - CMake installation control script
+// controlscript.qs - RBLXBuild installation control script
 
 function Controller()
 {

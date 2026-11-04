@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #pragma once
 
 #include "cmConfigure.h" // IWYU pragma: keep
@@ -10,7 +10,7 @@
 class cmExecutionStatus;
 
 /**
- * \brief Unset a CMAKE variable
+ * \brief Unset a RBLXBUILD variable
  *
  * cmUnsetCommand unsets or removes a variable.
  */

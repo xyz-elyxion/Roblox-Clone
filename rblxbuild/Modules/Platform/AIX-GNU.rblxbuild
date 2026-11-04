@@ -1,0 +1,48 @@
+# Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
+# file LICENSE.rst or https://rblxbuild.org/licensing for details.
+
+
+# This module is shared by multiple languages; use include blocker.
+if(__AIX_COMPILER_GNU)
+  return()
+endif()
+set(__AIX_COMPILER_GNU 1)
+
+macro(__aix_compiler_gnu lang)
+  set(RBLXBUILD_SHARED_LIBRARY_RUNTIME_${lang}_FLAG "-Wl,-blibpath:")
+  set(RBLXBUILD_SHARED_LIBRARY_RUNTIME_${lang}_FLAG_SEP ":")
+  string(APPEND RBLXBUILD_SHARED_LIBRARY_CREATE_${lang}_FLAGS " -Wl,-bnoipath")
+  set(RBLXBUILD_SHARED_LIBRARY_LINK_${lang}_FLAGS "-Wl,-bexpall")
+  set(RBLXBUILD_${lang}_USE_IMPLICIT_LINK_DIRECTORIES_IN_RUNTIME_PATH 1)
+  set(RBLXBUILD_${lang}_VERBOSE_LINK_FLAG "-Wl,-v")
+
+  set(RBLXBUILD_EXECUTABLE_CREATE_${lang}_FLAGS "-Wl,-bnoipath")
+  rblxbuild_policy(GET CMP0210 _CMP0210)
+  if (NOT _CMP0210 STREQUAL "NEW")
+    set(RBLXBUILD_${lang}_LINK_FLAGS "${RBLXBUILD_EXECUTABLE_CREATE_${lang}_FLAGS}")
+  endif()
+  unset(_CMP0210)
+
+  if(RBLXBUILD_${lang}_COMPILER_VERSION VERSION_LESS 7 OR RBLXBUILD_SYSTEM_VERSION VERSION_LESS 7.1)
+    unset(RBLXBUILD_${lang}_COMPILE_OPTIONS_VISIBILITY)
+  endif()
+
+  # Construct the export list ourselves to pass only the object files so
+  # that we export only the symbols actually provided by the sources.
+  set(RBLXBUILD_${lang}_CREATE_SHARED_LIBRARY
+    "\"${RBLXBUILD_ROOT}/Modules/Platform/AIX/ExportImportList\" -o <OBJECT_DIR>/exports.exp -c <RBLXBUILD_${lang}_COMPILER> <AIX_EXPORTS> <OBJECTS>"
+    "<RBLXBUILD_${lang}_COMPILER> <RBLXBUILD_SHARED_LIBRARY_${lang}_FLAGS> -Wl,-bE:<OBJECT_DIR>/exports.exp <LANGUAGE_COMPILE_FLAGS> <LINK_FLAGS> <SONAME_FLAG><TARGET_SONAME> -o <TARGET> <OBJECTS> <LINK_LIBRARIES>"
+    )
+
+  # Create an archive for shared library if RBLXBUILD_AIX_SHARED_LIBRARY_ARCHIVE is used.
+  string(REPLACE " <SONAME_FLAG><TARGET_SONAME> -o <TARGET>" " -o <TARGET_SONAME>"
+    RBLXBUILD_${lang}_CREATE_SHARED_LIBRARY_ARCHIVE "${RBLXBUILD_${lang}_CREATE_SHARED_LIBRARY}")
+  list(APPEND RBLXBUILD_${lang}_CREATE_SHARED_LIBRARY_ARCHIVE
+    "<RBLXBUILD_AR> -X32_64 rc <TARGET> <TARGET_SONAME>"
+    "rm -f <TARGET_SONAME>"
+  )
+
+  set(RBLXBUILD_${lang}_LINK_EXECUTABLE_WITH_EXPORTS
+    "\"${RBLXBUILD_ROOT}/Modules/Platform/AIX/ExportImportList\" -o <TARGET_IMPLIB> -c <RBLXBUILD_${lang}_COMPILER> -l . <AIX_EXPORTS> <OBJECTS>"
+    "<RBLXBUILD_${lang}_COMPILER> <FLAGS> -Wl,-bE:<TARGET_IMPLIB> <LINK_FLAGS> <OBJECTS> -o <TARGET> <LINK_LIBRARIES>")
+endmacro()

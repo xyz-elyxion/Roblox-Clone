@@ -30,7 +30,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 
-#if defined(CMAKE_BOOTSTRAP) && defined(__sun__)
+#if defined(RBLXBUILD_BOOTSTRAP) && defined(__sun__)
 #  define SUNOS_NO_IFADDRS
 #endif
 

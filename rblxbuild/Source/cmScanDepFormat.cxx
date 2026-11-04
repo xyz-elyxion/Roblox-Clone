@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 
 #include "cmScanDepFormat.h"
 
@@ -60,7 +60,7 @@ static Json::Value EncodeFilename(std::string const& path)
 #define PARSE_BLOB(val, res)                                                  \
   do {                                                                        \
     if (!ParseFilename(val, res)) {                                           \
-      cmSystemTools::Error(cmStrCat("-E cmake_ninja_dyndep failed to parse ", \
+      cmSystemTools::Error(cmStrCat("-E rblxbuild_ninja_dyndep failed to parse ", \
                                     arg_pp, ": invalid blob"));               \
       return false;                                                           \
     }                                                                         \
@@ -69,7 +69,7 @@ static Json::Value EncodeFilename(std::string const& path)
 #define PARSE_FILENAME(val, res)                                              \
   do {                                                                        \
     if (!ParseFilename(val, res)) {                                           \
-      cmSystemTools::Error(cmStrCat("-E cmake_ninja_dyndep failed to parse ", \
+      cmSystemTools::Error(cmStrCat("-E rblxbuild_ninja_dyndep failed to parse ", \
                                     arg_pp, ": invalid filename"));           \
       return false;                                                           \
     }                                                                         \
@@ -88,7 +88,7 @@ bool cmScanDepFormat_P1689_Parse(std::string const& arg_pp,
   {
     cmJSONState parseState(arg_pp, &ppio);
     if (!parseState.errors.empty()) {
-      cmSystemTools::Error(cmStrCat("-E cmake_ninja_dyndep failed to parse ",
+      cmSystemTools::Error(cmStrCat("-E rblxbuild_ninja_dyndep failed to parse ",
                                     arg_pp, parseState.GetErrorMessage()));
       return false;
     }
@@ -96,7 +96,7 @@ bool cmScanDepFormat_P1689_Parse(std::string const& arg_pp,
 
   Json::Value const& version = ppi["version"];
   if (version.asUInt() > 1) {
-    cmSystemTools::Error(cmStrCat("-E cmake_ninja_dyndep failed to parse ",
+    cmSystemTools::Error(cmStrCat("-E rblxbuild_ninja_dyndep failed to parse ",
                                   arg_pp, ": version ", version.asString()));
     return false;
   }
@@ -104,7 +104,7 @@ bool cmScanDepFormat_P1689_Parse(std::string const& arg_pp,
   Json::Value const& rules = ppi["rules"];
   if (rules.isArray()) {
     if (rules.size() != 1) {
-      cmSystemTools::Error(cmStrCat("-E cmake_ninja_dyndep failed to parse ",
+      cmSystemTools::Error(cmStrCat("-E rblxbuild_ninja_dyndep failed to parse ",
                                     arg_pp, ": expected 1 source entry"));
       return false;
     }
@@ -117,7 +117,7 @@ bool cmScanDepFormat_P1689_Parse(std::string const& arg_pp,
         PARSE_BLOB(workdir, wd);
         work_directory = std::move(wd);
       } else if (!workdir.isNull()) {
-        cmSystemTools::Error(cmStrCat("-E cmake_ninja_dyndep failed to parse ",
+        cmSystemTools::Error(cmStrCat("-E rblxbuild_ninja_dyndep failed to parse ",
                                       arg_pp,
                                       ": work-directory is not a string"));
         return false;
@@ -144,7 +144,7 @@ bool cmScanDepFormat_P1689_Parse(std::string const& arg_pp,
         Json::Value const& provides = rule["provides"];
         if (!provides.isArray()) {
           cmSystemTools::Error(
-            cmStrCat("-E cmake_ninja_dyndep failed to parse ", arg_pp,
+            cmStrCat("-E rblxbuild_ninja_dyndep failed to parse ", arg_pp,
                      ": provides is not an array"));
           return false;
         }
@@ -167,7 +167,7 @@ bool cmScanDepFormat_P1689_Parse(std::string const& arg_pp,
               provide["unique-on-source-path"];
             if (!unique_on_source_path.isBool()) {
               cmSystemTools::Error(
-                cmStrCat("-E cmake_ninja_dyndep failed to parse ", arg_pp,
+                cmStrCat("-E rblxbuild_ninja_dyndep failed to parse ", arg_pp,
                          ": unique-on-source-path is not a boolean"));
               return false;
             }
@@ -181,7 +181,7 @@ bool cmScanDepFormat_P1689_Parse(std::string const& arg_pp,
             PARSE_FILENAME(source_path, provide_info.SourcePath);
           } else if (provide_info.UseSourcePath) {
             cmSystemTools::Error(
-              cmStrCat("-E cmake_ninja_dyndep failed to parse ", arg_pp,
+              cmStrCat("-E rblxbuild_ninja_dyndep failed to parse ", arg_pp,
                        ": source-path is missing"));
             return false;
           }
@@ -190,7 +190,7 @@ bool cmScanDepFormat_P1689_Parse(std::string const& arg_pp,
             Json::Value const& is_interface = provide["is-interface"];
             if (!is_interface.isBool()) {
               cmSystemTools::Error(
-                cmStrCat("-E cmake_ninja_dyndep failed to parse ", arg_pp,
+                cmStrCat("-E rblxbuild_ninja_dyndep failed to parse ", arg_pp,
                          ": is-interface is not a boolean"));
               return false;
             }
@@ -207,7 +207,7 @@ bool cmScanDepFormat_P1689_Parse(std::string const& arg_pp,
         Json::Value const& reqs = rule["requires"];
         if (!reqs.isArray()) {
           cmSystemTools::Error(
-            cmStrCat("-E cmake_ninja_dyndep failed to parse ", arg_pp,
+            cmStrCat("-E rblxbuild_ninja_dyndep failed to parse ", arg_pp,
                      ": requires is not an array"));
           return false;
         }
@@ -230,7 +230,7 @@ bool cmScanDepFormat_P1689_Parse(std::string const& arg_pp,
               require["unique-on-source-path"];
             if (!unique_on_source_path.isBool()) {
               cmSystemTools::Error(
-                cmStrCat("-E cmake_ninja_dyndep failed to parse ", arg_pp,
+                cmStrCat("-E rblxbuild_ninja_dyndep failed to parse ", arg_pp,
                          ": unique-on-source-path is not a boolean"));
               return false;
             }
@@ -244,7 +244,7 @@ bool cmScanDepFormat_P1689_Parse(std::string const& arg_pp,
             PARSE_FILENAME(source_path, require_info.SourcePath);
           } else if (require_info.UseSourcePath) {
             cmSystemTools::Error(
-              cmStrCat("-E cmake_ninja_dyndep failed to parse ", arg_pp,
+              cmStrCat("-E rblxbuild_ninja_dyndep failed to parse ", arg_pp,
                        ": source-path is missing"));
             return false;
           }
@@ -253,7 +253,7 @@ bool cmScanDepFormat_P1689_Parse(std::string const& arg_pp,
             Json::Value const& lookup_method = require["lookup-method"];
             if (!lookup_method.isString()) {
               cmSystemTools::Error(
-                cmStrCat("-E cmake_ninja_dyndep failed to parse ", arg_pp,
+                cmStrCat("-E rblxbuild_ninja_dyndep failed to parse ", arg_pp,
                          ": lookup-method is not a string"));
               return false;
             }
@@ -267,7 +267,7 @@ bool cmScanDepFormat_P1689_Parse(std::string const& arg_pp,
               require_info.Method = LookupMethod::IncludeQuote;
             } else {
               cmSystemTools::Error(cmStrCat(
-                "-E cmake_ninja_dyndep failed to parse ", arg_pp,
+                "-E rblxbuild_ninja_dyndep failed to parse ", arg_pp,
                 ": lookup-method is not a valid: ", lookup_method_str));
               return false;
             }

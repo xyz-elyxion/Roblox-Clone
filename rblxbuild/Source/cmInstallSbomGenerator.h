@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #pragma once
 
 #include "cmConfigure.h" // IWYU pragma: keep
@@ -23,7 +23,7 @@ class cmSbomArguments;
  * \brief Generate installation rules for SBOM files.
  *
  * At generate time it builds each configuration's SBOM in a temporary file;
- * the cmake_install.cmake script then copies that file to the install
+ * the rblxbuild_install.rblxbuild script then copies that file to the install
  * destination.
  */
 class cmInstallSbomGenerator : public cmInstallGenerator

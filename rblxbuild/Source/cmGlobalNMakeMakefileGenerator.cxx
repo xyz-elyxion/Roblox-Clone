@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmGlobalNMakeMakefileGenerator.h"
 
 #include <ostream>
@@ -16,12 +16,12 @@
 #include "cmState.h"
 #include "cmStringAlgorithms.h"
 #include "cmSystemTools.h"
-#include "cmake.h"
+#include "rblxbuild.h"
 
-cmGlobalNMakeMakefileGenerator::cmGlobalNMakeMakefileGenerator(cmake* cm)
+cmGlobalNMakeMakefileGenerator::cmGlobalNMakeMakefileGenerator(rblxbuild* cm)
   : cmGlobalUnixMakefileGenerator3(cm)
 {
-  this->FindMakeProgramFile = "CMakeNMakeFindMake.cmake";
+  this->FindMakeProgramFile = "RBLXBuildNMakeFindMake.rblxbuild";
   this->ForceUnixPaths = false;
   this->ToolSupportsColor = true;
   this->UseLinkScript = false;
@@ -39,8 +39,8 @@ void cmGlobalNMakeMakefileGenerator::EnableLanguage(
   std::vector<std::string> const& l, cmMakefile* mf, bool optional)
 {
   // pick a default
-  mf->AddDefinition("CMAKE_GENERATOR_CC", "cl");
-  mf->AddDefinition("CMAKE_GENERATOR_CXX", "cl");
+  mf->AddDefinition("RBLXBUILD_GENERATOR_CC", "cl");
+  mf->AddDefinition("RBLXBUILD_GENERATOR_CXX", "cl");
   this->cmGlobalUnixMakefileGenerator3::EnableLanguage(l, mf, optional);
 }
 
@@ -49,7 +49,7 @@ bool cmGlobalNMakeMakefileGenerator::FindMakeProgram(cmMakefile* mf)
   if (!this->cmGlobalGenerator::FindMakeProgram(mf)) {
     return false;
   }
-  if (cmValue nmakeCommand = mf->GetDefinition("CMAKE_MAKE_PROGRAM")) {
+  if (cmValue nmakeCommand = mf->GetDefinition("RBLXBUILD_MAKE_PROGRAM")) {
     std::vector<std::string> command{ *nmakeCommand, "-?" };
     std::string out;
     std::string err;
@@ -92,10 +92,10 @@ void cmGlobalNMakeMakefileGenerator::PrintCompilerAdvice(
   if (lang == "CXX"_s || lang == "C"_s) {
     /* clang-format off */
     os <<
-      "To use the NMake generator with Visual C++, cmake must be run from a "
+      "To use the NMake generator with Visual C++, rblxbuild must be run from a "
       "shell that can use the compiler cl from the command line. This "
       "environment is unable to invoke the cl compiler. To fix this problem, "
-      "run cmake from the Visual Studio Command Prompt (vcvarsall.bat).\n";
+      "run rblxbuild from the Visual Studio Command Prompt (vcvarsall.bat).\n";
     /* clang-format on */
   }
   this->cmGlobalUnixMakefileGenerator3::PrintCompilerAdvice(os, lang, envVar);
@@ -118,13 +118,13 @@ cmGlobalNMakeMakefileGenerator::GenerateBuildCommand(
 
   return this->cmGlobalUnixMakefileGenerator3::GenerateBuildCommand(
     makeProgram, projectName, projectDir, targetNames, config,
-    cmake::NO_BUILD_PARALLEL_LEVEL, verbose, buildOptions, nmakeMakeOptions);
+    rblxbuild::NO_BUILD_PARALLEL_LEVEL, verbose, buildOptions, nmakeMakeOptions);
 }
 
 void cmGlobalNMakeMakefileGenerator::PrintBuildCommandAdvice(std::ostream& os,
                                                              int jobs) const
 {
-  if (jobs != cmake::NO_BUILD_PARALLEL_LEVEL) {
+  if (jobs != rblxbuild::NO_BUILD_PARALLEL_LEVEL) {
     // nmake does not support parallel build level
     // see https://msdn.microsoft.com/en-us/library/afyyse50.aspx
     os << "Warning: NMake does not support parallel builds. "
@@ -132,5 +132,5 @@ void cmGlobalNMakeMakefileGenerator::PrintBuildCommandAdvice(std::ostream& os,
   }
 
   this->cmGlobalUnixMakefileGenerator3::PrintBuildCommandAdvice(
-    os, cmake::NO_BUILD_PARALLEL_LEVEL);
+    os, rblxbuild::NO_BUILD_PARALLEL_LEVEL);
 }

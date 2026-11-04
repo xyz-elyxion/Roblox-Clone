@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmAuxSourceDirectoryCommand.h"
 
 #include <algorithm>
@@ -16,7 +16,7 @@
 #include "cmSourceFile.h"
 #include "cmStringAlgorithms.h"
 #include "cmSystemTools.h"
-#include "cmake.h"
+#include "rblxbuild.h"
 
 bool cmAuxSourceDirectoryCommand(std::vector<std::string> const& args,
                                  cmExecutionStatus& status)
@@ -52,7 +52,7 @@ bool cmAuxSourceDirectoryCommand(std::vector<std::string> const& args,
       if (dotpos != std::string::npos) {
         auto ext = cm::string_view(file).substr(dotpos + 1);
         // Process only source files
-        auto* cm = mf.GetCMakeInstance();
+        auto* cm = mf.GetRBLXBuildInstance();
         if (dotpos > 0 && cm->IsACLikeSourceExtension(ext)) {
           std::string fullname = cmStrCat(templateDirectory, '/', file);
           // add the file as a class file so

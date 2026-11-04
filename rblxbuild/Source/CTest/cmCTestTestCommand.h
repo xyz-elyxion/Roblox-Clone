@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #pragma once
 
 #include "cmConfigure.h" // IWYU pragma: keep
@@ -14,7 +14,7 @@
 
 #include "cmArgumentParser.h"
 #include "cmArgumentParserTypes.h"
-#include "cmCMakePresetsGraph.h"
+#include "cmRBLXBuildPresetsGraph.h"
 #include "cmCTestHandlerCommand.h"
 
 class cmExecutionStatus;
@@ -108,8 +108,8 @@ private:
     std::string SourceDirectory;
     std::string PresetsFile;
     std::string EffectivePreset;
-    std::unique_ptr<cmCMakePresetsGraph> PresetsGraph;
-    cmCMakePresetsGraph::TestPreset const* ExpandedPreset = nullptr;
+    std::unique_ptr<cmRBLXBuildPresetsGraph> PresetsGraph;
+    cmRBLXBuildPresetsGraph::TestPreset const* ExpandedPreset = nullptr;
   };
 
   cm::optional<ResolvedTestPreset> ResolveTestPreset(

@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmCTestConfigureCommand.h"
 
 #include <chrono>
@@ -14,7 +14,7 @@
 #include <cmext/string_view>
 
 #include "cmArgumentParser.h"
-#include "cmCMakePresetsGraph.h"
+#include "cmRBLXBuildPresetsGraph.h"
 #include "cmCTest.h"
 #include "cmDuration.h"
 #include "cmExecutionStatus.h"
@@ -30,9 +30,9 @@
 #include "cmSystemTools.h"
 #include "cmValue.h"
 #include "cmXMLWriter.h"
-#include "cmake.h"
+#include "rblxbuild.h"
 
-using ConfigurePreset = cmCMakePresetsGraph::ConfigurePreset;
+using ConfigurePreset = cmRBLXBuildPresetsGraph::ConfigurePreset;
 
 namespace {
 
@@ -43,7 +43,7 @@ bool ConstructConfigureCommand(
   std::string const presetsFile, std::string& configureCommand)
 {
   configureCommand =
-    cmStrCat('"', cmSystemTools::GetCMakeCommand(), "\" \"-S",
+    cmStrCat('"', cmSystemTools::GetRBLXBuildCommand(), "\" \"-S",
              cmSystemTools::CollapseFullPath(sourceDirectory), '"');
 
   if (!buildDirectory.empty()) {
@@ -52,17 +52,17 @@ bool ConstructConfigureCommand(
                cmSystemTools::CollapseFullPath(buildDirectory), '"');
   }
 
-  cmValue cmakeGenerator = mf.GetDefinition("CTEST_CMAKE_GENERATOR");
-  if (cmNonempty(cmakeGenerator)) {
+  cmValue rblxbuildGenerator = mf.GetDefinition("CTEST_RBLXBUILD_GENERATOR");
+  if (cmNonempty(rblxbuildGenerator)) {
     configureCommand =
-      cmStrCat(std::move(configureCommand), " \"-G", cmakeGenerator, '"');
+      cmStrCat(std::move(configureCommand), " \"-G", rblxbuildGenerator, '"');
   }
 
   bool presetProvidesBuildDir = false;
   bool presetProvidesGenerator = false;
 
   if (!presetName.empty()) {
-    cmCMakePresetsGraph presetsGraph;
+    cmRBLXBuildPresetsGraph presetsGraph;
     if (!presetsGraph.ReadProjectPresets(sourceDirectory, presetsFile)) {
       status.SetError(cmStrCat("\n Could not read presets from \"",
                                sourceDirectory, "\":\n ",
@@ -73,7 +73,7 @@ bool ConstructConfigureCommand(
     auto resolveResult =
       presetsGraph.ResolvePreset(presetName, presetsGraph.ConfigurePresets);
     auto resolveError =
-      cmCMakePresetsGraph::FormatPresetError<ConfigurePreset>(
+      cmRBLXBuildPresetsGraph::FormatPresetError<ConfigurePreset>(
         resolveResult.StatusCode, resolveResult.ErrorPresetName,
         resolveResult.Suggestion, sourceDirectory);
     if (resolveError) {
@@ -107,11 +107,11 @@ bool ConstructConfigureCommand(
     return false;
   }
 
-  if (!cmNonempty(cmakeGenerator) && !presetProvidesGenerator) {
+  if (!cmNonempty(rblxbuildGenerator) && !presetProvidesGenerator) {
     status.SetError(
       "called with no configure command specified.  "
-      "If this is a  \"built with CMake\" project, set "
-      "CTEST_CMAKE_GENERATOR. If not, set CTEST_CONFIGURE_COMMAND.");
+      "If this is a  \"built with RBLXBuild\" project, set "
+      "CTEST_RBLXBUILD_GENERATOR. If not, set CTEST_CONFIGURE_COMMAND.");
     return false;
   }
 
@@ -128,15 +128,15 @@ bool ConstructConfigureCommand(
   cmValue buildName = mf.GetDefinition("CTEST_BUILD_NAME");
   if (cmNonempty(site) || cmNonempty(buildName)) {
     std::string const initialCacheFile =
-      cmStrCat(outputDirectory, "/Temporary/CTestConfigureInitialCache.cmake");
+      cmStrCat(outputDirectory, "/Temporary/CTestConfigureInitialCache.rblxbuild");
     cmGeneratedFileStream initialCache(initialCacheFile);
     if (cmNonempty(site)) {
-      initialCache << "set(SITE " << cmOutputConverter::EscapeForCMake(*site)
+      initialCache << "set(SITE " << cmOutputConverter::EscapeForRBLXBuild(*site)
                    << " CACHE STRING \"\")\n";
     }
     if (cmNonempty(buildName)) {
       initialCache << "set(BUILDNAME "
-                   << cmOutputConverter::EscapeForCMake(*buildName)
+                   << cmOutputConverter::EscapeForRBLXBuild(*buildName)
                    << " CACHE STRING \"\")\n";
     }
     initialCache.Close();
@@ -145,30 +145,30 @@ bool ConstructConfigureCommand(
       cmStrCat(std::move(configureCommand), " \"-C", initialCacheFile, '"');
   }
 
-  cmValue cmakeGeneratorPlatform =
-    mf.GetDefinition("CTEST_CMAKE_GENERATOR_PLATFORM");
-  if (cmNonempty(cmakeGeneratorPlatform)) {
+  cmValue rblxbuildGeneratorPlatform =
+    mf.GetDefinition("CTEST_RBLXBUILD_GENERATOR_PLATFORM");
+  if (cmNonempty(rblxbuildGeneratorPlatform)) {
     configureCommand = cmStrCat(std::move(configureCommand), " \"-A",
-                                *cmakeGeneratorPlatform, '"');
+                                *rblxbuildGeneratorPlatform, '"');
   }
 
-  cmValue cmakeGeneratorToolset =
-    mf.GetDefinition("CTEST_CMAKE_GENERATOR_TOOLSET");
-  if (cmNonempty(cmakeGeneratorToolset)) {
+  cmValue rblxbuildGeneratorToolset =
+    mf.GetDefinition("CTEST_RBLXBUILD_GENERATOR_TOOLSET");
+  if (cmNonempty(rblxbuildGeneratorToolset)) {
     configureCommand = cmStrCat(std::move(configureCommand), " \"-T",
-                                *cmakeGeneratorToolset, '"');
+                                *rblxbuildGeneratorToolset, '"');
   }
 
   // Append OPTIONS to the configure command.
   bool const multiConfig = [&]() -> bool {
-    cmake* cm = mf.GetCMakeInstance();
-    auto gg = cm->CreateGlobalGenerator(cmakeGenerator);
+    rblxbuild* cm = mf.GetRBLXBuildInstance();
+    auto gg = cm->CreateGlobalGenerator(rblxbuildGenerator);
     return gg && gg->IsMultiConfig();
   }();
 
   bool const buildTypeInOptions =
-    options.find("CMAKE_BUILD_TYPE=") != std::string::npos ||
-    options.find("CMAKE_BUILD_TYPE:STRING=") != std::string::npos;
+    options.find("RBLXBUILD_BUILD_TYPE=") != std::string::npos ||
+    options.find("RBLXBUILD_BUILD_TYPE:STRING=") != std::string::npos;
 
   auto const optionsList = cmList(options);
   for (std::string const& option : optionsList) {
@@ -176,11 +176,11 @@ bool ConstructConfigureCommand(
       cmStrCat(std::move(configureCommand), " \"", option, '"');
   }
 
-  cmValue cmakeBuildType = mf.GetDefinition("CTEST_CONFIGURATION_TYPE");
-  if (!multiConfig && !buildTypeInOptions && cmNonempty(cmakeBuildType)) {
+  cmValue rblxbuildBuildType = mf.GetDefinition("CTEST_CONFIGURATION_TYPE");
+  if (!multiConfig && !buildTypeInOptions && cmNonempty(rblxbuildBuildType)) {
     configureCommand =
       cmStrCat(std::move(configureCommand),
-               " \"-DCMAKE_BUILD_TYPE:STRING=", cmakeBuildType, '"');
+               " \"-DRBLXBUILD_BUILD_TYPE:STRING=", rblxbuildBuildType, '"');
   }
 
   return true;
@@ -201,10 +201,10 @@ bool cmCTestConfigureCommand::ExecuteConfigure(ConfigureArguments const& args,
     ? args.Source
     : mf.GetDefinition("CTEST_SOURCE_DIRECTORY");
   if (sourceDirectory.empty() ||
-      !cmSystemTools::FileExists(sourceDirectory + "/CMakeLists.txt")) {
+      !cmSystemTools::FileExists(sourceDirectory + "/RBLXBuildLists.txt")) {
     status.SetError("called with invalid source directory.  "
                     "CTEST_SOURCE_DIRECTORY must be set to a directory "
-                    "that contains CMakeLists.txt.");
+                    "that contains RBLXBuildLists.txt.");
     return false;
   }
 
@@ -229,7 +229,7 @@ bool cmCTestConfigureCommand::ExecuteConfigure(ConfigureArguments const& args,
     : cmSystemTools::CollapseFullPath(rawPresetsFile, sourceDirectory);
 
   // Skip checking CTEST_CONFIGURE_COMMAND when a preset is specified.
-  // We do this to avoid using a stale ConfigureCommand from a previous cmake
+  // We do this to avoid using a stale ConfigureCommand from a previous rblxbuild
   // run that would cause us to silently ignore the requested preset.
   std::string configureCommand;
   if (presetName.empty()) {
@@ -314,7 +314,7 @@ bool cmCTestConfigureCommand::ExecuteConfigure(ConfigureArguments const& args,
   }
 
   cmXMLWriter xml(xmlFile);
-  this->CTest->StartXML(xml, mf.GetCMakeInstance(), args.Append);
+  this->CTest->StartXML(xml, mf.GetRBLXBuildInstance(), args.Append);
   this->CTest->GenerateSubprojectsOutput(xml);
   xml.StartElement("Configure");
   xml.Element("StartDateTime", startDateTime);

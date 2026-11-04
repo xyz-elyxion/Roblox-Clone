@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmTryCompileCommand.h"
 
 #include <cm/optional>
@@ -14,10 +14,10 @@
 #include "cmStringAlgorithms.h"
 #include "cmTargetTypes.h"
 #include "cmValue.h"
-#include "cmake.h"
+#include "rblxbuild.h"
 
 namespace {
-#ifndef CMAKE_BOOTSTRAP
+#ifndef RBLXBUILD_BOOTSTRAP
 void WriteTryCompileEvent(cmConfigureLog& log, cmMakefile const& mf,
                           cmTryCompileResult const& compileResult)
 {
@@ -45,7 +45,7 @@ bool cmTryCompileCommand(std::vector<std::string> const& args,
     return false;
   }
 
-  if (mf.GetCMakeInstance()->GetState()->GetRole() ==
+  if (mf.GetRBLXBuildInstance()->GetState()->GetRole() ==
       cmState::Role::FindPackage) {
     mf.IssueMessage(
       MessageType::FATAL_ERROR,
@@ -54,7 +54,7 @@ bool cmTryCompileCommand(std::vector<std::string> const& args,
   }
 
   cm::TargetType targetType = cm::TargetType::EXECUTABLE;
-  cmValue tt = mf.GetDefinition("CMAKE_TRY_COMPILE_TARGET_TYPE");
+  cmValue tt = mf.GetDefinition("RBLXBUILD_TRY_COMPILE_TARGET_TYPE");
   if (cmNonempty(tt)) {
     if (*tt == cmState::GetTargetTypeName(cm::TargetType::EXECUTABLE)) {
       targetType = cm::TargetType::EXECUTABLE;
@@ -65,7 +65,7 @@ bool cmTryCompileCommand(std::vector<std::string> const& args,
       mf.IssueMessage(
         MessageType::FATAL_ERROR,
         cmStrCat("Invalid value '", *tt,
-                 "' for CMAKE_TRY_COMPILE_TARGET_TYPE.  Only '",
+                 "' for RBLXBUILD_TRY_COMPILE_TARGET_TYPE.  Only '",
                  cmState::GetTargetTypeName(cm::TargetType::EXECUTABLE),
                  "' and '",
                  cmState::GetTargetTypeName(cm::TargetType::STATIC_LIBRARY),
@@ -83,9 +83,9 @@ bool cmTryCompileCommand(std::vector<std::string> const& args,
 
   cm::optional<cmTryCompileResult> compileResult =
     tc.TryCompileCode(arguments, targetType);
-#ifndef CMAKE_BOOTSTRAP
+#ifndef RBLXBUILD_BOOTSTRAP
   if (compileResult && !arguments.NoLog) {
-    if (cmConfigureLog* log = mf.GetCMakeInstance()->GetConfigureLog()) {
+    if (cmConfigureLog* log = mf.GetRBLXBuildInstance()->GetConfigureLog()) {
       WriteTryCompileEvent(*log, mf, *compileResult);
     }
   }
@@ -93,7 +93,7 @@ bool cmTryCompileCommand(std::vector<std::string> const& args,
 
   // if They specified clean then we clean up what we can
   if (tc.SrcFileSignature) {
-    if (!mf.GetCMakeInstance()->GetDebugTryCompile()) {
+    if (!mf.GetRBLXBuildInstance()->GetDebugTryCompile()) {
       tc.CleanupFiles(tc.BinaryDirectory);
     }
   }

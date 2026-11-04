@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmMessageCommand.h"
 
 #include <cassert>
@@ -21,9 +21,9 @@
 #include "cmStringAlgorithms.h"
 #include "cmSystemTools.h"
 #include "cmValue.h"
-#include "cmake.h"
+#include "rblxbuild.h"
 
-#ifdef CMake_ENABLE_DEBUGGER
+#ifdef RBLXBuild_ENABLE_DEBUGGER
 #  include "cmDebuggerAdapter.h"
 #endif
 
@@ -32,13 +32,13 @@ namespace {
 std::string IndentText(std::string text, cmMakefile& mf)
 {
   auto indent =
-    cmList{ mf.GetSafeDefinition("CMAKE_MESSAGE_INDENT") }.join("");
+    cmList{ mf.GetSafeDefinition("RBLXBUILD_MESSAGE_INDENT") }.join("");
 
-  auto const showContext = mf.GetCMakeInstance()->GetShowLogContext() ||
-    mf.IsOn("CMAKE_MESSAGE_CONTEXT_SHOW");
+  auto const showContext = mf.GetRBLXBuildInstance()->GetShowLogContext() ||
+    mf.IsOn("RBLXBUILD_MESSAGE_CONTEXT_SHOW");
   if (showContext) {
     auto context =
-      cmList{ mf.GetSafeDefinition("CMAKE_MESSAGE_CONTEXT") }.join(".");
+      cmList{ mf.GetSafeDefinition("RBLXBUILD_MESSAGE_CONTEXT") }.join(".");
     if (!context.empty()) {
       indent.insert(0u, cmStrCat("["_s, context, "] "_s));
     }
@@ -54,8 +54,8 @@ std::string IndentText(std::string text, cmMakefile& mf)
 void ReportCheckResult(cm::string_view what, std::string result,
                        cmMakefile& mf)
 {
-  if (mf.GetCMakeInstance()->HasCheckInProgress()) {
-    auto text = cmStrCat(mf.GetCMakeInstance()->GetTopCheckInProgressMessage(),
+  if (mf.GetRBLXBuildInstance()->HasCheckInProgress()) {
+    auto text = cmStrCat(mf.GetRBLXBuildInstance()->GetTopCheckInProgressMessage(),
                          " - ", std::move(result));
     mf.DisplayStatus(IndentText(std::move(text), mf), -1);
   } else {
@@ -67,7 +67,7 @@ void ReportCheckResult(cm::string_view what, std::string result,
 }
 
 namespace {
-#ifndef CMAKE_BOOTSTRAP
+#ifndef RBLXBUILD_BOOTSTRAP
 void WriteMessageEvent(cmConfigureLog& log, cmMakefile const& mf,
                        std::string const& message)
 {
@@ -148,8 +148,8 @@ bool cmMessageCommand(std::vector<std::string> const& args,
     checkingType = Message::CheckType::CHECK_FAIL;
     ++i;
   } else if (*i == "CONFIGURE_LOG") {
-#ifndef CMAKE_BOOTSTRAP
-    if (cmConfigureLog* log = mf.GetCMakeInstance()->GetConfigureLog()) {
+#ifndef RBLXBUILD_BOOTSTRAP
+    if (cmConfigureLog* log = mf.GetRBLXBuildInstance()->GetConfigureLog()) {
       ++i;
       WriteMessageEvent(*log, mf, cmJoin(cmMakeRange(i, args.cend()), ""_s));
     }
@@ -184,10 +184,10 @@ bool cmMessageCommand(std::vector<std::string> const& args,
       ds = cm::make_unique<cmMakefile::DiagnosticPushPop>(&mf);
 
       // Use old variables to determine diagnostic action.
-      if (mf.IsOn("CMAKE_ERROR_DEPRECATED")) {
+      if (mf.IsOn("RBLXBUILD_ERROR_DEPRECATED")) {
         mf.SetDiagnostic(category, cmDiagnostics::FatalError);
       } else {
-        cmValue const warn = mf.GetDefinition("CMAKE_WARN_DEPRECATED");
+        cmValue const warn = mf.GetDefinition("RBLXBUILD_WARN_DEPRECATED");
         if (warn.IsSet() && !warn.IsOn()) {
           mf.SetDiagnostic(category, cmDiagnostics::Ignore);
         } else {
@@ -242,9 +242,9 @@ bool cmMessageCommand(std::vector<std::string> const& args,
 
     case Message::LogLevel::LOG_NOTICE:
       cmSystemTools::Message(IndentText(message, mf));
-#ifdef CMake_ENABLE_DEBUGGER
-      if (mf.GetCMakeInstance()->GetDebugAdapter()) {
-        mf.GetCMakeInstance()->GetDebugAdapter()->OnMessageOutput(type,
+#ifdef RBLXBuild_ENABLE_DEBUGGER
+      if (mf.GetRBLXBuildInstance()->GetDebugAdapter()) {
+        mf.GetRBLXBuildInstance()->GetDebugAdapter()->OnMessageOutput(type,
                                                                   message);
       }
 #endif
@@ -254,7 +254,7 @@ bool cmMessageCommand(std::vector<std::string> const& args,
       switch (checkingType) {
         case Message::CheckType::CHECK_START:
           mf.DisplayStatus(IndentText(message, mf), -1);
-          mf.GetCMakeInstance()->PushCheckInProgressMessage(message);
+          mf.GetRBLXBuildInstance()->PushCheckInProgressMessage(message);
           break;
 
         case Message::CheckType::CHECK_PASS:

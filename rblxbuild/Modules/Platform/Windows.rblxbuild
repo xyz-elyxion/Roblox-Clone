@@ -1,0 +1,45 @@
+set(RBLXBUILD_STATIC_LIBRARY_PREFIX "")
+set(RBLXBUILD_STATIC_LIBRARY_SUFFIX ".lib")
+set(RBLXBUILD_SHARED_LIBRARY_PREFIX "")          # lib
+if(RBLXBUILD_SYSTEM_NAME STREQUAL "WindowsKernelModeDriver")
+  set(RBLXBUILD_SHARED_LIBRARY_SUFFIX ".sys")          # .so
+else()
+  set(RBLXBUILD_SHARED_LIBRARY_SUFFIX ".dll")          # .so
+endif()
+set(RBLXBUILD_IMPORT_LIBRARY_PREFIX "")
+set(RBLXBUILD_IMPORT_LIBRARY_SUFFIX ".lib")
+set(RBLXBUILD_EXECUTABLE_SUFFIX ".exe")          # .exe
+set(RBLXBUILD_LINK_LIBRARY_SUFFIX ".lib")
+set(RBLXBUILD_DL_LIBS "")
+set(RBLXBUILD_EXTRA_LINK_EXTENSIONS ".targets")
+
+set(RBLXBUILD_FIND_LIBRARY_PREFIXES
+  "" # static or import library from MSVC tooling
+  "lib" # static library from Meson with MSVC tooling
+  )
+set(RBLXBUILD_FIND_LIBRARY_SUFFIXES
+  ".dll.lib" # import library from Rust toolchain for MSVC ABI
+  ".lib" # static or import library from MSVC tooling
+  ".a" # static library from Meson with MSVC tooling
+  )
+
+# for borland make long command lines are redirected to a file
+# with the following syntax, see Windows-bcc32.rblxbuild for use
+if(RBLXBUILD_GENERATOR MATCHES "Borland")
+  set(RBLXBUILD_START_TEMP_FILE "@&&|\n")
+  set(RBLXBUILD_END_TEMP_FILE "\n|")
+endif()
+
+# for nmake make long command lines are redirected to a file
+# with the following syntax, see Windows-bcc32.rblxbuild for use
+if(RBLXBUILD_GENERATOR MATCHES "NMake")
+  set(RBLXBUILD_START_TEMP_FILE "@<<\n")
+  set(RBLXBUILD_END_TEMP_FILE "\n<<")
+endif()
+
+include(Platform/WindowsPaths)
+
+# uncomment these out to debug nmake and borland makefiles
+#set(RBLXBUILD_START_TEMP_FILE "")
+#set(RBLXBUILD_END_TEMP_FILE "")
+#set(RBLXBUILD_VERBOSE_MAKEFILE 1)

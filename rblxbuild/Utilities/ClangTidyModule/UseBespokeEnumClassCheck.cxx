@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "UseBespokeEnumClassCheck.h"
 
 #include <clang/AST/Type.h>
@@ -7,7 +7,7 @@
 
 namespace clang {
 namespace tidy {
-namespace cmake {
+namespace rblxbuild {
 using namespace ast_matchers;
 
 UseBespokeEnumClassCheck::UseBespokeEnumClassCheck(StringRef Name,

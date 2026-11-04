@@ -99,7 +99,7 @@
 # define UV__PATH_MAX 8192
 #endif
 
-#if defined(CMAKE_BOOTSTRAP)
+#if defined(RBLXBUILD_BOOTSTRAP)
 # undef pthread_atfork
 # define pthread_atfork(prepare, parent, child) \
      uv__pthread_atfork(prepare, parent, child)
@@ -426,7 +426,7 @@ int uv__random_readpath(const char* path, void* buf, size_t buflen);
 int uv__random_sysctl(void* buf, size_t buflen);
 
 /* io_uring */
-#if defined(__linux__) && !defined(CMAKE_BOOTSTRAP)
+#if defined(__linux__) && !defined(RBLXBUILD_BOOTSTRAP)
 int uv__iou_fs_close(uv_loop_t* loop, uv_fs_t* req);
 int uv__iou_fs_ftruncate(uv_loop_t* loop, uv_fs_t* req);
 int uv__iou_fs_fsync_or_fdatasync(uv_loop_t* loop,
@@ -459,7 +459,7 @@ int uv__iou_fs_unlink(uv_loop_t* loop, uv_fs_t* req);
 #define uv__iou_fs_unlink(loop, req) 0
 #endif
 
-#if defined(__APPLE__) && !defined(CMAKE_BOOTSTRAP)
+#if defined(__APPLE__) && !defined(RBLXBUILD_BOOTSTRAP)
 int uv___stream_fd(const uv_stream_t* handle);
 #define uv__stream_fd(handle) (uv___stream_fd((const uv_stream_t*) (handle)))
 #else

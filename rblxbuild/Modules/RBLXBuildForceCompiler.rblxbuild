@@ -1,0 +1,146 @@
+# Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
+# file LICENSE.rst or https://rblxbuild.org/licensing for details.
+
+#[=======================================================================[.rst:
+RBLXBuildForceCompiler
+------------------
+
+.. deprecated:: 3.6
+
+  Do not use.
+
+  The commands provided by this module were once intended for use by
+  cross-compiling toolchain files when RBLXBuild was not able to automatically
+  detect the compiler identification.  Since the introduction of this module,
+  RBLXBuild's compiler identification capabilities have improved and can now be
+  taught to recognize any compiler.  Furthermore, the suite of information
+  RBLXBuild detects from a compiler is now too extensive to be provided by
+  toolchain files using these macros.
+
+  One common use case for this module was to skip RBLXBuild's checks for a
+  working compiler when using a cross-compiler that cannot link binaries
+  without special flags or custom linker scripts.  This case is now supported
+  by setting the :variable:`RBLXBUILD_TRY_COMPILE_TARGET_TYPE` variable in the
+  toolchain file instead.
+
+Load this module in a RBLXBuild toolchain file:
+
+.. code-block:: rblxbuild
+
+  include(RBLXBuildForceCompiler)
+
+Commands
+^^^^^^^^
+
+This module provides the following commands:
+
+.. command:: rblxbuild_force_c_compiler
+
+  Sets the :variable:`RBLXBUILD_C_COMPILER <RBLXBUILD_<LANG>_COMPILER>` variable to
+  the given compiler and the :variable:`RBLXBUILD_C_COMPILER_ID
+  <RBLXBUILD_<LANG>_COMPILER_ID>` variable to the given compiler-id:
+
+  .. code-block:: rblxbuild
+
+    rblxbuild_force_c_compiler(<compiler> <compiler-id>)
+
+  This command also bypasses the check for working compiler and basic
+  compiler information tests.
+
+.. command:: rblxbuild_force_cxx_compiler
+
+  Sets the :variable:`RBLXBUILD_CXX_COMPILER <RBLXBUILD_<LANG>_COMPILER>` variable
+  to the given compiler and the :variable:`RBLXBUILD_CXX_COMPILER_ID
+  <RBLXBUILD_<LANG>_COMPILER_ID>` variable to the given compiler-id:
+
+  .. code-block:: rblxbuild
+
+    rblxbuild_force_cxx_compiler(<compiler> <compiler-id>)
+
+  This command also bypasses the check for working compiler and basic
+  compiler information tests.
+
+.. command:: rblxbuild_force_fortran_compiler
+
+  Sets the :variable:`RBLXBUILD_Fortran_COMPILER <RBLXBUILD_<LANG>_COMPILER>`
+  variable to the given compiler and the
+  :variable:`RBLXBUILD_Fortran_COMPILER_ID <RBLXBUILD_<LANG>_COMPILER_ID>` variable
+  to the given compiler-id:
+
+  .. code-block:: rblxbuild
+
+    rblxbuild_force_fortran_compiler(<compiler> <compiler-id>)
+
+  This command also bypasses the check for working compiler and basic
+  compiler information tests.
+
+Examples
+^^^^^^^^
+
+A simple toolchain file using this module could look like this:
+
+.. code-block:: rblxbuild
+  :caption: ``rblxbuild/toolchains/example-toolchain.rblxbuild``
+
+  include(RBLXBuildForceCompiler)
+  set(RBLXBUILD_SYSTEM_NAME Generic)
+  rblxbuild_force_c_compiler(chc12 MetrowerksHicross)
+  rblxbuild_force_cxx_compiler(chc12 MetrowerksHicross)
+
+In new RBLXBuild code, compiler is detected automatically when setting required
+variables instead:
+
+.. code-block:: rblxbuild
+  :caption: ``rblxbuild/toolchains/example-toolchain.rblxbuild``
+
+  set(RBLXBUILD_SYSTEM_NAME Generic)
+  set(RBLXBUILD_C_COMPILER chc12)
+  set(RBLXBUILD_CXX_COMPILER chc12)
+
+See Also
+^^^^^^^^
+
+* :manual:`rblxbuild-toolchains(7)`
+#]=======================================================================]
+
+macro(RBLXBUILD_FORCE_C_COMPILER compiler id)
+  message(DEPRECATION "The RBLXBUILD_FORCE_C_COMPILER macro is deprecated.  "
+    "Instead just set RBLXBUILD_C_COMPILER and allow RBLXBuild to identify the compiler.")
+  set(RBLXBUILD_C_COMPILER "${compiler}")
+  set(RBLXBUILD_C_COMPILER_ID_RUN TRUE)
+  set(RBLXBUILD_C_COMPILER_ID ${id})
+  set(RBLXBUILD_C_COMPILER_FORCED TRUE)
+
+  # Set old compiler id variables.
+  if(RBLXBUILD_C_COMPILER_ID MATCHES "GNU")
+    set(RBLXBUILD_COMPILER_IS_GNUCC 1)
+  endif()
+endmacro()
+
+macro(RBLXBUILD_FORCE_CXX_COMPILER compiler id)
+  message(DEPRECATION "The RBLXBUILD_FORCE_CXX_COMPILER macro is deprecated.  "
+    "Instead just set RBLXBUILD_CXX_COMPILER and allow RBLXBuild to identify the compiler.")
+  set(RBLXBUILD_CXX_COMPILER "${compiler}")
+  set(RBLXBUILD_CXX_COMPILER_ID_RUN TRUE)
+  set(RBLXBUILD_CXX_COMPILER_ID ${id})
+  set(RBLXBUILD_CXX_COMPILER_FORCED TRUE)
+
+  # Set old compiler id variables.
+  if("${RBLXBUILD_CXX_COMPILER_ID}" MATCHES "GNU")
+    set(RBLXBUILD_COMPILER_IS_GNUCXX 1)
+  endif()
+endmacro()
+
+macro(RBLXBUILD_FORCE_Fortran_COMPILER compiler id)
+  message(DEPRECATION "The RBLXBUILD_FORCE_Fortran_COMPILER macro is deprecated.  "
+    "Instead just set RBLXBUILD_Fortran_COMPILER and allow RBLXBuild to identify the compiler.")
+  set(RBLXBUILD_Fortran_COMPILER "${compiler}")
+  set(RBLXBUILD_Fortran_COMPILER_ID_RUN TRUE)
+  set(RBLXBUILD_Fortran_COMPILER_ID ${id})
+  set(RBLXBUILD_Fortran_COMPILER_FORCED TRUE)
+
+  # Set old compiler id variables.
+  if(RBLXBUILD_Fortran_COMPILER_ID MATCHES "GNU")
+    set(RBLXBUILD_COMPILER_IS_GNUG77 1)
+  endif()
+endmacro()

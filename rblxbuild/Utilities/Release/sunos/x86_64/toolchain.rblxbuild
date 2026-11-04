@@ -1,0 +1,6 @@
+set(RBLXBUILD_SYSTEM_NAME SunOS)
+set(RBLXBUILD_SYSTEM_VERSION 5.10)
+set(RBLXBUILD_SYSTEM_PROCESSOR x86_64)
+set(RBLXBUILD_SYSROOT /opt/cross/sysroot/x86_64-pc-solaris2.10)
+set(RBLXBUILD_C_COMPILER /opt/cross/bin/x86_64-pc-solaris2.10-gcc)
+set(RBLXBUILD_CXX_COMPILER /opt/cross/bin/x86_64-pc-solaris2.10-g++)

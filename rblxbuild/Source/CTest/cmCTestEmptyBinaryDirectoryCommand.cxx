@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmCTestEmptyBinaryDirectoryCommand.h"
 
 #include "cmsys/Directory.hxx"
@@ -20,11 +20,11 @@ cmsys::Status TryToRemoveBinaryDirectoryOnce(std::string const& directoryPath)
   cmsys::Directory directory;
   directory.Load(directoryPath);
 
-  // Make sure that CMakeCache.txt is deleted last.
+  // Make sure that RBLXBuildCache.txt is deleted last.
   for (unsigned long i = 0; i < directory.GetNumberOfFiles(); ++i) {
     std::string const& path = directory.GetFileName(i);
 
-    if (path == "." || path == ".." || path == "CMakeCache.txt") {
+    if (path == "." || path == ".." || path == "RBLXBuildCache.txt") {
       continue;
     }
 
@@ -64,10 +64,10 @@ bool EmptyBinaryDirectory(std::string const& sname, std::string& err)
   }
 
   // try to avoid deleting directories that we shouldn't
-  std::string check = cmStrCat(sname, "/CMakeCache.txt");
+  std::string check = cmStrCat(sname, "/RBLXBuildCache.txt");
 
   if (!cmSystemTools::FileExists(check)) {
-    err = "path does not contain an existing CMakeCache.txt file";
+    err = "path does not contain an existing RBLXBuildCache.txt file";
     return false;
   }
 

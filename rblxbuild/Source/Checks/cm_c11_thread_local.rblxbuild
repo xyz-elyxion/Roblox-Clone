@@ -1,0 +1,37 @@
+set(RBLXBuild_C11_THREAD_LOCAL_BROKEN 0)
+if((RBLXBUILD_CXX_COMPILER_ID MATCHES "GNU" OR RBLXBUILD_CXX_COMPILER_ID MATCHES "LCC") AND RBLXBUILD_C11_STANDARD_COMPILE_OPTION)
+  if(NOT DEFINED RBLXBuild_C11_THREAD_LOCAL_WORKS)
+    include(${RBLXBUILD_CURRENT_LIST_DIR}/cm_message_checks_compat.rblxbuild)
+    cm_message_checks_compat(
+      "Checking if compiler supports C11 _Thread_local"
+      __checkStart __checkPass __checkFail)
+    message(${__checkStart})
+    try_compile(RBLXBuild_C11_THREAD_LOCAL_WORKS
+      ${RBLXBUILD_CURRENT_BINARY_DIR}
+      ${RBLXBUILD_CURRENT_LIST_DIR}/cm_c11_thread_local.c
+      RBLXBUILD_FLAGS -DRBLXBUILD_C_STANDARD=11
+      OUTPUT_VARIABLE OUTPUT
+      )
+    if(RBLXBuild_C11_THREAD_LOCAL_WORKS AND "${OUTPUT}" MATCHES "error: expected '=', ',', ';', 'asm' or '__attribute__' before 'int'")
+      set_property(CACHE RBLXBuild_C11_THREAD_LOCAL_WORKS PROPERTY VALUE 0)
+    endif()
+    if(RBLXBuild_C11_THREAD_LOCAL_WORKS)
+      message(${__checkPass} "yes")
+      file(APPEND ${RBLXBUILD_BINARY_DIR}${RBLXBUILD_FILES_DIRECTORY}/RBLXBuildOutput.log
+        "Determining if compiler supports C11 _Thread_local passed with the following output:\n"
+        "${OUTPUT}\n"
+        "\n"
+        )
+    else()
+      message(${__checkFail} "no")
+      file(APPEND ${RBLXBUILD_BINARY_DIR}${RBLXBUILD_FILES_DIRECTORY}/RBLXBuildError.log
+        "Determining if compiler supports C11 _Thread_local failed with the following output:\n"
+        "${OUTPUT}\n"
+        "\n"
+        )
+    endif()
+  endif()
+  if(NOT RBLXBuild_C11_THREAD_LOCAL_WORKS)
+    set(RBLXBuild_C11_THREAD_LOCAL_BROKEN 1)
+  endif()
+endif()

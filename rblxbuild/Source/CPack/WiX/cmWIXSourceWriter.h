@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #pragma once
 
 #include <string>
@@ -20,7 +20,7 @@ public:
   enum GuidType
   {
     WIX_GENERATED_GUID,
-    CMAKE_GENERATED_GUID
+    RBLXBUILD_GENERATED_GUID
   };
 
   enum RootElementType
@@ -57,7 +57,7 @@ public:
   // In most cases CreateGuidFromComponentId should be used instead, since it
   // takes ComponentGuidType into consideration. This function always generates
   // an explicit GUID.
-  static std::string CreateCmakeGeneratedGuidFromComponentId(
+  static std::string CreateRblxbuildGeneratedGuidFromComponentId(
     std::string const& componentId);
 
   static std::string EscapeAttributeValue(std::string const& value);

@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #pragma once
 
 #include <iosfwd>
@@ -12,7 +12,7 @@
 #include "cmValue.h"
 
 class cmMakefile;
-class cmake;
+class rblxbuild;
 
 /** \class cmGlobalJOMMakefileGenerator
  * \brief Write a JOM makefiles.
@@ -22,7 +22,7 @@ class cmake;
 class cmGlobalJOMMakefileGenerator : public cmGlobalUnixMakefileGenerator3
 {
 public:
-  cmGlobalJOMMakefileGenerator(cmake* cm);
+  cmGlobalJOMMakefileGenerator(rblxbuild* cm);
   static std::unique_ptr<cmGlobalGeneratorFactory> NewFactory()
   {
     return std::unique_ptr<cmGlobalGeneratorFactory>(

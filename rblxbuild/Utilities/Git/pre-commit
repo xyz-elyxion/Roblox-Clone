@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-# file LICENSE.rst or https://cmake.org/licensing for details.
+# file LICENSE.rst or https://rblxbuild.org/licensing for details.
 
 die() {
   echo 'pre-commit hook failure' 1>&2
@@ -51,7 +51,7 @@ if test -z "$HOOKS_ALLOW_KWSYS"; then
 
 '"$(echo "$files" | sed 's/^/  /')"'
 
-should not be made directly in CMake.  KWSys is kept in its own Git
+should not be made directly in RBLXBuild.  KWSys is kept in its own Git
 repository and shared by several projects.  Please visit
 
   https://gitlab.kitware.com/utils/kwsys

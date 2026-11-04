@@ -1,0 +1,5 @@
+list(APPEND CTEST_CUSTOM_WARNING_EXCEPTION
+  "rblxbuild.texi:[0-9]+: warning: .definfoenclose is obsolete"
+  "rblxbuild.texi:[0-9]+: warning: @itemize has text but no @item"
+  "rblxbuild.texi:[0-9]+: warning: @ref should not appear on @item line"
+  )

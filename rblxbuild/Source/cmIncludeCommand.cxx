@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmIncludeCommand.h"
 
 #include <map>
@@ -22,8 +22,8 @@ bool cmIncludeCommand(std::vector<std::string> const& args,
 {
   static std::map<std::string, cmPolicies::PolicyID> DeprecatedModules;
   if (DeprecatedModules.empty()) {
-    DeprecatedModules["CMakeDetermineVSServicePack"] = cmPolicies::CMP0196;
-    DeprecatedModules["CMakeFindFrameworks"] = cmPolicies::CMP0173;
+    DeprecatedModules["RBLXBuildDetermineVSServicePack"] = cmPolicies::CMP0196;
+    DeprecatedModules["RBLXBuildFindFrameworks"] = cmPolicies::CMP0173;
     DeprecatedModules["Dart"] = cmPolicies::CMP0145;
     DeprecatedModules["Documentation"] = cmPolicies::CMP0106;
     DeprecatedModules["FindBoost"] = cmPolicies::CMP0167;
@@ -77,7 +77,7 @@ bool cmIncludeCommand(std::vector<std::string> const& args,
       policyScope = cm::PolicyScope::None;
     } else if (args[i] == "NO_DIAGNOSTIC_SCOPE") {
       diagnosticScope = cm::DiagnosticScope::None;
-    } else if (i > 1) // compat.: in previous cmake versions the second
+    } else if (i > 1) // compat.: in previous rblxbuild versions the second
                       // parameter was ignored if it wasn't "OPTIONAL"
     {
       std::string errorText =
@@ -96,7 +96,7 @@ bool cmIncludeCommand(std::vector<std::string> const& args,
   if (!cmSystemTools::FileIsFullPath(fname)) {
     bool system = false;
     // Not a path. Maybe module.
-    std::string module = cmStrCat(fname, ".cmake");
+    std::string module = cmStrCat(fname, ".rblxbuild");
     std::string mfile = status.GetMakefile().GetModulesFile(module, system);
 
     if (system) {

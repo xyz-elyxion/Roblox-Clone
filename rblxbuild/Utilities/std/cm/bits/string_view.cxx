@@ -1,9 +1,9 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 
 #include <cm/string_view> // IWYU pragma: associated
 
-#ifndef CMake_HAVE_CXX_STRING_VIEW
+#ifndef RBLXBuild_HAVE_CXX_STRING_VIEW
 
 #  include <algorithm>
 #  include <ostream>

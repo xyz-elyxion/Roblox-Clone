@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #pragma once
 
 #include "cmConfigure.h" // IWYU pragma: keep
@@ -12,7 +12,7 @@ class cmExecutionStatus;
 /**
  * \brief Command that adds a target to the build system.
  *
- * cmExecuteProcessCommand is a CMake language interface to the KWSys
+ * cmExecuteProcessCommand is a RBLXBuild language interface to the KWSys
  * Process Execution implementation.
  */
 bool cmExecuteProcessCommand(std::vector<std::string> const& args,

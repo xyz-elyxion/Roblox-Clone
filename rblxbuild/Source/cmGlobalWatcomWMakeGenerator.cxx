@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmGlobalWatcomWMakeGenerator.h"
 
 #include <ostream>
@@ -10,12 +10,12 @@
 #include "cmGlobalGenerator.h"
 #include "cmMakefile.h"
 #include "cmState.h"
-#include "cmake.h"
+#include "rblxbuild.h"
 
-cmGlobalWatcomWMakeGenerator::cmGlobalWatcomWMakeGenerator(cmake* cm)
+cmGlobalWatcomWMakeGenerator::cmGlobalWatcomWMakeGenerator(rblxbuild* cm)
   : cmGlobalUnixMakefileGenerator3(cm)
 {
-  this->FindMakeProgramFile = "CMakeFindWMake.cmake";
+  this->FindMakeProgramFile = "RBLXBuildFindWMake.rblxbuild";
 #ifdef _WIN32
   this->ForceUnixPaths = false;
 #endif
@@ -38,20 +38,20 @@ void cmGlobalWatcomWMakeGenerator::EnableLanguage(
 {
   // pick a default
   mf->AddDefinition("WATCOM", "1");
-  mf->AddDefinition("CMAKE_QUOTE_INCLUDE_PATHS", "1");
-  mf->AddDefinition("CMAKE_MANGLE_OBJECT_FILE_NAMES", "1");
-  mf->AddDefinition("CMAKE_MAKE_SYMBOLIC_RULE", ".SYMBOLIC");
-  mf->AddDefinition("CMAKE_GENERATOR_CC", "wcl386");
-  mf->AddDefinition("CMAKE_GENERATOR_CXX", "wcl386");
+  mf->AddDefinition("RBLXBUILD_QUOTE_INCLUDE_PATHS", "1");
+  mf->AddDefinition("RBLXBUILD_MANGLE_OBJECT_FILE_NAMES", "1");
+  mf->AddDefinition("RBLXBUILD_MAKE_SYMBOLIC_RULE", ".SYMBOLIC");
+  mf->AddDefinition("RBLXBUILD_GENERATOR_CC", "wcl386");
+  mf->AddDefinition("RBLXBUILD_GENERATOR_CXX", "wcl386");
   this->cmGlobalUnixMakefileGenerator3::EnableLanguage(l, mf, optional);
 }
 
 bool cmGlobalWatcomWMakeGenerator::SetSystemName(std::string const& s,
                                                  cmMakefile* mf)
 {
-  if (mf->GetSafeDefinition("CMAKE_SYSTEM_PROCESSOR") == "I86"_s) {
-    mf->AddDefinition("CMAKE_GENERATOR_CC", "wcl");
-    mf->AddDefinition("CMAKE_GENERATOR_CXX", "wcl");
+  if (mf->GetSafeDefinition("RBLXBUILD_SYSTEM_PROCESSOR") == "I86"_s) {
+    mf->AddDefinition("RBLXBUILD_GENERATOR_CC", "wcl");
+    mf->AddDefinition("RBLXBUILD_GENERATOR_CXX", "wcl");
   }
   return this->cmGlobalUnixMakefileGenerator3::SetSystemName(s, mf);
 }
@@ -72,7 +72,7 @@ cmGlobalWatcomWMakeGenerator::GenerateBuildCommand(
 {
   return this->cmGlobalUnixMakefileGenerator3::GenerateBuildCommand(
     makeProgram, projectName, projectDir, targetNames, config,
-    cmake::NO_BUILD_PARALLEL_LEVEL, verbose, buildOptions, makeOptions);
+    rblxbuild::NO_BUILD_PARALLEL_LEVEL, verbose, buildOptions, makeOptions);
 }
 
 std::string cmGlobalWatcomWMakeGenerator::GetShortBinaryOutputDir() const
@@ -83,7 +83,7 @@ std::string cmGlobalWatcomWMakeGenerator::GetShortBinaryOutputDir() const
 void cmGlobalWatcomWMakeGenerator::PrintBuildCommandAdvice(std::ostream& os,
                                                            int jobs) const
 {
-  if (jobs != cmake::NO_BUILD_PARALLEL_LEVEL) {
+  if (jobs != rblxbuild::NO_BUILD_PARALLEL_LEVEL) {
     // wmake does not support parallel build level
 
     /* clang-format off */
@@ -94,5 +94,5 @@ void cmGlobalWatcomWMakeGenerator::PrintBuildCommandAdvice(std::ostream& os,
   }
 
   this->cmGlobalUnixMakefileGenerator3::PrintBuildCommandAdvice(
-    os, cmake::NO_BUILD_PARALLEL_LEVEL);
+    os, rblxbuild::NO_BUILD_PARALLEL_LEVEL);
 }

@@ -1,0 +1,30 @@
+include_guard()
+
+set(RBLXBUILD_EXECUTABLE_SUFFIX ".dxe")
+
+macro(__compiler_adsp lang)
+  set(RBLXBUILD_${lang}_OUTPUT_EXTENSION ".doj")
+
+  set(RBLXBUILD_${lang}_LINKER_WRAPPER_FLAG "-flags-link" " ")
+  set(RBLXBUILD_${lang}_LINKER_WRAPPER_FLAG_SEP ",")
+
+  set(RBLXBUILD_${lang}_LINK_MODE DRIVER)
+
+  set(_RBLXBUILD_${lang}_ADSP_FLAGS "-proc=${RBLXBUILD_ADSP_PROCESSOR}")
+
+  set(RBLXBUILD_DEPFILE_FLAGS_${lang} "-MD -Mo <DEP_FILE>")
+
+  set(RBLXBUILD_${lang}_COMPILE_OBJECT
+    "<RBLXBUILD_${lang}_COMPILER> ${_RBLXBUILD_${lang}_ADSP_FLAGS} <DEFINES> <INCLUDES> <FLAGS> -o <OBJECT> -c <SOURCE>")
+
+  set(RBLXBUILD_${lang}_CREATE_STATIC_LIBRARY
+    "<RBLXBUILD_${lang}_COMPILER> ${_RBLXBUILD_${lang}_ADSP_FLAGS} -build-lib -o <TARGET> <OBJECTS>")
+
+  set(RBLXBUILD_${lang}_LINK_EXECUTABLE
+    "<RBLXBUILD_${lang}_COMPILER> ${_RBLXBUILD_${lang}_ADSP_FLAGS} <FLAGS> <LINK_FLAGS> <OBJECTS> -o <TARGET> <LINK_LIBRARIES>")
+
+  unset(_RBLXBUILD_${lang}_ADSP_FLAGS)
+
+  set(RBLXBUILD_${lang}_CREATE_SHARED_LIBRARY)
+  set(RBLXBUILD_${lang}_CREATE_MODULE_LIBRARY)
+endmacro()

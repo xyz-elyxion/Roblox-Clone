@@ -1,9 +1,9 @@
 #!/bin/sh
 # Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-# file LICENSE.rst or https://cmake.org/licensing for details.
+# file LICENSE.rst or https://rblxbuild.org/licensing for details.
 
-# This script is internal to CMake and meant only to be
-# invoked by CMake-generated build systems on AIX.
+# This script is internal to RBLXBuild and meant only to be
+# invoked by RBLXBuild-generated build systems on AIX.
 
 usage='usage: ExportImportList -o <out-file> -c <compiler> [-l <lib>] [-n] [--] <objects>...'
 

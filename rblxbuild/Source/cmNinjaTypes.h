@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #pragma once
 
 #include "cmConfigure.h" // IWYU pragma: keep
@@ -52,7 +52,7 @@ public:
   std::string Rule;
   cmNinjaDeps Outputs;
   cmNinjaDeps ImplicitOuts;
-  cmNinjaDeps WorkDirOuts; // For cmake_ninja_workdir.
+  cmNinjaDeps WorkDirOuts; // For rblxbuild_ninja_workdir.
   cmNinjaDeps ExplicitDeps;
   cmNinjaDeps ImplicitDeps;
   cmNinjaDeps OrderOnlyDeps;

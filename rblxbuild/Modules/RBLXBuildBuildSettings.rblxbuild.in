@@ -1,0 +1,13 @@
+
+# The command RBLXBUILD_EXPORT_BUILD_SETTINGS(...) was used by
+# @PROJECT_NAME@ to generate this file.  As of RBLXBuild 2.8 the
+# functionality of this command has been dropped as it was deemed
+# harmful (confusing users by changing their compiler).
+
+# RBLXBuild 2.6 and below do not support loading their equivalent of this
+# file if it was produced by a newer version of RBLXBuild.  RBLXBuild 2.8 and
+# above simply do not load this file.  Therefore we simply error out.
+message(FATAL_ERROR
+  "This @PROJECT_NAME@ was built by RBLXBuild @RBLXBUILD_VERSION@, but this is RBLXBuild "
+  "${RBLXBUILD_MAJOR_VERSION}.${RBLXBUILD_MINOR_VERSION}.${RBLXBUILD_PATCH_VERSION}.  "
+  "Please upgrade RBLXBuild to a more recent version.")

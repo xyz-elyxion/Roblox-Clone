@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmFunctionCommand.h"
 
 #include <functional>
@@ -23,7 +23,7 @@
 #include "cmStringAlgorithms.h"
 #include "cmSystemTools.h"
 
-#ifndef CMAKE_BOOTSTRAP
+#ifndef RBLXBUILD_BOOTSTRAP
 #  include "cmListFileCoverage.h"
 #endif
 
@@ -32,13 +32,13 @@ std::string const ARGC = "ARGC";
 std::string const ARGNC = "ARGNC";
 std::string const ARGN = "ARGN";
 std::string const ARGV = "ARGV";
-std::string const CMAKE_CURRENT_FUNCTION = "CMAKE_CURRENT_FUNCTION";
-std::string const CMAKE_CURRENT_FUNCTION_LIST_FILE =
-  "CMAKE_CURRENT_FUNCTION_LIST_FILE";
-std::string const CMAKE_CURRENT_FUNCTION_LIST_DIR =
-  "CMAKE_CURRENT_FUNCTION_LIST_DIR";
-std::string const CMAKE_CURRENT_FUNCTION_LIST_LINE =
-  "CMAKE_CURRENT_FUNCTION_LIST_LINE";
+std::string const RBLXBUILD_CURRENT_FUNCTION = "RBLXBUILD_CURRENT_FUNCTION";
+std::string const RBLXBUILD_CURRENT_FUNCTION_LIST_FILE =
+  "RBLXBUILD_CURRENT_FUNCTION_LIST_FILE";
+std::string const RBLXBUILD_CURRENT_FUNCTION_LIST_DIR =
+  "RBLXBUILD_CURRENT_FUNCTION_LIST_DIR";
+std::string const RBLXBUILD_CURRENT_FUNCTION_LIST_LINE =
+  "RBLXBUILD_CURRENT_FUNCTION_LIST_LINE";
 
 // define the class for function commands
 class cmFunctionHelperCommand
@@ -46,7 +46,7 @@ class cmFunctionHelperCommand
 public:
   /**
    * This is called when the command is first encountered in
-   * the CMakeLists.txt file.
+   * the RBLXBuildLists.txt file.
    */
   bool operator()(std::vector<cmListFileArgument> const& args,
                   cmExecutionStatus& inStatus) const;
@@ -79,7 +79,7 @@ bool cmFunctionHelperCommand::operator()(
     return false;
   }
 
-#ifndef CMAKE_BOOTSTRAP
+#ifndef RBLXBUILD_BOOTSTRAP
   if (cmListFileCoverage* coverage = cmListFileCoverage::Get()) {
     coverage->FunctionCalled(this->FilePath, this->Line);
   }
@@ -118,16 +118,16 @@ bool cmFunctionHelperCommand::operator()(
   makefile.AddDefinition(ARGNC, functionArgncDef);
   makefile.MarkVariableAsUsed(ARGNC);
 
-  makefile.AddDefinition(CMAKE_CURRENT_FUNCTION, this->Args.front());
-  makefile.MarkVariableAsUsed(CMAKE_CURRENT_FUNCTION);
-  makefile.AddDefinition(CMAKE_CURRENT_FUNCTION_LIST_FILE, this->FilePath);
-  makefile.MarkVariableAsUsed(CMAKE_CURRENT_FUNCTION_LIST_FILE);
-  makefile.AddDefinition(CMAKE_CURRENT_FUNCTION_LIST_DIR,
+  makefile.AddDefinition(RBLXBUILD_CURRENT_FUNCTION, this->Args.front());
+  makefile.MarkVariableAsUsed(RBLXBUILD_CURRENT_FUNCTION);
+  makefile.AddDefinition(RBLXBUILD_CURRENT_FUNCTION_LIST_FILE, this->FilePath);
+  makefile.MarkVariableAsUsed(RBLXBUILD_CURRENT_FUNCTION_LIST_FILE);
+  makefile.AddDefinition(RBLXBUILD_CURRENT_FUNCTION_LIST_DIR,
                          cmSystemTools::GetFilenamePath(this->FilePath));
-  makefile.MarkVariableAsUsed(CMAKE_CURRENT_FUNCTION_LIST_DIR);
-  makefile.AddDefinition(CMAKE_CURRENT_FUNCTION_LIST_LINE,
+  makefile.MarkVariableAsUsed(RBLXBUILD_CURRENT_FUNCTION_LIST_DIR);
+  makefile.AddDefinition(RBLXBUILD_CURRENT_FUNCTION_LIST_LINE,
                          std::to_string(this->Line));
-  makefile.MarkVariableAsUsed(CMAKE_CURRENT_FUNCTION_LIST_LINE);
+  makefile.MarkVariableAsUsed(RBLXBUILD_CURRENT_FUNCTION_LIST_LINE);
 
   // Invoke all the functions that were collected in the block.
   // for each function
@@ -182,7 +182,7 @@ bool cmFunctionFunctionBlocker::Replay(
   std::vector<cmListFileFunction> functions, cmExecutionStatus& status)
 {
   cmMakefile& mf = status.GetMakefile();
-  // create a new command and add it to cmake
+  // create a new command and add it to rblxbuild
   cmFunctionHelperCommand f;
   f.Args = this->Args;
   f.Functions = std::move(functions);

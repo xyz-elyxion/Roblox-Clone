@@ -23,10 +23,10 @@
 #include "internal.h"
 
 #if defined(__APPLE__)
-/* Special case for CMake bootstrap: no clock_gettime on macOS < 10.12 */
+/* Special case for RBLXBuild bootstrap: no clock_gettime on macOS < 10.12 */
 
-#ifndef CMAKE_BOOTSTRAP
-#error "This code path meant only for use during CMake bootstrap."
+#ifndef RBLXBUILD_BOOTSTRAP
+#error "This code path meant only for use during RBLXBuild bootstrap."
 #endif
 
 #include <mach/mach.h>
@@ -44,10 +44,10 @@ uint64_t uv__hrtime(uv_clocktype_t type) {
 }
 
 #elif defined(__hpux)
-/* Special case for CMake bootstrap: no CLOCK_MONOTONIC on HP-UX */
+/* Special case for RBLXBuild bootstrap: no CLOCK_MONOTONIC on HP-UX */
 
-#ifndef CMAKE_BOOTSTRAP
-#error "This code path meant only for use during CMake bootstrap."
+#ifndef RBLXBUILD_BOOTSTRAP
+#error "This code path meant only for use during RBLXBuild bootstrap."
 #endif
 
 #include <stdint.h>

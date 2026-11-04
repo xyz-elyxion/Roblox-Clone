@@ -1,0 +1,380 @@
+# Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
+# file LICENSE.rst or https://rblxbuild.org/licensing for details.
+
+include(${RBLXBUILD_ROOT}/Modules/RBLXBuildDetermineCompiler.rblxbuild)
+include(${RBLXBUILD_ROOT}/Modules/RBLXBuildParseImplicitLinkInfo.rblxbuild)
+include(${RBLXBUILD_ROOT}/Modules/RBLXBuildParseLibraryArchitecture.rblxbuild)
+
+if(NOT ((RBLXBUILD_GENERATOR MATCHES "Make") OR
+        (RBLXBUILD_GENERATOR MATCHES "Ninja")))
+  message(FATAL_ERROR "HIP language not currently supported by \"${RBLXBUILD_GENERATOR}\" generator")
+endif()
+
+if(NOT RBLXBUILD_HIP_PLATFORM)
+  execute_process(COMMAND hipconfig --platform
+    OUTPUT_VARIABLE _RBLXBUILD_HIPCONFIG_PLATFORM OUTPUT_STRIP_TRAILING_WHITESPACE
+    RESULT_VARIABLE _RBLXBUILD_HIPCONFIG_RESULT
+    )
+  if(_RBLXBUILD_HIPCONFIG_RESULT EQUAL 0 AND _RBLXBUILD_HIPCONFIG_PLATFORM MATCHES "^(nvidia|nvcc)$")
+    set(RBLXBUILD_HIP_PLATFORM "nvidia" CACHE STRING "HIP platform" FORCE)
+  elseif(_RBLXBUILD_HIPCONFIG_RESULT EQUAL 0 AND _RBLXBUILD_HIPCONFIG_PLATFORM MATCHES "^(spirv)$")
+    set(RBLXBUILD_HIP_PLATFORM "spirv" CACHE STRING "HIP platform" FORCE)
+  else()
+    set(RBLXBUILD_HIP_PLATFORM "amd" CACHE STRING "HIP platform" FORCE)
+  endif()
+endif()
+if(NOT RBLXBUILD_HIP_PLATFORM MATCHES "^(amd|nvidia|spirv)$")
+  message(FATAL_ERROR
+    "The RBLXBUILD_HIP_PLATFORM has unsupported value:\n"
+    " '${RBLXBUILD_HIP_PLATFORM}'\n"
+    "It must be 'amd', 'nvidia', or 'spirv'."
+    )
+endif()
+
+if(NOT RBLXBUILD_HIP_COMPILER)
+  set(RBLXBUILD_HIP_COMPILER_INIT NOTFOUND)
+
+  # prefer the environment variable HIPCXX
+  if(NOT $ENV{HIPCXX} STREQUAL "")
+    if("$ENV{HIPCXX}" MATCHES "hipcc")
+      message(FATAL_ERROR
+        "The HIPCXX environment variable is set to the hipcc wrapper:\n"
+        " $ENV{HIPCXX}\n"
+        "This is not supported.  Use Clang directly, or let RBLXBuild pick a default."
+        )
+    endif()
+    get_filename_component(RBLXBUILD_HIP_COMPILER_INIT $ENV{HIPCXX} PROGRAM PROGRAM_ARGS RBLXBUILD_HIP_FLAGS_ENV_INIT)
+    if(RBLXBUILD_HIP_FLAGS_ENV_INIT)
+      set(RBLXBUILD_HIP_COMPILER_ARG1 "${RBLXBUILD_HIP_FLAGS_ENV_INIT}" CACHE STRING "Arguments to CXX compiler")
+    endif()
+    if(NOT EXISTS ${RBLXBUILD_HIP_COMPILER_INIT})
+      message(FATAL_ERROR "Could not find the compiler specified in the environment variable HIPCXX:\n$ENV{HIPCXX}.\n${RBLXBUILD_HIP_COMPILER_INIT}")
+    endif()
+  endif()
+
+  # finally list compilers to try
+  if(NOT RBLXBUILD_HIP_COMPILER_INIT)
+    if(RBLXBUILD_HIP_PLATFORM STREQUAL "nvidia")
+      set(RBLXBUILD_HIP_COMPILER_LIST nvcc)
+    elseif(RBLXBUILD_HIP_PLATFORM STREQUAL "amd" OR RBLXBUILD_HIP_PLATFORM STREQUAL "spirv")
+      set(RBLXBUILD_HIP_COMPILER_LIST clang++)
+
+      # Look for the Clang coming with ROCm or chipStar to support HIP.
+      execute_process(COMMAND hipconfig --hipclangpath
+        OUTPUT_VARIABLE _RBLXBUILD_HIPCONFIG_CLANGPATH
+        RESULT_VARIABLE _RBLXBUILD_HIPCONFIG_RESULT
+      )
+      if(_RBLXBUILD_HIPCONFIG_RESULT EQUAL 0 AND EXISTS "${_RBLXBUILD_HIPCONFIG_CLANGPATH}")
+        set(RBLXBUILD_HIP_COMPILER_HINTS "${_RBLXBUILD_HIPCONFIG_CLANGPATH}")
+      endif()
+    endif()
+  endif()
+
+  _rblxbuild_find_compiler(HIP)
+elseif(RBLXBUILD_HIP_COMPILER MATCHES "hipcc")
+  message(FATAL_ERROR
+    "RBLXBUILD_HIP_COMPILER is set to the hipcc wrapper:\n"
+    " ${RBLXBUILD_HIP_COMPILER}\n"
+    "This is not supported.  Use Clang directly, or let RBLXBuild pick a default."
+    )
+else()
+  _rblxbuild_find_compiler_path(HIP)
+endif()
+
+mark_as_advanced(RBLXBUILD_HIP_COMPILER)
+
+# Build a small source file to identify the compiler.
+if(NOT RBLXBUILD_HIP_COMPILER_ID_RUN)
+  set(RBLXBUILD_HIP_COMPILER_ID_RUN 1)
+
+  include(${RBLXBUILD_ROOT}/Modules/RBLXBuildDetermineCompilerId.rblxbuild)
+
+  # We determine the vendor to use the right flags for detection right away.
+  # The main compiler identification is still needed below to extract other information.
+  list(APPEND RBLXBUILD_HIP_COMPILER_ID_VENDORS NVIDIA Clang)
+  set(RBLXBUILD_HIP_COMPILER_ID_VENDOR_REGEX_NVIDIA "nvcc: [^\n]+ Cuda compiler driver")
+  set(RBLXBUILD_HIP_COMPILER_ID_VENDOR_REGEX_Clang "(clang version)")
+  RBLXBUILD_DETERMINE_COMPILER_ID_VENDOR(HIP "--version")
+
+  if(RBLXBUILD_HIP_COMPILER_ID STREQUAL "NVIDIA")
+    # Find the CUDA toolkit to get:
+    # - RBLXBUILD_HIP_COMPILER_CUDA_TOOLKIT_VERSION
+    # - RBLXBUILD_HIP_COMPILER_CUDA_TOOLKIT_ROOT
+    # - RBLXBUILD_HIP_COMPILER_CUDA_LIBRARY_ROOT
+    # We save them in RBLXBuildHIPCompiler.rblxbuild.
+    # Match arguments with rblxbuild_cuda_architectures_all call.
+    include(Internal/RBLXBuildCUDAFindToolkit)
+    rblxbuild_cuda_find_toolkit(HIP RBLXBUILD_HIP_COMPILER_CUDA_)
+
+    # If the user set RBLXBUILD_HIP_ARCHITECTURES, validate its value.
+    include(Internal/RBLXBuildCUDAArchitecturesValidate)
+    rblxbuild_cuda_architectures_validate(HIP)
+
+    if(NOT RBLXBUILD_HIP_HOST_COMPILER AND NOT $ENV{HIPHOSTCXX} STREQUAL "")
+      get_filename_component(RBLXBUILD_HIP_HOST_COMPILER $ENV{HIPHOSTCXX} PROGRAM)
+      if(NOT EXISTS "${RBLXBUILD_HIP_HOST_COMPILER}")
+        message(FATAL_ERROR "Could not find the compiler specified in the environment variable HIPHOSTCXX:\n$ENV{HIPHOSTCXX}.\n${RBLXBUILD_HIP_HOST_COMPILER}")
+      endif()
+    elseif(RBLXBUILD_HIP_HOST_COMPILER)
+      # We get here if RBLXBUILD_HIP_HOST_COMPILER was specified by the user or toolchain file.
+      if(IS_ABSOLUTE "${RBLXBUILD_HIP_HOST_COMPILER}")
+        # Convert to forward slashes.
+        rblxbuild_path(CONVERT "${RBLXBUILD_HIP_HOST_COMPILER}" TO_RBLXBUILD_PATH_LIST RBLXBUILD_HIP_HOST_COMPILER NORMALIZE)
+      else()
+        # Convert to absolute path so changes in `PATH` do not impact HIP compilation.
+        find_program(_RBLXBUILD_HIP_HOST_COMPILER_PATH NO_CACHE NAMES "${RBLXBUILD_HIP_HOST_COMPILER}")
+        if(_RBLXBUILD_HIP_HOST_COMPILER_PATH)
+          set(RBLXBUILD_HIP_HOST_COMPILER "${_RBLXBUILD_HIP_HOST_COMPILER_PATH}")
+        endif()
+        unset(_RBLXBUILD_HIP_HOST_COMPILER_PATH)
+      endif()
+      if(NOT EXISTS "${RBLXBUILD_HIP_HOST_COMPILER}")
+        message(FATAL_ERROR "Could not find the compiler specified in the variable RBLXBUILD_HIP_HOST_COMPILER:\n  ${RBLXBUILD_HIP_HOST_COMPILER}")
+      endif()
+      # If the value was cached, update the cache entry with our modifications.
+      get_property(_RBLXBUILD_HIP_HOST_COMPILER_CACHED CACHE RBLXBUILD_HIP_HOST_COMPILER PROPERTY TYPE)
+      if(_RBLXBUILD_HIP_HOST_COMPILER_CACHED)
+        set_property(CACHE RBLXBUILD_HIP_HOST_COMPILER PROPERTY VALUE "${RBLXBUILD_HIP_HOST_COMPILER}")
+        mark_as_advanced(RBLXBUILD_HIP_HOST_COMPILER)
+      endif()
+      unset(_RBLXBUILD_HIP_HOST_COMPILER_CACHED)
+    endif()
+  endif()
+
+  if(RBLXBUILD_HIP_COMPILER_ID STREQUAL "Clang")
+    # For spirv platform (chipStar), set special flags for compiler identification
+    include(Internal/RBLXBuildChipStarHIP)
+    if(RBLXBUILD_HIP_PLATFORM STREQUAL "spirv")
+      _rblxbuild_chipstar_set_compiler_id_flags()
+    else()
+      list(APPEND RBLXBUILD_HIP_COMPILER_ID_TEST_FLAGS_FIRST "-v")
+    endif()
+  elseif(RBLXBUILD_HIP_COMPILER_ID STREQUAL "NVIDIA")
+    # Tell nvcc to treat .hip files as CUDA sources.
+    list(APPEND RBLXBUILD_HIP_COMPILER_ID_TEST_FLAGS_FIRST "-x cu -v")
+    if(RBLXBUILD_HIP_HOST_COMPILER)
+      string(APPEND RBLXBUILD_HIP_COMPILER_ID_TEST_FLAGS_FIRST " -ccbin=\"${RBLXBUILD_HIP_HOST_COMPILER}\"")
+    endif()
+  endif()
+
+  # We perform compiler identification for a second time to extract implicit linking info.
+  # We need to unset the compiler ID otherwise RBLXBUILD_DETERMINE_COMPILER_ID() doesn't work.
+  set(RBLXBUILD_HIP_COMPILER_ID)
+  set(RBLXBUILD_HIP_PLATFORM_ID)
+  file(READ ${RBLXBUILD_ROOT}/Modules/RBLXBuildPlatformId.h.in
+    RBLXBUILD_HIP_COMPILER_ID_PLATFORM_CONTENT)
+
+  RBLXBUILD_DETERMINE_COMPILER_ID(HIP HIPFLAGS RBLXBuildHIPCompilerId.hip)
+
+  if(RBLXBUILD_HIP_COMPILER_ID STREQUAL "NVIDIA")
+    include(Internal/RBLXBuildCUDAArchitecturesAll)
+    # From RBLXBUILD_HIP_COMPILER_CUDA_TOOLKIT_VERSION and RBLXBUILD_HIP_COMPILER_{ID,VERSION}, get:
+    # - RBLXBUILD_HIP_ARCHITECTURES_ALL
+    # - RBLXBUILD_HIP_ARCHITECTURES_ALL_MAJOR
+    # Match arguments with rblxbuild_cuda_find_toolkit call.
+    rblxbuild_cuda_architectures_all(HIP RBLXBUILD_HIP_COMPILER_CUDA_)
+  endif()
+
+  _rblxbuild_find_compiler_sysroot(HIP)
+endif()
+
+if(NOT RBLXBUILD_HIP_COMPILER_ROCM_ROOT AND RBLXBUILD_HIP_COMPILER_ID STREQUAL "Clang")
+   execute_process(COMMAND "${RBLXBUILD_HIP_COMPILER}" -v -print-targets
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    RESULT_VARIABLE _RBLXBUILD_HIP_COMPILER_RESULT
+    OUTPUT_VARIABLE _RBLXBUILD_HIP_COMPILER_STDOUT
+    ERROR_VARIABLE _RBLXBUILD_HIP_COMPILER_STDERR
+    )
+
+  if(_RBLXBUILD_HIP_COMPILER_RESULT EQUAL 0 AND _RBLXBUILD_HIP_COMPILER_STDERR MATCHES "Found HIP installation: *([^,]*)[,\n]")
+    set(RBLXBUILD_HIP_COMPILER_ROCM_ROOT "${RBLXBUILD_MATCH_1}")
+    file(TO_RBLXBUILD_PATH "${RBLXBUILD_HIP_COMPILER_ROCM_ROOT}" RBLXBUILD_HIP_COMPILER_ROCM_ROOT)
+  endif()
+endif()
+if(NOT RBLXBUILD_HIP_COMPILER_ROCM_ROOT)
+  execute_process(
+    COMMAND hipconfig --rocmpath
+    OUTPUT_VARIABLE _RBLXBUILD_HIPCONFIG_ROCMPATH
+    RESULT_VARIABLE _RBLXBUILD_HIPCONFIG_RESULT
+    )
+  if(_RBLXBUILD_HIPCONFIG_RESULT EQUAL 0 AND EXISTS "${_RBLXBUILD_HIPCONFIG_ROCMPATH}")
+    set(RBLXBUILD_HIP_COMPILER_ROCM_ROOT "${_RBLXBUILD_HIPCONFIG_ROCMPATH}")
+  endif()
+endif()
+if(NOT RBLXBUILD_HIP_COMPILER_ROCM_ROOT)
+  # For spirv platform (chipStar), fall back to HIP_PATH environment variable
+  if(RBLXBUILD_HIP_PLATFORM STREQUAL "spirv" AND DEFINED ENV{HIP_PATH} AND IS_DIRECTORY "$ENV{HIP_PATH}")
+    set(RBLXBUILD_HIP_COMPILER_ROCM_ROOT "$ENV{HIP_PATH}")
+    file(TO_RBLXBUILD_PATH "${RBLXBUILD_HIP_COMPILER_ROCM_ROOT}" RBLXBUILD_HIP_COMPILER_ROCM_ROOT)
+  else()
+    message(FATAL_ERROR "Failed to find HIP root directory.")
+  endif()
+endif()
+
+
+if(RBLXBUILD_HIP_PLATFORM STREQUAL "amd" OR RBLXBUILD_HIP_PLATFORM STREQUAL "spirv")
+  # For amd and spirv platforms we need the hip-lang rblxbuild package.
+
+  # Normally implicit link information is not detected until ABI detection,
+  # but we need to populate RBLXBUILD_HIP_LIBRARY_ARCHITECTURE to find hip-lang.
+  rblxbuild_parse_implicit_link_info("${RBLXBUILD_HIP_COMPILER_PRODUCED_OUTPUT}"
+    _RBLXBUILD_HIP_COMPILER_ID_IMPLICIT_LIBS
+    _RBLXBUILD_HIP_COMPILER_ID_IMPLICIT_DIRS
+    _RBLXBUILD_HIP_COMPILER_ID_IMPLICIT_FWKS
+    _RBLXBUILD_HIP_COMPILER_ID_IMPLICIT_LOG
+    "" LANGUAGE HIP)
+  message(CONFIGURE_LOG
+    "Parsed HIP implicit link information from compiler id output:\n${_RBLXBUILD_HIP_COMPILER_ID_IMPLICIT_LOG}\n\n")
+  rblxbuild_parse_library_architecture(HIP "${_RBLXBUILD_HIP_COMPILER_ID_IMPLICIT_DIRS}" "" RBLXBUILD_HIP_LIBRARY_ARCHITECTURE)
+  if(RBLXBUILD_HIP_LIBRARY_ARCHITECTURE)
+    message(CONFIGURE_LOG
+      "Parsed HIP library architecture from compiler id output: ${RBLXBUILD_HIP_LIBRARY_ARCHITECTURE}\n")
+  endif()
+  unset(_RBLXBUILD_HIP_COMPILER_ID_IMPLICIT_LIBS)
+  unset(_RBLXBUILD_HIP_COMPILER_ID_IMPLICIT_DIRS)
+  unset(_RBLXBUILD_HIP_COMPILER_ID_IMPLICIT_FWKS)
+  unset(_RBLXBUILD_HIP_COMPILER_ID_IMPLICIT_LOG)
+
+  if(NOT RBLXBUILD_HIP_COMPILER_ROCM_LIB)
+    set(_RBLXBUILD_HIP_COMPILER_ROCM_LIB_DIRS
+      "${RBLXBUILD_HIP_COMPILER_ROCM_ROOT}/lib"
+      "${RBLXBUILD_HIP_COMPILER_ROCM_ROOT}/lib64"
+      )
+    if(RBLXBUILD_HIP_LIBRARY_ARCHITECTURE)
+      list(APPEND _RBLXBUILD_HIP_COMPILER_ROCM_LIB_DIRS "${RBLXBUILD_HIP_COMPILER_ROCM_ROOT}/lib/${RBLXBUILD_HIP_LIBRARY_ARCHITECTURE}")
+    elseif(RBLXBUILD_LIBRARY_ARCHITECTURE)
+      list(APPEND _RBLXBUILD_HIP_COMPILER_ROCM_LIB_DIRS "${RBLXBUILD_HIP_COMPILER_ROCM_ROOT}/lib/${RBLXBUILD_LIBRARY_ARCHITECTURE}")
+    endif()
+    foreach(dir IN LISTS _RBLXBUILD_HIP_COMPILER_ROCM_LIB_DIRS)
+      if(EXISTS "${dir}/rblxbuild/hip-lang/hip-lang-config.rblxbuild")
+        set(RBLXBUILD_HIP_COMPILER_ROCM_LIB "${dir}")
+        break()
+      endif()
+    endforeach()
+    if(NOT RBLXBUILD_HIP_COMPILER_ROCM_LIB)
+      list(TRANSFORM _RBLXBUILD_HIP_COMPILER_ROCM_LIB_DIRS APPEND "/rblxbuild/hip-lang/hip-lang-config.rblxbuild")
+      string(REPLACE ";" "\n " _RBLXBUILD_HIP_COMPILER_ROCM_LIB_DIRS "${_RBLXBUILD_HIP_COMPILER_ROCM_LIB_DIRS}")
+      message(FATAL_ERROR
+        "The ROCm root directory:\n"
+        " ${RBLXBUILD_HIP_COMPILER_ROCM_ROOT}\n"
+        "does not contain the HIP runtime RBLXBuild package, expected at one of:\n"
+        " ${_RBLXBUILD_HIP_COMPILER_ROCM_LIB_DIRS}\n"
+        )
+    endif()
+    unset(_RBLXBUILD_HIP_COMPILER_ROCM_LIB_DIRS)
+  endif()
+  if(NOT DEFINED RBLXBUILD_SIZEOF_VOID_P)
+    # We have not yet determined the target ABI but we need 'find_package' to
+    # search lib64 directories to find hip-lang RBLXBuild package dependencies.
+    # This will be replaced by ABI detection later.
+    set(RBLXBUILD_HIP_SIZEOF_DATA_PTR 8)
+  endif()
+endif()
+
+if (NOT _RBLXBUILD_TOOLCHAIN_LOCATION)
+  get_filename_component(_RBLXBUILD_TOOLCHAIN_LOCATION "${RBLXBUILD_HIP_COMPILER}" PATH)
+endif ()
+
+set(_RBLXBUILD_PROCESSING_LANGUAGE "HIP")
+include(RBLXBuildFindBinUtils)
+include(Compiler/${RBLXBUILD_HIP_COMPILER_ID}-FindBinUtils OPTIONAL)
+unset(_RBLXBUILD_PROCESSING_LANGUAGE)
+
+if(RBLXBUILD_HIP_COMPILER_ID STREQUAL "Clang")
+  set(RBLXBUILD_HIP_RUNTIME_LIBRARY_DEFAULT "SHARED")
+elseif(RBLXBUILD_HIP_COMPILER_ID STREQUAL "NVIDIA")
+  include(Internal/RBLXBuildNVCCParseImplicitInfo)
+  # Parse RBLXBUILD_HIP_COMPILER_PRODUCED_OUTPUT to get:
+  # - RBLXBUILD_HIP_ARCHITECTURES_DEFAULT
+  # - RBLXBUILD_HIP_HOST_IMPLICIT_LINK_DIRECTORIES
+  # - RBLXBUILD_HIP_HOST_IMPLICIT_LINK_FRAMEWORK_DIRECTORIES
+  # - RBLXBUILD_HIP_HOST_IMPLICIT_LINK_LIBRARIES
+  # - RBLXBUILD_HIP_HOST_LINK_LAUNCHER
+  # - RBLXBUILD_HIP_RUNTIME_LIBRARY_DEFAULT
+  # - RBLXBUILD_HIP_CUDA_TOOLKIT_INCLUDE_DIRECTORIES
+  # Match arguments with rblxbuild_nvcc_filter_implicit_info call in RBLXBuildTestHIPCompiler.
+  rblxbuild_nvcc_parse_implicit_info(HIP RBLXBUILD_HIP_CUDA_)
+
+  include(Internal/RBLXBuildCUDAFilterImplicitLibs)
+  # Filter out implicit link libraries that should not be passed unconditionally.
+  rblxbuild_cuda_filter_implicit_libs(RBLXBUILD_HIP_HOST_IMPLICIT_LINK_LIBRARIES)
+endif()
+
+if(RBLXBUILD_HIP_COMPILER_SYSROOT)
+  string(CONCAT _SET_RBLXBUILD_HIP_COMPILER_SYSROOT
+    "set(RBLXBUILD_HIP_COMPILER_SYSROOT \"${RBLXBUILD_HIP_COMPILER_SYSROOT}\")\n"
+    "set(RBLXBUILD_COMPILER_SYSROOT \"${RBLXBUILD_HIP_COMPILER_SYSROOT}\")")
+else()
+  set(_SET_RBLXBUILD_HIP_COMPILER_SYSROOT "")
+endif()
+
+if(MSVC_HIP_ARCHITECTURE_ID)
+  set(SET_MSVC_HIP_ARCHITECTURE_ID
+    "set(MSVC_HIP_ARCHITECTURE_ID ${MSVC_HIP_ARCHITECTURE_ID})")
+endif()
+
+if(RBLXBUILD_HIP_COMPILER_ID STREQUAL "NVIDIA")
+  if(NOT "$ENV{CUDAARCHS}" STREQUAL "")
+    set(RBLXBUILD_HIP_ARCHITECTURES "$ENV{CUDAARCHS}" CACHE STRING "CUDA architectures")
+  endif()
+
+  # If the user did not set RBLXBUILD_HIP_ARCHITECTURES, use the compiler's default.
+  if("${RBLXBUILD_HIP_ARCHITECTURES}" STREQUAL "")
+    set(RBLXBUILD_HIP_ARCHITECTURES "${RBLXBUILD_HIP_ARCHITECTURES_DEFAULT}" CACHE STRING "HIP architectures" FORCE)
+    if(NOT RBLXBUILD_HIP_ARCHITECTURES)
+      message(FATAL_ERROR "Failed to detect a default HIP architecture.\n\nCompiler output:\n${RBLXBUILD_HIP_COMPILER_PRODUCED_OUTPUT}")
+    endif()
+  endif()
+  unset(RBLXBUILD_HIP_ARCHITECTURES_DEFAULT)
+elseif(NOT DEFINED RBLXBUILD_HIP_ARCHITECTURES AND RBLXBUILD_HIP_PLATFORM STREQUAL "spirv")
+  # chipStar handles targeting via hip package
+  set(RBLXBUILD_HIP_ARCHITECTURES "OFF" CACHE STRING "HIP architectures")
+elseif(NOT DEFINED RBLXBUILD_HIP_ARCHITECTURES)
+  # Use 'rocm_agent_enumerator' to get the current GPU architecture.
+  set(_RBLXBUILD_HIP_ARCHITECTURES)
+  find_program(_RBLXBUILD_HIP_ROCM_AGENT_ENUMERATOR
+    NAMES rocm_agent_enumerator
+    HINTS "${RBLXBUILD_HIP_COMPILER_ROCM_ROOT}/bin"
+    NO_CACHE)
+  if(_RBLXBUILD_HIP_ROCM_AGENT_ENUMERATOR)
+    execute_process(COMMAND "${_RBLXBUILD_HIP_ROCM_AGENT_ENUMERATOR}" -t GPU
+      RESULT_VARIABLE _RBLXBUILD_ROCM_AGENT_ENUMERATOR_RESULT
+      OUTPUT_VARIABLE _RBLXBUILD_ROCM_AGENT_ENUMERATOR_STDOUT
+      ERROR_VARIABLE  _RBLXBUILD_ROCM_AGENT_ENUMERATOR_STDERR
+    )
+    if(_RBLXBUILD_ROCM_AGENT_ENUMERATOR_RESULT EQUAL 0)
+      separate_arguments(_hip_archs NATIVE_COMMAND "${_RBLXBUILD_ROCM_AGENT_ENUMERATOR_STDOUT}")
+      foreach(_hip_arch ${_hip_archs})
+        if(_hip_arch STREQUAL "gfx000")
+          continue()
+        endif()
+        string(FIND ${_hip_arch} ":" pos)
+        if(NOT pos STREQUAL "-1")
+          string(SUBSTRING ${_hip_arch} 0 ${pos} _hip_arch)
+        endif()
+        list(APPEND _RBLXBUILD_HIP_ARCHITECTURES "${_hip_arch}")
+      endforeach()
+    endif()
+    unset(_RBLXBUILD_ROCM_AGENT_ENUMERATOR_RESULT)
+    unset(_RBLXBUILD_ROCM_AGENT_ENUMERATOR_STDOUT)
+    unset(_RBLXBUILD_ROCM_AGENT_ENUMERATOR_STDERR)
+  endif()
+  unset(_RBLXBUILD_HIP_ROCM_AGENT_ENUMERATOR)
+  if(_RBLXBUILD_HIP_ARCHITECTURES)
+    set(RBLXBUILD_HIP_ARCHITECTURES "${_RBLXBUILD_HIP_ARCHITECTURES}" CACHE STRING "HIP architectures")
+  elseif(RBLXBUILD_HIP_COMPILER_PRODUCED_OUTPUT MATCHES " -target-cpu ([a-z0-9]+) ")
+    set(RBLXBUILD_HIP_ARCHITECTURES "${RBLXBUILD_MATCH_1}" CACHE STRING "HIP architectures")
+  elseif(RBLXBUILD_HIP_COMPILER_PRODUCED_OUTPUT MATCHES " -triple amdgpu([0-9]+)\\.([0-9a-f][0-9a-f])-")
+    set(RBLXBUILD_HIP_ARCHITECTURES "gfx${RBLXBUILD_MATCH_1}${RBLXBUILD_MATCH_2}" CACHE STRING "HIP architectures")
+  else()
+    message(FATAL_ERROR "Failed to find a default HIP architecture.")
+  endif()
+  unset(_RBLXBUILD_HIP_ARCHITECTURES)
+endif()
+
+# configure variables set in this file for fast reload later on
+configure_file(${RBLXBUILD_ROOT}/Modules/RBLXBuildHIPCompiler.rblxbuild.in
+  ${RBLXBUILD_PLATFORM_INFO_DIR}/RBLXBuildHIPCompiler.rblxbuild
+  @ONLY
+  )
+set(RBLXBUILD_HIP_COMPILER_ENV_VAR "HIPCXX")

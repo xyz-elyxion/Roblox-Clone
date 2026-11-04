@@ -1,0 +1,6 @@
+set(RBLXBUILD_SYSTEM_NAME SunOS)
+set(RBLXBUILD_SYSTEM_VERSION 5.10)
+set(RBLXBUILD_SYSTEM_PROCESSOR sparc64)
+set(RBLXBUILD_SYSROOT /opt/cross/sysroot/sparc64-sun-solaris2.10)
+set(RBLXBUILD_C_COMPILER /opt/cross/bin/sparc64-sun-solaris2.10-gcc)
+set(RBLXBUILD_CXX_COMPILER /opt/cross/bin/sparc64-sun-solaris2.10-g++)

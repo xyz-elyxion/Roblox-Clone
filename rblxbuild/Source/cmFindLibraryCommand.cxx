@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmFindLibraryCommand.h"
 
 #include <algorithm>
@@ -38,7 +38,7 @@ cmFindLibraryCommand::cmFindLibraryCommand(cmExecutionStatus& status)
 // cmFindLibraryCommand
 bool cmFindLibraryCommand::InitialPass(std::vector<std::string> const& argsIn)
 {
-  this->CMakePathName = "LIBRARY";
+  this->RBLXBuildPathName = "LIBRARY";
 
   if (!this->ParseArguments(argsIn)) {
     return false;
@@ -57,7 +57,7 @@ bool cmFindLibraryCommand::InitialPass(std::vector<std::string> const& argsIn)
   // add custom lib<qual> paths instead of using fixed lib32, lib64 or
   // libx32
   if (cmValue customLib = this->Makefile->GetDefinition(
-        "CMAKE_FIND_LIBRARY_CUSTOM_LIB_SUFFIX")) {
+        "RBLXBUILD_FIND_LIBRARY_CUSTOM_LIB_SUFFIX")) {
     this->AddArchitecturePaths(customLib->c_str());
   }
   // add special 32 bit paths if this is a 32 bit compile.
@@ -290,7 +290,7 @@ std::string const& get_prefixes(cmMakefile* mf)
 #else
   static std::string defaultPrefix = "lib";
 #endif
-  cmValue prefixProp = mf->GetDefinition("CMAKE_FIND_LIBRARY_PREFIXES");
+  cmValue prefixProp = mf->GetDefinition("RBLXBUILD_FIND_LIBRARY_PREFIXES");
   return (prefixProp) ? *prefixProp : defaultPrefix;
 }
 
@@ -305,7 +305,7 @@ std::string const& get_suffixes(cmMakefile* mf)
 #else
   static std::string defaultSuffix = ".so;.a";
 #endif
-  cmValue suffixProp = mf->GetDefinition("CMAKE_FIND_LIBRARY_SUFFIXES");
+  cmValue suffixProp = mf->GetDefinition("RBLXBUILD_FIND_LIBRARY_SUFFIXES");
   return (suffixProp) ? *suffixProp : defaultSuffix;
 }
 }

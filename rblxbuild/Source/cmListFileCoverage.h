@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #pragma once
 
 #include "cmConfigure.h" // IWYU pragma: keep
@@ -14,20 +14,20 @@
 class cmListFileFunction;
 
 /** \class cmListFileCoverage
- * \brief Record line hits and function calls of CMake listfiles.
+ * \brief Record line hits and function calls of RBLXBuild listfiles.
  *
- * The environment variable CMAKE_LISTFILE_COVERAGE_DIR turns the collector
+ * The environment variable RBLXBUILD_LISTFILE_COVERAGE_DIR turns the collector
  * on.  One collector exists per process.  At exit it writes one lcov
- * tracefile into that directory.  CMake runs listfile code on one thread,
+ * tracefile into that directory.  RBLXBuild runs listfile code on one thread,
  * so the collector does no locking.
  */
 class cmListFileCoverage
 {
 public:
-  /** Read CMAKE_LISTFILE_COVERAGE_DIR.  Unset or empty: coverage stays off,
+  /** Read RBLXBUILD_LISTFILE_COVERAGE_DIR.  Unset or empty: coverage stays off,
       returns true.  Otherwise check the path, create the directory, and
       test that a file can be written there.  On failure return false and
-      set error to the message text, without the "CMake Error: " prefix.
+      set error to the message text, without the "RBLXBuild Error: " prefix.
       A second call while coverage is on does nothing and returns true.  */
   static bool Start(std::string& error);
 
@@ -56,7 +56,7 @@ public:
   /** Register the executable lines and the function and macro definitions
       of a parsed file.  A second call for the same path adds new lines and
       functions and keeps existing counts.  A relative path, as ctest uses
-      for its top CTestTestfile.cmake, is made absolute with the current
+      for its top CTestTestfile.rblxbuild, is made absolute with the current
       working directory, here and in CommandRan and FunctionCalled.  */
   void FileParsed(std::string const& path,
                   std::vector<cmListFileFunction> const& functions);

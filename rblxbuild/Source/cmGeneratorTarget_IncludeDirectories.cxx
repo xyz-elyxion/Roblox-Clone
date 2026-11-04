@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 /* clang-format off */
 #include "cmGeneratorTarget.h"
 /* clang-format on */
@@ -29,7 +29,7 @@
 #include "cmSystemTools.h"
 #include "cmTarget.h"
 #include "cmValue.h"
-#include "cmake.h"
+#include "rblxbuild.h"
 
 namespace {
 using UseTo = cmGeneratorTarget::UseTo;
@@ -203,7 +203,7 @@ void processIncludeDirectories(cmGeneratorTarget const* tgt,
       }
     }
     if (!usedIncludes.empty()) {
-      tgt->GetLocalGenerator()->GetCMakeInstance()->IssueMessage(
+      tgt->GetLocalGenerator()->GetRBLXBuildInstance()->IssueMessage(
         MessageType::LOG,
         cmStrCat("Used includes for target ", tgt->GetName(), ":\n",
                  usedIncludes),
@@ -233,7 +233,7 @@ std::vector<BT<std::string>> cmGeneratorTarget::GetIncludeDirectories(
   };
 
   cmList debugProperties{ this->Makefile->GetDefinition(
-    "CMAKE_DEBUG_TARGET_PROPERTIES") };
+    "RBLXBUILD_DEBUG_TARGET_PROPERTIES") };
   bool debugIncludes = !this->DebugIncludesDone &&
     cm::contains(debugProperties, "INCLUDE_DIRECTORIES");
 

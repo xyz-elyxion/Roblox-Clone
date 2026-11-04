@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #define cmUVHandlePtr_cxx
 #include "cmUVHandlePtr.h"
 
@@ -137,7 +137,7 @@ uv_handle_ptr_<T>::operator T*() const
   return this->handle.get();
 }
 
-#ifndef CMAKE_BOOTSTRAP
+#ifndef RBLXBUILD_BOOTSTRAP
 template <>
 struct uv_handle_deleter<uv_async_t>
 {
@@ -256,7 +256,7 @@ void uv_timer_ptr::stop()
   uv_timer_stop(*this);
 }
 
-#ifndef CMAKE_BOOTSTRAP
+#ifndef RBLXBUILD_BOOTSTRAP
 uv_tty_ptr::operator uv_stream_t*() const
 {
   return reinterpret_cast<uv_stream_t*>(this->handle.get());
@@ -305,7 +305,7 @@ UV_HANDLE_PTR_INSTANTIATE_EXPLICIT(process)
 
 UV_HANDLE_PTR_INSTANTIATE_EXPLICIT(timer)
 
-#ifndef CMAKE_BOOTSTRAP
+#ifndef RBLXBUILD_BOOTSTRAP
 UV_HANDLE_PTR_INSTANTIATE_EXPLICIT(async)
 
 UV_HANDLE_PTR_INSTANTIATE_EXPLICIT(tty)

@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 
 #if !defined(_POSIX_C_SOURCE) && !defined(_WIN32) && !defined(__sun) &&       \
   !defined(__OpenBSD__)
@@ -71,7 +71,7 @@ bool interruptInjected = false;
 // Mirrors CTest's internal fake-hook convention.
 void InjectTestInterrupt()
 {
-  char const* value = std::getenv("__CMAKE_INSTRUMENTATION_TEST_INTERRUPT");
+  char const* value = std::getenv("__RBLXBUILD_INSTRUMENTATION_TEST_INTERRUPT");
   if (!value) {
     return;
   }

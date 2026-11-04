@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmLocalNinjaGenerator.h"
 
 #include <algorithm>
@@ -42,7 +42,7 @@
 #include "cmTarget.h"
 #include "cmTargetTypes.h"
 #include "cmValue.h"
-#include "cmake.h"
+#include "rblxbuild.h"
 
 cmLocalNinjaGenerator::cmLocalNinjaGenerator(cmGlobalGenerator* gg,
                                              cmMakefile* mf)
@@ -83,14 +83,14 @@ void cmLocalNinjaGenerator::Generate()
   this->WriteProcessedMakefile(this->GetRulesFileStream());
 #endif
 
-  // We do that only once for the top CMakeLists.txt file.
+  // We do that only once for the top RBLXBuildLists.txt file.
   if (this->IsRootMakefile()) {
     this->WriteBuildFileTop();
 
     this->WritePools(this->GetRulesFileStream());
 
     std::string const& showIncludesPrefix =
-      this->GetMakefile()->GetSafeDefinition("CMAKE_CL_SHOWINCLUDES_PREFIX");
+      this->GetMakefile()->GetSafeDefinition("RBLXBUILD_CL_SHOWINCLUDES_PREFIX");
     if (!showIncludesPrefix.empty()) {
       cmGlobalNinjaGenerator::WriteComment(this->GetRulesFileStream(),
                                            "localized /showIncludes string");
@@ -173,7 +173,7 @@ std::string cmLocalNinjaGenerator::GetObjectOutputRoot(
     return cmStrCat(this->GetBinaryDirectory(), '/',
                     this->GetGlobalGenerator()->GetShortBinaryOutputDir());
   }
-  return cmStrCat(this->GetCurrentBinaryDirectory(), "/CMakeFiles");
+  return cmStrCat(this->GetCurrentBinaryDirectory(), "/RBLXBuildFiles");
 }
 
 // Non-virtual public methods.
@@ -236,14 +236,14 @@ cmGeneratedFileStream& cmLocalNinjaGenerator::GetRulesFileStream() const
   return *this->GetGlobalNinjaGenerator()->GetRulesFileStream();
 }
 
-cmake const* cmLocalNinjaGenerator::GetCMakeInstance() const
+rblxbuild const* cmLocalNinjaGenerator::GetRBLXBuildInstance() const
 {
-  return this->GetGlobalGenerator()->GetCMakeInstance();
+  return this->GetGlobalGenerator()->GetRBLXBuildInstance();
 }
 
-cmake* cmLocalNinjaGenerator::GetCMakeInstance()
+rblxbuild* cmLocalNinjaGenerator::GetRBLXBuildInstance()
 {
-  return this->GetGlobalGenerator()->GetCMakeInstance();
+  return this->GetGlobalGenerator()->GetRBLXBuildInstance();
 }
 
 void cmLocalNinjaGenerator::WriteBuildFileTop()
@@ -294,9 +294,9 @@ void cmLocalNinjaGenerator::WriteNinjaRequiredVersion(std::ostream& os)
   // The Ninja generator writes rules which require support for restat
   // when rebuilding build.ninja manifest (>= 1.8)
   if (this->GetGlobalNinjaGenerator()->SupportsManifestRestat() &&
-      this->GetCMakeInstance()->DoWriteGlobVerifyTarget() &&
+      this->GetRBLXBuildInstance()->DoWriteGlobVerifyTarget() &&
       !this->GetGlobalNinjaGenerator()->GlobalSettingIsOn(
-        "CMAKE_SUPPRESS_REGENERATION")) {
+        "RBLXBUILD_SUPPRESS_REGENERATION")) {
     requiredVersion =
       cmGlobalNinjaGenerator::RequiredNinjaVersionForManifestRestat();
   }
@@ -319,9 +319,9 @@ void cmLocalNinjaGenerator::WritePools(std::ostream& os)
   cmGlobalNinjaGenerator::WriteDivider(os);
 
   cmValue jobpools =
-    this->GetCMakeInstance()->GetState()->GetGlobalProperty("JOB_POOLS");
+    this->GetRBLXBuildInstance()->GetState()->GetGlobalProperty("JOB_POOLS");
   if (!jobpools) {
-    jobpools = this->GetMakefile()->GetDefinition("CMAKE_JOB_POOLS");
+    jobpools = this->GetMakefile()->GetDefinition("RBLXBUILD_JOB_POOLS");
   }
   if (jobpools) {
     cmGlobalNinjaGenerator::WriteComment(
@@ -376,15 +376,15 @@ void cmLocalNinjaGenerator::WriteNinjaWorkDir(std::ostream& os)
   cmGlobalNinjaGenerator* ng = this->GetGlobalNinjaGenerator();
   std::string ninja_workdir = this->GetBinaryDirectory();
   ng->StripNinjaOutputPathPrefixAsSuffix(ninja_workdir); // Also appends '/'.
-  os << "cmake_ninja_workdir = " << ng->EncodePath(ninja_workdir) << "\n";
+  os << "rblxbuild_ninja_workdir = " << ng->EncodePath(ninja_workdir) << "\n";
 }
 
 void cmLocalNinjaGenerator::WriteProcessedMakefile(std::ostream& os)
 {
   cmGlobalNinjaGenerator::WriteDivider(os);
-  os << "# Write statements declared in CMakeLists.txt:\n"
+  os << "# Write statements declared in RBLXBuildLists.txt:\n"
         "# "
-     << this->Makefile->GetSafeDefinition("CMAKE_CURRENT_LIST_FILE") << '\n';
+     << this->Makefile->GetSafeDefinition("RBLXBUILD_CURRENT_LIST_FILE") << '\n';
   if (this->IsRootMakefile()) {
     os << "# Which is the root file.\n";
   }
@@ -433,7 +433,7 @@ std::string cmLocalNinjaGenerator::WriteCommandScript(
   if (target) {
     scriptPath = target->GetSupportDirectory();
   } else {
-    scriptPath = cmStrCat(this->GetCurrentBinaryDirectory(), "/CMakeFiles");
+    scriptPath = cmStrCat(this->GetCurrentBinaryDirectory(), "/RBLXBuildFiles");
   }
   scriptPath += this->GetGlobalNinjaGenerator()->ConfigDirectory(outputConfig);
   cmSystemTools::MakeDirectory(scriptPath);
@@ -478,8 +478,8 @@ std::string cmLocalNinjaGenerator::WriteCommandScript(
             "echo Batch file failed at line %FAIL_LINE% "
             "with errorcode %ERRORLEVEL%\n"
             "exit /b %ERROR_CODE%";
-#elif !defined(CMAKE_BOOTSTRAP)
-  if (this->GetCMakeInstance()->GetInstrumentation()->HasOption(
+#elif !defined(RBLXBUILD_BOOTSTRAP)
+  if (this->GetRBLXBuildInstance()->GetInstrumentation()->HasOption(
         cmInstrumentationQuery::Option::ProcessMetrics)) {
     // Prevent shell exec optimization from passing accumulated child resource
     // usage to the final instrumentation wrapper.
@@ -577,9 +577,9 @@ std::string cmLocalNinjaGenerator::BuildCommandLine(
     }
     cmd << *li;
   }
-#  ifndef CMAKE_BOOTSTRAP
+#  ifndef RBLXBUILD_BOOTSTRAP
   if (context == CommandLineContext::Build &&
-      this->GetCMakeInstance()->GetInstrumentation()->HasOption(
+      this->GetRBLXBuildInstance()->GetInstrumentation()->HasOption(
         cmInstrumentationQuery::Option::ProcessMetrics)) {
     // Prevent shell exec optimization from passing accumulated child resource
     // usage to the final instrumentation wrapper. Keep this build-only shell
@@ -734,8 +734,8 @@ void cmLocalNinjaGenerator::WriteCustomCommandBuildStatement(
             if (this->GetCurrentBinaryDirectory() !=
                   this->GetBinaryDirectory() ||
                 this->Makefile->PolicyOptionalWarningEnabled(
-                  "CMAKE_POLICY_WARNING_CMP0116")) {
-              this->GetCMakeInstance()->IssueDiagnostic(
+                  "RBLXBUILD_POLICY_WARNING_CMP0116")) {
+              this->GetRBLXBuildInstance()->IssueDiagnostic(
                 cmDiagnostics::CMD_POLICY,
                 cmPolicies::GetPolicyWarning(cmPolicies::CMP0116),
                 cc->GetBacktrace());
@@ -765,7 +765,7 @@ void cmLocalNinjaGenerator::WriteCustomCommandBuildStatement(
 bool cmLocalNinjaGenerator::HasUniqueByproducts(
   std::vector<std::string> const& byproducts, cmListFileBacktrace const& bt)
 {
-  cmGeneratorExpression ge(*this->GetCMakeInstance(), bt);
+  cmGeneratorExpression ge(*this->GetRBLXBuildInstance(), bt);
   for (std::string const& p : byproducts) {
     if (cmGeneratorExpression::Find(p) == std::string::npos) {
       return false;
@@ -818,7 +818,7 @@ std::string cmLocalNinjaGenerator::CreateUtilityOutput(
   }
 
   std::string const base = cmStrCat(this->GetCurrentBinaryDirectory(),
-                                    "/CMakeFiles/", targetName, '-');
+                                    "/RBLXBuildFiles/", targetName, '-');
   // The output is not actually created so mark it symbolic.
   for (std::string const& config : this->GetConfigNames()) {
     std::string const force = cmStrCat(base, config);

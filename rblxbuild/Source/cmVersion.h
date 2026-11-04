@@ -1,12 +1,12 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #pragma once
 
 #include <string>
 #include <vector>
 
 /** \class cmVersion
- * \brief Helper class for providing CMake and CTest version information.
+ * \brief Helper class for providing RBLXBuild and CTest version information.
  *
  * Finds all version related information.
  */
@@ -39,19 +39,19 @@ public:
     /**
      * The source of the dependency.
      * e.g. "curl", "libarchive", etc.
-     * Empty if the dependency is directly passed from CMake.
+     * Empty if the dependency is directly passed from RBLXBuild.
      */
     std::string cameFrom;
   };
 
   /**
-   * Return major and minor version numbers for cmake.
+   * Return major and minor version numbers for rblxbuild.
    */
   static unsigned int GetMajorVersion();
   static unsigned int GetMinorVersion();
   static unsigned int GetPatchVersion();
   static unsigned int GetTweakVersion();
-  static char const* GetCMakeVersion();
+  static char const* GetRBLXBuildVersion();
 
   static std::vector<DependencyInfo> const& CollectDependencyInfo();
 };

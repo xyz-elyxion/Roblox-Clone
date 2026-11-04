@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmMakefileTargetGenerator.h"
 
 #include <algorithm>
@@ -58,7 +58,7 @@
 #include "cmSystemTools.h"
 #include "cmTargetTypes.h"
 #include "cmValue.h"
-#include "cmake.h"
+#include "rblxbuild.h"
 
 cmMakefileTargetGenerator::cmMakefileTargetGenerator(cmGeneratorTarget* target)
   : cmCommonTargetGenerator(target)
@@ -68,7 +68,7 @@ cmMakefileTargetGenerator::cmMakefileTargetGenerator(cmGeneratorTarget* target)
     static_cast<cmLocalUnixMakefileGenerator3*>(target->GetLocalGenerator());
   this->GlobalGenerator = static_cast<cmGlobalUnixMakefileGenerator3*>(
     this->LocalGenerator->GetGlobalGenerator());
-  cmake* cm = this->GlobalGenerator->GetCMakeInstance();
+  rblxbuild* cm = this->GlobalGenerator->GetRBLXBuildInstance();
   this->NoRuleMessages = false;
   if (cmValue ruleStatus =
         cm->GetState()->GetGlobalProperty("RULE_MESSAGES")) {
@@ -336,7 +336,7 @@ void cmMakefileTargetGenerator::WriteTargetBuildRules()
   this->GeneratorTarget->GetExtraSources(extraSources, this->GetConfigName());
   this->OSXBundleGenerator->GenerateMacOSXContentStatements(
     extraSources, this->MacOSXContentGenerator.get(), this->GetConfigName());
-  cmValue pchExtension = this->Makefile->GetDefinition("CMAKE_PCH_EXTENSION");
+  cmValue pchExtension = this->Makefile->GetDefinition("RBLXBUILD_PCH_EXTENSION");
   std::vector<cmSourceFile const*> externalObjects;
   this->GeneratorTarget->GetExternalObjects(externalObjects,
                                             this->GetConfigName());
@@ -379,8 +379,8 @@ void cmMakefileTargetGenerator::WriteTargetBuildRules()
 
 void cmMakefileTargetGenerator::WriteCommonCodeRules()
 {
-  char const* root = (this->Makefile->IsOn("CMAKE_MAKE_INCLUDE_FROM_ROOT")
-                        ? "$(CMAKE_BINARY_DIR)/"
+  char const* root = (this->Makefile->IsOn("RBLXBUILD_MAKE_INCLUDE_FROM_ROOT")
+                        ? "$(RBLXBUILD_BINARY_DIR)/"
                         : "");
 
   // Include the dependencies for the target.
@@ -405,7 +405,7 @@ void cmMakefileTargetGenerator::WriteCommonCodeRules()
     }
   }
 
-  std::string depsUseCompiler = "CMAKE_DEPENDS_USE_COMPILER";
+  std::string depsUseCompiler = "RBLXBUILD_DEPENDS_USE_COMPILER";
   bool compilerGenerateDeps =
     this->GlobalGenerator->SupportsCompilerDependencies() &&
     (!this->Makefile->IsDefinitionSet(depsUseCompiler) ||
@@ -443,7 +443,7 @@ void cmMakefileTargetGenerator::WriteCommonCodeRules()
         compilerDependTimestamp, false,
         this->GlobalGenerator->GetMakefileEncoding());
       timestampFileStream
-        << "# CMAKE generated file: DO NOT EDIT!\n"
+        << "# RBLXBUILD generated file: DO NOT EDIT!\n"
         << "# Timestamp file for compiler generated dependencies "
            "management for "
         << this->GeneratorTarget->GetName() << ".\n";
@@ -514,11 +514,11 @@ void cmMakefileTargetGenerator::WriteTargetLanguageFlags()
   // write language flags for target
   std::set<std::string> languages;
   this->GeneratorTarget->GetLanguages(
-    languages, this->Makefile->GetSafeDefinition("CMAKE_BUILD_TYPE"));
+    languages, this->Makefile->GetSafeDefinition("RBLXBUILD_BUILD_TYPE"));
   // put the compiler in the rules.make file so that if it changes
   // things rebuild
   for (std::string const& language : languages) {
-    std::string compiler = cmStrCat("CMAKE_", language, "_COMPILER");
+    std::string compiler = cmStrCat("RBLXBUILD_", language, "_COMPILER");
     *this->FlagFileStream << "# compile " << language << " with "
                           << this->Makefile->GetSafeDefinition(compiler)
                           << "\n";
@@ -584,8 +584,8 @@ void cmMakefileTargetGenerator::MacOSXContentGeneratorType::operator()(
     commands, copyEcho, cmLocalUnixMakefileGenerator3::EchoBuild);
   std::string copyCommand =
     cmStrCat(cmSystemTools::FileIsDirectory(input)
-               ? "$(CMAKE_COMMAND) -E copy_directory "
-               : "$(CMAKE_COMMAND) -E copy ",
+               ? "$(RBLXBUILD_COMMAND) -E copy_directory "
+               : "$(RBLXBUILD_COMMAND) -E copy ",
              this->Generator->LocalGenerator->ConvertToOutputFormat(
                input, cmOutputConverter::SHELL),
              ' ',
@@ -613,10 +613,10 @@ void cmMakefileTargetGenerator::WriteObjectRuleFiles(
   bool const compilerGenerateDeps =
     this->GlobalGenerator->SupportsCompilerDependencies() &&
     this->Makefile
-      ->GetDefinition(cmStrCat("CMAKE_", lang, "_DEPENDS_USE_COMPILER"))
+      ->GetDefinition(cmStrCat("RBLXBUILD_", lang, "_DEPENDS_USE_COMPILER"))
       .IsOn();
   auto const scanner = compilerGenerateDeps ? cmDependencyScannerKind::Compiler
-                                            : cmDependencyScannerKind::CMake;
+                                            : cmDependencyScannerKind::RBLXBuild;
 
   // Get the full path name of the object file.
   std::string const& objectName =
@@ -1033,7 +1033,7 @@ void cmMakefileTargetGenerator::WriteObjectRuleFiles(
       if (this->GeneratorTarget->GetPropertyAsBool(
             "CUDA_SEPARABLE_COMPILATION")) {
         std::string const& rdcFlag =
-          this->Makefile->GetRequiredDefinition("_CMAKE_CUDA_RDC_FLAG");
+          this->Makefile->GetRequiredDefinition("_RBLXBUILD_CUDA_RDC_FLAG");
         cudaCompileMode = cmStrCat(std::move(cudaCompileMode), rdcFlag, ' ');
       }
 
@@ -1043,7 +1043,7 @@ void cmMakefileTargetGenerator::WriteObjectRuleFiles(
       bool useNormalCompileMode = true;
       for (cm::string_view mode : compileModes) {
         auto propName = cmStrCat("CUDA_", mode, "_COMPILATION");
-        auto defName = cmStrCat("_CMAKE_CUDA_", mode, "_FLAG");
+        auto defName = cmStrCat("_RBLXBUILD_CUDA_", mode, "_FLAG");
         if (this->GeneratorTarget->GetPropertyAsBool(propName)) {
           std::string const& flag =
             this->Makefile->GetRequiredDefinition(defName);
@@ -1054,7 +1054,7 @@ void cmMakefileTargetGenerator::WriteObjectRuleFiles(
       }
       if (useNormalCompileMode) {
         std::string const& wholeFlag =
-          this->Makefile->GetRequiredDefinition("_CMAKE_CUDA_WHOLE_FLAG");
+          this->Makefile->GetRequiredDefinition("_RBLXBUILD_CUDA_WHOLE_FLAG");
         cudaCompileMode = cmStrCat(std::move(cudaCompileMode), wholeFlag);
       }
       vars.CudaCompileMode = cudaCompileMode.c_str();
@@ -1062,14 +1062,14 @@ void cmMakefileTargetGenerator::WriteObjectRuleFiles(
 
     cmList compileCommands;
     std::string const& compileRule = this->Makefile->GetRequiredDefinition(
-      cmStrCat("CMAKE_", lang, "_COMPILE_OBJECT"));
+      cmStrCat("RBLXBUILD_", lang, "_COMPILE_OBJECT"));
     compileCommands.assign(compileRule);
 
     if (this->GeneratorTarget->GetPropertyAsBool("EXPORT_COMPILE_COMMANDS") &&
         lang_has_preprocessor && compileCommands.size() == 1) {
       std::string compileCommand = compileCommands[0];
 
-      // no launcher for CMAKE_EXPORT_COMPILE_COMMANDS
+      // no launcher for RBLXBUILD_EXPORT_COMPILE_COMMANDS
       rulePlaceholderExpander->ExpandRuleVariables(this->LocalGenerator,
                                                    compileCommand, vars);
       std::string const workingDirectory =
@@ -1093,8 +1093,8 @@ void cmMakefileTargetGenerator::WriteObjectRuleFiles(
       }
 
       cmValue const eliminate[] = {
-        this->Makefile->GetDefinition("CMAKE_START_TEMP_FILE"),
-        this->Makefile->GetDefinition("CMAKE_END_TEMP_FILE")
+        this->Makefile->GetDefinition("RBLXBUILD_START_TEMP_FILE"),
+        this->Makefile->GetDefinition("RBLXBUILD_END_TEMP_FILE")
       };
       for (cmValue const& el : eliminate) {
         if (el) {
@@ -1123,7 +1123,7 @@ void cmMakefileTargetGenerator::WriteObjectRuleFiles(
 
     if (!skipCodeCheck) {
       std::string const codeCheck = this->GenerateCodeCheckRules(
-        source, compilerLauncher, "$(CMAKE_COMMAND)", config, nullptr);
+        source, compilerLauncher, "$(RBLXBUILD_COMMAND)", config, nullptr);
       if (!codeCheck.empty()) {
         compileCommands.front().insert(0, codeCheck);
       }
@@ -1140,7 +1140,7 @@ void cmMakefileTargetGenerator::WriteObjectRuleFiles(
     {
       std::string val = this->LocalGenerator->GetRuleLauncher(
         this->GeneratorTarget, "RULE_LAUNCH_COMPILE",
-        this->Makefile->GetSafeDefinition("CMAKE_BUILD_TYPE"));
+        this->Makefile->GetSafeDefinition("RBLXBUILD_BUILD_TYPE"));
       if (cmNonempty(val)) {
         launcher = cmStrCat(val, ' ');
       }
@@ -1151,7 +1151,7 @@ void cmMakefileTargetGenerator::WriteObjectRuleFiles(
     if (compilerGenerateDeps) {
       // Injects dependency computation
       auto depFlags = this->Makefile->GetSafeDefinition(
-        cmStrCat("CMAKE_DEPFILE_FLAGS_", lang));
+        cmStrCat("RBLXBUILD_DEPFILE_FLAGS_", lang));
 
       if (!depFlags.empty()) {
         // Add dependency flags
@@ -1163,18 +1163,18 @@ void cmMakefileTargetGenerator::WriteObjectRuleFiles(
       vars.Flags = flagsWithDeps.c_str();
 
       auto const& extraCommands = this->Makefile->GetSafeDefinition(
-        cmStrCat("CMAKE_", lang, "_DEPENDS_EXTRA_COMMANDS"));
+        cmStrCat("RBLXBUILD_", lang, "_DEPENDS_EXTRA_COMMANDS"));
       if (!extraCommands.empty()) {
         compileCommands.append(extraCommands);
       }
 
       auto const& depFormat = this->Makefile->GetRequiredDefinition(
-        cmStrCat("CMAKE_", lang, "_DEPFILE_FORMAT"));
+        cmStrCat("RBLXBUILD_", lang, "_DEPFILE_FORMAT"));
 
       if (depFormat == "msvc"_s) {
         // compiler must be launched through a wrapper to pick-up dependencies
         std::string depFilter =
-          "$(CMAKE_COMMAND) -E cmake_cl_compile_depends ";
+          "$(RBLXBUILD_COMMAND) -E rblxbuild_cl_compile_depends ";
         depFilter =
           cmStrCat(std::move(depFilter), "--dep-file=", shellDependencyFile);
         depFilter =
@@ -1183,7 +1183,7 @@ void cmMakefileTargetGenerator::WriteObjectRuleFiles(
                      this->LocalGenerator->GetCurrentBinaryDirectory(),
                      cmOutputConverter::SHELL));
         auto const& prefix = this->Makefile->GetSafeDefinition(
-          cmStrCat("CMAKE_", lang, "_CL_SHOWINCLUDES_PREFIX"));
+          cmStrCat("RBLXBUILD_", lang, "_CL_SHOWINCLUDES_PREFIX"));
         depFilter = cmStrCat(std::move(depFilter), " --filter-prefix=",
                              this->LocalGenerator->ConvertToOutputFormat(
                                prefix, cmOutputConverter::SHELL));
@@ -1246,7 +1246,7 @@ void cmMakefileTargetGenerator::WriteObjectRuleFiles(
     this->LocalGenerator->GetCreateAssemblySourceRules();
   if (do_preprocess_rules || do_assembly_rules) {
     std::vector<std::string> force_depends;
-    force_depends.emplace_back("cmake_force");
+    force_depends.emplace_back("rblxbuild_force");
     std::string::size_type dot_pos = relativeObj.rfind('.');
     std::string relativeObjBase = relativeObj.substr(0, dot_pos);
     dot_pos = obj.rfind('.');
@@ -1263,7 +1263,7 @@ void cmMakefileTargetGenerator::WriteObjectRuleFiles(
         commands, preprocessEcho, cmLocalUnixMakefileGenerator3::EchoBuild);
 
       std::string preprocessRuleVar =
-        cmStrCat("CMAKE_", lang, "_CREATE_PREPROCESSED_SOURCE");
+        cmStrCat("RBLXBUILD_", lang, "_CREATE_PREPROCESSED_SOURCE");
       if (cmValue preprocessRule =
             this->Makefile->GetDefinition(preprocessRuleVar)) {
         cmList preprocessCommands{ *preprocessRule };
@@ -1286,7 +1286,7 @@ void cmMakefileTargetGenerator::WriteObjectRuleFiles(
         cm::append(commands, preprocessCommands);
       } else {
         std::string cmd =
-          cmStrCat("$(CMAKE_COMMAND) -E cmake_unimplemented_variable ",
+          cmStrCat("$(RBLXBUILD_COMMAND) -E rblxbuild_unimplemented_variable ",
                    preprocessRuleVar);
         commands.push_back(std::move(cmd));
       }
@@ -1307,7 +1307,7 @@ void cmMakefileTargetGenerator::WriteObjectRuleFiles(
         commands, assemblyEcho, cmLocalUnixMakefileGenerator3::EchoBuild);
 
       std::string assemblyRuleVar =
-        cmStrCat("CMAKE_", lang, "_CREATE_ASSEMBLY_SOURCE");
+        cmStrCat("RBLXBUILD_", lang, "_CREATE_ASSEMBLY_SOURCE");
       if (cmValue assemblyRule =
             this->Makefile->GetDefinition(assemblyRuleVar)) {
         cmList assemblyCommands{ *assemblyRule };
@@ -1329,7 +1329,7 @@ void cmMakefileTargetGenerator::WriteObjectRuleFiles(
         cm::append(commands, assemblyCommands);
       } else {
         std::string cmd =
-          cmStrCat("$(CMAKE_COMMAND) -E cmake_unimplemented_variable ",
+          cmStrCat("$(RBLXBUILD_COMMAND) -E rblxbuild_unimplemented_variable ",
                    assemblyRuleVar);
         commands.push_back(std::move(cmd));
       }
@@ -1412,7 +1412,7 @@ bool cmMakefileTargetGenerator::WriteMakeRule(
     symbolic = symbolic && o_symbolic;
 
     if (!o_symbolic) {
-      output_commands.push_back("@$(CMAKE_COMMAND) -E touch_nocreate " + out);
+      output_commands.push_back("@$(RBLXBUILD_COMMAND) -E touch_nocreate " + out);
     }
     this->LocalGenerator->WriteMakeRule(os, nullptr, output, output_depends,
                                         output_commands, o_symbolic, in_help);
@@ -1468,7 +1468,7 @@ void cmMakefileTargetGenerator::WriteTargetDependRules()
 {
   // must write the targets depend info file
   this->InfoFileNameFull =
-    cmStrCat(this->TargetBuildDirectoryFull, "/DependInfo.cmake");
+    cmStrCat(this->TargetBuildDirectoryFull, "/DependInfo.rblxbuild");
   this->InfoFileStream =
     cm::make_unique<cmGeneratedFileStream>(this->InfoFileNameFull);
   if (!this->InfoFileStream) {
@@ -1484,7 +1484,7 @@ void cmMakefileTargetGenerator::WriteTargetDependRules()
     *this->InfoFileStream
       << "\n"
       << "# Pairs of files generated by the same build rule.\n"
-      << "set(CMAKE_MULTIPLE_OUTPUT_PAIRS\n";
+      << "set(RBLXBUILD_MULTIPLE_OUTPUT_PAIRS\n";
     /* clang-format on */
     for (auto const& pi : this->MultipleOutputPairs) {
       *this->InfoFileStream << "  " << cmScriptGenerator::Quote(pi.first)
@@ -1500,12 +1500,12 @@ void cmMakefileTargetGenerator::WriteTargetDependRules()
   *this->InfoFileStream
     << "\n"
        "# Targets to which this target links which contain Fortran sources.\n"
-       "set(CMAKE_Fortran_TARGET_LINKED_INFO_FILES\n";
+       "set(RBLXBUILD_Fortran_TARGET_LINKED_INFO_FILES\n";
     /* clang-format on */
     auto const dirs =
       this->GetLinkedTargetDirectories("Fortran", this->GetConfigName());
     for (std::string const& d : dirs.Direct) {
-      *this->InfoFileStream << "  \"" << d << "/DependInfo.cmake\"\n";
+      *this->InfoFileStream << "  \"" << d << "/DependInfo.rblxbuild\"\n";
     }
     *this->InfoFileStream << "  )\n";
 
@@ -1513,10 +1513,10 @@ void cmMakefileTargetGenerator::WriteTargetDependRules()
   *this->InfoFileStream
     << "\n"
        "# Targets to which this target links which contain Fortran sources.\n"
-       "set(CMAKE_Fortran_TARGET_FORWARD_LINKED_INFO_FILES\n";
+       "set(RBLXBUILD_Fortran_TARGET_FORWARD_LINKED_INFO_FILES\n";
     /* clang-format on */
     for (std::string const& d : dirs.Forward) {
-      *this->InfoFileStream << "  \"" << d << "/DependInfo.cmake\"\n";
+      *this->InfoFileStream << "  \"" << d << "/DependInfo.rblxbuild\"\n";
     }
     *this->InfoFileStream << "  )\n";
   }
@@ -1528,7 +1528,7 @@ void cmMakefileTargetGenerator::WriteTargetDependRules()
   *this->InfoFileStream
     << "\n"
     << "# Fortran module output directory.\n"
-    << "set(CMAKE_Fortran_TARGET_MODULE_DIR \""
+    << "set(RBLXBUILD_Fortran_TARGET_MODULE_DIR \""
     << this->GeneratorTarget->GetFortranModuleDirectory(working_dir)
     << "\")\n";
 
@@ -1536,7 +1536,7 @@ void cmMakefileTargetGenerator::WriteTargetDependRules()
     *this->InfoFileStream
       << "\n"
       << "# Fortran compiler is building intrinsic modules.\n"
-      << "set(CMAKE_Fortran_TARGET_BUILDING_INTRINSIC_MODULES ON) \n";
+      << "set(RBLXBUILD_Fortran_TARGET_BUILDING_INTRINSIC_MODULES ON) \n";
   }
   /* clang-format on */
 
@@ -1549,7 +1549,7 @@ void cmMakefileTargetGenerator::WriteTargetDependRules()
     this->LocalGenerator->GetRelativeTargetDirectory(this->GeneratorTarget),
     "/depend");
 
-  // Add a command to call CMake to scan dependencies.  CMake will
+  // Add a command to call RBLXBuild to scan dependencies.  RBLXBuild will
   // touch the corresponding depends file after scanning dependencies.
   std::ostringstream depCmd;
 // TODO: Account for source file properties and directory-level
@@ -1567,7 +1567,7 @@ void cmMakefileTargetGenerator::WriteTargetDependRules()
 #endif
   // Generate a call this signature:
   //
-  //   cmake -E cmake_depends <generator>
+  //   rblxbuild -E rblxbuild_depends <generator>
   //                          <home-src-dir> <start-src-dir>
   //                          <home-out-dir> <start-out-dir>
   //                          <dep-info> --color=$(COLOR)
@@ -1575,7 +1575,7 @@ void cmMakefileTargetGenerator::WriteTargetDependRules()
   //
   // This gives the dependency scanner enough information to recreate
   // the state of our local generator sufficiently for its needs.
-  depCmd << "$(CMAKE_COMMAND) -E cmake_depends \""
+  depCmd << "$(RBLXBUILD_COMMAND) -E rblxbuild_depends \""
          << this->GlobalGenerator->GetName() << "\" "
          << this->LocalGenerator->ConvertToOutputFormat(
               this->LocalGenerator->GetSourceDirectory(),
@@ -1623,7 +1623,7 @@ void cmMakefileTargetGenerator::DriveCustomCommands(
 void cmMakefileTargetGenerator::WriteObjectDependRules(
   cmSourceFile const& source, std::vector<std::string>& depends)
 {
-  // Create the list of dependencies known at cmake time.  These are
+  // Create the list of dependencies known at rblxbuild time.  These are
   // shared between the object file and dependency scanning rule.
   depends.push_back(source.GetFullPath());
   if (cmValue objectDeps = source.GetProperty("OBJECT_DEPENDS")) {
@@ -1676,7 +1676,7 @@ void cmMakefileTargetGenerator::WriteDeviceLinkRule(
   std::string profiles;
   std::vector<std::string> fatbinaryDepends;
   std::string const registerFile =
-    cmStrCat(objectDir, "cmake_cuda_register.h");
+    cmStrCat(objectDir, "rblxbuild_cuda_register.h");
 
   // Link device code for each architecture.
   for (std::string const& architectureKind : architectures) {
@@ -1688,7 +1688,7 @@ void cmMakefileTargetGenerator::WriteDeviceLinkRule(
     // generate it only on the first invocation to reduce overhead.
     if (fatbinaryDepends.empty()) {
       std::string const registerFileRel =
-        cmStrCat(relPath, relObjectDir, "cmake_cuda_register.h");
+        cmStrCat(relPath, relObjectDir, "rblxbuild_cuda_register.h");
       registerFileCmd =
         cmStrCat(" --register-link-binaries=", registerFileRel);
       cleanFiles.push_back(registerFileRel);
@@ -1705,7 +1705,7 @@ void cmMakefileTargetGenerator::WriteDeviceLinkRule(
     fatbinaryDepends.emplace_back(cubin);
 
     std::string command = cmStrCat(
-      this->Makefile->GetRequiredDefinition("CMAKE_CUDA_DEVICE_LINKER"),
+      this->Makefile->GetRequiredDefinition("RBLXBUILD_CUDA_DEVICE_LINKER"),
       " -arch=sm_", architecture, registerFileCmd, " -o=$@ ",
       cmJoin(linkDeps, " "));
 
@@ -1715,14 +1715,14 @@ void cmMakefileTargetGenerator::WriteDeviceLinkRule(
 
   // Combine all architectures into a single fatbinary.
   std::string const fatbinaryCommand =
-    cmStrCat(this->Makefile->GetRequiredDefinition("CMAKE_CUDA_FATBINARY"),
+    cmStrCat(this->Makefile->GetRequiredDefinition("RBLXBUILD_CUDA_FATBINARY"),
              " -64 -cmdline=--compile-only -compress-all -link "
              "--embedded-fatbin=$@",
              profiles);
   std::string const fatbinaryOutput =
-    cmStrCat(objectDir, "cmake_cuda_fatbin.h");
+    cmStrCat(objectDir, "rblxbuild_cuda_fatbin.h");
   std::string const fatbinaryOutputRel =
-    cmStrCat(relPath, relObjectDir, "cmake_cuda_fatbin.h");
+    cmStrCat(relPath, relObjectDir, "rblxbuild_cuda_fatbin.h");
 
   localGen->WriteMakeRule(*this->BuildFileStream, nullptr, fatbinaryOutputRel,
                           fatbinaryDepends, { fatbinaryCommand }, false);
@@ -1746,7 +1746,7 @@ void cmMakefileTargetGenerator::WriteDeviceLinkRule(
   std::string const flags = this->GetFlags("CUDA", this->GetConfigName());
   vars.Flags = flags.c_str();
 
-  std::string compileCmd = this->GetLinkRule("CMAKE_CUDA_DEVICE_LINK_COMPILE");
+  std::string compileCmd = this->GetLinkRule("RBLXBUILD_CUDA_DEVICE_LINK_COMPILE");
   auto rulePlaceholderExpander =
     localGen->CreateRulePlaceholderExpander(cmBuildStep::Link);
   rulePlaceholderExpander->ExpandRuleVariables(localGen, compileCmd, vars);
@@ -1847,9 +1847,9 @@ void cmMakefileTargetGenerator::MakeEchoProgress(
   cmLocalUnixMakefileGenerator3::EchoProgress& progress) const
 {
   progress.Dir =
-    cmStrCat(this->LocalGenerator->GetBinaryDirectory(), "/CMakeFiles");
+    cmStrCat(this->LocalGenerator->GetBinaryDirectory(), "/RBLXBuildFiles");
   progress.Arg =
-    cmStrCat("$(CMAKE_PROGRESS_", this->NumberOfProgressActions, ')');
+    cmStrCat("$(RBLXBUILD_PROGRESS_", this->NumberOfProgressActions, ')');
 }
 
 void cmMakefileTargetGenerator::WriteObjectsVariable(
@@ -1865,7 +1865,7 @@ void cmMakefileTargetGenerator::WriteObjectsVariable(
                          << variableName << " =";
   auto const& lineContinue = this->GlobalGenerator->LineContinueDirective;
 
-  cmValue pchExtension = this->Makefile->GetDefinition("CMAKE_PCH_EXTENSION");
+  cmValue pchExtension = this->Makefile->GetDefinition("RBLXBUILD_PCH_EXTENSION");
 
   for (std::string const& obj : this->Objects) {
     if (cmHasSuffix(obj, pchExtension)) {
@@ -1955,7 +1955,7 @@ void cmMakefileTargetGenerator::WriteObjectsStrings(
   std::vector<std::string>& objStrings, bool useWatcomQuote,
   std::string::size_type limit)
 {
-  cmValue pchExtension = this->Makefile->GetDefinition("CMAKE_PCH_EXTENSION");
+  cmValue pchExtension = this->Makefile->GetDefinition("RBLXBUILD_PCH_EXTENSION");
 
   cmMakefileTargetGeneratorObjectStrings helper(
     objStrings, this->LocalGenerator, useWatcomQuote,
@@ -2098,7 +2098,7 @@ std::string cmMakefileTargetGenerator::GetLinkRule(
   std::string linkRule = this->Makefile->GetRequiredDefinition(linkRuleVar);
   if (this->GeneratorTarget->HasImplibGNUtoMS(this->GetConfigName())) {
     std::string ruleVar =
-      cmStrCat("CMAKE_",
+      cmStrCat("RBLXBUILD_",
                this->GeneratorTarget->GetLinkerLanguage(this->GetConfigName()),
                "_GNUtoMS_RULE");
     if (cmValue rule = this->Makefile->GetDefinition(ruleVar)) {
@@ -2135,7 +2135,7 @@ void cmMakefileTargetGenerator::CreateLinkScript(
 
   // Create the makefile command to invoke the link script.
   std::string link_command =
-    cmStrCat("$(CMAKE_COMMAND) -E cmake_link_script ",
+    cmStrCat("$(RBLXBUILD_COMMAND) -E rblxbuild_link_script ",
              this->LocalGenerator->ConvertToOutputFormat(
                this->LocalGenerator->MaybeRelativeToCurBinDir(linkScriptName),
                cmOutputConverter::SHELL),
@@ -2149,7 +2149,7 @@ bool cmMakefileTargetGenerator::CheckUseResponseFileForObjects(
 {
   // Check for an explicit setting one way or the other.
   std::string const responseVar =
-    cmStrCat("CMAKE_", l, "_USE_RESPONSE_FILE_FOR_OBJECTS");
+    cmStrCat("RBLXBUILD_", l, "_USE_RESPONSE_FILE_FOR_OBJECTS");
   if (cmValue val = this->Makefile->GetDefinition(responseVar)) {
     if (!val->empty()) {
       return val.IsOn();
@@ -2160,7 +2160,7 @@ bool cmMakefileTargetGenerator::CheckUseResponseFileForObjects(
   if (size_t const limit = cmSystemTools::CalculateCommandLineLengthLimit()) {
     // Compute the total length of our list of object files with room
     // for argument separation and quoting.  This does not convert paths
-    // relative to CMAKE_CURRENT_BINARY_DIR like the final list will be, so
+    // relative to RBLXBUILD_CURRENT_BINARY_DIR like the final list will be, so
     // the actual list will likely be much shorter than this.  However, in
     // the worst case all objects will remain as absolute paths.
     size_t length = 0;
@@ -2188,7 +2188,7 @@ bool cmMakefileTargetGenerator::CheckUseResponseFileForLibraries(
 {
   // Check for an explicit setting one way or the other.
   std::string const responseVar =
-    cmStrCat("CMAKE_", l, "_USE_RESPONSE_FILE_FOR_LIBRARIES");
+    cmStrCat("RBLXBUILD_", l, "_USE_RESPONSE_FILE_FOR_LIBRARIES");
   if (cmValue val = this->Makefile->GetDefinition(responseVar)) {
     if (!val->empty()) {
       return val.IsOn();
@@ -2364,7 +2364,7 @@ void cmMakefileTargetGenerator::AddIncludeFlags(std::string& flags,
                                                 std::string const& /*config*/)
 {
   std::string const responseVar =
-    cmStrCat("CMAKE_", lang, "_USE_RESPONSE_FILE_FOR_INCLUDES");
+    cmStrCat("RBLXBUILD_", lang, "_USE_RESPONSE_FILE_FOR_INCLUDES");
   bool const useResponseFile = this->Makefile->IsOn(responseVar);
 
   std::vector<std::string> includes;
@@ -2380,7 +2380,7 @@ void cmMakefileTargetGenerator::AddIncludeFlags(std::string& flags,
 
   if (useResponseFile) {
     std::string const responseFlagVar =
-      cmStrCat("CMAKE_", lang, "_RESPONSE_FILE_FLAG");
+      cmStrCat("RBLXBUILD_", lang, "_RESPONSE_FILE_FLAG");
     std::string responseFlag =
       this->Makefile->GetSafeDefinition(responseFlagVar);
     if (responseFlag.empty()) {
@@ -2407,7 +2407,7 @@ void cmMakefileTargetGenerator::GenDefFile(
   if (!mdi || !mdi->DefFileGenerated) {
     return;
   }
-  std::string cmd = cmSystemTools::GetCMakeCommand();
+  std::string cmd = cmSystemTools::GetRBLXBuildCommand();
   cmd = cmStrCat(
     this->LocalGenerator->ConvertToOutputFormat(cmd, cmOutputConverter::SHELL),
     " -E __create_def ",
@@ -2419,7 +2419,7 @@ void cmMakefileTargetGenerator::GenDefFile(
   cmd += this->LocalGenerator->ConvertToOutputFormat(
     this->LocalGenerator->MaybeRelativeToCurBinDir(objlist_file),
     cmOutputConverter::SHELL);
-  cmValue const nm_executable = this->Makefile->GetDefinition("CMAKE_NM");
+  cmValue const nm_executable = this->Makefile->GetDefinition("RBLXBUILD_NM");
   if (!cmIsOff(nm_executable)) {
     cmd += " --nm=";
     cmd += this->LocalCommonGenerator->ConvertToOutputFormat(
@@ -2454,17 +2454,17 @@ std::string cmMakefileTargetGenerator::GetResponseFlag(
   auto const lang =
     this->GeneratorTarget->GetLinkerLanguage(this->GetConfigName());
   if (mode == cmMakefileTargetGenerator::ResponseFlagFor::Link) {
-    responseFlagVar = cmStrCat("CMAKE_", lang, "_RESPONSE_FILE_LINK_FLAG");
+    responseFlagVar = cmStrCat("RBLXBUILD_", lang, "_RESPONSE_FILE_LINK_FLAG");
   } else if (mode == cmMakefileTargetGenerator::ResponseFlagFor::DeviceLink) {
-    responseFlagVar = "CMAKE_CUDA_RESPONSE_FILE_DEVICE_LINK_FLAG";
+    responseFlagVar = "RBLXBUILD_CUDA_RESPONSE_FILE_DEVICE_LINK_FLAG";
   } else if (mode == cmMakefileTargetGenerator::ResponseFlagFor::Archive) {
-    responseFlagVar = cmStrCat("CMAKE_", lang, "_RESPONSE_FILE_ARCHIVE_FLAG");
+    responseFlagVar = cmStrCat("RBLXBUILD_", lang, "_RESPONSE_FILE_ARCHIVE_FLAG");
   }
 
   if (cmValue const p = this->Makefile->GetDefinition(responseFlagVar)) {
     responseFlag = *p;
   } else if (mode == cmMakefileTargetGenerator::ResponseFlagFor::Archive) {
-    responseFlagVar = cmStrCat("CMAKE_", lang, "_RESPONSE_FILE_LINK_FLAG");
+    responseFlagVar = cmStrCat("RBLXBUILD_", lang, "_RESPONSE_FILE_LINK_FLAG");
     if (cmValue const q = this->Makefile->GetDefinition(responseFlagVar)) {
       responseFlag = *q;
     }

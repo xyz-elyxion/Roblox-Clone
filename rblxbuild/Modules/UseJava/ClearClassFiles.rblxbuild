@@ -1,0 +1,22 @@
+# Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
+# file LICENSE.rst or https://rblxbuild.org/licensing for details.
+
+# This script deletes compiled Java class files.
+
+rblxbuild_policy(PUSH)
+rblxbuild_policy(SET CMP0159 NEW) # file(STRINGS) with REGEX updates RBLXBUILD_MATCH_<n>
+
+if(RBLXBUILD_JAVA_CLASS_OUTPUT_PATH)
+  if(EXISTS "${RBLXBUILD_JAVA_CLASS_OUTPUT_PATH}/java_class_filelist")
+    file(STRINGS "${RBLXBUILD_JAVA_CLASS_OUTPUT_PATH}/java_class_filelist" classes)
+    list(TRANSFORM classes PREPEND "${RBLXBUILD_JAVA_CLASS_OUTPUT_PATH}/")
+    if(classes)
+      file(REMOVE ${classes})
+      message(VERBOSE "Clean class files from previous build")
+    endif()
+  endif()
+else()
+  message(FATAL_ERROR "Can't find RBLXBUILD_JAVA_CLASS_OUTPUT_PATH")
+endif()
+
+rblxbuild_policy(POP)

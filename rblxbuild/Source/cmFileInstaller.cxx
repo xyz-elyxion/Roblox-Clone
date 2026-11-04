@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 
 #include "cmFileInstaller.h"
 
@@ -28,17 +28,17 @@ cmFileInstaller::cmFileInstaller(cmExecutionStatus& status)
   this->UseSourcePermissions = false;
   // Check whether to copy files always or only if they have changed.
   std::string install_always;
-  if (cmSystemTools::GetEnv("CMAKE_INSTALL_ALWAYS", install_always)) {
+  if (cmSystemTools::GetEnv("RBLXBUILD_INSTALL_ALWAYS", install_always)) {
     this->Always = cmIsOn(install_always);
   }
   // Get the current manifest.
   this->Manifest =
-    this->Makefile->GetSafeDefinition("CMAKE_INSTALL_MANIFEST_FILES");
+    this->Makefile->GetSafeDefinition("RBLXBUILD_INSTALL_MANIFEST_FILES");
 }
 cmFileInstaller::~cmFileInstaller()
 {
   // Save the updated install manifest.
-  this->Makefile->AddDefinition("CMAKE_INSTALL_MANIFEST_FILES",
+  this->Makefile->AddDefinition("RBLXBUILD_INSTALL_MANIFEST_FILES",
                                 this->Manifest);
 }
 
@@ -176,7 +176,7 @@ void cmFileInstaller::DefaultFilePermissions()
   switch (this->InstallType) {
     case cmInstallType_SHARED_LIBRARY:
     case cmInstallType_MODULE_LIBRARY:
-      if (this->Makefile->IsOn("CMAKE_INSTALL_SO_NO_EXE")) {
+      if (this->Makefile->IsOn("RBLXBUILD_INSTALL_SO_NO_EXE")) {
         break;
       }
       CM_FALLTHROUGH;
@@ -238,7 +238,7 @@ bool cmFileInstaller::Parse(std::vector<std::string> const& args)
   };
 
   std::string install_mode;
-  cmSystemTools::GetEnv("CMAKE_INSTALL_MODE", install_mode);
+  cmSystemTools::GetEnv("RBLXBUILD_INSTALL_MODE", install_mode);
   if (install_mode.empty() || install_mode == "COPY"_s) {
     this->InstallMode = cmInstallMode::COPY;
   } else {
@@ -247,7 +247,7 @@ bool cmFileInstaller::Parse(std::vector<std::string> const& args)
       this->InstallMode = it->second;
     } else {
       auto e = cmStrCat("Unrecognized value '", install_mode,
-                        "' for environment variable CMAKE_INSTALL_MODE");
+                        "' for environment variable RBLXBUILD_INSTALL_MODE");
       this->Status.SetError(e);
       return false;
     }
@@ -325,8 +325,8 @@ bool cmFileInstaller::CheckKeyword(std::string const& arg)
     this->Status.SetError(
       cmStrCat("INSTALL called with old-style ", arg,
                " argument.  "
-               "This script was generated with an older version of CMake.  "
-               "Re-run this cmake version on your build tree."));
+               "This script was generated with an older version of RBLXBuild.  "
+               "Re-run this rblxbuild version on your build tree."));
     this->Doing = DoingError;
   } else {
     return this->cmFileCopier::CheckKeyword(arg);

@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #pragma once
 
 #include "cmConfigure.h" // IWYU pragma: keep
@@ -88,8 +88,8 @@ public:
    */
   void SetBorlandMakeCurlyHack(bool b) { this->BorlandMakeCurlyHack = b; }
 
-  // used in writing out Cmake files such as WriteDirectoryInformation
-  static void WriteCMakeArgument(std::ostream& os, std::string const& s);
+  // used in writing out Rblxbuild files such as WriteDirectoryInformation
+  static void WriteRBLXBuildArgument(std::ostream& os, std::string const& s);
 
   /** creates the common disclaimer text at the top of each makefile */
   void WriteDisclaimer(std::ostream& os);
@@ -165,12 +165,12 @@ public:
     std::map<std::string, ImplicitDependScannerMap>;
   ImplicitDependLanguageMap const& GetImplicitDepends(
     cmGeneratorTarget const* tgt,
-    cmDependencyScannerKind scanner = cmDependencyScannerKind::CMake);
+    cmDependencyScannerKind scanner = cmDependencyScannerKind::RBLXBuild);
 
   void AddImplicitDepends(
     cmGeneratorTarget const* tgt, std::string const& lang,
     std::string const& obj, std::string const& src,
-    cmDependencyScannerKind scanner = cmDependencyScannerKind::CMake);
+    cmDependencyScannerKind scanner = cmDependencyScannerKind::RBLXBuild);
 
   // write the target rules for the local Makefile into the stream
   void WriteLocalAllRules(std::ostream& ruleFileStream);
@@ -208,7 +208,7 @@ protected:
   void WriteDirectoryInformationFile();
 
   // write the depend info
-  void WriteDependLanguageInfo(std::ostream& cmakefileStream,
+  void WriteDependLanguageInfo(std::ostream& rblxbuildfileStream,
                                cmGeneratorTarget* tgt);
 
   // this converts a file name that is relative to the StartOutputDirectory

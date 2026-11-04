@@ -1,16 +1,16 @@
 # -------------------------------------------------------------------------
-# doxyfile for CMakeReference
+# doxyfile for RBLXBuildReference
 # -------------------------------------------------------------------------
 
-PROJECT_NAME         = CMake
+PROJECT_NAME         = RBLXBuild
 PROJECT_BRIEF        = "Cross-platform Make"
-PROJECT_NUMBER       = "@CMake_VERSION@"
-PROJECT_LOGO         = "@CMake_SOURCE_DIR@/Source/QtDialog/CMakeSetup64.png"
+PROJECT_NUMBER       = "@RBLXBuild_VERSION@"
+PROJECT_LOGO         = "@RBLXBuild_SOURCE_DIR@/Source/QtDialog/RBLXBuildSetup64.png"
 
 FULL_PATH_NAMES      = YES
 STRIP_FROM_PATH      = \
- "@CMake_SOURCE_DIR@/" \
- "@CMake_BINARY_DIR@/"
+ "@RBLXBuild_SOURCE_DIR@/" \
+ "@RBLXBuild_BINARY_DIR@/"
 
 WARN_IF_UNDOCUMENTED = NO
 
@@ -39,21 +39,21 @@ REFERENCES_RELATION    = YES
 
 ALLEXTERNALS         = NO
 
-OUTPUT_DIRECTORY     = "@CMakeDeveloperReference_BINARY_DIR@/developer-reference"
+OUTPUT_DIRECTORY     = "@RBLXBuildDeveloperReference_BINARY_DIR@/developer-reference"
 
 INPUT                = \
- "@CMake_SOURCE_DIR@/Utilities/Doxygen/DeveloperReference" \
- "@CMake_SOURCE_DIR@/Source" \
- "@CMake_SOURCE_DIR@/Source/CPack" \
- "@CMake_SOURCE_DIR@/Source/CPack/IFW" \
- "@CMake_SOURCE_DIR@/Source/CPack/WiX" \
- "@CMake_SOURCE_DIR@/Source/CTest" \
- "@CMake_SOURCE_DIR@/Source/CursesDialog" \
- "@CMake_SOURCE_DIR@/Source/kwsys" \
- "@CMake_SOURCE_DIR@/Source/QtDialog" \
- "@CMake_BINARY_DIR@/Source" \
- "@CMake_BINARY_DIR@/Source/kwsys" \
- "@CMake_BINARY_DIR@/Source/cmsys"
+ "@RBLXBuild_SOURCE_DIR@/Utilities/Doxygen/DeveloperReference" \
+ "@RBLXBuild_SOURCE_DIR@/Source" \
+ "@RBLXBuild_SOURCE_DIR@/Source/CPack" \
+ "@RBLXBuild_SOURCE_DIR@/Source/CPack/IFW" \
+ "@RBLXBuild_SOURCE_DIR@/Source/CPack/WiX" \
+ "@RBLXBuild_SOURCE_DIR@/Source/CTest" \
+ "@RBLXBuild_SOURCE_DIR@/Source/CursesDialog" \
+ "@RBLXBuild_SOURCE_DIR@/Source/kwsys" \
+ "@RBLXBuild_SOURCE_DIR@/Source/QtDialog" \
+ "@RBLXBuild_BINARY_DIR@/Source" \
+ "@RBLXBuild_BINARY_DIR@/Source/kwsys" \
+ "@RBLXBuild_BINARY_DIR@/Source/cmsys"
 
 EXTRACT_ALL          = YES
 EXTRACT_PRIVATE      = NO
@@ -86,6 +86,6 @@ SEARCH_INCLUDES      = YES
 INCLUDE_PATH         =
 EXPAND_ONLY_PREDEF   = YES
 
-QHP_NAMESPACE        = org.cmake.developer-reference.@CMake_VERSION_MAJOR@@CMake_VERSION_MINOR@@CMake_VERSION_PATCH@
-QCH_FILE             = ../CMakeDeveloperReference-@CMake_VERSION_MAJOR@@CMake_VERSION_MINOR@@CMake_VERSION_PATCH@.qch
+QHP_NAMESPACE        = org.rblxbuild.developer-reference.@RBLXBuild_VERSION_MAJOR@@RBLXBuild_VERSION_MINOR@@RBLXBuild_VERSION_PATCH@
+QCH_FILE             = ../RBLXBuildDeveloperReference-@RBLXBuild_VERSION_MAJOR@@RBLXBuild_VERSION_MINOR@@RBLXBuild_VERSION_PATCH@.qch
 QHG_LOCATION         = "@QHELPGENERATOR_EXECUTABLE@"

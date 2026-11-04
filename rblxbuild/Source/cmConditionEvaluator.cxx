@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmConditionEvaluator.h"
 
 #include <array>
@@ -16,7 +16,7 @@
 
 #include "cmsys/RegularExpression.hxx"
 
-#include "cmCMakePath.h"
+#include "cmRBLXBuildPath.h"
 #include "cmDiagnostics.h"
 #include "cmExpandedCommandArgument.h"
 #include "cmList.h"
@@ -119,7 +119,7 @@ bool looksLikeSpecialVariable(std::string const& var,
 }
 
 // CMP0223: an empty path used to be a prefix of every path.
-bool IsPrefixCMP0223(cmCMakePath const& prefix, cmMakefile& mf)
+bool IsPrefixCMP0223(cmRBLXBuildPath const& prefix, cmMakefile& mf)
 {
   if (!prefix.IsEmpty()) {
     return false;
@@ -590,7 +590,7 @@ bool cmConditionEvaluator::HandleLevel2(cmArgumentList& newArgs,
       if (!def) {
         def = cmValue(args.current->GetValue());
       } else if (cmHasLiteralPrefix(args.current->GetValue(),
-                                    "CMAKE_MATCH_")) {
+                                    "RBLXBUILD_MATCH_")) {
         // The string to match is owned by our match result variables.
         // Move it to our own buffer before clearing them.
         def_buf = *def;
@@ -692,7 +692,7 @@ bool cmConditionEvaluator::HandleLevel2(cmArgumentList& newArgs,
 
         cmValue lhs = this->GetVariableOrString(*args.current);
         cmValue rhs = this->GetVariableOrString(*args.nextnext);
-        auto const result = cmCMakePath{ *lhs } == cmCMakePath{ *rhs };
+        auto const result = cmRBLXBuildPath{ *lhs } == cmRBLXBuildPath{ *rhs };
         newArgs.ReduceTwoArgs(result, args);
       }
 
@@ -712,8 +712,8 @@ bool cmConditionEvaluator::HandleLevel2(cmArgumentList& newArgs,
 
         cmValue lhs = this->GetVariableOrString(*args.current);
         cmValue rhs = this->GetVariableOrString(*args.nextnext);
-        cmCMakePath const prefix{ *lhs };
-        auto const result = prefix.IsPrefix(cmCMakePath{ *rhs }) ||
+        cmRBLXBuildPath const prefix{ *lhs };
+        auto const result = prefix.IsPrefix(cmRBLXBuildPath{ *rhs }) ||
           IsPrefixCMP0223(prefix, this->Makefile);
         newArgs.ReduceTwoArgs(result, args);
       }

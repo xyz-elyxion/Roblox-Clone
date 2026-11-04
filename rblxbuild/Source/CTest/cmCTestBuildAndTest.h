@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #pragma once
 
 #include "cmConfigure.h" // IWYU pragma: keep
@@ -9,7 +9,7 @@
 
 #include "cmDuration.h"
 
-class cmake;
+class rblxbuild;
 class cmCTest;
 
 /** \class cmCTestBuildAndTest
@@ -29,7 +29,7 @@ public:
 private:
   cmCTest* CTest;
 
-  bool RunCMake(cmake* cm);
+  bool RunRBLXBuild(rblxbuild* cm);
   bool RunTest(std::vector<std::string> const& args, int* retVal,
                cmDuration timeout);
 
@@ -49,7 +49,7 @@ private:
   std::string ExecutableDirectory;
   std::vector<std::string> TestCommandArgs;
   std::vector<std::string> BuildTargets;
-  bool BuildNoCMake = false;
+  bool BuildNoRBLXBuild = false;
   cmDuration Timeout = cmDuration::zero();
 
   friend class cmCTest;

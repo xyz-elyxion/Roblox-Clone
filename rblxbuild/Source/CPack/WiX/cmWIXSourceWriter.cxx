@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmWIXSourceWriter.h"
 
 #include <windows.h>
@@ -158,13 +158,13 @@ std::string cmWIXSourceWriter::CreateGuidFromComponentId(
   std::string const& componentId)
 {
   std::string guid = "*";
-  if (this->ComponentGuidType == CMAKE_GENERATED_GUID) {
-    guid = CreateCmakeGeneratedGuidFromComponentId(componentId);
+  if (this->ComponentGuidType == RBLXBUILD_GENERATED_GUID) {
+    guid = CreateRblxbuildGeneratedGuidFromComponentId(componentId);
   }
   return guid;
 }
 
-std::string cmWIXSourceWriter::CreateCmakeGeneratedGuidFromComponentId(
+std::string cmWIXSourceWriter::CreateRblxbuildGeneratedGuidFromComponentId(
   std::string const& componentId)
 {
   cmCryptoHash hasher(cmCryptoHash::AlgoMD5);

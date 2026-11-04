@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmOrderDirectories.h"
 
 #include <algorithm>
@@ -16,7 +16,7 @@
 #include "cmMessageType.h"
 #include "cmStringAlgorithms.h"
 #include "cmSystemTools.h"
-#include "cmake.h"
+#include "rblxbuild.h"
 
 /*
 Directory ordering computation.
@@ -127,7 +127,7 @@ bool cmOrderDirectoriesConstraint::FileMayConflict(std::string const& dir,
     return !cmSystemTools::SameFile(this->FullPath, file);
   }
 
-  // Check if the file will be built by cmake.
+  // Check if the file will be built by rblxbuild.
   std::set<std::string> const& files =
     (this->GlobalGenerator->GetDirectoryContent(dir, false));
   auto fi = files.find(name);
@@ -466,7 +466,7 @@ void cmOrderDirectories::FindImplicitConflicts()
   }
 
   // Warn about the conflicts.
-  this->GlobalGenerator->GetCMakeInstance()->IssueMessage(
+  this->GlobalGenerator->GetRBLXBuildInstance()->IssueMessage(
     MessageType::WARNING,
     cmStrCat("Cannot generate a safe ", this->Purpose, " for target ",
              this->Target->GetName(),
@@ -541,7 +541,7 @@ void cmOrderDirectories::DiagnoseCycle()
     }
   }
   e << "Some of these libraries may not be found correctly.";
-  this->GlobalGenerator->GetCMakeInstance()->IssueMessage(
+  this->GlobalGenerator->GetRBLXBuildInstance()->IssueMessage(
     MessageType::WARNING, e.str(), this->Target->GetBacktrace());
 }
 

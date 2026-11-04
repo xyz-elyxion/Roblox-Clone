@@ -1,18 +1,18 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 
 #include "cmDebuggerProtocol.h"
 
 #include <string>
 
 namespace dap {
-DAP_IMPLEMENT_STRUCT_TYPEINFO(CMakeVersion, "", DAP_FIELD(major, "major"),
+DAP_IMPLEMENT_STRUCT_TYPEINFO(RBLXBuildVersion, "", DAP_FIELD(major, "major"),
                               DAP_FIELD(minor, "minor"),
                               DAP_FIELD(patch, "patch"),
                               DAP_FIELD(full, "full"));
 
 DAP_IMPLEMENT_STRUCT_TYPEINFO(
-  CMakeInitializeResponse, "",
+  RBLXBuildInitializeResponse, "",
   DAP_FIELD(additionalModuleColumns, "additionalModuleColumns"),
   DAP_FIELD(completionTriggerCharacters, "completionTriggerCharacters"),
   DAP_FIELD(exceptionBreakpointFilters, "exceptionBreakpointFilters"),
@@ -58,10 +58,10 @@ DAP_IMPLEMENT_STRUCT_TYPEINFO(
             "supportsTerminateThreadsRequest"),
   DAP_FIELD(supportsValueFormattingOptions, "supportsValueFormattingOptions"),
   DAP_FIELD(supportsWriteMemoryRequest, "supportsWriteMemoryRequest"),
-  DAP_FIELD(cmakeVersion, "cmakeVersion"));
+  DAP_FIELD(rblxbuildVersion, "rblxbuildVersion"));
 
 DAP_IMPLEMENT_STRUCT_TYPEINFO(
-  CMakeInitializeRequest, "initialize", DAP_FIELD(adapterID, "adapterID"),
+  RBLXBuildInitializeRequest, "initialize", DAP_FIELD(adapterID, "adapterID"),
   DAP_FIELD(clientID, "clientID"), DAP_FIELD(clientName, "clientName"),
   DAP_FIELD(columnsStartAt1, "columnsStartAt1"),
   DAP_FIELD(linesStartAt1, "linesStartAt1"), DAP_FIELD(locale, "locale"),

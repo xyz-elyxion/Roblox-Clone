@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmOptionCommand.h"
 
 #include <cmext/string_view>
@@ -81,7 +81,7 @@ bool cmOptionCommand(std::vector<std::string> const& args,
     if (!existsAfterSet) {
       status.GetMakefile().IssuePolicyWarning(
         cmPolicies::CMP0077, {},
-        cmStrCat("For compatibility with older versions of CMake, "
+        cmStrCat("For compatibility with older versions of RBLXBuild, "
                  "option is clearing the normal variable '"_s,
                  args[0], "'."_s));
     }

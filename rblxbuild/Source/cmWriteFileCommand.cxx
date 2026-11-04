@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmWriteFileCommand.h"
 
 #include "cmsys/FStream.hxx"
@@ -72,7 +72,7 @@ bool cmWriteFileCommand(std::vector<std::string> const& args,
   cmsys::ofstream file(fileName.c_str(),
                        overwrite ? std::ios::out : std::ios::app);
   if (!file) {
-    status.SetError(cmStrCat("Internal CMake error when trying to open file: ",
+    status.SetError(cmStrCat("Internal RBLXBuild error when trying to open file: ",
                              fileName, " for writing."));
     return false;
   }

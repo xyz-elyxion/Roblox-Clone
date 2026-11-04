@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 
 #include "cmStateDirectory.h"
 
@@ -35,7 +35,7 @@ std::string const& cmStateDirectory::GetCurrentSource() const
 void cmStateDirectory::SetCurrentSource(std::string const& dir)
 {
   this->DirectoryState->Location = dir;
-  this->Snapshot_.SetDefinition("CMAKE_CURRENT_SOURCE_DIR",
+  this->Snapshot_.SetDefinition("RBLXBUILD_CURRENT_SOURCE_DIR",
                                 this->DirectoryState->Location);
 }
 
@@ -47,7 +47,7 @@ std::string const& cmStateDirectory::GetCurrentBinary() const
 void cmStateDirectory::SetCurrentBinary(std::string const& dir)
 {
   this->DirectoryState->OutputLocation = dir;
-  this->Snapshot_.SetDefinition("CMAKE_CURRENT_BINARY_DIR",
+  this->Snapshot_.SetDefinition("RBLXBUILD_CURRENT_BINARY_DIR",
                                 this->DirectoryState->OutputLocation);
 }
 

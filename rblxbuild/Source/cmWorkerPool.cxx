@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmWorkerPool.h"
 
 #include <algorithm>
@@ -254,7 +254,7 @@ bool cmUVReadOnlyProcess::start(uv_loop_t* uv_loop,
     this->UVOptions_.args = const_cast<char**>(this->CommandPtr_.data());
     this->UVOptions_.cwd = this->Setup_.WorkingDirectory.c_str();
     this->UVOptions_.flags = UV_PROCESS_WINDOWS_HIDE;
-#if UV_VERSION_MAJOR > 1 || !defined(CMAKE_USE_SYSTEM_LIBUV)
+#if UV_VERSION_MAJOR > 1 || !defined(RBLXBUILD_USE_SYSTEM_LIBUV)
     this->UVOptions_.flags |= UV_PROCESS_WINDOWS_USE_PARENT_ERROR_MODE;
 #endif
     this->UVOptions_.stdio_count =

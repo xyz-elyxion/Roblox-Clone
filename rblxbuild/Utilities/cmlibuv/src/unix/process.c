@@ -81,7 +81,7 @@ extern char **environ;
 # include "zos-base.h"
 #endif
 
-#ifndef CMAKE_BOOTSTRAP
+#ifndef RBLXBUILD_BOOTSTRAP
 #if defined(__linux__)
 # define uv__cpu_set_t cpu_set_t
 #elif defined(__FreeBSD__)
@@ -92,7 +92,7 @@ extern char **environ;
 #endif
 #endif
 
-#ifdef CMAKE_BOOTSTRAP
+#ifdef RBLXBUILD_BOOTSTRAP
 #define UV_USE_SIGCHLD
 #elif defined(UV_HAVE_KQUEUE)
 #include <sys/event.h>
@@ -351,7 +351,7 @@ static void uv__process_child_init(const uv_process_options_t* options,
   int err;
   int fd;
   int n;
-#ifndef CMAKE_BOOTSTRAP
+#ifndef RBLXBUILD_BOOTSTRAP
 #if defined(__linux__) || defined(__FreeBSD__)
   int r;
   int i;
@@ -468,7 +468,7 @@ static void uv__process_child_init(const uv_process_options_t* options,
   if ((options->flags & UV_PROCESS_SETUID) && setuid(options->uid))
     uv__write_errno(error_fd);
 
-#ifndef CMAKE_BOOTSTRAP
+#ifndef RBLXBUILD_BOOTSTRAP
 #if defined(__linux__) || defined(__FreeBSD__)
   if (options->cpumask != NULL) {
     cpumask_size = uv_cpumask_size();
@@ -913,7 +913,7 @@ static int uv__spawn_and_init_child_posix_spawn(
   if (!posix_spawn_works)
     return UV_ENOSYS;
 
-#ifndef CMAKE_BOOTSTRAP
+#ifndef RBLXBUILD_BOOTSTRAP
 #if defined(__linux__) || defined(__FreeBSD__)
   if (options->cpumask != NULL) {
     /* posix_spawn does not offer a way to set the child process
@@ -1117,7 +1117,7 @@ int uv_spawn(uv_loop_t* loop,
   int i;
 
   if (options->cpumask != NULL) {
-#ifndef CMAKE_BOOTSTRAP
+#ifndef RBLXBUILD_BOOTSTRAP
 #if defined(__linux__) || defined(__FreeBSD__)
     if (options->cpumask_size < (size_t)uv_cpumask_size()) {
       return UV_EINVAL;

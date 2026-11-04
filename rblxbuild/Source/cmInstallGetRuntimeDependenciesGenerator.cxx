@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmInstallGetRuntimeDependenciesGenerator.h"
 
 #include <memory>
@@ -70,7 +70,7 @@ void WriteGenexEvaluatorArgument(std::ostream& os, cm::string_view keyword,
       if (result.empty()) {
         return cm::nullopt;
       }
-      return cmOutputConverter::EscapeForCMake(result);
+      return cmOutputConverter::EscapeForRBLXBuild(result);
     });
 }
 }
@@ -168,13 +168,13 @@ void cmInstallGetRuntimeDependenciesGenerator::GenerateScriptForConfig(
 {
   std::string installNameTool =
     this->LocalGenerator->GetMakefile()->GetSafeDefinition(
-      "CMAKE_INSTALL_NAME_TOOL");
+      "RBLXBUILD_INSTALL_NAME_TOOL");
 
   Indent inputIndent = indent;
   if (this->PolicyStatusCMP0207 != cmPolicies::WARN) {
     indent = indent.Next();
     os << inputIndent << "block(SCOPE_FOR POLICIES)\n"
-       << indent << "cmake_policy(SET CMP0207 "
+       << indent << "rblxbuild_policy(SET CMP0207 "
        << (this->PolicyStatusCMP0207 == cmPolicies::NEW ? "NEW" : "OLD")
        << ")\n";
   }

@@ -4,7 +4,7 @@
 #include <QWizard>
 #include <QWizardPage>
 
-#include "cmake.h"
+#include "rblxbuild.h"
 
 #include "ui_Compilers.h"
 #include "ui_CrossCompiler.h"
@@ -40,7 +40,7 @@ public:
   StartCompilerSetup(QString defaultGeneratorPlatform,
                      QString defaultGeneratorToolset, QWidget* p);
   ~StartCompilerSetup();
-  void setGenerators(std::vector<cmake::GeneratorInfo> const& gens);
+  void setGenerators(std::vector<rblxbuild::GeneratorInfo> const& gens);
   void setCurrentGenerator(QString const& gen);
   void setToolset(QString const& toolset);
   void setPlatform(QString const& platform);
@@ -167,7 +167,7 @@ public:
   int nextId() const { return -1; }
 
 protected:
-  QCMakeFilePathEditor* ToolchainFile;
+  QRBLXBuildFilePathEditor* ToolchainFile;
 };
 
 //! the wizard with the pages
@@ -178,7 +178,7 @@ public:
   FirstConfigure();
   ~FirstConfigure();
 
-  void setGenerators(std::vector<cmake::GeneratorInfo> const& gens);
+  void setGenerators(std::vector<rblxbuild::GeneratorInfo> const& gens);
   void setCurrentGenerator(QString const& gen);
   void setToolset(QString const& toolset);
   void setPlatform(QString const& platform);

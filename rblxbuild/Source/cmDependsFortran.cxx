@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmDependsFortran.h"
 
 #include <cassert>
@@ -81,7 +81,7 @@ cmDependsFortran::cmDependsFortran(cmLocalUnixMakefileGenerator3* lg)
 
   // Get the list of definitions.
   cmMakefile* mf = this->LocalGenerator->GetMakefile();
-  cmList definitions{ mf->GetDefinition("CMAKE_TARGET_DEFINITIONS_Fortran") };
+  cmList definitions{ mf->GetDefinition("RBLXBUILD_TARGET_DEFINITIONS_Fortran") };
 
   // translate i.e. FOO=BAR to FOO and add it to the list of defined
   // preprocessor symbols
@@ -93,9 +93,9 @@ cmDependsFortran::cmDependsFortran(cmLocalUnixMakefileGenerator3* lg)
     this->PPDefinitions.insert(def);
   }
 
-  this->CompilerId = mf->GetSafeDefinition("CMAKE_Fortran_COMPILER_ID");
-  this->SModSep = mf->GetSafeDefinition("CMAKE_Fortran_SUBMODULE_SEP");
-  this->SModExt = mf->GetSafeDefinition("CMAKE_Fortran_SUBMODULE_EXT");
+  this->CompilerId = mf->GetSafeDefinition("RBLXBUILD_Fortran_COMPILER_ID");
+  this->SModSep = mf->GetSafeDefinition("RBLXBUILD_Fortran_SUBMODULE_SEP");
+  this->SModExt = mf->GetSafeDefinition("RBLXBUILD_Fortran_SUBMODULE_EXT");
 }
 
 cmDependsFortran::~cmDependsFortran() = default;
@@ -161,7 +161,7 @@ bool cmDependsFortran::Finalize(std::ostream& makeDepends,
   // Get the directory in which module files will be created.
   cmMakefile* mf = this->LocalGenerator->GetMakefile();
   std::string mod_dir =
-    mf->GetSafeDefinition("CMAKE_Fortran_TARGET_MODULE_DIR");
+    mf->GetSafeDefinition("RBLXBUILD_Fortran_TARGET_MODULE_DIR");
   if (mod_dir.empty()) {
     mod_dir = this->LocalGenerator->GetCurrentBinaryDirectory();
   }
@@ -169,9 +169,9 @@ bool cmDependsFortran::Finalize(std::ostream& makeDepends,
   // ATTENTION Before 4.0 the property name was misspelled.
   // Check the correct name first and than the old name.
   bool building_intrinsics =
-    !mf->GetSafeDefinition("CMAKE_Fortran_TARGET_BUILDING_INTRINSIC_MODULES")
+    !mf->GetSafeDefinition("RBLXBUILD_Fortran_TARGET_BUILDING_INTRINSIC_MODULES")
        .empty() ||
-    !mf->GetSafeDefinition("CMAKE_Fortran_TARGET_BUILDING_INSTRINSIC_MODULES")
+    !mf->GetSafeDefinition("RBLXBUILD_Fortran_TARGET_BUILDING_INSTRINSIC_MODULES")
        .empty();
 
   // Actually write dependencies to the streams.
@@ -198,7 +198,7 @@ bool cmDependsFortran::Finalize(std::ostream& makeDepends,
   // Create a script to clean the modules.
   if (!provides.empty()) {
     std::string fcName =
-      cmStrCat(this->TargetDirectory, "/cmake_clean_Fortran.cmake");
+      cmStrCat(this->TargetDirectory, "/rblxbuild_clean_Fortran.rblxbuild");
     cmGeneratedFileStream fcStream(fcName);
     fcStream << "# Remove fortran modules provided by this target.\n";
     fcStream << "FILE(REMOVE";
@@ -250,20 +250,20 @@ bool cmDependsFortran::LocateModules()
   // Load information about other targets.
   cmMakefile* mf = this->LocalGenerator->GetMakefile();
   cmList infoFiles{ mf->GetDefinition(
-    "CMAKE_Fortran_TARGET_LINKED_INFO_FILES") };
+    "RBLXBUILD_Fortran_TARGET_LINKED_INFO_FILES") };
   for (auto const& i : infoFiles) {
     std::string targetDir = cmSystemTools::GetFilenamePath(i);
     std::string fname = targetDir + "/fortran.internal";
     cmsys::ifstream fin(fname.c_str());
     if (!fin) {
-      cmSystemTools::Error(cmStrCat("-E cmake_depends failed to open ", fname,
+      cmSystemTools::Error(cmStrCat("-E rblxbuild_depends failed to open ", fname,
                                     " for module information"));
       return false;
     }
     this->MatchRemoteModules(fin, targetDir);
   }
 
-  // TODO: Use `CMAKE_Fortran_TARGET_FORWARD_LINKED_INFO_FILES` to handle cases
+  // TODO: Use `RBLXBUILD_Fortran_TARGET_FORWARD_LINKED_INFO_FILES` to handle cases
   // described in #25425. Note that because Makefiles generators do not
   // implement relaxed object compilation as described in #15555, the issues
   // never actually cause build failures; only incremental build incorrectness.
@@ -297,7 +297,7 @@ void cmDependsFortran::MatchRemoteModules(std::istream& fin,
         if (!cmHasLiteralSuffix(mod, ".mod") &&
             !cmHasLiteralSuffix(mod, ".smod") &&
             !cmHasLiteralSuffix(mod, ".sub")) {
-          // Support fortran.internal files left by older versions of CMake.
+          // Support fortran.internal files left by older versions of RBLXBuild.
           // They do not include the ".mod" extension.
           mod += ".mod";
         }
@@ -318,7 +318,7 @@ void cmDependsFortran::ConsiderModule(std::string const& name,
   auto required = this->Internal->TargetRequires.find(name);
   if (required != this->Internal->TargetRequires.end() &&
       required->second.empty()) {
-    // The module is provided by a CMake target.  It will have a stamp file.
+    // The module is provided by a RBLXBuild target.  It will have a stamp file.
     std::string stampFile = cmStrCat(stampDir, '/', name, ".stamp");
     required->second = stampFile;
   }
@@ -386,7 +386,7 @@ bool cmDependsFortran::WriteDependenciesReal(std::string const& obj,
         this->LocalGenerator->MaybeRelativeToTopBinDir(required->second));
       makeDepends << obj_m << ": " << stampFile << '\n';
     } else {
-      // This module is not known to CMake.  Try to locate it where
+      // This module is not known to RBLXBuild.  Try to locate it where
       // the compiler will and depend on that.
       std::string module;
       if (this->FindModule(i, module)) {
@@ -406,7 +406,7 @@ bool cmDependsFortran::WriteDependenciesReal(std::string const& obj,
       this->Internal->TargetProvides.insert(i);
 
       // Always use lower case for the mod stamp file name.  The
-      // cmake_copy_f90_mod will call back to this class, which will
+      // rblxbuild_copy_f90_mod will call back to this class, which will
       // try various cases for the real mod file name.
       std::string modFile = cmStrCat(mod_dir, '/', i);
       modFile = this->LocalGenerator->ConvertToOutputFormat(
@@ -422,18 +422,18 @@ bool cmDependsFortran::WriteDependenciesReal(std::string const& obj,
 
       makeDepends << obj_m << ".provides.build"
                   << ": " << stampFileForMake << '\n';
-      // Note that when cmake_copy_f90_mod finds that a module file
+      // Note that when rblxbuild_copy_f90_mod finds that a module file
       // and the corresponding stamp file have no differences, the stamp
       // file is not updated. In such case the stamp file will be always
-      // older than its prerequisite and trigger cmake_copy_f90_mod
+      // older than its prerequisite and trigger rblxbuild_copy_f90_mod
       // on each new build. This is expected behavior for incremental
       // builds and can not be changed without performing recursive make
       // calls that would considerably slow down the building process.
       makeDepends << stampFileForMake << ": " << obj_m << '\n';
-      makeDepends << "\t$(CMAKE_COMMAND) -E cmake_copy_f90_mod " << modFile
+      makeDepends << "\t$(RBLXBUILD_COMMAND) -E rblxbuild_copy_f90_mod " << modFile
                   << ' ' << stampFileForShell;
       cmMakefile* mf = this->LocalGenerator->GetMakefile();
-      cmValue cid = mf->GetDefinition("CMAKE_Fortran_COMPILER_ID");
+      cmValue cid = mf->GetDefinition("RBLXBUILD_Fortran_COMPILER_ID");
       if (cmNonempty(cid)) {
         makeDepends << ' ' << *cid;
       }
@@ -441,7 +441,7 @@ bool cmDependsFortran::WriteDependenciesReal(std::string const& obj,
     }
     makeDepends << obj_m << ".provides.build:\n";
     // After copying the modules update the timestamp file.
-    makeDepends << "\t$(CMAKE_COMMAND) -E touch " << obj_m
+    makeDepends << "\t$(RBLXBUILD_COMMAND) -E touch " << obj_m
                 << ".provides.build\n";
 
     // Make sure the module timestamp rule is evaluated by the time
@@ -486,7 +486,7 @@ bool cmDependsFortran::CopyModule(std::vector<std::string> const& args)
 {
   // Implements
   //
-  //   $(CMAKE_COMMAND) -E cmake_copy_f90_mod input.mod output.mod.stamp
+  //   $(RBLXBUILD_COMMAND) -E rblxbuild_copy_f90_mod input.mod output.mod.stamp
   //                                          [compiler-id]
   //
   // Note that the case of the .mod file depends on the compiler.  In
@@ -502,7 +502,7 @@ bool cmDependsFortran::CopyModule(std::vector<std::string> const& args)
   }
   if (!cmHasLiteralSuffix(mod, ".mod") && !cmHasLiteralSuffix(mod, ".smod") &&
       !cmHasLiteralSuffix(mod, ".sub")) {
-    // Support depend.make files left by older versions of CMake.
+    // Support depend.make files left by older versions of RBLXBuild.
     // They do not include the ".mod" extension.
     mod += ".mod";
   }

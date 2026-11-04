@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #pragma once
 
 #include "cmConfigure.h" // IWYU pragma: keep
@@ -146,7 +146,7 @@ private:
                           ModuleScan moduleScan = ModuleScan::Never);
   void AddToSourceGroup(std::string const& fileName,
                         cm::string_view genNameUpper);
-  void AddCMakeProcessToCommandLines(std::string const& infoFile,
+  void AddRBLXBuildProcessToCommandLines(std::string const& infoFile,
                                      std::string const& processName,
                                      cmCustomCommandLines& commandLines);
   void AddCleanFile(std::string const& fileName);

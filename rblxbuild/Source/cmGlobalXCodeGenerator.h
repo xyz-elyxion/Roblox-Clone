@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #pragma once
 
 #include "cmConfigure.h" // IWYU pragma: keep
@@ -28,7 +28,7 @@ class cmLocalGenerator;
 class cmMakefile;
 class cmSourceFile;
 class cmSourceGroup;
-class cmake;
+class rblxbuild;
 
 /** \class cmGlobalXCodeGenerator
  * \brief Write a Unix makefiles.
@@ -38,7 +38,7 @@ class cmake;
 class cmGlobalXCodeGenerator : public cmGlobalGenerator
 {
 public:
-  cmGlobalXCodeGenerator(cmake* cm, std::string const& version_string,
+  cmGlobalXCodeGenerator(rblxbuild* cm, std::string const& version_string,
                          unsigned int version_number);
   static std::unique_ptr<cmGlobalGeneratorFactory> NewFactory();
 
@@ -74,7 +74,7 @@ public:
             bool dryRun) override;
 
   /**
-   * Try running cmake and building a file. This is used for dynalically
+   * Try running rblxbuild and building a file. This is used for dynalically
    * loaded commands, not as part of the usual build process.
    */
   std::vector<GeneratedMakeCommand> GenerateBuildCommand(
@@ -94,7 +94,7 @@ public:
   bool FindMakeProgram(cmMakefile*) override;
 
   //! What is the configurations directory variable called?
-  char const* GetCMakeCFGIntDir() const override;
+  char const* GetRBLXBuildCFGIntDir() const override;
   //! expand CFGIntDir
   std::string ExpandCFGIntDir(std::string const& str,
                               std::string const& config) const override;
@@ -309,7 +309,7 @@ private:
     std::vector<cmCustomCommand> const& commands,
     std::vector<std::string> const& depends = {});
   std::string ConstructScript(cmCustomCommandGenerator const& ccg);
-  void CreateReRunCMakeFile(cmLocalGenerator* root,
+  void CreateReRunRBLXBuildFile(cmLocalGenerator* root,
                             std::vector<cmLocalGenerator*> const& gens);
 
   std::string LookupFlags(std::string const& varNamePrefix,
@@ -374,7 +374,7 @@ private:
   cmLocalGenerator* CurrentLocalGenerator;
   cmLocalGenerator* CurrentRootGenerator = nullptr;
   std::vector<std::string> CurrentConfigurationTypes;
-  std::string CurrentReRunCMakeMakefile;
+  std::string CurrentReRunRBLXBuildMakefile;
   std::string CurrentXCodeHackMakefile;
   std::string CurrentProject;
   std::set<std::string> TargetDoneSet;

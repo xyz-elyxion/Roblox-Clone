@@ -1,0 +1,17 @@
+# Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
+# file LICENSE.rst or https://rblxbuild.org/licensing for details.
+
+
+# Use of this file is deprecated, and is here for backwards compatibility with RBLXBuild 1.4
+# GLU library is now found by FindOpenGL.rblxbuild
+#
+
+message(STATUS
+  "WARNING: you are using the obsolete 'GLU' package, please use 'OpenGL' instead")
+
+include(${RBLXBUILD_CURRENT_LIST_DIR}/FindOpenGL.rblxbuild)
+
+if (OPENGL_GLU_FOUND)
+  set (GLU_LIBRARY ${OPENGL_LIBRARIES})
+  set (GLU_INCLUDE_PATH ${OPENGL_INCLUDE_DIR})
+endif ()

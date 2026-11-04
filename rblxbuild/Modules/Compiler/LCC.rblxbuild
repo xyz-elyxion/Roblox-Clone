@@ -1,0 +1,100 @@
+# Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
+# file LICENSE.rst or https://rblxbuild.org/licensing for details.
+
+
+# This module is shared by multiple languages; use include blocker.
+if(__COMPILER_LCC)
+  return()
+endif()
+set(__COMPILER_LCC 1)
+
+include(Compiler/RBLXBuildCommonCompilerMacros)
+
+set(__pch_header_C "c-header")
+set(__pch_header_CXX "c++-header")
+set(__pch_header_OBJC "objective-c-header")
+set(__pch_header_OBJCXX "objective-c++-header")
+
+macro(__compiler_lcc lang)
+  # Feature flags.
+  set(RBLXBUILD_${lang}_VERBOSE_FLAG "-v")
+  set(RBLXBUILD_${lang}_COMPILE_OPTIONS_WARNING_AS_ERROR "-Werror")
+  set(RBLXBUILD_${lang}_COMPILE_OPTIONS_PIC "-fPIC")
+  set (_RBLXBUILD_${lang}_PIE_MAY_BE_SUPPORTED_BY_LINKER NO)
+  set(RBLXBUILD_${lang}_COMPILE_OPTIONS_PIE "-fPIE")
+  # Support of PIE at link stage depends on various elements : platform, compiler, linker
+  # so to activate it, module CheckPIESupported must be used.
+  set (_RBLXBUILD_${lang}_PIE_MAY_BE_SUPPORTED_BY_LINKER YES)
+  set(RBLXBUILD_${lang}_LINK_OPTIONS_PIE ${RBLXBUILD_${lang}_COMPILE_OPTIONS_PIE} "-pie")
+  set(RBLXBUILD_${lang}_LINK_OPTIONS_NO_PIE "-no-pie")
+  set(RBLXBUILD_${lang}_COMPILE_OPTIONS_VISIBILITY "-fvisibility=")
+  set(RBLXBUILD_SHARED_LIBRARY_${lang}_FLAGS "-fPIC")
+  set(RBLXBUILD_SHARED_LIBRARY_CREATE_${lang}_FLAGS "-shared")
+  set(RBLXBUILD_${lang}_COMPILE_OPTIONS_SYSROOT "--sysroot=")
+
+  set(RBLXBUILD_${lang}_LINKER_WRAPPER_FLAG "-Wl,")
+  set(RBLXBUILD_${lang}_LINKER_WRAPPER_FLAG_SEP ",")
+
+  set(RBLXBUILD_${lang}_LINK_MODE DRIVER)
+
+  # Older versions of gcc (< 4.5) contain a bug causing them to report a missing
+  # header file as a warning if depfiles are enabled, causing check_header_file
+  # tests to always succeed.  Work around this by disabling dependency tracking
+  # in try_compile mode.
+  get_property(_IN_TC GLOBAL PROPERTY IN_TRY_COMPILE)
+  if(RBLXBUILD_${lang}_COMPILER_ID STREQUAL "LCC" AND _IN_TC AND NOT RBLXBUILD_FORCE_DEPFILES)
+  else()
+    # distcc does not transform -o to -MT when invoking the preprocessor
+    # internally, as it ought to.  Work around this bug by setting -MT here
+    # even though it isn't strictly necessary.
+    set(RBLXBUILD_DEPFILE_FLAGS_${lang} "-MD -MT <DEP_TARGET> -MF <DEP_FILE>")
+  endif()
+
+  # Initial configuration flags.
+  string(APPEND RBLXBUILD_${lang}_FLAGS_INIT " ")
+  string(APPEND RBLXBUILD_${lang}_FLAGS_DEBUG_INIT " -g")
+  string(APPEND RBLXBUILD_${lang}_FLAGS_MINSIZEREL_INIT " -Os -DNDEBUG")
+  string(APPEND RBLXBUILD_${lang}_FLAGS_RELEASE_INIT " -O3 -DNDEBUG")
+  string(APPEND RBLXBUILD_${lang}_FLAGS_RELWITHDEBINFO_INIT " -O2 -g -DNDEBUG")
+  set(RBLXBUILD_${lang}_CREATE_PREPROCESSED_SOURCE "<RBLXBUILD_${lang}_COMPILER> <DEFINES> <INCLUDES> <FLAGS> -E <SOURCE> > <PREPROCESSED_SOURCE>")
+  set(RBLXBUILD_${lang}_CREATE_ASSEMBLY_SOURCE "<RBLXBUILD_${lang}_COMPILER> <DEFINES> <INCLUDES> <FLAGS> -S <SOURCE> -o <ASSEMBLY_SOURCE>")
+  set(RBLXBUILD_INCLUDE_SYSTEM_FLAG_${lang} "-isystem ")
+  set(_RBLXBUILD_${lang}_IPO_SUPPORTED_BY_RBLXBUILD YES)
+  set(_RBLXBUILD_${lang}_IPO_MAY_BE_SUPPORTED_BY_COMPILER NO)
+  set(_RBLXBUILD_${lang}_IPO_MAY_BE_SUPPORTED_BY_COMPILER YES)
+  set(__lto_flags -flto)
+  list(APPEND __lto_flags -fno-fat-lto-objects)
+  set(RBLXBUILD_${lang}_COMPILE_OPTIONS_IPO ${__lto_flags})
+
+  set(RBLXBUILD_${lang}_ARCHIVE_CREATE_IPO
+    "\"${RBLXBUILD_${lang}_COMPILER_AR}\" qc <TARGET> <LINK_FLAGS> <OBJECTS>"
+  )
+
+  set(RBLXBUILD_${lang}_ARCHIVE_APPEND_IPO
+    "\"${RBLXBUILD_${lang}_COMPILER_AR}\" q <TARGET> <LINK_FLAGS> <OBJECTS>"
+  )
+
+  set(RBLXBUILD_${lang}_ARCHIVE_FINISH_IPO
+    "\"${RBLXBUILD_${lang}_COMPILER_RANLIB}\" <TARGET>"
+  )
+
+  if("${lang}" STREQUAL "CXX")
+    set(RBLXBUILD_${lang}_COMPILER_PREDEFINES_COMMAND "${RBLXBUILD_${lang}_COMPILER}")
+    if(RBLXBUILD_${lang}_COMPILER_ARG1)
+      separate_arguments(_COMPILER_ARGS NATIVE_COMMAND "${RBLXBUILD_${lang}_COMPILER_ARG1}")
+      list(APPEND RBLXBUILD_${lang}_COMPILER_PREDEFINES_COMMAND ${_COMPILER_ARGS})
+      unset(_COMPILER_ARGS)
+    endif()
+    list(APPEND RBLXBUILD_${lang}_COMPILER_PREDEFINES_COMMAND "-w" "-dM" "-E" "${RBLXBUILD_ROOT}/Modules/RBLXBuildCXXCompilerABI.cpp")
+  endif()
+
+  if(NOT "x${lang}" STREQUAL "xFortran")
+    set(RBLXBUILD_PCH_EXTENSION .gch)
+    if (NOT RBLXBUILD_GENERATOR MATCHES "Xcode")
+      set(RBLXBUILD_PCH_SYSTEM_HEADER_PRAGMA "#pragma GCC system_header")
+    endif()
+    set(RBLXBUILD_${lang}_COMPILE_OPTIONS_INVALID_PCH -Winvalid-pch)
+    set(RBLXBUILD_${lang}_COMPILE_OPTIONS_USE_PCH -include <PCH_HEADER>)
+    set(RBLXBUILD_${lang}_COMPILE_OPTIONS_CREATE_PCH -x ${__pch_header_${lang}} -include <PCH_HEADER>)
+  endif()
+endmacro()

@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 
 #include "cmGlobalFastbuildGenerator.h"
 
@@ -36,7 +36,7 @@
 #include "cmTestGenerator.h"
 #include "cmValue.h"
 #include "cmVersion.h"
-#include "cmake.h"
+#include "rblxbuild.h"
 
 #if defined(_WIN32)
 #  include <future>
@@ -59,32 +59,32 @@
 #define FASTBUILD_DEFAULT_IDE_BUILD_ARGS " -ide -cache -summary -dist "
 
 constexpr auto FASTBUILD_CAPTURE_SYSTEM_ENV =
-  "CMAKE_FASTBUILD_CAPTURE_SYSTEM_ENV";
-constexpr auto FASTBUILD_ENV_OVERRIDES = "CMAKE_FASTBUILD_ENV_OVERRIDES";
+  "RBLXBUILD_FASTBUILD_CAPTURE_SYSTEM_ENV";
+constexpr auto FASTBUILD_ENV_OVERRIDES = "RBLXBUILD_FASTBUILD_ENV_OVERRIDES";
 
-// Inherits from "CMAKE_FASTBUILD_VERBOSE_GENERATOR" env variable.
+// Inherits from "RBLXBUILD_FASTBUILD_VERBOSE_GENERATOR" env variable.
 constexpr auto FASTBUILD_VERBOSE_GENERATOR =
-  "CMAKE_FASTBUILD_VERBOSE_GENERATOR";
-constexpr auto FASTBUILD_CACHE_PATH = "CMAKE_FASTBUILD_CACHE_PATH";
+  "RBLXBUILD_FASTBUILD_VERBOSE_GENERATOR";
+constexpr auto FASTBUILD_CACHE_PATH = "RBLXBUILD_FASTBUILD_CACHE_PATH";
 // Compiler settings.
 constexpr auto FASTBUILD_COMPILER_EXTRA_FILES =
-  "CMAKE_FASTBUILD_COMPILER_EXTRA_FILES";
-constexpr auto FASTBUILD_USE_LIGHTCACHE = "CMAKE_FASTBUILD_USE_LIGHTCACHE";
+  "RBLXBUILD_FASTBUILD_COMPILER_EXTRA_FILES";
+constexpr auto FASTBUILD_USE_LIGHTCACHE = "RBLXBUILD_FASTBUILD_USE_LIGHTCACHE";
 constexpr auto FASTBUILD_USE_RELATIVE_PATHS =
-  "CMAKE_FASTBUILD_USE_RELATIVE_PATHS";
+  "RBLXBUILD_FASTBUILD_USE_RELATIVE_PATHS";
 constexpr auto FASTBUILD_USE_DETERMINISTIC_PATHS =
-  "CMAKE_FASTBUILD_USE_DETERMINISTIC_PATHS";
-constexpr auto FASTBUILD_SOURCE_MAPPING = "CMAKE_FASTBUILD_SOURCE_MAPPING";
+  "RBLXBUILD_FASTBUILD_USE_DETERMINISTIC_PATHS";
+constexpr auto FASTBUILD_SOURCE_MAPPING = "RBLXBUILD_FASTBUILD_SOURCE_MAPPING";
 constexpr auto FASTBUILD_CLANG_REWRITE_INCLUDES =
-  "CMAKE_FASTBUILD_CLANG_REWRITE_INCLUDES";
+  "RBLXBUILD_FASTBUILD_CLANG_REWRITE_INCLUDES";
 constexpr auto FASTBUILD_CLANG_GCC_UPDATE_XLANG_ARG =
-  "CMAKE_FASTBUILD_CLANG_GCC_UPDATE_XLANG_ARG";
+  "RBLXBUILD_FASTBUILD_CLANG_GCC_UPDATE_XLANG_ARG";
 constexpr auto FASTBUILD_ALLOW_RESPONSE_FILE =
-  "CMAKE_FASTBUILD_ALLOW_RESPONSE_FILE";
+  "RBLXBUILD_FASTBUILD_ALLOW_RESPONSE_FILE";
 constexpr auto FASTBUILD_FORCE_RESPONSE_FILE =
-  "CMAKE_FASTBUILD_FORCE_RESPONSE_FILE";
+  "RBLXBUILD_FASTBUILD_FORCE_RESPONSE_FILE";
 
-constexpr auto FASTBUILD_IDE_ARGS = "CMAKE_FASTBUILD_IDE_ARGS";
+constexpr auto FASTBUILD_IDE_ARGS = "RBLXBUILD_FASTBUILD_IDE_ARGS";
 
 static std::map<std::string, std::string> const compilerIdToFastbuildFamily = {
   { "DPClang", "clang" },     { "MSVC", "msvc" }, { "Clang", "clang" },
@@ -189,14 +189,14 @@ void FastbuildTarget::GenerateAliases()
   }
 }
 
-cmGlobalFastbuildGenerator::cmGlobalFastbuildGenerator(cmake* cm)
+cmGlobalFastbuildGenerator::cmGlobalFastbuildGenerator(rblxbuild* cm)
   : cmGlobalCommonGenerator(cm)
   , BuildFileStream(nullptr)
 {
 #ifdef _WIN32
   cm->GetState()->SetWindowsShell(true);
 #endif
-  this->FindMakeProgramFile = "CMakeFastbuildFindMake.cmake";
+  this->FindMakeProgramFile = "RBLXBuildFastbuildFindMake.rblxbuild";
   cm->GetState()->SetFastbuildMake(true);
   cm->GetState()->SetIsGeneratorMultiConfig(false);
 }
@@ -253,8 +253,8 @@ void cmGlobalFastbuildGenerator::ProcessEnvironment()
   // If 'SDK_ROOT' is not set via env and '-isysroot' is absent, AppleClang
   // seems to use MacOS SDK by default (even though FBuild flattens includes
   // before compiling). It breaks cross-compilation for iOS. Tested in
-  // "RunCMake.Framework" test.
-  std::string const osxRoot = this->GetSafeGlobalSetting("CMAKE_OSX_SYSROOT");
+  // "RunRBLXBuild.Framework" test.
+  std::string const osxRoot = this->GetSafeGlobalSetting("RBLXBUILD_OSX_SYSROOT");
   if (!osxRoot.empty()) {
     LocalEnvironment.emplace_back("SDKROOT=" + osxRoot);
   }
@@ -316,7 +316,7 @@ bool cmGlobalFastbuildGenerator::FindMakeProgram(cmMakefile* mf)
   if (!cmGlobalGenerator::FindMakeProgram(mf)) {
     return false;
   }
-  if (auto fastbuildCommand = mf->GetDefinition("CMAKE_MAKE_PROGRAM")) {
+  if (auto fastbuildCommand = mf->GetDefinition("RBLXBUILD_MAKE_PROGRAM")) {
     this->FastbuildCommand = *fastbuildCommand;
     std::vector<std::string> command;
     command.push_back(this->FastbuildCommand);
@@ -370,10 +370,10 @@ cmGlobalFastbuildGenerator::GenerateBuildCommand(
   if (!configFile.empty()) {
     makeCommand.Add("-config", configFile);
   }
-  // Tested in "RunCMake.SymlinkTrees" test.
+  // Tested in "RunRBLXBuild.SymlinkTrees" test.
   makeCommand.Add("-continueafterdbmove");
 
-  // Tested in RunCMake.LinkWhatYouUse on Linux. (We need to see output of
+  // Tested in RunRBLXBuild.LinkWhatYouUse on Linux. (We need to see output of
   // LinkerStampExe process).
   // In general, it might be useful to see output of external processes
   // regardless of their outcome.
@@ -408,7 +408,7 @@ cmGlobalFastbuildGenerator::GenerateBuildCommand(
     // inputs have changes after re-generation which might happen if, for
     // example, configuration depends on some files generated during
     // the configuration itself.
-    AskCMakeToMakeRebuildBFFUpToDate(projectDir);
+    AskRBLXBuildToMakeRebuildBFFUpToDate(projectDir);
   }
 
   return { std::move(makeCommand) };
@@ -419,7 +419,7 @@ void cmGlobalFastbuildGenerator::ComputeTargetObjectDirectory(
 {
   // Compute full path to object file directory for this target.
   std::string dir =
-    cmStrCat(gt->GetSupportDirectory(), '/', this->GetCMakeCFGIntDir(), '/');
+    cmStrCat(gt->GetSupportDirectory(), '/', this->GetRBLXBuildCFGIntDir(), '/');
   gt->ObjectDirectory = std::move(dir);
 }
 
@@ -444,10 +444,10 @@ void cmGlobalFastbuildGenerator::Generate()
   if (cmSystemTools::VersionCompare(cmSystemTools::OP_LESS,
                                     this->FastbuildVersion,
                                     RequiredFastbuildVersion())) {
-    this->GetCMakeInstance()->IssueMessage(
+    this->GetRBLXBuildInstance()->IssueMessage(
       MessageType::FATAL_ERROR,
       cmStrCat("The detected version of Fastbuild (", this->FastbuildVersion,
-               ") is less than the version of Fastbuild required by CMake (",
+               ") is less than the version of Fastbuild required by RBLXBuild (",
                this->RequiredFastbuildVersion(), ")."));
     return;
   }
@@ -474,32 +474,32 @@ void cmGlobalFastbuildGenerator::Generate()
 
   this->RemoveUnknownClangTidyExportFixesFiles();
 
-  if (this->GetCMakeInstance()->GetRegenerateDuringBuild() ||
-      this->GetCMakeInstance()->GetIsInTryCompile()) {
+  if (this->GetRBLXBuildInstance()->GetRegenerateDuringBuild() ||
+      this->GetRBLXBuildInstance()->GetIsInTryCompile()) {
     return;
   }
   std::string const workingDir =
-    this->GetCMakeInstance()->GetHomeOutputDirectory();
+    this->GetRBLXBuildInstance()->GetHomeOutputDirectory();
   //  Make "rebuild-bff" target up-to-date after the generation.
-  //  This is actually a noop, it just asks CMake to touch the generated file
+  //  This is actually a noop, it just asks RBLXBuild to touch the generated file
   //  so FASTBuild would consider the target as up-to-date.
-  AskCMakeToMakeRebuildBFFUpToDate(workingDir);
+  AskRBLXBuildToMakeRebuildBFFUpToDate(workingDir);
 
-  if (this->GlobalSettingIsOn("CMAKE_EXPORT_COMPILE_COMMANDS")) {
+  if (this->GlobalSettingIsOn("RBLXBUILD_EXPORT_COMPILE_COMMANDS")) {
     std::string output;
     ExecuteFastbuildTarget(workingDir, FASTBUILD_ALL_TARGET_NAME, output,
                            { "-compdb" });
   }
 }
 
-void cmGlobalFastbuildGenerator::AskCMakeToMakeRebuildBFFUpToDate(
+void cmGlobalFastbuildGenerator::AskRBLXBuildToMakeRebuildBFFUpToDate(
   std::string const& workingDir) const
 {
   // "restat" the generated build file.
   // The idea here is to mimic what Ninja's "restat" command does.
   // We need to make the "rebuild.bff" target up-to-date, so the regeneration
-  // will only be triggered when CMake files have actually changed.
-  // Tested in "RunCMake.Configure" test.
+  // will only be triggered when RBLXBuild files have actually changed.
+  // Tested in "RunRBLXBuild.Configure" test.
   cmsys::ofstream{
     cmStrCat(workingDir, '/', FASTBUILD_RESTAT_FILE).c_str(),
     std::ios::out | std::ios::binary
@@ -550,7 +550,7 @@ void cmGlobalFastbuildGenerator::WriteSettings()
   WriteVariable("FB_INPUT_3_PLACEHOLDER", Quote("\"%3\""));
 
   std::string cacheDir;
-  // If explicitly set from CMake.
+  // If explicitly set from RBLXBuild.
   auto val = this->GetSafeGlobalSetting(FASTBUILD_CACHE_PATH);
   if (!val.empty()) {
     cacheDir = std::move(val);
@@ -721,7 +721,7 @@ struct WrapHelper
     // Those all are considered as line ends by FASTBuild.
     cmSystemTools::ReplaceString(in, "\n", "\\n");
     cmSystemTools::ReplaceString(in, "\r", "\\r");
-    // Escaping of single quotes tested in "RunCMake.CompilerArgs" test.
+    // Escaping of single quotes tested in "RunRBLXBuild.CompilerArgs" test.
     cmSystemTools::ReplaceString(in, "'", "^'");
     std::string result = cmStrCat(Prefix, in, Suffix);
     if (EscapeDollar) {
@@ -840,11 +840,11 @@ void cmGlobalFastbuildGenerator::TopologicalSort(
 
 void cmGlobalFastbuildGenerator::WriteDisclaimer()
 {
-  *this->BuildFileStream << "// CMAKE generated file: DO NOT EDIT!\n"
+  *this->BuildFileStream << "// RBLXBUILD generated file: DO NOT EDIT!\n"
                             "// Generated by \""
                          << this->GetName()
                          << "\""
-                            " Generator, CMake Version "
+                            " Generator, RBLXBuild Version "
                          << cmVersion::GetMajorVersion() << '.'
                          << cmVersion::GetMinorVersion() << "\n\n";
 }
@@ -853,7 +853,7 @@ void cmGlobalFastbuildGenerator::OpenBuildFileStream()
 {
   // Compute Fastbuild's build file path.
   std::string buildFilePath =
-    this->GetCMakeInstance()->GetHomeOutputDirectory() +
+    this->GetRBLXBuildInstance()->GetHomeOutputDirectory() +
     "/" FASTBUILD_BUILD_FILE;
 
   // Get a stream where to generate things.
@@ -903,7 +903,7 @@ void cmGlobalFastbuildGenerator::WriteCompilers()
     }
     WriteVariable("Executable", Quote(compilerPath), 1);
     WriteVariable("CompilerFamily", Quote(compilerDef.CompilerFamily), 1);
-    if (this->GetCMakeInstance()->GetIsInTryCompile()) {
+    if (this->GetRBLXBuildInstance()->GetIsInTryCompile()) {
       WriteVariable("AllowCaching", "false", 1);
       WriteVariable("AllowDistribution", "false", 1);
     }
@@ -957,7 +957,7 @@ void cmGlobalFastbuildGenerator::WriteCompilers()
       }
     }
     if (!compilerDef.ExtraFiles.empty()) {
-      // Do not escape '$' sign, CMAKE_${LANG}_FASTBUILD_EXTRA_FILES might
+      // Do not escape '$' sign, RBLXBUILD_${LANG}_FASTBUILD_EXTRA_FILES might
       // contain FB variables to be expanded (we do use some internally).
       // Besides a path cannot contain a '$'
       WriteArray("ExtraFiles", Wrap(compilerDef.ExtraFiles, "'", "'", false),
@@ -986,7 +986,7 @@ void cmGlobalFastbuildGenerator::AddCompiler(std::string const& language,
   }
 
   // Calculate the root location of the compiler
-  std::string const variableString = cmStrCat("CMAKE_", language, "_COMPILER");
+  std::string const variableString = cmStrCat("RBLXBUILD_", language, "_COMPILER");
   std::string const compilerLocation = mf->GetSafeDefinition(variableString);
   if (compilerLocation.empty()) {
     return;
@@ -998,17 +998,17 @@ void cmGlobalFastbuildGenerator::AddCompiler(std::string const& language,
     cmSystemTools::GetFilenamePath(compilerLocation);
   compilerDef.Name = FASTBUILD_COMPILER_PREFIX + language;
   compilerDef.Executable = compilerLocation;
-  compilerDef.CmakeCompilerID =
-    mf->GetSafeDefinition(cmStrCat("CMAKE_", language, "_COMPILER_ID"));
-  if ((compilerDef.CmakeCompilerID == "Clang" ||
-       compilerDef.CmakeCompilerID == "DPClang") &&
+  compilerDef.RblxbuildCompilerID =
+    mf->GetSafeDefinition(cmStrCat("RBLXBUILD_", language, "_COMPILER_ID"));
+  if ((compilerDef.RblxbuildCompilerID == "Clang" ||
+       compilerDef.RblxbuildCompilerID == "DPClang") &&
       mf->GetSafeDefinition(cmStrCat(
-        "CMAKE_", language, "_COMPILER_FRONTEND_VARIANT")) == "MSVC") {
-    compilerDef.CmakeCompilerID = "Clang-cl";
+        "RBLXBUILD_", language, "_COMPILER_FRONTEND_VARIANT")) == "MSVC") {
+    compilerDef.RblxbuildCompilerID = "Clang-cl";
   }
 
-  compilerDef.CmakeCompilerVersion =
-    mf->GetSafeDefinition(cmStrCat("CMAKE_", language, "_COMPILER_VERSION"));
+  compilerDef.RblxbuildCompilerVersion =
+    mf->GetSafeDefinition(cmStrCat("RBLXBUILD_", language, "_COMPILER_VERSION"));
   compilerDef.Language = language;
 
   cmExpandList(mf->GetSafeDefinition(FASTBUILD_COMPILER_EXTRA_FILES),
@@ -1016,7 +1016,7 @@ void cmGlobalFastbuildGenerator::AddCompiler(std::string const& language,
 
   if (supportedLanguages.find(language) != supportedLanguages.end()) {
     auto const iter =
-      compilerIdToFastbuildFamily.find(compilerDef.CmakeCompilerID);
+      compilerIdToFastbuildFamily.find(compilerDef.RblxbuildCompilerID);
     if (iter != compilerIdToFastbuildFamily.end()) {
       compilerDef.CompilerFamily = iter->second;
     }
@@ -1028,22 +1028,22 @@ void cmGlobalFastbuildGenerator::AddCompiler(std::string const& language,
   // If FASTBUILD_COMPILER_EXTRA_FILES is not set - automatically add extra
   // files based on compiler (see
   // https://fastbuild.org/docs/functions/compiler.html)
-  if (!this->GetCMakeInstance()->GetIsInTryCompile() &&
+  if (!this->GetRBLXBuildInstance()->GetIsInTryCompile() &&
       compilerDef.ExtraFiles.empty() &&
       (language == "C" || language == "CXX") &&
-      compilerDef.CmakeCompilerID == "MSVC") {
-    // https://cmake.org/cmake/help/latest/variable/MSVC_VERSION.html
+      compilerDef.RblxbuildCompilerID == "MSVC") {
+    // https://rblxbuild.org/rblxbuild/help/latest/variable/MSVC_VERSION.html
 
     // Calculate the i18n number.
     std::string const i18nNum =
-      mf->GetSafeDefinition(cmStrCat("CMAKE_", language, "_MSVC_I18N_DIR"));
+      mf->GetSafeDefinition(cmStrCat("RBLXBUILD_", language, "_MSVC_I18N_DIR"));
 
     // Visual Studio 17 (19.30 to 19.39)
     // TODO
 
     // Visual Studio 16 (19.20 to 19.29)
     if (cmSystemTools::VersionCompare(cmSystemTools::OP_GREATER_EQUAL,
-                                      compilerDef.CmakeCompilerVersion,
+                                      compilerDef.RblxbuildCompilerVersion,
                                       "19.20")) {
       compilerDef.ExtraFiles.reserve(compilerDef.ExtraFiles.size() + 16);
       compilerDef.ExtraFiles.emplace_back("$Root$/c1.dll");
@@ -1073,7 +1073,7 @@ void cmGlobalFastbuildGenerator::AddCompiler(std::string const& language,
     }
     // Visual Studio 15 (19.10 to 19.19)
     else if (cmSystemTools::VersionCompare(cmSystemTools::OP_GREATER_EQUAL,
-                                           compilerDef.CmakeCompilerVersion,
+                                           compilerDef.RblxbuildCompilerVersion,
                                            "19.10")) {
       compilerDef.ExtraFiles.reserve(compilerDef.ExtraFiles.size() + 12);
       compilerDef.ExtraFiles.emplace_back("$Root$/c1.dll");
@@ -1124,7 +1124,7 @@ void cmGlobalFastbuildGenerator::AddLauncher(std::string const& prefix,
   // "CTEST_LAUNCH_LOGS" which is set by parent CTest process and is expected
   // to be read from global (sic!) env by the launched CTest process. So we
   // will need to make this global env available for CTest executable used as a
-  // "launcher". Tested in RunCMake.ctest_labels_for_subprojects test..
+  // "launcher". Tested in RunRBLXBuild.ctest_labels_for_subprojects test..
   compilerDef.DontUseEnv = true;
   this->Compilers[compilerDef.Name] = std::move(compilerDef);
 }
@@ -1532,14 +1532,14 @@ void cmGlobalFastbuildGenerator::WriteXCodeBuildCommands()
   WriteVariable("XCodeBuildToolArgs",
                 Quote(cmStrCat(ideArgs, "^$(FASTBUILD_TARGET)")), 1);
   WriteVariable("XCodeBuildWorkingDir",
-                Quote(this->CMakeInstance->GetHomeOutputDirectory()), 1);
+                Quote(this->RBLXBuildInstance->GetHomeOutputDirectory()), 1);
 }
 
 void cmGlobalFastbuildGenerator::WriteIDEProjectCommon(
   IDEProjectCommon const& project)
 {
   WriteVariable("ProjectBasePath", Quote(project.ProjectBasePath), 1);
-  // So Fastbuild will pick up files relative to CMakeLists.txt
+  // So Fastbuild will pick up files relative to RBLXBuildLists.txt
   WriteVariable("ProjectInputPaths", Quote(project.ProjectBasePath), 1);
 }
 
@@ -1654,7 +1654,7 @@ void cmGlobalFastbuildGenerator::WriteInstallPrepTargets()
 
 void cmGlobalFastbuildGenerator::WriteTestPrepTargets()
 {
-  if (this->Makefiles.front()->IsOn("CMAKE_SKIP_TEST_PREP_TARGETS")) {
+  if (this->Makefiles.front()->IsOn("RBLXBUILD_SKIP_TEST_PREP_TARGETS")) {
     return;
   }
 
@@ -1698,7 +1698,7 @@ void cmGlobalFastbuildGenerator::WriteTestPrepTargets()
     cmLocalGenerator::DirectoryTestPrepTarget directoryTarget;
     if (localGen->GetDirectoryTestPrepTarget(
           directoryTarget,
-          localGen->GetMakefile()->GetSafeDefinition("CMAKE_BUILD_TYPE"))) {
+          localGen->GetMakefile()->GetSafeDefinition("RBLXBUILD_BUILD_TYPE"))) {
       TestPrepTarget& testPrepTarget =
         testPrepTargets[cmSystemTools::LowerCase(directoryTarget.Name)];
       if (testPrepTarget.Name.empty()) {
@@ -1747,19 +1747,19 @@ void cmGlobalFastbuildGenerator::WriteTestPrepTargets()
 
 void cmGlobalFastbuildGenerator::AddGlobCheckExec()
 {
-  // Tested in "RunCMake.file" test.
+  // Tested in "RunRBLXBuild.file" test.
   std::string const globScript =
-    this->GetCMakeInstance()->GetGlobVerifyScript();
+    this->GetRBLXBuildInstance()->GetGlobVerifyScript();
   if (!globScript.empty()) {
 
     FastbuildExecNode globCheck;
     globCheck.Name = FASTBUILD_GLOB_CHECK_TARGET;
-    globCheck.ExecExecutable = cmSystemTools::GetCMakeCommand();
+    globCheck.ExecExecutable = cmSystemTools::GetRBLXBuildCommand();
     globCheck.ExecArguments =
       cmStrCat("-P ", this->ConvertToFastbuildPath(globScript));
     globCheck.ExecAlways = false;
     globCheck.ExecUseStdOutAsOutput = false;
-    auto const cache = this->GetCMakeInstance()->GetGlobCacheEntries();
+    auto const cache = this->GetRBLXBuildInstance()->GetGlobCacheEntries();
     for (auto const& entry : cache) {
       auto path = cmSystemTools::GetFilenamePath(entry.Expression);
       auto expression = cmSystemTools::GetFilenameName(entry.Expression);
@@ -1775,7 +1775,7 @@ void cmGlobalFastbuildGenerator::AddGlobCheckExec()
       }
     }
     globCheck.ExecOutput = this->ConvertToFastbuildPath(
-      this->GetCMakeInstance()->GetGlobVerifyStamp());
+      this->GetRBLXBuildInstance()->GetGlobVerifyStamp());
     this->AddTarget(std::move(globCheck));
   }
 }
@@ -1929,15 +1929,15 @@ void cmGlobalFastbuildGenerator::WriteTargetRebuildBFF()
       implicitDeps.push_back(this->ConvertToFastbuildPath(dep));
     }
   }
-  auto const* cmake = this->GetCMakeInstance();
-  std::string outDir = cmake->GetHomeOutputDirectory() + '/';
+  auto const* rblxbuild = this->GetRBLXBuildInstance();
+  std::string outDir = rblxbuild->GetHomeOutputDirectory() + '/';
 
-  implicitDeps.push_back(outDir + "CMakeCache.txt");
+  implicitDeps.push_back(outDir + "RBLXBuildCache.txt");
 
   FastbuildExecNode rebuildBFF;
   rebuildBFF.Name = FASTBUILD_REBUILD_BFF_TARGET_NAME;
-  if (!this->GetCMakeInstance()->GetGlobVerifyScript().empty()) {
-    implicitDeps.emplace_back(this->GetCMakeInstance()->GetGlobVerifyStamp());
+  if (!this->GetRBLXBuildInstance()->GetGlobVerifyScript().empty()) {
+    implicitDeps.emplace_back(this->GetRBLXBuildInstance()->GetGlobVerifyStamp());
   }
 
   std::sort(implicitDeps.begin(), implicitDeps.end());
@@ -1945,18 +1945,18 @@ void cmGlobalFastbuildGenerator::WriteTargetRebuildBFF()
                      implicitDeps.end());
   std::string args =
     cmStrCat("--regenerate-during-build",
-             (this->GetCMakeInstance()->GetIgnoreCompileWarningAsError()
+             (this->GetRBLXBuildInstance()->GetIgnoreCompileWarningAsError()
                 ? " --compile-no-warning-as-error"
                 : ""),
-             (this->GetCMakeInstance()->GetIgnoreLinkWarningAsError()
+             (this->GetRBLXBuildInstance()->GetIgnoreLinkWarningAsError()
                 ? " --link-no-warning-as-error"
                 : ""),
-             " -S", QuoteIfHasSpaces(cmake->GetHomeDirectory()), " -B",
-             QuoteIfHasSpaces(cmake->GetHomeOutputDirectory()));
+             " -S", QuoteIfHasSpaces(rblxbuild->GetHomeDirectory()), " -B",
+             QuoteIfHasSpaces(rblxbuild->GetHomeOutputDirectory()));
 
   rebuildBFF.ExecArguments = std::move(args);
   rebuildBFF.ExecInput = implicitDeps;
-  rebuildBFF.ExecExecutable = cmSystemTools::GetCMakeCommand();
+  rebuildBFF.ExecExecutable = cmSystemTools::GetRBLXBuildCommand();
   rebuildBFF.ExecWorkingDir = outDir;
   rebuildBFF.ExecOutput = outDir + FASTBUILD_BUILD_FILE;
   this->WriteExec(rebuildBFF, 0);
@@ -1965,7 +1965,7 @@ void cmGlobalFastbuildGenerator::WriteTargetRebuildBFF()
 void cmGlobalFastbuildGenerator::WriteCleanScript()
 {
   std::string const path =
-    cmStrCat(this->GetCMakeInstance()->GetHomeOutputDirectory(), '/',
+    cmStrCat(this->GetRBLXBuildInstance()->GetHomeOutputDirectory(), '/',
              FASTBUILD_CLEAN_SCRIPT_NAME);
   cmsys::ofstream scriptFile(path.c_str(), std::ios::out | std::ios::binary);
   if (!scriptFile.is_open()) {
@@ -2001,21 +2001,21 @@ void cmGlobalFastbuildGenerator::WriteTargetClean()
   clean.ExecAlways = true;
   clean.ExecUseStdOutAsOutput = true;
   clean.ExecOutput = FASTBUILD_CLEAN_FILE_NAME;
-  clean.ExecWorkingDir = this->GetCMakeInstance()->GetHomeOutputDirectory();
+  clean.ExecWorkingDir = this->GetRBLXBuildInstance()->GetHomeOutputDirectory();
   WriteExec(clean, 0);
 }
 
 void cmGlobalFastbuildGenerator::WriteTargets()
 {
-  std::string const outputDir = this->CMakeInstance->GetHomeOutputDirectory();
+  std::string const outputDir = this->RBLXBuildInstance->GetHomeOutputDirectory();
   LogMessage("GetHomeOutputDirectory: " + outputDir);
   // Noop file that 'all' can alias to if we don't have any other targets...
   // The exact location of the "noop" file is verified in one of the tests in
-  // "RunCMake.CMakePresetsPackage" test suite.
-  cmSystemTools::Touch(cmStrCat(this->CMakeInstance->GetHomeOutputDirectory(),
+  // "RunRBLXBuild.RBLXBuildPresetsPackage" test suite.
+  cmSystemTools::Touch(cmStrCat(this->RBLXBuildInstance->GetHomeOutputDirectory(),
                                 '/', FASTBUILD_NOOP_FILE_NAME),
                        true);
-  cmSystemTools::Touch(cmStrCat(this->CMakeInstance->GetHomeOutputDirectory(),
+  cmSystemTools::Touch(cmStrCat(this->RBLXBuildInstance->GetHomeOutputDirectory(),
                                 '/', FASTBUILD_CLEAN_FILE_NAME),
                        true);
   // Add "all" utility target before sorting, so we can correctly sort
@@ -2045,7 +2045,7 @@ void cmGlobalFastbuildGenerator::WriteTargets()
   WriteInstallPrepTargets();
   WriteTestPrepTargets();
 
-  if (!this->GetCMakeInstance()->GetIsInTryCompile()) {
+  if (!this->GetRBLXBuildInstance()->GetIsInTryCompile()) {
     if (!IDEProjects.empty()) {
       this->WriteIDEProjects();
     }
@@ -2093,7 +2093,7 @@ void cmGlobalFastbuildGenerator::AddIDEProject(
   }
   auto& IDEProject = IDEProjects[target.BaseName];
   auto const relativeSubdir = cmSystemTools::RelativePath(
-    this->GetCMakeInstance()->GetHomeDirectory(), target.BasePath);
+    this->GetRBLXBuildInstance()->GetHomeDirectory(), target.BasePath);
   // VS
   auto& VSProject = IDEProject.first;
   VSProject.Alias = cmStrCat(target.BaseName, FASTBUILD_VS_PROJECT_SUFFIX);

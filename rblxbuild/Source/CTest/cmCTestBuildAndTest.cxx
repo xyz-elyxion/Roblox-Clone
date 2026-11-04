@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmCTestBuildAndTest.h"
 
 #include <chrono>
@@ -21,7 +21,7 @@
 #include "cmUVProcessChain.h"
 #include "cmUVStream.h"
 #include "cmWorkingDirectory.h"
-#include "cmake.h"
+#include "rblxbuild.h"
 
 struct cmMessageMetadata;
 
@@ -30,10 +30,10 @@ cmCTestBuildAndTest::cmCTestBuildAndTest(cmCTest* ctest)
 {
 }
 
-bool cmCTestBuildAndTest::RunCMake(cmake* cm)
+bool cmCTestBuildAndTest::RunRBLXBuild(rblxbuild* cm)
 {
   std::vector<std::string> args;
-  args.push_back(cmSystemTools::GetCMakeCommand());
+  args.push_back(cmSystemTools::GetRBLXBuildCommand());
   args.push_back(this->SourceDir);
   if (!this->BuildGenerator.empty()) {
     args.push_back("-G" + this->BuildGenerator);
@@ -51,33 +51,33 @@ bool cmCTestBuildAndTest::RunCMake(cmake* cm)
   }
 
   if (config) {
-    args.push_back("-DCMAKE_BUILD_TYPE:STRING=" + std::string(config));
+    args.push_back("-DRBLXBUILD_BUILD_TYPE:STRING=" + std::string(config));
   }
   if (!this->BuildMakeProgram.empty() &&
       (this->BuildGenerator.find("Make") != std::string::npos ||
        this->BuildGenerator.find("Ninja") != std::string::npos ||
        this->BuildGenerator.find("FASTBuild") != std::string::npos)) {
-    args.push_back("-DCMAKE_MAKE_PROGRAM:FILEPATH=" + this->BuildMakeProgram);
+    args.push_back("-DRBLXBUILD_MAKE_PROGRAM:FILEPATH=" + this->BuildMakeProgram);
   }
 
   for (std::string const& opt : this->BuildOptions) {
     args.push_back(opt);
   }
-  std::cout << "======== CMake output     ======\n";
+  std::cout << "======== RBLXBuild output     ======\n";
   if (cm->Run(args) != 0) {
-    std::cout << "======== End CMake output ======\n"
-                 "Error: cmake execution failed\n";
+    std::cout << "======== End RBLXBuild output ======\n"
+                 "Error: rblxbuild execution failed\n";
     return false;
   }
   // do another config?
   if (this->BuildTwoConfig) {
     if (cm->Run(args) != 0) {
-      std::cout << "======== End CMake output ======\n"
-                   "Error: cmake execution failed\n";
+      std::cout << "======== End RBLXBuild output ======\n"
+                   "Error: rblxbuild execution failed\n";
       return false;
     }
   }
-  std::cout << "======== End CMake output ======\n";
+  std::cout << "======== End RBLXBuild output ======\n";
   return true;
 }
 
@@ -127,10 +127,10 @@ bool cmCTestBuildAndTest::RunTest(std::vector<std::string> const& argv,
 
 class cmCTestBuildAndTestCaptureRAII
 {
-  cmake& CM;
+  rblxbuild& CM;
 
 public:
-  cmCTestBuildAndTestCaptureRAII(cmake& cm)
+  cmCTestBuildAndTestCaptureRAII(rblxbuild& cm)
     : CM(cm)
   {
     cmSystemTools::SetMessageCallback(
@@ -174,7 +174,7 @@ int cmCTestBuildAndTest::Run()
     return 1;
   }
 
-  cmake cm(cmState::Role::Project);
+  rblxbuild cm(cmState::Role::Project);
   cmCTestBuildAndTestCaptureRAII captureRAII(cm);
   static_cast<void>(captureRAII);
 
@@ -193,12 +193,12 @@ int cmCTestBuildAndTest::Run()
               << resultingConfig << std::endl;
   }
 
-  // we need to honor the timeout specified, the timeout include cmake, build
+  // we need to honor the timeout specified, the timeout include rblxbuild, build
   // and test time
   auto clock_start = std::chrono::steady_clock::now();
 
   // make sure the binary dir is there
-  std::cout << "Internal cmake changing into directory: " << this->BinaryDir
+  std::cout << "Internal rblxbuild changing into directory: " << this->BinaryDir
             << std::endl;
   if (!cmSystemTools::FileIsDirectory(this->BinaryDir)) {
     cmSystemTools::MakeDirectory(this->BinaryDir);
@@ -209,7 +209,7 @@ int cmCTestBuildAndTest::Run()
     return 1;
   }
 
-  if (this->BuildNoCMake) {
+  if (this->BuildNoRBLXBuild) {
     // Make the generator available for the Build call below.
     cm.SetGlobalGenerator(cm.CreateGlobalGenerator(this->BuildGenerator));
     if (!this->BuildGeneratorPlatform.empty()) {
@@ -220,11 +220,11 @@ int cmCTestBuildAndTest::Run()
       }
     }
 
-    // Load the cache to make CMAKE_MAKE_PROGRAM available.
+    // Load the cache to make RBLXBUILD_MAKE_PROGRAM available.
     cm.LoadCache(this->BinaryDir);
   } else {
-    // do the cmake step, no timeout here since it is not a sub process
-    if (!this->RunCMake(&cm)) {
+    // do the rblxbuild step, no timeout here since it is not a sub process
+    if (!this->RunRBLXBuild(&cm)) {
       return 1;
     }
   }
@@ -252,7 +252,7 @@ int cmCTestBuildAndTest::Run()
     }
 
     cmBuildArgs buildArgs;
-    buildArgs.jobs = cmake::NO_BUILD_PARALLEL_LEVEL;
+    buildArgs.jobs = rblxbuild::NO_BUILD_PARALLEL_LEVEL;
     buildArgs.binaryDir = this->BinaryDir;
     buildArgs.projectName = this->BuildProject;
     buildArgs.verbose = false;

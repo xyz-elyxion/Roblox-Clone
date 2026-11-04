@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmSearchPath.h"
 
 #include <algorithm>
@@ -64,11 +64,11 @@ void cmSearchPath::AddUserPath(std::string const& path)
   }
 }
 
-void cmSearchPath::AddCMakePath(std::string const& variable)
+void cmSearchPath::AddRBLXBuildPath(std::string const& variable)
 {
   assert(this->FC);
 
-  // Get a path from a CMake variable.
+  // Get a path from a RBLXBuild variable.
   if (cmValue value = this->FC->Makefile->GetDefinition(variable)) {
     cmList expanded{ *value };
 
@@ -90,11 +90,11 @@ void cmSearchPath::AddEnvPath(std::string const& variable)
   }
 }
 
-void cmSearchPath::AddCMakePrefixPath(std::string const& variable)
+void cmSearchPath::AddRBLXBuildPrefixPath(std::string const& variable)
 {
   assert(this->FC);
 
-  // Get a path from a CMake variable.
+  // Get a path from a RBLXBuild variable.
   if (cmValue value = this->FC->Makefile->GetDefinition(variable)) {
     cmList expanded{ *value };
     for (std::string& p : expanded) {
@@ -160,11 +160,11 @@ void cmSearchPath::AddPrefixPaths(std::vector<std::string> const& paths)
   // default for programs
   std::string subdir = "bin";
 
-  if (this->FC->CMakePathName == "INCLUDE") {
+  if (this->FC->RBLXBuildPathName == "INCLUDE") {
     subdir = "include";
-  } else if (this->FC->CMakePathName == "LIBRARY") {
+  } else if (this->FC->RBLXBuildPathName == "LIBRARY") {
     subdir = "lib";
-  } else if (this->FC->CMakePathName == "FRAMEWORK") {
+  } else if (this->FC->RBLXBuildPathName == "FRAMEWORK") {
     subdir.clear(); // ? what to do for frameworks ?
   }
 
@@ -179,7 +179,7 @@ void cmSearchPath::AddPrefixPaths(std::vector<std::string> const& paths)
     }
     if (subdir == "include" || subdir == "lib") {
       cmValue arch =
-        this->FC->Makefile->GetDefinition("CMAKE_LIBRARY_ARCHITECTURE");
+        this->FC->Makefile->GetDefinition("RBLXBUILD_LIBRARY_ARCHITECTURE");
       if (cmNonempty(arch)) {
         std::string archNoUnknown = *arch;
         auto unknownAtPos = archNoUnknown.find("-unknown-");
@@ -188,9 +188,9 @@ void cmSearchPath::AddPrefixPaths(std::vector<std::string> const& paths)
           // Replace "-unknown-" with "-".
           archNoUnknown.replace(unknownAtPos, 9, "-");
         }
-        if (this->FC->Makefile->IsDefinitionSet("CMAKE_SYSROOT") &&
+        if (this->FC->Makefile->IsDefinitionSet("RBLXBUILD_SYSROOT") &&
             this->FC->Makefile->IsDefinitionSet(
-              "CMAKE_PREFIX_LIBRARY_ARCHITECTURE")) {
+              "RBLXBUILD_PREFIX_LIBRARY_ARCHITECTURE")) {
           if (foundUnknown) {
             this->AddPathInternal(cmStrCat('/', archNoUnknown, dir, subdir),
                                   cmStrCat('/', archNoUnknown, prefix));

@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmInstallRuntimeDependencySetGenerator.h"
 
 #include <ostream>
@@ -16,7 +16,7 @@
 #include "cmMessageType.h"
 #include "cmScriptGenerator.h"
 #include "cmStringAlgorithms.h"
-#include "cmake.h"
+#include "rblxbuild.h"
 
 cmInstallRuntimeDependencySetGenerator::cmInstallRuntimeDependencySetGenerator(
   DependencyType type, cmInstallRuntimeDependencySet* dependencySet,
@@ -53,18 +53,18 @@ void cmInstallRuntimeDependencySetGenerator::GenerateScriptForConfig(
   std::ostream& os, std::string const& config, Indent indent)
 {
   if (!this->LocalGenerator->GetMakefile()
-         ->GetSafeDefinition("CMAKE_INSTALL_NAME_TOOL")
+         ->GetSafeDefinition("RBLXBUILD_INSTALL_NAME_TOOL")
          .empty() &&
       !this->NoInstallName) {
     std::string installNameDir = "@rpath/";
     if (!this->InstallNameDir.empty()) {
       installNameDir = this->InstallNameDir;
       cmGeneratorExpression::ReplaceInstallPrefix(installNameDir,
-                                                  "${CMAKE_INSTALL_PREFIX}");
+                                                  "${RBLXBUILD_INSTALL_PREFIX}");
       installNameDir = cmGeneratorExpression::Evaluate(
         installNameDir, this->LocalGenerator, config);
       if (installNameDir.empty()) {
-        this->LocalGenerator->GetMakefile()->GetCMakeInstance()->IssueMessage(
+        this->LocalGenerator->GetMakefile()->GetRBLXBuildInstance()->IssueMessage(
           MessageType::FATAL_ERROR,
           "INSTALL_NAME_DIR argument must not evaluate to an "
           "empty string",
@@ -83,7 +83,7 @@ void cmInstallRuntimeDependencySetGenerator::GenerateScriptForConfig(
      << this->DepsVar << ")\n";
 
   if (!this->LocalGenerator->GetMakefile()
-         ->GetSafeDefinition("CMAKE_INSTALL_NAME_TOOL")
+         ->GetSafeDefinition("RBLXBUILD_INSTALL_NAME_TOOL")
          .empty()) {
     std::vector<std::string> evaluatedRPaths;
     for (auto const& rpath : this->InstallRPaths) {
@@ -113,7 +113,7 @@ void cmInstallRuntimeDependencySetGenerator::GenerateScriptForConfig(
       " FOLLOW_SYMLINK_CHAIN", indent.Next(), depVar.c_str());
 
     if (this->LocalGenerator->GetMakefile()->GetSafeDefinition(
-          "CMAKE_SYSTEM_NAME") == "Linux" &&
+          "RBLXBUILD_SYSTEM_NAME") == "Linux" &&
         !this->NoInstallRPath) {
       std::string evaluatedRPath;
       for (auto const& rpath : this->InstallRPaths) {
@@ -179,11 +179,11 @@ void cmInstallRuntimeDependencySetGenerator::GenerateAppleFrameworkScript(
   os << indent << "if(" << this->TmpVarPrefix
      << "_dep MATCHES \"^(.*/)?([^/]*\\\\.framework)/(.*)$\")\n"
      << indent.Next() << "set(" << this->TmpVarPrefix
-     << "_dir \"${CMAKE_MATCH_1}\")\n"
+     << "_dir \"${RBLXBUILD_MATCH_1}\")\n"
      << indent.Next() << "set(" << this->TmpVarPrefix
-     << "_name \"${CMAKE_MATCH_2}\")\n"
+     << "_name \"${RBLXBUILD_MATCH_2}\")\n"
      << indent.Next() << "set(" << this->TmpVarPrefix
-     << "_file \"${CMAKE_MATCH_3}\")\n"
+     << "_file \"${RBLXBUILD_MATCH_3}\")\n"
      << indent.Next() << "set(" << this->TmpVarPrefix << "_path \"${"
      << this->TmpVarPrefix << "_dir}${" << this->TmpVarPrefix << "_name}\")\n";
 
@@ -224,7 +224,7 @@ void cmInstallRuntimeDependencySetGenerator::GenerateInstallNameFixup(
     }
     os << indent2 << "execute_process(COMMAND \""
        << this->LocalGenerator->GetMakefile()->GetSafeDefinition(
-            "CMAKE_INSTALL_NAME_TOOL")
+            "RBLXBUILD_INSTALL_NAME_TOOL")
        << "\" ${" << this->TmpVarPrefix << "_rpath_args}\n";
     if (!this->NoInstallRPath) {
       for (auto const& rpath : evaluatedRPaths) {
@@ -251,9 +251,9 @@ void cmInstallRuntimeDependencySetGenerator::GenerateStripFixup(
   Indent indent)
 {
   std::string strip =
-    this->LocalGenerator->GetMakefile()->GetSafeDefinition("CMAKE_STRIP");
+    this->LocalGenerator->GetMakefile()->GetSafeDefinition("RBLXBUILD_STRIP");
   if (!strip.empty()) {
-    os << indent << "if(CMAKE_INSTALL_DO_STRIP)\n"
+    os << indent << "if(RBLXBUILD_INSTALL_DO_STRIP)\n"
        << indent.Next() << "execute_process(COMMAND \"" << strip << "\" ";
     if (this->LocalGenerator->GetMakefile()->IsOn("APPLE")) {
       os << "-x ";

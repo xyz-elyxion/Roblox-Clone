@@ -1,11 +1,11 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmVSSetupHelper.h"
 
 #include <sstream>
 #include <utility>
 
-#if !defined(CMAKE_BOOTSTRAP)
+#if !defined(RBLXBUILD_BOOTSTRAP)
 #  include <cm3p/json/value.h>
 #endif
 
@@ -303,7 +303,7 @@ bool cmVSSetupAPIHelper::IsEWDKEnabled()
   return false;
 }
 
-#if !defined(CMAKE_BOOTSTRAP)
+#if !defined(RBLXBUILD_BOOTSTRAP)
 namespace {
 std::string FindVsWhereCommand()
 {
@@ -326,7 +326,7 @@ std::string FindVsWhereCommand()
 bool cmVSSetupAPIHelper::EnumerateVSInstancesWithVswhere(
   std::vector<VSInstanceInfo>& VSInstances)
 {
-#if !defined(CMAKE_BOOTSTRAP)
+#if !defined(RBLXBUILD_BOOTSTRAP)
   // Construct vswhere command to get installed VS instances in JSON format
   std::string vswhereExe = FindVsWhereCommand();
   std::vector<std::string> vswhereCmd = { vswhereExe, "-format", "json" };

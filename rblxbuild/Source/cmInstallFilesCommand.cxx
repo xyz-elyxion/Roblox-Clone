@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmInstallFilesCommand.h"
 
 #include <cm/memory>
@@ -60,7 +60,7 @@ bool cmInstallFilesCommand(std::vector<std::string> const& args,
   }
 
   mf.GetGlobalGenerator()->AddInstallComponent(
-    mf.GetSafeDefinition("CMAKE_INSTALL_DEFAULT_COMPONENT_NAME"));
+    mf.GetSafeDefinition("RBLXBUILD_INSTALL_DEFAULT_COMPONENT_NAME"));
 
   return true;
 }
@@ -125,7 +125,7 @@ static void CreateInstallGenerator(cmMakefile& makefile,
   std::string const no_rename;
   bool no_exclude_from_all = false;
   std::string no_component =
-    makefile.GetSafeDefinition("CMAKE_INSTALL_DEFAULT_COMPONENT_NAME");
+    makefile.GetSafeDefinition("RBLXBUILD_INSTALL_DEFAULT_COMPONENT_NAME");
   std::vector<std::string> no_configurations;
   cmInstallGenerator::MessageLevel message =
     cmInstallGenerator::SelectMessageLevel(&makefile);
@@ -137,7 +137,7 @@ static void CreateInstallGenerator(cmMakefile& makefile,
 
 /**
  * Find a file in the build or source tree for installation given a
- * relative path from the CMakeLists.txt file.  This will favor files
+ * relative path from the RBLXBuildLists.txt file.  This will favor files
  * present in the build tree.  If a full path is given, it is just
  * returned.
  */

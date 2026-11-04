@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmCPackRPMGenerator.h"
 
 #include <algorithm>
@@ -90,17 +90,17 @@ int cmCPackRPMGenerator::PackageOnePack(std::string const& initialToplevel,
   this->SetOption("CPACK_OUTPUT_FILE_NAME", outputFileName);
   /* replace the TEMPORARY package file name */
   this->SetOption("CPACK_TEMPORARY_PACKAGE_FILE_NAME", packageFileName);
-  // Tell CPackRPM.cmake the name of the component NAME.
+  // Tell CPackRPM.rblxbuild the name of the component NAME.
   this->SetOption("CPACK_RPM_PACKAGE_COMPONENT", packageName);
-  // Tell CPackRPM.cmake the suffix for the component NAME.
+  // Tell CPackRPM.rblxbuild the suffix for the component NAME.
   this->SetOption("CPACK_RPM_PACKAGE_COMPONENT_PART_NAME",
                   sanitizedPkgNameSuffix);
-  // Tell CPackRPM.cmake the path where the component is.
+  // Tell CPackRPM.rblxbuild the path where the component is.
   std::string component_path = cmStrCat('/', sanitizedPkgDirName);
   this->SetOption("CPACK_RPM_PACKAGE_COMPONENT_PART_PATH", component_path);
-  if (!this->ReadListFile("Internal/CPack/CPackRPM.cmake")) {
+  if (!this->ReadListFile("Internal/CPack/CPackRPM.rblxbuild")) {
     cmCPackLogger(cmCPackLog::LOG_ERROR,
-                  "Error while execution CPackRPM.cmake" << std::endl);
+                  "Error while execution CPackRPM.rblxbuild" << std::endl);
     return 0;
   }
 
@@ -405,16 +405,16 @@ int cmCPackRPMGenerator::PackageComponentsAllInOne(
   this->SetOption("CPACK_TEMPORARY_PACKAGE_FILE_NAME", packageFileName);
 
   if (!compInstDirName.empty()) {
-    // Tell CPackRPM.cmake the path where the component is.
+    // Tell CPackRPM.rblxbuild the path where the component is.
     std::string component_path = cmStrCat('/', compInstDirName);
     this->SetOption("CPACK_RPM_PACKAGE_COMPONENT_PART_PATH", component_path);
   }
 
-  if (this->ReadListFile("Internal/CPack/CPackRPM.cmake")) {
+  if (this->ReadListFile("Internal/CPack/CPackRPM.rblxbuild")) {
     this->AddGeneratedPackageNames();
   } else {
     cmCPackLogger(cmCPackLog::LOG_ERROR,
-                  "Error while execution CPackRPM.cmake" << std::endl);
+                  "Error while execution CPackRPM.rblxbuild" << std::endl);
     retval = 0;
   }
 

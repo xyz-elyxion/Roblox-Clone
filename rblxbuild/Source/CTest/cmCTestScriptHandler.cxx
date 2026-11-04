@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmCTestScriptHandler.h"
 
 #include <cstdlib>
@@ -32,7 +32,7 @@
 #include "cmStringAlgorithms.h"
 #include "cmSystemTools.h"
 #include "cmUVProcessChain.h"
-#include "cmake.h"
+#include "rblxbuild.h"
 
 cmCTestScriptHandler::cmCTestScriptHandler(cmCTest* ctest)
   : CTest(ctest)
@@ -75,7 +75,7 @@ void cmCTestScriptHandler::UpdateElapsedTime()
 int cmCTestScriptHandler::ExecuteScript(std::string const& total_script_arg)
 {
   // execute the script passing in the arguments to the script as well as the
-  // arguments from this invocation of cmake
+  // arguments from this invocation of rblxbuild
   std::vector<std::string> argv;
   argv.push_back(cmSystemTools::GetCTestCommand());
   argv.push_back("-SR");
@@ -151,16 +151,16 @@ int cmCTestScriptHandler::ExecuteScript(std::string const& total_script_arg)
   return retVal;
 }
 
-void cmCTestScriptHandler::CreateCMake()
+void cmCTestScriptHandler::CreateRBLXBuild()
 {
-  // create a cmake instance to read the configuration script
-  this->CMake = cm::make_unique<cmake>(cmState::Role::CTest);
-  this->CMake->GetCurrentSnapshot().SetDefaultDefinitions();
-  this->CMake->AddCMakePaths();
+  // create a rblxbuild instance to read the configuration script
+  this->RBLXBuild = cm::make_unique<rblxbuild>(cmState::Role::CTest);
+  this->RBLXBuild->GetCurrentSnapshot().SetDefaultDefinitions();
+  this->RBLXBuild->AddRBLXBuildPaths();
   this->GlobalGenerator =
-    cm::make_unique<cmGlobalGenerator>(this->CMake.get());
+    cm::make_unique<cmGlobalGenerator>(this->RBLXBuild.get());
 
-  cmStateSnapshot snapshot = this->CMake->GetCurrentSnapshot();
+  cmStateSnapshot snapshot = this->RBLXBuild->GetCurrentSnapshot();
   std::string cwd = cmSystemTools::GetLogicalWorkingDirectory();
   snapshot.GetDirectory().SetCurrentSource(cwd);
   snapshot.GetDirectory().SetCurrentBinary(cwd);
@@ -171,14 +171,14 @@ void cmCTestScriptHandler::CreateCMake()
       this->ParentMakefile->GetRecursionDepth());
   }
 
-  this->CMake->SetProgressCallback(
+  this->RBLXBuild->SetProgressCallback(
     [this](std::string const& m, float /*unused*/) {
       if (!m.empty()) {
         cmCTestLog(this->CTest, HANDLER_OUTPUT, "-- ", m, '\n');
       }
     });
 
-  cmState* state = this->CMake->GetState();
+  cmState* state = this->RBLXBuild->GetState();
   state->AddBuiltinCommand("ctest_build", cmCTestBuildCommand(this->CTest));
   state->AddBuiltinCommand("ctest_configure",
                            cmCTestConfigureCommand(this->CTest));
@@ -201,7 +201,7 @@ void cmCTestScriptHandler::CreateCMake()
 }
 
 // this sets up some variables for the script to use, creates the required
-// cmake instance and generators, and then reads in the script
+// rblxbuild instance and generators, and then reads in the script
 int cmCTestScriptHandler::ReadInScript(std::string const& total_script_arg)
 {
   // Reset the error flag so that the script is read in no matter what
@@ -226,8 +226,8 @@ int cmCTestScriptHandler::ReadInScript(std::string const& total_script_arg)
   }
 
   // read in the list file to fill the cache
-  // create a cmake instance to read the configuration script
-  this->CreateCMake();
+  // create a rblxbuild instance to read the configuration script
+  this->CreateRBLXBuild();
 
   // set a variable with the path to the current script
   this->Makefile->AddDefinition("CTEST_SCRIPT_DIRECTORY",
@@ -236,8 +236,8 @@ int cmCTestScriptHandler::ReadInScript(std::string const& total_script_arg)
                                 cmSystemTools::GetFilenameName(script));
   this->Makefile->AddDefinition("CTEST_EXECUTABLE_NAME",
                                 cmSystemTools::GetCTestCommand());
-  this->Makefile->AddDefinition("CMAKE_EXECUTABLE_NAME",
-                                cmSystemTools::GetCMakeCommand());
+  this->Makefile->AddDefinition("RBLXBUILD_EXECUTABLE_NAME",
+                                cmSystemTools::GetRBLXBuildCommand());
   this->UpdateElapsedTime();
 
   // set the CTEST_CONFIGURATION_TYPE variable to the current value of the
@@ -255,13 +255,13 @@ int cmCTestScriptHandler::ReadInScript(std::string const& total_script_arg)
   // set a callback function to update the elapsed time
   this->Makefile->OnExecuteCommand([this] { this->UpdateElapsedTime(); });
 
-  /* Execute CTestScriptMode.cmake, which loads CMakeDetermineSystem and
-  CMakeSystemSpecificInformation, so
-  that variables like CMAKE_SYSTEM and also the search paths for libraries,
+  /* Execute CTestScriptMode.rblxbuild, which loads RBLXBuildDetermineSystem and
+  RBLXBuildSystemSpecificInformation, so
+  that variables like RBLXBUILD_SYSTEM and also the search paths for libraries,
   header and executables are set correctly and can be used. Makes new-style
   ctest scripting easier. */
   std::string systemFile =
-    this->Makefile->GetModulesFile("CTestScriptMode.cmake");
+    this->Makefile->GetModulesFile("CTestScriptMode.rblxbuild");
   if (!this->Makefile->ReadListFile(systemFile) ||
       cmSystemTools::GetErrorOccurredFlag()) {
     cmCTestLog(this->CTest, ERROR_MESSAGE, "Error in read:", systemFile, '\n');
@@ -286,8 +286,8 @@ int cmCTestScriptHandler::ReadInScript(std::string const& total_script_arg)
     res = -1;
   }
 
-  return this->CMake->HasScriptModeExitCode()
-    ? this->CMake->GetScriptModeExitCode()
+  return this->RBLXBuild->HasScriptModeExitCode()
+    ? this->RBLXBuild->GetScriptModeExitCode()
     : res;
 }
 
@@ -295,7 +295,7 @@ int cmCTestScriptHandler::ReadInScript(std::string const& total_script_arg)
 int cmCTestScriptHandler::RunConfigurationScript(
   std::string const& total_script_arg, bool pscope)
 {
-#ifndef CMAKE_BOOTSTRAP
+#ifndef RBLXBUILD_BOOTSTRAP
   cmSystemTools::SaveRestoreEnvironment sre;
 #endif
 

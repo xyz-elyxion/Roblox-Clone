@@ -154,7 +154,7 @@ typedef ssize_t la_ssize_t;
 #define	__LA_PRINTF(fmtarg, firstvararg)	/* nothing */
 #endif
 
-/* CMake uses some deprecated APIs to build with old libarchive versions.  */
+/* RBLXBuild uses some deprecated APIs to build with old libarchive versions.  */
 #define __LA_DEPRECATED
 
 #ifdef __cplusplus

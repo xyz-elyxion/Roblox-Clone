@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmCPackGenerator.h"
 
 #include <algorithm>
@@ -31,7 +31,7 @@
 #include "cmVersion.h"
 #include "cmWorkingDirectory.h"
 #include "cmXMLSafe.h"
-#include "cmake.h"
+#include "rblxbuild.h"
 
 #if defined(__HAIKU__)
 #  include <FindDirectory.h>
@@ -294,9 +294,9 @@ int cmCPackGenerator::InstallProject()
     return 0;
   }
 
-  // If the project is a CMAKE project then run pre-install
-  // and then read the cmake_install script to run it
-  if (!this->InstallProjectViaInstallCMakeProjects(
+  // If the project is a RBLXBUILD project then run pre-install
+  // and then read the rblxbuild_install script to run it
+  if (!this->InstallProjectViaInstallRBLXBuildProjects(
         setDestDir, bareTempInstallDirectory, default_dir_mode)) {
     return 0;
   }
@@ -332,7 +332,7 @@ int cmCPackGenerator::InstallProjectViaInstallCommands(
   cmValue installCommands = this->GetOption("CPACK_INSTALL_COMMANDS");
   if (cmNonempty(installCommands)) {
     std::string tempInstallDirectoryEnv =
-      cmStrCat("CMAKE_INSTALL_PREFIX=", tempInstallDirectory);
+      cmStrCat("RBLXBUILD_INSTALL_PREFIX=", tempInstallDirectory);
     cmSystemTools::PutEnv(tempInstallDirectoryEnv);
     cmList installCommandsVector{ installCommands };
     for (std::string const& ic : installCommandsVector) {
@@ -501,60 +501,60 @@ int cmCPackGenerator::InstallProjectViaInstalledDirectories(
 int cmCPackGenerator::InstallProjectViaInstallScript(
   bool setDestDir, std::string const& tempInstallDirectory)
 {
-  cmValue cmakeScripts = this->GetOption("CPACK_INSTALL_SCRIPTS");
+  cmValue rblxbuildScripts = this->GetOption("CPACK_INSTALL_SCRIPTS");
   {
-    cmValue const cmakeScript = this->GetOption("CPACK_INSTALL_SCRIPT");
-    if (cmakeScript && cmakeScripts) {
+    cmValue const rblxbuildScript = this->GetOption("CPACK_INSTALL_SCRIPT");
+    if (rblxbuildScript && rblxbuildScripts) {
       cmCPackLogger(
         cmCPackLog::LOG_WARNING,
         "Both CPACK_INSTALL_SCRIPTS and CPACK_INSTALL_SCRIPT are set, "
         "the latter will be ignored."
           << std::endl);
-    } else if (cmakeScript && !cmakeScripts) {
-      cmakeScripts = cmakeScript;
+    } else if (rblxbuildScript && !rblxbuildScripts) {
+      rblxbuildScripts = rblxbuildScript;
     }
   }
-  if (cmakeScripts && !cmakeScripts->empty()) {
+  if (rblxbuildScripts && !rblxbuildScripts->empty()) {
     cmCPackLogger(cmCPackLog::LOG_OUTPUT,
-                  "- Install scripts: " << cmakeScripts << std::endl);
-    cmList cmakeScriptsVector{ cmakeScripts };
-    for (std::string const& installScript : cmakeScriptsVector) {
+                  "- Install scripts: " << rblxbuildScripts << std::endl);
+    cmList rblxbuildScriptsVector{ rblxbuildScripts };
+    for (std::string const& installScript : rblxbuildScriptsVector) {
 
       cmCPackLogger(cmCPackLog::LOG_OUTPUT,
                     "- Install script: " << installScript << std::endl);
 
       if (setDestDir) {
         // For DESTDIR based packaging, use the *project*
-        // CMAKE_INSTALL_PREFIX underneath the tempInstallDirectory. The
-        // value of the project's CMAKE_INSTALL_PREFIX is sent in here as the
+        // RBLXBUILD_INSTALL_PREFIX underneath the tempInstallDirectory. The
+        // value of the project's RBLXBUILD_INSTALL_PREFIX is sent in here as the
         // value of the CPACK_INSTALL_PREFIX variable.
 
         std::string dir;
         if (this->GetOption("CPACK_INSTALL_PREFIX")) {
           dir += *this->GetOption("CPACK_INSTALL_PREFIX");
         }
-        this->SetOption("CMAKE_INSTALL_PREFIX", dir);
+        this->SetOption("RBLXBUILD_INSTALL_PREFIX", dir);
         cmCPackLogger(
           cmCPackLog::LOG_DEBUG,
           "- Using DESTDIR + CPACK_INSTALL_PREFIX... (this->SetOption)"
             << std::endl);
         cmCPackLogger(cmCPackLog::LOG_DEBUG,
-                      "- Setting CMAKE_INSTALL_PREFIX to '" << dir << "'"
+                      "- Setting RBLXBUILD_INSTALL_PREFIX to '" << dir << "'"
                                                             << std::endl);
       } else {
-        this->SetOption("CMAKE_INSTALL_PREFIX", tempInstallDirectory);
+        this->SetOption("RBLXBUILD_INSTALL_PREFIX", tempInstallDirectory);
 
         cmCPackLogger(cmCPackLog::LOG_DEBUG,
                       "- Using non-DESTDIR install... (this->SetOption)"
                         << std::endl);
         cmCPackLogger(cmCPackLog::LOG_DEBUG,
-                      "- Setting CMAKE_INSTALL_PREFIX to '"
+                      "- Setting RBLXBUILD_INSTALL_PREFIX to '"
                         << tempInstallDirectory << "'" << std::endl);
       }
 
-      this->SetOptionIfNotSet("CMAKE_CURRENT_BINARY_DIR",
+      this->SetOptionIfNotSet("RBLXBUILD_CURRENT_BINARY_DIR",
                               tempInstallDirectory);
-      this->SetOptionIfNotSet("CMAKE_CURRENT_SOURCE_DIR",
+      this->SetOptionIfNotSet("RBLXBUILD_CURRENT_SOURCE_DIR",
                               tempInstallDirectory);
       bool res = this->MakefileMap->ReadListFile(installScript);
       if (cmSystemTools::GetErrorOccurredFlag() || !res) {
@@ -565,32 +565,32 @@ int cmCPackGenerator::InstallProjectViaInstallScript(
   return 1;
 }
 
-int cmCPackGenerator::InstallProjectViaInstallCMakeProjects(
+int cmCPackGenerator::InstallProjectViaInstallRBLXBuildProjects(
   bool setDestDir, std::string const& baseTempInstallDirectory,
   mode_t const* default_dir_mode)
 {
-  cmValue cmakeProjects = this->GetOption("CPACK_INSTALL_CMAKE_PROJECTS");
-  cmValue cmakeGenerator = this->GetOption("CPACK_CMAKE_GENERATOR");
+  cmValue rblxbuildProjects = this->GetOption("CPACK_INSTALL_RBLXBUILD_PROJECTS");
+  cmValue rblxbuildGenerator = this->GetOption("CPACK_RBLXBUILD_GENERATOR");
   std::string absoluteDestFiles;
-  if (cmNonempty(cmakeProjects)) {
-    if (!cmakeGenerator) {
+  if (cmNonempty(rblxbuildProjects)) {
+    if (!rblxbuildGenerator) {
       cmCPackLogger(cmCPackLog::LOG_ERROR,
-                    "CPACK_INSTALL_CMAKE_PROJECTS is specified, but "
-                    "CPACK_CMAKE_GENERATOR is not. CPACK_CMAKE_GENERATOR "
+                    "CPACK_INSTALL_RBLXBUILD_PROJECTS is specified, but "
+                    "CPACK_RBLXBUILD_GENERATOR is not. CPACK_RBLXBUILD_GENERATOR "
                     "is required to install the project."
                       << std::endl);
       return 0;
     }
-    cmList cmakeProjectsList{ cmakeProjects };
+    cmList rblxbuildProjectsList{ rblxbuildProjects };
     cmList::iterator it;
-    for (it = cmakeProjectsList.begin(); it != cmakeProjectsList.end(); ++it) {
-      if (it + 1 == cmakeProjectsList.end() ||
-          it + 2 == cmakeProjectsList.end() ||
-          it + 3 == cmakeProjectsList.end()) {
+    for (it = rblxbuildProjectsList.begin(); it != rblxbuildProjectsList.end(); ++it) {
+      if (it + 1 == rblxbuildProjectsList.end() ||
+          it + 2 == rblxbuildProjectsList.end() ||
+          it + 3 == rblxbuildProjectsList.end()) {
         cmCPackLogger(
           cmCPackLog::LOG_ERROR,
-          "Not enough items on list: CPACK_INSTALL_CMAKE_PROJECTS. "
-          "CPACK_INSTALL_CMAKE_PROJECTS should hold quadruplet of install "
+          "Not enough items on list: CPACK_INSTALL_RBLXBUILD_PROJECTS. "
+          "CPACK_INSTALL_RBLXBUILD_PROJECTS should hold quadruplet of install "
           "directory, install project name, install component, and install "
           "subdirectory."
             << std::endl);
@@ -600,7 +600,7 @@ int cmCPackGenerator::InstallProjectViaInstallCMakeProjects(
       ++it;
       std::string installProjectName = *it;
       ++it;
-      cmCPackInstallCMakeProject project;
+      cmCPackInstallRBLXBuildProject project;
 
       project.Directory = installDirectory;
       project.ProjectName = installProjectName;
@@ -665,12 +665,12 @@ int cmCPackGenerator::InstallProjectViaInstallCMakeProjects(
       }
 
       std::unique_ptr<cmGlobalGenerator> globalGenerator =
-        this->MakefileMap->GetCMakeInstance()->CreateGlobalGenerator(
-          *cmakeGenerator);
+        this->MakefileMap->GetRBLXBuildInstance()->CreateGlobalGenerator(
+          *rblxbuildGenerator);
       if (!globalGenerator) {
         cmCPackLogger(cmCPackLog::LOG_ERROR,
                       "Specified package generator not found. "
-                      "CPACK_CMAKE_GENERATOR value is invalid."
+                      "CPACK_RBLXBUILD_GENERATOR value is invalid."
                         << std::endl);
         return 0;
       }
@@ -692,7 +692,7 @@ int cmCPackGenerator::InstallProjectViaInstallCMakeProjects(
                                             << std::endl);
         // Run the installation for each component
         for (std::string const& component : componentsList) {
-          if (!this->InstallCMakeProject(
+          if (!this->InstallRBLXBuildProject(
                 setDestDir, project.Directory, baseTempInstallDirectory,
                 default_dir_mode, component, componentInstall,
                 project.SubDirectory, buildConfig, absoluteDestFiles)) {
@@ -701,7 +701,7 @@ int cmCPackGenerator::InstallProjectViaInstallCMakeProjects(
         }
       }
 
-      this->CMakeProjects.emplace_back(std::move(project));
+      this->RBLXBuildProjects.emplace_back(std::move(project));
     }
   }
   this->SetOption("CPACK_ABSOLUTE_DESTINATION_FILES", absoluteDestFiles);
@@ -714,7 +714,7 @@ int cmCPackGenerator::RunPreinstallTarget(
 {
   // Does this generator require pre-install?
   if (char const* preinstall = globalGenerator->GetPreinstallTargetName()) {
-    std::string buildCommand = globalGenerator->GenerateCMakeBuildCommand(
+    std::string buildCommand = globalGenerator->GenerateRBLXBuildBuildCommand(
       preinstall, buildConfig, "", "", false);
     cmCPackLogger(cmCPackLog::LOG_DEBUG,
                   "- Install command: " << buildCommand << std::endl);
@@ -746,7 +746,7 @@ int cmCPackGenerator::RunPreinstallTarget(
   return 1;
 }
 
-int cmCPackGenerator::InstallCMakeProject(
+int cmCPackGenerator::InstallRBLXBuildProject(
   bool setDestDir, std::string const& installDirectory,
   std::string const& baseTempInstallDirectory, mode_t const* default_dir_mode,
   std::string const& component, bool componentInstall,
@@ -754,16 +754,16 @@ int cmCPackGenerator::InstallCMakeProject(
   std::string& absoluteDestFiles)
 {
   std::string tempInstallDirectory = baseTempInstallDirectory;
-  std::string installFile = installDirectory + "/cmake_install.cmake";
+  std::string installFile = installDirectory + "/rblxbuild_install.rblxbuild";
 
   if (componentInstall) {
     cmCPackLogger(cmCPackLog::LOG_OUTPUT,
                   "-   Install component: " << component << std::endl);
   }
 
-  cmake cm(cmState::Role::CPack);
+  rblxbuild cm(cmState::Role::CPack);
   cm.GetCurrentSnapshot().SetDefaultDefinitions();
-  cm.AddCMakePaths();
+  cm.AddRBLXBuildPaths();
   cm.SetProgressCallback([this](std::string const& msg, float prog) {
     this->DisplayVerboseOutput(msg, prog);
   });
@@ -794,7 +794,7 @@ int cmCPackGenerator::InstallCMakeProject(
   cmValue default_dir_inst_permissions =
     this->GetOption("CPACK_INSTALL_DEFAULT_DIRECTORY_PERMISSIONS");
   if (cmNonempty(default_dir_inst_permissions)) {
-    mf.AddDefinition("CMAKE_INSTALL_DEFAULT_DIRECTORY_PERMISSIONS",
+    mf.AddDefinition("RBLXBUILD_INSTALL_DEFAULT_DIRECTORY_PERMISSIONS",
                      default_dir_inst_permissions);
   }
 
@@ -804,8 +804,8 @@ int cmCPackGenerator::InstallCMakeProject(
 
   if (setDestDir) {
     // For DESTDIR based packaging, use the *project*
-    // CMAKE_INSTALL_PREFIX underneath the tempInstallDirectory. The
-    // value of the project's CMAKE_INSTALL_PREFIX is sent in here as
+    // RBLXBUILD_INSTALL_PREFIX underneath the tempInstallDirectory. The
+    // value of the project's RBLXBUILD_INSTALL_PREFIX is sent in here as
     // the value of the CPACK_INSTALL_PREFIX variable.
     //
     // If DESTDIR has been 'internally set ON' this means that
@@ -822,14 +822,14 @@ int cmCPackGenerator::InstallCMakeProject(
     if (this->GetOption("CPACK_INSTALL_PREFIX")) {
       dir += *this->GetOption("CPACK_INSTALL_PREFIX");
     }
-    mf.AddDefinition("CMAKE_INSTALL_PREFIX", dir);
+    mf.AddDefinition("RBLXBUILD_INSTALL_PREFIX", dir);
 
     cmCPackLogger(
       cmCPackLog::LOG_DEBUG,
       "- Using DESTDIR + CPACK_INSTALL_PREFIX... (mf.AddDefinition)"
         << std::endl);
     cmCPackLogger(cmCPackLog::LOG_DEBUG,
-                  "- Setting CMAKE_INSTALL_PREFIX to '" << dir << "'"
+                  "- Setting RBLXBUILD_INSTALL_PREFIX to '" << dir << "'"
                                                         << std::endl);
 
     // Make sure that DESTDIR + CPACK_INSTALL_PREFIX directory
@@ -843,7 +843,7 @@ int cmCPackGenerator::InstallCMakeProject(
     /*
      *  We must re-set DESTDIR for each component
      *  We must not add the CPACK_INSTALL_PREFIX part because
-     *  it will be added using the override of CMAKE_INSTALL_PREFIX
+     *  it will be added using the override of RBLXBUILD_INSTALL_PREFIX
      *  The main reason for this awkward trick is that
      *  are using DESTDIR for 2 different reasons:
      *     - Because it was asked by the CPack Generator or the user
@@ -862,7 +862,7 @@ int cmCPackGenerator::InstallCMakeProject(
       return 0;
     }
   } else {
-    mf.AddDefinition("CMAKE_INSTALL_PREFIX", tempInstallDirectory);
+    mf.AddDefinition("RBLXBUILD_INSTALL_PREFIX", tempInstallDirectory);
 
     if (!cmsys::SystemTools::MakeDirectory(tempInstallDirectory,
                                            default_dir_mode)) {
@@ -876,7 +876,7 @@ int cmCPackGenerator::InstallCMakeProject(
                   "- Using non-DESTDIR install... (mf.AddDefinition)"
                     << std::endl);
     cmCPackLogger(cmCPackLog::LOG_DEBUG,
-                  "- Setting CMAKE_INSTALL_PREFIX to '" << tempInstallDirectory
+                  "- Setting RBLXBUILD_INSTALL_PREFIX to '" << tempInstallDirectory
                                                         << "'" << std::endl);
   }
 
@@ -885,13 +885,13 @@ int cmCPackGenerator::InstallCMakeProject(
   }
   std::string installComponentLowerCase = cmSystemTools::LowerCase(component);
   if (installComponentLowerCase != "all") {
-    mf.AddDefinition("CMAKE_INSTALL_COMPONENT", component);
+    mf.AddDefinition("RBLXBUILD_INSTALL_COMPONENT", component);
   }
 
   // strip on TRUE, ON, 1, one or several file names, but not on
   // FALSE, OFF, 0 and an empty string
   if (!this->GetOption("CPACK_STRIP_FILES").IsOff()) {
-    mf.AddDefinition("CMAKE_INSTALL_DO_STRIP", "1");
+    mf.AddDefinition("RBLXBUILD_INSTALL_DO_STRIP", "1");
   }
   // Remember the list of files before installation
   // of the current component (if we are in component install)
@@ -910,17 +910,17 @@ int cmCPackGenerator::InstallCMakeProject(
   }
 
   // If CPack was asked to warn on ABSOLUTE INSTALL DESTINATION
-  // then forward request to cmake_install.cmake script
+  // then forward request to rblxbuild_install.rblxbuild script
   if (this->IsOn("CPACK_WARN_ON_ABSOLUTE_INSTALL_DESTINATION")) {
-    mf.AddDefinition("CMAKE_WARN_ON_ABSOLUTE_INSTALL_DESTINATION", "1");
+    mf.AddDefinition("RBLXBUILD_WARN_ON_ABSOLUTE_INSTALL_DESTINATION", "1");
   }
   // If current CPack generator does not support
   // ABSOLUTE INSTALL DESTINATION or CPack has been asked for
-  // then ask cmake_install.cmake script to error out
+  // then ask rblxbuild_install.rblxbuild script to error out
   // as soon as it occurs (before installing file)
   if (!this->SupportsAbsoluteDestination() ||
       this->IsOn("CPACK_ERROR_ON_ABSOLUTE_INSTALL_DESTINATION")) {
-    mf.AddDefinition("CMAKE_ERROR_ON_ABSOLUTE_INSTALL_DESTINATION", "1");
+    mf.AddDefinition("RBLXBUILD_ERROR_ON_ABSOLUTE_INSTALL_DESTINATION", "1");
   }
 
   cmList custom_variables{ this->MakefileMap->GetDefinition(
@@ -940,10 +940,10 @@ int cmCPackGenerator::InstallCMakeProject(
 
   // do installation
   bool res = mf.ReadListFile(installFile);
-  // forward definition of CMAKE_ABSOLUTE_DESTINATION_FILES
+  // forward definition of RBLXBUILD_ABSOLUTE_DESTINATION_FILES
   // to CPack (may be used by generators like CPack RPM or DEB)
   // in order to transparently handle ABSOLUTE PATH
-  if (cmValue def = mf.GetDefinition("CMAKE_ABSOLUTE_DESTINATION_FILES")) {
+  if (cmValue def = mf.GetDefinition("RBLXBUILD_ABSOLUTE_DESTINATION_FILES")) {
     mf.AddDefinition("CPACK_ABSOLUTE_DESTINATION_FILES", *def);
   }
 
@@ -1198,9 +1198,9 @@ int cmCPackGenerator::DoPackage()
 
   // Do package the files (using the derived CPack generators.
   { // scope that enables package generators to run internal scripts with
-    // latest CMake policies enabled
+    // latest RBLXBuild policies enabled
     cmMakefile::ScopePushPop pp{ this->MakefileMap };
-    this->MakefileMap->SetPolicyVersion(cmVersion::GetCMakeVersion(),
+    this->MakefileMap->SetPolicyVersion(cmVersion::GetRBLXBuildVersion(),
                                         std::string());
 
     if (!this->PackageFiles() || cmSystemTools::GetErrorOccurredFlag()) {
@@ -1466,11 +1466,11 @@ std::string cmCPackGenerator::FindTemplate(cm::string_view name,
 {
   cmCPackLogger(cmCPackLog::LOG_DEBUG,
                 "Look for template: " << name << std::endl);
-  // Search CMAKE_MODULE_PATH for a custom template.
+  // Search RBLXBUILD_MODULE_PATH for a custom template.
   std::string ffile = this->MakefileMap->GetModulesFile(name);
   if (ffile.empty()) {
     // Fall back to our internal builtin default.
-    ffile = cmStrCat(cmSystemTools::GetCMakeRoot(), "/Modules/Internal/CPack/",
+    ffile = cmStrCat(cmSystemTools::GetRBLXBuildRoot(), "/Modules/Internal/CPack/",
                      alt ? *alt : ""_s, name);
     cmSystemTools::ConvertToUnixSlashes(ffile);
     if (!cmSystemTools::FileExists(ffile)) {
@@ -1517,7 +1517,7 @@ int cmCPackGenerator::CleanTemporaryDirectory()
 cmInstalledFile const* cmCPackGenerator::GetInstalledFile(
   std::string const& name) const
 {
-  cmake const* cm = this->MakefileMap->GetCMakeInstance();
+  rblxbuild const* cm = this->MakefileMap->GetRBLXBuildInstance();
   return cm->GetInstalledFile(name);
 }
 

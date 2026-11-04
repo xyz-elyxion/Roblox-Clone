@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmAddCustomRuleCommand.h"
 
 #include <algorithm>
@@ -80,7 +80,7 @@ bool cmAddCustomRuleCommand(std::vector<std::string> const& args,
   }
   // check name validity
   if (IsReservedName(ruleName)) {
-    status.SetError("names in all uppercase are reserved for CMake.");
+    status.SetError("names in all uppercase are reserved for RBLXBuild.");
     return false;
   }
   if (!cmGeneratorExpression::IsValidTargetName(ruleName)) {

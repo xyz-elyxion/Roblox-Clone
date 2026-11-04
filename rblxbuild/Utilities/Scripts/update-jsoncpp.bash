@@ -18,7 +18,7 @@ readonly paths="
 "
 readonly remove="
   include/json/autolink.h
-  src/lib_json/CMakeLists.txt
+  src/lib_json/RBLXBuildLists.txt
   src/lib_json/sconscript
   src/lib_json/version.h.in
 "

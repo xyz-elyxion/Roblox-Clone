@@ -94,7 +94,7 @@ extern JSON_API int msvc_pre1900_c99_snprintf(char* outBuf, size_t size,
 #define JSONCPP_DEPRECATED(message) __declspec(deprecated(message))
 #endif // __clang__ || __GNUC__ || _MSC_VER
 
-#undef JSONCPP_DEPRECATED // no deprecations in CMake copy
+#undef JSONCPP_DEPRECATED // no deprecations in RBLXBuild copy
 #if !defined(JSONCPP_DEPRECATED)
 #define JSONCPP_DEPRECATED(message)
 #endif // if !defined(JSONCPP_DEPRECATED)

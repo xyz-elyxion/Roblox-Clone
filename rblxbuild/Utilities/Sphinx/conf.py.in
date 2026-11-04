@@ -1,5 +1,5 @@
 # Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-# file LICENSE.rst or https://cmake.org/licensing for details.
+# file LICENSE.rst or https://rblxbuild.org/licensing for details.
 
 import sys
 import os
@@ -11,14 +11,14 @@ sys.path.insert(0, r'@conf_path@')
 source_suffix = '.rst'
 master_doc = 'index'
 
-project = 'CMake'
+project = 'RBLXBuild'
 copyright = '@conf_copyright@'
 version = '@conf_version@' # feature version
 release = '@conf_release@' # full version string
-pygments_style = 'colors.CMakeTemplateStyle'
+pygments_style = 'colors.RBLXBuildTemplateStyle'
 
 language = 'en'
-primary_domain = 'cmake'
+primary_domain = 'rblxbuild'
 highlight_language = 'none'
 
 exclude_patterns = [
@@ -31,7 +31,7 @@ exclude_patterns = [
     ]
 
 extensions = [
-    'cmake',
+    'rblxbuild',
     @conf_copybutton_ext@
 ]
 templates_path = ['@conf_path@/templates']
@@ -39,19 +39,19 @@ templates_path = ['@conf_path@/templates']
 nitpicky = True
 smartquotes = False
 
-if @conf_cmakeorg@:
-    tags.add('cmakeorg')
+if @conf_rblxbuildorg@:
+    tags.add('rblxbuildorg')
 
-cmake_manuals = sorted(glob.glob(r'@conf_docs@/manual/*.rst'))
-cmake_manual_description = re.compile(r'^\.\. cmake-manual-description:(.*)$')
+rblxbuild_manuals = sorted(glob.glob(r'@conf_docs@/manual/*.rst'))
+rblxbuild_manual_description = re.compile(r'^\.\. rblxbuild-manual-description:(.*)$')
 man_pages = []
-for fpath in cmake_manuals:
+for fpath in rblxbuild_manuals:
     try:
         name, sec, rst = os.path.basename(fpath).split('.')
         desc = None
         f = open(fpath, 'r')
         for l in f:
-            m = cmake_manual_description.match(l)
+            m = rblxbuild_manual_description.match(l)
             if m:
                 desc = m.group(1).strip()
                 break
@@ -60,7 +60,7 @@ for fpath in cmake_manuals:
             man_pages.append(('manual/%s.%s' % (name, sec),
                               name, desc, [], int(sec)))
         else:
-            sys.stderr.write("ERROR: No cmake-manual-description in '%s'\n" % fpath)
+            sys.stderr.write("ERROR: No rblxbuild-manual-description in '%s'\n" % fpath)
     except Exception as e:
         sys.stderr.write("ERROR: %s\n" % str(e))
 man_show_urls = False
@@ -69,7 +69,7 @@ man_make_section_directory = False
 html_baseurl = '@conf_baseurl@'
 html_show_sourcelink = True
 html_static_path = ['@conf_path@/static']
-html_style = 'cmake.css'
+html_style = 'rblxbuild.css'
 html_theme = 'default'
 html_theme_options = {
     'footerbgcolor':    '#00182d',
@@ -99,17 +99,17 @@ if tags.has('qthelp'):
     html_static_path.append('@conf_qthelp_static@')
     html_css_files = ['offline-simple.css']
 
-html_title = 'CMake %s Documentation' % release
+html_title = 'RBLXBuild %s Documentation' % release
 html_short_title = '%s Documentation' % release
-html_favicon = '@conf_path@/static/cmake-favicon.ico'
+html_favicon = '@conf_path@/static/rblxbuild-favicon.ico'
 # Not supported yet by sphinx:
 # https://bitbucket.org/birkenfeld/sphinx/issue/1448/make-qthelp-more-configurable
-# qthelp_namespace = "org.cmake"
-# qthelp_qch_name = "CMake.qch"
+# qthelp_namespace = "org.rblxbuild"
+# qthelp_qch_name = "RBLXBuild.qch"
 
 linkcheck_ignore = [
     r'about:',
-    r'https://gitlab\.kitware\.com/cmake/community/-/wikis/doc/cpack',
+    r'https://gitlab\.kitware\.com/rblxbuild/community/-/wikis/doc/cpack',
     r'https://web\.archive\.org/',
     r'https://en\.cppreference\.com/',
     r'https://www\.freedesktop\.org/',
@@ -121,7 +121,7 @@ linkcheck_ignore = [
 
 linkcheck_allowed_redirects = {
     r'https://cdash\.org': r'https://www\.cdash\.org/',
-    r'https://cmake.org/get-involved/': r'https://cmake.org/documentation/',
+    r'https://rblxbuild.org/get-involved/': r'https://rblxbuild.org/documentation/',
     r'https://docs\.nvidia\.com/cuda/': r'https://docs\.nvidia\.com/cuda/index\.html',
     r'https://learn\.microsoft\.com/en-us/cpp/build/reference/export-exports-a-function': r'https://learn\.microsoft\.com/en-us/cpp/build/reference/export-exports-a-function\?.*',
     r'https://learn\.microsoft\.com/en-us/cpp/build/reference/openmp-enable-openmp-2-0-support': r'https://learn\.microsoft\.com/en-us/cpp/build/reference/openmp-enable-openmp-2-0-support\?.*',

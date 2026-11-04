@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmGeneratorExpression.h"
 
 #include <algorithm>
@@ -26,11 +26,11 @@
 #include "cmStringAlgorithms.h"
 #include "cmSystemTools.h"
 #include "cmUnreachable.h"
-#include "cmake.h"
+#include "rblxbuild.h"
 
-cmGeneratorExpression::cmGeneratorExpression(cmake& cmakeInstance,
+cmGeneratorExpression::cmGeneratorExpression(rblxbuild& rblxbuildInstance,
                                              cmListFileBacktrace backtrace)
-  : CMakeInstance(cmakeInstance)
+  : RBLXBuildInstance(rblxbuildInstance)
   , Backtrace(std::move(backtrace))
 {
 }
@@ -88,7 +88,7 @@ std::unique_ptr<cmCompiledGeneratorExpression> cmGeneratorExpression::Parse(
   std::string input) const
 {
   return std::unique_ptr<cmCompiledGeneratorExpression>(
-    new cmCompiledGeneratorExpression(this->CMakeInstance, this->Backtrace,
+    new cmCompiledGeneratorExpression(this->RBLXBuildInstance, this->Backtrace,
                                       std::move(input)));
 }
 
@@ -99,13 +99,13 @@ std::string cmGeneratorExpression::Evaluate(
   cmGeneratorTarget const* currentTarget, std::string const& language)
 {
   if (Find(input) != std::string::npos) {
-#ifndef CMAKE_BOOTSTRAP
-    auto profilingRAII = lg->GetCMakeInstance()->CreateProfilingEntry(
+#ifndef RBLXBUILD_BOOTSTRAP
+    auto profilingRAII = lg->GetRBLXBuildInstance()->CreateProfilingEntry(
       "genex_compile_eval", input);
 #endif
 
     cm::GenEx::Context context(lg, config, language);
-    cmCompiledGeneratorExpression cge(*lg->GetCMakeInstance(),
+    cmCompiledGeneratorExpression cge(*lg->GetRBLXBuildInstance(),
                                       cmListFileBacktrace(), std::move(input));
     return cge.Evaluate(context, dagChecker, headTarget, currentTarget);
   }
@@ -163,17 +163,17 @@ std::string const& cmCompiledGeneratorExpression::Evaluate(
 }
 
 cmCompiledGeneratorExpression::cmCompiledGeneratorExpression(
-  cmake& cmakeInstance, cmListFileBacktrace backtrace, std::string input)
+  rblxbuild& rblxbuildInstance, cmListFileBacktrace backtrace, std::string input)
   : Backtrace(std::move(backtrace))
   , Input(std::move(input))
 {
-#ifndef CMAKE_BOOTSTRAP
+#ifndef RBLXBUILD_BOOTSTRAP
   auto profilingRAII =
-    cmakeInstance.CreateProfilingEntry("genex_compile", this->Input);
+    rblxbuildInstance.CreateProfilingEntry("genex_compile", this->Input);
 #endif
 
   this->Parsed =
-    cmakeInstance.GetGeneratorExpressionParseCache().Get(this->Input);
+    rblxbuildInstance.GetGeneratorExpressionParseCache().Get(this->Input);
 }
 
 std::string cmGeneratorExpression::StripEmptyListElements(

@@ -1,0 +1,4 @@
+# CrayLinuxEnvironment: loaded by users cross-compiling on a Cray front-end
+# node by specifying "-DRBLXBUILD_SYSTEM_NAME=CrayLinuxEnvironment" to rblxbuild
+
+set(UNIX 1)

@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #pragma once
 
 #include "cmConfigure.h" // IWYU pragma: keep
@@ -69,11 +69,11 @@ protected:
     {
     }
     static PathLabel PackageRoot;
-    static PathLabel CMake;
-    static PathLabel CMakeEnvironment;
+    static PathLabel RBLXBuild;
+    static PathLabel RBLXBuildEnvironment;
     static PathLabel Hints;
     static PathLabel SystemEnvironment;
-    static PathLabel CMakeSystem;
+    static PathLabel RBLXBuildSystem;
     static PathLabel Guess;
   };
 
@@ -94,11 +94,11 @@ protected:
   void RerootPaths(std::vector<std::string>& paths,
                    std::string* debugBuffer = nullptr);
 
-  /** Get ignored paths from CMAKE_[SYSTEM_]IGNORE_PATH variables.  */
+  /** Get ignored paths from RBLXBUILD_[SYSTEM_]IGNORE_PATH variables.  */
   void GetIgnoredPaths(std::vector<std::string>& ignore);
   void GetIgnoredPaths(std::set<std::string>& ignore);
 
-  /** Get ignored paths from CMAKE_[SYSTEM_]IGNORE_PREFIX_PATH variables.  */
+  /** Get ignored paths from RBLXBUILD_[SYSTEM_]IGNORE_PREFIX_PATH variables.  */
   void GetIgnoredPrefixPaths(std::vector<std::string>& ignore);
   void GetIgnoredPrefixPaths(std::set<std::string>& ignore);
 
@@ -134,7 +134,7 @@ protected:
   std::vector<std::string> UserHintsArgs;
   std::vector<std::string> UserGuessArgs;
 
-  std::string CMakePathName;
+  std::string RBLXBuildPathName;
   RootPathMode FindRootPathMode;
 
   bool CheckCommonArgument(std::string const& arg);
@@ -145,11 +145,11 @@ protected:
   std::unique_ptr<cmFindCommonDebugState> DebugState;
   bool NoDefaultPath;
   bool NoPackageRootPath;
-  bool NoCMakePath;
-  bool NoCMakeEnvironmentPath;
+  bool NoRBLXBuildPath;
+  bool NoRBLXBuildEnvironmentPath;
   bool NoSystemEnvironmentPath;
-  bool NoCMakeSystemPath;
-  bool NoCMakeInstallPath;
+  bool NoRBLXBuildSystemPath;
+  bool NoRBLXBuildInstallPath;
   cmWindowsRegistry::View RegistryView = cmWindowsRegistry::View::Target;
 
   std::vector<std::string> SearchPathSuffixes;
@@ -193,7 +193,7 @@ protected:
   virtual bool ShouldImplicitlyLogEvents() const;
 
   virtual void WriteDebug() const = 0;
-#ifndef CMAKE_BOOTSTRAP
+#ifndef RBLXBUILD_BOOTSTRAP
   virtual void WriteEvent(cmConfigureLog& log, cmMakefile const& mf) const = 0;
   void WriteSearchVariables(cmConfigureLog& log, cmMakefile const& mf) const;
   enum class VariableSource

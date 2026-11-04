@@ -16,7 +16,7 @@ readonly editor
 
 test -x "$( which "$EDITOR" )" || die "\`$editor\` is required"
 
-tmux split-window -v -l 10 -c "$PWD" 'watch --interval 1 cmake -P match.cmake'
+tmux split-window -v -l 10 -c "$PWD" 'watch --interval 1 rblxbuild -P match.rblxbuild'
 tmux select-pane -l
 case "$editor" in
     *vi*)

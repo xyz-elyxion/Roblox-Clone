@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #pragma once
 
 #include "cmConfigure.h" // IWYU pragma: keep
@@ -990,7 +990,7 @@ public:
   bool HasImplibGNUtoMS(std::string const& config) const;
 
   /** Convert the given GNU import library name (.dll.a) to a name with a new
-      extension (.lib or ${CMAKE_IMPORT_LIBRARY_SUFFIX}).  */
+      extension (.lib or ${RBLXBUILD_IMPORT_LIBRARY_SUFFIX}).  */
   bool GetImplibGNUtoMS(std::string const& config, std::string const& gnuName,
                         std::string& out, char const* newExt = nullptr) const;
 

@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmCTestUploadCommand.h"
 
 #include <algorithm>
@@ -62,8 +62,8 @@ bool cmCTestUploadCommand::ExecuteUpload(UploadArguments& args,
                          this->CTest->GetTestGroupString()));
   xml.Attribute("Name", mf.GetSafeDefinition("CTEST_SITE"));
   xml.Attribute("Generator",
-                std::string("ctest-") + cmVersion::GetCMakeVersion());
-  this->CTest->AddSiteProperties(xml, mf.GetCMakeInstance());
+                std::string("ctest-") + cmVersion::GetRBLXBuildVersion());
+  this->CTest->AddSiteProperties(xml, mf.GetRBLXBuildInstance());
   xml.StartElement("Upload");
   xml.Element("Time", std::chrono::system_clock::now());
 

@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmConfigure.h" // IWYU pragma: keep
 
 #include "cmWindowsRegistry.h"
@@ -492,7 +492,7 @@ cmWindowsRegistry::cmWindowsRegistry(cmMakefile& makefile,
 #endif
 {
 #if defined(_WIN32) && !defined(__CYGWIN__)
-  if (cmValue targetSize = makefile.GetDefinition("CMAKE_SIZEOF_VOID_P")) {
+  if (cmValue targetSize = makefile.GetDefinition("RBLXBUILD_SIZEOF_VOID_P")) {
     this->TargetSize = targetSize == "8" ? 64 : 32;
   }
 #else

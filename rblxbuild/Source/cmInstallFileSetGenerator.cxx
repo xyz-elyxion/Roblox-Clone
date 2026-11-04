@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmInstallFileSetGenerator.h"
 
 #include <algorithm>
@@ -124,7 +124,7 @@ cmInstallFileSetGenerator::DestinationContext
 cmInstallFileSetGenerator::GetDestination(cmGeneratorTarget const* gte,
                                           std::string const& config) const
 {
-  cmGeneratorExpression ge(*gte->Makefile->GetCMakeInstance());
+  cmGeneratorExpression ge(*gte->Makefile->GetRBLXBuildInstance());
   std::unique_ptr<cmCompiledGeneratorExpression> cge =
     ge.Parse(this->Destination);
 

@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmGlobalGenerator.h"
 
 #include <algorithm>
@@ -28,7 +28,7 @@
 #include "cmArgumentParserTypes.h"
 #include "cmBuildArgs.h"
 #include "cmBuildSbomGenerator.h"
-#include "cmCMakePath.h"
+#include "cmRBLXBuildPath.h"
 #include "cmCPackPropertiesGenerator.h"
 #include "cmComputeTargetDepends.h"
 #include "cmCryptoHash.h"
@@ -79,17 +79,17 @@
 #include "cmVersion.h"
 #include "cmWorkingDirectory.h"
 #include "cmXcFramework.h"
-#include "cmake.h"
+#include "rblxbuild.h"
 
-#if !defined(CMAKE_BOOTSTRAP)
+#if !defined(RBLXBUILD_BOOTSTRAP)
 #  include <cm3p/json/value.h>
 #  include <cm3p/json/writer.h>
 
 #  include "cmQtAutoGenGlobalInitializer.h"
 #endif
 
-std::string const kCMAKE_PLATFORM_INFO_INITIALIZED =
-  "CMAKE_PLATFORM_INFO_INITIALIZED";
+std::string const kRBLXBUILD_PLATFORM_INFO_INITIALIZED =
+  "RBLXBUILD_PLATFORM_INFO_INITIALIZED";
 
 class cmInstalledFile;
 
@@ -122,8 +122,8 @@ bool cmTarget::StrictTargetComparison::operator()(cmTarget const* t1,
   return nameResult < 0;
 }
 
-cmGlobalGenerator::cmGlobalGenerator(cmake* cm)
-  : CMakeInstance(cm)
+cmGlobalGenerator::cmGlobalGenerator(rblxbuild* cm)
+  : RBLXBuildInstance(cm)
 {
   // By default the .SYMBOLIC dependency is not needed on symbolic rules.
   this->NeedSymbolicMark = false;
@@ -157,7 +157,7 @@ cmGlobalGenerator::cmGlobalGenerator(cmake* cm)
   cm->GetState()->SetWindowsVSIDE(false);
 
   cm->GetState()->SetFastbuildMake(false);
-#if !defined(CMAKE_BOOTSTRAP)
+#if !defined(RBLXBUILD_BOOTSTRAP)
   Json::StreamWriterBuilder wbuilder;
   wbuilder["indentation"] = "\t";
   this->JsonWriter =
@@ -174,7 +174,7 @@ codecvt_Encoding cmGlobalGenerator::GetMakefileEncoding() const
   return codecvt_Encoding::None;
 }
 
-#if !defined(CMAKE_BOOTSTRAP)
+#if !defined(RBLXBUILD_BOOTSTRAP)
 Json::Value cmGlobalGenerator::GetJson() const
 {
   Json::Value generator = Json::objectValue;
@@ -252,14 +252,14 @@ std::string cmGlobalGenerator::SelectMakeProgram(
   std::string makeProgram = inMakeProgram;
   if (cmIsOff(makeProgram)) {
     cmValue makeProgramCSTR =
-      this->CMakeInstance->GetCacheDefinition("CMAKE_MAKE_PROGRAM");
+      this->RBLXBuildInstance->GetCacheDefinition("RBLXBUILD_MAKE_PROGRAM");
     if (makeProgramCSTR.IsOff()) {
       makeProgram = makeDefault;
     } else {
       makeProgram = *makeProgramCSTR;
     }
     if (cmIsOff(makeProgram) && !makeProgram.empty()) {
-      makeProgram = "CMAKE_MAKE_PROGRAM-NOTFOUND";
+      makeProgram = "RBLXBUILD_MAKE_PROGRAM-NOTFOUND";
     }
   }
   return makeProgram;
@@ -269,7 +269,7 @@ void cmGlobalGenerator::ResolveLanguageCompiler(std::string const& lang,
                                                 cmMakefile* mf,
                                                 bool optional) const
 {
-  std::string langComp = cmStrCat("CMAKE_", lang, "_COMPILER");
+  std::string langComp = cmStrCat("RBLXBUILD_", lang, "_COMPILER");
 
   if (!mf->GetDefinition(langComp)) {
     if (!optional) {
@@ -289,7 +289,7 @@ void cmGlobalGenerator::ResolveLanguageCompiler(std::string const& lang,
     return;
   }
   cmValue cname =
-    this->GetCMakeInstance()->GetState()->GetInitializedCacheValue(langComp);
+    this->GetRBLXBuildInstance()->GetState()->GetInitializedCacheValue(langComp);
 
   // Split compiler from arguments
   cmList cnameArgList;
@@ -299,15 +299,15 @@ void cmGlobalGenerator::ResolveLanguageCompiler(std::string const& lang,
   }
 
   if (cname && !optional) {
-    cmCMakePath cachedPath;
+    cmRBLXBuildPath cachedPath;
     if (!cmSystemTools::FileIsFullPath(*cname)) {
       cachedPath = cmSystemTools::FindProgram(*cname);
     } else {
       cachedPath = *cname;
     }
-    cmCMakePath foundPath = path;
+    cmRBLXBuildPath foundPath = path;
     if (foundPath.Normal() != cachedPath.Normal()) {
-      this->GetCMakeInstance()->GetState()->AddDeleteCacheChangeVar(langComp,
+      this->GetRBLXBuildInstance()->GetState()->AddDeleteCacheChangeVar(langComp,
                                                                     *cname);
     }
   }
@@ -361,7 +361,7 @@ cmExportFileGenerator::ExportInfo cmGlobalGenerator::FindInstallExportInfo(
   return info;
 }
 
-#ifndef CMAKE_BOOTSTRAP
+#ifndef RBLXBUILD_BOOTSTRAP
 std::vector<std::string> cmGlobalGenerator::FindBuildSbomPackages(
   cmGeneratorTarget const* target) const
 {
@@ -422,7 +422,7 @@ bool cmGlobalGenerator::CheckTargetsForMissingSources() const
       }
 
       if (target->GetAllConfigSources().empty()) {
-        this->GetCMakeInstance()->IssueMessage(
+        this->GetRBLXBuildInstance()->IssueMessage(
           MessageType::FATAL_ERROR,
           cmStrCat("No SOURCES given to target: ", target->GetName()),
           target->GetBacktrace());
@@ -454,7 +454,7 @@ bool cmGlobalGenerator::CheckTargetsForType() const
   for (auto const& generator : this->LocalGenerators) {
     for (auto const& target : generator->GetGeneratorTargets()) {
       std::string systemName =
-        target->Makefile->GetSafeDefinition("CMAKE_SYSTEM_NAME");
+        target->Makefile->GetSafeDefinition("RBLXBUILD_SYSTEM_NAME");
       if (systemName.find("Windows") == std::string::npos) {
         continue;
       }
@@ -466,7 +466,7 @@ bool cmGlobalGenerator::CheckTargetsForType() const
         for (std::string const& config : configs) {
           if (target->IsWin32Executable(config) &&
               target->GetLinkerLanguage(config) == "Swift") {
-            this->GetCMakeInstance()->IssueMessage(
+            this->GetRBLXBuildInstance()->IssueMessage(
               MessageType::FATAL_ERROR,
               "WIN32_EXECUTABLE property is not supported on Swift "
               "executables",
@@ -528,22 +528,22 @@ bool cmGlobalGenerator::FindMakeProgram(cmMakefile* mf)
       "all generators must specify this->FindMakeProgramFile");
     return false;
   }
-  if (mf->GetDefinition("CMAKE_MAKE_PROGRAM").IsOff()) {
+  if (mf->GetDefinition("RBLXBUILD_MAKE_PROGRAM").IsOff()) {
     std::string setMakeProgram = mf->GetModulesFile(this->FindMakeProgramFile);
     if (!setMakeProgram.empty()) {
       mf->ReadListFile(setMakeProgram);
     }
   }
-  if (mf->GetDefinition("CMAKE_MAKE_PROGRAM").IsOff()) {
+  if (mf->GetDefinition("RBLXBUILD_MAKE_PROGRAM").IsOff()) {
     cmSystemTools::Error(
-      cmStrCat("CMake was unable to find a build program corresponding to \"",
+      cmStrCat("RBLXBuild was unable to find a build program corresponding to \"",
                this->GetName(),
-               "\".  CMAKE_MAKE_PROGRAM is not set.  You "
+               "\".  RBLXBUILD_MAKE_PROGRAM is not set.  You "
                "probably need to select a different build tool."));
     cmSystemTools::SetFatalErrorOccurred();
     return false;
   }
-  std::string makeProgram = mf->GetRequiredDefinition("CMAKE_MAKE_PROGRAM");
+  std::string makeProgram = mf->GetRequiredDefinition("RBLXBUILD_MAKE_PROGRAM");
   // if there are spaces in the make program use short path
   // but do not short path the actual program name, as
   // this can cause trouble with VSExpress
@@ -555,7 +555,7 @@ bool cmGlobalGenerator::FindMakeProgram(cmMakefile* mf)
     cmSystemTools::GetShortPath(makeProgram, makeProgram);
     cmSystemTools::SplitProgramPath(makeProgram, dir, file);
     makeProgram = cmStrCat(dir, '/', saveFile);
-    mf->AddCacheDefinition("CMAKE_MAKE_PROGRAM", makeProgram, "make program",
+    mf->AddCacheDefinition("RBLXBUILD_MAKE_PROGRAM", makeProgram, "make program",
                            cmStateEnums::FILEPATH);
   }
   return true;
@@ -573,44 +573,44 @@ bool cmGlobalGenerator::CheckLanguages(
 //
 // First figure out what OS we are running on:
 //
-// CMakeSystem.cmake - configured file created by CMakeDetermineSystem.cmake
-//   CMakeDetermineSystem.cmake - figure out os info and create
-//                                CMakeSystem.cmake IF CMAKE_SYSTEM
+// RBLXBuildSystem.rblxbuild - configured file created by RBLXBuildDetermineSystem.rblxbuild
+//   RBLXBuildDetermineSystem.rblxbuild - figure out os info and create
+//                                RBLXBuildSystem.rblxbuild IF RBLXBUILD_SYSTEM
 //                                not set
-//   CMakeSystem.cmake - configured file created by
-//                       CMakeDetermineSystem.cmake IF CMAKE_SYSTEM_LOADED
+//   RBLXBuildSystem.rblxbuild - configured file created by
+//                       RBLXBuildDetermineSystem.rblxbuild IF RBLXBUILD_SYSTEM_LOADED
 
-// CMakeSystemSpecificInitialize.cmake
-//   - includes Platform/${CMAKE_SYSTEM_NAME}-Initialize.cmake
+// RBLXBuildSystemSpecificInitialize.rblxbuild
+//   - includes Platform/${RBLXBUILD_SYSTEM_NAME}-Initialize.rblxbuild
 
 // Next try and enable all languages found in the languages vector
 //
 // FOREACH LANG in languages
-//   CMake(LANG)Compiler.cmake - configured file create by
-//                               CMakeDetermine(LANG)Compiler.cmake
-//     CMakeDetermine(LANG)Compiler.cmake - Finds compiler for LANG and
-//                                          creates CMake(LANG)Compiler.cmake
-//     CMake(LANG)Compiler.cmake - configured file created by
-//                                 CMakeDetermine(LANG)Compiler.cmake
+//   RBLXBuild(LANG)Compiler.rblxbuild - configured file create by
+//                               RBLXBuildDetermine(LANG)Compiler.rblxbuild
+//     RBLXBuildDetermine(LANG)Compiler.rblxbuild - Finds compiler for LANG and
+//                                          creates RBLXBuild(LANG)Compiler.rblxbuild
+//     RBLXBuild(LANG)Compiler.rblxbuild - configured file created by
+//                                 RBLXBuildDetermine(LANG)Compiler.rblxbuild
 //
-// CMakeSystemSpecificInformation.cmake
-//   - includes Platform/${CMAKE_SYSTEM_NAME}.cmake
+// RBLXBuildSystemSpecificInformation.rblxbuild
+//   - includes Platform/${RBLXBUILD_SYSTEM_NAME}.rblxbuild
 //     may use compiler stuff
 
 // FOREACH LANG in languages
-//   CMake(LANG)Information.cmake
-//     - loads Platform/${CMAKE_SYSTEM_NAME}-${COMPILER}.cmake
-//   CMakeTest(LANG)Compiler.cmake
+//   RBLXBuild(LANG)Information.rblxbuild
+//     - loads Platform/${RBLXBUILD_SYSTEM_NAME}-${COMPILER}.rblxbuild
+//   RBLXBuildTest(LANG)Compiler.rblxbuild
 //     - Make sure the compiler works with a try compile if
-//       CMakeDetermine(LANG) was loaded
+//       RBLXBuildDetermine(LANG) was loaded
 //
-//   CMake(LANG)LinkerInformation.cmake
-//     - loads Platform/Linker/${CMAKE_SYSTEM_NAME}-${LINKER}.cmake
+//   RBLXBuild(LANG)LinkerInformation.rblxbuild
+//     - loads Platform/Linker/${RBLXBUILD_SYSTEM_NAME}-${LINKER}.rblxbuild
 //
 // Now load a few files that can override values set in any of the above
-// (PROJECTNAME)Compatibility.cmake
+// (PROJECTNAME)Compatibility.rblxbuild
 //   - load any backwards compatibility stuff for current project
-// ${CMAKE_USER_MAKE_RULES_OVERRIDE}
+// ${RBLXBUILD_USER_MAKE_RULES_OVERRIDE}
 //   - allow users a chance to override system variables
 //
 //
@@ -619,12 +619,12 @@ void cmGlobalGenerator::EnableLanguage(
   std::vector<std::string> const& languages, cmMakefile* mf, bool optional)
 {
   if (!this->IsMultiConfig() &&
-      !this->GetCMakeInstance()->GetIsInTryCompile()) {
+      !this->GetRBLXBuildInstance()->GetIsInTryCompile()) {
     std::string envBuildType;
-    if (!mf->GetDefinition("CMAKE_BUILD_TYPE") &&
-        cmSystemTools::GetEnv("CMAKE_BUILD_TYPE", envBuildType)) {
+    if (!mf->GetDefinition("RBLXBUILD_BUILD_TYPE") &&
+        cmSystemTools::GetEnv("RBLXBUILD_BUILD_TYPE", envBuildType)) {
       mf->AddCacheDefinition(
-        "CMAKE_BUILD_TYPE", envBuildType,
+        "RBLXBUILD_BUILD_TYPE", envBuildType,
         "Choose the type of build.  Options include: empty, "
         "Debug, Release, RelWithDebInfo, MinSizeRel.",
         cmStateEnums::STRING);
@@ -701,55 +701,55 @@ void cmGlobalGenerator::EnableLanguage(
 
   // If the configuration files path has been set,
   // then we are in a try compile and need to copy the enable language
-  // files from the parent cmake bin dir, into the try compile bin dir
+  // files from the parent rblxbuild bin dir, into the try compile bin dir
   if (!this->ConfiguredFilesPath.empty()) {
     rootBin = this->ConfiguredFilesPath;
   } else {
     rootBin =
-      cmStrCat(this->CMakeInstance->GetHomeOutputDirectory(), "/CMakeFiles");
+      cmStrCat(this->RBLXBuildInstance->GetHomeOutputDirectory(), "/RBLXBuildFiles");
   }
-  rootBin = cmStrCat(std::move(rootBin), '/', cmVersion::GetCMakeVersion());
+  rootBin = cmStrCat(std::move(rootBin), '/', cmVersion::GetRBLXBuildVersion());
 
   // set the dir for parent files so they can be used by modules
-  mf->AddDefinition("CMAKE_PLATFORM_INFO_DIR", rootBin);
+  mf->AddDefinition("RBLXBUILD_PLATFORM_INFO_DIR", rootBin);
 
-  if (!this->CMakeInstance->GetIsInTryCompile()) {
+  if (!this->RBLXBuildInstance->GetIsInTryCompile()) {
     // Keep a mark in the cache to indicate that we've initialized the
     // platform information directory.  If the platform information
-    // directory exists but the mark is missing then CMakeCache.txt
-    // has been removed or replaced without also removing the CMakeFiles/
+    // directory exists but the mark is missing then RBLXBuildCache.txt
+    // has been removed or replaced without also removing the RBLXBuildFiles/
     // directory.  In this case remove the platform information directory
     // so that it will be re-initialized and the relevant information
     // restored in the cache.
     if (cmSystemTools::FileIsDirectory(rootBin) &&
-        !mf->IsOn(kCMAKE_PLATFORM_INFO_INITIALIZED)) {
+        !mf->IsOn(kRBLXBUILD_PLATFORM_INFO_INITIALIZED)) {
       cmSystemTools::RemoveADirectory(rootBin);
     }
-    this->GetCMakeInstance()->AddCacheEntry(
-      kCMAKE_PLATFORM_INFO_INITIALIZED, "1",
+    this->GetRBLXBuildInstance()->AddCacheEntry(
+      kRBLXBUILD_PLATFORM_INFO_INITIALIZED, "1",
       "Platform information initialized", cmStateEnums::INTERNAL);
   }
 
-  // try and load the CMakeSystem.cmake if it is there
+  // try and load the RBLXBuildSystem.rblxbuild if it is there
   std::string fpath = rootBin;
-  bool const readCMakeSystem = !mf->GetDefinition("CMAKE_SYSTEM_LOADED");
-  if (readCMakeSystem) {
-    fpath += "/CMakeSystem.cmake";
+  bool const readRBLXBuildSystem = !mf->GetDefinition("RBLXBUILD_SYSTEM_LOADED");
+  if (readRBLXBuildSystem) {
+    fpath += "/RBLXBuildSystem.rblxbuild";
     if (cmSystemTools::FileExists(fpath)) {
       mf->ReadListFile(fpath);
       // If the toolchain file changes, the introspection results may become
-      // invalid, and so the cache must be deleted. The CMAKE_TOOLCHAIN_FILE
+      // invalid, and so the cache must be deleted. The RBLXBUILD_TOOLCHAIN_FILE
       // value could be input the same way but be different in the cache due to
       // normalization and relative path searching, so the value is checked
       // against the original input to decide if the file path has changed.
-      cmValue toolchainFile = mf->GetDefinition("CMAKE_TOOLCHAIN_FILE");
+      cmValue toolchainFile = mf->GetDefinition("RBLXBUILD_TOOLCHAIN_FILE");
       cmValue inputToolchainFile =
-        mf->GetDefinition("_CMAKE_INPUT_TOOLCHAIN_FILE");
+        mf->GetDefinition("_RBLXBUILD_INPUT_TOOLCHAIN_FILE");
       cmValue storedToolchainFile =
-        mf->GetDefinition("_CMAKE_SYSTEM_TOOLCHAIN_FILE");
+        mf->GetDefinition("_RBLXBUILD_SYSTEM_TOOLCHAIN_FILE");
       if (toolchainFile && toolchainFile != inputToolchainFile &&
           toolchainFile != storedToolchainFile) {
-        mf->GetState()->AddDeleteCacheChangeVar("CMAKE_TOOLCHAIN_FILE",
+        mf->GetState()->AddDeleteCacheChangeVar("RBLXBUILD_TOOLCHAIN_FILE",
                                                 *toolchainFile);
         for (std::string const& lang : cur_languages) {
           this->LanguagesInProgress.erase(lang);
@@ -760,50 +760,50 @@ void cmGlobalGenerator::EnableLanguage(
     }
   }
 
-  //  Load the CMakeDetermineSystem.cmake file and find out
+  //  Load the RBLXBuildDetermineSystem.rblxbuild file and find out
   // what platform we are running on
-  if (!mf->GetDefinition("CMAKE_SYSTEM")) {
+  if (!mf->GetDefinition("RBLXBUILD_SYSTEM")) {
 #if defined(_WIN32) && !defined(__CYGWIN__)
     cmSystemTools::WindowsVersion windowsVersion =
       cmSystemTools::GetWindowsVersion();
     auto windowsVersionString = cmStrCat(windowsVersion.dwMajorVersion, '.',
                                          windowsVersion.dwMinorVersion, '.',
                                          windowsVersion.dwBuildNumber);
-    mf->AddDefinition("CMAKE_HOST_SYSTEM_VERSION", windowsVersionString);
+    mf->AddDefinition("RBLXBUILD_HOST_SYSTEM_VERSION", windowsVersionString);
 #endif
     // Read the DetermineSystem file
-    std::string systemFile = mf->GetModulesFile("CMakeDetermineSystem.cmake");
+    std::string systemFile = mf->GetModulesFile("RBLXBuildDetermineSystem.rblxbuild");
     mf->ReadListFile(systemFile);
-    // load the CMakeSystem.cmake from the binary directory
-    // this file is configured by the CMakeDetermineSystem.cmake file
-    fpath = cmStrCat(rootBin, "/CMakeSystem.cmake");
+    // load the RBLXBuildSystem.rblxbuild from the binary directory
+    // this file is configured by the RBLXBuildDetermineSystem.rblxbuild file
+    fpath = cmStrCat(rootBin, "/RBLXBuildSystem.rblxbuild");
     mf->ReadListFile(fpath);
   }
 
-  if (readCMakeSystem) {
+  if (readRBLXBuildSystem) {
     // Tell the generator about the instance, if any.
-    std::string instance = mf->GetSafeDefinition("CMAKE_GENERATOR_INSTANCE");
+    std::string instance = mf->GetSafeDefinition("RBLXBUILD_GENERATOR_INSTANCE");
     if (!this->SetGeneratorInstance(instance, mf)) {
       cmSystemTools::SetFatalErrorOccurred();
       return;
     }
 
     // Tell the generator about the target system.
-    std::string system = mf->GetSafeDefinition("CMAKE_SYSTEM_NAME");
+    std::string system = mf->GetSafeDefinition("RBLXBUILD_SYSTEM_NAME");
     if (!this->SetSystemName(system, mf)) {
       cmSystemTools::SetFatalErrorOccurred();
       return;
     }
 
     // Tell the generator about the platform, if any.
-    std::string platform = mf->GetSafeDefinition("CMAKE_GENERATOR_PLATFORM");
+    std::string platform = mf->GetSafeDefinition("RBLXBUILD_GENERATOR_PLATFORM");
     if (!this->SetGeneratorPlatform(platform, mf)) {
       cmSystemTools::SetFatalErrorOccurred();
       return;
     }
 
     // Tell the generator about the toolset, if any.
-    std::string toolset = mf->GetSafeDefinition("CMAKE_GENERATOR_TOOLSET");
+    std::string toolset = mf->GetSafeDefinition("RBLXBUILD_GENERATOR_TOOLSET");
     if (!this->SetGeneratorToolset(toolset, false, mf)) {
       cmSystemTools::SetFatalErrorOccurred();
       return;
@@ -817,19 +817,19 @@ void cmGlobalGenerator::EnableLanguage(
     // One-time includes of user-provided project setup files
     mf->GetState()->SetInTopLevelIncludes(true);
     std::string includes =
-      mf->GetSafeDefinition("CMAKE_PROJECT_TOP_LEVEL_INCLUDES");
+      mf->GetSafeDefinition("RBLXBUILD_PROJECT_TOP_LEVEL_INCLUDES");
     cmList includesList{ includes };
     for (std::string setupFile : includesList) {
-      // Any relative path without a .cmake extension is checked for valid
-      // cmake modules. This logic should be consistent with CMake's include()
+      // Any relative path without a .rblxbuild extension is checked for valid
+      // rblxbuild modules. This logic should be consistent with RBLXBuild's include()
       // command. Otherwise default to checking relative path w.r.t. source
       // directory
       if (!cmSystemTools::FileIsFullPath(setupFile) &&
-          !cmHasLiteralSuffix(setupFile, ".cmake")) {
-        std::string mfile = mf->GetModulesFile(cmStrCat(setupFile, ".cmake"));
+          !cmHasLiteralSuffix(setupFile, ".rblxbuild")) {
+        std::string mfile = mf->GetModulesFile(cmStrCat(setupFile, ".rblxbuild"));
         if (mfile.empty()) {
           cmSystemTools::Error(cmStrCat(
-            "CMAKE_PROJECT_TOP_LEVEL_INCLUDES module:\n  ", setupFile));
+            "RBLXBUILD_PROJECT_TOP_LEVEL_INCLUDES module:\n  ", setupFile));
           mf->GetState()->SetInTopLevelIncludes(false);
           return;
         }
@@ -839,21 +839,21 @@ void cmGlobalGenerator::EnableLanguage(
         setupFile, mf->GetCurrentSourceDirectory());
       if (!cmSystemTools::FileExists(absSetupFile)) {
         cmSystemTools::Error(
-          cmStrCat("CMAKE_PROJECT_TOP_LEVEL_INCLUDES file does not exist: ",
+          cmStrCat("RBLXBUILD_PROJECT_TOP_LEVEL_INCLUDES file does not exist: ",
                    setupFile));
         mf->GetState()->SetInTopLevelIncludes(false);
         return;
       }
       if (cmSystemTools::FileIsDirectory(absSetupFile)) {
         cmSystemTools::Error(
-          cmStrCat("CMAKE_PROJECT_TOP_LEVEL_INCLUDES file is a directory: ",
+          cmStrCat("RBLXBUILD_PROJECT_TOP_LEVEL_INCLUDES file is a directory: ",
                    setupFile));
         mf->GetState()->SetInTopLevelIncludes(false);
         return;
       }
       if (!mf->ReadListFile(absSetupFile)) {
         cmSystemTools::Error(
-          cmStrCat("Failed reading CMAKE_PROJECT_TOP_LEVEL_INCLUDES file: ",
+          cmStrCat("Failed reading RBLXBUILD_PROJECT_TOP_LEVEL_INCLUDES file: ",
                    setupFile));
         mf->GetState()->SetInTopLevelIncludes(false);
         return;
@@ -869,18 +869,18 @@ void cmGlobalGenerator::EnableLanguage(
   }
 
   // **** Load the system specific initialization if not yet loaded
-  if (!mf->GetDefinition("CMAKE_SYSTEM_SPECIFIC_INITIALIZE_LOADED")) {
-    fpath = mf->GetModulesFile("CMakeSystemSpecificInitialize.cmake");
+  if (!mf->GetDefinition("RBLXBUILD_SYSTEM_SPECIFIC_INITIALIZE_LOADED")) {
+    fpath = mf->GetModulesFile("RBLXBuildSystemSpecificInitialize.rblxbuild");
     if (!mf->ReadListFile(fpath)) {
-      cmSystemTools::Error("Could not find cmake module file: "
-                           "CMakeSystemSpecificInitialize.cmake");
+      cmSystemTools::Error("Could not find rblxbuild module file: "
+                           "RBLXBuildSystemSpecificInitialize.rblxbuild");
     }
   }
 
   std::map<std::string, bool> needTestLanguage;
   std::map<std::string, bool> needSetLanguageEnabledMaps;
   // foreach language
-  // load the CMakeDetermine(LANG)Compiler.cmake file to find
+  // load the RBLXBuildDetermine(LANG)Compiler.rblxbuild file to find
   // the compiler
 
   for (std::string const& lang : languagesToEnable) {
@@ -912,41 +912,41 @@ void cmGlobalGenerator::EnableLanguage(
     // Load it if we have not enabled the language anywhere yet, or
     // if we have not loaded compiler information in this directory.
     if (!this->GetLanguageEnabled(lang) ||
-        !mf->GetDefinition(cmStrCat("CMAKE_", lang, "_COMPILER_LOADED"))) {
-      fpath = cmStrCat(rootBin, "/CMake", lang, "Compiler.cmake");
+        !mf->GetDefinition(cmStrCat("RBLXBUILD_", lang, "_COMPILER_LOADED"))) {
+      fpath = cmStrCat(rootBin, "/RBLXBuild", lang, "Compiler.rblxbuild");
 
       // If the existing build tree was already configured with this
-      // version of CMake then try to load the configured file first
+      // version of RBLXBuild then try to load the configured file first
       // to avoid duplicate compiler tests.
       if (cmSystemTools::FileExists(fpath)) {
         if (!mf->ReadListFile(fpath)) {
           cmSystemTools::Error(
-            cmStrCat("Could not find cmake module file: ", fpath));
+            cmStrCat("Could not find rblxbuild module file: ", fpath));
         }
         // if this file was found then the language was already determined
         // to be working
         needTestLanguage[lang] = false;
         this->SetLanguageEnabledFlag(lang, mf);
         needSetLanguageEnabledMaps[lang] = true;
-        // this can only be called after loading CMake(LANG)Compiler.cmake
+        // this can only be called after loading RBLXBuild(LANG)Compiler.rblxbuild
       }
     }
 
     if (!this->GetLanguageEnabled(lang)) {
-      if (this->CMakeInstance->GetIsInTryCompile()) {
+      if (this->RBLXBuildInstance->GetIsInTryCompile()) {
         cmSystemTools::Error("This should not have happened. "
                              "If you see this message, you are probably "
-                             "using a broken CMakeLists.txt file or a "
-                             "problematic release of CMake");
+                             "using a broken RBLXBuildLists.txt file or a "
+                             "problematic release of RBLXBuild");
       }
-      // if the CMake(LANG)Compiler.cmake file was not found then
-      // load CMakeDetermine(LANG)Compiler.cmake
+      // if the RBLXBuild(LANG)Compiler.rblxbuild file was not found then
+      // load RBLXBuildDetermine(LANG)Compiler.rblxbuild
       std::string determineCompiler =
-        cmStrCat("CMakeDetermine", lang, "Compiler.cmake");
+        cmStrCat("RBLXBuildDetermine", lang, "Compiler.rblxbuild");
       std::string determineFile = mf->GetModulesFile(determineCompiler);
       if (!mf->ReadListFile(determineFile)) {
         cmSystemTools::Error(
-          cmStrCat("Could not find cmake module file: ", determineCompiler));
+          cmStrCat("Could not find rblxbuild module file: ", determineCompiler));
       }
       if (cmSystemTools::GetFatalErrorOccurred()) {
         return;
@@ -956,13 +956,13 @@ void cmGlobalGenerator::EnableLanguage(
       // So the global generator can specify that in this variable
       if ((mf->GetPolicyStatus(cmPolicies::CMP0132) == cmPolicies::OLD ||
            mf->GetPolicyStatus(cmPolicies::CMP0132) == cmPolicies::WARN) &&
-          !mf->GetDefinition("CMAKE_GENERATOR_NO_COMPILER_ENV")) {
-        // put ${CMake_(LANG)_COMPILER_ENV_VAR}=${CMAKE_(LANG)_COMPILER
+          !mf->GetDefinition("RBLXBUILD_GENERATOR_NO_COMPILER_ENV")) {
+        // put ${RBLXBuild_(LANG)_COMPILER_ENV_VAR}=${RBLXBUILD_(LANG)_COMPILER
         // into the environment, in case user scripts want to run
-        // configure, or sub cmakes
-        std::string compilerName = cmStrCat("CMAKE_", lang, "_COMPILER");
+        // configure, or sub rblxbuilds
+        std::string compilerName = cmStrCat("RBLXBUILD_", lang, "_COMPILER");
         std::string compilerEnv =
-          cmStrCat("CMAKE_", lang, "_COMPILER_ENV_VAR");
+          cmStrCat("RBLXBUILD_", lang, "_COMPILER_ENV_VAR");
         std::string const& envVar = mf->GetRequiredDefinition(compilerEnv);
         std::string const& envVarValue =
           mf->GetRequiredDefinition(compilerName);
@@ -971,15 +971,15 @@ void cmGlobalGenerator::EnableLanguage(
       }
 
       // if determineLanguage was called then load the file it
-      // configures CMake(LANG)Compiler.cmake
-      fpath = cmStrCat(rootBin, "/CMake", lang, "Compiler.cmake");
+      // configures RBLXBuild(LANG)Compiler.rblxbuild
+      fpath = cmStrCat(rootBin, "/RBLXBuild", lang, "Compiler.rblxbuild");
       if (!mf->ReadListFile(fpath)) {
         cmSystemTools::Error(
-          cmStrCat("Could not find cmake module file: ", fpath));
+          cmStrCat("Could not find rblxbuild module file: ", fpath));
       }
       this->SetLanguageEnabledFlag(lang, mf);
       needSetLanguageEnabledMaps[lang] = true;
-      // this can only be called after loading CMake(LANG)Compiler.cmake
+      // this can only be called after loading RBLXBuild(LANG)Compiler.rblxbuild
       // the language must be enabled for try compile to work, but we do
       // not know if it is a working compiler yet so set the test language
       // flag
@@ -988,14 +988,14 @@ void cmGlobalGenerator::EnableLanguage(
   } // end loop over languages
 
   // **** Load the system specific information if not yet loaded
-  if (!mf->GetDefinition("CMAKE_SYSTEM_SPECIFIC_INFORMATION_LOADED")) {
-    fpath = mf->GetModulesFile("CMakeSystemSpecificInformation.cmake");
+  if (!mf->GetDefinition("RBLXBUILD_SYSTEM_SPECIFIC_INFORMATION_LOADED")) {
+    fpath = mf->GetModulesFile("RBLXBuildSystemSpecificInformation.rblxbuild");
     if (!mf->ReadListFile(fpath)) {
-      cmSystemTools::Error("Could not find cmake module file: "
-                           "CMakeSystemSpecificInformation.cmake");
+      cmSystemTools::Error("Could not find rblxbuild module file: "
+                           "RBLXBuildSystemSpecificInformation.rblxbuild");
     }
   }
-  // loop over languages again loading CMake(LANG)Information.cmake
+  // loop over languages again loading RBLXBuild(LANG)Information.rblxbuild
   //
   for (std::string const& lang : languagesToEnable) {
     if (lang == "NONE") {
@@ -1004,8 +1004,8 @@ void cmGlobalGenerator::EnableLanguage(
     }
 
     // Check that the compiler was found.
-    std::string compilerName = cmStrCat("CMAKE_", lang, "_COMPILER");
-    std::string compilerEnv = cmStrCat("CMAKE_", lang, "_COMPILER_ENV_VAR");
+    std::string compilerName = cmStrCat("RBLXBUILD_", lang, "_COMPILER");
+    std::string compilerEnv = cmStrCat("RBLXBUILD_", lang, "_COMPILER_ENV_VAR");
     std::ostringstream noCompiler;
     cmValue compilerFile = mf->GetDefinition(compilerName);
     if (!cmNonempty(compilerFile) || cmIsNOTFOUND(*compilerFile)) {
@@ -1039,11 +1039,11 @@ void cmGlobalGenerator::EnableLanguage(
       needTestLanguage[lang] = false;
       if (!optional) {
         // The compiler was not found and it is not optional.  Remove
-        // CMake(LANG)Compiler.cmake so we try again next time CMake runs.
+        // RBLXBuild(LANG)Compiler.rblxbuild so we try again next time RBLXBuild runs.
         std::string compilerLangFile =
-          cmStrCat(rootBin, "/CMake", lang, "Compiler.cmake");
+          cmStrCat(rootBin, "/RBLXBuild", lang, "Compiler.rblxbuild");
         cmSystemTools::RemoveFile(compilerLangFile);
-        if (!this->CMakeInstance->GetIsInTryCompile()) {
+        if (!this->RBLXBuildInstance->GetIsInTryCompile()) {
           this->PrintCompilerAdvice(noCompiler, lang,
                                     mf->GetDefinition(compilerEnv));
           mf->IssueMessage(MessageType::FATAL_ERROR, noCompiler.str());
@@ -1053,16 +1053,16 @@ void cmGlobalGenerator::EnableLanguage(
     }
 
     std::string langLoadedVar =
-      cmStrCat("CMAKE_", lang, "_INFORMATION_LOADED");
+      cmStrCat("RBLXBUILD_", lang, "_INFORMATION_LOADED");
     if (!mf->GetDefinition(langLoadedVar)) {
-      fpath = cmStrCat("CMake", lang, "Information.cmake");
+      fpath = cmStrCat("RBLXBuild", lang, "Information.rblxbuild");
       std::string informationFile = mf->GetModulesFile(fpath);
       if (informationFile.empty()) {
         cmSystemTools::Error(
-          cmStrCat("Could not find cmake module file: ", fpath));
+          cmStrCat("Could not find rblxbuild module file: ", fpath));
       } else if (!mf->ReadListFile(informationFile)) {
         cmSystemTools::Error(
-          cmStrCat("Could not process cmake module file: ", informationFile));
+          cmStrCat("Could not process rblxbuild module file: ", informationFile));
       }
     }
     if (needSetLanguageEnabledMaps[lang]) {
@@ -1076,54 +1076,54 @@ void cmGlobalGenerator::EnableLanguage(
     // (but only if a compiler has been actually found)
     // If the language is untested then test it now with a try compile.
     if (needTestLanguage[lang]) {
-      if (!this->CMakeInstance->GetIsInTryCompile()) {
-        std::string testLang = cmStrCat("CMakeTest", lang, "Compiler.cmake");
+      if (!this->RBLXBuildInstance->GetIsInTryCompile()) {
+        std::string testLang = cmStrCat("RBLXBuildTest", lang, "Compiler.rblxbuild");
         std::string ifpath = mf->GetModulesFile(testLang);
         if (!mf->ReadListFile(ifpath)) {
           cmSystemTools::Error(
-            cmStrCat("Could not find cmake module file: ", testLang));
+            cmStrCat("Could not find rblxbuild module file: ", testLang));
         }
         std::string compilerWorks =
-          cmStrCat("CMAKE_", lang, "_COMPILER_WORKS");
+          cmStrCat("RBLXBUILD_", lang, "_COMPILER_WORKS");
         // if the compiler did not work, then remove the
-        // CMake(LANG)Compiler.cmake file so that it will get tested the
-        // next time cmake is run
+        // RBLXBuild(LANG)Compiler.rblxbuild file so that it will get tested the
+        // next time rblxbuild is run
         if (!mf->IsOn(compilerWorks)) {
           std::string compilerLangFile =
-            cmStrCat(rootBin, "/CMake", lang, "Compiler.cmake");
+            cmStrCat(rootBin, "/RBLXBuild", lang, "Compiler.rblxbuild");
           cmSystemTools::RemoveFile(compilerLangFile);
         }
       } // end if in try compile
     } // end need test language
 
     // load linker configuration, if required
-    if (mf->IsOn(cmStrCat("CMAKE_", lang, "_COMPILER_WORKS")) &&
-        mf->IsOn(cmStrCat("CMAKE_", lang, "_USE_LINKER_INFORMATION"))) {
+    if (mf->IsOn(cmStrCat("RBLXBUILD_", lang, "_COMPILER_WORKS")) &&
+        mf->IsOn(cmStrCat("RBLXBUILD_", lang, "_USE_LINKER_INFORMATION"))) {
       std::string langLinkerLoadedVar =
-        cmStrCat("CMAKE_", lang, "_LINKER_INFORMATION_LOADED");
+        cmStrCat("RBLXBUILD_", lang, "_LINKER_INFORMATION_LOADED");
       if (!mf->GetDefinition(langLinkerLoadedVar)) {
-        fpath = cmStrCat("CMake", lang, "LinkerInformation.cmake");
+        fpath = cmStrCat("RBLXBuild", lang, "LinkerInformation.rblxbuild");
         std::string informationFile = mf->GetModulesFile(fpath);
         if (informationFile.empty()) {
           informationFile = mf->GetModulesFile(cmStrCat("Internal/", fpath));
         }
         if (informationFile.empty()) {
           cmSystemTools::Error(
-            cmStrCat("Could not find cmake module file: ", fpath));
+            cmStrCat("Could not find rblxbuild module file: ", fpath));
         } else if (!mf->ReadListFile(informationFile)) {
           cmSystemTools::Error(cmStrCat(
-            "Could not process cmake module file: ", informationFile));
+            "Could not process rblxbuild module file: ", informationFile));
         }
       }
 
       if (needTestLanguage[lang]) {
-        if (!this->CMakeInstance->GetIsInTryCompile()) {
+        if (!this->RBLXBuildInstance->GetIsInTryCompile()) {
           std::string testLang =
-            cmStrCat("Internal/CMakeInspect", lang, "Linker.cmake");
+            cmStrCat("Internal/RBLXBuildInspect", lang, "Linker.rblxbuild");
           std::string ifpath = mf->GetModulesFile(testLang);
           if (!mf->ReadListFile(ifpath)) {
             cmSystemTools::Error(
-              cmStrCat("Could not find cmake module file: ", testLang));
+              cmStrCat("Could not find rblxbuild module file: ", testLang));
           }
         }
       }
@@ -1135,10 +1135,10 @@ void cmGlobalGenerator::EnableLanguage(
 
   // Now load files that can override any settings on the platform or for
   // the project First load the project compatibility file if it is in
-  // cmake
+  // rblxbuild
   std::string projectCompatibility =
-    cmStrCat(cmSystemTools::GetCMakeRoot(), "/Modules/",
-             mf->GetSafeDefinition("PROJECT_NAME"), "Compatibility.cmake");
+    cmStrCat(cmSystemTools::GetRBLXBuildRoot(), "/Modules/",
+             mf->GetSafeDefinition("PROJECT_NAME"), "Compatibility.rblxbuild");
   if (cmSystemTools::FileExists(projectCompatibility)) {
     mf->ReadListFile(projectCompatibility);
   }
@@ -1169,10 +1169,10 @@ void cmGlobalGenerator::EnableLanguage(
     }
 
     if (warnCMP0220 &&
-        mf->PolicyOptionalWarningEnabled("CMAKE_POLICY_WARNING_CMP0220")) {
+        mf->PolicyOptionalWarningEnabled("RBLXBUILD_POLICY_WARNING_CMP0220")) {
       mf->IssuePolicyWarning(
         cmPolicies::CMP0220, {},
-        "For compatibility with older versions of CMake, the language "
+        "For compatibility with older versions of RBLXBuild, the language "
         "configuration set by this call is not propagated to the enclosing "
         "variable scopes.");
     }
@@ -1184,11 +1184,11 @@ void cmGlobalGenerator::PrintCompilerAdvice(std::ostream& os,
                                             cmValue envVar) const
 {
   // Subclasses override this method if they do not support this advice.
-  os << "Tell CMake where to find the compiler by setting ";
+  os << "Tell RBLXBuild where to find the compiler by setting ";
   if (envVar) {
     os << "either the environment variable \"" << *envVar << "\" or ";
   }
-  os << "the CMake cache entry CMAKE_" << lang
+  os << "the RBLXBuild cache entry RBLXBUILD_" << lang
      << "_COMPILER "
         "to the full path to the compiler, or to the compiler name "
         "if it is in the PATH.";
@@ -1197,14 +1197,14 @@ void cmGlobalGenerator::PrintCompilerAdvice(std::ostream& os,
 void cmGlobalGenerator::CheckCompilerIdCompatibility(
   cmMakefile* mf, std::string const& lang) const
 {
-  std::string compilerIdVar = cmStrCat("CMAKE_", lang, "_COMPILER_ID");
+  std::string compilerIdVar = cmStrCat("RBLXBUILD_", lang, "_COMPILER_ID");
   std::string const compilerId = mf->GetSafeDefinition(compilerIdVar);
 
   if (compilerId == "XLClang") {
     switch (mf->GetPolicyStatus(cmPolicies::CMP0089)) {
       case cmPolicies::WARN:
-        if (!this->CMakeInstance->GetIsInTryCompile() &&
-            mf->PolicyOptionalWarningEnabled("CMAKE_POLICY_WARNING_CMP0089")) {
+        if (!this->RBLXBuildInstance->GetIsInTryCompile() &&
+            mf->PolicyOptionalWarningEnabled("RBLXBUILD_POLICY_WARNING_CMP0089")) {
           mf->IssuePolicyWarning(
             cmPolicies::CMP0089, {},
             cmStrCat(
@@ -1225,8 +1225,8 @@ void cmGlobalGenerator::CheckCompilerIdCompatibility(
   if (compilerId == "LCC") {
     switch (mf->GetPolicyStatus(cmPolicies::CMP0129)) {
       case cmPolicies::WARN:
-        if (!this->CMakeInstance->GetIsInTryCompile() &&
-            mf->PolicyOptionalWarningEnabled("CMAKE_POLICY_WARNING_CMP0129")) {
+        if (!this->RBLXBuildInstance->GetIsInTryCompile() &&
+            mf->PolicyOptionalWarningEnabled("RBLXBUILD_POLICY_WARNING_CMP0129")) {
           mf->IssuePolicyWarning(
             cmPolicies::CMP0129, {},
             cmStrCat("Converting "_s, lang,
@@ -1237,17 +1237,17 @@ void cmGlobalGenerator::CheckCompilerIdCompatibility(
         // OLD behavior is to convert LCC to GNU.
         mf->AddDefinition(compilerIdVar, "GNU");
         if (lang == "C") {
-          mf->AddDefinition("CMAKE_COMPILER_IS_GNUCC", "1");
+          mf->AddDefinition("RBLXBUILD_COMPILER_IS_GNUCC", "1");
         } else if (lang == "CXX") {
-          mf->AddDefinition("CMAKE_COMPILER_IS_GNUCXX", "1");
+          mf->AddDefinition("RBLXBUILD_COMPILER_IS_GNUCXX", "1");
         } else if (lang == "Fortran") {
-          mf->AddDefinition("CMAKE_COMPILER_IS_GNUG77", "1");
+          mf->AddDefinition("RBLXBUILD_COMPILER_IS_GNUG77", "1");
         }
         {
           // Fix compiler versions.
-          std::string version = cmStrCat("CMAKE_", lang, "_COMPILER_VERSION");
-          std::string emulated = cmStrCat("CMAKE_", lang, "_SIMULATE_VERSION");
-          std::string emulatedId = cmStrCat("CMAKE_", lang, "_SIMULATE_ID");
+          std::string version = cmStrCat("RBLXBUILD_", lang, "_COMPILER_VERSION");
+          std::string emulated = cmStrCat("RBLXBUILD_", lang, "_SIMULATE_VERSION");
+          std::string emulatedId = cmStrCat("RBLXBUILD_", lang, "_SIMULATE_ID");
           std::string const& actual = mf->GetRequiredDefinition(emulated);
           mf->AddDefinition(version, actual);
           mf->RemoveDefinition(emulatedId);
@@ -1332,13 +1332,13 @@ cm::string_view cmGlobalGenerator::GetLanguageFromExtension(
 /* SetLanguageEnabled() is now split in two parts:
 at first the enabled-flag is set. This can then be used in EnabledLanguage()
 for checking whether the language is already enabled. After setting this
-flag still the values from the cmake variables have to be copied into the
+flag still the values from the rblxbuild variables have to be copied into the
 internal maps, this is done in SetLanguageEnabledMaps() which is called
 after the system- and compiler specific files have been loaded.
 
 This split was done originally so that compiler-specific configuration
 files could change the object file extension
-(CMAKE_<LANG>_OUTPUT_EXTENSION) before the CMake variables were copied
+(RBLXBUILD_<LANG>_OUTPUT_EXTENSION) before the RBLXBuild variables were copied
 to the C++ maps.
 */
 void cmGlobalGenerator::SetLanguageEnabled(std::string const& l,
@@ -1351,7 +1351,7 @@ void cmGlobalGenerator::SetLanguageEnabled(std::string const& l,
 void cmGlobalGenerator::SetLanguageEnabledFlag(std::string const& l,
                                                cmMakefile* mf)
 {
-  this->CMakeInstance->GetState()->SetLanguageEnabled(l);
+  this->RBLXBuildInstance->GetState()->SetLanguageEnabled(l);
 
   // Fill the language-to-extension map with the current variable
   // settings to make sure it is available for the try_compile()
@@ -1370,7 +1370,7 @@ void cmGlobalGenerator::SetLanguageEnabledMaps(std::string const& l,
     return;
   }
 
-  std::string linkerPrefVar = cmStrCat("CMAKE_", l, "_LINKER_PREFERENCE");
+  std::string linkerPrefVar = cmStrCat("RBLXBUILD_", l, "_LINKER_PREFERENCE");
   cmValue linkerPref = mf->GetDefinition(linkerPrefVar);
   int preference = 0;
   if (cmNonempty(linkerPref)) {
@@ -1396,7 +1396,7 @@ void cmGlobalGenerator::SetLanguageEnabledMaps(std::string const& l,
 
   this->LanguageToLinkerPreference[l] = preference;
 
-  std::string outputExtensionVar = cmStrCat("CMAKE_", l, "_OUTPUT_EXTENSION");
+  std::string outputExtensionVar = cmStrCat("RBLXBUILD_", l, "_OUTPUT_EXTENSION");
   if (cmValue p = mf->GetDefinition(outputExtensionVar)) {
     std::string outputExtension = *p;
     this->LanguageToOutputExtension[l] = outputExtension;
@@ -1409,11 +1409,11 @@ void cmGlobalGenerator::SetLanguageEnabledMaps(std::string const& l,
 
   if (l == "Rust") {
     std::string const emitValues =
-      mf->GetSafeDefinition("CMAKE_Rust_EMIT_VALUES");
+      mf->GetSafeDefinition("RBLXBUILD_Rust_EMIT_VALUES");
     cmList emitList{ emitValues };
     for (std::string const& v : emitList) {
       std::string emitOutputExtension =
-        cmStrCat("CMAKE_Rust_EMIT_", v, "_OUTPUT_EXTENSION");
+        cmStrCat("RBLXBUILD_Rust_EMIT_", v, "_OUTPUT_EXTENSION");
       if (cmValue outputExtension = mf->GetDefinition(emitOutputExtension)) {
         this->RustEmitToOutputExtension[v] = outputExtension;
       }
@@ -1426,7 +1426,7 @@ void cmGlobalGenerator::SetLanguageEnabledMaps(std::string const& l,
   this->FillExtensionToLanguageMap(l, mf);
 
   std::string ignoreExtensionsVar =
-    cmStrCat("CMAKE_", l, "_IGNORE_EXTENSIONS");
+    cmStrCat("RBLXBUILD_", l, "_IGNORE_EXTENSIONS");
   std::string ignoreExts = mf->GetSafeDefinition(ignoreExtensionsVar);
   cmList extensionList{ ignoreExts };
   for (std::string const& i : extensionList) {
@@ -1437,7 +1437,7 @@ void cmGlobalGenerator::SetLanguageEnabledMaps(std::string const& l,
 void cmGlobalGenerator::FillExtensionToLanguageMap(std::string const& l,
                                                    cmMakefile* mf)
 {
-  std::string extensionsVar = cmStrCat("CMAKE_", l, "_SOURCE_FILE_EXTENSIONS");
+  std::string extensionsVar = cmStrCat("RBLXBUILD_", l, "_SOURCE_FILE_EXTENSIONS");
   std::string const& exts = mf->GetSafeDefinition(extensionsVar);
   cmList extensionList{ exts };
   for (std::string const& i : extensionList) {
@@ -1474,12 +1474,12 @@ bool cmGlobalGenerator::IgnoreFile(cm::string_view ext) const
 
 bool cmGlobalGenerator::GetLanguageEnabled(std::string const& l) const
 {
-  return this->CMakeInstance->GetState()->GetLanguageEnabled(l);
+  return this->RBLXBuildInstance->GetState()->GetLanguageEnabled(l);
 }
 
 void cmGlobalGenerator::ClearEnabledLanguages()
 {
-  this->CMakeInstance->GetState()->ClearEnabledLanguages();
+  this->RBLXBuildInstance->GetState()->ClearEnabledLanguages();
 }
 
 void cmGlobalGenerator::CreateLocalGenerators()
@@ -1500,12 +1500,12 @@ void cmGlobalGenerator::Configure()
   this->ClearGeneratorMembers();
   this->NextDeferId = 0;
 
-  cmStateSnapshot snapshot = this->CMakeInstance->GetCurrentSnapshot();
+  cmStateSnapshot snapshot = this->RBLXBuildInstance->GetCurrentSnapshot();
 
   snapshot.GetDirectory().SetCurrentSource(
-    this->CMakeInstance->GetHomeDirectory());
+    this->RBLXBuildInstance->GetHomeDirectory());
   snapshot.GetDirectory().SetCurrentBinary(
-    this->CMakeInstance->GetHomeOutputDirectory());
+    this->RBLXBuildInstance->GetHomeOutputDirectory());
 
   auto dirMfu = cm::make_unique<cmMakefile>(this, snapshot);
   auto* dirMf = dirMfu.get();
@@ -1514,16 +1514,16 @@ void cmGlobalGenerator::Configure()
   this->IndexMakefile(dirMf);
 
   this->BinaryDirectories.insert(
-    this->CMakeInstance->GetHomeOutputDirectory());
+    this->RBLXBuildInstance->GetHomeOutputDirectory());
 
-  if (this->ExtraGenerator && !this->CMakeInstance->GetIsInTryCompile()) {
-    this->CMakeInstance->IssueMessage(
+  if (this->ExtraGenerator && !this->RBLXBuildInstance->GetIsInTryCompile()) {
+    this->RBLXBuildInstance->IssueMessage(
       MessageType::WARNING,
       cmStrCat("Support for \"Extra Generators\" like\n  ",
                this->ExtraGenerator->GetName(),
                "\nis deprecated and will be removed from a future version "
-               "of CMake.  IDEs may use the cmake-file-api(7) to view "
-               "CMake-generated project build trees."));
+               "of RBLXBuild.  IDEs may use the rblxbuild-file-api(7) to view "
+               "RBLXBuild-generated project build trees."));
   }
 
   // now do it
@@ -1548,8 +1548,8 @@ void cmGlobalGenerator::Configure()
 
   // update the cache entry for the number of local generators, this is used
   // for progress
-  this->GetCMakeInstance()->AddCacheEntry(
-    "CMAKE_NUMBER_OF_MAKEFILES", std::to_string(this->Makefiles.size()),
+  this->GetRBLXBuildInstance()->AddCacheEntry(
+    "RBLXBUILD_NUMBER_OF_MAKEFILES", std::to_string(this->Makefiles.size()),
     "number of local generators", cmStateEnums::INTERNAL);
 }
 
@@ -1612,7 +1612,7 @@ bool cmGlobalGenerator::ShouldWarnCMP0210(std::string const& lang)
 bool cmGlobalGenerator::CheckALLOW_DUPLICATE_CUSTOM_TARGETS() const
 {
   // If the property is not enabled then okay.
-  if (!this->CMakeInstance->GetState()->GetGlobalPropertyAsBool(
+  if (!this->RBLXBuildInstance->GetState()->GetGlobalPropertyAsBool(
         "ALLOW_DUPLICATE_CUSTOM_TARGETS")) {
     return true;
   }
@@ -1637,7 +1637,7 @@ void cmGlobalGenerator::ComputeBuildFileGenerators()
     for (auto const& g : this->Makefiles[i]->GetExportBuildFileGenerators()) {
       g->Compute(lg);
     }
-#ifndef CMAKE_BOOTSTRAP
+#ifndef RBLXBUILD_BOOTSTRAP
     for (auto const& g : this->Makefiles[i]->GetBuildSbomGenerators()) {
       g->Compute(lg);
     }
@@ -1649,7 +1649,7 @@ bool cmGlobalGenerator::UnsupportedVariableIsDefined(std::string const& name,
                                                      bool supported) const
 {
   if (!supported && this->Makefiles.front()->GetDefinition(name)) {
-    this->GetCMakeInstance()->IssueMessage(
+    this->GetRBLXBuildInstance()->IssueMessage(
       MessageType::FATAL_ERROR,
       cmStrCat("Generator\n"
                "  ",
@@ -1669,15 +1669,15 @@ bool cmGlobalGenerator::UnsupportedVariableIsDefined(std::string const& name,
 bool cmGlobalGenerator::Compute()
 {
   // Make sure unsupported variables are not used.
-  if (this->UnsupportedVariableIsDefined("CMAKE_DEFAULT_BUILD_TYPE",
+  if (this->UnsupportedVariableIsDefined("RBLXBUILD_DEFAULT_BUILD_TYPE",
                                          this->SupportsDefaultBuildType())) {
     return false;
   }
-  if (this->UnsupportedVariableIsDefined("CMAKE_CROSS_CONFIGS",
+  if (this->UnsupportedVariableIsDefined("RBLXBUILD_CROSS_CONFIGS",
                                          this->SupportsCrossConfigs())) {
     return false;
   }
-  if (this->UnsupportedVariableIsDefined("CMAKE_DEFAULT_CONFIGS",
+  if (this->UnsupportedVariableIsDefined("RBLXBUILD_DEFAULT_CONFIGS",
                                          this->SupportsDefaultConfigs())) {
     return false;
   }
@@ -1685,30 +1685,30 @@ bool cmGlobalGenerator::Compute()
     return false;
   }
 
-  if (cmValue v = this->CMakeInstance->GetCacheDefinition(
-        "CMAKE_INTERMEDIATE_DIR_STRATEGY")) {
-    this->GetCMakeInstance()->MarkCliAsUsed("CMAKE_INTERMEDIATE_DIR_STRATEGY");
+  if (cmValue v = this->RBLXBuildInstance->GetCacheDefinition(
+        "RBLXBUILD_INTERMEDIATE_DIR_STRATEGY")) {
+    this->GetRBLXBuildInstance()->MarkCliAsUsed("RBLXBUILD_INTERMEDIATE_DIR_STRATEGY");
     if (*v == "FULL") {
       this->IntDirStrategy = IntermediateDirStrategy::Full;
     } else if (*v == "SHORT") {
       this->IntDirStrategy = IntermediateDirStrategy::Short;
     } else {
-      this->GetCMakeInstance()->IssueMessage(
+      this->GetRBLXBuildInstance()->IssueMessage(
         MessageType::FATAL_ERROR,
         cmStrCat("Unsupported intermediate directory strategy '", *v, '\''));
       return false;
     }
   }
-  if (cmValue v = this->CMakeInstance->GetCacheDefinition(
-        "CMAKE_AUTOGEN_INTERMEDIATE_DIR_STRATEGY")) {
-    this->GetCMakeInstance()->MarkCliAsUsed(
-      "CMAKE_AUTOGEN_INTERMEDIATE_DIR_STRATEGY");
+  if (cmValue v = this->RBLXBuildInstance->GetCacheDefinition(
+        "RBLXBUILD_AUTOGEN_INTERMEDIATE_DIR_STRATEGY")) {
+    this->GetRBLXBuildInstance()->MarkCliAsUsed(
+      "RBLXBUILD_AUTOGEN_INTERMEDIATE_DIR_STRATEGY");
     if (*v == "FULL") {
       this->QtAutogenIntDirStrategy = IntermediateDirStrategy::Full;
     } else if (*v == "SHORT") {
       this->QtAutogenIntDirStrategy = IntermediateDirStrategy::Short;
     } else {
-      this->GetCMakeInstance()->IssueMessage(
+      this->GetRBLXBuildInstance()->IssueMessage(
         MessageType::FATAL_ERROR,
         cmStrCat("Unsupported autogen intermediate directory strategy '", *v,
                  '\''));
@@ -1749,7 +1749,7 @@ bool cmGlobalGenerator::Compute()
     return false;
   }
 
-#ifndef CMAKE_BOOTSTRAP
+#ifndef RBLXBUILD_BOOTSTRAP
   this->QtAutoGen =
     cm::make_unique<cmQtAutoGenGlobalInitializer>(this->LocalGenerators);
   if (!this->QtAutoGen->InitializeCustomTargets()) {
@@ -1770,7 +1770,7 @@ bool cmGlobalGenerator::Compute()
     }
   }
 
-  // We now have all targets set up. Add the `@cmake_cxx_std` target as a link
+  // We now have all targets set up. Add the `@rblxbuild_cxx_std` target as a link
   // dependency to all targets which need it.
   //
   // Synthetic targets performed this inside of
@@ -1818,19 +1818,19 @@ bool cmGlobalGenerator::Compute()
     return false;
   }
 
-#ifndef CMAKE_BOOTSTRAP
+#ifndef RBLXBUILD_BOOTSTRAP
   bool isTryCompile = this->GetGlobalSetting("IN_TRY_COMPILE").IsOn();
 
   // Automatically generate one SBOM per export set not already tied to an
   // explicit install(SBOM) call.
-  cmValue sbomFormat = this->GetGlobalSetting("CMAKE_INSTALL_SBOM_FORMATS");
+  cmValue sbomFormat = this->GetGlobalSetting("RBLXBUILD_INSTALL_SBOM_FORMATS");
   if (sbomFormat.IsSet() && !isTryCompile) {
     cmSbomArguments formatArgs;
     formatArgs.Format = *sbomFormat;
     if (formatArgs.GetFormat() == cmSbomArguments::SbomFormat::NONE) {
       this->Makefiles[0]->IssueMessage(
         MessageType::FATAL_ERROR,
-        cmStrCat("CMAKE_INSTALL_SBOM_FORMATS given invalid format \"",
+        cmStrCat("RBLXBUILD_INSTALL_SBOM_FORMATS given invalid format \"",
                  *sbomFormat, "\"."));
       return false;
     }
@@ -1885,7 +1885,7 @@ bool cmGlobalGenerator::Compute()
 
   this->AddExtraIDETargets();
 
-#ifndef CMAKE_BOOTSTRAP
+#ifndef RBLXBUILD_BOOTSTRAP
   for (auto const& localGen : this->LocalGenerators) {
     localGen->ResolveSourceGroupGenex();
   }
@@ -1942,12 +1942,12 @@ void cmGlobalGenerator::Generate()
 
   this->ProcessEvaluationFiles();
 
-  this->CMakeInstance->UpdateProgress("Generating", 0.1f);
+  this->RBLXBuildInstance->UpdateProgress("Generating", 0.1f);
 
-#ifndef CMAKE_BOOTSTRAP
+#ifndef RBLXBUILD_BOOTSTRAP
   if (!this->QtAutoGen->SetupCustomTargets()) {
     if (!cmSystemTools::GetErrorOccurredFlag()) {
-      this->GetCMakeInstance()->IssueMessage(
+      this->GetRBLXBuildInstance()->IssueMessage(
         MessageType::FATAL_ERROR,
         "Problem setting up custom targets for QtAutoGen");
     }
@@ -1960,11 +1960,11 @@ void cmGlobalGenerator::Generate()
     this->SetCurrentMakefile(this->LocalGenerators[i]->GetMakefile());
     this->LocalGenerators[i]->Generate();
     if (!this->LocalGenerators[i]->GetMakefile()->IsOn(
-          "CMAKE_SKIP_INSTALL_RULES")) {
+          "RBLXBUILD_SKIP_INSTALL_RULES")) {
       this->LocalGenerators[i]->GenerateInstallRules();
     }
     this->LocalGenerators[i]->GenerateTestFiles();
-    this->CMakeInstance->UpdateProgress(
+    this->RBLXBuildInstance->UpdateProgress(
       "Generating",
       0.1f +
         0.9f * (static_cast<float>(i) + 1.0f) /
@@ -1973,27 +1973,27 @@ void cmGlobalGenerator::Generate()
   this->SetCurrentMakefile(nullptr);
 
   if (!this->GenerateCPackPropertiesFile()) {
-    this->GetCMakeInstance()->IssueMessage(
+    this->GetRBLXBuildInstance()->IssueMessage(
       MessageType::FATAL_ERROR, "Could not write CPack properties file.");
   }
 
   for (auto& buildExpSet : this->BuildExportSets) {
     if (!buildExpSet.second->GenerateImportFile()) {
       if (!cmSystemTools::GetErrorOccurredFlag()) {
-        this->GetCMakeInstance()->IssueMessage(MessageType::FATAL_ERROR,
+        this->GetRBLXBuildInstance()->IssueMessage(MessageType::FATAL_ERROR,
                                                "Could not write export file.");
       }
       return;
     }
   }
-#ifndef CMAKE_BOOTSTRAP
+#ifndef RBLXBUILD_BOOTSTRAP
 
   for (auto& sbomGen : this->BuildSbomGenerators) {
     for (std::string const& c : this->Makefiles[0]->GetGeneratorConfigs(
            cmMakefile::IncludeEmptyConfig)) {
       if (!sbomGen->GenerateForBuild(c)) {
         if (!cmSystemTools::GetErrorOccurredFlag()) {
-          this->GetCMakeInstance()->IssueMessage(MessageType::FATAL_ERROR,
+          this->GetRBLXBuildInstance()->IssueMessage(MessageType::FATAL_ERROR,
                                                  "Could not write SBOM file.");
         }
         return;
@@ -2014,11 +2014,11 @@ void cmGlobalGenerator::Generate()
   this->CheckTargetLinkLibraries();
 
   if (!this->CMP0068WarnTargets.empty()) {
-    this->GetCMakeInstance()->IssueDiagnostic(
+    this->GetRBLXBuildInstance()->IssueDiagnostic(
       cmDiagnostics::CMD_POLICY,
       cmStrCat(cmPolicies::GetPolicyWarning(cmPolicies::CMP0068),
                "\n"
-               "For compatibility with older versions of CMake, the "
+               "For compatibility with older versions of RBLXBuild, the "
                "install_name "
                "fields for the following targets are still affected by RPATH "
                "settings:\n",
@@ -2026,18 +2026,18 @@ void cmGlobalGenerator::Generate()
   }
 
   if (!this->CMP0224WarnTests.empty()) {
-    this->GetCMakeInstance()->IssueDiagnostic(
+    this->GetRBLXBuildInstance()->IssueDiagnostic(
       cmDiagnostics::CMD_POLICY,
       cmStrCat(
         cmPolicies::GetPolicyWarning(cmPolicies::CMP0224),
         "\n"
-        "For compatibility with older versions of CMake, the fixtures of the "
+        "For compatibility with older versions of RBLXBuild, the fixtures of the "
         "following tests will use EACH_TEST_SEPARATELY mode:\n",
         cmWrap(" ", this->CMP0224WarnTests, "\n", "")));
   }
 }
 
-#if !defined(CMAKE_BOOTSTRAP)
+#if !defined(RBLXBUILD_BOOTSTRAP)
 void cmGlobalGenerator::WriteJsonContent(std::string const& path,
                                          Json::Value const& value) const
 {
@@ -2055,7 +2055,7 @@ void cmGlobalGenerator::WriteInstallJson() const
     index["InstallScripts"].append(file);
   }
   index["Parallel"] =
-    this->GetCMakeInstance()->GetState()->GetGlobalPropertyAsBool(
+    this->GetRBLXBuildInstance()->GetState()->GetGlobalPropertyAsBool(
       "INSTALL_PARALLEL");
   if (this->SupportsDefaultConfigs()) {
     index["Configs"] = Json::arrayValue;
@@ -2064,8 +2064,8 @@ void cmGlobalGenerator::WriteInstallJson() const
     }
   }
   this->WriteJsonContent(
-    cmStrCat(this->CMakeInstance->GetHomeOutputDirectory(),
-             "/CMakeFiles/InstallScripts.json"),
+    cmStrCat(this->RBLXBuildInstance->GetHomeOutputDirectory(),
+             "/RBLXBuildFiles/InstallScripts.json"),
     index);
 }
 #endif
@@ -2128,10 +2128,10 @@ void cmGlobalGenerator::ComputeTargetOrder(cmGeneratorTarget const* gt,
 bool cmGlobalGenerator::ApplyCXXStdTarget()
 {
   for (auto const& gen : this->LocalGenerators) {
-    // @cmake_cxx_std is added to OwnedImportedGeneratorTargets during
+    // @rblxbuild_cxx_std is added to OwnedImportedGeneratorTargets during
     // iteration. If it doesn't exist yet, copy the list to protect against
     // invalidation when CreateCxxStdlibTarget adds it.
-    if (gen->GetMakefile()->FindTargetToUse("@cmake_cxx_std")) {
+    if (gen->GetMakefile()->FindTargetToUse("@rblxbuild_cxx_std")) {
       for (auto const& tgt : gen->GetOwnedImportedGeneratorTargets()) {
         if (!tgt->ApplyCXXStdTarget()) {
           return false;
@@ -2162,7 +2162,7 @@ bool cmGlobalGenerator::ApplyCXXStdTarget()
 
 void cmGlobalGenerator::WriteCxxImportErrorModules()
 {
-#ifndef CMAKE_BOOTSTRAP
+#ifndef RBLXBUILD_BOOTSTRAP
   for (auto const& gen : this->LocalGenerators) {
     for (auto const& tgt : gen->GetOwnedImportedGeneratorTargets()) {
       auto errorMsg = tgt->Target->GetProperty("CXX_IMPORT_ERROR_MESSAGE");
@@ -2344,7 +2344,7 @@ cmGlobalGenerator::CreateMSVC60LinkLineComputer(
 void cmGlobalGenerator::FinalizeTargetConfiguration()
 {
   std::vector<std::string> const langs =
-    this->CMakeInstance->GetState()->GetEnabledLanguages();
+    this->RBLXBuildInstance->GetState()->GetEnabledLanguages();
 
   // Construct per-target generator information.
   for (auto const& mf : this->Makefiles) {
@@ -2360,7 +2360,7 @@ void cmGlobalGenerator::FinalizeTargetConfiguration()
     std::set<std::string> standardIncludesSet;
     for (std::string const& li : langs) {
       std::string const standardIncludesVar =
-        cmStrCat("CMAKE_", li, "_STANDARD_INCLUDE_DIRECTORIES");
+        cmStrCat("RBLXBUILD_", li, "_STANDARD_INCLUDE_DIRECTORIES");
       std::string const& standardIncludesStr =
         mf->GetSafeDefinition(standardIncludesVar);
       cmList standardIncludesList{ standardIncludesStr };
@@ -2650,7 +2650,7 @@ void cmGlobalGenerator::CheckTargetProperties()
   // check for link libraries and include directories containing "NOTFOUND"
   // and for infinite loops
   std::map<std::string, std::string> notFoundMap;
-  cmState* state = this->GetCMakeInstance()->GetState();
+  cmState* state = this->GetRBLXBuildInstance()->GetState();
   for (unsigned int i = 0; i < this->Makefiles.size(); ++i) {
     this->Makefiles[i]->Generate(*this->LocalGenerators[i]);
     for (auto const& target : this->Makefiles[i]->GetTargets()) {
@@ -2706,7 +2706,7 @@ void cmGlobalGenerator::CheckTargetProperties()
       cmStrCat("The following variables are used in this project, "
                "but they are set to NOTFOUND.\n"
                "Please set them or make sure they are set and "
-               "tested correctly in the CMake files:\n",
+               "tested correctly in the RBLXBuild files:\n",
                notFoundVars));
   }
 }
@@ -2726,9 +2726,9 @@ int cmGlobalGenerator::TryCompile(int jobs, std::string const& bindir,
   // and there is a good chance that the try compile stuff will
   // take the bulk of the time, so try and guess some progress
   // by getting closer and closer to 100 without actually getting there.
-  if (!this->CMakeInstance->GetState()->GetInitializedCacheValue(
-        "CMAKE_NUMBER_OF_MAKEFILES")) {
-    // If CMAKE_NUMBER_OF_MAKEFILES is not set
+  if (!this->RBLXBuildInstance->GetState()->GetInitializedCacheValue(
+        "RBLXBUILD_NUMBER_OF_MAKEFILES")) {
+    // If RBLXBUILD_NUMBER_OF_MAKEFILES is not set
     // we are in the first time progress and we have no
     // idea how long it will be.  So, just move 1/10th of the way
     // there each time, and don't go over 95%
@@ -2736,7 +2736,7 @@ int cmGlobalGenerator::TryCompile(int jobs, std::string const& bindir,
     if (this->FirstTimeProgress > 0.95f) {
       this->FirstTimeProgress = 0.95f;
     }
-    this->CMakeInstance->UpdateProgress("Configuring",
+    this->RBLXBuildInstance->UpdateProgress("Configuring",
                                         this->FirstTimeProgress);
   }
 
@@ -2745,7 +2745,7 @@ int cmGlobalGenerator::TryCompile(int jobs, std::string const& bindir,
     newTarget = { target };
   }
   std::string config =
-    mf->GetSafeDefinition("CMAKE_TRY_COMPILE_CONFIGURATION");
+    mf->GetSafeDefinition("RBLXBUILD_TRY_COMPILE_CONFIGURATION");
   cmBuildOptions defaultBuildOptions(false, fast, PackageResolveMode::Disable);
 
   std::stringstream ostr;
@@ -2826,7 +2826,7 @@ int cmGlobalGenerator::Build(cmBuildArgs const& buildArgs,
     ostr << "\nRun Clean Command: " << cleanCommand.front().QuotedPrintable()
          << std::endl;
     if (cleanCommand.size() != 1) {
-      this->GetCMakeInstance()->IssueMessage(MessageType::INTERNAL_ERROR,
+      this->GetRBLXBuildInstance()->IssueMessage(MessageType::INTERNAL_ERROR,
                                              "The generator did not produce "
                                              "exactly one command for the "
                                              "'clean' target");
@@ -2848,7 +2848,7 @@ int cmGlobalGenerator::Build(cmBuildArgs const& buildArgs,
   // now build
   std::string makeCommandStr;
   std::string outputMakeCommandStr;
-  bool isWatcomWMake = this->CMakeInstance->GetState()->UseWatcomWMake();
+  bool isWatcomWMake = this->RBLXBuildInstance->GetState()->UseWatcomWMake();
   bool needBuildOutput = isWatcomWMake;
   std::string buildOutput;
   ostr << "\nRun Build Command(s): ";
@@ -2905,11 +2905,11 @@ bool cmGlobalGenerator::Open(std::string const& bindir,
   return false;
 }
 
-std::string cmGlobalGenerator::GenerateCMakeBuildCommand(
+std::string cmGlobalGenerator::GenerateRBLXBuildBuildCommand(
   std::string const& target, std::string const& config,
   std::string const& parallel, std::string const& native, bool ignoreErrors)
 {
-  std::string makeCommand = cmSystemTools::GetCMakeCommand();
+  std::string makeCommand = cmSystemTools::GetRBLXBuildCommand();
   makeCommand =
     cmStrCat(cmSystemTools::ConvertToOutputPath(makeCommand), " --build .");
   if (!config.empty()) {
@@ -2945,11 +2945,11 @@ void cmGlobalGenerator::AddMakefile(std::unique_ptr<cmMakefile> mf)
 
   // update progress
   // estimate how many lg there will be
-  cmValue numGenC = this->CMakeInstance->GetState()->GetInitializedCacheValue(
-    "CMAKE_NUMBER_OF_MAKEFILES");
+  cmValue numGenC = this->RBLXBuildInstance->GetState()->GetInitializedCacheValue(
+    "RBLXBUILD_NUMBER_OF_MAKEFILES");
 
   if (!numGenC) {
-    // If CMAKE_NUMBER_OF_MAKEFILES is not set
+    // If RBLXBUILD_NUMBER_OF_MAKEFILES is not set
     // we are in the first time progress and we have no
     // idea how long it will be.  So, just move half way
     // there each time, and don't go over 95%
@@ -2957,7 +2957,7 @@ void cmGlobalGenerator::AddMakefile(std::unique_ptr<cmMakefile> mf)
     if (this->FirstTimeProgress > 0.95f) {
       this->FirstTimeProgress = 0.95f;
     }
-    this->CMakeInstance->UpdateProgress("Configuring",
+    this->RBLXBuildInstance->UpdateProgress("Configuring",
                                         this->FirstTimeProgress);
     return;
   }
@@ -2968,7 +2968,7 @@ void cmGlobalGenerator::AddMakefile(std::unique_ptr<cmMakefile> mf)
   if (prog > 1.0f) {
     prog = 1.0f;
   }
-  this->CMakeInstance->UpdateProgress("Configuring", prog);
+  this->RBLXBuildInstance->UpdateProgress("Configuring", prog);
 }
 
 void cmGlobalGenerator::AddInstallComponent(std::string const& component)
@@ -3004,9 +3004,9 @@ void cmGlobalGenerator::SetupTryCompile(cmGlobalGenerator* gen, cmMakefile* mf)
   this->SetConfiguredFilesPath(gen);
   this->TryCompileOuterMakefile = mf;
   cmValue make =
-    gen->GetCMakeInstance()->GetCacheDefinition("CMAKE_MAKE_PROGRAM");
-  this->GetCMakeInstance()->AddCacheEntry(
-    "CMAKE_MAKE_PROGRAM", make, "make program", cmStateEnums::FILEPATH);
+    gen->GetRBLXBuildInstance()->GetCacheDefinition("RBLXBUILD_MAKE_PROGRAM");
+  this->GetRBLXBuildInstance()->AddCacheEntry(
+    "RBLXBUILD_MAKE_PROGRAM", make, "make program", cmStateEnums::FILEPATH);
   this->LanguagesReadyForTryCompile = gen->LanguagesReadyForTryCompile;
 }
 
@@ -3016,7 +3016,7 @@ void cmGlobalGenerator::SetConfiguredFilesPath(cmGlobalGenerator* gen)
     this->ConfiguredFilesPath = gen->ConfiguredFilesPath;
   } else {
     this->ConfiguredFilesPath =
-      cmStrCat(gen->CMakeInstance->GetHomeOutputDirectory(), "/CMakeFiles");
+      cmStrCat(gen->RBLXBuildInstance->GetHomeOutputDirectory(), "/RBLXBuildFiles");
   }
 }
 
@@ -3093,7 +3093,7 @@ bool cmGlobalGenerator::IsExcluded(cmLocalGenerator const* root,
 void cmGlobalGenerator::GetEnabledLanguages(
   std::vector<std::string>& lang) const
 {
-  lang = this->CMakeInstance->GetState()->GetEnabledLanguages();
+  lang = this->RBLXBuildInstance->GetState()->GetEnabledLanguages();
 }
 
 int cmGlobalGenerator::GetLinkerPreference(std::string const& lang) const
@@ -3600,8 +3600,8 @@ bool cmGlobalGenerator::CheckInstallPrepGeneratedFile(
 bool cmGlobalGenerator::AreInstallPrepTargetsEnabled() const
 {
   return !this->Makefiles.empty() && this->InstallTargetEnabled &&
-    !this->Makefiles.front()->IsOn("CMAKE_SKIP_INSTALL_PREP_TARGETS") &&
-    !this->Makefiles.front()->IsOn("CMAKE_SKIP_INSTALL_RULES");
+    !this->Makefiles.front()->IsOn("RBLXBUILD_SKIP_INSTALL_PREP_TARGETS") &&
+    !this->Makefiles.front()->IsOn("RBLXBUILD_SKIP_INSTALL_RULES");
 }
 
 // If the file has no extension it's either a raw executable or might
@@ -3656,7 +3656,7 @@ cmGlobalGenerator::SplitFrameworkPath(std::string const& path,
 }
 
 namespace {
-void IssueReservedTargetNameError(cmake* cm, cmTarget* tgt,
+void IssueReservedTargetNameError(rblxbuild* cm, cmTarget* tgt,
                                   std::string const& targetNameAsWritten,
                                   std::string const& reason)
 {
@@ -3674,7 +3674,7 @@ bool cmGlobalGenerator::CheckReservedTargetName(
   if (!tgt) {
     return true;
   }
-  IssueReservedTargetNameError(this->GetCMakeInstance(), tgt, targetName,
+  IssueReservedTargetNameError(this->GetRBLXBuildInstance(), tgt, targetName,
                                reason);
   return false;
 }
@@ -3685,7 +3685,7 @@ bool cmGlobalGenerator::CheckReservedTargetNamePrefix(
   bool ret = true;
   for (auto const& tgtPair : this->TargetSearchIndex) {
     if (cmHasPrefix(tgtPair.first, targetPrefix)) {
-      IssueReservedTargetNameError(this->GetCMakeInstance(), tgtPair.second,
+      IssueReservedTargetNameError(this->GetRBLXBuildInstance(), tgtPair.second,
                                    tgtPair.first, reason);
       ret = false;
     }
@@ -3709,7 +3709,7 @@ void cmGlobalGenerator::AddGlobalTarget_Package(
 {
   auto& mf = this->Makefiles[0];
   std::string configFile =
-    cmStrCat(mf->GetCurrentBinaryDirectory(), "/CPackConfig.cmake");
+    cmStrCat(mf->GetCurrentBinaryDirectory(), "/CPackConfig.rblxbuild");
   if (!cmSystemTools::FileExists(configFile)) {
     return;
   }
@@ -3722,7 +3722,7 @@ void cmGlobalGenerator::AddGlobalTarget_Package(
     }
   }
 
-  char const* cmakeCfgIntDir = this->GetCMakeCFGIntDir();
+  char const* rblxbuildCfgIntDir = this->GetRBLXBuildCFGIntDir();
   GlobalTargetInfo gti;
   gti.Name = this->GetPackageTargetName();
   gti.Message = "Run CPack packaging tool...";
@@ -3730,18 +3730,18 @@ void cmGlobalGenerator::AddGlobalTarget_Package(
   gti.WorkingDir = mf->GetCurrentBinaryDirectory();
   cmCustomCommandLine singleLine;
   singleLine.emplace_back(cmSystemTools::GetCPackCommand());
-  if (cmNonempty(cmakeCfgIntDir) && cmakeCfgIntDir[0] != '.') {
+  if (cmNonempty(rblxbuildCfgIntDir) && rblxbuildCfgIntDir[0] != '.') {
     singleLine.emplace_back("-C");
-    singleLine.emplace_back(cmakeCfgIntDir);
+    singleLine.emplace_back(rblxbuildCfgIntDir);
   }
   singleLine.emplace_back("--config");
-  singleLine.emplace_back("./CPackConfig.cmake");
+  singleLine.emplace_back("./CPackConfig.rblxbuild");
   gti.CommandLines.emplace_back(std::move(singleLine));
   if (this->GetPreinstallTargetName()) {
     gti.Depends.emplace_back(this->GetPreinstallTargetName());
   } else {
     cmValue noPackageAll =
-      mf->GetDefinition("CMAKE_SKIP_PACKAGE_ALL_DEPENDENCY");
+      mf->GetDefinition("RBLXBUILD_SKIP_PACKAGE_ALL_DEPENDENCY");
     if (noPackageAll.IsOff()) {
       gti.Depends.emplace_back(this->GetAllTargetName());
     }
@@ -3759,7 +3759,7 @@ void cmGlobalGenerator::AddGlobalTarget_PackageSource(
 
   auto& mf = this->Makefiles[0];
   std::string configFile =
-    cmStrCat(mf->GetCurrentBinaryDirectory(), "/CPackSourceConfig.cmake");
+    cmStrCat(mf->GetCurrentBinaryDirectory(), "/CPackSourceConfig.rblxbuild");
   if (!cmSystemTools::FileExists(configFile)) {
     return;
   }
@@ -3780,7 +3780,7 @@ void cmGlobalGenerator::AddGlobalTarget_PackageSource(
   cmCustomCommandLine singleLine;
   singleLine.emplace_back(cmSystemTools::GetCPackCommand());
   singleLine.emplace_back("--config");
-  singleLine.emplace_back("./CPackSourceConfig.cmake");
+  singleLine.emplace_back("./CPackSourceConfig.rblxbuild");
   gti.CommandLines.emplace_back(std::move(singleLine));
   targets.emplace_back(std::move(gti));
 }
@@ -3789,7 +3789,7 @@ void cmGlobalGenerator::AddGlobalTarget_Test(
   std::vector<GlobalTargetInfo>& targets)
 {
   auto& mf = this->Makefiles[0];
-  if (!mf->IsOn("CMAKE_TESTING_ENABLED")) {
+  if (!mf->IsOn("RBLXBUILD_TESTING_ENABLED")) {
     return;
   }
 
@@ -3801,28 +3801,28 @@ void cmGlobalGenerator::AddGlobalTarget_Test(
     }
   }
 
-  char const* cmakeCfgIntDir = this->GetCMakeCFGIntDir();
+  char const* rblxbuildCfgIntDir = this->GetRBLXBuildCFGIntDir();
   GlobalTargetInfo gti;
   gti.Name = this->GetTestTargetName();
   gti.Message = "Running tests...";
   gti.UsesTerminal = true;
   // Unlike the 'install' target, the 'test' target does not depend on 'all'
-  // by default.  Enable it only if CMAKE_SKIP_TEST_ALL_DEPENDENCY is
+  // by default.  Enable it only if RBLXBUILD_SKIP_TEST_ALL_DEPENDENCY is
   // explicitly set to OFF.
-  if (cmValue noall = mf->GetDefinition("CMAKE_SKIP_TEST_ALL_DEPENDENCY")) {
+  if (cmValue noall = mf->GetDefinition("RBLXBUILD_SKIP_TEST_ALL_DEPENDENCY")) {
     if (noall.IsOff()) {
       gti.Depends.emplace_back(this->GetAllTargetName());
     }
   }
   cmCustomCommandLine singleLine;
   singleLine.emplace_back(cmSystemTools::GetCTestCommand());
-  cmList args(mf->GetDefinition("CMAKE_CTEST_ARGUMENTS"));
+  cmList args(mf->GetDefinition("RBLXBUILD_CTEST_ARGUMENTS"));
   for (auto const& arg : args) {
     singleLine.emplace_back(arg);
   }
-  if (cmNonempty(cmakeCfgIntDir) && cmakeCfgIntDir[0] != '.') {
+  if (cmNonempty(rblxbuildCfgIntDir) && rblxbuildCfgIntDir[0] != '.') {
     singleLine.emplace_back("-C");
-    singleLine.emplace_back(cmakeCfgIntDir);
+    singleLine.emplace_back(rblxbuildCfgIntDir);
   } else // TODO: This is a hack. Should be something to do with the
          // generator
   {
@@ -3834,7 +3834,7 @@ void cmGlobalGenerator::AddGlobalTarget_Test(
 
 void cmGlobalGenerator::ReserveGlobalTargetCodegen()
 {
-  // Read the policy value at the end of the top-level CMakeLists.txt file
+  // Read the policy value at the end of the top-level RBLXBuildLists.txt file
   // since it's a global policy that affects the whole project.
   auto& mf = this->Makefiles[0];
   auto const policyStatus = mf->GetPolicyStatus(cmPolicies::CMP0171);
@@ -3855,7 +3855,7 @@ void cmGlobalGenerator::ReserveGlobalTargetCodegen()
     case cmPolicies::OLD:
       break;
     case cmPolicies::NEW:
-      this->GetCMakeInstance()->IssueMessage(
+      this->GetRBLXBuildInstance()->IssueMessage(
         MessageType::FATAL_ERROR, "The target name \"codegen\" is reserved.",
         tgt->GetBacktrace());
       cmSystemTools::SetFatalErrorOccurred();
@@ -3939,22 +3939,22 @@ void cmGlobalGenerator::AddGlobalTarget_EditCache(
   std::string edit_cmd = this->GetEditCacheCommand();
   if (!edit_cmd.empty()) {
     singleLine.emplace_back(std::move(edit_cmd));
-    if (this->GetCMakeInstance()->GetIgnoreCompileWarningAsError()) {
+    if (this->GetRBLXBuildInstance()->GetIgnoreCompileWarningAsError()) {
       singleLine.emplace_back("--compile-no-warning-as-error");
     }
-    if (this->GetCMakeInstance()->GetIgnoreLinkWarningAsError()) {
+    if (this->GetRBLXBuildInstance()->GetIgnoreLinkWarningAsError()) {
       singleLine.emplace_back("--link-no-warning-as-error");
     }
-    singleLine.emplace_back("-S$(CMAKE_SOURCE_DIR)");
-    singleLine.emplace_back("-B$(CMAKE_BINARY_DIR)");
-    gti.Message = "Running CMake cache editor...";
+    singleLine.emplace_back("-S$(RBLXBUILD_SOURCE_DIR)");
+    singleLine.emplace_back("-B$(RBLXBUILD_BINARY_DIR)");
+    gti.Message = "Running RBLXBuild cache editor...";
     gti.UsesTerminal = true;
   } else {
-    singleLine.emplace_back(cmSystemTools::GetCMakeCommand());
+    singleLine.emplace_back(cmSystemTools::GetRBLXBuildCommand());
     singleLine.emplace_back("-E");
     singleLine.emplace_back("echo");
-    singleLine.emplace_back("No interactive CMake dialog available.");
-    gti.Message = "No interactive CMake dialog available...";
+    singleLine.emplace_back("No interactive RBLXBuild dialog available.");
+    gti.Message = "No interactive RBLXBuild dialog available...";
     gti.UsesTerminal = false;
     gti.StdPipesUTF8 = true;
   }
@@ -3972,20 +3972,20 @@ void cmGlobalGenerator::AddGlobalTarget_RebuildCache(
   }
   GlobalTargetInfo gti;
   gti.Name = rebuildCacheTargetName;
-  gti.Message = "Running CMake to regenerate build system...";
+  gti.Message = "Running RBLXBuild to regenerate build system...";
   gti.UsesTerminal = true;
   gti.PerConfig = cmTarget::PerConfig::No;
   cmCustomCommandLine singleLine;
-  singleLine.emplace_back(cmSystemTools::GetCMakeCommand());
+  singleLine.emplace_back(cmSystemTools::GetRBLXBuildCommand());
   singleLine.emplace_back("--regenerate-during-build");
-  if (this->GetCMakeInstance()->GetIgnoreCompileWarningAsError()) {
+  if (this->GetRBLXBuildInstance()->GetIgnoreCompileWarningAsError()) {
     singleLine.emplace_back("--compile-no-warning-as-error");
   }
-  if (this->GetCMakeInstance()->GetIgnoreLinkWarningAsError()) {
+  if (this->GetRBLXBuildInstance()->GetIgnoreLinkWarningAsError()) {
     singleLine.emplace_back("--link-no-warning-as-error");
   }
-  singleLine.emplace_back("-S$(CMAKE_SOURCE_DIR)");
-  singleLine.emplace_back("-B$(CMAKE_BINARY_DIR)");
+  singleLine.emplace_back("-S$(RBLXBUILD_SOURCE_DIR)");
+  singleLine.emplace_back("-B$(RBLXBUILD_BINARY_DIR)");
   gti.CommandLines.emplace_back(std::move(singleLine));
   gti.StdPipesUTF8 = true;
   targets.emplace_back(std::move(gti));
@@ -3995,16 +3995,16 @@ void cmGlobalGenerator::AddGlobalTarget_Install(
   std::vector<GlobalTargetInfo>& targets)
 {
   auto& mf = this->Makefiles[0];
-  char const* cmakeCfgIntDir = this->GetCMakeCFGIntDir();
-  bool skipInstallRules = mf->IsOn("CMAKE_SKIP_INSTALL_RULES");
+  char const* rblxbuildCfgIntDir = this->GetRBLXBuildCFGIntDir();
+  bool skipInstallRules = mf->IsOn("RBLXBUILD_SKIP_INSTALL_RULES");
   if (this->InstallTargetEnabled && skipInstallRules) {
-    this->CMakeInstance->IssueMessage(
+    this->RBLXBuildInstance->IssueMessage(
       MessageType::WARNING,
-      "CMAKE_SKIP_INSTALL_RULES was enabled even though "
+      "RBLXBUILD_SKIP_INSTALL_RULES was enabled even though "
       "installation rules have been specified",
       mf->GetBacktrace());
   } else if (this->InstallTargetEnabled && !skipInstallRules) {
-    if (!(cmNonempty(cmakeCfgIntDir) && cmakeCfgIntDir[0] != '.')) {
+    if (!(cmNonempty(rblxbuildCfgIntDir) && rblxbuildCfgIntDir[0] != '.')) {
       std::set<std::string>* componentsSet = &this->InstallComponents;
       std::ostringstream ostr;
       if (!componentsSet->empty()) {
@@ -4019,7 +4019,7 @@ void cmGlobalGenerator::AddGlobalTarget_Install(
       gti.UsesTerminal = false;
       targets.push_back(std::move(gti));
     }
-    std::string cmd = cmSystemTools::GetCMakeCommand();
+    std::string cmd = cmSystemTools::GetRBLXBuildCommand();
     GlobalTargetInfo gti;
     gti.Name = this->GetInstallTargetName();
     gti.Message = "Install the project...";
@@ -4030,20 +4030,20 @@ void cmGlobalGenerator::AddGlobalTarget_Install(
     if (this->GetPreinstallTargetName()) {
       gti.Depends.emplace_back(this->GetPreinstallTargetName());
     } else {
-      cmValue noall = mf->GetDefinition("CMAKE_SKIP_INSTALL_ALL_DEPENDENCY");
+      cmValue noall = mf->GetDefinition("RBLXBUILD_SKIP_INSTALL_ALL_DEPENDENCY");
       if (noall.IsOff()) {
         gti.Depends.emplace_back(this->GetAllTargetName());
       }
     }
-    if (mf->GetDefinition("CMake_BINARY_DIR") &&
-        !mf->IsOn("CMAKE_CROSSCOMPILING")) {
-      // We are building CMake itself.  We cannot use the original
+    if (mf->GetDefinition("RBLXBuild_BINARY_DIR") &&
+        !mf->IsOn("RBLXBUILD_CROSSCOMPILING")) {
+      // We are building RBLXBuild itself.  We cannot use the original
       // executable to install over itself.  The generator will
       // automatically convert this name to the build-time location.
-      cmd = "cmake";
+      cmd = "rblxbuild";
     }
     singleLine.push_back(cmd);
-    if (cmNonempty(cmakeCfgIntDir) && cmakeCfgIntDir[0] != '.') {
+    if (cmNonempty(rblxbuildCfgIntDir) && rblxbuildCfgIntDir[0] != '.') {
       std::string cfgArg = "-DBUILD_TYPE=";
       bool useEPN = this->UseEffectivePlatformName(mf.get());
       if (useEPN) {
@@ -4051,12 +4051,12 @@ void cmGlobalGenerator::AddGlobalTarget_Install(
         singleLine.push_back(cfgArg);
         cfgArg = "-DEFFECTIVE_PLATFORM_NAME=$(EFFECTIVE_PLATFORM_NAME)";
       } else {
-        cfgArg += this->GetCMakeCFGIntDir();
+        cfgArg += this->GetRBLXBuildCFGIntDir();
       }
       singleLine.push_back(cfgArg);
     }
     singleLine.emplace_back("-P");
-    singleLine.emplace_back("cmake_install.cmake");
+    singleLine.emplace_back("rblxbuild_install.rblxbuild");
     gti.CommandLines.emplace_back(singleLine);
     targets.emplace_back(gti);
 
@@ -4066,14 +4066,14 @@ void cmGlobalGenerator::AddGlobalTarget_Install(
       gti.Message = "Installing only the local directory...";
       gti.Role = "install";
       gti.UsesTerminal =
-        !this->GetCMakeInstance()->GetState()->GetGlobalPropertyAsBool(
+        !this->GetRBLXBuildInstance()->GetState()->GetGlobalPropertyAsBool(
           "INSTALL_PARALLEL");
       gti.CommandLines.clear();
 
       cmCustomCommandLine localCmdLine = singleLine;
 
       localCmdLine.insert(localCmdLine.begin() + 1,
-                          "-DCMAKE_INSTALL_LOCAL_ONLY=1");
+                          "-DRBLXBUILD_INSTALL_LOCAL_ONLY=1");
 
       gti.CommandLines.push_back(std::move(localCmdLine));
       targets.push_back(gti);
@@ -4081,7 +4081,7 @@ void cmGlobalGenerator::AddGlobalTarget_Install(
 
     // install_strip
     char const* install_strip = this->GetInstallStripTargetName();
-    if (install_strip && mf->IsSet("CMAKE_STRIP")) {
+    if (install_strip && mf->IsSet("RBLXBUILD_STRIP")) {
       gti.Name = install_strip;
       gti.Message = "Installing the project stripped...";
       gti.UsesTerminal = true;
@@ -4091,7 +4091,7 @@ void cmGlobalGenerator::AddGlobalTarget_Install(
       cmCustomCommandLine stripCmdLine = singleLine;
 
       stripCmdLine.insert(stripCmdLine.begin() + 1,
-                          "-DCMAKE_INSTALL_DO_STRIP=1");
+                          "-DRBLXBUILD_INSTALL_DO_STRIP=1");
       gti.CommandLines.push_back(std::move(stripCmdLine));
       targets.push_back(gti);
     }
@@ -4124,9 +4124,9 @@ void ModuleCompilationDatabaseCommandAction::operator()(
   cmCustomCommandLines command_lines;
   cmCustomCommandLine command_line;
   {
-    command_line.emplace_back(cmSystemTools::GetCMakeCommand());
+    command_line.emplace_back(cmSystemTools::GetRBLXBuildCommand());
     command_line.emplace_back("-E");
-    command_line.emplace_back("cmake_module_compile_db");
+    command_line.emplace_back("rblxbuild_module_compile_db");
     command_line.emplace_back("merge");
     command_line.emplace_back("-o");
     command_line.emplace_back(this->Output);
@@ -4191,7 +4191,7 @@ void cmGlobalGenerator::AddBuildDatabaseFile(std::string const& lang,
 bool cmGlobalGenerator::AddBuildDatabaseTargets()
 {
   auto& mf = this->Makefiles[0];
-  if (!mf->IsOn("CMAKE_EXPORT_BUILD_DATABASE")) {
+  if (!mf->IsOn("RBLXBUILD_EXPORT_BUILD_DATABASE")) {
     return true;
   }
   if (!cmExperimental::HasSupportEnabled(
@@ -4199,14 +4199,14 @@ bool cmGlobalGenerator::AddBuildDatabaseTargets()
     return {};
   }
 
-  static auto const reservedTargets = { "cmake_build_database" };
+  static auto const reservedTargets = { "rblxbuild_build_database" };
   for (auto const& target : reservedTargets) {
     if (!this->CheckReservedTargetName(
           target, "when exporting build databases are enabled")) {
       return false;
     }
   }
-  static auto const reservedPrefixes = { "cmake_build_database-" };
+  static auto const reservedPrefixes = { "rblxbuild_build_database-" };
   for (auto const& prefix : reservedPrefixes) {
     if (!this->CheckReservedTargetNamePrefix(
           prefix, "when exporting build databases are enabled")) {
@@ -4220,7 +4220,7 @@ bool cmGlobalGenerator::AddBuildDatabaseTargets()
 
   auto configs = mf->GetGeneratorConfigs(cmMakefile::ExcludeEmptyConfig);
 
-  static cm::static_string_view TargetPrefix = "cmake_build_database"_s;
+  static cm::static_string_view TargetPrefix = "rblxbuild_build_database"_s;
   auto AddMergeTarget =
     [&mf](std::string const& name, std::string const& comment,
           std::string const& output,
@@ -4324,20 +4324,20 @@ bool cmGlobalGenerator::AddBuildDatabaseTargets()
 
 std::string cmGlobalGenerator::GetPredefinedTargetsFolder() const
 {
-  cmValue prop = this->GetCMakeInstance()->GetState()->GetGlobalProperty(
+  cmValue prop = this->GetRBLXBuildInstance()->GetState()->GetGlobalProperty(
     "PREDEFINED_TARGETS_FOLDER");
 
   if (prop) {
     return *prop;
   }
 
-  return "CMakePredefinedTargets";
+  return "RBLXBuildPredefinedTargets";
 }
 
 bool cmGlobalGenerator::UseFolderProperty() const
 {
   cmValue const prop =
-    this->GetCMakeInstance()->GetState()->GetGlobalProperty("USE_FOLDERS");
+    this->GetRBLXBuildInstance()->GetState()->GetGlobalProperty("USE_FOLDERS");
 
   // If this property is defined, let the setter turn this on or off.
   if (prop) {
@@ -4391,9 +4391,9 @@ std::string cmGlobalGenerator::GenerateRuleFile(
   std::string const& output) const
 {
   std::string ruleFile = cmStrCat(output, ".rule");
-  char const* dir = this->GetCMakeCFGIntDir();
+  char const* dir = this->GetRBLXBuildCFGIntDir();
   if (dir && dir[0] == '$') {
-    cmSystemTools::ReplaceString(ruleFile, dir, "/CMakeFiles");
+    cmSystemTools::ReplaceString(ruleFile, dir, "/RBLXBuildFiles");
   }
   return ruleFile;
 }
@@ -4437,7 +4437,7 @@ bool cmGlobalGenerator::TargetOrderIndexLess(cmGeneratorTarget const* l,
 bool cmGlobalGenerator::IsReservedTarget(std::string const& name)
 {
   // The following is a list of targets reserved
-  // by one or more of the cmake generators.
+  // by one or more of the rblxbuild generators.
 
   // Adding additional targets to this list will require a policy!
   static cm::static_string_view const reservedTargets[] = {
@@ -4596,8 +4596,8 @@ void cmGlobalGenerator::AddRuleHash(std::vector<std::string> const& outputs,
 
 void cmGlobalGenerator::CheckRuleHashes()
 {
-  std::string home = this->GetCMakeInstance()->GetHomeOutputDirectory();
-  std::string pfile = cmStrCat(home, "/CMakeFiles/CMakeRuleHashes.txt");
+  std::string home = this->GetRBLXBuildInstance()->GetHomeOutputDirectory();
+  std::string pfile = cmStrCat(home, "/RBLXBuildFiles/RBLXBuildRuleHashes.txt");
   this->CheckRuleHashes(pfile, home);
   this->WriteRuleHashes(pfile);
 }
@@ -4672,8 +4672,8 @@ void cmGlobalGenerator::WriteRuleHashes(std::string const& pfile)
 void cmGlobalGenerator::WriteSummary()
 {
   // Record all target directories in a central location.
-  std::string fname = cmStrCat(this->CMakeInstance->GetHomeOutputDirectory(),
-                               "/CMakeFiles/TargetDirectories.txt");
+  std::string fname = cmStrCat(this->RBLXBuildInstance->GetHomeOutputDirectory(),
+                               "/RBLXBuildFiles/TargetDirectories.txt");
   cmGeneratedFileStream fout(fname);
 
   for (auto const& lg : this->LocalGenerators) {
@@ -4694,14 +4694,14 @@ void cmGlobalGenerator::WriteSummary(cmGeneratorTarget* target)
   std::string file = cmStrCat(dir, "/Labels.txt");
   std::string json_file = cmStrCat(dir, "/Labels.json");
 
-#ifndef CMAKE_BOOTSTRAP
+#ifndef RBLXBUILD_BOOTSTRAP
   // Check whether labels are enabled for this target.
   cmValue targetLabels = target->GetProperty("LABELS");
   cmValue directoryLabels =
     target->Target->GetMakefile()->GetProperty("LABELS");
-  cmValue cmakeDirectoryLabels =
-    target->Target->GetMakefile()->GetDefinition("CMAKE_DIRECTORY_LABELS");
-  if (targetLabels || directoryLabels || cmakeDirectoryLabels) {
+  cmValue rblxbuildDirectoryLabels =
+    target->Target->GetMakefile()->GetDefinition("RBLXBUILD_DIRECTORY_LABELS");
+  if (targetLabels || directoryLabels || rblxbuildDirectoryLabels) {
     Json::Value lj_root(Json::objectValue);
     Json::Value& lj_target = lj_root["target"] = Json::objectValue;
     lj_target["name"] = target->GetName();
@@ -4728,17 +4728,17 @@ void cmGlobalGenerator::WriteSummary(cmGeneratorTarget* target)
 
     // List directory labels
     cmList directoryLabelsList;
-    cmList cmakeDirectoryLabelsList;
+    cmList rblxbuildDirectoryLabelsList;
 
     if (directoryLabels) {
       directoryLabelsList.assign(*directoryLabels);
     }
 
-    if (cmakeDirectoryLabels) {
-      cmakeDirectoryLabelsList.assign(*cmakeDirectoryLabels);
+    if (rblxbuildDirectoryLabels) {
+      rblxbuildDirectoryLabelsList.assign(*rblxbuildDirectoryLabels);
     }
 
-    if (!directoryLabelsList.empty() || !cmakeDirectoryLabelsList.empty()) {
+    if (!directoryLabelsList.empty() || !rblxbuildDirectoryLabelsList.empty()) {
       fout << "# Directory labels\n";
     }
 
@@ -4747,7 +4747,7 @@ void cmGlobalGenerator::WriteSummary(cmGeneratorTarget* target)
       lj_target_labels.append(li);
     }
 
-    for (auto const& li : cmakeDirectoryLabelsList) {
+    for (auto const& li : rblxbuildDirectoryLabelsList) {
       fout << ' ' << li << '\n';
       lj_target_labels.append(li);
     }
@@ -4853,8 +4853,8 @@ std::string cmGlobalGenerator::ExpandCFGIntDir(
 
 bool cmGlobalGenerator::GenerateCPackPropertiesFile()
 {
-  cmake::InstalledFilesMap const& installedFiles =
-    this->CMakeInstance->GetInstalledFiles();
+  rblxbuild::InstalledFilesMap const& installedFiles =
+    this->RBLXBuildInstance->GetInstalledFiles();
 
   auto const& lg = this->LocalGenerators[0];
   cmMakefile* mf = lg->GetMakefile();
@@ -4863,8 +4863,8 @@ bool cmGlobalGenerator::GenerateCPackPropertiesFile()
     mf->GetGeneratorConfigs(cmMakefile::OnlyMultiConfig);
   std::string config = mf->GetDefaultConfiguration();
 
-  std::string path = cmStrCat(this->CMakeInstance->GetHomeOutputDirectory(),
-                              "/CPackProperties.cmake");
+  std::string path = cmStrCat(this->RBLXBuildInstance->GetHomeOutputDirectory(),
+                              "/CPackProperties.rblxbuild");
 
   if (!cmSystemTools::FileExists(path) && installedFiles.empty()) {
     return true;
@@ -4953,7 +4953,7 @@ void cmGlobalGenerator::AddTestFile(std::string const& file)
   this->TestFiles.push_back(file);
 }
 
-void cmGlobalGenerator::AddCMakeFilesToRebuild(
+void cmGlobalGenerator::AddRBLXBuildFilesToRebuild(
   std::vector<std::string>& files) const
 {
   files.insert(files.end(), this->InstallScripts.begin(),

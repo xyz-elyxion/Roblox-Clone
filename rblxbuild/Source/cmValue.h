@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #pragma once
 
 #include "cmConfigure.h" // IWYU pragma: keep
@@ -86,7 +86,7 @@ public:
   }
 
   /**
-   * Does a string indicates that CMake/CPack/CTest internally
+   * Does a string indicates that RBLXBuild/CPack/CTest internally
    *  forced this value. This is not the same as On, but this
    * may be considered as "internally switched on".
    */
@@ -146,7 +146,7 @@ public:
   }
 
   /**
-   * Does a string indicates that CMake/CPack/CTest internally
+   * Does a string indicates that RBLXBuild/CPack/CTest internally
    * forced this value. This is not the same as On, but this
    * may be considered as "internally switched on".
    */
@@ -299,7 +299,7 @@ inline bool cmNonempty(cmValue val)
 }
 
 /**
- * Does a string indicates that CMake/CPack/CTest internally
+ * Does a string indicates that RBLXBuild/CPack/CTest internally
  * forced this value. This is not the same as On, but this
  * may be considered as "internally switched on".
  */

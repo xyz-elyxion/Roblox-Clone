@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #pragma once
 
 #include "cmConfigure.h" // IWYU pragma: keep
@@ -20,7 +20,7 @@
 
 #include "cmsys/RegularExpression.hxx"
 
-#include "cmCMakePresetsGraph.h"
+#include "cmRBLXBuildPresetsGraph.h"
 #include "cmCTest.h"
 #include "cmCTestGenericHandler.h"
 #include "cmCTestTypes.h" // IWYU pragma: keep
@@ -76,7 +76,7 @@ struct cmCTestTestOptions
  * Timeout, NoTestsAction) are handled separately at each call site.
  */
 void cmCTestApplyTestPresetToOptions(
-  cmCTestTestOptions& opts, cmCMakePresetsGraph::TestPreset const& preset);
+  cmCTestTestOptions& opts, cmRBLXBuildPresetsGraph::TestPreset const& preset);
 
 /** \class cmCTestTestHandler
  * \brief A class that handles ctest -S invocations

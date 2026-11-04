@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmCreateTestSourceList.h"
 
 #include <algorithm>
@@ -61,7 +61,7 @@ bool cmCreateTestSourceList(std::vector<std::string> const& args,
   std::string driver = cmStrCat(mf.GetCurrentBinaryDirectory(), '/', *i);
   ++i;
 
-  std::string configFile = cmSystemTools::GetCMakeRoot();
+  std::string configFile = cmSystemTools::GetRBLXBuildRoot();
 
   configFile += "/Templates/TestDriver.cxx.in";
   // Create the test driver file
@@ -121,13 +121,13 @@ bool cmCreateTestSourceList(std::vector<std::string> const& args,
                        "  },\n";
   }
   if (!extraInclude.empty()) {
-    mf.AddDefinition("CMAKE_TESTDRIVER_EXTRA_INCLUDES", extraInclude);
+    mf.AddDefinition("RBLXBUILD_TESTDRIVER_EXTRA_INCLUDES", extraInclude);
   }
   if (!function.empty()) {
-    mf.AddDefinition("CMAKE_TESTDRIVER_ARGVC_FUNCTION", function);
+    mf.AddDefinition("RBLXBUILD_TESTDRIVER_ARGVC_FUNCTION", function);
   }
-  mf.AddDefinition("CMAKE_FORWARD_DECLARE_TESTS", forwardDeclareCode);
-  mf.AddDefinition("CMAKE_FUNCTION_TABLE_ENTRIES", functionMapCode);
+  mf.AddDefinition("RBLXBUILD_FORWARD_DECLARE_TESTS", forwardDeclareCode);
+  mf.AddDefinition("RBLXBUILD_FUNCTION_TABLE_ENTRIES", functionMapCode);
   bool res = true;
   if (!mf.ConfigureFile(configFile, driver, false, true, false)) {
     res = false;

@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmWIXFeaturesSourceWriter.h"
 
 #include "cmStringAlgorithms.h"
@@ -11,7 +11,7 @@ cmWIXFeaturesSourceWriter::cmWIXFeaturesSourceWriter(
 {
 }
 
-void cmWIXFeaturesSourceWriter::CreateCMakePackageRegistryEntry(
+void cmWIXFeaturesSourceWriter::CreateRBLXBuildPackageRegistryEntry(
   std::string const& package, std::string const& upgradeGuid)
 {
   BeginElement("Component");
@@ -20,7 +20,7 @@ void cmWIXFeaturesSourceWriter::CreateCMakePackageRegistryEntry(
   AddAttribute("Guid", CreateGuidFromComponentId("CM_PACKAGE_REGISTRY"));
 
   std::string registryKey =
-    cmStrCat(R"(Software\Kitware\CMake\Packages\)", package);
+    cmStrCat(R"(Software\Kitware\RBLXBuild\Packages\)", package);
 
   BeginElement("RegistryValue");
   AddAttribute("Root", "HKLM");

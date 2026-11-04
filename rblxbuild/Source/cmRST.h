@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #pragma once
 
 #include "cmConfigure.h" // IWYU pragma: keep
@@ -21,8 +21,8 @@
  * document processing.  It is used to print command-line help.
  *
  * If you modify the capabilities of this class, be sure to update
- * the Help/manual/cmake-developer.7.rst documentation and to update
- * the Tests/CMakeLib/testRST.(rst|expect) test input and output.
+ * the Help/manual/rblxbuild-developer.7.rst documentation and to update
+ * the Tests/RBLXBuildLib/testRST.(rst|expect) test input and output.
  */
 class cmRST
 {
@@ -93,8 +93,8 @@ private:
   bool LastLineEndedInColonColon = false;
   Markup MarkupType = Markup::None;
   Directive DirectiveType = Directive::None;
-  cmsys::RegularExpression CMakeDirective;
-  cmsys::RegularExpression CMakeModuleDirective;
+  cmsys::RegularExpression RBLXBuildDirective;
+  cmsys::RegularExpression RBLXBuildModuleDirective;
   cmsys::RegularExpression ParsedLiteralDirective;
   cmsys::RegularExpression CodeBlockDirective;
   cmsys::RegularExpression ReplaceDirective;
@@ -104,7 +104,7 @@ private:
   cmsys::RegularExpression NoteDirective;
   cmsys::RegularExpression VersionDirective;
   cmsys::RegularExpression ModuleRST;
-  cmsys::RegularExpression CMakeRole;
+  cmsys::RegularExpression RBLXBuildRole;
   cmsys::RegularExpression InlineLink;
   cmsys::RegularExpression InlineLiteral;
   cmsys::RegularExpression Substitution;

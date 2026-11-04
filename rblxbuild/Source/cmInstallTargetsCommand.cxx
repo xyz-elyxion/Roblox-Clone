@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmInstallTargetsCommand.h"
 
 #include <unordered_map>
@@ -58,7 +58,7 @@ bool cmInstallTargetsCommand(std::vector<std::string> const& args,
   }
 
   mf.GetGlobalGenerator()->AddInstallComponent(
-    mf.GetSafeDefinition("CMAKE_INSTALL_DEFAULT_COMPONENT_NAME"));
+    mf.GetSafeDefinition("RBLXBUILD_INSTALL_DEFAULT_COMPONENT_NAME"));
 
   return true;
 }

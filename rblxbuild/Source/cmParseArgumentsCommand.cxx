@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmParseArgumentsCommand.h"
 
 #include <map>
@@ -101,7 +101,7 @@ static void PassParsedArguments(
           cmStrCat("The ", iter.first,
                    " keyword was followed by an empty string or no value at "
                    "all. Policy CMP0174 is not set, so "
-                   "cmake_parse_arguments() will unset the ",
+                   "rblxbuild_parse_arguments() will unset the ",
                    prefix, iter.first,
                    " variable rather than setting it to an empty string."));
       }
@@ -137,12 +137,12 @@ static void PassParsedArguments(
 bool cmParseArgumentsCommand(std::vector<std::string> const& args,
                              cmExecutionStatus& status)
 {
-  // cmake_parse_arguments(prefix options single multi <ARGN>)
+  // rblxbuild_parse_arguments(prefix options single multi <ARGN>)
   //                         1       2      3      4
   // or
-  // cmake_parse_arguments(PARSE_ARGV N prefix options single multi)
+  // rblxbuild_parse_arguments(PARSE_ARGV N prefix options single multi)
   // or
-  // cmake_parse_arguments(PARSE_ARGN prefix options single multi)
+  // rblxbuild_parse_arguments(PARSE_ARGN prefix options single multi)
   if (args.size() < 4) {
     status.SetError("must be called with at least 4 arguments.");
     return false;
@@ -211,22 +211,22 @@ bool cmParseArgumentsCommand(std::vector<std::string> const& args,
       MessageType::WARNING, cmStrCat("keyword defined more than once: ", key));
   };
 
-  // the second argument is a (cmake) list of options without argument
+  // the second argument is a (rblxbuild) list of options without argument
   cmList list{ *argIter++ };
   parser.Bind(list, options, duplicateKey);
 
-  // the third argument is a (cmake) list of single argument options
+  // the third argument is a (rblxbuild) list of single argument options
   list.assign(*argIter++);
   parser.Bind(list, singleValArgs, duplicateKey);
 
-  // the fourth argument is a (cmake) list of multi argument options
+  // the fourth argument is a (rblxbuild) list of multi argument options
   list.assign(*argIter++);
   parser.Bind(list, multiValArgs, duplicateKey);
 
   list.clear();
   if (!parseFromArg) {
     // Flatten ;-lists in the arguments into a single list as was done
-    // by the original function(CMAKE_PARSE_ARGUMENTS).
+    // by the original function(RBLXBUILD_PARSE_ARGUMENTS).
     for (; argIter != argEnd; ++argIter) {
       list.append(*argIter);
     }

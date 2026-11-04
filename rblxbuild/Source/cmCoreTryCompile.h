@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #pragma once
 
 #include "cmConfigure.h" // IWYU pragma: keep
@@ -28,7 +28,7 @@ enum class TargetType;
 struct cmTryCompileResult
 {
   cm::optional<std::string> LogDescription;
-  std::map<std::string, std::string> CMakeVariables;
+  std::map<std::string, std::string> RBLXBuildVariables;
 
   std::string SourceDirectory;
   std::string BinaryDirectory;
@@ -87,8 +87,8 @@ public:
     cm::optional<ArgumentParser::NonEmpty<
       std::vector<std::pair<std::string, SourceType>>>>
       SourceFromFile;
-    ArgumentParser::MaybeEmpty<std::vector<std::string>> CMakeFlags{
-      1, "CMAKE_FLAGS"
+    ArgumentParser::MaybeEmpty<std::vector<std::string>> RBLXBuildFlags{
+      1, "RBLXBUILD_FLAGS"
     }; // fake argv[0]
     cmList CompileDefs;
     cm::optional<ArgumentParser::MaybeEmpty<std::vector<std::string>>>
@@ -96,7 +96,7 @@ public:
     ArgumentParser::MaybeEmpty<std::vector<std::string>> LinkOptions;
     cm::optional<std::string> LinkerLanguage;
     std::map<std::string, std::string> LangProps;
-    std::string CMakeInternal;
+    std::string RBLXBuildInternal;
     cm::optional<std::string> OutputVariable;
     cm::optional<std::string> CopyFileTo;
     cm::optional<std::string> CopyFileError;
@@ -132,7 +132,7 @@ public:
                                                   cm::TargetType targetType);
 
   /**
-   * Returns \c true if \p path resides within a CMake temporary directory,
+   * Returns \c true if \p path resides within a RBLXBuild temporary directory,
    * otherwise returns \c false.
    */
   static bool IsTemporary(std::string const& path);

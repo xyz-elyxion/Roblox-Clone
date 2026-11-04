@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmIfCommand.h"
 
 #include <string>
@@ -20,9 +20,9 @@
 #include "cmOutputConverter.h"
 #include "cmStringAlgorithms.h"
 #include "cmSystemTools.h"
-#include "cmake.h"
+#include "rblxbuild.h"
 
-#ifndef CMAKE_BOOTSTRAP
+#ifndef RBLXBUILD_BOOTSTRAP
 #  include "cmListFileCoverage.h"
 #endif
 
@@ -32,7 +32,7 @@ static std::string cmIfCommandError(
   std::string err = "given arguments:\n ";
   for (cmExpandedCommandArgument const& i : args) {
     err += " ";
-    err += cmOutputConverter::EscapeForCMake(i.GetValue());
+    err += cmOutputConverter::EscapeForRBLXBuild(i.GetValue());
   }
   err += "\n";
   return err;
@@ -96,7 +96,7 @@ bool cmIfFunctionBlocker::Replay(std::vector<cmListFileFunction> functions,
 
       // if trace is enabled, print a (trivially) evaluated "else"
       // statement
-      if (!this->IsBlocking && mf.GetCMakeInstance()->GetTrace()) {
+      if (!this->IsBlocking && mf.GetRBLXBuildInstance()->GetTrace()) {
         mf.PrintCommandTrace(func, elseBT,
                              cmMakefile::CommandMissingFromStack::Yes);
       }
@@ -122,11 +122,11 @@ bool cmIfFunctionBlocker::Replay(std::vector<cmListFileFunction> functions,
         this->IsBlocking = true;
       } else {
         // if trace is enabled, print the evaluated "elseif" statement
-        if (mf.GetCMakeInstance()->GetTrace()) {
+        if (mf.GetRBLXBuildInstance()->GetTrace()) {
           mf.PrintCommandTrace(func, elseifBT,
                                cmMakefile::CommandMissingFromStack::Yes);
         }
-#ifndef CMAKE_BOOTSTRAP
+#ifndef RBLXBUILD_BOOTSTRAP
         if (cmListFileCoverage* coverage = cmListFileCoverage::Get()) {
           coverage->CommandRan(func, this->GetStartingContext().FilePath,
                                func.Line());

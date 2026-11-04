@@ -1,19 +1,19 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "AddCacheEntry.h"
 
 #include <QCompleter>
 #include <QMetaProperty>
 
-#include "QCMakeSizeType.h"
+#include "QRBLXBuildSizeType.h"
 
 static int const NumTypes = 4;
 static int const DefaultTypeIndex = 0;
 static QByteArray const TypeStrings[NumTypes] = { "BOOL", "PATH", "FILEPATH",
                                                   "STRING" };
-static QCMakeProperty::PropertyType const Types[NumTypes] = {
-  QCMakeProperty::BOOL, QCMakeProperty::PATH, QCMakeProperty::FILEPATH,
-  QCMakeProperty::STRING
+static QRBLXBuildProperty::PropertyType const Types[NumTypes] = {
+  QRBLXBuildProperty::BOOL, QRBLXBuildProperty::PATH, QRBLXBuildProperty::FILEPATH,
+  QRBLXBuildProperty::STRING
 };
 
 AddCacheEntry::AddCacheEntry(QWidget* p, QStringList const& varNames,
@@ -27,8 +27,8 @@ AddCacheEntry::AddCacheEntry(QWidget* p, QStringList const& varNames,
     this->Type->addItem(elem);
   }
   QWidget* cb = new QCheckBox();
-  QWidget* path = new QCMakePathEditor();
-  QWidget* filepath = new QCMakeFilePathEditor();
+  QWidget* path = new QRBLXBuildPathEditor();
+  QWidget* filepath = new QRBLXBuildFilePathEditor();
   QWidget* string = new QLineEdit();
   this->StackedWidget->addWidget(cb);
   this->StackedWidget->addWidget(path);
@@ -70,7 +70,7 @@ QString AddCacheEntry::description() const
   return this->Description->text();
 }
 
-QCMakeProperty::PropertyType AddCacheEntry::type() const
+QRBLXBuildProperty::PropertyType AddCacheEntry::type() const
 {
   int idx = this->Type->currentIndex();
   if (idx >= 0 && idx < NumTypes) {

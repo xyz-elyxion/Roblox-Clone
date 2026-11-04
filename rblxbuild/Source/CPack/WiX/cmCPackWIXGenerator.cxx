@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmCPackWIXGenerator.h"
 
 #include <algorithm>
@@ -36,7 +36,7 @@
 #  include <uuid/uuid.h> // for GUID generation (libuuid)
 #endif
 
-#include "cmCMakeToWixPath.h"
+#include "cmRBLXBuildToWixPath.h"
 
 cmCPackWIXGenerator::cmCPackWIXGenerator()
   : ComponentGuidType(cmWIXSourceWriter::WIX_GENERATED_GUID)
@@ -135,7 +135,7 @@ bool cmCPackWIXGenerator::RunLightCommand(std::string const& objectFiles)
   command << QuotePath(executable)
           << " -nologo"
              " -out "
-          << QuotePath(CMakeToWixPath(packageFileNames.at(0)));
+          << QuotePath(RBLXBuildToWixPath(packageFileNames.at(0)));
 
   for (std::string const& ext : this->LightExtensions) {
     command << " -ext " << QuotePath(ext);
@@ -176,9 +176,9 @@ bool cmCPackWIXGenerator::InitializeWiXConfiguration()
     }
   }
 
-  if (!ReadListFile("Internal/CPack/CPackWIX.cmake")) {
+  if (!ReadListFile("Internal/CPack/CPackWIX.rblxbuild")) {
     cmCPackLogger(cmCPackLog::LOG_ERROR,
-                  "Error while executing CPackWIX.cmake" << std::endl);
+                  "Error while executing CPackWIX.rblxbuild" << std::endl);
     return false;
   }
 
@@ -274,7 +274,7 @@ bool cmCPackWIXGenerator::InitializeWiXConfiguration()
   // if install folder is supposed to be set absolutely, the default
   // component guid "*" cannot be used
   if (GetOption("CPACK_WIX_SKIP_PROGRAM_FOLDER").IsOn()) {
-    this->ComponentGuidType = cmWIXSourceWriter::CMAKE_GENERATED_GUID;
+    this->ComponentGuidType = cmWIXSourceWriter::RBLXBUILD_GENERATED_GUID;
   }
 
   return true;
@@ -321,7 +321,7 @@ bool cmCPackWIXGenerator::PackageWithWix()
   std::ostringstream command;
   command << QuotePath(wixExecutable) << " build"
           << " -arch " << arch << " -out "
-          << QuotePath(CMakeToWixPath(packageFileNames.at(0)));
+          << QuotePath(RBLXBuildToWixPath(packageFileNames.at(0)));
 
   for (std::string const& ext : this->WixExtensions) {
     command << " -ext " << QuotePath(ext);
@@ -336,7 +336,7 @@ bool cmCPackWIXGenerator::PackageWithWix()
 
   bool includeCPackTopLevel = false;
   for (std::string const& sourceFilename : this->WixSources) {
-    command << " -src " << QuotePath(CMakeToWixPath(sourceFilename));
+    command << " -src " << QuotePath(RBLXBuildToWixPath(sourceFilename));
     includeCPackTopLevel |= !cmHasPrefix(sourceFilename, this->CPackTopLevel);
   }
   if (includeCPackTopLevel) {
@@ -367,12 +367,12 @@ bool cmCPackWIXGenerator::PackageWithWix3()
     std::string objectFilename =
       cmStrCat(this->CPackTopLevel, '/', uniqueBaseName, ".wixobj");
 
-    if (!RunCandleCommand(CMakeToWixPath(sourceFilename),
-                          CMakeToWixPath(objectFilename))) {
+    if (!RunCandleCommand(RBLXBuildToWixPath(sourceFilename),
+                          RBLXBuildToWixPath(objectFilename))) {
       return false;
     }
 
-    objectFiles << ' ' << QuotePath(CMakeToWixPath(objectFilename));
+    objectFiles << ' ' << QuotePath(RBLXBuildToWixPath(objectFilename));
   }
 
   AppendUserSuppliedExtraObjects(objectFiles);
@@ -517,7 +517,7 @@ void cmCPackWIXGenerator::CopyDefinition(cmWIXSourceWriter& source,
   cmValue value = GetOption(name);
   if (value) {
     if (type == DefinitionType::PATH) {
-      AddDefinition(source, name, CMakeToWixPath(*value));
+      AddDefinition(source, name, RBLXBuildToWixPath(*value));
     } else {
       AddDefinition(source, name, *value);
     }
@@ -625,9 +625,9 @@ bool cmCPackWIXGenerator::CreateWiXSourceFiles()
   featureDefinitions.AddAttribute("Level", "1");
   this->Patch->ApplyFragment("#PRODUCTFEATURE", featureDefinitions);
 
-  cmValue package = GetOption("CPACK_WIX_CMAKE_PACKAGE_REGISTRY");
+  cmValue package = GetOption("CPACK_WIX_RBLXBUILD_PACKAGE_REGISTRY");
   if (package) {
-    featureDefinitions.CreateCMakePackageRegistryEntry(
+    featureDefinitions.CreateRBLXBuildPackageRegistryEntry(
       *package, GetOption("CPACK_WIX_UPGRADE_GUID"));
   }
 

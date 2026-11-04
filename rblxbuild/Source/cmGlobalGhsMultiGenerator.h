@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #pragma once
 
 #include <iosfwd>
@@ -17,7 +17,7 @@
 class cmGeneratorTarget;
 class cmLocalGenerator;
 class cmMakefile;
-class cmake;
+class rblxbuild;
 
 class cmGlobalGhsMultiGenerator : public cmGlobalGenerator
 {
@@ -25,7 +25,7 @@ public:
   // The default filename extension of GHS MULTI's build files.
   static char const* FILE_EXTENSION;
 
-  cmGlobalGhsMultiGenerator(cmake* cm);
+  cmGlobalGhsMultiGenerator(rblxbuild* cm);
   ~cmGlobalGhsMultiGenerator() override;
 
   static std::unique_ptr<cmGlobalGeneratorFactory> NewFactory()

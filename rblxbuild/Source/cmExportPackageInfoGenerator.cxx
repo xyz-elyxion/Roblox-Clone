@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmExportPackageInfoGenerator.h"
 
 #include <memory>
@@ -236,7 +236,7 @@ void cmExportPackageInfoGenerator::GeneratePackageRequires(
           }
         }
         if (!requirementDomains.empty()) {
-          data["extensions"]["cmake"]["domains@v1"] =
+          data["extensions"]["rblxbuild"]["domains@v1"] =
             std::move(requirementDomains);
         }
       }
@@ -327,7 +327,7 @@ void cmExportPackageInfoGenerator::GenerateTargetFileSets(
       continue;
     }
 
-    // Generate CPS file set(s) for each CMake file set
+    // Generate CPS file set(s) for each RBLXBuild file set
     Json::Value fileSets;
     for (cmGeneratorFileSet const* fileSet : gfs->GetInterfaceFileSets(type)) {
       this->GenerateTargetFileSets(fileSets, target, fileSet, targetExport,
@@ -355,7 +355,7 @@ void cmExportPackageInfoGenerator::GenerateTargetFileSet(
   }
   fileSetOut["files"] = filesOut;
 
-  fileSetOut["extensions"]["cmake"]["name@v1"] = fileSet->GetName();
+  fileSetOut["extensions"]["rblxbuild"]["name@v1"] = fileSet->GetName();
 
   fileSets.append(fileSetOut);
 }

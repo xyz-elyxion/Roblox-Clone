@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmFastbuildTargetGenerator.h"
 
 #include <algorithm>
@@ -40,14 +40,14 @@
 #include "cmTarget.h"
 #include "cmTargetTypes.h"
 #include "cmValue.h"
-#include "cmake.h"
+#include "rblxbuild.h"
 
 #define FASTBUILD_DOLLAR_TAG "FASTBUILD_DOLLAR_TAG"
 
 constexpr auto FASTBUILD_TRACK_BYPRODUCTS_AS_OUTPUT =
-  "CMAKE_FASTBUILD_TRACK_BYPRODUCTS_AS_OUTPUT";
+  "RBLXBUILD_FASTBUILD_TRACK_BYPRODUCTS_AS_OUTPUT";
 constexpr auto FASTBUILD_DISABLE_OUTPUT_PRECHECK_EXEC =
-  "CMAKE_FASTBUILD_DISABLE_OUTPUT_PRECHECK_EXEC";
+  "RBLXBUILD_FASTBUILD_DISABLE_OUTPUT_PRECHECK_EXEC";
 
 cmFastbuildTargetGenerator* cmFastbuildTargetGenerator::New(
   cmGeneratorTarget* target, std::string config)
@@ -184,9 +184,9 @@ void cmFastbuildTargetGenerator::WriteScriptEpilog(cmsys::ofstream& file) const
           "echo Batch file failed at line %FAIL_LINE% "
           "with errorcode %ERRORLEVEL%\n"
           "exit /b %ERROR_CODE%";
-#elif !defined(CMAKE_BOOTSTRAP)
+#elif !defined(RBLXBUILD_BOOTSTRAP)
   cmInstrumentation* instrumentation =
-    this->GetLocalGenerator()->GetCMakeInstance()->GetInstrumentation();
+    this->GetLocalGenerator()->GetRBLXBuildInstance()->GetInstrumentation();
   if (instrumentation->HasOption(
         cmInstrumentationQuery::Option::ProcessMetrics)) {
     // Prevent shell exec optimization from passing accumulated child resource
@@ -210,7 +210,7 @@ std::string cmFastbuildTargetGenerator::GetScriptFilename(
   std::string const& utilityTargetName) const
 {
   std::string scriptFileName = Makefile->GetCurrentBinaryDirectory();
-  scriptFileName += "/CMakeFiles/";
+  scriptFileName += "/RBLXBuildFiles/";
   scriptFileName += utilityTargetName;
   scriptFileName += FASTBUILD_SCRIPT_FILE_EXTENSION;
   return scriptFileName;
@@ -220,15 +220,15 @@ void cmFastbuildTargetGenerator::AddCommentPrinting(
   std::vector<std::string>& cmdLines,
   cmCustomCommandGenerator const& ccg) const
 {
-  std::string cmakeCommand = this->GetLocalGenerator()->ConvertToOutputFormat(
-    cmSystemTools::GetCMakeCommand(), cmOutputConverter::SHELL);
+  std::string rblxbuildCommand = this->GetLocalGenerator()->ConvertToOutputFormat(
+    cmSystemTools::GetRBLXBuildCommand(), cmOutputConverter::SHELL);
   auto const comment = ccg.GetComment();
   if (comment) {
     // Comment printing should be first. Tested in
-    // RunCMake.ExternalProject:EnvVars-build test.
+    // RunRBLXBuild.ExternalProject:EnvVars-build test.
     cmdLines.insert(
       cmdLines.begin(),
-      cmakeCommand.append(" -E echo ")
+      rblxbuildCommand.append(" -E echo ")
         .append(LocalGenerator->EscapeForShell(cmGeneratorExpression::Evaluate(
           *comment, this->LocalGenerator, Config))));
   }
@@ -275,7 +275,7 @@ void cmFastbuildTargetGenerator::AddOutput(cmCustomCommandGenerator const& ccg,
 
   exec.OutputsAlias.Name = exec.Name + FASTBUILD_OUTPUTS_ALIAS_POSTFIX;
   // If CC doesn't have any output - we should always run it.
-  // Tested in "RunCMake.CMakePresetsBuild" test.
+  // Tested in "RunRBLXBuild.RBLXBuildPresetsBuild" test.
   bool hasAnyNonSymbolicOutput = false;
 
   bool const trackByproducts =
@@ -291,7 +291,7 @@ void cmFastbuildTargetGenerator::AddOutput(cmCustomCommandGenerator const& ccg,
   };
 
   for (std::string const& output : outputs) {
-    // Tested in "RunCMake.BuildDepends".
+    // Tested in "RunRBLXBuild.BuildDepends".
     if (isSymbolic(output)) {
       continue;
     }
@@ -299,8 +299,8 @@ void cmFastbuildTargetGenerator::AddOutput(cmCustomCommandGenerator const& ccg,
     std::string const outputPath = this->ConvertToFastbuildPath(output);
     LogMessage("CC's output: " + outputPath);
     exec.OutputsAlias.PreBuildDependencies.emplace(outputPath);
-    // Ensure output path exists. For some reason, "CMake -E touch" fails with
-    // "cmake -E touch: failed to update "...
+    // Ensure output path exists. For some reason, "RBLXBuild -E touch" fails with
+    // "rblxbuild -E touch: failed to update "...
     cmSystemTools::MakeDirectory(cmSystemTools::GetFilenamePath(outputPath));
     this->GetGlobalGenerator()->AddFileToClean(outputPath);
   }
@@ -327,7 +327,7 @@ void cmFastbuildTargetGenerator::AddOutput(cmCustomCommandGenerator const& ccg,
   };
 
   // We don't have any output that is expected to appear on disk -> run always.
-  // Tested in "RunCMake.ExternalProject":BUILD_ALWAYS
+  // Tested in "RunRBLXBuild.ExternalProject":BUILD_ALWAYS
   if (!hasAnyNonSymbolicOutput) {
     exec.ExecAlways = true;
     addDummyOutput();
@@ -463,17 +463,17 @@ void cmFastbuildTargetGenerator::GetDepends(
   }
 }
 
-void cmFastbuildTargetGenerator::ReplaceProblematicMakeVars(
+void cmFastbuildTargetGenerator::ReplaceProblematirblxbuildVars(
   std::string& command) const
 {
   // TODO: fix problematic global targets.  For now, search and replace the
   // makefile vars.
   cmSystemTools::ReplaceString(
-    command, "$(CMAKE_SOURCE_DIR)",
+    command, "$(RBLXBUILD_SOURCE_DIR)",
     this->LocalGenerator->ConvertToOutputFormat(
       this->LocalGenerator->GetSourceDirectory(), cmOutputConverter::SHELL));
   cmSystemTools::ReplaceString(
-    command, "$(CMAKE_BINARY_DIR)",
+    command, "$(RBLXBUILD_BINARY_DIR)",
     this->LocalGenerator->ConvertToOutputFormat(
       this->LocalGenerator->GetBinaryDirectory(), cmOutputConverter::SHELL));
   cmSystemTools::ReplaceString(command, "$(ARGS)", "");
@@ -499,8 +499,8 @@ FastbuildExecNode cmFastbuildTargetGenerator::GetAppleTextStubCommand() const
   cmSystemTools::MakeDirectory(outpathImp);
 
   std::string rule = this->LocalGenerator->GetMakefile()->GetSafeDefinition(
-    "CMAKE_CREATE_TEXT_STUBS");
-  LogMessage("CMAKE_CREATE_TEXT_STUBS:" + rule);
+    "RBLXBUILD_CREATE_TEXT_STUBS");
+  LogMessage("RBLXBUILD_CREATE_TEXT_STUBS:" + rule);
 
   auto rulePlaceholderExpander =
     this->GetLocalGenerator()->CreateRulePlaceholderExpander();
@@ -514,7 +514,7 @@ FastbuildExecNode cmFastbuildTargetGenerator::GetAppleTextStubCommand() const
   rulePlaceholderExpander->ExpandRuleVariables(this->GetLocalGenerator(), rule,
                                                vars);
 
-  LogMessage("CMAKE_CREATE_TEXT_STUBS expanded:" + rule);
+  LogMessage("RBLXBUILD_CREATE_TEXT_STUBS expanded:" + rule);
   std::string executable;
   std::string args;
   if (!cmSystemTools::SplitProgramFromArgs(rule, executable, args)) {
@@ -603,9 +603,9 @@ std::vector<std::vector<cm::string_view>> GroupDeps(
 std::vector<FastbuildExecNode> cmFastbuildTargetGenerator::GetDepsCheckExecs(
   FastbuildExecNode const& depender)
 {
-  std::string const& executable = cmSystemTools::GetCMakeCommand();
+  std::string const& executable = cmSystemTools::GetRBLXBuildCommand();
   std::string execArgumentsBase =
-    cmStrCat("-E cmake_fastbuild_check_depends ", depender.ExecOutput, ' ');
+    cmStrCat("-E rblxbuild_fastbuild_check_depends ", depender.ExecOutput, ' ');
 
   std::vector<std::vector<cm::string_view>> depsCheckExecNamesGrouped =
     GroupDeps(depender, executable.size() + execArgumentsBase.size());
@@ -682,7 +682,7 @@ FastbuildExecNodes cmFastbuildTargetGenerator::GenerateCommands(
 
         std::string& cmd = cmdLines.back();
         ccg.AppendArguments(j, cmd);
-        ReplaceProblematicMakeVars(cmd);
+        ReplaceProblematirblxbuildVars(cmd);
         LogMessage("cmCustomCommandLine: " + cmd);
       }
     }

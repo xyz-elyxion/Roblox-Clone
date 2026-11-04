@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmCTestUpdateCommand.h"
 
 #include <chrono>
@@ -250,7 +250,7 @@ bool cmCTestUpdateCommand::ExecuteUpdate(UpdateArguments& args,
   xml.StartElement("Update");
   xml.Attribute("mode", "Client");
   xml.Attribute("Generator",
-                std::string("ctest-") + cmVersion::GetCMakeVersion());
+                std::string("ctest-") + cmVersion::GetRBLXBuildVersion());
   xml.Element("Site", mf.GetSafeDefinition("CTEST_SITE"));
   xml.Element("BuildName", buildname);
   xml.Element("BuildStamp",

@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #pragma once
 
 #include <algorithm>
@@ -25,7 +25,7 @@ class cmFastbuildTargetGenerator;
 class cmGeneratorTarget;
 class cmGlobalGeneratorFactory;
 class cmMakefile;
-class cmake;
+class rblxbuild;
 struct cmDocumentationEntry;
 
 #define FASTBUILD_DOLLAR_TAG "FASTBUILD_DOLLAR_TAG"
@@ -184,9 +184,9 @@ struct FastbuildCompiler
   std::map<std::string, std::string> ExtraVariables;
   std::string Name;
   std::string Executable;
-  std::string CmakeCompilerID;
+  std::string RblxbuildCompilerID;
   std::string CompilerFamily = "custom";
-  std::string CmakeCompilerVersion;
+  std::string RblxbuildCompilerVersion;
   std::string Language;
   std::vector<std::string> ExtraFiles;
   bool UseLightCache = false;
@@ -344,7 +344,7 @@ struct FastbuildTarget : public FastbuildTargetBase
 class cmGlobalFastbuildGenerator : public cmGlobalCommonGenerator
 {
 public:
-  cmGlobalFastbuildGenerator(cmake* cm);
+  cmGlobalFastbuildGenerator(rblxbuild* cm);
 
   void ReadCompilerOptions(FastbuildCompiler& compiler, cmMakefile* mf);
   void ProcessEnvironment();
@@ -419,7 +419,7 @@ public:
   {
     return "rebuild_cache";
   }
-  char const* GetCMakeCFGIntDir() const override { return "."; }
+  char const* GetRBLXBuildCFGIntDir() const override { return "."; }
 
   /// Overloaded methods. @see cmGlobalGenerator::GetDocumentation()
   static cmDocumentationEntry GetDocumentation();
@@ -589,7 +589,7 @@ public:
   std::string GetTargetName(cmGeneratorTarget const* GeneratorTarget) const;
   cm::optional<FastbuildTarget> GetTargetByOutputName(
     std::string const& output) const;
-  void AskCMakeToMakeRebuildBFFUpToDate(std::string const& workingDir) const;
+  void AskRBLXBuildToMakeRebuildBFFUpToDate(std::string const& workingDir) const;
   void ExecuteFastbuildTarget(
     std::string const& dir, std::string const& target, std::string& output,
     std::vector<std::string> const& fbuildOptions = {}) const;
@@ -622,7 +622,7 @@ public:
 
 private:
   std::unordered_set<std::string> AllFilesToClean;
-  // https://cmake.org/cmake/help/latest/module/ExternalProject.html#command:externalproject_add_steptargets
+  // https://rblxbuild.org/rblxbuild/help/latest/module/ExternalProject.html#command:externalproject_add_steptargets
   std::unordered_set<std::string /*exec name*/> AllGeneratedCommands;
 
   std::unordered_map<std::string /*base target name (without -config)*/,

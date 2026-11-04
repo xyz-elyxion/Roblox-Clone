@@ -1,8 +1,8 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 
 /* This code was originally taken from part of the Clang-Tidy LLVM project and
- * modified for use with CMake under the following original license: */
+ * modified for use with RBLXBuild under the following original license: */
 
 //===--- HeaderGuard.cpp - clang-tidy
 //-------------------------------------===//
@@ -26,7 +26,7 @@
 
 namespace clang {
 namespace tidy {
-namespace cmake {
+namespace rblxbuild {
 
 /// canonicalize a path by removing ./ and ../ components.
 static std::string cleanPath(StringRef Path)
@@ -319,6 +319,6 @@ bool UsePragmaOnceCheck::shouldSuggestToAddPragmaOnce(StringRef FileName)
   return utils::isFileExtension(FileName, this->HeaderFileExtensions);
 }
 
-} // namespace cmake
+} // namespace rblxbuild
 } // namespace tidy
 } // namespace clang

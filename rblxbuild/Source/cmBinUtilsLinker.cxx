@@ -1,11 +1,11 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 
 #include "cmBinUtilsLinker.h"
 
 #include <utility>
 
-#include "cmCMakePath.h"
+#include "cmRBLXBuildPath.h"
 #include "cmMakefile.h"
 #include "cmPolicies.h"
 #include "cmRuntimeDependencyArchive.h"
@@ -24,7 +24,7 @@ void cmBinUtilsLinker::SetError(std::string const& e)
 void cmBinUtilsLinker::NormalizePath(std::string& path) const
 {
   std::string normalizedPath =
-    cmCMakePath(path, cmCMakePath::auto_format).GenericString();
+    cmRBLXBuildPath(path, cmRBLXBuildPath::auto_format).GenericString();
 
   if (path == normalizedPath) {
     return;

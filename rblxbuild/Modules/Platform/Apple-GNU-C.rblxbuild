@@ -1,0 +1,4 @@
+include(Platform/Apple-GNU)
+__apple_compiler_gnu(C)
+rblxbuild_gnu_set_sysroot_flag(C)
+rblxbuild_gnu_set_osx_deployment_target_flag(C)

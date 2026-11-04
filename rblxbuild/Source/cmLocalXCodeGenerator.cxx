@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmLocalXCodeGenerator.h"
 
 #include <memory>
@@ -58,9 +58,9 @@ void cmLocalXCodeGenerator::AddGeneratorSpecificInstallSetup(std::ostream& os)
     target->HasMacOSXRpathInstallNameDir("");
   }
 
-  // CMakeIOSInstallCombined.cmake needs to know the location of the top of
+  // RBLXBuildIOSInstallCombined.rblxbuild needs to know the location of the top of
   // the build directory
-  os << "set(CMAKE_BINARY_DIR \"" << this->GetBinaryDirectory() << "\")\n\n";
+  os << "set(RBLXBUILD_BINARY_DIR \"" << this->GetBinaryDirectory() << "\")\n\n";
 
   if (this->Makefile->PlatformIsAppleEmbedded()) {
     std::string platformName;

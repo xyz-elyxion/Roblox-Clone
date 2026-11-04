@@ -1,0 +1,1305 @@
+/* config.h.  Generated from build/rblxbuild/config.h.in by rblxbuild configure */
+#if defined(__osf__)
+# define _OSF_SOURCE
+#endif
+
+/*
+ * Ensure we have C99-style int64_t, etc, all defined.
+ */
+
+/* Define ZLIB_WINAPI if zlib was built on Visual Studio. */
+#rblxbuilddefine ZLIB_WINAPI 1
+
+/* Darwin ACL support */
+#rblxbuilddefine ARCHIVE_ACL_DARWIN 1
+
+/* FreeBSD ACL support */
+#rblxbuilddefine ARCHIVE_ACL_FREEBSD 1
+
+/* FreeBSD NFSv4 ACL support */
+#rblxbuilddefine ARCHIVE_ACL_FREEBSD_NFS4 1
+
+/* Linux POSIX.1e ACL support via libacl */
+#rblxbuilddefine ARCHIVE_ACL_LIBACL 1
+
+/* Linux NFSv4 ACL support via librichacl */
+#rblxbuilddefine ARCHIVE_ACL_LIBRICHACL 1
+
+/* Solaris ACL support */
+#rblxbuilddefine ARCHIVE_ACL_SUNOS 1
+
+/* Solaris NFSv4 ACL support */
+#rblxbuilddefine ARCHIVE_ACL_SUNOS_NFS4 1
+
+/* MD5 via ARCHIVE_CRYPTO_MD5_LIBC supported. */
+#rblxbuilddefine ARCHIVE_CRYPTO_MD5_LIBC 1
+
+/* MD5 via ARCHIVE_CRYPTO_MD5_LIBMD supported. */
+#rblxbuilddefine ARCHIVE_CRYPTO_MD5_LIBMD 1
+
+/* MD5 via ARCHIVE_CRYPTO_MD5_LIBSYSTEM supported. */
+#rblxbuilddefine ARCHIVE_CRYPTO_MD5_LIBSYSTEM 1
+
+/* MD5 via ARCHIVE_CRYPTO_MD5_MBEDTLS supported. */
+#rblxbuilddefine ARCHIVE_CRYPTO_MD5_MBEDTLS 1
+
+/* MD5 via ARCHIVE_CRYPTO_MD5_NETTLE supported. */
+#rblxbuilddefine ARCHIVE_CRYPTO_MD5_NETTLE 1
+
+/* MD5 via ARCHIVE_CRYPTO_MD5_OPENSSL supported. */
+#rblxbuilddefine ARCHIVE_CRYPTO_MD5_OPENSSL 1
+
+/* MD5 via ARCHIVE_CRYPTO_MD5_WIN supported. */
+#rblxbuilddefine ARCHIVE_CRYPTO_MD5_WIN 1
+
+/* RMD160 via ARCHIVE_CRYPTO_RMD160_LIBC supported. */
+#rblxbuilddefine ARCHIVE_CRYPTO_RMD160_LIBC 1
+
+/* RMD160 via ARCHIVE_CRYPTO_RMD160_LIBMD supported. */
+#rblxbuilddefine ARCHIVE_CRYPTO_RMD160_LIBMD 1
+
+/* RMD160 via ARCHIVE_CRYPTO_RMD160_MBEDTLS supported. */
+#rblxbuilddefine ARCHIVE_CRYPTO_RMD160_MBEDTLS 1
+
+/* RMD160 via ARCHIVE_CRYPTO_RMD160_NETTLE supported. */
+#rblxbuilddefine ARCHIVE_CRYPTO_RMD160_NETTLE 1
+
+/* RMD160 via ARCHIVE_CRYPTO_RMD160_OPENSSL supported. */
+#rblxbuilddefine ARCHIVE_CRYPTO_RMD160_OPENSSL 1
+
+/* SHA1 via ARCHIVE_CRYPTO_SHA1_LIBC supported. */
+#rblxbuilddefine ARCHIVE_CRYPTO_SHA1_LIBC 1
+
+/* SHA1 via ARCHIVE_CRYPTO_SHA1_LIBMD supported. */
+#rblxbuilddefine ARCHIVE_CRYPTO_SHA1_LIBMD 1
+
+/* SHA1 via ARCHIVE_CRYPTO_SHA1_LIBSYSTEM supported. */
+#rblxbuilddefine ARCHIVE_CRYPTO_SHA1_LIBSYSTEM 1
+
+/* SHA1 via ARCHIVE_CRYPTO_SHA1_MBEDTLS supported. */
+#rblxbuilddefine ARCHIVE_CRYPTO_SHA1_MBEDTLS 1
+
+/* SHA1 via ARCHIVE_CRYPTO_SHA1_NETTLE supported. */
+#rblxbuilddefine ARCHIVE_CRYPTO_SHA1_NETTLE 1
+
+/* SHA1 via ARCHIVE_CRYPTO_SHA1_OPENSSL supported. */
+#rblxbuilddefine ARCHIVE_CRYPTO_SHA1_OPENSSL 1
+
+/* SHA1 via ARCHIVE_CRYPTO_SHA1_WIN supported. */
+#rblxbuilddefine ARCHIVE_CRYPTO_SHA1_WIN 1
+
+/* SHA256 via ARCHIVE_CRYPTO_SHA256_LIBC supported. */
+#rblxbuilddefine ARCHIVE_CRYPTO_SHA256_LIBC 1
+
+/* SHA256 via ARCHIVE_CRYPTO_SHA256_LIBC2 supported. */
+#rblxbuilddefine ARCHIVE_CRYPTO_SHA256_LIBC2 1
+
+/* SHA256 via ARCHIVE_CRYPTO_SHA256_LIBC3 supported. */
+#rblxbuilddefine ARCHIVE_CRYPTO_SHA256_LIBC3 1
+
+/* SHA256 via ARCHIVE_CRYPTO_SHA256_LIBMD supported. */
+#rblxbuilddefine ARCHIVE_CRYPTO_SHA256_LIBMD 1
+
+/* SHA256 via ARCHIVE_CRYPTO_SHA256_LIBSYSTEM supported. */
+#rblxbuilddefine ARCHIVE_CRYPTO_SHA256_LIBSYSTEM 1
+
+/* SHA256 via ARCHIVE_CRYPTO_SHA256_MBEDTLS supported. */
+#rblxbuilddefine ARCHIVE_CRYPTO_SHA256_MBEDTLS 1
+
+/* SHA256 via ARCHIVE_CRYPTO_SHA256_NETTLE supported. */
+#rblxbuilddefine ARCHIVE_CRYPTO_SHA256_NETTLE 1
+
+/* SHA256 via ARCHIVE_CRYPTO_SHA256_OPENSSL supported. */
+#rblxbuilddefine ARCHIVE_CRYPTO_SHA256_OPENSSL 1
+
+/* SHA256 via ARCHIVE_CRYPTO_SHA256_WIN supported. */
+#rblxbuilddefine ARCHIVE_CRYPTO_SHA256_WIN 1
+
+/* SHA384 via ARCHIVE_CRYPTO_SHA384_LIBC supported. */
+#rblxbuilddefine ARCHIVE_CRYPTO_SHA384_LIBC 1
+
+/* SHA384 via ARCHIVE_CRYPTO_SHA384_LIBC2 supported. */
+#rblxbuilddefine ARCHIVE_CRYPTO_SHA384_LIBC2 1
+
+/* SHA384 via ARCHIVE_CRYPTO_SHA384_LIBC3 supported. */
+#rblxbuilddefine ARCHIVE_CRYPTO_SHA384_LIBC3 1
+
+/* SHA384 via ARCHIVE_CRYPTO_SHA384_LIBSYSTEM supported. */
+#rblxbuilddefine ARCHIVE_CRYPTO_SHA384_LIBSYSTEM 1
+
+/* SHA384 via ARCHIVE_CRYPTO_SHA384_MBEDTLS supported. */
+#rblxbuilddefine ARCHIVE_CRYPTO_SHA384_MBEDTLS 1
+
+/* SHA384 via ARCHIVE_CRYPTO_SHA384_NETTLE supported. */
+#rblxbuilddefine ARCHIVE_CRYPTO_SHA384_NETTLE 1
+
+/* SHA384 via ARCHIVE_CRYPTO_SHA384_OPENSSL supported. */
+#rblxbuilddefine ARCHIVE_CRYPTO_SHA384_OPENSSL 1
+
+/* SHA384 via ARCHIVE_CRYPTO_SHA384_WIN supported. */
+#rblxbuilddefine ARCHIVE_CRYPTO_SHA384_WIN 1
+
+/* SHA512 via ARCHIVE_CRYPTO_SHA512_LIBC supported. */
+#rblxbuilddefine ARCHIVE_CRYPTO_SHA512_LIBC 1
+
+/* SHA512 via ARCHIVE_CRYPTO_SHA512_LIBC2 supported. */
+#rblxbuilddefine ARCHIVE_CRYPTO_SHA512_LIBC2 1
+
+/* SHA512 via ARCHIVE_CRYPTO_SHA512_LIBC3 supported. */
+#rblxbuilddefine ARCHIVE_CRYPTO_SHA512_LIBC3 1
+
+/* SHA512 via ARCHIVE_CRYPTO_SHA512_LIBMD supported. */
+#rblxbuilddefine ARCHIVE_CRYPTO_SHA512_LIBMD 1
+
+/* SHA512 via ARCHIVE_CRYPTO_SHA512_LIBSYSTEM supported. */
+#rblxbuilddefine ARCHIVE_CRYPTO_SHA512_LIBSYSTEM 1
+
+/* SHA512 via ARCHIVE_CRYPTO_SHA512_MBEDTLS supported. */
+#rblxbuilddefine ARCHIVE_CRYPTO_SHA512_MBEDTLS 1
+
+/* SHA512 via ARCHIVE_CRYPTO_SHA512_NETTLE supported. */
+#rblxbuilddefine ARCHIVE_CRYPTO_SHA512_NETTLE 1
+
+/* SHA512 via ARCHIVE_CRYPTO_SHA512_OPENSSL supported. */
+#rblxbuilddefine ARCHIVE_CRYPTO_SHA512_OPENSSL 1
+
+/* SHA512 via ARCHIVE_CRYPTO_SHA512_WIN supported. */
+#rblxbuilddefine ARCHIVE_CRYPTO_SHA512_WIN 1
+
+/* Use Windows CNG(Crypto Next Generation) */
+#rblxbuilddefine ARCHIVE_CRYPTO_WIN 1
+
+/* AIX xattr support */
+#rblxbuilddefine ARCHIVE_XATTR_AIX 1
+
+/* Darwin xattr support */
+#rblxbuilddefine ARCHIVE_XATTR_DARWIN 1
+
+/* FreeBSD xattr support */
+#rblxbuilddefine ARCHIVE_XATTR_FREEBSD 1
+
+/* Linux xattr support */
+#rblxbuilddefine ARCHIVE_XATTR_LINUX 1
+
+/* Version number of bsdcpio */
+#rblxbuilddefine BSDCPIO_VERSION_STRING "@BSDCPIO_VERSION_STRING@"
+
+/* Version number of bsdtar */
+#rblxbuilddefine BSDTAR_VERSION_STRING "@BSDTAR_VERSION_STRING@"
+
+/* Version number of bsdcat */
+#rblxbuilddefine BSDCAT_VERSION_STRING "@BSDCAT_VERSION_STRING@"
+
+/* Version number of bsdunzip */
+#rblxbuilddefine BSDUNZIP_VERSION_STRING "@BSDUNZIP_VERSION_STRING@"
+
+/* Define to 1 if you have the 'acl_create_entry' function. */
+#rblxbuilddefine HAVE_ACL_CREATE_ENTRY 1
+
+/* Define to 1 if you have the 'acl_get_fd_np' function. */
+#rblxbuilddefine HAVE_ACL_GET_FD_NP 1
+
+/* Define to 1 if you have the 'acl_get_link' function. */
+#rblxbuilddefine HAVE_ACL_GET_LINK 1
+
+/* Define to 1 if you have the 'acl_get_link_np' function. */
+#rblxbuilddefine HAVE_ACL_GET_LINK_NP 1
+
+/* Define to 1 if you have the 'acl_get_perm' function. */
+#rblxbuilddefine HAVE_ACL_GET_PERM 1
+
+/* Define to 1 if you have the 'acl_get_perm_np' function. */
+#rblxbuilddefine HAVE_ACL_GET_PERM_NP 1
+
+/* Define to 1 if you have the 'acl_init' function. */
+#rblxbuilddefine HAVE_ACL_INIT 1
+
+/* Define to 1 if you have the <acl/libacl.h> header file. */
+#rblxbuilddefine HAVE_ACL_LIBACL_H 1
+
+/* Define to 1 if the system has the type 'acl_permset_t'. */
+#rblxbuilddefine HAVE_ACL_PERMSET_T 1
+
+/* Define to 1 if you have the 'acl_set_fd' function. */
+#rblxbuilddefine HAVE_ACL_SET_FD 1
+
+/* Define to 1 if you have the 'acl_set_fd_np' function. */
+#rblxbuilddefine HAVE_ACL_SET_FD_NP 1
+
+/* Define to 1 if you have the 'acl_set_file' function. */
+#rblxbuilddefine HAVE_ACL_SET_FILE 1
+
+/* Define to 1 if you have the 'arc4random_buf' function. */
+#rblxbuilddefine HAVE_ARC4RANDOM_BUF 1
+
+/* Define to 1 if you have the <attr/xattr.h> header file. */
+#rblxbuilddefine HAVE_ATTR_XATTR_H 1
+
+/* Define to 1 if you have the <bcrypt.h> header file. */
+#rblxbuilddefine HAVE_BCRYPT_H 1
+
+/* Define to 1 if you have the <bsdxml.h> header file. */
+#rblxbuilddefine HAVE_BSDXML_H 1
+
+/* Define to 1 if you have the <bzlib.h> header file. */
+#rblxbuilddefine HAVE_BZLIB_H 1
+
+/* Define to 1 if you have the 'chflags' function. */
+#rblxbuilddefine HAVE_CHFLAGS 1
+
+/* Define to 1 if you have the 'chown' function. */
+#rblxbuilddefine HAVE_CHOWN 1
+
+/* Define to 1 if you have the 'chroot' function. */
+#rblxbuilddefine HAVE_CHROOT 1
+
+/* Define to 1 if you have the 'closefrom' function. */
+#rblxbuilddefine HAVE_CLOSEFROM 1
+
+/* Define to 1 if you have the 'close_range' function. */
+#rblxbuilddefine HAVE_CLOSE_RANGE 1
+
+/* Define to 1 if you have the <copyfile.h> header file. */
+#rblxbuilddefine HAVE_COPYFILE_H 1
+
+/* Define to 1 if you have the 'ctime_r' function. */
+#rblxbuilddefine HAVE_CTIME_R 1
+
+/* Define to 1 if you have the <ctype.h> header file. */
+#rblxbuilddefine HAVE_CTYPE_H 1
+
+/* Define to 1 if you have the 'cygwin_conv_path' function. */
+#rblxbuilddefine HAVE_CYGWIN_CONV_PATH 1
+
+/* Define to 1 if you have the declaration of 'ACE_GETACL', and to 0 if you
+   don't. */
+#rblxbuilddefine HAVE_DECL_ACE_GETACL 1
+
+/* Define to 1 if you have the declaration of 'ACE_GETACLCNT', and to 0 if you
+   don't. */
+#rblxbuilddefine HAVE_DECL_ACE_GETACLCNT 1
+
+/* Define to 1 if you have the declaration of 'ACE_SETACL', and to 0 if you
+   don't. */
+#rblxbuilddefine HAVE_DECL_ACE_SETACL 1
+
+/* Define to 1 if you have the declaration of 'ACL_SYNCHRONIZE', and to 0 if
+   you don't. */
+#rblxbuilddefine HAVE_DECL_ACL_SYNCHRONIZE 1
+
+/* Define to 1 if you have the declaration of 'ACL_TYPE_EXTENDED', and to 0 if
+   you don't. */
+#rblxbuilddefine HAVE_DECL_ACL_TYPE_EXTENDED 1
+
+/* Define to 1 if you have the declaration of 'ACL_TYPE_NFS4', and to 0 if you
+   don't. */
+#rblxbuilddefine HAVE_DECL_ACL_TYPE_NFS4 1
+
+/* Define to 1 if you have the declaration of 'ACL_USER', and to 0 if you
+   don't. */
+#rblxbuilddefine HAVE_DECL_ACL_USER 1
+
+/* Define to 1 if you have the declaration of `SETACL', and to 0 if you don't.
+   */
+#rblxbuilddefine HAVE_DECL_SETACL 1
+
+/* Define to 1 if you have the declaration of `strerror_r', and to 0 if you
+   don't. */
+#rblxbuilddefine HAVE_DECL_STRERROR_R 1
+
+/* Define to 1 if you have the declaration of 'XATTR_NOFOLLOW', and to 0 if
+   you don't. */
+#rblxbuilddefine HAVE_DECL_XATTR_NOFOLLOW 1
+
+/* Define to 1 if you have the <direct.h> header file. */
+#rblxbuilddefine HAVE_DIRECT_H 1
+
+/* Define to 1 if you have the <dirent.h> header file, and it defines 'DIR'.
+   */
+#rblxbuilddefine HAVE_DIRENT_H 1
+
+/* Define to 1 if you have the 'dirfd' function. */
+#rblxbuilddefine HAVE_DIRFD 1
+
+/* Define to 1 if you have the <dlfcn.h> header file. */
+#rblxbuilddefine HAVE_DLFCN_H 1
+
+/* Define to 1 if you don't have 'vprintf' but do have '_doprnt.' */
+#rblxbuilddefine HAVE_DOPRNT 1
+
+/* Define to 1 if nl_langinfo supports D_MD_ORDER */
+#rblxbuilddefine HAVE_D_MD_ORDER 1
+
+/* A possible errno value for invalid file format errors */
+#rblxbuilddefine HAVE_EFTYPE 1
+
+/* A possible errno value for invalid file format errors */
+#rblxbuilddefine HAVE_EILSEQ 1
+
+/* Define to 1 if you have the <errno.h> header file. */
+#rblxbuilddefine HAVE_ERRNO_H 1
+
+/* Define to 1 if you have the <expat.h> header file. */
+#rblxbuilddefine HAVE_EXPAT_H 1
+
+/* Define to 1 if you have the 'explicit_bzero' function. */
+#rblxbuilddefine HAVE_EXPLICIT_BZERO 1
+
+/* Define to 1 if you have the <ext2fs/ext2_fs.h> header file. */
+#rblxbuilddefine HAVE_EXT2FS_EXT2_FS_H 1
+
+/* Define to 1 if you have the 'extattr_get_file' function. */
+#rblxbuilddefine HAVE_EXTATTR_GET_FILE 1
+
+/* Define to 1 if you have the 'extattr_list_file' function. */
+#rblxbuilddefine HAVE_EXTATTR_LIST_FILE 1
+
+/* Define to 1 if you have the 'extattr_set_fd' function. */
+#rblxbuilddefine HAVE_EXTATTR_SET_FD 1
+
+/* Define to 1 if you have the 'extattr_set_file' function. */
+#rblxbuilddefine HAVE_EXTATTR_SET_FILE 1
+
+/* Define to 1 if EXTATTR_NAMESPACE_USER is defined in sys/extattr.h. */
+#rblxbuilddefine HAVE_DECL_EXTATTR_NAMESPACE_USER 1
+
+/* Define to 1 if you have the declaration of 'GETACL', and to 0 if you don't.
+   */
+#rblxbuilddefine HAVE_DECL_GETACL 1
+
+/* Define to 1 if you have the declaration of 'GETACLCNT', and to 0 if you
+   don't. */
+#rblxbuilddefine HAVE_DECL_GETACLCNT 1
+
+/* Define to 1 if you have the 'fchdir' function. */
+#rblxbuilddefine HAVE_FCHDIR 1
+
+/* Define to 1 if you have the 'fchflags' function. */
+#rblxbuilddefine HAVE_FCHFLAGS 1
+
+/* Define to 1 if you have the 'fchmod' function. */
+#rblxbuilddefine HAVE_FCHMOD 1
+
+/* Define to 1 if you have the 'fchown' function. */
+#rblxbuilddefine HAVE_FCHOWN 1
+
+/* Define to 1 if you have the 'fcntl' function. */
+#rblxbuilddefine HAVE_FCNTL 1
+
+/* Define to 1 if you have the <fcntl.h> header file. */
+#rblxbuilddefine HAVE_FCNTL_H 1
+
+/* Define to 1 if you have the 'fdopendir' function. */
+#rblxbuilddefine HAVE_FDOPENDIR 1
+
+/* Define to 1 if you have the 'fgetea' function. */
+#rblxbuilddefine HAVE_FGETEA 1
+
+/* Define to 1 if you have the 'fgetxattr' function. */
+#rblxbuilddefine HAVE_FGETXATTR 1
+
+/* Define to 1 if you have the 'flistea' function. */
+#rblxbuilddefine HAVE_FLISTEA 1
+
+/* Define to 1 if you have the 'flistxattr' function. */
+#rblxbuilddefine HAVE_FLISTXATTR 1
+
+/* Define to 1 if you have the 'fnmatch' function. */
+#rblxbuilddefine HAVE_FNMATCH 1
+
+/* Define to 1 if you have the <fnmatch.h> header file. */
+#rblxbuilddefine HAVE_FNMATCH_H 1
+
+/* Define to 1 if you have the 'fork' function. */
+#rblxbuilddefine HAVE_FORK 1
+
+/* Define to 1 if fseeko (and presumably ftello) exists and is declared. */
+#rblxbuilddefine HAVE_FSEEKO 1
+
+/* Define to 1 if you have the 'fsetea' function. */
+#rblxbuilddefine HAVE_FSETEA 1
+
+/* Define to 1 if you have the 'fsetxattr' function. */
+#rblxbuilddefine HAVE_FSETXATTR 1
+
+/* Define to 1 if you have the 'fstat' function. */
+#rblxbuilddefine HAVE_FSTAT 1
+
+/* Define to 1 if you have the 'fstatat' function. */
+#rblxbuilddefine HAVE_FSTATAT 1
+
+/* Define to 1 if you have the 'fstatfs' function. */
+#rblxbuilddefine HAVE_FSTATFS 1
+
+/* Define to 1 if you have the 'fstatvfs' function. */
+#rblxbuilddefine HAVE_FSTATVFS 1
+
+/* Define to 1 if you have the 'ftruncate' function. */
+#rblxbuilddefine HAVE_FTRUNCATE 1
+
+/* Define to 1 if you have the 'futimens' function. */
+#rblxbuilddefine HAVE_FUTIMENS 1
+
+/* Define to 1 if you have the 'futimes' function. */
+#rblxbuilddefine HAVE_FUTIMES 1
+
+/* Define to 1 if you have the 'futimesat' function. */
+#rblxbuilddefine HAVE_FUTIMESAT 1
+
+/* Define to 1 if you have the 'getea' function. */
+#rblxbuilddefine HAVE_GETEA 1
+
+/* Define to 1 if you have the 'getegid' function. */
+#rblxbuilddefine HAVE_GETEGID 1
+
+/* Define to 1 if you have the 'geteuid' function. */
+#rblxbuilddefine HAVE_GETEUID 1
+
+/* Define to 1 if you have the 'getgrgid_r' function. */
+#rblxbuilddefine HAVE_GETGRGID_R 1
+
+/* Define to 1 if you have the 'getgrnam_r' function. */
+#rblxbuilddefine HAVE_GETGRNAM_R 1
+
+/* Define to 1 if you have the 'getline' function. */
+#rblxbuilddefine HAVE_GETLINE 1
+
+/* Define to 1 if you have the 'getpid' function. */
+#rblxbuilddefine HAVE_GETPID 1
+
+/* Define to 1 if you have the 'getpwnam_r' function. */
+#rblxbuilddefine HAVE_GETPWNAM_R 1
+
+/* Define to 1 if you have the 'getpwuid_r' function. */
+#rblxbuilddefine HAVE_GETPWUID_R 1
+
+/* Define to 1 if you have the 'gettimeofday' function. */
+#rblxbuilddefine HAVE_GETTIMEOFDAY 1
+
+/* Define to 1 if you have the 'getvfsbyname' function. */
+#rblxbuilddefine HAVE_GETVFSBYNAME 1
+
+/* Define to 1 if you have the 'getxattr' function. */
+#rblxbuilddefine HAVE_GETXATTR 1
+
+/* Define to 1 if you have the 'gmtime_r' function. */
+#rblxbuilddefine HAVE_GMTIME_R 1
+
+/* Define to 1 if you have the <grp.h> header file. */
+#rblxbuilddefine HAVE_GRP_H 1
+
+/* Define to 1 if you have the 'iconv' function. */
+#rblxbuilddefine HAVE_ICONV 1
+
+/* Define to 1 if you have the <iconv.h> header file. */
+#rblxbuilddefine HAVE_ICONV_H 1
+
+/* Define to 1 if you have the <intsafe.h> header file. */
+#rblxbuilddefine HAVE_INTSAFE_H 1
+
+/* Define to 1 if you have the <io.h> header file. */
+#rblxbuilddefine HAVE_IO_H 1
+
+/* Define to 1 if you have the <langinfo.h> header file. */
+#rblxbuilddefine HAVE_LANGINFO_H 1
+
+/* Define to 1 if you have the 'lchflags' function. */
+#rblxbuilddefine HAVE_LCHFLAGS 1
+
+/* Define to 1 if you have the 'lchmod' function. */
+#rblxbuilddefine HAVE_LCHMOD 1
+
+/* Define to 1 if you have the 'lchown' function. */
+#rblxbuilddefine HAVE_LCHOWN 1
+
+/* Define to 1 if you have the 'lgetea' function. */
+#rblxbuilddefine HAVE_LGETEA 1
+
+/* Define to 1 if you have the 'lgetxattr' function. */
+#rblxbuilddefine HAVE_LGETXATTR 1
+
+/* Define to 1 if you have the 'acl' library (-lacl). */
+#rblxbuilddefine HAVE_LIBACL 1
+
+/* Define to 1 if you have the 'attr' library (-lattr). */
+#rblxbuilddefine HAVE_LIBATTR 1
+
+/* Define to 1 if you have the 'bsdxml' library (-lbsdxml). */
+#rblxbuilddefine HAVE_LIBBSDXML 1
+
+/* Define to 1 if you have the 'bz2' library (-lbz2). */
+#rblxbuilddefine HAVE_LIBBZ2 1
+
+/* Define to 1 if you have the 'b2' library (-lb2). */
+#rblxbuilddefine HAVE_LIBB2 1
+
+/* Define to 1 if you have the <blake2.h> header file. */
+#rblxbuilddefine HAVE_BLAKE2_H 1
+
+/* Define to 1 if you have the 'charset' library (-lcharset). */
+#rblxbuilddefine HAVE_LIBCHARSET 1
+
+/* Define to 1 if you have the 'crypto' library (-lcrypto). */
+#rblxbuilddefine HAVE_LIBCRYPTO 1
+
+/* Define to 1 if you have the 'expat' library (-lexpat). */
+#rblxbuilddefine HAVE_LIBEXPAT 1
+
+/* Define to 1 if you have the 'gcc' library (-lgcc). */
+#rblxbuilddefine HAVE_LIBGCC 1
+
+/* Define to 1 if you have the 'lz4' library (-llz4). */
+#rblxbuilddefine HAVE_LIBLZ4 1
+
+/* Define to 1 if you have the 'lzma' library (-llzma). */
+#rblxbuilddefine HAVE_LIBLZMA 1
+
+/* Define to 1 if you have the 'lzo2' library (-llzo2). */
+#rblxbuilddefine HAVE_LIBLZO2 1
+
+/* Define to 1 if you have the 'mbedcrypto' library (-lmbedcrypto). */
+#rblxbuilddefine HAVE_LIBMBEDCRYPTO 1
+
+/* Define to 1 if you have the 'nettle' library (-lnettle). */
+#rblxbuilddefine HAVE_LIBNETTLE 1
+
+/* Define to 1 if you have the 'pcre' library (-lpcre). */
+#rblxbuilddefine HAVE_LIBPCRE 1
+
+/* Define to 1 if you have the 'pcreposix' library (-lpcreposix). */
+#rblxbuilddefine HAVE_LIBPCREPOSIX 1
+
+/* Define to 1 if you have the 'pcre2-8' library (-lpcre2-8). */
+#rblxbuilddefine HAVE_LIBPCRE2 1
+
+/* Define to 1 if you have the 'pcreposix' library (-lpcre2posix). */
+#rblxbuilddefine HAVE_LIBPCRE2POSIX 1
+
+/* Define to 1 if you have the 'xml2' library (-lxml2). */
+#rblxbuilddefine HAVE_LIBXML2 1
+
+/* Define to 1 if you have the 'xmllite' library. */
+#rblxbuilddefine HAVE_LIBXMLLITE 1
+
+/* Define to 1 if you have the <libxml/xmlreader.h> header file. */
+#rblxbuilddefine HAVE_LIBXML_XMLREADER_H 1
+
+/* Define to 1 if you have the <libxml/xmlwriter.h> header file. */
+#rblxbuilddefine HAVE_LIBXML_XMLWRITER_H 1
+
+/* Define to 1 if you have the <libxml/xmlversion.h> header file. */
+#rblxbuilddefine HAVE_LIBXML_XMLVERSION_H 1
+
+/* Define to 1 if you have the 'z' library (-lz). */
+#rblxbuilddefine HAVE_LIBZ 1
+
+/* Define to 1 if you have the 'zstd' library (-lzstd). */
+#rblxbuilddefine HAVE_LIBZSTD 1
+
+/* Define to 1 if you have the ZSTD_compressStream function. */
+#rblxbuilddefine HAVE_ZSTD_compressStream 1
+
+/* Define to 1 if you have the ZSTD_minCLevel function. */
+#rblxbuilddefine HAVE_ZSTD_minCLevel 1
+
+/* Define to 1 if you have the <limits.h> header file. */
+#rblxbuilddefine HAVE_LIMITS_H 1
+
+/* Define to 1 if you have the 'link' function. */
+#rblxbuilddefine HAVE_LINK 1
+
+/* Define to 1 if you have the 'linkat' function. */
+#rblxbuilddefine HAVE_LINKAT 1
+
+/* Define to 1 if you have the <linux/fiemap.h> header file. */
+#rblxbuilddefine HAVE_LINUX_FIEMAP_H 1
+
+/* Define to 1 if you have the <linux/fs.h> header file. */
+#rblxbuilddefine HAVE_LINUX_FS_H 1
+
+/* Define to 1 if you have the <linux/magic.h> header file. */
+#rblxbuilddefine HAVE_LINUX_MAGIC_H 1
+
+/* Define to 1 if you have the <linux/types.h> header file. */
+#rblxbuilddefine HAVE_LINUX_TYPES_H 1
+
+/* Define to 1 if you have the 'listea' function. */
+#rblxbuilddefine HAVE_LISTEA 1
+
+/* Define to 1 if you have the 'listxattr' function. */
+#rblxbuilddefine HAVE_LISTXATTR 1
+
+/* Define to 1 if you have the 'llistea' function. */
+#rblxbuilddefine HAVE_LLISTEA 1
+
+/* Define to 1 if you have the 'llistxattr' function. */
+#rblxbuilddefine HAVE_LLISTXATTR 1
+
+/* Define to 1 if you have the <localcharset.h> header file. */
+#rblxbuilddefine HAVE_LOCALCHARSET_H 1
+
+/* Define to 1 if you have the 'locale_charset' function. */
+#rblxbuilddefine HAVE_LOCALE_CHARSET 1
+
+/* Define to 1 if you have the <locale.h> header file. */
+#rblxbuilddefine HAVE_LOCALE_H 1
+
+/* Define to 1 if you have the 'localtime_r' function. */
+#rblxbuilddefine HAVE_LOCALTIME_R 1
+
+/* Define to 1 if the system has the type 'long long int'. */
+#rblxbuilddefine HAVE_LONG_LONG_INT 1
+
+/* Define to 1 if you have the 'lsetea' function. */
+#rblxbuilddefine HAVE_LSETEA 1
+
+/* Define to 1 if you have the 'lsetxattr' function. */
+#rblxbuilddefine HAVE_LSETXATTR 1
+
+/* Define to 1 if you have the 'lstat' function. */
+#rblxbuilddefine HAVE_LSTAT 1
+
+/* Define to 1 if 'lstat' has the bug that it succeeds when given the
+   zero-length file name argument. */
+#rblxbuilddefine HAVE_LSTAT_EMPTY_STRING_BUG 1
+
+/* Define to 1 if you have the 'lutimes' function. */
+#rblxbuilddefine HAVE_LUTIMES 1
+
+/* Define to 1 if you have the <lz4hc.h> header file. */
+#rblxbuilddefine HAVE_LZ4HC_H 1
+
+/* Define to 1 if you have the <lz4.h> header file. */
+#rblxbuilddefine HAVE_LZ4_H 1
+
+/* Define to 1 if you have the <lzma.h> header file. */
+#rblxbuilddefine HAVE_LZMA_H 1
+
+/* Define to 1 if you have a working 'lzma_stream_encoder_mt' function. */
+#rblxbuilddefine HAVE_LZMA_STREAM_ENCODER_MT 1
+
+/* Define to 1 if you have the <lzo/lzo1x.h> header file. */
+#rblxbuilddefine HAVE_LZO_LZO1X_H 1
+
+/* Define to 1 if you have the <lzo/lzoconf.h> header file. */
+#rblxbuilddefine HAVE_LZO_LZOCONF_H 1
+
+/* Define to 1 if you have the <mbedtls/aes.h> header file. */
+#rblxbuilddefine HAVE_MBEDTLS_AES_H 1
+
+/* Define to 1 if you have the <mbedtls/md.h> header file. */
+#rblxbuilddefine HAVE_MBEDTLS_MD_H 1
+
+/* Define to 1 if you have the <mbedtls/pkcs5.h> header file. */
+#rblxbuilddefine HAVE_MBEDTLS_PKCS5_H 1
+
+/* Define to 1 if you have the <mbedtls/pkcs5.h> header file. */
+#rblxbuilddefine HAVE_MBEDTLS_VERSION_H 1
+
+/* Define to 1 if you have the 'mbrtowc' function. */
+#rblxbuilddefine HAVE_MBRTOWC 1
+
+/* Define to 1 if you have the <membership.h> header file. */
+#rblxbuilddefine HAVE_MEMBERSHIP_H 1
+
+/* Define to 1 if you have the 'memmove' function. */
+#rblxbuilddefine HAVE_MEMMOVE 1
+
+/* Define to 1 if you have the 'memset_explicit' function. */
+#rblxbuilddefine HAVE_MEMSET_EXPLICIT 1
+
+/* Define to 1 if you have the 'mkdir' function. */
+#rblxbuilddefine HAVE_MKDIR 1
+
+/* Define to 1 if you have the 'mkfifo' function. */
+#rblxbuilddefine HAVE_MKFIFO 1
+
+/* Define to 1 if you have the 'mknod' function. */
+#rblxbuilddefine HAVE_MKNOD 1
+
+/* Define to 1 if you have the 'mkstemp' function. */
+#rblxbuilddefine HAVE_MKSTEMP 1
+
+/* Define to 1 if you have the <ndir.h> header file, and it defines 'DIR'. */
+#rblxbuilddefine HAVE_NDIR_H 1
+
+/* Define to 1 if you have the <nettle/aes.h> header file. */
+#rblxbuilddefine HAVE_NETTLE_AES_H 1
+
+/* Define to 1 if you have the <nettle/hmac.h> header file. */
+#rblxbuilddefine HAVE_NETTLE_HMAC_H 1
+
+/* Define to 1 if you have the <nettle/md5.h> header file. */
+#rblxbuilddefine HAVE_NETTLE_MD5_H 1
+
+/* Define to 1 if you have the <nettle/pbkdf2.h> header file. */
+#rblxbuilddefine HAVE_NETTLE_PBKDF2_H 1
+
+/* Define to 1 if you have the <nettle/ripemd160.h> header file. */
+#rblxbuilddefine HAVE_NETTLE_RIPEMD160_H 1
+
+/* Define to 1 if you have the <nettle/sha.h> header file. */
+#rblxbuilddefine HAVE_NETTLE_SHA_H 1
+
+/* Define to 1 if you have the <nettle/sha1.h> header file. */
+#rblxbuilddefine HAVE_NETTLE_SHA1_H 1
+
+/* Define to 1 if you have the <nettle/sha2.h> header file. */
+#rblxbuilddefine HAVE_NETTLE_SHA2_H 1
+
+/* Define to 1 if you have the <nettle/version.h> header file. */
+#rblxbuilddefine HAVE_NETTLE_VERSION_H 1
+
+/* Define to 1 if you have the 'nl_langinfo' function. */
+#rblxbuilddefine HAVE_NL_LANGINFO 1
+
+/* Define to 1 if you have the 'openat' function. */
+#rblxbuilddefine HAVE_OPENAT 1
+
+/* Define to 1 if you have the <openssl/evp.h> header file. */
+#rblxbuilddefine HAVE_OPENSSL_EVP_H 1
+
+/* Define to 1 if you have the <openssl/opensslv.h> header file. */
+#rblxbuilddefine HAVE_OPENSSL_OPENSSLV_H 1
+
+/* Define to 1 if you have the <paths.h> header file. */
+#rblxbuilddefine HAVE_PATHS_H 1
+
+/* Define to 1 if you have the <pcreposix.h> header file. */
+#rblxbuilddefine HAVE_PCREPOSIX_H 1
+
+/* Define to 1 if you have the <pcre2posix.h> header file. */
+#rblxbuilddefine HAVE_PCRE2POSIX_H 1
+
+/* Define to 1 if you have the 'pipe' function. */
+#rblxbuilddefine HAVE_PIPE 1
+
+/* Define to 1 if you have the 'PKCS5_PBKDF2_HMAC_SHA1' function. */
+#rblxbuilddefine HAVE_PKCS5_PBKDF2_HMAC_SHA1 1
+
+/* Define to 1 if you have the 'poll' function. */
+#rblxbuilddefine HAVE_POLL 1
+
+/* Define to 1 if you have the <poll.h> header file. */
+#rblxbuilddefine HAVE_POLL_H 1
+
+/* Define to 1 if you have the 'posix_spawnp' function. */
+#rblxbuilddefine HAVE_POSIX_SPAWNP 1
+
+/* Define to 1 if you have the <process.h> header file. */
+#rblxbuilddefine HAVE_PROCESS_H 1
+
+/* Define to 1 if you have the <pthread.h> header file. */
+#rblxbuilddefine HAVE_PTHREAD_H 1
+
+/* Define to 1 if you have the <pwd.h> header file. */
+#rblxbuilddefine HAVE_PWD_H 1
+
+/* Define to 1 if you have the 'readlink' function. */
+#rblxbuilddefine HAVE_READLINK 1
+
+/* Define to 1 if you have the 'readlinkat' function. */
+#rblxbuilddefine HAVE_READLINKAT 1
+
+/* Define to 1 if you have the 'readpassphrase' function. */
+#rblxbuilddefine HAVE_READPASSPHRASE 1
+
+/* Define to 1 if you have the <readpassphrase.h> header file. */
+#rblxbuilddefine HAVE_READPASSPHRASE_H 1
+
+/* Define to 1 if you have the <regex.h> header file. */
+#rblxbuilddefine HAVE_REGEX_H 1
+
+/* Define to 1 if you have the 'select' function. */
+#rblxbuilddefine HAVE_SELECT 1
+
+/* Define to 1 if you have the 'setenv' function. */
+#rblxbuilddefine HAVE_SETENV 1
+
+/* Define to 1 if you have the 'setlocale' function. */
+#rblxbuilddefine HAVE_SETLOCALE 1
+
+/* Define to 1 if you have the 'sigaction' function. */
+#rblxbuilddefine HAVE_SIGACTION 1
+
+/* Define to 1 if you have the <signal.h> header file. */
+#rblxbuilddefine HAVE_SIGNAL_H 1
+
+/* Define to 1 if you have the <spawn.h> header file. */
+#rblxbuilddefine HAVE_SPAWN_H 1
+
+/* Define to 1 if you have the 'statfs' function. */
+#rblxbuilddefine HAVE_STATFS 1
+
+/* Define to 1 if you have the 'statvfs' function. */
+#rblxbuilddefine HAVE_STATVFS 1
+
+/* Define to 1 if 'stat' has the bug that it succeeds when given the
+   zero-length file name argument. */
+#rblxbuilddefine HAVE_STAT_EMPTY_STRING_BUG 1
+
+/* Define to 1 if you have the <stdarg.h> header file. */
+#rblxbuilddefine HAVE_STDARG_H 1
+
+/* Define to 1 if you have the <stdckdint.h> header file. */
+#rblxbuilddefine HAVE_STDCKDINT_H 1
+
+/* Define to 1 if you have the <stdio.h> header file. */
+#rblxbuilddefine HAVE_STDIO_H 1
+
+/* Define to 1 if you have the <stdlib.h> header file. */
+#rblxbuilddefine HAVE_STDLIB_H 1
+
+/* Define to 1 if you have the 'strchr' function. */
+#rblxbuilddefine HAVE_STRCHR 1
+
+/* Define to 1 if you have the 'strnlen' function. */
+#rblxbuilddefine HAVE_STRNLEN 1
+
+/* Define to 1 if you have the 'strdup' function. */
+#rblxbuilddefine HAVE_STRDUP 1
+
+/* Define to 1 if you have the 'strerror' function. */
+#rblxbuilddefine HAVE_STRERROR 1
+
+/* Define to 1 if you have the 'strerror_r' function. */
+#rblxbuilddefine HAVE_STRERROR_R 1
+
+/* Define to 1 if you have the 'strftime' function. */
+#rblxbuilddefine HAVE_STRFTIME 1
+
+/* Define to 1 if you have the <strings.h> header file. */
+#rblxbuilddefine HAVE_STRINGS_H 1
+
+/* Define to 1 if you have the <string.h> header file. */
+#rblxbuilddefine HAVE_STRING_H 1
+
+/* Define to 1 if you have the 'strrchr' function. */
+#rblxbuilddefine HAVE_STRRCHR 1
+
+/* Define to 1 if the system has the type 'struct statfs'. */
+#rblxbuilddefine HAVE_STRUCT_STATFS 1
+
+/* Define to 1 if 'f_iosize' is a member of 'struct statfs'. */
+#rblxbuilddefine HAVE_STRUCT_STATFS_F_IOSIZE 1
+
+/* Define to 1 if 'f_namemax' is a member of 'struct statfs'. */
+#rblxbuilddefine HAVE_STRUCT_STATFS_F_NAMEMAX 1
+
+/* Define to 1 if 'f_iosize' is a member of 'struct statvfs'. */
+#rblxbuilddefine HAVE_STRUCT_STATVFS_F_IOSIZE 1
+
+/* Define to 1 if 'st_birthtime' is a member of 'struct stat'. */
+#rblxbuilddefine HAVE_STRUCT_STAT_ST_BIRTHTIME 1
+
+/* Define to 1 if 'st_birthtimespec.tv_nsec' is a member of 'struct stat'. */
+#rblxbuilddefine HAVE_STRUCT_STAT_ST_BIRTHTIMESPEC_TV_NSEC 1
+
+/* Define to 1 if 'st_blksize' is a member of 'struct stat'. */
+#rblxbuilddefine HAVE_STRUCT_STAT_ST_BLKSIZE 1
+
+/* Define to 1 if 'st_flags' is a member of 'struct stat'. */
+#rblxbuilddefine HAVE_STRUCT_STAT_ST_FLAGS 1
+
+/* Define to 1 if 'st_mtimespec.tv_nsec' is a member of 'struct stat'. */
+#rblxbuilddefine HAVE_STRUCT_STAT_ST_MTIMESPEC_TV_NSEC 1
+
+/* Define to 1 if 'st_mtime_n' is a member of 'struct stat'. */
+#rblxbuilddefine HAVE_STRUCT_STAT_ST_MTIME_N 1
+
+/* Define to 1 if 'st_mtime_usec' is a member of 'struct stat'. */
+#rblxbuilddefine HAVE_STRUCT_STAT_ST_MTIME_USEC 1
+
+/* Define to 1 if 'st_mtim.tv_nsec' is a member of 'struct stat'. */
+#rblxbuilddefine HAVE_STRUCT_STAT_ST_MTIM_TV_NSEC 1
+
+/* Define to 1 if 'st_umtime' is a member of 'struct stat'. */
+#rblxbuilddefine HAVE_STRUCT_STAT_ST_UMTIME 1
+
+/* Define to 1 if 'tm_gmtoff' is a member of 'struct tm'. */
+#rblxbuilddefine HAVE_STRUCT_TM_TM_GMTOFF 1
+
+/* Define to 1 if '__tm_gmtoff' is a member of 'struct tm'. */
+#rblxbuilddefine HAVE_STRUCT_TM___TM_GMTOFF 1
+
+/* Define to 1 if you have 'struct vfsconf'. */
+#rblxbuilddefine HAVE_STRUCT_VFSCONF 1
+
+/* Define to 1 if you have 'struct xvfsconf'. */
+#rblxbuilddefine HAVE_STRUCT_XVFSCONF 1
+
+/* Define to 1 if you have the 'symlink' function. */
+#rblxbuilddefine HAVE_SYMLINK 1
+
+/* Define to 1 if you have the 'sysconf' function. */
+#rblxbuilddefine HAVE_SYSCONF 1
+
+/* Define to 1 if you have the <sys/acl.h> header file. */
+#rblxbuilddefine HAVE_SYS_ACL_H 1
+
+/* Define to 1 if you have the <sys/cdefs.h> header file. */
+#rblxbuilddefine HAVE_SYS_CDEFS_H 1
+
+/* Define to 1 if you have the <sys/dir.h> header file, and it defines 'DIR'.
+   */
+#rblxbuilddefine HAVE_SYS_DIR_H 1
+
+/* Define to 1 if you have the <sys/ea.h> header file. */
+#rblxbuilddefine HAVE_SYS_EA_H 1
+
+/* Define to 1 if you have the <sys/extattr.h> header file. */
+#rblxbuilddefine HAVE_SYS_EXTATTR_H 1
+
+/* Define to 1 if you have the <sys/ioctl.h> header file. */
+#rblxbuilddefine HAVE_SYS_IOCTL_H 1
+
+/* Define to 1 if you have the <sys/mkdev.h> header file. */
+#rblxbuilddefine HAVE_SYS_MKDEV_H 1
+
+/* Define to 1 if you have the <sys/mount.h> header file. */
+#rblxbuilddefine HAVE_SYS_MOUNT_H 1
+
+/* Define to 1 if you have the <sys/ndir.h> header file, and it defines 'DIR'.
+   */
+#rblxbuilddefine HAVE_SYS_NDIR_H 1
+
+/* Define to 1 if you have the <sys/param.h> header file. */
+#rblxbuilddefine HAVE_SYS_PARAM_H 1
+
+/* Define to 1 if you have the <sys/poll.h> header file. */
+#rblxbuilddefine HAVE_SYS_POLL_H 1
+
+/* Define to 1 if you have the <sys/richacl.h> header file. */
+#rblxbuilddefine HAVE_SYS_RICHACL_H 1
+
+/* Define to 1 if you have the <sys/select.h> header file. */
+#rblxbuilddefine HAVE_SYS_SELECT_H 1
+
+/* Define to 1 if you have the <sys/single_threaded.h> header file. */
+#rblxbuilddefine HAVE_SYS_SINGLE_THREADED_H 1
+
+/* Define to 1 if you have the <sys/statfs.h> header file. */
+#rblxbuilddefine HAVE_SYS_STATFS_H 1
+
+/* Define to 1 if you have the <sys/statvfs.h> header file. */
+#rblxbuilddefine HAVE_SYS_STATVFS_H 1
+
+/* Define to 1 if you have the <sys/stat.h> header file. */
+#rblxbuilddefine HAVE_SYS_STAT_H 1
+
+/* Define to 1 if you have the <sys/sysmacros.h> header file. */
+#rblxbuilddefine HAVE_SYS_SYSMACROS_H 1
+
+/* Define to 1 if you have the <sys/time.h> header file. */
+#rblxbuilddefine HAVE_SYS_TIME_H 1
+
+/* Define to 1 if you have the <sys/types.h> header file. */
+#rblxbuilddefine HAVE_SYS_TYPES_H 1
+
+/* Define to 1 if you have the <sys/utime.h> header file. */
+#rblxbuilddefine HAVE_SYS_UTIME_H 1
+
+/* Define to 1 if you have the <sys/utsname.h> header file. */
+#rblxbuilddefine HAVE_SYS_UTSNAME_H 1
+
+/* Define to 1 if you have the <sys/vfs.h> header file. */
+#rblxbuilddefine HAVE_SYS_VFS_H 1
+
+/* Define to 1 if you have <sys/wait.h> that is POSIX.1 compatible. */
+#rblxbuilddefine HAVE_SYS_WAIT_H 1
+
+/* Define to 1 if you have the <sys/xattr.h> header file. */
+#rblxbuilddefine HAVE_SYS_XATTR_H 1
+
+/* Define to 1 if you have the 'tcgetattr' function. */
+#rblxbuilddefine HAVE_TCGETATTR 1
+
+/* Define to 1 if you have the 'tcsetattr' function. */
+#rblxbuilddefine HAVE_TCSETATTR 1
+
+/* Define to 1 if you have the 'timegm' function. */
+#rblxbuilddefine HAVE_TIMEGM 1
+
+/* Define to 1 if you have the <time.h> header file. */
+#rblxbuilddefine HAVE_TIME_H 1
+
+/* Define to 1 if you have the 'tzset' function. */
+#rblxbuilddefine HAVE_TZSET 1
+
+/* Define to 1 if you have the <unistd.h> header file. */
+#rblxbuilddefine HAVE_UNISTD_H 1
+
+/* Define to 1 if you have the 'unlinkat' function. */
+#rblxbuilddefine HAVE_UNLINKAT 1
+
+/* Define to 1 if you have the 'unsetenv' function. */
+#rblxbuilddefine HAVE_UNSETENV 1
+
+/* Define to 1 if the system has the type 'unsigned long long'. */
+#rblxbuilddefine HAVE_UNSIGNED_LONG_LONG 1
+
+/* Define to 1 if the system has the type 'unsigned long long int'. */
+#rblxbuilddefine HAVE_UNSIGNED_LONG_LONG_INT 1
+
+/* Define to 1 if you have the 'utime' function. */
+#rblxbuilddefine HAVE_UTIME 1
+
+/* Define to 1 if you have the 'utimensat' function. */
+#rblxbuilddefine HAVE_UTIMENSAT 1
+
+/* Define to 1 if you have the 'utimes' function. */
+#rblxbuilddefine HAVE_UTIMES 1
+
+/* Define to 1 if you have the <utime.h> header file. */
+#rblxbuilddefine HAVE_UTIME_H 1
+
+/* Define to 1 if you have the 'vfork' function. */
+#rblxbuilddefine HAVE_VFORK 1
+
+/* Define to 1 if you have the 'vprintf' function. */
+#rblxbuilddefine HAVE_VPRINTF 1
+
+/* Define to 1 if you have the 'waitpid' function. */
+#rblxbuilddefine HAVE_WAITPID 1
+
+/* Define to 1 if you have the <wchar.h> header file. */
+#rblxbuilddefine HAVE_WCHAR_H 1
+
+/* Define to 1 if the system has the type 'wchar_t'. */
+#rblxbuilddefine HAVE_WCHAR_T 1
+
+/* Define to 1 if you have the 'wcrtomb' function. */
+#rblxbuilddefine HAVE_WCRTOMB 1
+
+/* Define to 1 if you have the 'wcscmp' function. */
+#rblxbuilddefine HAVE_WCSCMP 1
+
+/* Define to 1 if you have the 'wcscpy' function. */
+#rblxbuilddefine HAVE_WCSCPY 1
+
+/* Define to 1 if you have the 'wcslen' function. */
+#rblxbuilddefine HAVE_WCSLEN 1
+
+/* Define to 1 if you have the 'wctomb' function. */
+#rblxbuilddefine HAVE_WCTOMB 1
+
+/* Define to 1 if you have the <wctype.h> header file. */
+#rblxbuilddefine HAVE_WCTYPE_H 1
+
+/* Define to 1 if you have the <wincrypt.h> header file. */
+#rblxbuilddefine HAVE_WINCRYPT_H 1
+
+/* Define to 1 if you have the <windows.h> header file. */
+#rblxbuilddefine HAVE_WINDOWS_H 1
+
+/* Define to 1 if you have the <winioctl.h> header file. */
+#rblxbuilddefine HAVE_WINIOCTL_H 1
+
+/* Define to 1 if you have _CrtSetReportMode in <crtdbg.h>  */
+#rblxbuilddefine HAVE__CrtSetReportMode 1
+
+/* Define to 1 if you have the 'wmemcmp' function. */
+#rblxbuilddefine HAVE_WMEMCMP 1
+
+/* Define to 1 if you have the 'wmemcpy' function. */
+#rblxbuilddefine HAVE_WMEMCPY 1
+
+/* Define to 1 if you have the 'wmemmove' function. */
+#rblxbuilddefine HAVE_WMEMMOVE 1
+
+/* Define to 1 if you have a working EXT2_IOC_GETFLAGS */
+#rblxbuilddefine HAVE_WORKING_EXT2_IOC_GETFLAGS 1
+
+/* Define to 1 if you have a working FS_IOC_GETFLAGS */
+#rblxbuilddefine HAVE_WORKING_FS_IOC_GETFLAGS 1
+
+/* Define to 1 if you have the Windows 'xmllite' library (-lxmllite). */
+#rblxbuilddefine HAVE_XMLLITE_H 1
+
+/* Define to 1 if you have the <zlib.h> header file. */
+#rblxbuilddefine HAVE_ZLIB_H 1
+
+/* Define to 1 if you have the <zstd.h> header file. */
+#rblxbuilddefine HAVE_ZSTD_H 1
+
+/* Define to 1 if you have the 'ctime_s' function. */
+#rblxbuilddefine HAVE_CTIME_S 1
+
+/* Define to 1 if you have the '_fseeki64' function. */
+#rblxbuilddefine HAVE__FSEEKI64 1
+
+/* Define to 1 if you have the '_get_timezone' function. */
+#rblxbuilddefine HAVE__GET_TIMEZONE 1
+
+/* Define to 1 if you have the 'gmtime_s' function. */
+#rblxbuilddefine HAVE_GMTIME_S 1
+
+/* Define to 1 if you have the 'localtime_s' function. */
+#rblxbuilddefine HAVE_LOCALTIME_S 1
+
+/* Define to 1 if you have the '_mkgmtime' function. */
+#rblxbuilddefine HAVE__MKGMTIME 1
+
+/* Define as const if the declaration of iconv() needs const. */
+#define ICONV_CONST @ICONV_CONST@
+
+/* Version number of libarchive as a single integer */
+#rblxbuilddefine LIBARCHIVE_VERSION_NUMBER "@LIBARCHIVE_VERSION_NUMBER@"
+
+/* Version number of libarchive */
+#rblxbuilddefine LIBARCHIVE_VERSION_STRING "@LIBARCHIVE_VERSION_STRING@"
+
+/* Define to 1 if 'lstat' dereferences a symlink specified with a trailing
+   slash. */
+#rblxbuilddefine LSTAT_FOLLOWS_SLASHED_SYMLINK 1
+
+/* Define to 1 if 'major', 'minor', and 'makedev' are declared in <mkdev.h>.
+   */
+#rblxbuilddefine MAJOR_IN_MKDEV 1
+
+/* Define to 1 if 'major', 'minor', and 'makedev' are declared in
+   <sysmacros.h>. */
+#rblxbuilddefine MAJOR_IN_SYSMACROS 1
+
+/* Define to 1 if your C compiler doesn't accept -c and -o together. */
+#rblxbuilddefine NO_MINUS_C_MINUS_O 1
+
+/* The size of 'wchar_t', as computed by sizeof. */
+#rblxbuilddefine SIZEOF_WCHAR_T @SIZEOF_WCHAR_T@
+
+/* Define to 1 if strerror_r returns char *. */
+#rblxbuilddefine STRERROR_R_CHAR_P 1
+
+/* Define to 1 if you can safely include both <sys/time.h> and <time.h>. */
+#rblxbuilddefine TIME_WITH_SYS_TIME 1
+
+/* Version number of package */
+#rblxbuilddefine LIBATTR_PKGCONFIG_VERSION "@LIBATTR_PKGCONFIG_VERSION@"
+
+/* Version number of package */
+#rblxbuilddefine LIBACL_PKGCONFIG_VERSION "@LIBACL_PKGCONFIG_VERSION@"
+
+/* Version number of package */
+#rblxbuilddefine LIBRICHACL_PKGCONFIG_VERSION "@LIBRICHACL_PKGCONFIG_VERSION@"
+
+/*
+ * Some platform requires a macro to use extension functions.
+ */
+#rblxbuilddefine SAFE_TO_DEFINE_EXTENSIONS 1
+#ifdef SAFE_TO_DEFINE_EXTENSIONS
+/* Enable extensions on AIX 3, Interix.  */
+#ifndef _ALL_SOURCE
+# define _ALL_SOURCE 1
+#endif
+/* Enable GNU extensions on systems that have them.  */
+#ifndef _GNU_SOURCE
+# define _GNU_SOURCE 1
+#endif
+/* Enable threading extensions on Solaris.  */
+#ifndef _POSIX_PTHREAD_SEMANTICS
+# define _POSIX_PTHREAD_SEMANTICS 1
+#endif
+/* Enable extensions on HP NonStop.  */
+#ifndef _TANDEM_SOURCE
+# define _TANDEM_SOURCE 1
+#endif
+/* Enable general extensions on Solaris.  */
+#ifndef __EXTENSIONS__
+# define __EXTENSIONS__ 1
+#endif
+#endif /* SAFE_TO_DEFINE_EXTENSIONS */
+
+/* Version number of package */
+#rblxbuilddefine VERSION "@VERSION@"
+
+/* Number of bits in a file offset, on hosts where this is settable. */
+#rblxbuilddefine _FILE_OFFSET_BITS @_FILE_OFFSET_BITS@
+
+/* Define to 1 to make fseeko visible on some hosts (e.g. glibc 2.2). */
+#rblxbuilddefine _LARGEFILE_SOURCE 1
+
+/* Define for large files, on AIX-style hosts. */
+#rblxbuilddefine _LARGE_FILES @_LARGE_FILES@
+
+/* Define to control Windows SDK version */
+#ifndef NTDDI_VERSION
+#rblxbuilddefine NTDDI_VERSION @NTDDI_VERSION@
+#endif // NTDDI_VERSION
+
+#ifndef _WIN32_WINNT
+#rblxbuilddefine _WIN32_WINNT @_WIN32_WINNT@
+#endif // _WIN32_WINNT
+
+#ifndef WINVER
+#rblxbuilddefine WINVER @WINVER@
+#endif // WINVER
+
+/* Define to empty if 'const' does not conform to ANSI C. */
+#rblxbuilddefine const @const@
+
+/* Define to 'int' if <sys/types.h> doesn't define. */
+#rblxbuilddefine gid_t @gid_t@
+
+/* Define to 'unsigned long' if <sys/types.h> does not define. */
+#rblxbuilddefine id_t @id_t@
+
+/* Define to 'int' if <sys/types.h> does not define. */
+#rblxbuilddefine mode_t @mode_t@
+
+/* Define to 'long long' if <sys/types.h> does not define. */
+#rblxbuilddefine off_t @off_t@
+
+/* Define to 'int' if <sys/types.h> doesn't define. */
+#rblxbuilddefine pid_t @pid_t@
+
+/* Define to 'unsigned int' if <sys/types.h> does not define. */
+#rblxbuilddefine size_t @size_t@
+
+/* Define to 'int' if <sys/types.h> does not define. */
+#rblxbuilddefine ssize_t @ssize_t@
+
+/* Define to 'int' if <sys/types.h> doesn't define. */
+#rblxbuilddefine uid_t @uid_t@
+
+#include <cm3p/kwiml/int.h>
+
+#ifndef KWIML_INT_HAVE_INT64_T
+typedef KWIML_INT_int64_t int64_t;
+#endif
+#ifndef KWIML_INT_HAVE_INT32_T
+typedef KWIML_INT_int32_t int32_t;
+#endif
+#ifndef KWIML_INT_HAVE_INT16_T
+typedef KWIML_INT_int16_t int16_t;
+#endif
+#ifndef KWIML_INT_HAVE_INT8_T
+typedef KWIML_INT_int8_t int8_t;
+#endif
+#ifndef KWIML_INT_HAVE_INTPTR_T
+typedef KWIML_INT_intptr_t intptr_t;
+#endif
+#ifndef KWIML_INT_HAVE_UINT64_T
+typedef KWIML_INT_uint64_t uint64_t;
+#endif
+#ifndef KWIML_INT_HAVE_UINT32_T
+typedef KWIML_INT_uint32_t uint32_t;
+#endif
+#ifndef KWIML_INT_HAVE_UINT16_T
+typedef KWIML_INT_uint16_t uint16_t;
+#endif
+#ifndef KWIML_INT_HAVE_UINT8_T
+typedef KWIML_INT_uint8_t uint8_t;
+#endif
+#ifndef KWIML_INT_HAVE_UINTPTR_T
+typedef KWIML_INT_uintptr_t uintptr_t;
+#endif
+
+/* Define to 1 if you have the <stdint.h> header file. */
+#ifdef KWIML_INT_HAVE_STDINT_H
+# define HAVE_STDINT_H 1
+#endif
+
+/* Define to 1 if you have the <inttypes.h> header file. */
+#ifdef KWIML_INT_HAVE_INTTYPES_H
+# define HAVE_INTTYPES_H 1
+#endif

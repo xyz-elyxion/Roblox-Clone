@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #pragma once
 
 #include "cmConfigure.h" // IWYU pragma: keep
@@ -240,7 +240,7 @@ public:
   unsigned int GetCacheMajorVersion() const;
   unsigned int GetCacheMinorVersion() const;
 
-  void SetRoleToProjectForCMakeBuildVsReconfigure();
+  void SetRoleToProjectForRBLXBuildBuildVsReconfigure();
   void SetRoleToHelpForListPresets();
   Role GetRole() const;
   std::string GetRoleString() const;
@@ -284,7 +284,7 @@ public:
   bool IsReconfiguring() const { return this->Reconfiguring; }
 
 private:
-  friend class cmake;
+  friend class rblxbuild;
   cmStateSnapshot Reset(cmStateSnapshot const& diagnosticState);
 
   void AddCacheEntry(std::string const& key, cmValue value,

@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #pragma once
 
 #include "cmConfigure.h" // IWYU pragma: keep
@@ -443,7 +443,7 @@ struct cmJSONHelperBuilder
       filter
 #else
       // For C++14 and below, to keep backward compatibility
-      // with CMake Presets code, `MapFilter()` can accept only
+      // with RBLXBuild Presets code, `MapFilter()` can accept only
       // `bool(const std::string&)` callables.
       [filter](const std::string &key, const Json::Value * /*value*/,
               cmJSONState * /*state*/) -> FilterResult {

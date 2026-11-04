@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmDependsC.h"
 
 #include <utility>
@@ -40,12 +40,12 @@ cmDependsC::cmDependsC(cmLocalUnixMakefileGenerator3* lg,
   std::string scanRegex = "^.*$";
   std::string complainRegex = "^$";
   {
-    std::string scanRegexVar = cmStrCat("CMAKE_", lang, "_INCLUDE_REGEX_SCAN");
+    std::string scanRegexVar = cmStrCat("RBLXBUILD_", lang, "_INCLUDE_REGEX_SCAN");
     if (cmValue sr = mf->GetDefinition(scanRegexVar)) {
       scanRegex = *sr;
     }
     std::string complainRegexVar =
-      cmStrCat("CMAKE_", lang, "_INCLUDE_REGEX_COMPLAIN");
+      cmStrCat("RBLXBUILD_", lang, "_INCLUDE_REGEX_COMPLAIN");
     if (cmValue cr = mf->GetDefinition(complainRegexVar)) {
       complainRegex = *cr;
     }
@@ -392,7 +392,7 @@ void cmDependsC::SetupTransforms()
 {
   // Get the transformation rules.
   cmMakefile* mf = this->LocalGenerator->GetMakefile();
-  cmList transformRules{ mf->GetDefinition("CMAKE_INCLUDE_TRANSFORMS"),
+  cmList transformRules{ mf->GetDefinition("RBLXBUILD_INCLUDE_TRANSFORMS"),
                          cmList::EmptyElements::Yes };
   for (auto const& tr : transformRules) {
     this->ParseTransform(tr);

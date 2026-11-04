@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmGlobalXCodeGenerator.h"
 
 #include <algorithm>
@@ -59,9 +59,9 @@
 #include "cmXCodeScheme.h"
 #include "cmXMLWriter.h"
 #include "cmXcFramework.h"
-#include "cmake.h"
+#include "rblxbuild.h"
 
-#if !defined(CMAKE_BOOTSTRAP) && defined(__APPLE__)
+#if !defined(RBLXBUILD_BOOTSTRAP) && defined(__APPLE__)
 #  include <CoreFoundation/CFBundle.h>
 #  include <CoreFoundation/CFString.h>
 #  include <CoreFoundation/CFURL.h>
@@ -72,7 +72,7 @@
 #  endif
 #endif
 
-#if !defined(CMAKE_BOOTSTRAP)
+#if !defined(RBLXBUILD_BOOTSTRAP)
 #  include "cmXMLParser.h"
 
 // parse the xml file storing the installed version of Xcode on
@@ -155,7 +155,7 @@ class cmGlobalXCodeGenerator::Factory : public cmGlobalGeneratorFactory
 {
 public:
   std::unique_ptr<cmGlobalGenerator> CreateGlobalGenerator(
-    std::string const& name, cmake* cm) const override;
+    std::string const& name, rblxbuild* cm) const override;
 
   cmDocumentationEntry GetDocumentation() const override
   {
@@ -181,7 +181,7 @@ public:
 };
 
 cmGlobalXCodeGenerator::cmGlobalXCodeGenerator(
-  cmake* cm, std::string const& version_string, unsigned int version_number)
+  rblxbuild* cm, std::string const& version_string, unsigned int version_number)
   : cmGlobalGenerator(cm)
 {
   this->VersionString = version_string;
@@ -212,12 +212,12 @@ std::unique_ptr<cmGlobalGeneratorFactory> cmGlobalXCodeGenerator::NewFactory()
 
 std::unique_ptr<cmGlobalGenerator>
 cmGlobalXCodeGenerator::Factory::CreateGlobalGenerator(std::string const& name,
-                                                       cmake* cm) const
+                                                       rblxbuild* cm) const
 {
   if (name != GetActualName()) {
     return std::unique_ptr<cmGlobalGenerator>();
   }
-#if !defined(CMAKE_BOOTSTRAP)
+#if !defined(RBLXBUILD_BOOTSTRAP)
   cmXcodeVersionParser parser;
   std::string versionFile;
   {
@@ -259,7 +259,7 @@ cmGlobalXCodeGenerator::Factory::CreateGlobalGenerator(std::string const& name,
     cm::make_unique<cmGlobalXCodeGenerator>(cm, version_string,
                                             version_number));
 #else
-  std::cerr << "CMake should be built with cmake to use Xcode, "
+  std::cerr << "RBLXBuild should be built with rblxbuild to use Xcode, "
                "default to Xcode 1.5\n";
   return std::unique_ptr<cmGlobalGenerator>(
     cm::make_unique<cmGlobalXCodeGenerator>(cm));
@@ -291,9 +291,9 @@ bool cmGlobalXCodeGenerator::FindMakeProgram(cmMakefile* mf)
 {
   // The Xcode generator knows how to lookup its build tool
   // directly instead of needing a helper module to do it, so we
-  // do not actually need to put CMAKE_MAKE_PROGRAM into the cache.
-  if (mf->GetDefinition("CMAKE_MAKE_PROGRAM").IsOff()) {
-    mf->AddDefinition("CMAKE_MAKE_PROGRAM", this->GetXcodeBuildCommand());
+  // do not actually need to put RBLXBUILD_MAKE_PROGRAM into the cache.
+  if (mf->GetDefinition("RBLXBUILD_MAKE_PROGRAM").IsOff()) {
+    mf->AddDefinition("RBLXBUILD_MAKE_PROGRAM", this->GetXcodeBuildCommand());
   }
   return true;
 }
@@ -301,8 +301,8 @@ bool cmGlobalXCodeGenerator::FindMakeProgram(cmMakefile* mf)
 std::string cmGlobalXCodeGenerator::GetAppleSpecificPlatformName()
 {
   std::string sdkRoot =
-    this->GetCMakeInstance()->GetState()->GetCacheEntryValue(
-      "CMAKE_OSX_SYSROOT");
+    this->GetRBLXBuildInstance()->GetState()->GetCacheEntryValue(
+      "RBLXBUILD_OSX_SYSROOT");
   sdkRoot = cmSystemTools::LowerCase(sdkRoot);
 
   struct SdkDatabaseEntry
@@ -395,7 +395,7 @@ std::string ChooseLangForTargetWideSettings(
 bool CompilerUnderstandsXclang(cmMakefile* mf, std::string const& lang)
 {
   std::string const& id =
-    mf->GetSafeDefinition(cmStrCat("CMAKE_", lang, "_COMPILER_ID"));
+    mf->GetSafeDefinition(cmStrCat("RBLXBUILD_", lang, "_COMPILER_ID"));
   return id == "Clang"_s || id == "AppleClang"_s || id == "IntelLLVM"_s;
 }
 
@@ -545,9 +545,9 @@ bool cmGlobalXCodeGenerator::SetGeneratorToolset(std::string const& ts,
     return true;
   }
   if (!this->GeneratorToolset.empty()) {
-    mf->AddDefinition("CMAKE_XCODE_PLATFORM_TOOLSET", this->GeneratorToolset);
+    mf->AddDefinition("RBLXBUILD_XCODE_PLATFORM_TOOLSET", this->GeneratorToolset);
   }
-  mf->AddDefinition("CMAKE_XCODE_BUILD_SYSTEM",
+  mf->AddDefinition("RBLXBUILD_XCODE_BUILD_SYSTEM",
                     cmXcodeBuildSystemString(this->XcodeBuildSystem));
   return true;
 }
@@ -687,8 +687,8 @@ void cmGlobalXCodeGenerator::EnableLanguage(
 {
   mf->AddDefinition("XCODE", "1");
   mf->AddDefinition("XCODE_VERSION", this->VersionString);
-  mf->InitCMAKE_CONFIGURATION_TYPES("Debug;Release;MinSizeRel;RelWithDebInfo");
-  mf->AddDefinition("CMAKE_GENERATOR_NO_COMPILER_ENV", "1");
+  mf->InitRBLXBUILD_CONFIGURATION_TYPES("Debug;Release;MinSizeRel;RelWithDebInfo");
+  mf->AddDefinition("RBLXBUILD_GENERATOR_NO_COMPILER_ENV", "1");
   this->cmGlobalGenerator::EnableLanguage(lang, mf, optional);
   this->ComputeArchitectures(mf);
 }
@@ -789,12 +789,12 @@ cmGlobalXCodeGenerator::GenerateBuildCommand(
   }
 
   if ((this->XcodeBuildSystem >= BuildSystem::Twelve) ||
-      (jobs != cmake::NO_BUILD_PARALLEL_LEVEL)) {
+      (jobs != rblxbuild::NO_BUILD_PARALLEL_LEVEL)) {
     requiredArgs.push_back("-parallelizeTargets");
   }
 
-  if ((jobs != cmake::NO_BUILD_PARALLEL_LEVEL) &&
-      (jobs != cmake::DEFAULT_BUILD_PARALLEL_LEVEL)) {
+  if ((jobs != rblxbuild::NO_BUILD_PARALLEL_LEVEL) &&
+      (jobs != rblxbuild::DEFAULT_BUILD_PARALLEL_LEVEL)) {
     requiredArgs.insert(requiredArgs.end(), { "-jobs", std::to_string(jobs) });
   }
 
@@ -876,7 +876,7 @@ void cmGlobalXCodeGenerator::Generate()
     cmLocalGenerator* root = keyVal.second[0];
 
     bool generateTopLevelProjectOnly =
-      root->GetMakefile()->IsOn("CMAKE_XCODE_GENERATE_TOP_LEVEL_PROJECT_ONLY");
+      root->GetMakefile()->IsOn("RBLXBUILD_XCODE_GENERATE_TOP_LEVEL_PROJECT_ONLY");
 
     if (generateTopLevelProjectOnly) {
       cmStateSnapshot snp = root->GetStateSnapshot();
@@ -900,7 +900,7 @@ void cmGlobalXCodeGenerator::SetGenerationRoot(cmLocalGenerator* root)
   this->SetCurrentLocalGenerator(root);
   this->CurrentRootGenerator = root;
   this->CurrentXCodeHackMakefile =
-    cmStrCat(root->GetCurrentBinaryDirectory(), "/CMakeScripts");
+    cmStrCat(root->GetCurrentBinaryDirectory(), "/RBLXBuildScripts");
   cmSystemTools::MakeDirectory(this->CurrentXCodeHackMakefile);
   this->CurrentXCodeHackMakefile += "/XCODE_DEPEND_HELPER.make";
 }
@@ -914,7 +914,7 @@ std::string cmGlobalXCodeGenerator::PostBuildMakeTarget(
   return out;
 }
 
-#define CMAKE_CHECK_BUILD_SYSTEM_TARGET "ZERO_CHECK"
+#define RBLXBUILD_CHECK_BUILD_SYSTEM_TARGET "ZERO_CHECK"
 
 void cmGlobalXCodeGenerator::AddExtraTargets(
   cmLocalGenerator* root, std::vector<cmLocalGenerator*>& gens)
@@ -929,7 +929,7 @@ void cmGlobalXCodeGenerator::AddExtraTargets(
   // Add xcconfig files to ALL_BUILD sources
   for (auto& config : this->CurrentConfigurationTypes) {
     auto xcconfig = cmGeneratorExpression::Evaluate(
-      this->CurrentMakefile->GetSafeDefinition("CMAKE_XCODE_XCCONFIG"),
+      this->CurrentMakefile->GetSafeDefinition("RBLXBUILD_XCODE_XCCONFIG"),
       this->CurrentLocalGenerator, config);
     if (!xcconfig.empty()) {
       auto* xcconfig_sf = allbuild->AddSource(xcconfig);
@@ -951,20 +951,20 @@ void cmGlobalXCodeGenerator::AddExtraTargets(
   }
 
   // Add ZERO_CHECK
-  bool regenerate = !this->GlobalSettingIsOn("CMAKE_SUPPRESS_REGENERATION");
+  bool regenerate = !this->GlobalSettingIsOn("RBLXBUILD_SUPPRESS_REGENERATION");
   bool generateTopLevelProjectOnly =
-    root->GetMakefile()->IsOn("CMAKE_XCODE_GENERATE_TOP_LEVEL_PROJECT_ONLY");
+    root->GetMakefile()->IsOn("RBLXBUILD_XCODE_GENERATE_TOP_LEVEL_PROJECT_ONLY");
   bool isTopLevel =
     !root->GetStateSnapshot().GetBuildsystemDirectoryParent().IsValid();
   bool isGenerateProject = isTopLevel || !generateTopLevelProjectOnly;
   if (regenerate && isGenerateProject) {
-    this->CreateReRunCMakeFile(root, gens);
+    this->CreateReRunRBLXBuildFile(root, gens);
     std::string file =
-      cmSystemTools::ConvertToOutputPath(this->CurrentReRunCMakeMakefile);
+      cmSystemTools::ConvertToOutputPath(this->CurrentReRunRBLXBuildMakefile);
     cmSystemTools::ReplaceString(file, "\\ ", " ");
     cc = cm::make_unique<cmCustomCommand>();
     cc->SetCommandLines(cmMakeSingleCommandLine({ "make", "-f", file }));
-    cmTarget* check = root->AddUtilityCommand(CMAKE_CHECK_BUILD_SYSTEM_TARGET,
+    cmTarget* check = root->AddUtilityCommand(RBLXBUILD_CHECK_BUILD_SYSTEM_TARGET,
                                               true, std::move(cc));
 
     root->AddGeneratorTarget(cm::make_unique<cmGeneratorTarget>(check, root));
@@ -979,8 +979,8 @@ void cmGlobalXCodeGenerator::AddExtraTargets(
       }
 
       if (regenerate &&
-          (target->GetName() != CMAKE_CHECK_BUILD_SYSTEM_TARGET)) {
-        target->Target->AddUtility(CMAKE_CHECK_BUILD_SYSTEM_TARGET, false);
+          (target->GetName() != RBLXBUILD_CHECK_BUILD_SYSTEM_TARGET)) {
+        target->Target->AddUtility(RBLXBUILD_CHECK_BUILD_SYSTEM_TARGET, false);
       }
 
       // make all exe, shared libs and modules
@@ -1007,7 +1007,7 @@ void cmGlobalXCodeGenerator::AddExtraTargets(
   }
 }
 
-void cmGlobalXCodeGenerator::CreateReRunCMakeFile(
+void cmGlobalXCodeGenerator::CreateReRunRBLXBuildFile(
   cmLocalGenerator* root, std::vector<cmLocalGenerator*> const& gens)
 {
   std::vector<std::string> lfiles;
@@ -1019,18 +1019,18 @@ void cmGlobalXCodeGenerator::CreateReRunCMakeFile(
   std::sort(lfiles.begin(), lfiles.end());
   lfiles.erase(std::unique(lfiles.begin(), lfiles.end()), lfiles.end());
 
-  cmake* cm = this->GetCMakeInstance();
+  rblxbuild* cm = this->GetRBLXBuildInstance();
   if (cm->DoWriteGlobVerifyTarget()) {
     lfiles.emplace_back(cm->GetGlobVerifyStamp());
   }
 
-  this->CurrentReRunCMakeMakefile =
-    cmStrCat(root->GetCurrentBinaryDirectory(), "/CMakeScripts");
-  cmSystemTools::MakeDirectory(this->CurrentReRunCMakeMakefile);
-  this->CurrentReRunCMakeMakefile += "/ReRunCMake.make";
-  cmGeneratedFileStream makefileStream(this->CurrentReRunCMakeMakefile);
+  this->CurrentReRunRBLXBuildMakefile =
+    cmStrCat(root->GetCurrentBinaryDirectory(), "/RBLXBuildScripts");
+  cmSystemTools::MakeDirectory(this->CurrentReRunRBLXBuildMakefile);
+  this->CurrentReRunRBLXBuildMakefile += "/ReRunRBLXBuild.make";
+  cmGeneratedFileStream makefileStream(this->CurrentReRunRBLXBuildMakefile);
   makefileStream.SetCopyIfDifferent(true);
-  makefileStream << "# Generated by CMake, DO NOT EDIT\n\n"
+  makefileStream << "# Generated by RBLXBuild, DO NOT EDIT\n\n"
 
                     "TARGETS:= \n"
                     "empty:= \n"
@@ -1044,7 +1044,7 @@ void cmGlobalXCodeGenerator::CreateReRunCMakeFile(
   makefileStream << '\n';
 
   std::string checkCache =
-    cmStrCat(root->GetBinaryDirectory(), "/CMakeFiles/cmake.check_cache");
+    cmStrCat(root->GetBinaryDirectory(), "/RBLXBuildFiles/rblxbuild.check_cache");
 
   if (cm->DoWriteGlobVerifyTarget()) {
     makefileStream << ".NOTPARALLEL:\n\n"
@@ -1054,7 +1054,7 @@ void cmGlobalXCodeGenerator::CreateReRunCMakeFile(
                    << "\n\n"
                       "VERIFY_GLOBS:\n"
                       "\t"
-                   << ConvertToMakefilePath(cmSystemTools::GetCMakeCommand())
+                   << ConvertToMakefilePath(cmSystemTools::GetRBLXBuildCommand())
                    << " -P "
                    << ConvertToMakefilePath(cm->GetGlobVerifyScript())
                    << "\n\n";
@@ -1062,7 +1062,7 @@ void cmGlobalXCodeGenerator::CreateReRunCMakeFile(
 
   makefileStream << ConvertToMakefilePath(checkCache) << ": $(TARGETS)\n";
   makefileStream
-    << '\t' << ConvertToMakefilePath(cmSystemTools::GetCMakeCommand()) << " -S"
+    << '\t' << ConvertToMakefilePath(cmSystemTools::GetRBLXBuildCommand()) << " -S"
     << ConvertToMakefilePath(root->GetSourceDirectory()) << " -B"
     << ConvertToMakefilePath(root->GetBinaryDirectory())
     << (cm->GetIgnoreCompileWarningAsError() ? " --compile-no-warning-as-error"
@@ -1131,7 +1131,7 @@ cmXCodeObject* cmGlobalXCodeGenerator::CreateObject(cmXCodeObject::Type type)
 {
   auto obj = cm::make_unique<cmXCodeObject>(
     cmXCodeObject::None, type,
-    "Temporary cmake object, should not be referred to in Xcode file");
+    "Temporary rblxbuild object, should not be referred to in Xcode file");
   auto* ptr = obj.get();
   this->addObject(std::move(obj));
   return ptr;
@@ -1359,7 +1359,7 @@ cmXCodeObject* cmGlobalXCodeGenerator::CreateXCodeSourceFile(
 
   if ((fileSet && fileSet->GetProperty("SKIP_PRECOMPILE_HEADERS")) ||
       sf->GetPropertyAsBool("SKIP_PRECOMPILE_HEADERS")) {
-    this->AppendDefines(flagsBuild, "CMAKE_SKIP_PRECOMPILE_HEADERS", true);
+    this->AppendDefines(flagsBuild, "RBLXBUILD_SKIP_PRECOMPILE_HEADERS", true);
   }
 
   if (!flagsBuild.IsEmpty()) {
@@ -1435,14 +1435,14 @@ cmXCodeObject* cmGlobalXCodeGenerator::CreateXCodeSourceFile(
 void cmGlobalXCodeGenerator::AddXCodeProjBuildRule(
   cmGeneratorTarget* target, std::vector<cmSourceFile*>& sources) const
 {
-  std::string listfile = this->GetCMakeInstance()->GetCMakeListFile(
+  std::string listfile = this->GetRBLXBuildInstance()->GetRBLXBuildListFile(
     target->GetLocalGenerator()->GetCurrentSourceDirectory());
-  cmSourceFile* srcCMakeLists = target->Makefile->GetOrCreateSource(
+  cmSourceFile* srcRBLXBuildLists = target->Makefile->GetOrCreateSource(
     listfile, false, cmSourceFileLocationKind::Known);
-  srcCMakeLists->SetSpecialSourceType(
-    cmSourceFile::SpecialSourceType::CMakeLists);
-  if (!cm::contains(sources, srcCMakeLists)) {
-    sources.push_back(srcCMakeLists);
+  srcRBLXBuildLists->SetSpecialSourceType(
+    cmSourceFile::SpecialSourceType::RBLXBuildLists);
+  if (!cm::contains(sources, srcRBLXBuildLists)) {
+    sources.push_back(srcRBLXBuildLists);
   }
 }
 
@@ -1700,7 +1700,7 @@ cmXCodeObject* cmGlobalXCodeGenerator::CreateXCodeFileReference(
 bool cmGlobalXCodeGenerator::SpecialTargetEmitted(std::string const& tname)
 {
   if (tname == "ALL_BUILD"_s || tname == "install"_s || tname == "package"_s ||
-      tname == "RUN_TESTS"_s || tname == CMAKE_CHECK_BUILD_SYSTEM_TARGET) {
+      tname == "RUN_TESTS"_s || tname == RBLXBUILD_CHECK_BUILD_SYSTEM_TARGET) {
     if (this->TargetDoneSet.find(tname) != this->TargetDoneSet.end()) {
       return true;
     }
@@ -1812,7 +1812,7 @@ bool cmGlobalXCodeGenerator::CreateXCodeTarget(
     return false;
   }
 
-  // Add CMakeLists.txt file for user convenience.
+  // Add RBLXBuildLists.txt file for user convenience.
   this->AddXCodeProjBuildRule(gtgt, commonSourceFiles);
 
   // Add the Info.plist we are about to generate for an App Bundle.
@@ -2086,8 +2086,8 @@ void cmGlobalXCodeGenerator::ForceLinkerLanguage(cmGeneratorTarget* gtgt)
   // language.
   cmMakefile* mf = gtgt->Target->GetMakefile();
   std::string fname = cmStrCat(
-    gtgt->GetLocalGenerator()->GetCurrentBinaryDirectory(), "/CMakeFiles/",
-    gtgt->GetName(), "-CMakeForceLinker.", cmSystemTools::LowerCase(llang));
+    gtgt->GetLocalGenerator()->GetCurrentBinaryDirectory(), "/RBLXBuildFiles/",
+    gtgt->GetName(), "-RBLXBuildForceLinker.", cmSystemTools::LowerCase(llang));
   {
     cmGeneratedFileStream fout(fname);
     fout << '\n';
@@ -2103,7 +2103,7 @@ void cmGlobalXCodeGenerator::ForceLinkerLanguage(cmGeneratorTarget* gtgt)
 
 bool cmGlobalXCodeGenerator::IsHeaderFile(cmSourceFile* sf)
 {
-  return cm::contains(this->CMakeInstance->GetHeaderExtensions(),
+  return cm::contains(this->RBLXBuildInstance->GetHeaderExtensions(),
                       sf->GetExtension());
 }
 
@@ -2111,7 +2111,7 @@ cmXCodeObject* cmGlobalXCodeGenerator::CreateLegacyRunScriptBuildPhase(
   char const* name, char const* name2, cmGeneratorTarget* target,
   std::vector<cmCustomCommand> const& commands)
 {
-  if (commands.empty() && strcmp(name, "CMake ReRun") != 0) {
+  if (commands.empty() && strcmp(name, "RBLXBuild ReRun") != 0) {
     return nullptr;
   }
   cmXCodeObject* buildPhase =
@@ -2146,7 +2146,7 @@ void cmGlobalXCodeGenerator::CreateCustomCommands(
     std::string str_link_file =
       cmStrCat("$<TARGET_LINKER_LIBRARY_FILE:", gtgt->GetName(), '>');
     cmCustomCommandLines cmd = cmMakeSingleCommandLine(
-      { cmSystemTools::GetCMakeCommand(), "-E", "cmake_symlink_library",
+      { cmSystemTools::GetRBLXBuildCommand(), "-E", "rblxbuild_symlink_library",
         str_file, str_so_file, str_link_file });
 
     cmCustomCommand command;
@@ -2167,7 +2167,7 @@ void cmGlobalXCodeGenerator::CreateCustomCommands(
     std::string linkFile =
       cmStrCat("$<TARGET_LINKER_IMPORT_FILE:", gtgt->GetName(), '>');
     cmCustomCommandLines symlink_command = cmMakeSingleCommandLine(
-      { cmSystemTools::GetCMakeCommand(), "-E", "cmake_symlink_library", file,
+      { cmSystemTools::GetRBLXBuildCommand(), "-E", "rblxbuild_symlink_library", file,
         soFile, linkFile });
 
     cmCustomCommand command;
@@ -2188,10 +2188,10 @@ void cmGlobalXCodeGenerator::CreateCustomCommands(
   if (this->XcodeBuildSystem >= BuildSystem::Twelve) {
     // create prebuild phase
     preBuildPhase =
-      this->CreateRunScriptBuildPhase("CMake PreBuild Rules", gtgt, prebuild);
+      this->CreateRunScriptBuildPhase("RBLXBuild PreBuild Rules", gtgt, prebuild);
     // create prelink phase
     preLinkPhase =
-      this->CreateRunScriptBuildPhase("CMake PreLink Rules", gtgt, prelink);
+      this->CreateRunScriptBuildPhase("RBLXBuild PreLink Rules", gtgt, prelink);
 
     std::vector<std::string> depends;
     if (gtgt->IsBundleOnApple()) {
@@ -2221,7 +2221,7 @@ void cmGlobalXCodeGenerator::CreateCustomCommands(
       }
     }
     // create postbuild phase
-    postBuildPhase = this->CreateRunScriptBuildPhase("CMake PostBuild Rules",
+    postBuildPhase = this->CreateRunScriptBuildPhase("RBLXBuild PostBuild Rules",
                                                      gtgt, postbuild, depends);
   } else {
     std::vector<cmSourceFile*> classes;
@@ -2239,16 +2239,16 @@ void cmGlobalXCodeGenerator::CreateCustomCommands(
     }
     // create custom commands phase
     legacyCustomCommandsBuildPhase = this->CreateLegacyRunScriptBuildPhase(
-      "CMake Rules", "cmakeRulesBuildPhase", gtgt, commands);
+      "RBLXBuild Rules", "rblxbuildRulesBuildPhase", gtgt, commands);
     // create prebuild phase
     preBuildPhase = this->CreateLegacyRunScriptBuildPhase(
-      "CMake PreBuild Rules", "preBuildCommands", gtgt, prebuild);
+      "RBLXBuild PreBuild Rules", "preBuildCommands", gtgt, prebuild);
     // create prelink phase
     preLinkPhase = this->CreateLegacyRunScriptBuildPhase(
-      "CMake PreLink Rules", "preLinkCommands", gtgt, prelink);
+      "RBLXBuild PreLink Rules", "preLinkCommands", gtgt, prelink);
     // create postbuild phase
     postBuildPhase = this->CreateLegacyRunScriptBuildPhase(
-      "CMake PostBuild Rules", "postBuildPhase", gtgt, postbuild);
+      "RBLXBuild PostBuild Rules", "postBuildPhase", gtgt, postbuild);
   }
 
   // The order here is the order they will be built in.
@@ -2333,7 +2333,7 @@ cmXCodeObject* cmGlobalXCodeGenerator::CreateRunScriptBuildPhase(
                        cmStrCat(gt->GetName(), ':', sf->GetFullPath()));
 
   auto depfilesDirectory = cmStrCat(
-    gt->GetLocalGenerator()->GetCurrentBinaryDirectory(), "/CMakeFiles/d/");
+    gt->GetLocalGenerator()->GetCurrentBinaryDirectory(), "/RBLXBuildFiles/d/");
   auto depfilesPrefix = cmStrCat(depfilesDirectory, buildPhase->GetId(), '.');
 
   std::string shellScript = "set -e\n";
@@ -2636,7 +2636,7 @@ void cmGlobalXCodeGenerator::AddCommandsToBuildPhase(
   std::vector<cmCustomCommand> const& commands, char const* name)
 {
   std::string dir = cmStrCat(
-    this->CurrentLocalGenerator->GetCurrentBinaryDirectory(), "/CMakeScripts");
+    this->CurrentLocalGenerator->GetCurrentBinaryDirectory(), "/RBLXBuildScripts");
   cmSystemTools::MakeDirectory(dir);
   std::string makefile =
     cmStrCat(dir, '/', target->GetName(), '_', name, ".make");
@@ -2665,7 +2665,7 @@ void cmGlobalXCodeGenerator::CreateCustomRulesMakefile(
     return;
   }
   makefileStream.SetCopyIfDifferent(true);
-  makefileStream << "# Generated by CMake, DO NOT EDIT\n"
+  makefileStream << "# Generated by RBLXBuild, DO NOT EDIT\n"
                     "# Custom rules for "
                  << target->GetName() << '\n';
 
@@ -2697,7 +2697,7 @@ void cmGlobalXCodeGenerator::CreateCustomRulesMakefile(
 
   auto depfilesDirectory =
     cmStrCat(target->GetLocalGenerator()->GetCurrentBinaryDirectory(),
-             "/CMakeFiles/d/");
+             "/RBLXBuildFiles/d/");
 
   for (auto const& command : commands) {
     cmCustomCommandGenerator ccg(
@@ -2852,7 +2852,7 @@ void cmGlobalXCodeGenerator::CreateBuildSettings(cmGeneratorTarget* gtgt,
   std::string llang = gtgt->GetLinkerLanguage(configName);
   if (binary && llang.empty()) {
     cmSystemTools::Error(
-      cmStrCat("CMake can not determine linker language for target: ",
+      cmStrCat("RBLXBuild can not determine linker language for target: ",
                gtgt->GetName()));
     return;
   }
@@ -2868,7 +2868,7 @@ void cmGlobalXCodeGenerator::CreateBuildSettings(cmGeneratorTarget* gtgt,
 
   if (gtgt->IsIPOEnabled(llang, configName)) {
     char const* ltoValue =
-      this->CurrentMakefile->IsOn("_CMAKE_LTO_THIN") ? "YES_THIN" : "YES";
+      this->CurrentMakefile->IsOn("_RBLXBUILD_LTO_THIN") ? "YES_THIN" : "YES";
     buildSettings->AddAttribute("LLVM_LTO", this->CreateString(ltoValue));
   }
 
@@ -2882,7 +2882,7 @@ void cmGlobalXCodeGenerator::CreateBuildSettings(cmGeneratorTarget* gtgt,
   // Add preprocessor definitions for this target and configuration.
   BuildObjectListOrString ppDefs(this, true);
   this->AppendDefines(
-    ppDefs, "CMAKE_INTDIR=\"$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)\"");
+    ppDefs, "RBLXBUILD_INTDIR=\"$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)\"");
   if (std::string const* exportMacro = gtgt->GetExportMacro()) {
     // Add the export symbol definition for shared library objects.
     this->AppendDefines(ppDefs, exportMacro->c_str());
@@ -3036,7 +3036,7 @@ void cmGlobalXCodeGenerator::CreateBuildSettings(cmGeneratorTarget* gtgt,
 
   if (gtgt->CanCompileSources()) {
     std::string const tmpDir =
-      this->GetTargetTempDir(gtgt, this->GetCMakeCFGIntDir());
+      this->GetTargetTempDir(gtgt, this->GetRBLXBuildCFGIntDir());
     buildSettings->AddAttribute("TARGET_TEMP_DIR", this->CreateString(tmpDir));
 
     std::string outDir;
@@ -3593,13 +3593,13 @@ cmXCodeObject* cmGlobalXCodeGenerator::CreateUtilityTarget(
 
   // Add source files without build rules for editing convenience.
   if (gtgt->GetType() != cm::TargetType::GLOBAL_TARGET &&
-      gtgt->GetName() != CMAKE_CHECK_BUILD_SYSTEM_TARGET) {
+      gtgt->GetName() != RBLXBUILD_CHECK_BUILD_SYSTEM_TARGET) {
     std::vector<cmSourceFile*> sources;
     if (!gtgt->GetConfigCommonSourceFilesForXcode(sources)) {
       return nullptr;
     }
 
-    // Add CMakeLists.txt file for user convenience.
+    // Add RBLXBuildLists.txt file for user convenience.
     this->AddXCodeProjBuildRule(gtgt, sources);
 
     for (auto* sourceFile : sources) {
@@ -3618,7 +3618,7 @@ std::string cmGlobalXCodeGenerator::AddConfigurations(cmXCodeObject* target,
                                                       cmGeneratorTarget* gtgt)
 {
   cmList const configList{ this->CurrentMakefile->GetRequiredDefinition(
-    "CMAKE_CONFIGURATION_TYPES") };
+    "RBLXBUILD_CONFIGURATION_TYPES") };
   cmXCodeObject* configlist =
     this->CreateObject(cmXCodeObject::XCConfigurationList);
   cmXCodeObject* buildConfigurations =
@@ -3669,7 +3669,7 @@ void cmGlobalXCodeGenerator::CreateGlobalXCConfigSettings(
   cmLocalGenerator* root, cmXCodeObject* config, std::string const& configName)
 {
   auto xcconfig = cmGeneratorExpression::Evaluate(
-    this->CurrentMakefile->GetSafeDefinition("CMAKE_XCODE_XCCONFIG"),
+    this->CurrentMakefile->GetSafeDefinition("RBLXBUILD_XCODE_XCCONFIG"),
     this->CurrentLocalGenerator, configName);
   if (xcconfig.empty()) {
     return;
@@ -3902,14 +3902,14 @@ std::string cmGlobalXCodeGenerator::GetObjectId(cmXCodeObject::PBXType ptype,
 std::string cmGlobalXCodeGenerator::GetOrCreateId(std::string const& name,
                                                   std::string const& id)
 {
-  std::string guidStoreName = cmStrCat(name, "_GUID_CMAKE");
-  cmValue storedGUID = this->CMakeInstance->GetCacheDefinition(guidStoreName);
+  std::string guidStoreName = cmStrCat(name, "_GUID_RBLXBUILD");
+  cmValue storedGUID = this->RBLXBuildInstance->GetCacheDefinition(guidStoreName);
 
   if (storedGUID) {
     return *storedGUID;
   }
 
-  this->CMakeInstance->AddCacheEntry(
+  this->RBLXBuildInstance->AddCacheEntry(
     guidStoreName, id, "Stored Xcode object GUID", cmStateEnums::INTERNAL);
 
   return id;
@@ -4043,7 +4043,7 @@ void cmGlobalXCodeGenerator::AddDependAndLinkInformation(cmXCodeObject* target)
     return;
   }
 
-  // Add dependencies on other CMake targets.
+  // Add dependencies on other RBLXBuild targets.
   for (auto const& dep : this->GetTargetDirectDepends(gt)) {
     if (cmXCodeObject* dptarget = this->FindXCodeTarget(dep)) {
       this->AddDependTarget(target, dptarget);
@@ -4055,7 +4055,7 @@ void cmGlobalXCodeGenerator::AddDependAndLinkInformation(cmXCodeObject* target)
   // Apple bundles (.app, .framework, .bundle), executables and dylibs can use
   // this feature and only targets that represent actual libraries (object,
   // static, dynamic or bundle, excluding executables) will be used. These are
-  // limitations imposed by CMake use-cases - otherwise a lot of things break.
+  // limitations imposed by RBLXBuild use-cases - otherwise a lot of things break.
   // The rest will be linked using linker flags (OTHER_LDFLAGS setting in Xcode
   // project).
   std::map<std::string, std::vector<cmComputeLinkInformation::Item const*>>
@@ -4101,7 +4101,7 @@ void cmGlobalXCodeGenerator::AddDependAndLinkInformation(cmXCodeObject* target)
     for (auto const& libItem : cli->GetItems()) {
       // Explicitly ignore OBJECT libraries as Xcode emulates them as static
       // libraries without an artifact. Avoid exposing this to the rest of
-      // CMake's compilation model.
+      // RBLXBuild's compilation model.
       if (libItem.Target &&
           libItem.Target->GetType() == cm::TargetType::OBJECT_LIBRARY) {
         continue;
@@ -4126,9 +4126,9 @@ void cmGlobalXCodeGenerator::AddDependAndLinkInformation(cmXCodeObject* target)
             forceLinkPhase))) {
         std::string libName;
         bool canUseLinkPhase = !libItem.HasFeature() ||
-          libItem.GetFeatureName() == "__CMAKE_LINK_FRAMEWORK"_s ||
+          libItem.GetFeatureName() == "__RBLXBUILD_LINK_FRAMEWORK"_s ||
           libItem.GetFeatureName() == "FRAMEWORK"_s ||
-          libItem.GetFeatureName() == "__CMAKE_LINK_XCFRAMEWORK"_s ||
+          libItem.GetFeatureName() == "__RBLXBUILD_LINK_XCFRAMEWORK"_s ||
           libItem.GetFeatureName() == "XCFRAMEWORK"_s ||
           libItem.GetFeatureName() == "WEAK_FRAMEWORK"_s ||
           libItem.GetFeatureName() == "WEAK_LIBRARY"_s;
@@ -4473,7 +4473,7 @@ void cmGlobalXCodeGenerator::AddDependAndLinkInformation(cmXCodeObject* target)
       // Add toolchain specified language link directories
       std::string const& linkDirsString =
         this->Makefiles.front()->GetSafeDefinition(cmStrCat(
-          "CMAKE_", cli->GetLinkLanguage(), "_STANDARD_LINK_DIRECTORIES"));
+          "RBLXBUILD_", cli->GetLinkLanguage(), "_STANDARD_LINK_DIRECTORIES"));
 
       for (auto const& libDir : cmList(linkDirsString)) {
         libSearchPaths.Add(this->XCodeEscapePath(libDir));
@@ -4533,7 +4533,7 @@ void cmGlobalXCodeGenerator::AddDependAndLinkInformation(cmXCodeObject* target)
               fwSearchPaths.Add(
                 this->XCodeEscapePath(fwDescriptor->Directory));
             }
-            if (libName.GetFeatureName() == "__CMAKE_LINK_FRAMEWORK"_s) {
+            if (libName.GetFeatureName() == "__RBLXBUILD_LINK_FRAMEWORK"_s) {
               // use the full path
               libPaths.Add(
                 libName.GetFormattedItem(this->XCodeEscapePath(cleanPath))
@@ -4815,7 +4815,7 @@ bool cmGlobalXCodeGenerator::CreateGroups(
       //
       if (!gtgt->IsInBuildSystem() ||
           gtgt->GetType() == cm::TargetType::GLOBAL_TARGET ||
-          gtgt->GetName() == CMAKE_CHECK_BUILD_SYSTEM_TARGET) {
+          gtgt->GetName() == RBLXBUILD_CHECK_BUILD_SYSTEM_TARGET) {
         continue;
       }
 
@@ -4840,14 +4840,14 @@ bool cmGlobalXCodeGenerator::CreateGroups(
         addSourceToGroup(sf);
       }
 
-      // Add CMakeLists.txt file for user convenience.
+      // Add RBLXBuildLists.txt file for user convenience.
       {
-        std::string listfile = this->GetCMakeInstance()->GetCMakeListFile(
+        std::string listfile = this->GetRBLXBuildInstance()->GetRBLXBuildListFile(
           gtgt->GetLocalGenerator()->GetCurrentSourceDirectory());
         cmSourceFile* sf = gtgt->Makefile->GetOrCreateSource(
           listfile, false, cmSourceFileLocationKind::Known);
         sf->ResolveFullPath();
-        sf->SetSpecialSourceType(cmSourceFile::SpecialSourceType::CMakeLists);
+        sf->SetSpecialSourceType(cmSourceFile::SpecialSourceType::RBLXBuildLists);
         addSourceToGroup(sf);
       }
 
@@ -4987,7 +4987,7 @@ bool cmGlobalXCodeGenerator::CreateXCodeObjects(
   mainGroup->AddAttribute("children", this->MainGroupChildren);
   mainGroup->AddAttribute("sourceTree", this->CreateString("<group>"));
 
-  // now create the cmake groups
+  // now create the rblxbuild groups
   if (!this->CreateGroups(generators)) {
     return false;
   }
@@ -5083,9 +5083,9 @@ bool cmGlobalXCodeGenerator::CreateXCodeObjects(
                            this->CreateString(defaultConfigName));
   cmXCodeObject* buildSettings =
     this->CreateObject(cmXCodeObject::ATTRIBUTE_GROUP);
-  cmValue sysroot = this->CurrentMakefile->GetDefinition("CMAKE_OSX_SYSROOT");
+  cmValue sysroot = this->CurrentMakefile->GetDefinition("RBLXBUILD_OSX_SYSROOT");
   cmValue deploymentTarget =
-    this->CurrentMakefile->GetDefinition("CMAKE_OSX_DEPLOYMENT_TARGET");
+    this->CurrentMakefile->GetDefinition("RBLXBUILD_OSX_DEPLOYMENT_TARGET");
   if (sysroot) {
     buildSettings->AddAttribute("SDKROOT", this->CreateString(*sysroot));
   }
@@ -5118,7 +5118,7 @@ bool cmGlobalXCodeGenerator::CreateXCodeObjects(
   if (this->GetLanguageEnabled("Swift")) {
     std::string swiftVersion;
     if (cmValue vers = this->CurrentMakefile->GetDefinition(
-          "CMAKE_Swift_LANGUAGE_VERSION")) {
+          "RBLXBUILD_Swift_LANGUAGE_VERSION")) {
       swiftVersion = *vers;
     } else if (this->XcodeVersion >= 102) {
       swiftVersion = "4.0";
@@ -5135,7 +5135,7 @@ bool cmGlobalXCodeGenerator::CreateXCodeObjects(
   buildSettings->AddAttribute("SYMROOT", this->CreateString(symroot));
 
   // Inside a try_compile project, do not require signing on any platform.
-  if (this->CMakeInstance->GetIsInTryCompile()) {
+  if (this->RBLXBuildInstance->GetIsInTryCompile()) {
     buildSettings->AddAttribute("CODE_SIGNING_ALLOWED",
                                 this->CreateString("NO"));
   }
@@ -5143,7 +5143,7 @@ bool cmGlobalXCodeGenerator::CreateXCodeObjects(
   // This code supports the OLD behavior of CMP0157. We should be able to
   // remove computing the debug configuration set once the old behavior is
   // removed.
-  auto debugConfigs = this->GetCMakeInstance()->GetDebugConfigs();
+  auto debugConfigs = this->GetRBLXBuildInstance()->GetDebugConfigs();
   std::set<std::string> debugConfigSet(debugConfigs.begin(),
                                        debugConfigs.end());
 
@@ -5156,7 +5156,7 @@ bool cmGlobalXCodeGenerator::CreateXCodeObjects(
     // wholemodule compilation for all non-debug configurations, for all
     // targets.
     if (this->CurrentMakefile
-          ->GetDefinition("CMAKE_Swift_COMPILATION_MODE_DEFAULT")
+          ->GetDefinition("RBLXBUILD_Swift_COMPILATION_MODE_DEFAULT")
           .IsEmpty()) {
       if (debugConfigSet.count(cmSystemTools::UpperCase(config.first)) == 0) {
         buildSettingsForCfg->AddAttribute("SWIFT_COMPILATION_MODE",
@@ -5165,9 +5165,9 @@ bool cmGlobalXCodeGenerator::CreateXCodeObjects(
     }
 
     // Put this last so it can override existing settings
-    // Convert "CMAKE_XCODE_ATTRIBUTE_*" variables directly.
+    // Convert "RBLXBUILD_XCODE_ATTRIBUTE_*" variables directly.
     for (auto const& var : this->CurrentMakefile->GetDefinitions()) {
-      if (cmHasLiteralPrefix(var, "CMAKE_XCODE_ATTRIBUTE_")) {
+      if (cmHasLiteralPrefix(var, "RBLXBUILD_XCODE_ATTRIBUTE_")) {
         std::string attribute = var.substr(22);
         this->FilterConfigurationAttribute(config.first, attribute);
         if (!attribute.empty()) {
@@ -5263,7 +5263,7 @@ bool cmGlobalXCodeGenerator::CreateXCodeObjects(
 
 std::string cmGlobalXCodeGenerator::GetSymrootDir() const
 {
-  return cmStrCat(this->CMakeInstance->GetHomeOutputDirectory(), "/build");
+  return cmStrCat(this->RBLXBuildInstance->GetHomeOutputDirectory(), "/build");
 }
 
 std::string cmGlobalXCodeGenerator::GetTargetTempDir(
@@ -5278,18 +5278,18 @@ void cmGlobalXCodeGenerator::ComputeArchitectures(cmMakefile* mf)
 {
   this->Architectures.clear();
   cmList::append(this->Architectures,
-                 mf->GetDefinition("CMAKE_OSX_ARCHITECTURES"));
+                 mf->GetDefinition("RBLXBUILD_OSX_ARCHITECTURES"));
 
   if (this->Architectures.empty()) {
     cmList::append(this->Architectures,
-                   mf->GetDefinition("_CMAKE_APPLE_ARCHS_DEFAULT"));
+                   mf->GetDefinition("_RBLXBUILD_APPLE_ARCHS_DEFAULT"));
   }
 
   if (this->Architectures.empty()) {
     // With no ARCHS we use ONLY_ACTIVE_ARCH and possibly a
     // platform-specific default ARCHS placeholder value.
     // Look up the arch that Xcode chooses in this case.
-    if (cmValue arch = mf->GetDefinition("CMAKE_XCODE_ARCHS")) {
+    if (cmValue arch = mf->GetDefinition("RBLXBUILD_XCODE_ARCHS")) {
       this->ObjectDirArchDefault = *arch;
       // We expect only one arch but choose the first just in case.
       std::string::size_type pos = this->ObjectDirArchDefault.find(';');
@@ -5461,15 +5461,15 @@ void cmGlobalXCodeGenerator::OutputXCodeProject(
 
   // Since this call may have created new cache entries, save the cache:
   //
-  root->GetMakefile()->GetCMakeInstance()->SaveCache(
+  root->GetMakefile()->GetRBLXBuildInstance()->SaveCache(
     root->GetBinaryDirectory());
 }
 
 std::string cmGlobalXCodeGenerator::GetTestBuildDependencyPath(
   cmGeneratorTarget const* target, std::string const& config) const
 {
-  // Replicates the CMake-language logic that computes _test_bundle_dir in
-  // xctest_add_test() in Modules/FindXCTest.cmake.
+  // Replicates the RBLXBuild-language logic that computes _test_bundle_dir in
+  // xctest_add_test() in Modules/FindXCTest.rblxbuild.
   if (!target->IsImported() && target->IsXCTestOnApple() &&
       this->XcodeVersion >= 73) {
     cmValue testeeName = target->GetProperty("XCTEST_TESTEE");
@@ -5523,7 +5523,7 @@ bool cmGlobalXCodeGenerator::OutputXCodeSharedSchemes(
       if (obj->GetType() == cmXCodeObject::OBJECT &&
           (obj->GetIsA() == cmXCodeObject::PBXNativeTarget ||
            obj->GetIsA() == cmXCodeObject::PBXAggregateTarget) &&
-          (root->GetMakefile()->GetCMakeInstance()->GetIsInTryCompile() ||
+          (root->GetMakefile()->GetRBLXBuildInstance()->GetIsInTryCompile() ||
            obj->GetTarget()->GetPropertyAsBool("XCODE_GENERATE_SCHEME"))) {
         std::string const& targetName = obj->GetTarget()->GetName();
         cmXCodeScheme schm(root, obj.get(), testables[targetName],
@@ -5612,7 +5612,7 @@ void cmGlobalXCodeGenerator::WriteXCodePBXProj(std::ostream& fout,
           "}\n";
 }
 
-char const* cmGlobalXCodeGenerator::GetCMakeCFGIntDir() const
+char const* cmGlobalXCodeGenerator::GetRBLXBuildCFGIntDir() const
 {
   return "$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)";
 }
@@ -5825,7 +5825,7 @@ bool cmGlobalXCodeGenerator::HasKnownObjectFileLocation(
 
 bool cmGlobalXCodeGenerator::UseEffectivePlatformName(cmMakefile* mf) const
 {
-  cmValue epnValue = this->GetCMakeInstance()->GetState()->GetGlobalProperty(
+  cmValue epnValue = this->GetRBLXBuildInstance()->GetState()->GetGlobalProperty(
     "XCODE_EMIT_EFFECTIVE_PLATFORM_NAME");
 
   if (!epnValue) {
@@ -5846,7 +5846,7 @@ void cmGlobalXCodeGenerator::ComputeTargetObjectDirectory(
 {
   auto objectDirArch = GetTargetObjectDirArch(*gt, this->ObjectDirArch);
   gt->ObjectDirectory =
-    cmStrCat(this->GetTargetTempDir(gt, this->GetCMakeCFGIntDir()),
+    cmStrCat(this->GetTargetTempDir(gt, this->GetRBLXBuildCFGIntDir()),
              "/$(OBJECT_FILE_DIR_normal:base)/", objectDirArch, '/');
 }
 

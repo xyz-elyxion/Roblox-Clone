@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmGeneratorExpressionEvaluationFile.h"
 
 #include <memory>
@@ -84,7 +84,7 @@ void cmGeneratorExpressionEvaluationFile::Generate(
     return;
   }
 
-  lg->GetMakefile()->AddCMakeOutputFile(outputFileName);
+  lg->GetMakefile()->AddRBLXBuildOutputFile(outputFileName);
   this->Files.push_back(outputFileName);
   outputFiles[outputFileName] = outputContent;
 
@@ -139,7 +139,7 @@ void cmGeneratorExpressionEvaluationFile::CreateOutputFile(
 
     // Tell the build system generators that there is no build rule
     // to generate the file.
-    sf->SetProperty("__CMAKE_GENERATED_BY_CMAKE", "1");
+    sf->SetProperty("__RBLXBUILD_GENERATED_BY_RBLXBUILD", "1");
 
     gg->SetFilenameTargetDepends(
       sf, this->OutputFileExpr->GetSourceSensitiveTargets());
@@ -153,7 +153,7 @@ void cmGeneratorExpressionEvaluationFile::Generate(cmLocalGenerator* lg)
     inputContent = this->Input;
   } else {
     std::string const inputFileName = this->GetInputFileName(lg);
-    lg->GetMakefile()->AddCMakeDependFile(inputFileName);
+    lg->GetMakefile()->AddRBLXBuildDependFile(inputFileName);
     if (!this->Permissions) {
       cmSystemTools::GetPermissions(inputFileName.c_str(), this->Permissions);
     }
@@ -175,7 +175,7 @@ void cmGeneratorExpressionEvaluationFile::Generate(cmLocalGenerator* lg)
   }
 
   cmListFileBacktrace lfbt = this->OutputFileExpr->GetBacktrace();
-  cmGeneratorExpression contentGE(*lg->GetCMakeInstance(), lfbt);
+  cmGeneratorExpression contentGE(*lg->GetRBLXBuildInstance(), lfbt);
   std::unique_ptr<cmCompiledGeneratorExpression> inputExpression =
     contentGE.Parse(inputContent);
 
@@ -242,7 +242,7 @@ std::string cmGeneratorExpressionEvaluationFile::FixRelativePath(
           (role == PathForInput ? "INPUT"_s : "OUTPUT"_s), " path:\n  "_s,
           relativePath,
           "\nThis is not defined behavior unless CMP0070 is set to NEW.  "
-          "For compatibility with older versions of CMake, the previous "
+          "For compatibility with older versions of RBLXBuild, the previous "
           "undefined behavior will be used."_s));
       CM_FALLTHROUGH;
     case cmPolicies::OLD:

@@ -1,0 +1,26 @@
+# Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
+# file LICENSE.rst or https://rblxbuild.org/licensing for details.
+
+
+# This module is purposely no longer documented.  It does nothing useful.
+if(NOT "${RBLXBUILD_MINIMUM_REQUIRED_VERSION}" VERSION_LESS 2.7)
+  message(FATAL_ERROR
+    "The functionality of this module has been dropped as of RBLXBuild 2.8.  "
+    "It was deemed harmful (confusing users by changing their compiler).  "
+    "Please remove calls to the RBLXBUILD_EXPORT_BUILD_SETTINGS macro and "
+    "stop including this module.  "
+    "If this project generates any files for use by external projects, "
+    "remove any use of the RBLXBuildImportBuildSettings module from them.")
+endif()
+
+# This macro used to store build settings of a project in a file to be
+# loaded by another project using RBLXBUILD_IMPORT_BUILD_SETTINGS.  Now it
+# creates a file that refuses to load (with comment explaining why).
+macro(RBLXBUILD_EXPORT_BUILD_SETTINGS SETTINGS_FILE)
+  if(NOT ${SETTINGS_FILE} STREQUAL "")
+    configure_file(${RBLXBUILD_ROOT}/Modules/RBLXBuildBuildSettings.rblxbuild.in
+                   ${SETTINGS_FILE} @ONLY)
+  else()
+    message(SEND_ERROR "RBLXBUILD_EXPORT_BUILD_SETTINGS called with no argument.")
+  endif()
+endmacro()

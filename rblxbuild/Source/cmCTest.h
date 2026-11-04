@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #pragma once
 
 #include "cmConfigure.h" // IWYU pragma: keep
@@ -22,8 +22,8 @@
 #include "cmStdIoTerminal.h"
 #include "cmStringAlgorithms.h"
 
-class cmake;
-class cmCMakePresetsArgs;
+class rblxbuild;
+class cmRBLXBuildPresetsArgs;
 class cmGeneratedFileStream;
 class cmInstrumentation;
 class cmMakefile;
@@ -123,12 +123,12 @@ public:
   bool AddIfExists(Part part, std::string const& file);
 
   /**
-   * Set the cmake test
+   * Set the rblxbuild test
    */
   bool SetTest(std::string const&, bool report = true);
 
   /**
-   * Set the cmake test mode (experimental, nightly, continuous).
+   * Set the rblxbuild test mode (experimental, nightly, continuous).
    */
   void SetTestModel(int mode);
   int GetTestModel() const;
@@ -250,7 +250,7 @@ public:
   static std::string SafeBuildIdField(std::string const& value);
 
   /** Start CTest XML output file */
-  void StartXML(cmXMLWriter& xml, cmake* cm, bool append);
+  void StartXML(cmXMLWriter& xml, rblxbuild* cm, bool append);
 
   /** End CTest XML output file */
   void EndXML(cmXMLWriter& xml);
@@ -326,17 +326,17 @@ public:
   void SetProduceXML(bool v);
 
   /**
-   * Set the CTest variable from CMake variable
+   * Set the CTest variable from RBLXBuild variable
    */
-  bool SetCTestConfigurationFromCMakeVariable(cmMakefile* mf,
+  bool SetCTestConfigurationFromRBLXBuildVariable(cmMakefile* mf,
                                               char const* dconfig,
-                                              std::string const& cmake_var,
+                                              std::string const& rblxbuild_var,
                                               bool suppress = false);
 
   /**
-   * Set CMake variables from CTest Options
+   * Set RBLXBuild variables from CTest Options
    */
-  void SetCMakeVariables(cmMakefile& mf);
+  void SetRBLXBuildVariables(cmMakefile& mf);
 
   /** Decode a URL to the original string.  */
   static std::string DecodeURL(std::string const&);
@@ -349,7 +349,7 @@ public:
   void AddCTestConfigurationOverwrite(std::string const& encstr);
 
   /** Create XML file that contains all the notes specified */
-  int GenerateNotesFile(cmake* cm, std::vector<std::string> const& files);
+  int GenerateNotesFile(rblxbuild* cm, std::vector<std::string> const& files);
 
   /** Create XML file to indicate that build is complete */
   int GenerateDoneFile();
@@ -426,7 +426,7 @@ public:
   bool ConvertInstrumentationJSONFileToXML(std::string const& fpath,
                                            cmXMLWriter& xml);
 
-  void AddSiteProperties(cmXMLWriter& xml, cmake* cm);
+  void AddSiteProperties(cmXMLWriter& xml, rblxbuild* cm);
 
   bool GetInteractiveDebugMode() const;
 
@@ -471,7 +471,7 @@ public:
   cmInstrumentation& GetInstrumentation();
 
 private:
-  int GenerateNotesFile(cmake* cm, std::string const& files);
+  int GenerateNotesFile(rblxbuild* cm, std::string const& files);
 
   void BlockTestErrorDiagnostics();
 
@@ -492,20 +492,20 @@ private:
   void UpdateOutputDir();
 
   /** set command line arguments read from a test preset */
-  bool SetArgsFromPreset(cmCMakePresetsArgs const& args);
+  bool SetArgsFromPreset(cmRBLXBuildPresetsArgs const& args);
 
   /** returns true iff the console supports progress output */
   static bool ProgressOutputSupportedByConsole();
 
   /** Create note from files. */
-  int GenerateCTestNotesOutput(cmXMLWriter& xml, cmake* cm,
+  int GenerateCTestNotesOutput(cmXMLWriter& xml, rblxbuild* cm,
                                std::vector<std::string> const& files);
 
   /** Check if the argument is the one specified */
   static bool CheckArgument(std::string const& arg, cm::string_view varg1,
                             char const* varg2 = nullptr);
 
-  int RunCMakeAndTest();
+  int RunRBLXBuildAndTest();
   int RunScripts(std::vector<std::pair<std::string, bool>> const& scripts);
   int ExecuteTests(std::vector<std::string> const& args);
 

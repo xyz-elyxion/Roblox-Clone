@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmExportTryCompileFileGenerator.h"
 
 #include <map>
@@ -43,7 +43,7 @@ void cmExportTryCompileFileGenerator::IssueMessage(
       cmSystemTools::Error(message);
       break;
     case MessageType::WARNING:
-      cmSystemTools::Message(cmStrCat("CMake Warning: "_s, message),
+      cmSystemTools::Message(cmStrCat("RBLXBuild Warning: "_s, message),
                              "Warning");
       break;
     default:
@@ -57,7 +57,7 @@ void cmExportTryCompileFileGenerator::IssueDiagnostic(
   cm::string_view const cname =
     cmDiagnostics::GetCategoryString(category).substr(4);
   cmSystemTools::Message(
-    cmStrCat("CMake Diagnostic ("_s, cname, "): "_s, message), "Diagnostic");
+    cmStrCat("RBLXBuild Diagnostic ("_s, cname, "): "_s, message), "Diagnostic");
 }
 
 bool cmExportTryCompileFileGenerator::GenerateMainFile(std::ostream& os)
@@ -99,7 +99,7 @@ std::string cmExportTryCompileFileGenerator::FindTargets(
 
   cm::GenEx::Context context(tgt->LocalGenerator, this->Config, language);
 
-  cmGeneratorExpression ge(*tgt->Makefile->GetCMakeInstance());
+  cmGeneratorExpression ge(*tgt->Makefile->GetRBLXBuildInstance());
 
   std::unique_ptr<cmGeneratorExpressionDAGChecker> parentDagChecker;
   if (propName == "INTERFACE_LINK_OPTIONS") {
@@ -174,7 +174,7 @@ std::string cmExportTryCompileFileGenerator::InstallNameDir(
   std::string install_name_dir;
 
   cmMakefile* mf = target->Target->GetMakefile();
-  if (mf->IsOn("CMAKE_PLATFORM_HAS_INSTALLNAME")) {
+  if (mf->IsOn("RBLXBUILD_PLATFORM_HAS_INSTALLNAME")) {
     install_name_dir = target->GetInstallNameDirForBuildTree(config);
   }
 
@@ -185,7 +185,7 @@ std::string cmExportTryCompileFileGenerator::GetFileSetDirectories(
   cmGeneratorTarget* /*gte*/, cmGeneratorFileSet const* fileSet,
   cmTargetExport const* /*te*/)
 {
-  return cmOutputConverter::EscapeForCMake(
+  return cmOutputConverter::EscapeForRBLXBuild(
     cmList::to_string(fileSet->GetDirectoryEntries()));
 }
 
@@ -193,6 +193,6 @@ std::string cmExportTryCompileFileGenerator::GetFileSetFiles(
   cmGeneratorTarget* /*gte*/, cmGeneratorFileSet const* fileSet,
   cmTargetExport const* /*te*/)
 {
-  return cmOutputConverter::EscapeForCMake(
+  return cmOutputConverter::EscapeForRBLXBuild(
     cmList::to_string(fileSet->GetFileEntries()));
 }

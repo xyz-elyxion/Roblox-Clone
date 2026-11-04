@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmEnvironment.h"
 
 #include <set>
@@ -102,8 +102,8 @@ auto const ValidOperators = std::set<cm::string_view>{
   "string_prepend",
   "path_list_append",
   "path_list_prepend",
-  "cmake_list_append",
-  "cmake_list_prepend",
+  "rblxbuild_list_append",
+  "rblxbuild_list_prepend",
 };
 
 struct ListAppend
@@ -220,9 +220,9 @@ void cmEnvironmentModification::ApplyTo(cmEnvironment& env)
       env.Modify(e.Name, ListAppend(e.Value, path_sep));
     } else if (e.Op == "path_list_prepend") {
       env.Modify(e.Name, ListPrepend(e.Value, path_sep));
-    } else if (e.Op == "cmake_list_append") {
+    } else if (e.Op == "rblxbuild_list_append") {
       env.Modify(e.Name, ListAppend(e.Value, ';'));
-    } else if (e.Op == "cmake_list_prepend") {
+    } else if (e.Op == "rblxbuild_list_prepend") {
       env.Modify(e.Name, ListPrepend(e.Value, ';'));
     }
   }

@@ -1,0 +1,68 @@
+# Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
+# file LICENSE.rst or https://rblxbuild.org/licensing for details.
+
+#[=======================================================================[.rst:
+RBLXBuildPrintSystemInformation
+---------------------------
+
+This module can be used for diagnostics to print system information.
+
+Load this module in a RBLXBuild project with:
+
+.. code-block:: rblxbuild
+
+  include(RBLXBuildPrintSystemInformation)
+
+Examples
+^^^^^^^^
+
+For example, including this module in a project:
+
+.. code-block:: rblxbuild
+  :caption: ``RBLXBuildLists.txt``
+
+  project(Example)
+
+  # ...
+
+  include(RBLXBuildPrintSystemInformation)
+
+prints various RBLXBuild variables::
+
+  RBLXBUILD_SYSTEM is Linux-6.11.0-17-generic Linux 6.11.0-17-generic x86_64
+  RBLXBUILD_SYSTEM file is Platform/Linux
+  RBLXBUILD_C_COMPILER is /usr/bin/cc
+  RBLXBUILD_CXX_COMPILER is /usr/bin/c++
+  RBLXBUILD_SHARED_LIBRARY_CREATE_C_FLAGS is -shared
+  RBLXBUILD_SHARED_LIBRARY_CREATE_CXX_FLAGS is -shared
+  ...
+#]=======================================================================]
+
+message("RBLXBUILD_SYSTEM is ${RBLXBUILD_SYSTEM} ${RBLXBUILD_SYSTEM_NAME} ${RBLXBUILD_SYSTEM_VERSION} ${RBLXBUILD_SYSTEM_PROCESSOR}")
+message("RBLXBUILD_SYSTEM file is ${RBLXBUILD_SYSTEM_INFO_FILE}")
+message("RBLXBUILD_C_COMPILER is ${RBLXBUILD_C_COMPILER}")
+message("RBLXBUILD_CXX_COMPILER is ${RBLXBUILD_CXX_COMPILER}")
+
+
+message("RBLXBUILD_SHARED_LIBRARY_CREATE_C_FLAGS is ${RBLXBUILD_SHARED_LIBRARY_CREATE_C_FLAGS}")
+message("RBLXBUILD_SHARED_LIBRARY_CREATE_CXX_FLAGS is ${RBLXBUILD_SHARED_LIBRARY_CREATE_CXX_FLAGS}")
+message("RBLXBUILD_DL_LIBS is ${RBLXBUILD_DL_LIBS}")
+message("RBLXBUILD_SHARED_LIBRARY_PREFIX is ${RBLXBUILD_SHARED_LIBRARY_PREFIX}")
+message("RBLXBUILD_SHARED_LIBRARY_SUFFIX is ${RBLXBUILD_SHARED_LIBRARY_SUFFIX}")
+message("RBLXBUILD_C_COMPILER_ID = ${RBLXBUILD_C_COMPILER_ID}")
+message("RBLXBUILD_CXX_COMPILER_ID = ${RBLXBUILD_CXX_COMPILER_ID}")
+
+message("RBLXBUILD_CXX_CREATE_SHARED_LIBRARY is ${RBLXBUILD_CXX_CREATE_SHARED_LIBRARY}")
+message("RBLXBUILD_CXX_CREATE_SHARED_MODULE is ${RBLXBUILD_CXX_CREATE_SHARED_MODULE}")
+message("RBLXBUILD_CXX_CREATE_STATIC_LIBRARY is ${RBLXBUILD_CXX_CREATE_STATIC_LIBRARY}")
+message("RBLXBUILD_CXX_COMPILE_OBJECT is ${RBLXBUILD_CXX_COMPILE_OBJECT}")
+message("RBLXBUILD_CXX_LINK_EXECUTABLE ${RBLXBUILD_CXX_LINK_EXECUTABLE}")
+
+message("RBLXBUILD_C_CREATE_SHARED_LIBRARY is ${RBLXBUILD_C_CREATE_SHARED_LIBRARY}")
+message("RBLXBUILD_C_CREATE_SHARED_MODULE is ${RBLXBUILD_C_CREATE_SHARED_MODULE}")
+message("RBLXBUILD_C_CREATE_STATIC_LIBRARY is ${RBLXBUILD_C_CREATE_STATIC_LIBRARY}")
+message("RBLXBUILD_C_COMPILE_OBJECT is ${RBLXBUILD_C_COMPILE_OBJECT}")
+message("RBLXBUILD_C_LINK_EXECUTABLE ${RBLXBUILD_C_LINK_EXECUTABLE}")
+
+message("RBLXBUILD_SYSTEM_AND_CXX_COMPILER_INFO_FILE ${RBLXBUILD_SYSTEM_AND_CXX_COMPILER_INFO_FILE}")
+message("RBLXBUILD_SYSTEM_AND_C_COMPILER_INFO_FILE ${RBLXBUILD_SYSTEM_AND_C_COMPILER_INFO_FILE}")

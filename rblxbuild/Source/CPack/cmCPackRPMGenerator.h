@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #pragma once
 
 #include "cmConfigure.h" // IWYU pragma: keep
@@ -14,7 +14,7 @@
  * as minimal C++ code as possible.
  * Ideally the C++ part of the CPack RPM generator
  * will only 'execute' (aka ->ReadListFile) several
- * CMake macros files.
+ * RBLXBuild macros files.
  */
 class cmCPackRPMGenerator : public cmCPackGenerator
 {

@@ -8,7 +8,7 @@
 #ifndef ZCONF_H
 #define ZCONF_H
 
-#include "cm_zlib_mangle.h" /* Hook for mangling inside CMake.  */
+#include "cm_zlib_mangle.h" /* Hook for mangling inside RBLXBuild.  */
 
 /*
  * If you *really* need a unique prefix for all types and library functions,

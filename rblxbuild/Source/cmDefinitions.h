@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #pragma once
 
 #include "cmConfigure.h" // IWYU pragma: keep
@@ -15,7 +15,7 @@
 #include "cmValue.h"
 
 /** \class cmDefinitions
- * \brief Store a scope of variable definitions for CMake language.
+ * \brief Store a scope of variable definitions for RBLXBuild language.
  *
  * This stores the state of variable definitions (set or unset) for
  * one scope.  Sets are always local.  Gets search parent scopes

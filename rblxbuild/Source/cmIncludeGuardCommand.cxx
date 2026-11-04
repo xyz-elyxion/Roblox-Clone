@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmIncludeGuardCommand.h"
 
 #include "cmCryptoHash.h"
@@ -9,7 +9,7 @@
 #include "cmStateSnapshot.h"
 #include "cmStringAlgorithms.h"
 #include "cmValue.h"
-#include "cmake.h"
+#include "rblxbuild.h"
 
 namespace {
 
@@ -71,7 +71,7 @@ bool cmIncludeGuardCommand(std::vector<std::string> const& args,
   }
 
   std::string includeGuardVar = GetIncludeGuardVariableName(
-    *status.GetMakefile().GetDefinition("CMAKE_CURRENT_LIST_FILE"));
+    *status.GetMakefile().GetDefinition("RBLXBUILD_CURRENT_LIST_FILE"));
 
   cmMakefile* const mf = &status.GetMakefile();
 
@@ -91,7 +91,7 @@ bool cmIncludeGuardCommand(std::vector<std::string> const& args,
       mf->SetProperty(includeGuardVar, "TRUE");
       break;
     case GLOBAL:
-      cmake* const cm = mf->GetCMakeInstance();
+      rblxbuild* const cm = mf->GetRBLXBuildInstance();
       if (cm->GetProperty(includeGuardVar)) {
         status.SetReturnInvoked();
         return true;

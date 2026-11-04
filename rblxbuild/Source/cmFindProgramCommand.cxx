@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmFindProgramCommand.h"
 
 #include <algorithm>
@@ -147,13 +147,13 @@ struct cmFindProgramHelper
         cmPolicies::CMP0109, {},
         cmStrCat("The file\n  "_s, file,
                  "\nis executable but not readable.  "
-                 "CMake is ignoring it for compatibility."_s));
+                 "RBLXBuild is ignoring it for compatibility."_s));
     } else {
       this->Makefile->IssuePolicyWarning(
         cmPolicies::CMP0109, {},
         cmStrCat("The file\n  "_s, file,
                  "\nis readable but not executable.  "
-                 "CMake is using it for compatibility."_s));
+                 "RBLXBuild is using it for compatibility."_s));
     }
     return isExeOld;
   }
@@ -169,7 +169,7 @@ cmFindProgramCommand::cmFindProgramCommand(cmExecutionStatus& status)
   // When policy CMP0134 is not NEW, rely on previous behavior:
   if (this->Makefile->GetPolicyStatus(cmPolicies::CMP0134) !=
       cmPolicies::NEW) {
-    if (this->Makefile->GetDefinition("CMAKE_SIZEOF_VOID_P") == "8") {
+    if (this->Makefile->GetDefinition("RBLXBUILD_SIZEOF_VOID_P") == "8") {
       this->RegistryView = cmWindowsRegistry::View::Reg64_32;
     } else {
       this->RegistryView = cmWindowsRegistry::View::Reg32_64;
@@ -183,7 +183,7 @@ cmFindProgramCommand::cmFindProgramCommand(cmExecutionStatus& status)
 bool cmFindProgramCommand::InitialPass(std::vector<std::string> const& argsIn)
 {
 
-  this->CMakePathName = "PROGRAM";
+  this->RBLXBuildPathName = "PROGRAM";
 
   // call cmFindBase::ParseArguments
   if (!this->ParseArguments(argsIn)) {

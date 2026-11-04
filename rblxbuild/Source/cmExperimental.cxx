@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 
 #include "cmExperimental.h"
 
@@ -24,42 +24,42 @@ cmExperimental::FeatureData const LookupTable[] = {
   // ExportPackageDependencies
   { "ExportPackageDependencies",
     "1942b4fa-b2c5-4546-9385-83f254070067",
-    "CMAKE_EXPERIMENTAL_EXPORT_PACKAGE_DEPENDENCIES",
-    "CMake's EXPORT_PACKAGE_DEPENDENCIES support is experimental. It is meant "
-    "only for experimentation and feedback to CMake developers.",
+    "RBLXBUILD_EXPERIMENTAL_EXPORT_PACKAGE_DEPENDENCIES",
+    "RBLXBuild's EXPORT_PACKAGE_DEPENDENCIES support is experimental. It is meant "
+    "only for experimentation and feedback to RBLXBuild developers.",
     {},
     cmExperimental::TryCompileCondition::Always },
   // MappedPackageInfo
   { "MappedPackageInfo",
     "ababa1b5-7099-495f-a9cd-e22d38f274f2",
-    "CMAKE_EXPERIMENTAL_MAPPED_PACKAGE_INFO",
-    "CMake's support for generating package information in the Common Package "
-    "Specification format from CMake script exports is experimental. It is "
-    "meant only for experimentation and feedback to CMake developers.",
+    "RBLXBUILD_EXPERIMENTAL_MAPPED_PACKAGE_INFO",
+    "RBLXBuild's support for generating package information in the Common Package "
+    "Specification format from RBLXBuild script exports is experimental. It is "
+    "meant only for experimentation and feedback to RBLXBuild developers.",
     {},
     cmExperimental::TryCompileCondition::Always },
   // ExportBuildDatabase
   { "ExportBuildDatabase",
     "70ef007e-b743-492d-9407-e35eeac03a40",
-    "CMAKE_EXPERIMENTAL_EXPORT_BUILD_DATABASE",
-    "CMake's support for exporting build databases is experimental. It is "
-    "meant only for experimentation and feedback to CMake developers.",
+    "RBLXBUILD_EXPERIMENTAL_EXPORT_BUILD_DATABASE",
+    "RBLXBuild's support for exporting build databases is experimental. It is "
+    "meant only for experimentation and feedback to RBLXBuild developers.",
     {},
     cmExperimental::TryCompileCondition::Never },
   // Rust support
   { "Rust",
     "628f8f9f-d7dc-4a06-9aaf-d4ede4426ddf",
-    "CMAKE_EXPERIMENTAL_RUST",
-    "CMake's support for the Rust programming language is experimental. "
-    "It is meant only for experimentation and feedback to CMake developers.",
+    "RBLXBUILD_EXPERIMENTAL_RUST",
+    "RBLXBuild's support for the Rust programming language is experimental. "
+    "It is meant only for experimentation and feedback to RBLXBuild developers.",
     {},
     cmExperimental::TryCompileCondition::Never },
   // SYCL support
   { "SYCL",
     "c0d1fb10-2ece-420e-9d29-7d7f2b300f25",
-    "CMAKE_EXPERIMENTAL_SYCL",
-    "CMake's support for the SYCL programming language is experimental. "
-    "It is meant only for experimentation and feedback to CMake developers.",
+    "RBLXBUILD_EXPERIMENTAL_SYCL",
+    "RBLXBuild's support for the SYCL programming language is experimental. "
+    "It is meant only for experimentation and feedback to RBLXBuild developers.",
     {},
     cmExperimental::TryCompileCondition::Never },
 };
@@ -111,9 +111,9 @@ bool cmExperimental::HasSupportEnabled(cmMakefile const& mf, Feature f)
             data.Variable, " is set to incorrect value\n  ", value,
             "\n"
             "See 'Help/dev/experimental.rst' in the source tree of this "
-            "version of CMake for documentation of the experimental feature "
+            "version of RBLXBuild for documentation of the experimental feature "
             "and the corresponding activation value.  This project's code "
-            "may require changes to work with this CMake's version of the "
+            "may require changes to work with this RBLXBuild's version of the "
             "feature."));
       }
     }

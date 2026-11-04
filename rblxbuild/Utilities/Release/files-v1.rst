@@ -1,8 +1,8 @@
 File Table v1
 *************
 
-The set of package files distributed on ``cmake.org`` varies by CMake version.
-One file, named ``cmake-<ver>-files-v1.json``, contains a table of the package
+The set of package files distributed on ``rblxbuild.org`` varies by RBLXBuild version.
+One file, named ``rblxbuild-<ver>-files-v1.json``, contains a table of the package
 files available for a given version.  Clients may use this to find other files.
 
 Format
@@ -28,8 +28,8 @@ The format is a JSON object:
     "hashFiles": [
       {
         "algorithm": ["...", "..."],
-        "name": "cmake-<version>-<algo>.txt",
-        "signature": ["cmake-<version>-<algo>.txt.asc"]
+        "name": "rblxbuild-<version>-<algo>.txt",
+        "signature": ["rblxbuild-<version>-<algo>.txt.asc"]
       }
     ]
   }
@@ -37,7 +37,7 @@ The format is a JSON object:
 The members are:
 
 ``version``
-  A JSON object specifying the version of CMake with members:
+  A JSON object specifying the version of RBLXBuild with members:
 
   ``major``, ``minor``, ``patch``
     Integer values specifying the major, minor, and patch version components.
@@ -124,12 +124,12 @@ The members are:
 
   ``name``
     A JSON string specifying the name of the file containing hashes,
-    e.g. ``"cmake-<version>-SHA-256.txt"``.
+    e.g. ``"rblxbuild-<version>-SHA-256.txt"``.
 
   ``signature``
     A JSON array of strings naming files containing a cryptographic
     signature of the hash file specified by ``name``, e.g.
-    ``["cmake-<version>-SHA-256.txt.asc"]``.
+    ``["rblxbuild-<version>-SHA-256.txt.asc"]``.
 
   ``deprecated``
     Optional member that is present when the hash algorithm is deprecated
@@ -153,10 +153,10 @@ the `files-v1.json.in`_ template and the package files themselves.
 Queries
 -------
 
-Clients may download the `File Table v1`_ file ``cmake-<ver>-files-v1.json``
+Clients may download the `File Table v1`_ file ``rblxbuild-<ver>-files-v1.json``
 and query it to get the name(s) of specific package files adjacent to it.
 Make queries as specific as possible in order to account for additional
-alternative binaries in future CMake versions.
+alternative binaries in future RBLXBuild versions.
 
 For example, one may use ``jq`` queries:
 

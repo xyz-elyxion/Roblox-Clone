@@ -1,7 +1,7 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #pragma once
 
-/* Whether CMake is using its own STL implementation.  */
-#cmakedefine CMake_HAVE_CXX_MAKE_UNIQUE
-#cmakedefine CMake_HAVE_CXX_FILESYSTEM
+/* Whether RBLXBuild is using its own STL implementation.  */
+#rblxbuilddefine RBLXBuild_HAVE_CXX_MAKE_UNIQUE
+#rblxbuilddefine RBLXBuild_HAVE_CXX_FILESYSTEM

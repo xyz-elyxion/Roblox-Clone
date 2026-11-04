@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmRST.h"
 
 #include <algorithm>
@@ -17,10 +17,10 @@
 
 cmRST::cmRST(std::string docroot)
   : DocRoot(std::move(docroot))
-  , CMakeDirective("^.. (cmake:)?("
+  , RBLXBuildDirective("^.. (rblxbuild:)?("
                    "command|diagnostic|envvar|genex|signature|variable"
                    ")::")
-  , CMakeModuleDirective("^.. cmake-module::[ \t]+([^ \t\n]+)$")
+  , RBLXBuildModuleDirective("^.. rblxbuild-module::[ \t]+([^ \t\n]+)$")
   , ParsedLiteralDirective("^.. parsed-literal::[ \t]*(.*)$")
   , CodeBlockDirective("^.. code-block::[ \t]*(.*)$")
   , ReplaceDirective("^.. (\\|[^|]+\\|) replace::[ \t]*(.*)$")
@@ -30,14 +30,14 @@ cmRST::cmRST(std::string docroot)
   , NoteDirective("^.. note::[ \t]*(.*)$")
   , VersionDirective("^.. version(added|changed)::[ \t]*(.*)$")
   , ModuleRST(R"(^#\[(=*)\[\.rst:$)")
-  , CMakeRole("(:cmake)?:("
+  , RBLXBuildRole("(:rblxbuild)?:("
               "cref|"
               "program|command|cpack_gen|diagnostic|envvar|generator|genex|"
               "manual|module|policy|preset|variable|"
               "prop_cache|prop_dir|prop_fs|prop_gbl|prop_inst|prop_sf|"
               "prop_test|prop_tgt|"
-              "option|cmake-option|cmake-build-option|cmake-install-option|"
-              "cmake-workflow-option|cpack-option|ctest-option|"
+              "option|rblxbuild-option|rblxbuild-build-option|rblxbuild-install-option|"
+              "rblxbuild-workflow-option|cpack-option|ctest-option|"
               "ctest-dashboard-option"
               "):`(<*([^`<]|[^` \t]<)*)([ \t]+<[^`]*>)?`")
   , InlineLink("`(<*([^`<]|[^` \t]<)*)([ \t]+<[^`]*>)?`__?")
@@ -49,7 +49,7 @@ cmRST::cmRST(std::string docroot)
   , Header(R"(^(#+|\*+|=+|-+|\^+|"+)$)")
 {
   this->Replace.emplace_back();
-  this->Replace[0]["|release|"] = cmVersion::GetCMakeVersion();
+  this->Replace[0]["|release|"] = cmVersion::GetRBLXBuildVersion();
 }
 
 bool cmRST::ProcessFile(std::string const& fname, bool isModule)
@@ -168,12 +168,12 @@ void cmRST::ProcessLine(std::string const& line)
                                                              : Markup::Normal);
     // XXX(clang-tidy): https://bugs.llvm.org/show_bug.cgi?id=44165
     // NOLINTNEXTLINE(bugprone-branch-clone)
-    if (this->CMakeDirective.find(line)) {
-      // Output cmake domain directives and their content normally.
+    if (this->RBLXBuildDirective.find(line)) {
+      // Output rblxbuild domain directives and their content normally.
       this->NormalLine(line);
-    } else if (this->CMakeModuleDirective.find(line)) {
-      // Process cmake-module directive: scan .cmake file comments.
-      std::string file = this->CMakeModuleDirective.match(1);
+    } else if (this->RBLXBuildModuleDirective.find(line)) {
+      // Process rblxbuild-module directive: scan .rblxbuild file comments.
+      std::string file = this->RBLXBuildModuleDirective.match(1);
       if (file.empty() || !this->ProcessInclude(file, Include::Module)) {
         this->NormalLine(line);
       }
@@ -283,8 +283,8 @@ void cmRST::WriteLine(std::ostream& os, ContentLine const& content)
       std::string::size_type role_start = std::string::npos;
       std::string::size_type link_start = std::string::npos;
       std::string::size_type lit_start = std::string::npos;
-      if (this->CMakeRole.find(line.c_str() + pos)) {
-        role_start = this->CMakeRole.start();
+      if (this->RBLXBuildRole.find(line.c_str() + pos)) {
+        role_start = this->RBLXBuildRole.start();
         first = &role_start;
       }
       if (this->InlineLiteral.find(line.c_str() + pos)) {
@@ -302,17 +302,17 @@ void cmRST::WriteLine(std::ostream& os, ContentLine const& content)
       if (first == &role_start) {
         this->LastLength += role_start;
         os << line.substr(pos, role_start);
-        std::string text = this->CMakeRole.match(3);
+        std::string text = this->RBLXBuildRole.match(3);
         // If a command reference has no explicit target and
         // no explicit "(...)" then add "()" to the text.
-        if (this->CMakeRole.match(2) == "command" &&
-            this->CMakeRole.match(5).empty() &&
+        if (this->RBLXBuildRole.match(2) == "command" &&
+            this->RBLXBuildRole.match(5).empty() &&
             text.find_first_of("()") == std::string::npos) {
           text += "()";
         }
         this->LastLength += 4 + text.size();
         os << "``" << text << "``";
-        pos += this->CMakeRole.end();
+        pos += this->RBLXBuildRole.end();
       } else if (first == &lit_start) {
         this->LastLength += lit_start;
         os << line.substr(pos, lit_start);

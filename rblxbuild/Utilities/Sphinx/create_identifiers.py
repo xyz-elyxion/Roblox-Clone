@@ -4,7 +4,7 @@ import sys
 
 if len(sys.argv) != 2:
   sys.exit(-1)
-name = sys.argv[1] + "/CMake.qhp"
+name = sys.argv[1] + "/RBLXBuild.qhp"
 
 f = open(name, "r", encoding="utf-8")
 

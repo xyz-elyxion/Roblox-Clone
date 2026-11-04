@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmState.h"
 
 #include <algorithm>
@@ -28,7 +28,7 @@
 #include "cmSystemTools.h"
 #include "cmTargetTypes.h"
 #include "cmUnreachable.h"
-#include "cmake.h"
+#include "rblxbuild.h"
 
 namespace cmStateDetail {
 std::string const PropertySentinel = std::string{};
@@ -318,16 +318,16 @@ cmStateSnapshot cmState::Reset(cmStateSnapshot const& diagnosticState)
 
   {
     std::string srcDir =
-      *cmDefinitions::Get("CMAKE_SOURCE_DIR", pos->Vars, pos->Root);
+      *cmDefinitions::Get("RBLXBUILD_SOURCE_DIR", pos->Vars, pos->Root);
     std::string binDir =
-      *cmDefinitions::Get("CMAKE_BINARY_DIR", pos->Vars, pos->Root);
+      *cmDefinitions::Get("RBLXBUILD_BINARY_DIR", pos->Vars, pos->Root);
     this->VarTree.Clear();
     pos->Vars = this->VarTree.Push(this->VarTree.Root());
     pos->Parent = this->VarTree.Root();
     pos->Root = this->VarTree.Root();
 
-    pos->Vars->Set("CMAKE_SOURCE_DIR", srcDir);
-    pos->Vars->Set("CMAKE_BINARY_DIR", binDir);
+    pos->Vars->Set("RBLXBUILD_SOURCE_DIR", srcDir);
+    pos->Vars->Set("RBLXBUILD_BINARY_DIR", binDir);
   }
 
   this->DefineProperty("RULE_LAUNCH_COMPILE", cmProperty::DIRECTORY, "", "",
@@ -499,7 +499,7 @@ void cmState::AddUnexpectedCommand(std::string const& name, char const* error)
     [name, error](std::vector<cmListFileArgument> const&,
                   cmExecutionStatus& status) -> bool {
       cmValue versionValue =
-        status.GetMakefile().GetDefinition("CMAKE_MINIMUM_REQUIRED_VERSION");
+        status.GetMakefile().GetDefinition("RBLXBUILD_MINIMUM_REQUIRED_VERSION");
       if (name == "endif" &&
           (!versionValue || atof(versionValue->c_str()) <= 1.4)) {
         return true;
@@ -545,7 +545,7 @@ bool cmState::AddScriptedCommand(std::string const& name,
   std::string sName = cmSystemTools::LowerCase(name);
 
   if (this->FlowControlCommands.count(sName)) {
-    mf.GetCMakeInstance()->IssueMessage(
+    mf.GetRBLXBuildInstance()->IssueMessage(
       MessageType::FATAL_ERROR,
       cmStrCat("Built-in flow control command \"", sName,
                "\" cannot be overridden."),
@@ -672,64 +672,64 @@ cmValue cmState::GetGlobalProperty(std::string const& prop)
   } else if (prop == "ENABLED_LANGUAGES") {
     auto langs = cmList::to_string(this->EnabledLanguages);
     this->SetGlobalProperty("ENABLED_LANGUAGES", langs);
-  } else if (prop == "CMAKE_ROLE") {
-    this->SetGlobalProperty("CMAKE_ROLE", this->GetRoleString());
-  } else if (prop == "_CMAKE_RUNNING_IN_BUILD_TREE") {
-    this->SetGlobalProperty("_CMAKE_RUNNING_IN_BUILD_TREE",
-                            cmSystemTools::GetCMakeInBuildTree() ? "1" : "0");
+  } else if (prop == "RBLXBUILD_ROLE") {
+    this->SetGlobalProperty("RBLXBUILD_ROLE", this->GetRoleString());
+  } else if (prop == "_RBLXBUILD_RUNNING_IN_BUILD_TREE") {
+    this->SetGlobalProperty("_RBLXBUILD_RUNNING_IN_BUILD_TREE",
+                            cmSystemTools::GetRBLXBuildInBuildTree() ? "1" : "0");
   }
 #define STRING_LIST_ELEMENT(F) ";" #F
-  if (prop == "CMAKE_C_KNOWN_FEATURES") {
+  if (prop == "RBLXBUILD_C_KNOWN_FEATURES") {
     static std::string const s_out(
       &FOR_EACH_C_FEATURE(STRING_LIST_ELEMENT)[1]);
     return cmValue(s_out);
   }
-  if (prop == "CMAKE_C90_KNOWN_FEATURES") {
+  if (prop == "RBLXBUILD_C90_KNOWN_FEATURES") {
     static std::string const s_out(
       &FOR_EACH_C90_FEATURE(STRING_LIST_ELEMENT)[1]);
     return cmValue(s_out);
   }
-  if (prop == "CMAKE_C99_KNOWN_FEATURES") {
+  if (prop == "RBLXBUILD_C99_KNOWN_FEATURES") {
     static std::string const s_out(
       &FOR_EACH_C99_FEATURE(STRING_LIST_ELEMENT)[1]);
     return cmValue(s_out);
   }
-  if (prop == "CMAKE_C11_KNOWN_FEATURES") {
+  if (prop == "RBLXBUILD_C11_KNOWN_FEATURES") {
     static std::string const s_out(
       &FOR_EACH_C11_FEATURE(STRING_LIST_ELEMENT)[1]);
     return cmValue(s_out);
   }
-  if (prop == "CMAKE_CXX_KNOWN_FEATURES") {
+  if (prop == "RBLXBUILD_CXX_KNOWN_FEATURES") {
     static std::string const s_out(
       &FOR_EACH_CXX_FEATURE(STRING_LIST_ELEMENT)[1]);
     return cmValue(s_out);
   }
-  if (prop == "CMAKE_SYCL_KNOWN_FEATURES") {
+  if (prop == "RBLXBUILD_SYCL_KNOWN_FEATURES") {
     static std::string const s_out(
       &FOR_EACH_SYCL_FEATURE(STRING_LIST_ELEMENT)[1]);
     return cmValue(s_out);
   }
-  if (prop == "CMAKE_CXX98_KNOWN_FEATURES") {
+  if (prop == "RBLXBUILD_CXX98_KNOWN_FEATURES") {
     static std::string const s_out(
       &FOR_EACH_CXX98_FEATURE(STRING_LIST_ELEMENT)[1]);
     return cmValue(s_out);
   }
-  if (prop == "CMAKE_CXX11_KNOWN_FEATURES") {
+  if (prop == "RBLXBUILD_CXX11_KNOWN_FEATURES") {
     static std::string const s_out(
       &FOR_EACH_CXX11_FEATURE(STRING_LIST_ELEMENT)[1]);
     return cmValue(s_out);
   }
-  if (prop == "CMAKE_CXX14_KNOWN_FEATURES") {
+  if (prop == "RBLXBUILD_CXX14_KNOWN_FEATURES") {
     static std::string const s_out(
       &FOR_EACH_CXX14_FEATURE(STRING_LIST_ELEMENT)[1]);
     return cmValue(s_out);
   }
-  if (prop == "CMAKE_CUDA_KNOWN_FEATURES") {
+  if (prop == "RBLXBUILD_CUDA_KNOWN_FEATURES") {
     static std::string const s_out(
       &FOR_EACH_CUDA_FEATURE(STRING_LIST_ELEMENT)[1]);
     return cmValue(s_out);
   }
-  if (prop == "CMAKE_HIP_KNOWN_FEATURES") {
+  if (prop == "RBLXBUILD_HIP_KNOWN_FEATURES") {
     static std::string const s_out(
       &FOR_EACH_HIP_FEATURE(STRING_LIST_ELEMENT)[1]);
     return cmValue(s_out);
@@ -881,7 +881,7 @@ unsigned int cmState::GetCacheMinorVersion() const
   return this->CacheManager->GetCacheMinorVersion();
 }
 
-void cmState::SetRoleToProjectForCMakeBuildVsReconfigure()
+void cmState::SetRoleToProjectForRBLXBuildBuildVsReconfigure()
 {
   this->StateRole = Role::Project;
 }

@@ -1,22 +1,22 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #pragma once
 
-/* Whether CMake is using its own utility libraries.  */
-#cmakedefine CMAKE_USE_SYSTEM_CPPDAP
-#cmakedefine CMAKE_USE_SYSTEM_CURL
-#cmakedefine CMAKE_USE_SYSTEM_EXPAT
-#cmakedefine CMAKE_USE_SYSTEM_KWIML
-#cmakedefine CMAKE_USE_SYSTEM_ZLIB
-#cmakedefine CMAKE_USE_SYSTEM_BZIP2
-#cmakedefine CMAKE_USE_SYSTEM_LIBARCHIVE
-#cmakedefine CMAKE_USE_SYSTEM_LIBLZMA
-#cmakedefine CMAKE_USE_SYSTEM_FORM
-#cmakedefine CMAKE_USE_SYSTEM_JSONCPP
-#cmakedefine CMAKE_USE_SYSTEM_LIBRHASH
-#cmakedefine CMAKE_USE_SYSTEM_LIBUV
-#cmakedefine CMAKE_USE_SYSTEM_ZSTD
-#cmakedefine CMAKE_USE_SYSTEM_NGHTTP2
+/* Whether RBLXBuild is using its own utility libraries.  */
+#rblxbuilddefine RBLXBUILD_USE_SYSTEM_CPPDAP
+#rblxbuilddefine RBLXBUILD_USE_SYSTEM_CURL
+#rblxbuilddefine RBLXBUILD_USE_SYSTEM_EXPAT
+#rblxbuilddefine RBLXBUILD_USE_SYSTEM_KWIML
+#rblxbuilddefine RBLXBUILD_USE_SYSTEM_ZLIB
+#rblxbuilddefine RBLXBUILD_USE_SYSTEM_BZIP2
+#rblxbuilddefine RBLXBUILD_USE_SYSTEM_LIBARCHIVE
+#rblxbuilddefine RBLXBUILD_USE_SYSTEM_LIBLZMA
+#rblxbuilddefine RBLXBUILD_USE_SYSTEM_FORM
+#rblxbuilddefine RBLXBUILD_USE_SYSTEM_JSONCPP
+#rblxbuilddefine RBLXBUILD_USE_SYSTEM_LIBRHASH
+#rblxbuilddefine RBLXBUILD_USE_SYSTEM_LIBUV
+#rblxbuilddefine RBLXBUILD_USE_SYSTEM_ZSTD
+#rblxbuilddefine RBLXBUILD_USE_SYSTEM_NGHTTP2
 
-/* Whether CMake is using OpenSSL library.  */
-#cmakedefine CMAKE_USE_OPENSSL
+/* Whether RBLXBuild is using OpenSSL library.  */
+#rblxbuilddefine RBLXBUILD_USE_OPENSSL

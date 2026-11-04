@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 
 #include "cmCommands.h"
 
@@ -18,11 +18,11 @@
 #include "cmBlockCommand.h"
 #include "cmBreakCommand.h"
 #include "cmBuildCommand.h"
-#include "cmCMakeDiagnosticCommand.h"
-#include "cmCMakeLanguageCommand.h"
-#include "cmCMakeMinimumRequired.h"
-#include "cmCMakePathCommand.h"
-#include "cmCMakePolicyCommand.h"
+#include "cmRBLXBuildDiagnosticCommand.h"
+#include "cmRBLXBuildLanguageCommand.h"
+#include "cmRBLXBuildMinimumRequired.h"
+#include "cmRBLXBuildPathCommand.h"
+#include "cmRBLXBuildPolicyCommand.h"
 #include "cmConfigureFileCommand.h"
 #include "cmContinueCommand.h"
 #include "cmCreateTestSourceList.h"
@@ -40,7 +40,7 @@
 #include "cmFindProgramCommand.h"
 #include "cmForEachCommand.h"
 #include "cmFunctionCommand.h"
-#include "cmGetCMakePropertyCommand.h"
+#include "cmGetRBLXBuildPropertyCommand.h"
 #include "cmGetDirectoryPropertyCommand.h"
 #include "cmGetFilenameComponentCommand.h"
 #include "cmGetPropertyCommand.h"
@@ -88,12 +88,12 @@
 #include "cmUnsetCommand.h"
 #include "cmWhileCommand.h"
 
-#if !defined(CMAKE_BOOTSTRAP)
+#if !defined(RBLXBUILD_BOOTSTRAP)
 #  include "cmAddCompileOptionsCommand.h"
 #  include "cmAddLinkOptionsCommand.h"
 #  include "cmAuxSourceDirectoryCommand.h"
-#  include "cmCMakeHostSystemInformationCommand.h"
-#  include "cmCMakePkgConfigCommand.h"
+#  include "cmRBLXBuildHostSystemInformationCommand.h"
+#  include "cmRBLXBuildPkgConfigCommand.h"
 #  include "cmExportCommand.h"
 #  include "cmFLTKWrapUICommand.h"
 #  include "cmFileAPICommand.h"
@@ -127,11 +127,11 @@ void GetScriptingCommands(cmState* state)
   state->AddFlowControlCommand("while", cmWhileCommand);
   state->AddFlowControlCommand("block", cmBlockCommand);
 
-  state->AddBuiltinCommand("cmake_diagnostic", cmCMakeDiagnosticCommand);
-  state->AddBuiltinCommand("cmake_language", cmCMakeLanguageCommand);
-  state->AddBuiltinCommand("cmake_minimum_required", cmCMakeMinimumRequired);
-  state->AddBuiltinCommand("cmake_path", cmCMakePathCommand);
-  state->AddBuiltinCommand("cmake_policy", cmCMakePolicyCommand);
+  state->AddBuiltinCommand("rblxbuild_diagnostic", cmRBLXBuildDiagnosticCommand);
+  state->AddBuiltinCommand("rblxbuild_language", cmRBLXBuildLanguageCommand);
+  state->AddBuiltinCommand("rblxbuild_minimum_required", cmRBLXBuildMinimumRequired);
+  state->AddBuiltinCommand("rblxbuild_path", cmRBLXBuildPathCommand);
+  state->AddBuiltinCommand("rblxbuild_policy", cmRBLXBuildPolicyCommand);
   state->AddBuiltinCommand("configure_file", cmConfigureFileCommand);
   state->AddBuiltinCommand("execute_process", cmExecuteProcessCommand);
   state->AddBuiltinCommand("file", cmFileCommand);
@@ -140,7 +140,7 @@ void GetScriptingCommands(cmState* state)
   state->AddBuiltinCommand("find_package", cmFindPackage);
   state->AddBuiltinCommand("find_path", cmFindPath);
   state->AddBuiltinCommand("find_program", cmFindProgram);
-  state->AddBuiltinCommand("get_cmake_property", cmGetCMakePropertyCommand);
+  state->AddBuiltinCommand("get_rblxbuild_property", cmGetRBLXBuildPropertyCommand);
   state->AddBuiltinCommand("get_directory_property",
                            cmGetDirectoryPropertyCommand);
   state->AddBuiltinCommand("get_filename_component",
@@ -153,7 +153,7 @@ void GetScriptingCommands(cmState* state)
   state->AddBuiltinCommand("math", cmMathCommand);
   state->AddBuiltinCommand("message", cmMessageCommand);
   state->AddBuiltinCommand("option", cmOptionCommand);
-  state->AddBuiltinCommand("cmake_parse_arguments", cmParseArgumentsCommand);
+  state->AddBuiltinCommand("rblxbuild_parse_arguments", cmParseArgumentsCommand);
   state->AddBuiltinCommand("separate_arguments", cmSeparateArgumentsCommand);
   state->AddBuiltinCommand("set", cmSetCommand);
   state->AddBuiltinCommand("set_directory_properties",
@@ -202,10 +202,10 @@ void GetScriptingCommands(cmState* state)
     "An ENDBLOCK command was found outside of a proper "
     "BLOCK ENDBLOCK structure.");
 
-#if !defined(CMAKE_BOOTSTRAP)
-  state->AddBuiltinCommand("cmake_host_system_information",
-                           cmCMakeHostSystemInformationCommand);
-  state->AddBuiltinCommand("cmake_pkg_config", cmCMakePkgConfigCommand);
+#if !defined(RBLXBUILD_BOOTSTRAP)
+  state->AddBuiltinCommand("rblxbuild_host_system_information",
+                           cmRBLXBuildHostSystemInformationCommand);
+  state->AddBuiltinCommand("rblxbuild_pkg_config", cmRBLXBuildPkgConfigCommand);
   state->AddBuiltinCommand("load_cache", cmLoadCacheCommand);
   state->AddBuiltinCommand("make_directory", cmMakeDirectoryCommand);
   state->AddBuiltinCommand("remove", cmRemoveCommand);
@@ -278,7 +278,7 @@ void GetProjectCommands(cmState* state)
   state->AddBuiltinCommand("target_precompile_headers",
                            cmTargetPrecompileHeadersCommand);
 
-#if !defined(CMAKE_BOOTSTRAP)
+#if !defined(RBLXBUILD_BOOTSTRAP)
   state->AddBuiltinCommand("add_compile_options", cmAddCompileOptionsCommand);
   state->AddBuiltinCommand("aux_source_directory",
                            cmAuxSourceDirectoryCommand);
@@ -298,8 +298,8 @@ void GetProjectCommands(cmState* state)
   state->AddBuiltinCommand("remove_definitions", cmRemoveDefinitionsCommand);
   state->AddBuiltinCommand("source_group", cmSourceGroupCommand);
   state->AddBuiltinCommand("subdirs", cmSubdirCommand);
-  state->AddBuiltinCommand("cmake_file_api", cmFileAPICommand);
-  state->AddBuiltinCommand("cmake_instrumentation", cmInstrumentationCommand);
+  state->AddBuiltinCommand("rblxbuild_file_api", cmFileAPICommand);
+  state->AddBuiltinCommand("rblxbuild_instrumentation", cmInstrumentationCommand);
 
   state->AddRemovedCommand(
     "export_library_dependencies",
@@ -337,7 +337,7 @@ void GetProjectCommandsInScriptMode(cmState* state)
   CM_UNEXPECTED_PROJECT_COMMAND("add_test");
   CM_UNEXPECTED_PROJECT_COMMAND("aux_source_directory");
   CM_UNEXPECTED_PROJECT_COMMAND("build_command");
-  CM_UNEXPECTED_PROJECT_COMMAND("cmake_file_api");
+  CM_UNEXPECTED_PROJECT_COMMAND("rblxbuild_file_api");
   CM_UNEXPECTED_PROJECT_COMMAND("create_test_sourcelist");
   CM_UNEXPECTED_PROJECT_COMMAND("define_property");
   CM_UNEXPECTED_PROJECT_COMMAND("enable_language");

@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmSourceFile.h"
 
 #include <utility>
@@ -18,7 +18,7 @@
 #include "cmStringAlgorithms.h"
 #include "cmSystemTools.h"
 #include "cmValue.h"
-#include "cmake.h"
+#include "rblxbuild.h"
 
 cmSourceFile::cmSourceFile(cmMakefile* mf, std::string const& name,
                            bool generated, cmSourceFileLocationKind kind)
@@ -158,7 +158,7 @@ bool cmSourceFile::FindFullPath(std::string* error,
   std::string const& lPath = this->Location.GetFullPath();
   // List of extension lists
   std::vector<std::string> exts =
-    makefile->GetCMakeInstance()->GetAllExtensions();
+    makefile->GetRBLXBuildInstance()->GetAllExtensions();
   auto cmp0115 = makefile->GetPolicyStatus(cmPolicies::CMP0115);
   auto cmp0163 = makefile->GetPolicyStatus(cmPolicies::CMP0163);
   auto cmp0118 = makefile->GetPolicyStatus(cmPolicies::CMP0118);
@@ -351,7 +351,7 @@ cmValue cmSourceFile::GetPropertyForUser(std::string const& prop)
   // cache information in a mutable ivar to provide the return string
   // safely then so be it.
   //
-  // The LOCATION property is particularly problematic.  The CMake
+  // The LOCATION property is particularly problematic.  The RBLXBuild
   // language has very loose restrictions on the names that will match
   // a given source file (for historical reasons).  Implementing
   // lookups correctly with such loose naming requires the

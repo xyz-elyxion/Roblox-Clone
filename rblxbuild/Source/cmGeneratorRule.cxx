@@ -1,6 +1,6 @@
 
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmGeneratorRule.h"
 
 #include <algorithm>
@@ -14,7 +14,7 @@
 #include <cmext/algorithm>
 #include <cmext/string_view>
 
-#include "cmCMakePath.h"
+#include "cmRBLXBuildPath.h"
 #include "cmCustomCommand.h"
 #include "cmCustomCommandLines.h"
 #include "cmDiagnostics.h"
@@ -96,8 +96,8 @@ cmGeneratorRule::cmGeneratorRule(cmRule const* rule, cmTarget const* target,
 
   auto& values = this->RuleExpander.Values;
 
-  cmCMakePath file = cmCMakePath{ this->Source->GetFullPath() }.Normal();
-  cmCMakePath sourceDir = file.IsAbsolute()
+  cmRBLXBuildPath file = cmRBLXBuildPath{ this->Source->GetFullPath() }.Normal();
+  cmRBLXBuildPath sourceDir = file.IsAbsolute()
     ? file.GetParentPath()
     : this->GetMakefile().GetCurrentSourceDirectory();
 
@@ -263,7 +263,7 @@ std::unique_ptr<cmCustomCommand> cmGeneratorRule::CreateCustomCommand() const
     cc->SetDependsExplicitOnly(deps_explicit.IsOn());
   } else {
     cc->SetDependsExplicitOnly(this->GetMakefile().IsOn(
-      "CMAKE_ADD_CUSTOM_COMMAND_DEPENDS_EXPLICIT_ONLY"));
+      "RBLXBUILD_ADD_CUSTOM_COMMAND_DEPENDS_EXPLICIT_ONLY"));
   }
 
   if (cmValue wd = this->Rule->GetProperty("WORKING_DIRECTORY")) {

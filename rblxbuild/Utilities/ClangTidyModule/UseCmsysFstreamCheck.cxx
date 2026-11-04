@@ -1,12 +1,12 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "UseCmsysFstreamCheck.h"
 
 #include <clang/ASTMatchers/ASTMatchFinder.h>
 
 namespace clang {
 namespace tidy {
-namespace cmake {
+namespace rblxbuild {
 using namespace ast_matchers;
 
 UseCmsysFstreamCheck::UseCmsysFstreamCheck(StringRef Name,
@@ -85,7 +85,7 @@ void UseCmsysFstreamCheck::createMatcher(StringRef StdName,
   // that refer to cmsys::fstream that are missed by this matcher, resulting in
   // a false positive. Figure out how to find these indirect references to
   // cmsys::fstream and filter them out. In the meantime, such false positives
-  // can be silenced with NOLINT(cmake-use-cmsys-fstream).
+  // can be silenced with NOLINT(rblxbuild-use-cmsys-fstream).
   TypeLocMatcher IsCmsys =
     loc(usingType(throughUsingDecl(namedDecl(hasName(CmsysName)))));
 

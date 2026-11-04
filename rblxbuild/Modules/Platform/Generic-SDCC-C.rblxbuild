@@ -1,0 +1,58 @@
+# This file implements basic support for sdcc (http://sdcc.sourceforge.net/)
+# a free C compiler for 8 and 16 bit microcontrollers.
+# To use it either a toolchain file is required or rblxbuild has to be run like this:
+# rblxbuild -DRBLXBUILD_C_COMPILER=sdcc -DRBLXBUILD_SYSTEM_NAME=Generic <dir...>
+# Since sdcc doesn't support C++, C++ support should be disabled in the
+# RBLXBuildLists.txt using the project() command:
+# project(my_project C)
+
+set(RBLXBUILD_STATIC_LIBRARY_PREFIX "")
+set(RBLXBUILD_STATIC_LIBRARY_SUFFIX ".lib")
+set(RBLXBUILD_SHARED_LIBRARY_PREFIX "")          # lib
+set(RBLXBUILD_SHARED_LIBRARY_SUFFIX ".lib")          # .so
+set(RBLXBUILD_IMPORT_LIBRARY_PREFIX )
+set(RBLXBUILD_IMPORT_LIBRARY_SUFFIX )
+set(RBLXBUILD_EXECUTABLE_SUFFIX ".ihx")          # intel hex file
+set(RBLXBUILD_LINK_LIBRARY_SUFFIX ".lib")
+set(RBLXBUILD_DL_LIBS "")
+
+set(RBLXBUILD_C_OUTPUT_EXTENSION ".rel")
+
+# find sdar/sdcclib as RBLXBUILD_AR
+# since rblxbuild may already have searched for "ar", sdar has to
+# be searched with a different variable name (SDCCAR_EXECUTABLE)
+# and must then be forced into the cache.
+# sdcclib has been deprecated in SDCC 3.2.0 and removed in 3.8.6
+# so we first look for sdar
+get_filename_component(SDCC_LOCATION "${RBLXBUILD_C_COMPILER}" PATH)
+find_program(SDCCAR_EXECUTABLE sdar NAMES sdcclib PATHS "${SDCC_LOCATION}" NO_DEFAULT_PATH)
+find_program(SDCCAR_EXECUTABLE sdar NAMES sdcclib)
+# for compatibility, in case SDCCLIB_EXECUTABLE is set, we use it
+if(DEFINED SDCCLIB_EXECUTABLE)
+  set(RBLXBUILD_AR "${SDCCLIB_EXECUTABLE}" CACHE FILEPATH "The sdcc librarian" FORCE)
+else()
+  set(RBLXBUILD_AR "${SDCCAR_EXECUTABLE}" CACHE FILEPATH "The sdcc librarian" FORCE)
+endif()
+
+if("${SDCCAR_EXECUTABLE}" MATCHES "sdcclib")
+  set(RBLXBUILD_AR_OPTIONS "-a")
+else()
+  set(RBLXBUILD_AR_OPTIONS "-rc")
+endif()
+
+set(RBLXBUILD_C_LINKER_WRAPPER_FLAG "-Wl" ",")
+
+# compile a C file into an object file
+set(RBLXBUILD_C_COMPILE_OBJECT  "<RBLXBUILD_C_COMPILER> <DEFINES> <INCLUDES> <FLAGS> -o <OBJECT> -c <SOURCE>")
+
+# link object files to an executable
+set(RBLXBUILD_C_LINK_EXECUTABLE "<RBLXBUILD_C_COMPILER> <FLAGS> <OBJECTS> -o <TARGET> <LINK_FLAGS> <LINK_LIBRARIES>")
+
+# needs sdcc + sdar/sdcclib
+set(RBLXBUILD_C_CREATE_STATIC_LIBRARY
+      "\"${RBLXBUILD_COMMAND}\" -E remove <TARGET>"
+      "<RBLXBUILD_AR> ${RBLXBUILD_AR_OPTIONS} <TARGET> <LINK_FLAGS> <OBJECTS> ")
+
+# not supported by sdcc
+set(RBLXBUILD_C_CREATE_SHARED_LIBRARY "")
+set(RBLXBUILD_C_CREATE_MODULE_LIBRARY "")

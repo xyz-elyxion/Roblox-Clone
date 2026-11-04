@@ -251,7 +251,7 @@ const char* uv_strerror(int err) {
 }
 #undef UV_STRERROR_GEN
 
-#if !defined(CMAKE_BOOTSTRAP) || defined(_WIN32)
+#if !defined(RBLXBUILD_BOOTSTRAP) || defined(_WIN32)
 
 int uv_ip4_addr(const char* ip, int port, struct sockaddr_in* addr) {
   memset(addr, 0, sizeof(*addr));

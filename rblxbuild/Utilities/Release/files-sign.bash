@@ -2,4 +2,4 @@
 
 set -e
 
-gpg --armor --detach-sign cmake-*-SHA-256.txt
+gpg --armor --detach-sign rblxbuild-*-SHA-256.txt

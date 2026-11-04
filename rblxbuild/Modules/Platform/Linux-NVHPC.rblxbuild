@@ -1,0 +1,21 @@
+# Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
+# file LICENSE.rst or https://rblxbuild.org/licensing for details.
+
+
+# This module is shared by multiple languages; use include blocker.
+include_guard()
+
+macro(__linux_compiler_nvhpc lang)
+  set(RBLXBUILD_${lang}_COMPILE_OPTIONS_PIC "-fPIC")
+  set(RBLXBUILD_${lang}_COMPILE_OPTIONS_PIE "-fPIE")
+  set(_RBLXBUILD_${lang}_PIE_MAY_BE_SUPPORTED_BY_LINKER YES)
+  set(RBLXBUILD_${lang}_LINK_OPTIONS_PIE "-fPIE")
+  if(RBLXBUILD_${lang}_COMPILER_VERSION VERSION_GREATER_EQUAL 25.07)
+    set(RBLXBUILD_${lang}_LINK_OPTIONS_NO_PIE "-fno-pie")
+  else()
+    set(RBLXBUILD_${lang}_LINK_OPTIONS_NO_PIE "")
+  endif()
+  set(RBLXBUILD_SHARED_LIBRARY_${lang}_FLAGS "-fPIC")
+  set(RBLXBUILD_SHARED_LIBRARY_CREATE_${lang}_FLAGS "-shared")
+  set(RBLXBUILD_SHARED_LIBRARY_LINK_${lang}_FLAGS "")
+endmacro()

@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmExecProgramCommand.h"
 
 #include <cstdio>
@@ -12,7 +12,7 @@
 #include "cmProcessOutput.h"
 #include "cmStringAlgorithms.h"
 #include "cmSystemTools.h"
-#include "cmake.h"
+#include "rblxbuild.h"
 
 using Encoding = cmProcessOutput::Encoding;
 
@@ -100,7 +100,7 @@ bool cmExecProgramCommand(std::vector<std::string> const& args,
   }
 
   // The process may have removed or renamed files.
-  status.GetMakefile().GetCMakeInstance()->InvalidateFileSystemCaches();
+  status.GetMakefile().GetRBLXBuildInstance()->InvalidateFileSystemCaches();
 
   if (!output_variable.empty()) {
     std::string::size_type first = output.find_first_not_of(" \n\t\r");

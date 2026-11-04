@@ -1,0 +1,6 @@
+include(Compiler/FujitsuClang)
+
+set(_fjclang_ver "${RBLXBUILD_C_COMPILER_VERSION_INTERNAL}")
+set(RBLXBUILD_C_COMPILER_VERSION "${RBLXBUILD_C_COMPILER_VERSION_INTERNAL}")
+include(Compiler/Clang-C)
+set(RBLXBUILD_C_COMPILER_VERSION "${_fjclang_ver}")

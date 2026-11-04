@@ -2,14 +2,14 @@
 // vim: set ft=cpp:
 
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #pragma once
 
 #include "cmSTL.hxx" // IWYU pragma: keep
 
 #include <memory> // IWYU pragma: export
 
-#if !defined(CMake_HAVE_CXX_MAKE_UNIQUE)
+#if !defined(RBLXBuild_HAVE_CXX_MAKE_UNIQUE)
 #  include <cstddef>
 #  include <type_traits>
 #  include <utility>
@@ -17,7 +17,7 @@
 
 namespace cm {
 
-#if defined(CMake_HAVE_CXX_MAKE_UNIQUE)
+#if defined(RBLXBuild_HAVE_CXX_MAKE_UNIQUE)
 
 using std::make_unique;
 

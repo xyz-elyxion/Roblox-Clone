@@ -1,12 +1,12 @@
 @CHECK_PROTOTYPE_DEFINITION_HEADER@
 
-static void cmakeRequireSymbol(int dummy, ...) {
+static void rblxbuildRequireSymbol(int dummy, ...) {
   (void) dummy;
 }
 
 static void checkSymbol(void) {
 #ifndef @CHECK_PROTOTYPE_DEFINITION_SYMBOL@
-  cmakeRequireSymbol(0, &@CHECK_PROTOTYPE_DEFINITION_SYMBOL@);
+  rblxbuildRequireSymbol(0, &@CHECK_PROTOTYPE_DEFINITION_SYMBOL@);
 #endif
 }
 

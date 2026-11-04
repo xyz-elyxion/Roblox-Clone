@@ -4,17 +4,17 @@ set -e
 set -x
 shopt -s dotglob
 
-readonly name="vim-cmake-syntax"
-readonly ownership="vim-cmake-syntax upstream <kwrobot@kitware.com>"
+readonly name="vim-rblxbuild-syntax"
+readonly ownership="vim-rblxbuild-syntax upstream <kwrobot@kitware.com>"
 readonly subtree="Auxiliary/vim"
-readonly repo="https://github.com/pboettch/vim-cmake-syntax.git"
+readonly repo="https://github.com/pboettch/vim-rblxbuild-syntax.git"
 readonly tag="master"
 readonly shortlog=true
 readonly exact_tree_match=false
 readonly paths="
   indent
   syntax
-  cmake.vim.in
+  rblxbuild.vim.in
   extract-upper-case.pl
 "
 

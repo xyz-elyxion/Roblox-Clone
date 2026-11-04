@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmCTestCoverageHandler.h"
 
 #include <algorithm>
@@ -86,7 +86,7 @@ void cmCTestCoverageHandler::EndCoverageLogFile(cmGeneratedFileStream& ostr,
 
 void cmCTestCoverageHandler::StartCoverageLogXML(cmXMLWriter& xml)
 {
-  this->CTest->StartXML(xml, this->CMake, this->AppendXML);
+  this->CTest->StartXML(xml, this->RBLXBuild, this->AppendXML);
   xml.StartElement("CoverageLog");
   xml.Element("StartDateTime", this->CTest->CurrentTime());
   xml.Element("StartTime", std::chrono::system_clock::now());
@@ -256,7 +256,7 @@ int cmCTestCoverageHandler::ProcessHandler()
   if (file_count < 0) {
     return error;
   }
-  file_count += this->HandleCMakeListFileCoverage(&cont);
+  file_count += this->HandleRBLXBuildListFileCoverage(&cont);
   error = cont.Error;
   if (file_count < 0) {
     return error;
@@ -322,7 +322,7 @@ int cmCTestCoverageHandler::ProcessHandler()
   covSumFile.setf(std::ios::fixed, std::ios::floatfield);
   covSumFile.precision(2);
 
-  this->CTest->StartXML(covSumXML, this->CMake, this->AppendXML);
+  this->CTest->StartXML(covSumXML, this->RBLXBuild, this->AppendXML);
   // Produce output xml files
 
   covSumXML.StartElement("Coverage");
@@ -1416,24 +1416,24 @@ void cmCTestCoverageHandler::HandleClangSourceCodeCoverageFile(
   }
 }
 
-int cmCTestCoverageHandler::HandleCMakeListFileCoverage(
+int cmCTestCoverageHandler::HandleRBLXBuildListFileCoverage(
   cmCTestCoverageHandlerContainer* cont)
 {
   cmCTestOptionalLog(this->CTest, HANDLER_VERBOSE_OUTPUT, this->Quiet,
-                     "Looking for CMake listfile coverage data: \n");
+                     "Looking for RBLXBuild listfile coverage data: \n");
   cmsys::Glob gl;
   gl.RecurseOn();
   gl.RecurseThroughSymlinksOff();
   std::string const covGlob =
-    cmStrCat(this->CTest->GetBinaryDir(), "/*.cmake-coverage.info");
+    cmStrCat(this->CTest->GetBinaryDir(), "/*.rblxbuild-coverage.info");
   cmCTestOptionalLog(this->CTest, HANDLER_VERBOSE_OUTPUT, this->Quiet,
-                     "   looking for .cmake-coverage.info files in: ", covGlob,
+                     "   looking for .rblxbuild-coverage.info files in: ", covGlob,
                      '\n');
   gl.FindFiles(covGlob);
   std::vector<std::string> files = gl.GetFiles();
   if (files.empty()) {
     cmCTestOptionalLog(this->CTest, HANDLER_VERBOSE_OUTPUT, this->Quiet,
-                       " Cannot find any CMake listfile coverage files.\n");
+                       " Cannot find any RBLXBuild listfile coverage files.\n");
     return 0;
   }
   std::sort(files.begin(), files.end());
@@ -1451,13 +1451,13 @@ int cmCTestCoverageHandler::HandleCMakeListFileCoverage(
     cont->BinaryDir.empty() ? this->CTest->GetBinaryDir() : cont->BinaryDir;
   auto const logRemoved = [this](std::string const& path) {
     cmCTestOptionalLog(this->CTest, HANDLER_VERBOSE_OUTPUT, this->Quiet,
-                       "Ignoring CMake listfile coverage of a file in "
+                       "Ignoring RBLXBuild listfile coverage of a file in "
                        "the build tree: ",
                        path, '\n');
   };
   merged.RemoveBuildTreeFiles(cont->SourceDir, binaryDir, logRemoved);
 
-  // Report only files in the source tree.  This keeps files of CMake itself,
+  // Report only files in the source tree.  This keeps files of RBLXBuild itself,
   // such as its modules, out of the report.
   std::string sourceDir = cont->SourceDir;
   if (!sourceDir.empty()) {
@@ -1467,7 +1467,7 @@ int cmCTestCoverageHandler::HandleCMakeListFileCoverage(
     std::string const path = cmSystemTools::CollapseFullPath(it->first);
     if (!cmSystemTools::IsSubDirectory(path, sourceDir)) {
       cmCTestOptionalLog(this->CTest, HANDLER_VERBOSE_OUTPUT, this->Quiet,
-                         "Ignoring CMake listfile coverage of a file outside "
+                         "Ignoring RBLXBuild listfile coverage of a file outside "
                          "the source tree: ",
                          path, '\n');
       it = merged.Files.erase(it);
@@ -1475,7 +1475,7 @@ int cmCTestCoverageHandler::HandleCMakeListFileCoverage(
       // The report step would log an error for a missing file.
       cmCTestOptionalLog(
         this->CTest, HANDLER_VERBOSE_OUTPUT, this->Quiet,
-        "Ignoring CMake listfile coverage of a missing file: ", path, '\n');
+        "Ignoring RBLXBuild listfile coverage of a missing file: ", path, '\n');
       it = merged.Files.erase(it);
     } else {
       ++it;
@@ -2118,7 +2118,7 @@ int cmCTestCoverageHandler::RunBullseyeSourceSummary(
                "Cannot open coverage summary file.\n");
     return 0;
   }
-  this->CTest->StartXML(xml, this->CMake, this->AppendXML);
+  this->CTest->StartXML(xml, this->RBLXBuild, this->AppendXML);
   auto elapsed_time_start = std::chrono::steady_clock::now();
   std::string coverage_start_time = this->CTest->CurrentTime();
   xml.StartElement("Coverage");
@@ -2342,7 +2342,7 @@ int cmCTestCoverageHandler::GetLabelId(std::string const& label)
 void cmCTestCoverageHandler::LoadLabels()
 {
   std::string fileList =
-    cmStrCat(this->CTest->GetBinaryDir(), "/CMakeFiles/TargetDirectories.txt");
+    cmStrCat(this->CTest->GetBinaryDir(), "/RBLXBuildFiles/TargetDirectories.txt");
   cmCTestOptionalLog(this->CTest, HANDLER_VERBOSE_OUTPUT, this->Quiet,
                      " target directory list [", fileList, "]\n");
   cmsys::ifstream finList(fileList.c_str());

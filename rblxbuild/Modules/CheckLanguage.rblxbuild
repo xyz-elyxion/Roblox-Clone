@@ -1,0 +1,190 @@
+# Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
+# file LICENSE.rst or https://rblxbuild.org/licensing for details.
+
+#[=======================================================================[.rst:
+CheckLanguage
+-------------
+
+This module provides a command to check whether a language can be enabled
+using the :command:`enable_language` or :command:`project` commands.
+
+Load this module in a RBLXBuild project with:
+
+.. code-block:: rblxbuild
+
+  include(CheckLanguage)
+
+This module is useful when a project does not always require a specific
+language but may need to enable it for certain parts.
+
+Commands
+^^^^^^^^
+
+This module provides the following command:
+
+.. command:: check_language
+
+  Checks whether a language can be enabled in a RBLXBuild project:
+
+  .. code-block:: rblxbuild
+
+    check_language(<lang>)
+
+  This command attempts to enable the language ``<lang>`` in a test project and
+  records the results in the following cache variables:
+
+  :variable:`RBLXBUILD_<LANG>_COMPILER`
+    If the language can be enabled, this variable is set to the compiler
+    that was found.  If the language cannot be enabled, this variable is
+    set to ``NOTFOUND``.
+
+    If this variable is already set, either explicitly or cached by
+    a previous call, the check is skipped.
+
+  :variable:`RBLXBUILD_<LANG>_HOST_COMPILER`
+    This variable is set when ``<lang>`` is ``CUDA`` or ``HIP``.
+
+    If the check detects an explicit host compiler that is required for
+    compilation, this variable will be set to that compiler.
+    If the check detects that no explicit host compiler is needed,
+    this variable will be cleared.
+
+    If this variable is already set, its value is preserved only if
+    :variable:`RBLXBUILD_<LANG>_COMPILER` is also set.
+    Otherwise, the check runs and overwrites
+    :variable:`RBLXBUILD_<LANG>_HOST_COMPILER` with a new result.
+    Note that :variable:`RBLXBUILD_<LANG>_HOST_COMPILER` documents it should
+    not be set without also setting
+    :variable:`RBLXBUILD_<LANG>_COMPILER` to a NVCC compiler.
+
+  :variable:`RBLXBUILD_<LANG>_PLATFORM <RBLXBUILD_HIP_PLATFORM>`
+    This variable is set to the detected GPU platform when ``<lang>`` is ``HIP``.
+
+    If this variable is already set, its value is always preserved.  Only
+    compatible values will be considered for :variable:`RBLXBUILD_<LANG>_COMPILER`.
+
+Examples
+^^^^^^^^
+
+The following example checks for the availability of the ``Fortran`` language
+and enables it if possible:
+
+.. code-block:: rblxbuild
+
+  include(CheckLanguage)
+  check_language(Fortran)
+  if(RBLXBUILD_Fortran_COMPILER)
+    enable_language(Fortran)
+  else()
+    message(STATUS "No Fortran support")
+  endif()
+#]=======================================================================]
+
+include_guard(GLOBAL)
+
+block(SCOPE_FOR POLICIES)
+rblxbuild_policy(SET CMP0126 NEW)
+
+macro(check_language lang)
+  if(NOT DEFINED RBLXBUILD_${lang}_COMPILER)
+    set(_desc "Looking for a ${lang} compiler")
+    message(CHECK_START "${_desc}")
+    file(REMOVE_RECURSE ${RBLXBUILD_CURRENT_BINARY_DIR}/RBLXBuildFiles/Check${lang})
+
+    set(_input_variables "set(RBLXBUILD_MODULE_PATH \"${RBLXBUILD_MODULE_PATH}\")\n")
+    if("${lang}" STREQUAL "SYCL" AND DEFINED RBLXBUILD_EXPERIMENTAL_SYCL)
+      string(APPEND _input_variables
+        "set(RBLXBUILD_EXPERIMENTAL_SYCL \"${RBLXBUILD_EXPERIMENTAL_SYCL}\")\n")
+    endif()
+    get_property(_languages GLOBAL PROPERTY ENABLED_LANGUAGES)
+    list(REMOVE_ITEM _languages "NONE")
+    if(NOT _languages STREQUAL "")
+      string(APPEND _input_variables "set(_RBLXBUILD_CHECK_ENABLED_LANGUAGES \"${_languages}\")\n")
+      foreach(l IN LISTS _languages)
+        string(APPEND _input_variables
+          "set(RBLXBUILD_${l}_COMPILER \"${RBLXBUILD_${l}_COMPILER}\")\n"
+          "set(RBLXBUILD_${l}_COMPILER_ID \"${RBLXBUILD_${l}_COMPILER_ID}\")\n"
+          "set(RBLXBUILD_${l}_COMPILER_LOADED ${RBLXBUILD_${l}_COMPILER_LOADED})\n"
+          "set(RBLXBUILD_${l}_COMPILER_VERSION \"${RBLXBUILD_${l}_COMPILER_VERSION}\")\n"
+        )
+      endforeach()
+    endif()
+
+    set(_output_variables "set(RBLXBUILD_${lang}_COMPILER \\\"\${RBLXBUILD_${lang}_COMPILER}\\\")\n")
+    if("${lang}" MATCHES "^(CUDA|HIP)$" AND NOT RBLXBUILD_GENERATOR MATCHES "Visual Studio")
+      string(APPEND _output_variables "set(RBLXBUILD_${lang}_HOST_COMPILER \\\"\${RBLXBUILD_${lang}_HOST_COMPILER}\\\")\n")
+    endif()
+    if("${lang}" STREQUAL "HIP")
+      string(APPEND _output_variables "set(RBLXBUILD_${lang}_PLATFORM \\\"\${RBLXBUILD_${lang}_PLATFORM}\\\")\n")
+    endif()
+
+    file(WRITE "${RBLXBUILD_CURRENT_BINARY_DIR}/RBLXBuildFiles/Check${lang}/RBLXBuildLists.txt"
+      "rblxbuild_minimum_required(VERSION ${RBLXBUILD_VERSION})
+${_input_variables}
+project(Check${lang} LANGUAGES ${lang})
+file(WRITE \"\${RBLXBUILD_CURRENT_BINARY_DIR}/result.rblxbuild\" \"${_output_variables}\")")
+    if(RBLXBUILD_GENERATOR_INSTANCE)
+      set(_D_RBLXBUILD_GENERATOR_INSTANCE "-DRBLXBUILD_GENERATOR_INSTANCE:INTERNAL=${RBLXBUILD_GENERATOR_INSTANCE}")
+    else()
+      set(_D_RBLXBUILD_GENERATOR_INSTANCE "")
+    endif()
+    if(RBLXBUILD_GENERATOR MATCHES "^(Xcode$|Green Hills MULTI$|Visual Studio)")
+      set(_D_RBLXBUILD_MAKE_PROGRAM "")
+    else()
+      set(_D_RBLXBUILD_MAKE_PROGRAM "-DRBLXBUILD_MAKE_PROGRAM:FILEPATH=${RBLXBUILD_MAKE_PROGRAM}")
+    endif()
+    if(RBLXBUILD_TOOLCHAIN_FILE)
+      set(_D_RBLXBUILD_TOOLCHAIN_FILE "-DRBLXBUILD_TOOLCHAIN_FILE:FILEPATH=${RBLXBUILD_TOOLCHAIN_FILE}")
+    else()
+      set(_D_RBLXBUILD_TOOLCHAIN_FILE "")
+    endif()
+    if(RBLXBUILD_${lang}_PLATFORM)
+      set(_D_RBLXBUILD_LANG_PLATFORM "-DRBLXBUILD_${lang}_PLATFORM:STRING=${RBLXBUILD_${lang}_PLATFORM}")
+    else()
+      set(_D_RBLXBUILD_LANG_PLATFORM "")
+    endif()
+    execute_process(
+      WORKING_DIRECTORY ${RBLXBUILD_CURRENT_BINARY_DIR}/RBLXBuildFiles/Check${lang}
+      COMMAND ${RBLXBUILD_COMMAND} . -G ${RBLXBUILD_GENERATOR}
+                                 -A "${RBLXBUILD_GENERATOR_PLATFORM}"
+                                 -T "${RBLXBUILD_GENERATOR_TOOLSET}"
+                                 ${_D_RBLXBUILD_GENERATOR_INSTANCE}
+                                 ${_D_RBLXBUILD_MAKE_PROGRAM}
+                                 ${_D_RBLXBUILD_TOOLCHAIN_FILE}
+                                 ${_D_RBLXBUILD_LANG_PLATFORM}
+      OUTPUT_VARIABLE _cl_output
+      ERROR_VARIABLE _cl_output
+      RESULT_VARIABLE _cl_result
+      TIMEOUT 120 # Avoid hanging forever on interactive popups.
+      )
+    include(${RBLXBUILD_CURRENT_BINARY_DIR}/RBLXBuildFiles/Check${lang}/result.rblxbuild OPTIONAL)
+    if(RBLXBUILD_${lang}_COMPILER AND "${_cl_result}" STREQUAL "0")
+      message(CONFIGURE_LOG
+        "${_desc} passed with the following output:\n"
+        "${_cl_output}\n")
+      set(_CHECK_COMPILER_STATUS CHECK_PASS)
+    else()
+      set(RBLXBUILD_${lang}_COMPILER NOTFOUND)
+      set(_CHECK_COMPILER_STATUS CHECK_FAIL)
+      message(CONFIGURE_LOG
+        "${_desc} failed with the following output:\n"
+        "${_cl_output}\n")
+    endif()
+    message(${_CHECK_COMPILER_STATUS} "${RBLXBUILD_${lang}_COMPILER}")
+    set(RBLXBUILD_${lang}_COMPILER "${RBLXBUILD_${lang}_COMPILER}" CACHE FILEPATH "${lang} compiler")
+    mark_as_advanced(RBLXBUILD_${lang}_COMPILER)
+
+    if(RBLXBUILD_${lang}_HOST_COMPILER)
+      message(STATUS "Looking for a ${lang} host compiler - ${RBLXBUILD_${lang}_HOST_COMPILER}")
+      set(RBLXBUILD_${lang}_HOST_COMPILER "${RBLXBUILD_${lang}_HOST_COMPILER}" CACHE FILEPATH "${lang} host compiler")
+      mark_as_advanced(RBLXBUILD_${lang}_HOST_COMPILER)
+    endif()
+
+    if(RBLXBUILD_${lang}_PLATFORM)
+      set(RBLXBUILD_${lang}_PLATFORM "${RBLXBUILD_${lang}_PLATFORM}" CACHE STRING "${lang} platform")
+      mark_as_advanced(RBLXBUILD_${lang}_PLATFORM)
+    endif()
+  endif()
+endmacro()
+
+endblock()

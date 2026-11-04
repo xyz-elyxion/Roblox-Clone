@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #pragma once
 
 #include "cmConfigure.h" // IWYU pragma: keep
@@ -136,7 +136,7 @@ private:
   std::string GenerateLLVMPath(std::string fileString);
   std::string GetTestMetricsFile() const;
   void CollectLLVMCoverage();
-  void CollectCMakeCoverage();
+  void CollectRBLXBuildCoverage();
   void SetupResourcesEnvironment(cmEnvironment& env);
 
   // Returns "completed/total Test #Index: "
@@ -169,9 +169,9 @@ private:
   int RunCount = 1;  // how many runs it may be given
   bool RunAgain = false;
   bool UseLLVMCov = false;
-  bool UseCMakeCov = false;
-  // Whether this run of the test has a CMake listfile coverage folder.
-  bool CMakeCovScratchOk = false;
+  bool UseRBLXBuildCov = false;
+  // Whether this run of the test has a RBLXBuild listfile coverage folder.
+  bool RBLXBuildCovScratchOk = false;
   size_t TotalNumberOfTests;
 };
 

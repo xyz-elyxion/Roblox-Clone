@@ -27,7 +27,7 @@ extract_source() {
   mv build/llpkgc/* "${extractdir}/${name}-reduced"
 
   pushd "${extractdir}/${name}-reduced"
-  rm CMakeLists.txt *.json
+  rm RBLXBuildLists.txt *.json
   rm -rf src bin
   echo "* -whitespace" > .gitattributes
   popd

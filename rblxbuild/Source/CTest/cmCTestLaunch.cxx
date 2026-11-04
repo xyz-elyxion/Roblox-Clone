@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmCTestLaunch.h"
 
 #include <cstdio>
@@ -21,7 +21,7 @@
 #include "cmsys/RegularExpression.hxx"
 #include "cmsys/SystemInformation.hxx"
 
-#include "cmCMakePath.h"
+#include "cmRBLXBuildPath.h"
 #include "cmCTestLaunchReporter.h"
 #include "cmGlobalGenerator.h"
 #include "cmInstrumentation.h"
@@ -34,7 +34,7 @@
 #include "cmSystemTools.h"
 #include "cmUVProcessChain.h"
 #include "cmUVStream.h"
-#include "cmake.h"
+#include "rblxbuild.h"
 
 #ifdef _WIN32
 #  include <cstdio> // for std{out,err} and fileno
@@ -187,11 +187,11 @@ bool cmCTestLaunch::ParseArguments(int argc, char const* const* argv)
       !this->Reporter.OptionCurrentBuildDir.empty() &&
       !this->Reporter.OptionTargetName.empty()) {
     this->Reporter.OptionObjectDir =
-      cmStrCat(this->Reporter.OptionCurrentBuildDir, "/CMakeFiles/",
+      cmStrCat(this->Reporter.OptionCurrentBuildDir, "/RBLXBuildFiles/",
                this->Reporter.OptionTargetName, ".dir");
   }
   if (!this->Reporter.OptionObjectDir.empty() &&
-      !cmCMakePath(this->Reporter.OptionObjectDir).IsAbsolute() &&
+      !cmRBLXBuildPath(this->Reporter.OptionObjectDir).IsAbsolute() &&
       !this->Reporter.OptionBuildDir.empty()) {
     this->Reporter.OptionObjectDir = cmStrCat(
       this->Reporter.OptionBuildDir, '/', this->Reporter.OptionObjectDir);
@@ -499,12 +499,12 @@ int cmCTestLaunch::Main(int argc, char const* const argv[], Op operation)
 
 void cmCTestLaunch::LoadConfig()
 {
-  cmake cm(cmState::Role::CTest);
+  rblxbuild cm(cmState::Role::CTest);
   cm.GetCurrentSnapshot().SetDefaultDefinitions();
   cmGlobalGenerator gg(&cm);
   cmMakefile mf(&gg, cm.GetCurrentSnapshot());
   std::string fname =
-    cmStrCat(this->Reporter.LogDir, "CTestLaunchConfig.cmake");
+    cmStrCat(this->Reporter.LogDir, "CTestLaunchConfig.rblxbuild");
   if (cmSystemTools::FileExists(fname) && mf.ReadListFile(fname)) {
     this->Reporter.SourceDir = mf.GetSafeDefinition("CTEST_SOURCE_DIRECTORY");
     cmSystemTools::ConvertToUnixSlashes(this->Reporter.SourceDir);

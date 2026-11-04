@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmLocalVisualStudio10Generator.h"
 
 #include <cmext/string_view>
@@ -13,7 +13,7 @@
 #include "cmStringAlgorithms.h"
 #include "cmVisualStudio10TargetGenerator.h"
 #include "cmXMLParser.h"
-#include "cmake.h"
+#include "rblxbuild.h"
 
 class cmGeneratorTarget;
 
@@ -92,9 +92,9 @@ void cmLocalVisualStudio10Generator::ReadAndStoreExternalGUID(
     return;
   }
 
-  std::string guidStoreName = cmStrCat(name, "_GUID_CMAKE");
+  std::string guidStoreName = cmStrCat(name, "_GUID_RBLXBUILD");
   // save the GUID in the cache
-  this->GlobalGenerator->GetCMakeInstance()->AddCacheEntry(
+  this->GlobalGenerator->GetRBLXBuildInstance()->AddCacheEntry(
     guidStoreName, parser.GUID, "Stored GUID", cmStateEnums::INTERNAL);
 }
 

@@ -1,0 +1,24 @@
+// Component: RBLXBuild
+
+function Component()
+{
+    // Default constructor
+}
+
+Component.prototype.createOperations = function()
+{
+    // Create shortcut
+    if (installer.value("os") === "win") {
+
+        component.addOperation("CreateShortcut",
+                               "@TargetDir@/%RBLXBuild_INSTALL_DOC_DIR%/rblxbuild.org.html",
+                               "@StartMenuDir@/RBLXBuild Web Site.lnk");
+
+        component.addOperation("CreateShortcut",
+                               "@TargetDir@/rblxbuild-maintenance.exe",
+                               "@StartMenuDir@/RBLXBuild Maintenance Tool.lnk");
+    }
+
+    // Call default implementation
+    component.createOperations();
+}

@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmNinjaUtilityTargetGenerator.h"
 
 #include <algorithm>
@@ -71,7 +71,7 @@ void cmNinjaUtilityTargetGenerator::WriteUtilBuildStatements(
     configDir = gg->ConfigDirectory(fileConfig);
   }
   std::string utilCommandName =
-    cmStrCat(lg->GetCurrentBinaryDirectory(), "/CMakeFiles", configDir, '/',
+    cmStrCat(lg->GetCurrentBinaryDirectory(), "/RBLXBuildFiles", configDir, '/',
              this->GetTargetName(), ".util");
   utilCommandName = this->ConvertToNinjaPath(utilCommandName);
 
@@ -82,7 +82,7 @@ void cmNinjaUtilityTargetGenerator::WriteUtilBuildStatements(
   util_outputs.ExplicitOuts.emplace_back(utilCommandName);
 
   std::string commandDesc;
-  cmGeneratorExpression ge(*this->GetLocalGenerator()->GetCMakeInstance());
+  cmGeneratorExpression ge(*this->GetLocalGenerator()->GetRBLXBuildInstance());
   bool uses_terminal = false;
   {
     std::array<std::vector<cmCustomCommand> const*, 2> const cmdLists = {
@@ -167,11 +167,11 @@ void cmNinjaUtilityTargetGenerator::WriteUtilBuildStatements(
     // TODO: fix problematic global targets.  For now, search and replace the
     // makefile vars.
     cmSystemTools::ReplaceString(
-      command, "$(CMAKE_SOURCE_DIR)",
+      command, "$(RBLXBUILD_SOURCE_DIR)",
       lg->ConvertToOutputFormat(lg->GetSourceDirectory(),
                                 cmOutputConverter::SHELL));
     cmSystemTools::ReplaceString(
-      command, "$(CMAKE_BINARY_DIR)",
+      command, "$(RBLXBUILD_BINARY_DIR)",
       lg->ConvertToOutputFormat(lg->GetBinaryDirectory(),
                                 cmOutputConverter::SHELL));
     cmSystemTools::ReplaceString(command, "$(ARGS)", "");

@@ -1,0 +1,12 @@
+# RBLXBuild license file and copyright line.
+set(RBLXBuild_LICENSE_FILE "${RBLXBuild_SOURCE_DIR}/LICENSE.rst")
+file(STRINGS "${RBLXBuild_LICENSE_FILE}" RBLXBuild_COPYRIGHT_LINE LIMIT_COUNT 1 REGEX "^Copyright ")
+if(RBLXBuild_COPYRIGHT_LINE MATCHES [[^(Copyright 2000-2[0-9][0-9][0-9] Kitware, Inc\. and )`(Contributors) <CONTRIBUTORS.rst>`_$]])
+  set(RBLXBuild_COPYRIGHT_LINE "${RBLXBUILD_MATCH_1}${RBLXBUILD_MATCH_2}")
+else()
+  message(FATAL_ERROR
+    "The RBLXBuild license file:\n"
+    "  ${RBLXBuild_LICENSE_FILE}\n"
+    "does not contain a copyright line matching the expected pattern."
+    )
+endif()

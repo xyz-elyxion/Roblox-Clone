@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmComputeTargetDepends.h"
 
 #include <cassert>
@@ -27,7 +27,7 @@
 #include "cmTargetDepend.h"
 #include "cmTargetTypes.h"
 #include "cmValue.h"
-#include "cmake.h"
+#include "rblxbuild.h"
 
 /*
 
@@ -101,7 +101,7 @@ transitively on all the static libraries it links.
 cmComputeTargetDepends::cmComputeTargetDepends(cmGlobalGenerator* gg)
 {
   this->GlobalGenerator = gg;
-  cmake* cm = this->GlobalGenerator->GetCMakeInstance();
+  rblxbuild* cm = this->GlobalGenerator->GetRBLXBuildInstance();
   this->DebugMode =
     cm->GetState()->GetGlobalPropertyAsBool("GLOBAL_DEPENDS_DEBUG_MODE");
   this->NoCycles =
@@ -344,7 +344,7 @@ void cmComputeTargetDepends::AddObjectDepends(size_t depender_index,
         depender->GetType() != cm::TargetType::SHARED_LIBRARY &&
         depender->GetType() != cm::TargetType::MODULE_LIBRARY &&
         depender->GetType() != cm::TargetType::OBJECT_LIBRARY) {
-      this->GlobalGenerator->GetCMakeInstance()->IssueMessage(
+      this->GlobalGenerator->GetRBLXBuildInstance()->IssueMessage(
         MessageType::FATAL_ERROR,
         "Only executables and libraries may reference target objects.",
         depender->GetBacktrace());
@@ -368,7 +368,7 @@ void cmComputeTargetDepends::AddTargetDepend(size_t depender_index,
 
   if (!dependee && !linking &&
       (depender->GetType() != cm::TargetType::GLOBAL_TARGET)) {
-    this->GlobalGenerator->GetCMakeInstance()->IssueMessage(
+    this->GlobalGenerator->GetRBLXBuildInstance()->IssueMessage(
       MessageType::FATAL_ERROR,
       cmStrCat("The dependency target \"", dependee_name.AsStr(),
                "\" of target \"", depender->GetName(), "\" does not exist."),

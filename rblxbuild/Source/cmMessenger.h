@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #pragma once
 
 #include "cmConfigure.h" // IWYU pragma: keep
@@ -18,7 +18,7 @@
 
 class cmStateSnapshot;
 
-#ifdef CMake_ENABLE_DEBUGGER
+#ifdef RBLXBuild_ENABLE_DEBUGGER
 namespace cmDebugger {
 class cmDebuggerAdapter;
 }
@@ -56,7 +56,7 @@ public:
   // Print the top of a backtrace.
   void PrintBacktraceTitle(std::ostream& out,
                            cmListFileBacktrace const& bt) const;
-#ifdef CMake_ENABLE_DEBUGGER
+#ifdef RBLXBuild_ENABLE_DEBUGGER
   void SetDebuggerAdapter(
     std::shared_ptr<cmDebugger::cmDebuggerAdapter> const& debuggerAdapter)
   {
@@ -83,7 +83,7 @@ private:
 
   std::vector<Message> DisplayedMessages;
 
-#ifdef CMake_ENABLE_DEBUGGER
+#ifdef RBLXBuild_ENABLE_DEBUGGER
   std::shared_ptr<cmDebugger::cmDebuggerAdapter> DebuggerAdapter;
 #endif
 };

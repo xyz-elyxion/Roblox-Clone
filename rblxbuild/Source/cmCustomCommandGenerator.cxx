@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmCustomCommandGenerator.h"
 
 #include <cstddef>
@@ -177,7 +177,7 @@ cmCustomCommandGenerator::cmCustomCommandGenerator(
   , ComputeInternalDepfile(std::move(computeInternalDepfile))
 {
 
-  cmGeneratorExpression ge(*lg->GetCMakeInstance(), cc.GetBacktrace());
+  cmGeneratorExpression ge(*lg->GetRBLXBuildInstance(), cc.GetBacktrace());
   cmGeneratorTarget const* target{ lg->FindGeneratorTargetToUse(
     this->Target) };
 
@@ -228,9 +228,9 @@ cmCustomCommandGenerator::cmCustomCommandGenerator(
       !cc.GetDepfile().empty() &&
       this->LG->GetGlobalGenerator()->DepfileFormat()) {
     cmCustomCommandLine argv;
-    argv.push_back(cmSystemTools::GetCMakeCommand());
+    argv.push_back(cmSystemTools::GetRBLXBuildCommand());
     argv.emplace_back("-E");
-    argv.emplace_back("cmake_transform_depfile");
+    argv.emplace_back("rblxbuild_transform_depfile");
     argv.push_back(this->LG->GetGlobalGenerator()->GetName());
     switch (*this->LG->GetGlobalGenerator()->DepfileFormat()) {
       case cmDepfileFormat::GccDepfile:
@@ -283,10 +283,10 @@ unsigned int cmCustomCommandGenerator::GetNumberOfCommands() const
 
 void cmCustomCommandGenerator::FillEmulatorsWithArguments()
 {
-  if (!this->LG->GetMakefile()->IsOn("CMAKE_CROSSCOMPILING")) {
+  if (!this->LG->GetMakefile()->IsOn("RBLXBUILD_CROSSCOMPILING")) {
     return;
   }
-  cmGeneratorExpression ge(*this->LG->GetCMakeInstance(),
+  cmGeneratorExpression ge(*this->LG->GetRBLXBuildInstance(),
                            this->CC->GetBacktrace());
 
   for (unsigned int c = 0; c < this->GetNumberOfCommands(); ++c) {
@@ -331,7 +331,7 @@ char const* cmCustomCommandGenerator::GetArgv0Location(unsigned int c) const
   if (target && target->GetType() == cm::TargetType::EXECUTABLE &&
       (target->IsImported() ||
        target->GetProperty("CROSSCOMPILING_EMULATOR") ||
-       !this->LG->GetMakefile()->IsOn("CMAKE_CROSSCOMPILING"))) {
+       !this->LG->GetMakefile()->IsOn("RBLXBUILD_CROSSCOMPILING"))) {
     return target->GetLocation(this->CommandConfig).c_str();
   }
   return nullptr;
@@ -433,7 +433,7 @@ std::string cmCustomCommandGenerator::GetDepfile() const
     return "";
   }
 
-  cmGeneratorExpression ge(*this->LG->GetCMakeInstance(),
+  cmGeneratorExpression ge(*this->LG->GetRBLXBuildInstance(),
                            this->CC->GetBacktrace());
   return EvaluateDepfile(depfile, ge, this->LG, this->OutputConfig);
 }
@@ -466,7 +466,7 @@ std::string cmCustomCommandGenerator::GetInternalDepfileName(
       extension = ".AdditionalInputs";
       break;
   }
-  return cmStrCat(this->LG->GetBinaryDirectory(), "/CMakeFiles/d/",
+  return cmStrCat(this->LG->GetBinaryDirectory(), "/RBLXBuildFiles/d/",
                   hash.HashString(depfile), extension);
 }
 
@@ -493,7 +493,7 @@ cm::optional<std::string> cmCustomCommandGenerator::GetComment() const
     return comment;
   }
 
-  cmGeneratorExpression ge(*this->LG->GetCMakeInstance(),
+  cmGeneratorExpression ge(*this->LG->GetRBLXBuildInstance(),
                            this->CC->GetBacktrace());
   return EvaluateComment(comment, ge, this->LG, this->OutputConfig);
 }
@@ -530,7 +530,7 @@ std::string cmCustomCommandGenerator::StoreContentToFile(
   cmCryptoHash hash(cmCryptoHash::AlgoSHA256);
 
   std::string fileDir =
-    cmStrCat(this->LG->GetBinaryDirectory(), "/CMakeFiles/c");
+    cmStrCat(this->LG->GetBinaryDirectory(), "/RBLXBuildFiles/c");
   if (!cmSystemTools::MakeDirectory(fileDir)) {
     return "";
   }

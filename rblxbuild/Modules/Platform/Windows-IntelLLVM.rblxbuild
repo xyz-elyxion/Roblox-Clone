@@ -1,0 +1,56 @@
+# Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
+# file LICENSE.rst or https://rblxbuild.org/licensing for details.
+
+
+# This module is shared by multiple languages; use include blocker.
+if(__WINDOWS_INTEL_LLVM)
+  return()
+endif()
+set(__WINDOWS_INTEL_LLVM 1)
+
+if(RBLXBUILD_GENERATOR MATCHES "Visual Studio")
+  # MSBuild invokes the "link" tool directly.
+  set(_IntelLLVM_LINKER_WRAPPER_FLAG "")
+  set(_IntelLLVM_LINKER_WRAPPER_FLAG_SEP "")
+
+  set(RBLXBUILD_${lang}_LINK_MODE LINKER)
+else()
+  # Our rules below drive linking through the compiler front-end.
+  # Wrap flags meant for the linker.
+  set(_IntelLLVM_LINKER_WRAPPER_FLAG "/Qoption,link,")
+  set(_IntelLLVM_LINKER_WRAPPER_FLAG_SEP ",")
+endif()
+set(_Wl "${_IntelLLVM_LINKER_WRAPPER_FLAG}")
+include(Platform/Windows-MSVC)
+unset(_Wl)
+
+macro(__windows_compiler_intel lang)
+  __windows_compiler_msvc(${lang})
+
+  set(RBLXBUILD_${lang}_LINKER_WRAPPER_FLAG "${_IntelLLVM_LINKER_WRAPPER_FLAG}")
+  set(RBLXBUILD_${lang}_LINKER_WRAPPER_FLAG_SEP "${_IntelLLVM_LINKER_WRAPPER_FLAG_SEP}")
+  # ARCHIVER: prefix use same values as LINKER: one.
+  set(RBLXBUILD_${lang}_ARCHIVER_WRAPPER_FLAG "${RBLXBUILD_${lang}_LINKER_WRAPPER_FLAG}")
+  set(RBLXBUILD_${lang}_ARCHIVER_WRAPPER_FLAG_SEP "${RBLXBUILD_${lang}_LINKER_WRAPPER_FLAG_SEP}")
+
+  set(RBLXBUILD_${lang}_CREATE_WIN32_EXE "${RBLXBUILD_${lang}_LINKER_WRAPPER_FLAG}/subsystem:windows")
+  set(RBLXBUILD_${lang}_CREATE_CONSOLE_EXE "${RBLXBUILD_${lang}_LINKER_WRAPPER_FLAG}/subsystem:console")
+  set(RBLXBUILD_${lang}_LINK_DEF_FILE_FLAG "${RBLXBUILD_${lang}_LINKER_WRAPPER_FLAG}/DEF:")
+  set(RBLXBUILD_LINK_DEF_FILE_FLAG "${RBLXBUILD_${lang}_LINK_DEF_FILE_FLAG}")
+  set(RBLXBUILD_${lang}_LIBRARY_PATH_FLAG "${RBLXBUILD_${lang}_LINKER_WRAPPER_FLAG}/LIBPATH:")
+  set(RBLXBUILD_LIBRARY_PATH_FLAG "${RBLXBUILD_${lang}_LIBRARY_PATH_FLAG}")
+
+  set(RBLXBUILD_${lang}_LINK_EXECUTABLE
+    "${_RBLXBUILD_VS_LINK_EXE}<RBLXBUILD_${lang}_COMPILER> <FLAGS> ${RBLXBUILD_CL_NOLOGO} <OBJECTS> ${RBLXBUILD_START_TEMP_FILE} <LINK_FLAGS> <LINK_LIBRARIES> /link /out:<TARGET> /implib:<TARGET_IMPLIB> /pdb:<TARGET_PDB> /version:<TARGET_VERSION_MAJOR>.<TARGET_VERSION_MINOR>${_PLATFORM_LINK_FLAGS} ${RBLXBUILD_END_TEMP_FILE}")
+  set(RBLXBUILD_${lang}_CREATE_SHARED_LIBRARY
+    "${_RBLXBUILD_VS_LINK_DLL}<RBLXBUILD_${lang}_COMPILER> <LANGUAGE_COMPILE_FLAGS> ${RBLXBUILD_CL_NOLOGO} <OBJECTS> ${RBLXBUILD_START_TEMP_FILE} -LD <LINK_FLAGS> <LINK_LIBRARIES> -link /out:<TARGET> /implib:<TARGET_IMPLIB> /pdb:<TARGET_PDB> /version:<TARGET_VERSION_MAJOR>.<TARGET_VERSION_MINOR>${_PLATFORM_LINK_FLAGS} ${RBLXBUILD_END_TEMP_FILE}")
+  set(RBLXBUILD_${lang}_CREATE_SHARED_MODULE ${RBLXBUILD_${lang}_CREATE_SHARED_LIBRARY})
+  if (NOT "${lang}" STREQUAL "Fortran" OR RBLXBUILD_${lang}_COMPILER_VERSION VERSION_GREATER_EQUAL 2022.1)
+    # The Fortran driver does not support -fuse-ld=llvm-lib before compiler version 2022.1
+    set(RBLXBUILD_${lang}_CREATE_STATIC_LIBRARY
+      "<RBLXBUILD_${lang}_COMPILER> ${RBLXBUILD_CL_NOLOGO}${_PLATFORM_ARCHIVE_FLAGS} <OBJECTS> ${RBLXBUILD_START_TEMP_FILE} -fuse-ld=llvm-lib -o <TARGET> <LINK_FLAGS> <LINK_LIBRARIES> ${RBLXBUILD_END_TEMP_FILE}")
+  endif()
+
+  set(RBLXBUILD_DEPFILE_FLAGS_${lang} "-QMD -QMT <DEP_TARGET> -QMF <DEP_FILE>")
+  set(RBLXBUILD_${lang}_DEPFILE_FORMAT gcc)
+endmacro()

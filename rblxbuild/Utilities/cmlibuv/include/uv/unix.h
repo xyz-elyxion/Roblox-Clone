@@ -45,7 +45,7 @@
 
 #include "threadpool.h"
 
-#ifdef CMAKE_BOOTSTRAP
+#ifdef RBLXBUILD_BOOTSTRAP
 # include "posix.h"
 # if defined(__APPLE__)
 #  include <TargetConditionals.h>
@@ -131,7 +131,7 @@ typedef int uv_os_sock_t;
 typedef int uv_os_fd_t;
 typedef pid_t uv_pid_t;
 
-#ifdef CMAKE_BOOTSTRAP
+#ifdef RBLXBUILD_BOOTSTRAP
 #define UV_ONCE_INIT 0
 typedef int uv_once_t;
 typedef int uv_thread_t;

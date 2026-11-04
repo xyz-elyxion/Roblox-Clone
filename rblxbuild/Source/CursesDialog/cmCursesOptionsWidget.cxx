@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmCursesOptionsWidget.h"
 
 #include "cmCursesColor.h"
@@ -13,7 +13,7 @@ cmCursesOptionsWidget::cmCursesOptionsWidget(int width, int height, int left,
   : cmCursesWidget(width, height, left, top)
 {
   this->Type = cmStateEnums::BOOL; // this is a bit of a hack
-  // there is no option type, and string type causes ccmake to cast
+  // there is no option type, and string type causes crblxbuild to cast
   // the widget into a string widget at some point.  BOOL is safe for
   // now.
   if (cmCursesColor::HasColors()) {

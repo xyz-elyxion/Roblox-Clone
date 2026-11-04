@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmWIXRichTextFormatWriter.h"
 
 #include "cmVersion.h"
@@ -120,7 +120,7 @@ void cmWIXRichTextFormatWriter::WriteGenerator()
 {
   StartGroup();
   NewControlWord("generator");
-  File << " CPack WiX Generator (" << cmVersion::GetCMakeVersion() << ");";
+  File << " CPack WiX Generator (" << cmVersion::GetRBLXBuildVersion() << ");";
   EndGroup();
 }
 

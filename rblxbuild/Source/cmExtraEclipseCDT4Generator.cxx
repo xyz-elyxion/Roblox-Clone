@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmExtraEclipseCDT4Generator.h"
 
 #include <algorithm>
@@ -31,7 +31,7 @@
 #include "cmTargetTypes.h"
 #include "cmValue.h"
 #include "cmXMLWriter.h"
-#include "cmake.h"
+#include "rblxbuild.h"
 
 static void AppendAttribute(cmXMLWriter& xml, char const* keyval)
 {
@@ -108,7 +108,7 @@ void cmExtraEclipseCDT4Generator::Generate()
   auto const& lg = this->GlobalGenerator->GetLocalGenerators()[0];
   cmMakefile const* mf = lg->GetMakefile();
 
-  std::string eclipseVersion = mf->GetSafeDefinition("CMAKE_ECLIPSE_VERSION");
+  std::string eclipseVersion = mf->GetSafeDefinition("RBLXBUILD_ECLIPSE_VERSION");
   cmsys::RegularExpression regex(".*([0-9]+\\.[0-9]+).*");
   if (regex.find(eclipseVersion)) {
     unsigned int majorVersion = 0;
@@ -134,22 +134,22 @@ void cmExtraEclipseCDT4Generator::Generate()
   this->HomeOutputDirectory = lg->GetBinaryDirectory();
 
   this->GenerateLinkedResources =
-    mf->IsOn("CMAKE_ECLIPSE_GENERATE_LINKED_RESOURCES");
+    mf->IsOn("RBLXBUILD_ECLIPSE_GENERATE_LINKED_RESOURCES");
 
   this->IsOutOfSourceBuild =
     (this->HomeDirectory != this->HomeOutputDirectory);
 
   this->GenerateSourceProject =
     (this->IsOutOfSourceBuild &&
-     mf->IsOn("CMAKE_ECLIPSE_GENERATE_SOURCE_PROJECT"));
+     mf->IsOn("RBLXBUILD_ECLIPSE_GENERATE_SOURCE_PROJECT"));
 
   if (!this->GenerateSourceProject &&
       (mf->IsOn("ECLIPSE_CDT4_GENERATE_SOURCE_PROJECT"))) {
     mf->IssueMessage(
       MessageType::WARNING,
       "ECLIPSE_CDT4_GENERATE_SOURCE_PROJECT is set to TRUE, "
-      "but this variable is not supported anymore since CMake 2.8.7.\n"
-      "Enable CMAKE_ECLIPSE_GENERATE_SOURCE_PROJECT instead.");
+      "but this variable is not supported anymore since RBLXBuild 2.8.7.\n"
+      "Enable RBLXBUILD_ECLIPSE_GENERATE_SOURCE_PROJECT instead.");
   }
 
   if (cmSystemTools::IsSubDirectory(this->HomeOutputDirectory,
@@ -194,7 +194,7 @@ void cmExtraEclipseCDT4Generator::CreateSettingsResourcePrefsFile()
   }
 
   fout << "eclipse.preferences.version=1\n";
-  cmValue encoding = mf->GetDefinition("CMAKE_ECLIPSE_RESOURCE_ENCODING");
+  cmValue encoding = mf->GetDefinition("RBLXBUILD_ECLIPSE_RESOURCE_ENCODING");
   if (encoding) {
     fout << "encoding/<project>=" << *encoding << '\n';
   }
@@ -248,7 +248,7 @@ void cmExtraEclipseCDT4Generator::AddEnvVar(std::ostream& out,
   std::string envVarValue;
   bool const envVarSet = cmSystemTools::GetEnv(envVar, envVarValue);
 
-  std::string cacheEntryName = cmStrCat("CMAKE_ECLIPSE_ENVVAR_", envVar);
+  std::string cacheEntryName = cmStrCat("RBLXBUILD_ECLIPSE_ENVVAR_", envVar);
   cmValue cacheValue = lg.GetState()->GetInitializedCacheValue(cacheEntryName);
 
   // now we have both, decide which one to use
@@ -262,7 +262,7 @@ void cmExtraEclipseCDT4Generator::AddEnvVar(std::ostream& out,
     valueToUse = envVarValue;
     mf->AddCacheDefinition(cacheEntryName, valueToUse, cacheEntryName,
                            cmStateEnums::STRING, true);
-    mf->GetCMakeInstance()->SaveCache(lg.GetBinaryDirectory());
+    mf->GetRBLXBuildInstance()->SaveCache(lg.GetBinaryDirectory());
   } else if (!envVarSet && cacheValue) {
     // It is already in the cache, but not in the env, so use it from the cache
     valueToUse = *cacheValue;
@@ -271,13 +271,13 @@ void cmExtraEclipseCDT4Generator::AddEnvVar(std::ostream& out,
     // Use the version from the env. except if the value from the env is
     // completely contained in the value from the cache (for the case that we
     // now have a PATH without MSVC dirs in the env. but had the full PATH with
-    // all MSVC dirs during the cmake run which stored the var in the cache:
+    // all MSVC dirs during the rblxbuild run which stored the var in the cache:
     valueToUse = *cacheValue;
     if (valueToUse.find(envVarValue) == std::string::npos) {
       valueToUse = envVarValue;
       mf->AddCacheDefinition(cacheEntryName, valueToUse, cacheEntryName,
                              cmStateEnums::STRING, true);
-      mf->GetCMakeInstance()->SaveCache(lg.GetBinaryDirectory());
+      mf->GetRBLXBuildInstance()->SaveCache(lg.GetBinaryDirectory());
     }
   }
 
@@ -298,10 +298,10 @@ void cmExtraEclipseCDT4Generator::CreateProjectFile()
     return;
   }
 
-  std::string compilerId = mf->GetSafeDefinition("CMAKE_C_COMPILER_ID");
+  std::string compilerId = mf->GetSafeDefinition("RBLXBUILD_C_COMPILER_ID");
   if (compilerId.empty()) // no C compiler, try the C++ compiler:
   {
-    compilerId = mf->GetSafeDefinition("CMAKE_CXX_COMPILER_ID");
+    compilerId = mf->GetSafeDefinition("RBLXBUILD_CXX_COMPILER_ID");
   }
 
   cmXMLWriter xml(fout);
@@ -312,7 +312,7 @@ void cmExtraEclipseCDT4Generator::CreateProjectFile()
   xml.Element("name",
               cmExtraEclipseCDT4Generator::GenerateProjectName(
                 lg->GetProjectName(),
-                mf->GetSafeDefinition("CMAKE_BUILD_TYPE"),
+                mf->GetSafeDefinition("RBLXBUILD_BUILD_TYPE"),
                 cmExtraEclipseCDT4Generator::GetPathBasename(
                   this->HomeOutputDirectory)));
 
@@ -337,12 +337,12 @@ void cmExtraEclipseCDT4Generator::CreateProjectFile()
                    "true");
   AppendDictionary(xml, "org.eclipse.cdt.make.core.build.command",
                    cmExtraEclipseCDT4Generator::GetEclipsePath(
-                     mf->GetRequiredDefinition("CMAKE_MAKE_PROGRAM")));
+                     mf->GetRequiredDefinition("RBLXBUILD_MAKE_PROGRAM")));
   AppendDictionary(xml, "org.eclipse.cdt.make.core.contents",
                    "org.eclipse.cdt.make.core.activeConfigSettings");
   AppendDictionary(xml, "org.eclipse.cdt.make.core.build.target.inc", "all");
   AppendDictionary(xml, "org.eclipse.cdt.make.core.build.arguments",
-                   mf->GetSafeDefinition("CMAKE_ECLIPSE_MAKE_ARGUMENTS"));
+                   mf->GetSafeDefinition("RBLXBUILD_ECLIPSE_MAKE_ARGUMENTS"));
   AppendDictionary(
     xml, "org.eclipse.cdt.make.core.buildLocation",
     cmExtraEclipseCDT4Generator::GetEclipsePath(this->HomeOutputDirectory));
@@ -351,8 +351,8 @@ void cmExtraEclipseCDT4Generator::CreateProjectFile()
 
   // set project specific environment
   std::ostringstream environment;
-  environment << "VERBOSE=1|CMAKE_NO_VERBOSE=1|"; // verbose Makefile output
-  // set vsvars32.bat environment available at CMake time,
+  environment << "VERBOSE=1|RBLXBUILD_NO_VERBOSE=1|"; // verbose Makefile output
+  // set vsvars32.bat environment available at RBLXBuild time,
   //   but not necessarily when eclipse is open
   if (compilerId == "MSVC") {
     AddEnvVar(environment, "PATH", *lg);
@@ -432,9 +432,9 @@ void cmExtraEclipseCDT4Generator::CreateProjectFile()
   xml.StartElement("linkedResources");
   // create linked resources
   if (this->IsOutOfSourceBuild) {
-    // create a linked resource to CMAKE_SOURCE_DIR
+    // create a linked resource to RBLXBUILD_SOURCE_DIR
     // (this is not done anymore for each project because of
-    // https://gitlab.kitware.com/cmake/cmake/-/issues/9978 and because I found
+    // https://gitlab.kitware.com/rblxbuild/rblxbuild/-/issues/9978 and because I found
     // it actually quite confusing in bigger projects with many directories and
     // projects, Alex
 
@@ -526,7 +526,7 @@ void cmExtraEclipseCDT4Generator::CreateLinksForTargets(cmXMLWriter& xml)
           // get the files from the source lists then add them to the groups
           cmSourceGroupFiles sourceGroupFiles;
           std::vector<cmSourceFile*> files;
-          cmValue config = makefile->GetDefinition("CMAKE_BUILD_TYPE");
+          cmValue config = makefile->GetDefinition("RBLXBUILD_BUILD_TYPE");
           target->GetSourceFiles(files, *config);
           for (cmSourceFile* sf : files) {
             // Add the file to the list of sources.
@@ -643,7 +643,7 @@ void cmExtraEclipseCDT4Generator::CreateCProjectFile() const
 
   // TODO: refactor this out...
   std::string executableFormat =
-    mf->GetSafeDefinition("CMAKE_EXECUTABLE_FORMAT");
+    mf->GetSafeDefinition("RBLXBUILD_EXECUTABLE_FORMAT");
   if (executableFormat == "ELF") {
     xml.StartElement("extension");
     xml.Attribute("id", "org.eclipse.cdt.core.ELF");
@@ -657,7 +657,7 @@ void cmExtraEclipseCDT4Generator::CreateCProjectFile() const
     AppendAttribute(xml, "c++filt");
     xml.EndElement(); // extension
   } else {
-    std::string systemName = mf->GetSafeDefinition("CMAKE_SYSTEM_NAME");
+    std::string systemName = mf->GetSafeDefinition("RBLXBUILD_SYSTEM_NAME");
     if (systemName == "CYGWIN" || systemName == "MSYS") {
       xml.StartElement("extension");
       xml.Attribute("id", "org.eclipse.cdt.core.Cygwin_PE");
@@ -715,7 +715,7 @@ void cmExtraEclipseCDT4Generator::CreateCProjectFile() const
    * and #12213.
    * According to #13596, this entry at least limits the directories the
    * indexer is searching for files. So now the "src" entry contains only
-   * the linked resource to CMAKE_SOURCE_DIR.
+   * the linked resource to RBLXBUILD_SOURCE_DIR.
    * The CDT documentation is very terse on that:
    * "CDT_SOURCE: Entry kind constant describing a path entry identifying a
    * folder containing source code to be compiled."
@@ -745,7 +745,7 @@ void cmExtraEclipseCDT4Generator::CreateCProjectFile() const
     }
   }
 
-  excludeFromOut += "**/CMakeFiles/";
+  excludeFromOut += "**/RBLXBuildFiles/";
 
   xml.StartElement("pathentry");
   xml.Attribute("excluding", excludeFromOut);
@@ -796,7 +796,7 @@ void cmExtraEclipseCDT4Generator::CreateCProjectFile() const
   }
   // add system defined c macros
   cmValue cDefs =
-    mf->GetDefinition("CMAKE_EXTRA_GENERATOR_C_SYSTEM_DEFINED_MACROS");
+    mf->GetDefinition("RBLXBUILD_EXTRA_GENERATOR_C_SYSTEM_DEFINED_MACROS");
   if (this->CEnabled && cDefs) {
     // Expand the list.
     cmList defs{ *cDefs, cmList::EmptyElements::Yes };
@@ -827,7 +827,7 @@ void cmExtraEclipseCDT4Generator::CreateCProjectFile() const
   }
   // add system defined c++ macros
   cmValue cxxDefs =
-    mf->GetDefinition("CMAKE_EXTRA_GENERATOR_CXX_SYSTEM_DEFINED_MACROS");
+    mf->GetDefinition("RBLXBUILD_EXTRA_GENERATOR_CXX_SYSTEM_DEFINED_MACROS");
   if (this->CXXEnabled && cxxDefs) {
     // Expand the list.
     cmList defs{ *cxxDefs, cmList::EmptyElements::Yes };
@@ -866,25 +866,25 @@ void cmExtraEclipseCDT4Generator::CreateCProjectFile() const
         continue;
       }
       std::vector<std::string> includeDirs;
-      std::string config = mf->GetSafeDefinition("CMAKE_BUILD_TYPE");
+      std::string config = mf->GetSafeDefinition("RBLXBUILD_BUILD_TYPE");
       lgen->GetIncludeDirectories(includeDirs, target.get(), "C", config);
       this->AppendIncludeDirectories(xml, includeDirs, emitted);
     }
   }
   // now also the system include directories, in case we found them in
-  // CMakeSystemSpecificInformation.cmake. This makes Eclipse find the
+  // RBLXBuildSystemSpecificInformation.rblxbuild. This makes Eclipse find the
   // standard headers.
-  std::string compiler = mf->GetSafeDefinition("CMAKE_C_COMPILER");
+  std::string compiler = mf->GetSafeDefinition("RBLXBUILD_C_COMPILER");
   if (this->CEnabled && !compiler.empty()) {
     std::string systemIncludeDirs =
-      mf->GetSafeDefinition("CMAKE_EXTRA_GENERATOR_C_SYSTEM_INCLUDE_DIRS");
+      mf->GetSafeDefinition("RBLXBUILD_EXTRA_GENERATOR_C_SYSTEM_INCLUDE_DIRS");
     cmList dirs{ systemIncludeDirs };
     this->AppendIncludeDirectories(xml, dirs, emitted);
   }
-  compiler = mf->GetSafeDefinition("CMAKE_CXX_COMPILER");
+  compiler = mf->GetSafeDefinition("RBLXBUILD_CXX_COMPILER");
   if (this->CXXEnabled && !compiler.empty()) {
     std::string systemIncludeDirs =
-      mf->GetSafeDefinition("CMAKE_EXTRA_GENERATOR_CXX_SYSTEM_INCLUDE_DIRS");
+      mf->GetSafeDefinition("RBLXBUILD_EXTRA_GENERATOR_CXX_SYSTEM_INCLUDE_DIRS");
     cmList dirs{ systemIncludeDirs };
     this->AppendIncludeDirectories(xml, dirs, emitted);
   }
@@ -896,9 +896,9 @@ void cmExtraEclipseCDT4Generator::CreateCProjectFile() const
   xml.Attribute("moduleId", "org.eclipse.cdt.make.core.buildtargets");
   xml.StartElement("buildTargets");
   emitted.clear();
-  std::string const& make = mf->GetRequiredDefinition("CMAKE_MAKE_PROGRAM");
+  std::string const& make = mf->GetRequiredDefinition("RBLXBUILD_MAKE_PROGRAM");
   std::string const& makeArgs =
-    mf->GetSafeDefinition("CMAKE_ECLIPSE_MAKE_ARGUMENTS");
+    mf->GetSafeDefinition("RBLXBUILD_ECLIPSE_MAKE_ARGUMENTS");
 
   cmGlobalGenerator* generator =
     const_cast<cmGlobalGenerator*>(this->GlobalGenerator);
@@ -926,7 +926,7 @@ void cmExtraEclipseCDT4Generator::CreateCProjectFile() const
       std::string targetName = target->GetName();
       switch (target->GetType()) {
         case cm::TargetType::GLOBAL_TARGET: {
-          // Only add the global targets from CMAKE_BINARY_DIR,
+          // Only add the global targets from RBLXBUILD_BINARY_DIR,
           // not from the subdirs
           if (subdir.empty()) {
             cmExtraEclipseCDT4Generator::AppendTarget(xml, targetName, make,
@@ -972,12 +972,12 @@ void cmExtraEclipseCDT4Generator::CreateCProjectFile() const
 
             std::string cleanArgs =
               cmStrCat("-E chdir \"", lgen->GetObjectOutputRoot(), "\" \"",
-                       cmSystemTools::GetCMakeCommand(), "\" -P \"");
+                       cmSystemTools::GetRBLXBuildCommand(), "\" -P \"");
             cleanArgs += lgen->GetTargetDirectory(
               target.get(), cmStateEnums::IntermediateDirKind::ObjectFiles);
-            cleanArgs += "/cmake_clean.cmake\"";
+            cleanArgs += "/rblxbuild_clean.rblxbuild\"";
             cmExtraEclipseCDT4Generator::AppendTarget(
-              xml, "Clean", cmSystemTools::GetCMakeCommand(), cleanArgs,
+              xml, "Clean", cmSystemTools::GetRBLXBuildCommand(), cleanArgs,
               virtDir, "", "");
           }
         } break;
@@ -1088,12 +1088,12 @@ void cmExtraEclipseCDT4Generator::AppendStorageScanners(
 {
   // we need the "make" and the C (or C++) compiler which are used, Alex
   std::string const& make =
-    makefile.GetRequiredDefinition("CMAKE_MAKE_PROGRAM");
-  std::string compiler = makefile.GetSafeDefinition("CMAKE_C_COMPILER");
-  std::string arg1 = makefile.GetSafeDefinition("CMAKE_C_COMPILER_ARG1");
+    makefile.GetRequiredDefinition("RBLXBUILD_MAKE_PROGRAM");
+  std::string compiler = makefile.GetSafeDefinition("RBLXBUILD_C_COMPILER");
+  std::string arg1 = makefile.GetSafeDefinition("RBLXBUILD_C_COMPILER_ARG1");
   if (compiler.empty()) {
-    compiler = makefile.GetSafeDefinition("CMAKE_CXX_COMPILER");
-    arg1 = makefile.GetSafeDefinition("CMAKE_CXX_COMPILER_ARG1");
+    compiler = makefile.GetSafeDefinition("RBLXBUILD_CXX_COMPILER");
+    arg1 = makefile.GetSafeDefinition("RBLXBUILD_CXX_COMPILER_ARG1");
   }
   if (compiler.empty()) // Hmm, what to do now ?
   {

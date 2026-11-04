@@ -1,4 +1,4 @@
 @echo off
 set VSCMD_START_DIR=.
-call "@CMAKE_GNUtoMS_BAT@"
-lib /machine:"@CMAKE_GNUtoMS_ARCH@" %*
+call "@RBLXBUILD_GNUtoMS_BAT@"
+lib /machine:"@RBLXBUILD_GNUtoMS_ARCH@" %*

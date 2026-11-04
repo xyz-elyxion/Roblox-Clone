@@ -1,0 +1,245 @@
+# Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
+# file LICENSE.rst or https://rblxbuild.org/licensing for details.
+
+
+# This module is used by the Makefile generator to determine the following variables:
+# RBLXBUILD_SYSTEM_NAME - on unix this is uname -s, for windows it is Windows
+# RBLXBUILD_SYSTEM_VERSION - on unix this is uname -r, for windows it is empty
+# RBLXBUILD_SYSTEM - ${RBLXBUILD_SYSTEM}-${RBLXBUILD_SYSTEM_VERSION}, for windows: ${RBLXBUILD_SYSTEM}
+
+# find out on which system rblxbuild runs
+if(RBLXBUILD_HOST_UNIX)
+  find_program(RBLXBUILD_UNAME NAMES uname PATHS /bin /usr/bin /usr/local/bin NO_RBLXBUILD_FIND_ROOT_PATH)
+  if(RBLXBUILD_UNAME)
+    if(RBLXBUILD_HOST_SYSTEM_NAME STREQUAL "AIX")
+      execute_process(COMMAND ${RBLXBUILD_UNAME} -v
+        OUTPUT_VARIABLE _RBLXBUILD_HOST_SYSTEM_MAJOR_VERSION
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        ERROR_QUIET
+        RESULT_VARIABLE _uname_result)
+      execute_process(COMMAND ${RBLXBUILD_UNAME} -r
+        OUTPUT_VARIABLE _RBLXBUILD_HOST_SYSTEM_MINOR_VERSION
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        ERROR_QUIET
+        RESULT_VARIABLE _uname_result2)
+      if(_uname_result EQUAL 0 AND _uname_result2 EQUAL 0)
+        set(RBLXBUILD_HOST_SYSTEM_VERSION "${_RBLXBUILD_HOST_SYSTEM_MAJOR_VERSION}.${_RBLXBUILD_HOST_SYSTEM_MINOR_VERSION}")
+      endif()
+      unset(_RBLXBUILD_HOST_SYSTEM_MAJOR_VERSION)
+      unset(_RBLXBUILD_HOST_SYSTEM_MINOR_VERSION)
+    elseif(RBLXBUILD_HOST_SYSTEM_NAME STREQUAL "Android")
+      execute_process(COMMAND getprop ro.build.version.sdk
+        OUTPUT_VARIABLE RBLXBUILD_HOST_SYSTEM_VERSION
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        ERROR_QUIET
+        RESULT_VARIABLE _uname_result)
+
+      if(NOT DEFINED RBLXBUILD_SYSTEM_VERSION)
+        set(_ANDROID_API_LEVEL_H $ENV{PREFIX}/include/android/api-level.h)
+        set(_ANDROID_API_REGEX "#define __ANDROID_API__ ([0-9]+)")
+        file(READ ${_ANDROID_API_LEVEL_H} _ANDROID_API_LEVEL_H_CONTENT)
+        string(REGEX MATCH ${_ANDROID_API_REGEX} _ANDROID_API_LINE "${_ANDROID_API_LEVEL_H_CONTENT}")
+        string(REGEX REPLACE ${_ANDROID_API_REGEX} "\\1" _ANDROID_API "${_ANDROID_API_LINE}")
+        if(_ANDROID_API)
+          set(RBLXBUILD_SYSTEM_VERSION "${_ANDROID_API}")
+        endif()
+
+        unset(_ANDROID_API_LEVEL_H)
+        unset(_ANDROID_API_LEVEL_H_CONTENT)
+        unset(_ANDROID_API_REGEX)
+        unset(_ANDROID_API_LINE)
+        unset(_ANDROID_API)
+      endif()
+    else()
+      execute_process(COMMAND ${RBLXBUILD_UNAME} -r
+        OUTPUT_VARIABLE RBLXBUILD_HOST_SYSTEM_VERSION
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        ERROR_QUIET
+        RESULT_VARIABLE _uname_result)
+    endif()
+    if(RBLXBUILD_HOST_SYSTEM_NAME MATCHES "Linux|CYGWIN.*|MSYS.*|^GNU$|Android")
+      execute_process(COMMAND ${RBLXBUILD_UNAME} -m
+        OUTPUT_VARIABLE RBLXBUILD_HOST_SYSTEM_PROCESSOR
+        RESULT_VARIABLE val
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        ERROR_QUIET)
+    elseif(RBLXBUILD_HOST_SYSTEM_NAME MATCHES "Darwin")
+      # If we are running on Apple Silicon, honor RBLXBUILD_APPLE_SILICON_PROCESSOR.
+      if(DEFINED RBLXBUILD_APPLE_SILICON_PROCESSOR)
+        set(_RBLXBUILD_APPLE_SILICON_PROCESSOR "${RBLXBUILD_APPLE_SILICON_PROCESSOR}")
+      elseif(DEFINED ENV{RBLXBUILD_APPLE_SILICON_PROCESSOR})
+        set(_RBLXBUILD_APPLE_SILICON_PROCESSOR "$ENV{RBLXBUILD_APPLE_SILICON_PROCESSOR}")
+      else()
+        set(_RBLXBUILD_APPLE_SILICON_PROCESSOR "")
+      endif()
+      if(_RBLXBUILD_APPLE_SILICON_PROCESSOR)
+        if(";${_RBLXBUILD_APPLE_SILICON_PROCESSOR};" MATCHES "^;(arm64|x86_64);$")
+          execute_process(COMMAND sysctl -q hw.optional.arm64
+            OUTPUT_VARIABLE _sysctl_stdout
+            ERROR_VARIABLE _sysctl_stderr
+            RESULT_VARIABLE _sysctl_result
+            )
+          if(NOT _sysctl_result EQUAL 0 OR NOT _sysctl_stdout MATCHES "hw.optional.arm64: 1")
+            set(_RBLXBUILD_APPLE_SILICON_PROCESSOR "")
+          endif()
+          unset(_sysctl_result)
+          unset(_sysctl_stderr)
+          unset(_sysctl_stdout)
+        endif()
+      endif()
+      if(_RBLXBUILD_APPLE_SILICON_PROCESSOR)
+        set(RBLXBUILD_HOST_SYSTEM_PROCESSOR "${_RBLXBUILD_APPLE_SILICON_PROCESSOR}")
+      else()
+        execute_process(COMMAND ${RBLXBUILD_UNAME} -m
+          OUTPUT_VARIABLE RBLXBUILD_HOST_SYSTEM_PROCESSOR
+          RESULT_VARIABLE val
+          OUTPUT_STRIP_TRAILING_WHITESPACE
+          ERROR_QUIET)
+      endif()
+      unset(_RBLXBUILD_APPLE_SILICON_PROCESSOR)
+      if(RBLXBUILD_HOST_SYSTEM_PROCESSOR STREQUAL "Power Macintosh")
+        # OS X ppc 'uname -m' may report 'Power Macintosh' instead of 'powerpc'
+        set(RBLXBUILD_HOST_SYSTEM_PROCESSOR "powerpc")
+      endif()
+    elseif(RBLXBUILD_HOST_SYSTEM_NAME MATCHES "OpenBSD")
+      execute_process(COMMAND arch -s
+        OUTPUT_VARIABLE RBLXBUILD_HOST_SYSTEM_PROCESSOR
+        RESULT_VARIABLE val
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        ERROR_QUIET)
+    else()
+      execute_process(COMMAND ${RBLXBUILD_UNAME} -p
+        OUTPUT_VARIABLE RBLXBUILD_HOST_SYSTEM_PROCESSOR
+        RESULT_VARIABLE val
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        ERROR_QUIET)
+      if("${val}" GREATER 0)
+        execute_process(COMMAND ${RBLXBUILD_UNAME} -m
+          OUTPUT_VARIABLE RBLXBUILD_HOST_SYSTEM_PROCESSOR
+          RESULT_VARIABLE val
+          OUTPUT_STRIP_TRAILING_WHITESPACE
+          ERROR_QUIET)
+      endif()
+    endif()
+    # check the return of the last uname -m or -p
+    if("${val}" GREATER 0)
+        set(RBLXBUILD_HOST_SYSTEM_PROCESSOR "unknown")
+    endif()
+    set(RBLXBUILD_UNAME ${RBLXBUILD_UNAME} CACHE INTERNAL "uname command")
+    # processor may have double quote in the name, and that needs to be removed
+    string(REPLACE "\"" "" RBLXBUILD_HOST_SYSTEM_PROCESSOR "${RBLXBUILD_HOST_SYSTEM_PROCESSOR}")
+    string(REPLACE "/" "_" RBLXBUILD_HOST_SYSTEM_PROCESSOR "${RBLXBUILD_HOST_SYSTEM_PROCESSOR}")
+  endif()
+else()
+  if(RBLXBUILD_HOST_WIN32)
+    if (DEFINED ENV{PROCESSOR_ARCHITEW6432})
+      set (RBLXBUILD_HOST_SYSTEM_PROCESSOR "$ENV{PROCESSOR_ARCHITEW6432}")
+    else()
+      set (RBLXBUILD_HOST_SYSTEM_PROCESSOR "$ENV{PROCESSOR_ARCHITECTURE}")
+    endif()
+  endif()
+endif()
+
+# if a toolchain file is used, the user wants to cross compile.
+# in this case read the toolchain file and keep the RBLXBUILD_HOST_SYSTEM_*
+# variables around so they can be used in RBLXBuildLists.txt.
+# In all other cases, the host and target platform are the same.
+if(RBLXBUILD_TOOLCHAIN_FILE)
+  # Retain input value to detect changes requiring re-configuration.
+  set(_RBLXBUILD_INPUT_TOOLCHAIN_FILE "${RBLXBUILD_TOOLCHAIN_FILE}")
+  if(IS_ABSOLUTE "${RBLXBUILD_TOOLCHAIN_FILE}" AND EXISTS "${RBLXBUILD_TOOLCHAIN_FILE}")
+    # Normalize the absolute path.
+    set(RBLXBUILD_TOOLCHAIN_FILE "${RBLXBUILD_TOOLCHAIN_FILE}" CACHE FILEPATH "The RBLXBuild toolchain file" FORCE)
+    set(RBLXBUILD_TOOLCHAIN_FILE "$CACHE{RBLXBUILD_TOOLCHAIN_FILE}")
+    include("${RBLXBUILD_TOOLCHAIN_FILE}" OPTIONAL RESULT_VARIABLE _INCLUDED_TOOLCHAIN_FILE)
+  else()
+    # at first try to load it as path relative to the directory from which rblxbuild has been run
+    include("${RBLXBUILD_BINARY_DIR}/${RBLXBUILD_TOOLCHAIN_FILE}" OPTIONAL RESULT_VARIABLE _INCLUDED_TOOLCHAIN_FILE)
+    if(NOT _INCLUDED_TOOLCHAIN_FILE)
+      # if the file isn't found there, check the default locations
+      include("${RBLXBUILD_TOOLCHAIN_FILE}" OPTIONAL RESULT_VARIABLE _INCLUDED_TOOLCHAIN_FILE)
+    endif()
+    if(_INCLUDED_TOOLCHAIN_FILE)
+      set(RBLXBUILD_TOOLCHAIN_FILE "${_INCLUDED_TOOLCHAIN_FILE}" CACHE FILEPATH "The RBLXBuild toolchain file" FORCE)
+    endif()
+  endif()
+  if(NOT _INCLUDED_TOOLCHAIN_FILE)
+    message(FATAL_ERROR "Could not find toolchain file:\n \"${RBLXBUILD_TOOLCHAIN_FILE}\"")
+  endif()
+endif()
+
+if(RBLXBUILD_SYSTEM_NAME)
+  # RBLXBUILD_SYSTEM_NAME was set by a toolchain file or on the command line.
+  # Assume it set RBLXBUILD_SYSTEM_VERSION and RBLXBUILD_SYSTEM_PROCESSOR too.
+  if(NOT DEFINED RBLXBUILD_CROSSCOMPILING)
+    set(RBLXBUILD_CROSSCOMPILING TRUE)
+  endif()
+elseif(RBLXBUILD_VS_WINCE_VERSION)
+  set(RBLXBUILD_SYSTEM_NAME      "WindowsCE")
+  set(RBLXBUILD_SYSTEM_VERSION   "${RBLXBUILD_VS_WINCE_VERSION}")
+  set(RBLXBUILD_SYSTEM_PROCESSOR "${MSVC_C_ARCHITECTURE_ID}")
+  set(RBLXBUILD_CROSSCOMPILING TRUE)
+else()
+  # Build for the host platform and architecture by default.
+  set(RBLXBUILD_SYSTEM_NAME      "${RBLXBUILD_HOST_SYSTEM_NAME}")
+  if(NOT DEFINED RBLXBUILD_SYSTEM_VERSION)
+    set(RBLXBUILD_SYSTEM_VERSION "${RBLXBUILD_HOST_SYSTEM_VERSION}")
+  endif()
+  set(RBLXBUILD_SYSTEM_PROCESSOR "${RBLXBUILD_HOST_SYSTEM_PROCESSOR}")
+  if(RBLXBUILD_CROSSCOMPILING)
+    message(AUTHOR_WARNING
+      "RBLXBUILD_CROSSCOMPILING has been set by the project, toolchain file, or user.  "
+      "RBLXBuild is resetting it to false because RBLXBUILD_SYSTEM_NAME was not set.  "
+      "To indicate cross compilation, only RBLXBUILD_SYSTEM_NAME needs to be set."
+      )
+  endif()
+  set(RBLXBUILD_CROSSCOMPILING FALSE)
+endif()
+
+include(Platform/${RBLXBUILD_SYSTEM_NAME}-Determine OPTIONAL)
+
+set(RBLXBUILD_SYSTEM ${RBLXBUILD_SYSTEM_NAME})
+if(RBLXBUILD_SYSTEM_VERSION)
+  string(APPEND RBLXBUILD_SYSTEM -${RBLXBUILD_SYSTEM_VERSION})
+endif()
+set(RBLXBUILD_HOST_SYSTEM ${RBLXBUILD_HOST_SYSTEM_NAME})
+if(RBLXBUILD_HOST_SYSTEM_VERSION)
+  string(APPEND RBLXBUILD_HOST_SYSTEM -${RBLXBUILD_HOST_SYSTEM_VERSION})
+endif()
+
+# this file is also executed from cpack, then we don't need to generate these files
+# in this case there is no RBLXBUILD_BINARY_DIR
+if(RBLXBUILD_BINARY_DIR)
+  # write entry to the log file
+  if(RBLXBUILD_CROSSCOMPILING)
+    message(CONFIGURE_LOG
+      "The target system is: ${RBLXBUILD_SYSTEM_NAME} - ${RBLXBUILD_SYSTEM_VERSION} - ${RBLXBUILD_SYSTEM_PROCESSOR}\n"
+      "The host system is: ${RBLXBUILD_HOST_SYSTEM_NAME} - ${RBLXBUILD_HOST_SYSTEM_VERSION} - ${RBLXBUILD_HOST_SYSTEM_PROCESSOR}\n"
+      )
+  else()
+    message(CONFIGURE_LOG
+      "The system is: ${RBLXBUILD_SYSTEM_NAME} - ${RBLXBUILD_SYSTEM_VERSION} - ${RBLXBUILD_SYSTEM_PROCESSOR}\n"
+      )
+  endif()
+
+  # if a toolchain file is used, it needs to be included in the configured file,
+  # so settings done there are also available if they don't go in the cache and in try_compile()
+  set(INCLUDE_RBLXBUILD_TOOLCHAIN_FILE_IF_REQUIRED)
+  if(DEFINED RBLXBUILD_TOOLCHAIN_FILE)
+    string(CONCAT INCLUDE_RBLXBUILD_TOOLCHAIN_FILE_IF_REQUIRED
+      "set(_RBLXBUILD_INPUT_TOOLCHAIN_FILE [==[${_RBLXBUILD_INPUT_TOOLCHAIN_FILE}]==])\n"
+    )
+    if(_INCLUDED_TOOLCHAIN_FILE)
+      string(APPEND INCLUDE_RBLXBUILD_TOOLCHAIN_FILE_IF_REQUIRED
+        "set(_RBLXBUILD_SYSTEM_TOOLCHAIN_FILE \"${RBLXBUILD_TOOLCHAIN_FILE}\")\n"
+        "include(\"\${_RBLXBUILD_SYSTEM_TOOLCHAIN_FILE}\")"
+      )
+    endif()
+  endif()
+
+  # configure variables set in this file for fast reload, the template file is defined at the top of this file
+  configure_file(${RBLXBUILD_ROOT}/Modules/RBLXBuildSystem.rblxbuild.in
+                ${RBLXBUILD_PLATFORM_INFO_DIR}/RBLXBuildSystem.rblxbuild
+                @ONLY)
+
+endif()

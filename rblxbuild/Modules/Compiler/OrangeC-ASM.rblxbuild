@@ -1,0 +1,7 @@
+include(Compiler/OrangeC)
+__compiler_orangec(ASM)
+
+set(RBLXBUILD_ASM_OUTPUT_EXTENSION ".o")
+set(RBLXBUILD_ASM_VERBOSE_FLAG "-yyyyy")
+
+set(RBLXBUILD_ASM_SOURCE_FILE_EXTENSIONS s;S;asm;nas)

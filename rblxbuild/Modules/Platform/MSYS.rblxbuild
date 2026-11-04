@@ -1,0 +1,3 @@
+include(Platform/CYGWIN)
+set(RBLXBUILD_SHARED_LIBRARY_PREFIX "msys-")
+set(RBLXBUILD_SHARED_MODULE_PREFIX "msys-")

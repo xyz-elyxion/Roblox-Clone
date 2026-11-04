@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #pragma once
 
 #include "cmConfigure.h" // IWYU pragma: keep
@@ -24,7 +24,7 @@
 // IWYU insists we should forward-declare instead of including <functional>,
 // but we cannot forward-declare reliably because some C++ standard libraries
 // put the template in an inline namespace.
-#ifdef CMAKE_IWYU_FORWARD_STD_HASH
+#ifdef RBLXBUILD_IWYU_FORWARD_STD_HASH
 /* clang-format off */
 namespace std {
   template <class T> struct hash;
@@ -68,7 +68,7 @@ public:
   enum class PackageDescriptionType
   {
     Any,
-    CMake,
+    RBLXBuild,
     Cps,
   };
 
@@ -193,12 +193,12 @@ private:
   void ComputePrefixes();
   void FillPrefixesPackageRedirect();
   void FillPrefixesPackageRoot();
-  void FillPrefixesCMakeEnvironment();
-  void FillPrefixesCMakeVariable();
+  void FillPrefixesRBLXBuildEnvironment();
+  void FillPrefixesRBLXBuildVariable();
   void FillPrefixesSystemEnvironment();
   void FillPrefixesUserRegistry();
   void FillPrefixesSystemRegistry();
-  void FillPrefixesCMakeSystemVariable();
+  void FillPrefixesRBLXBuildSystemVariable();
   void FillPrefixesUserGuess();
   void FillPrefixesUserHints();
   void LoadPackageRegistryDir(std::string const& dir, cmSearchPath& outPaths);
@@ -262,7 +262,7 @@ private:
   unsigned int VersionFoundPatch = 0;
   unsigned int VersionFoundTweak = 0;
   unsigned int VersionFoundCount = 0;
-  KWIML_INT_uint64_t RequiredCMakeVersion = 0;
+  KWIML_INT_uint64_t RequiredRBLXBuildVersion = 0;
   bool BypassProvider = false;
   bool Quiet = false;
   RequiredStatus Required = RequiredStatus::Optional;
@@ -419,7 +419,7 @@ private:
   bool ShouldImplicitlyLogEvents() const override;
 
   void WriteDebug() const override;
-#ifndef CMAKE_BOOTSTRAP
+#ifndef RBLXBUILD_BOOTSTRAP
   void WriteEvent(cmConfigureLog& log, cmMakefile const& mf) const override;
   std::vector<std::pair<VariableSource, std::string>> ExtraSearchVariables()
     const override;

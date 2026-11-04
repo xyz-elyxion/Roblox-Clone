@@ -1,0 +1,102 @@
+# Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
+# file LICENSE.rst or https://rblxbuild.org/licensing for details.
+
+
+if(RBLXBUILD_Fortran_COMPILER_FORCED)
+  # The compiler configuration was forced by the user.
+  # Assume the user has configured all compiler information.
+  set(RBLXBUILD_Fortran_COMPILER_WORKS TRUE)
+  return()
+endif()
+
+include(RBLXBuildTestCompilerCommon)
+
+# Remove any cached result from an older RBLXBuild version.
+# We now store this in RBLXBuildFortranCompiler.rblxbuild.
+unset(RBLXBUILD_Fortran_COMPILER_WORKS CACHE)
+
+# Try to identify the ABI and configure it into RBLXBuildFortranCompiler.rblxbuild
+include(${RBLXBUILD_ROOT}/Modules/RBLXBuildDetermineCompilerABI.rblxbuild)
+RBLXBUILD_DETERMINE_COMPILER_ABI(Fortran ${RBLXBUILD_ROOT}/Modules/RBLXBuildFortranCompilerABI.F90)
+if(RBLXBUILD_Fortran_ABI_COMPILED)
+  # The compiler worked so skip dedicated test below.
+  set(RBLXBUILD_Fortran_COMPILER_WORKS TRUE)
+  if (NOT DEFINED RBLXBUILD_Fortran_COMPILER_SUPPORTS_F90)
+    set(RBLXBUILD_Fortran_COMPILER_SUPPORTS_F90 1)
+  endif ()
+  message(STATUS "Check for working Fortran compiler: ${RBLXBUILD_Fortran_COMPILER} - skipped")
+else()
+  rblxbuild_determine_compiler_abi(Fortran ${RBLXBUILD_ROOT}/Modules/RBLXBuildFortranCompilerABI.F)
+  if(RBLXBUILD_Fortran_ABI_COMPILED)
+    set(RBLXBUILD_Fortran_COMPILER_WORKS TRUE)
+    message(STATUS "Check for working Fortran 77 compiler: ${RBLXBUILD_Fortran_COMPILER} - skipped")
+  endif()
+endif()
+
+# This file is used by EnableLanguage in cmGlobalGenerator to
+# determine that the selected Fortran compiler can actually compile
+# and link the most basic of programs.   If not, a fatal error
+# is set and rblxbuild stops processing commands and will not generate
+# any makefiles or projects.
+if(NOT RBLXBUILD_Fortran_COMPILER_WORKS)
+  PrintTestCompilerStatus("Fortran")
+  set(__TestCompiler_testFortranCompilerSource "
+        PROGRAM TESTFortran
+        PRINT *, 'Hello'
+        END
+  ")
+  # Clear result from normal variable.
+  unset(RBLXBUILD_Fortran_COMPILER_WORKS)
+  # Puts test result in cache variable.
+  try_compile(RBLXBUILD_Fortran_COMPILER_WORKS
+    SOURCE_FROM_VAR testFortranCompiler.f __TestCompiler_testFortranCompilerSource
+    NO_CACHE
+    OUTPUT_VARIABLE OUTPUT)
+  unset(__TestCompiler_testFortranCompilerSource)
+  if(NOT RBLXBUILD_Fortran_COMPILER_WORKS)
+    PrintTestCompilerResult(CHECK_FAIL "broken")
+    string(REPLACE "\n" "\n  " _output "${OUTPUT}")
+    message(FATAL_ERROR "The Fortran compiler\n  \"${RBLXBUILD_Fortran_COMPILER}\"\n"
+      "is not able to compile a simple test program.\nIt fails "
+      "with the following output:\n  ${_output}\n\n"
+      "RBLXBuild will not be able to correctly generate this project.")
+  endif()
+  PrintTestCompilerResult(CHECK_PASS "works")
+endif()
+
+# Test for Fortran 90 support by using an f90-specific construct.
+if(NOT DEFINED RBLXBUILD_Fortran_COMPILER_SUPPORTS_F90)
+  message(CHECK_START "Checking whether ${RBLXBUILD_Fortran_COMPILER} supports Fortran 90")
+  set(__TestCompiler_testFortranCompilerF90Source "
+    PROGRAM TESTFortran90
+    integer stop ; stop = 1 ; do while ( stop .eq. 0 ) ; end do
+    END PROGRAM TESTFortran90
+")
+  try_compile(RBLXBUILD_Fortran_COMPILER_SUPPORTS_F90
+    SOURCE_FROM_VAR testFortranCompilerF90.f90 __TestCompiler_testFortranCompilerF90Source
+    OUTPUT_VARIABLE OUTPUT)
+  unset(__TestCompiler_testFortranCompilerF90Source)
+  if(RBLXBUILD_Fortran_COMPILER_SUPPORTS_F90)
+    message(CHECK_PASS "yes")
+    set(RBLXBUILD_Fortran_COMPILER_SUPPORTS_F90 1)
+  else()
+    message(CHECK_FAIL "no")
+    set(RBLXBUILD_Fortran_COMPILER_SUPPORTS_F90 0)
+  endif()
+  unset(RBLXBUILD_Fortran_COMPILER_SUPPORTS_F90 CACHE)
+endif()
+
+# Re-configure to save learned information.
+configure_file(
+  ${RBLXBUILD_ROOT}/Modules/RBLXBuildFortranCompiler.rblxbuild.in
+  ${RBLXBUILD_PLATFORM_INFO_DIR}/RBLXBuildFortranCompiler.rblxbuild
+  @ONLY
+  )
+include(${RBLXBUILD_PLATFORM_INFO_DIR}/RBLXBuildFortranCompiler.rblxbuild)
+
+if(RBLXBUILD_Fortran_SIZEOF_DATA_PTR)
+  foreach(f ${RBLXBUILD_Fortran_ABI_FILES})
+    include(${f})
+  endforeach()
+  unset(RBLXBUILD_Fortran_ABI_FILES)
+endif()

@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmFindBase.h"
 
 #include <algorithm>
@@ -14,7 +14,7 @@
 #include <cmext/algorithm>
 #include <cmext/string_view>
 
-#include "cmCMakePath.h"
+#include "cmRBLXBuildPath.h"
 #include "cmConfigureLog.h"
 #include "cmExecutionStatus.h"
 #include "cmList.h"
@@ -30,7 +30,7 @@
 #include "cmSystemTools.h"
 #include "cmValue.h"
 #include "cmWindowsRegistry.h"
-#include "cmake.h"
+#include "rblxbuild.h"
 
 cmFindBase::cmFindBase(std::string findCommandName, cmExecutionStatus& status)
   : cmFindCommon(status)
@@ -197,7 +197,7 @@ bool cmFindBase::ParseArguments(std::vector<std::string> const& argsIn)
     } else if (this->CheckCommonArgument(args[j])) {
       doing = DoingNone;
     } else {
-      // Some common arguments were accidentally supported by CMake
+      // Some common arguments were accidentally supported by RBLXBuild
       // 2.4 and 2.6.0 in the short-hand form of the command, so we
       // must support it even though it is not documented.
       if (doing == DoingNames) {
@@ -213,7 +213,7 @@ bool cmFindBase::ParseArguments(std::vector<std::string> const& argsIn)
   }
 
   if (!haveRequiredOrOptional) {
-    this->Required = this->Makefile->IsOn("CMAKE_FIND_REQUIRED");
+    this->Required = this->Makefile->IsOn("RBLXBUILD_FIND_REQUIRED");
   }
 
   if (this->VariableDocumentation.empty()) {
@@ -261,7 +261,7 @@ bool cmFindBase::Validate(std::string const& path) const
   static_cast<void>(polScope);
 
   auto resultName =
-    cmStrCat("CMAKE_"_s, cmSystemTools::UpperCase(this->FindCommandName),
+    cmStrCat("RBLXBUILD_"_s, cmSystemTools::UpperCase(this->FindCommandName),
              "_VALIDATOR_STATUS"_s);
 
   this->Makefile->AddDefinitionBool(resultName, true);
@@ -284,11 +284,11 @@ void cmFindBase::ExpandPaths()
     if (!this->NoPackageRootPath) {
       this->FillPackageRootPath();
     }
-    if (!this->NoCMakePath) {
-      this->FillCMakeVariablePath();
+    if (!this->NoRBLXBuildPath) {
+      this->FillRBLXBuildVariablePath();
     }
-    if (!this->NoCMakeEnvironmentPath) {
-      this->FillCMakeEnvironmentPath();
+    if (!this->NoRBLXBuildEnvironmentPath) {
+      this->FillRBLXBuildEnvironmentPath();
     }
   }
   this->FillUserHintsPath();
@@ -296,26 +296,26 @@ void cmFindBase::ExpandPaths()
     if (!this->NoSystemEnvironmentPath) {
       this->FillSystemEnvironmentPath();
     }
-    if (!this->NoCMakeSystemPath) {
-      this->FillCMakeSystemVariablePath();
+    if (!this->NoRBLXBuildSystemPath) {
+      this->FillRBLXBuildSystemVariablePath();
     }
   }
   this->FillUserGuessPath();
 }
 
-void cmFindBase::FillCMakeEnvironmentPath()
+void cmFindBase::FillRBLXBuildEnvironmentPath()
 {
-  cmSearchPath& paths = this->LabeledPaths[PathLabel::CMakeEnvironment];
+  cmSearchPath& paths = this->LabeledPaths[PathLabel::RBLXBuildEnvironment];
 
-  // Add CMAKE_*_PATH environment variables
-  std::string var = cmStrCat("CMAKE_", this->CMakePathName, "_PATH");
-  paths.AddEnvPrefixPath("CMAKE_PREFIX_PATH");
+  // Add RBLXBUILD_*_PATH environment variables
+  std::string var = cmStrCat("RBLXBUILD_", this->RBLXBuildPathName, "_PATH");
+  paths.AddEnvPrefixPath("RBLXBUILD_PREFIX_PATH");
   paths.AddEnvPath(var);
 
-  if (this->CMakePathName == "PROGRAM") {
-    paths.AddEnvPath("CMAKE_APPBUNDLE_PATH");
+  if (this->RBLXBuildPathName == "PROGRAM") {
+    paths.AddEnvPath("RBLXBUILD_APPBUNDLE_PATH");
   } else {
-    paths.AddEnvPath("CMAKE_FRAMEWORK_PATH");
+    paths.AddEnvPath("RBLXBUILD_FRAMEWORK_PATH");
   }
   paths.AddSuffixes(this->SearchPathSuffixes);
 }
@@ -333,21 +333,21 @@ void cmFindBase::FillPackageRootPath()
   paths.AddSuffixes(this->SearchPathSuffixes);
 }
 
-void cmFindBase::FillCMakeVariablePath()
+void cmFindBase::FillRBLXBuildVariablePath()
 {
-  cmSearchPath& paths = this->LabeledPaths[PathLabel::CMake];
+  cmSearchPath& paths = this->LabeledPaths[PathLabel::RBLXBuild];
 
-  // Add CMake variables of the same name as the previous environment
-  // variables CMAKE_*_PATH to be used most of the time with -D
+  // Add RBLXBuild variables of the same name as the previous environment
+  // variables RBLXBUILD_*_PATH to be used most of the time with -D
   // command line options
-  std::string var = cmStrCat("CMAKE_", this->CMakePathName, "_PATH");
-  paths.AddCMakePrefixPath("CMAKE_PREFIX_PATH");
-  paths.AddCMakePath(var);
+  std::string var = cmStrCat("RBLXBUILD_", this->RBLXBuildPathName, "_PATH");
+  paths.AddRBLXBuildPrefixPath("RBLXBUILD_PREFIX_PATH");
+  paths.AddRBLXBuildPath(var);
 
-  if (this->CMakePathName == "PROGRAM") {
-    paths.AddCMakePath("CMAKE_APPBUNDLE_PATH");
+  if (this->RBLXBuildPathName == "PROGRAM") {
+    paths.AddRBLXBuildPath("RBLXBUILD_APPBUNDLE_PATH");
   } else {
-    paths.AddCMakePath("CMAKE_FRAMEWORK_PATH");
+    paths.AddRBLXBuildPath("RBLXBUILD_FRAMEWORK_PATH");
   }
   paths.AddSuffixes(this->SearchPathSuffixes);
 }
@@ -371,11 +371,11 @@ struct entry_to_remove
   entry_to_remove(std::string const& name, cmMakefile* makefile)
   {
     if (cmValue to_skip = makefile->GetDefinition(
-          cmStrCat("_CMAKE_SYSTEM_PREFIX_PATH_", name, "_PREFIX_COUNT"))) {
+          cmStrCat("_RBLXBUILD_SYSTEM_PREFIX_PATH_", name, "_PREFIX_COUNT"))) {
       cmStrToLong(*to_skip, &count);
     }
     if (cmValue prefix_value = makefile->GetDefinition(
-          cmStrCat("_CMAKE_SYSTEM_PREFIX_PATH_", name, "_PREFIX_VALUE"))) {
+          cmStrCat("_RBLXBUILD_SYSTEM_PREFIX_PATH_", name, "_PREFIX_VALUE"))) {
       value = *prefix_value;
     }
   }
@@ -403,36 +403,36 @@ struct entry_to_remove
 };
 }
 
-void cmFindBase::FillCMakeSystemVariablePath()
+void cmFindBase::FillRBLXBuildSystemVariablePath()
 {
-  cmSearchPath& paths = this->LabeledPaths[PathLabel::CMakeSystem];
+  cmSearchPath& paths = this->LabeledPaths[PathLabel::RBLXBuildSystem];
 
   bool const install_prefix_in_list =
-    !this->Makefile->IsOn("CMAKE_FIND_NO_INSTALL_PREFIX");
-  bool const remove_install_prefix = this->NoCMakeInstallPath;
-  bool const add_install_prefix = !this->NoCMakeInstallPath &&
-    this->Makefile->IsDefinitionSet("CMAKE_FIND_USE_INSTALL_PREFIX");
+    !this->Makefile->IsOn("RBLXBUILD_FIND_NO_INSTALL_PREFIX");
+  bool const remove_install_prefix = this->NoRBLXBuildInstallPath;
+  bool const add_install_prefix = !this->NoRBLXBuildInstallPath &&
+    this->Makefile->IsDefinitionSet("RBLXBUILD_FIND_USE_INSTALL_PREFIX");
 
-  // We have 3 possible states for `CMAKE_SYSTEM_PREFIX_PATH` and
-  // `CMAKE_INSTALL_PREFIX`.
-  // Either we need to remove `CMAKE_INSTALL_PREFIX`, add
-  // `CMAKE_INSTALL_PREFIX`, or do nothing.
+  // We have 3 possible states for `RBLXBUILD_SYSTEM_PREFIX_PATH` and
+  // `RBLXBUILD_INSTALL_PREFIX`.
+  // Either we need to remove `RBLXBUILD_INSTALL_PREFIX`, add
+  // `RBLXBUILD_INSTALL_PREFIX`, or do nothing.
   //
-  // When we need to remove `CMAKE_INSTALL_PREFIX` we remove the Nth occurrence
-  // of `CMAKE_INSTALL_PREFIX` from `CMAKE_SYSTEM_PREFIX_PATH`, where `N` is
-  // computed by `CMakeSystemSpecificInformation.cmake` while constructing
-  // `CMAKE_SYSTEM_PREFIX_PATH`. This ensures that if projects / toolchains
-  // have removed `CMAKE_INSTALL_PREFIX` from the list, we don't remove
-  // some other entry by mistake ( likewise for `CMAKE_STAGING_PREFIX` )
+  // When we need to remove `RBLXBUILD_INSTALL_PREFIX` we remove the Nth occurrence
+  // of `RBLXBUILD_INSTALL_PREFIX` from `RBLXBUILD_SYSTEM_PREFIX_PATH`, where `N` is
+  // computed by `RBLXBuildSystemSpecificInformation.rblxbuild` while constructing
+  // `RBLXBUILD_SYSTEM_PREFIX_PATH`. This ensures that if projects / toolchains
+  // have removed `RBLXBUILD_INSTALL_PREFIX` from the list, we don't remove
+  // some other entry by mistake ( likewise for `RBLXBUILD_STAGING_PREFIX` )
   entry_to_remove install_entry("INSTALL", this->Makefile);
   entry_to_remove staging_entry("STAGING", this->Makefile);
 
   if (remove_install_prefix && install_prefix_in_list &&
       (install_entry.valid() || staging_entry.valid())) {
     cmValue prefix_paths =
-      this->Makefile->GetDefinition("CMAKE_SYSTEM_PREFIX_PATH");
+      this->Makefile->GetDefinition("RBLXBUILD_SYSTEM_PREFIX_PATH");
 
-    // remove entries from CMAKE_SYSTEM_PREFIX_PATH
+    // remove entries from RBLXBUILD_SYSTEM_PREFIX_PATH
     cmList expanded{ *prefix_paths };
     install_entry.remove_self(expanded);
     staging_entry.remove_self(expanded);
@@ -442,21 +442,21 @@ void cmFindBase::FillCMakeSystemVariablePath()
     }
     paths.AddPrefixPaths(expanded);
   } else if (add_install_prefix && !install_prefix_in_list) {
-    paths.AddCMakePrefixPath("CMAKE_INSTALL_PREFIX");
-    paths.AddCMakePrefixPath("CMAKE_STAGING_PREFIX");
-    paths.AddCMakePrefixPath("CMAKE_SYSTEM_PREFIX_PATH");
+    paths.AddRBLXBuildPrefixPath("RBLXBUILD_INSTALL_PREFIX");
+    paths.AddRBLXBuildPrefixPath("RBLXBUILD_STAGING_PREFIX");
+    paths.AddRBLXBuildPrefixPath("RBLXBUILD_SYSTEM_PREFIX_PATH");
   } else {
-    // Otherwise the current setup of `CMAKE_SYSTEM_PREFIX_PATH` is correct
-    paths.AddCMakePrefixPath("CMAKE_SYSTEM_PREFIX_PATH");
+    // Otherwise the current setup of `RBLXBUILD_SYSTEM_PREFIX_PATH` is correct
+    paths.AddRBLXBuildPrefixPath("RBLXBUILD_SYSTEM_PREFIX_PATH");
   }
 
-  std::string var = cmStrCat("CMAKE_SYSTEM_", this->CMakePathName, "_PATH");
-  paths.AddCMakePath(var);
+  std::string var = cmStrCat("RBLXBUILD_SYSTEM_", this->RBLXBuildPathName, "_PATH");
+  paths.AddRBLXBuildPath(var);
 
-  if (this->CMakePathName == "PROGRAM") {
-    paths.AddCMakePath("CMAKE_SYSTEM_APPBUNDLE_PATH");
+  if (this->RBLXBuildPathName == "PROGRAM") {
+    paths.AddRBLXBuildPath("RBLXBUILD_SYSTEM_APPBUNDLE_PATH");
   } else {
-    paths.AddCMakePath("CMAKE_SYSTEM_FRAMEWORK_PATH");
+    paths.AddRBLXBuildPath("RBLXBUILD_SYSTEM_FRAMEWORK_PATH");
   }
   paths.AddSuffixes(this->SearchPathSuffixes);
 }
@@ -535,9 +535,9 @@ void cmFindBase::NormalizeFindResult()
     std::string value;
     if (!existingValue->empty()) {
       value =
-        cmCMakePath(*existingValue, cmCMakePath::auto_format)
-          .Absolute(cmCMakePath(
-            this->Makefile->GetCMakeInstance()->GetCMakeWorkingDirectory()))
+        cmRBLXBuildPath(*existingValue, cmRBLXBuildPath::auto_format)
+          .Absolute(cmRBLXBuildPath(
+            this->Makefile->GetRBLXBuildInstance()->GetRBLXBuildWorkingDirectory()))
           .Normal()
           .GenericString();
       if (!cmSystemTools::FileExists(value, false)) {
@@ -551,7 +551,7 @@ void cmFindBase::NormalizeFindResult()
       // type we should add the type and docstring but keep the original
       // value.
       if (value != *existingValue || this->AlreadyInCacheWithoutMetaInfo) {
-        this->Makefile->GetCMakeInstance()->AddCacheEntry(
+        this->Makefile->GetRBLXBuildInstance()->AddCacheEntry(
           this->VariableName, value, this->VariableDocumentation,
           this->VariableType);
         if (this->Makefile->GetPolicyStatus(cmPolicies::CMP0126) ==
@@ -576,7 +576,7 @@ void cmFindBase::NormalizeFindResult()
     // value.
     if (this->StoreResultInCache) {
       auto const& existingValue =
-        this->Makefile->GetCMakeInstance()->GetCacheDefinition(
+        this->Makefile->GetRBLXBuildInstance()->GetCacheDefinition(
           this->VariableName);
       foundValue = *existingValue;
       if (this->AlreadyInCacheWithoutMetaInfo) {
@@ -700,11 +700,11 @@ void cmFindBaseDebugState::WriteDebug() const
     buffer += "  NO_DEFAULT_PATH Enabled\n";
   } else {
     // clang-format off
-    buffer = cmStrCat(std::move(buffer), "  CMAKE_FIND_USE_CMAKE_PATH: ", !this->FindCommand->NoCMakePath,
-    "\n  CMAKE_FIND_USE_CMAKE_ENVIRONMENT_PATH: ", !this->FindCommand->NoCMakeEnvironmentPath,
-    "\n  CMAKE_FIND_USE_SYSTEM_ENVIRONMENT_PATH: ", !this->FindCommand->NoSystemEnvironmentPath,
-    "\n  CMAKE_FIND_USE_CMAKE_SYSTEM_PATH: ", !this->FindCommand->NoCMakeSystemPath,
-    "\n  CMAKE_FIND_USE_INSTALL_PREFIX: ", !this->FindCommand->NoCMakeInstallPath,
+    buffer = cmStrCat(std::move(buffer), "  RBLXBUILD_FIND_USE_RBLXBUILD_PATH: ", !this->FindCommand->NoRBLXBuildPath,
+    "\n  RBLXBUILD_FIND_USE_RBLXBUILD_ENVIRONMENT_PATH: ", !this->FindCommand->NoRBLXBuildEnvironmentPath,
+    "\n  RBLXBUILD_FIND_USE_SYSTEM_ENVIRONMENT_PATH: ", !this->FindCommand->NoSystemEnvironmentPath,
+    "\n  RBLXBUILD_FIND_USE_RBLXBUILD_SYSTEM_PATH: ", !this->FindCommand->NoRBLXBuildSystemPath,
+    "\n  RBLXBUILD_FIND_USE_INSTALL_PREFIX: ", !this->FindCommand->NoRBLXBuildInstallPath,
     '\n');
     // clang-format on
   }
@@ -729,7 +729,7 @@ void cmFindBaseDebugState::WriteDebug() const
   this->FindCommand->DebugMessage(buffer);
 }
 
-#ifndef CMAKE_BOOTSTRAP
+#ifndef RBLXBUILD_BOOTSTRAP
 void cmFindBaseDebugState::WriteEvent(cmConfigureLog& log,
                                       cmMakefile const& mf) const
 {
@@ -758,16 +758,16 @@ void cmFindBaseDebugState::WriteEvent(cmConfigureLog& log,
                  search_opt_to_str(this->FindCommand->SearchAppBundleFirst,
                                    this->FindCommand->SearchAppBundleLast,
                                    this->FindCommand->SearchAppBundleOnly));
-  log.WriteValue("CMAKE_FIND_USE_CMAKE_PATH"_s,
-                 !this->FindCommand->NoCMakePath);
-  log.WriteValue("CMAKE_FIND_USE_CMAKE_ENVIRONMENT_PATH"_s,
-                 !this->FindCommand->NoCMakeEnvironmentPath);
-  log.WriteValue("CMAKE_FIND_USE_SYSTEM_ENVIRONMENT_PATH"_s,
+  log.WriteValue("RBLXBUILD_FIND_USE_RBLXBUILD_PATH"_s,
+                 !this->FindCommand->NoRBLXBuildPath);
+  log.WriteValue("RBLXBUILD_FIND_USE_RBLXBUILD_ENVIRONMENT_PATH"_s,
+                 !this->FindCommand->NoRBLXBuildEnvironmentPath);
+  log.WriteValue("RBLXBUILD_FIND_USE_SYSTEM_ENVIRONMENT_PATH"_s,
                  !this->FindCommand->NoSystemEnvironmentPath);
-  log.WriteValue("CMAKE_FIND_USE_CMAKE_SYSTEM_PATH"_s,
-                 !this->FindCommand->NoCMakeSystemPath);
-  log.WriteValue("CMAKE_FIND_USE_INSTALL_PREFIX"_s,
-                 !this->FindCommand->NoCMakeInstallPath);
+  log.WriteValue("RBLXBUILD_FIND_USE_RBLXBUILD_SYSTEM_PATH"_s,
+                 !this->FindCommand->NoRBLXBuildSystemPath);
+  log.WriteValue("RBLXBUILD_FIND_USE_INSTALL_PREFIX"_s,
+                 !this->FindCommand->NoRBLXBuildInstallPath);
   log.EndObject();
 
   if (!this->FindBaseCommand->Names.empty()) {

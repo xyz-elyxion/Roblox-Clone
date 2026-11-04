@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-file LICENSE.rst or https://cmake.org/licensing for details.  */
+file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmFileAPICommand.h"
 
 #include <algorithm>
@@ -20,7 +20,7 @@ file LICENSE.rst or https://cmake.org/licensing for details.  */
 #include "cmRange.h"
 #include "cmStringAlgorithms.h"
 #include "cmSubcommandTable.h"
-#include "cmake.h"
+#include "rblxbuild.h"
 
 namespace {
 
@@ -57,7 +57,7 @@ std::string processObjectKindVersions(cmFileAPI& fileApi,
     }
   }
   return cmStrCat("None of the specified ", keyword,
-                  " versions is supported by this version of CMake.");
+                  " versions is supported by this version of RBLXBuild.");
 }
 
 bool handleQueryCommand(std::vector<std::string> const& args,
@@ -73,7 +73,7 @@ bool handleQueryCommand(std::vector<std::string> const& args,
     ArgumentParser::NonEmpty<std::string> ApiVersion;
     ArgumentParser::NonEmpty<std::vector<std::string>> CodeModelVersions;
     ArgumentParser::NonEmpty<std::vector<std::string>> CacheVersions;
-    ArgumentParser::NonEmpty<std::vector<std::string>> CMakeFilesVersions;
+    ArgumentParser::NonEmpty<std::vector<std::string>> RBLXBuildFilesVersions;
     ArgumentParser::NonEmpty<std::vector<std::string>> ToolchainsVersions;
   };
 
@@ -82,7 +82,7 @@ bool handleQueryCommand(std::vector<std::string> const& args,
       .Bind("API_VERSION"_s, &Arguments::ApiVersion)
       .Bind("CODEMODEL"_s, &Arguments::CodeModelVersions)
       .Bind("CACHE"_s, &Arguments::CacheVersions)
-      .Bind("CMAKEFILES"_s, &Arguments::CMakeFilesVersions)
+      .Bind("RBLXBUILDFILES"_s, &Arguments::RBLXBuildFilesVersions)
       .Bind("TOOLCHAINS"_s, &Arguments::ToolchainsVersions);
 
   std::vector<std::string> unparsedArguments;
@@ -112,7 +112,7 @@ bool handleQueryCommand(std::vector<std::string> const& args,
   }
 
   cmMakefile& mf = status.GetMakefile();
-  cmake* cmi = mf.GetCMakeInstance();
+  rblxbuild* cmi = mf.GetRBLXBuildInstance();
   cmFileAPI* fileApi = cmi->GetFileAPI();
 
   // We want to check all keywords and report all errors, not just the first.
@@ -125,8 +125,8 @@ bool handleQueryCommand(std::vector<std::string> const& args,
                                 "CODEMODEL"_s, arguments.CodeModelVersions),
       processObjectKindVersions(*fileApi, cmFileAPI::ObjectKind::Cache,
                                 "CACHE"_s, arguments.CacheVersions),
-      processObjectKindVersions(*fileApi, cmFileAPI::ObjectKind::CMakeFiles,
-                                "CMAKEFILES"_s, arguments.CMakeFilesVersions),
+      processObjectKindVersions(*fileApi, cmFileAPI::ObjectKind::RBLXBuildFiles,
+                                "RBLXBUILDFILES"_s, arguments.RBLXBuildFilesVersions),
       processObjectKindVersions(*fileApi, cmFileAPI::ObjectKind::Toolchains,
                                 "TOOLCHAINS"_s, arguments.ToolchainsVersions) }
   };

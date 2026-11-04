@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmCursesLongMessageForm.h"
 
 #include <cstdio>
@@ -85,8 +85,8 @@ void cmCursesLongMessageForm::UpdateStatusBar()
 
   char version[cmCursesMainForm::MAX_WIDTH];
   char vertmp[128];
-  snprintf(vertmp, sizeof(vertmp), "CMake Version %s",
-           cmVersion::GetCMakeVersion());
+  snprintf(vertmp, sizeof(vertmp), "RBLXBuild Version %s",
+           cmVersion::GetRBLXBuildVersion());
   size_t sideSpace = (width - strlen(vertmp));
   for (size_t i = 0; i < sideSpace; i++) {
     version[i] = ' ';

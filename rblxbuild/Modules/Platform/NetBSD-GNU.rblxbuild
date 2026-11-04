@@ -1,0 +1,16 @@
+# Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
+# file LICENSE.rst or https://rblxbuild.org/licensing for details.
+
+include_guard()
+
+macro(__netbsd_compiler_gnu lang)
+  # linker selection
+  set(RBLXBUILD_${lang}_USING_LINKER_SYSTEM "")
+  set(RBLXBUILD_${lang}_USING_LINKER_LLD "-fuse-ld=lld")
+  set(RBLXBUILD_${lang}_USING_LINKER_BFD "-fuse-ld=bfd")
+  set(RBLXBUILD_${lang}_USING_LINKER_GOLD "-fuse-ld=gold")
+  if(NOT RBLXBUILD_${lang}_COMPILER_ID STREQUAL "GNU"
+      OR RBLXBUILD_${lang}_COMPILER_VERSION VERSION_GREATER_EQUAL "12.1")
+    set(RBLXBUILD_${lang}_USING_LINKER_MOLD "-fuse-ld=mold")
+  endif()
+endmacro()

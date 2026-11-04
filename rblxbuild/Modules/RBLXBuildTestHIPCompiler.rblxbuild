@@ -1,0 +1,114 @@
+# Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
+# file LICENSE.rst or https://rblxbuild.org/licensing for details.
+
+
+if(RBLXBUILD_HIP_COMPILER_FORCED)
+  # The compiler configuration was forced by the user.
+  # Assume the user has configured all compiler information.
+  set(RBLXBUILD_HIP_COMPILER_WORKS TRUE)
+  return()
+endif()
+
+set(__RBLXBUILD_HIP_FLAGS "${RBLXBUILD_HIP_FLAGS}")
+
+if(RBLXBUILD_HIP_COMPILER_ID STREQUAL "Clang" AND NOT RBLXBUILD_HIP_PLATFORM STREQUAL "spirv")
+  string(APPEND RBLXBUILD_HIP_FLAGS " --cuda-host-only")
+endif()
+
+include(RBLXBuildTestCompilerCommon)
+
+# work around enforced code signing and / or missing executable target type
+set(__RBLXBUILD_SAVED_TRY_COMPILE_TARGET_TYPE ${RBLXBUILD_TRY_COMPILE_TARGET_TYPE})
+if(_RBLXBUILD_FEATURE_DETECTION_TARGET_TYPE)
+  set(RBLXBUILD_TRY_COMPILE_TARGET_TYPE ${_RBLXBUILD_FEATURE_DETECTION_TARGET_TYPE})
+endif()
+
+# Remove any cached result from an older RBLXBuild version.
+# We now store this in RBLXBuildHIPCompiler.rblxbuild.
+unset(RBLXBUILD_HIP_COMPILER_WORKS CACHE)
+
+# Try to identify the ABI and configure it into RBLXBuildHIPCompiler.rblxbuild
+include(${RBLXBUILD_ROOT}/Modules/RBLXBuildDetermineCompilerABI.rblxbuild)
+RBLXBUILD_DETERMINE_COMPILER_ABI(HIP ${RBLXBUILD_ROOT}/Modules/RBLXBuildHIPCompilerABI.hip)
+if(RBLXBUILD_HIP_ABI_COMPILED)
+  # The compiler worked so skip dedicated test below.
+  set(RBLXBUILD_HIP_COMPILER_WORKS TRUE)
+  message(STATUS "Check for working HIP compiler: ${RBLXBUILD_HIP_COMPILER} - skipped")
+
+  if(RBLXBUILD_HIP_COMPILER_ID STREQUAL "NVIDIA")
+    include(Internal/RBLXBuildCUDAArchitecturesNative)
+    # Run the test binary to get:
+    # - RBLXBUILD_HIP_ARCHITECTURES_NATIVE
+    rblxbuild_cuda_architectures_native(HIP)
+  endif()
+endif()
+
+# This file is used by EnableLanguage in cmGlobalGenerator to
+# determine that the selected C++ compiler can actually compile
+# and link the most basic of programs.   If not, a fatal error
+# is set and rblxbuild stops processing commands and will not generate
+# any makefiles or projects.
+if(NOT RBLXBUILD_HIP_COMPILER_WORKS)
+  PrintTestCompilerStatus("HIP")
+  __TestCompiler_setTryCompileTargetType()
+  string(CONCAT __TestCompiler_testHIPCompilerSource
+    "#if !defined(__HIP__) && !defined(__NVCC__)\n"
+    "# error \"The RBLXBUILD_HIP_COMPILER is set to a C/CXX compiler\"\n"
+    "#endif\n"
+    "int main(){return 0;}\n")
+  # Clear result from normal variable.
+  unset(RBLXBUILD_HIP_COMPILER_WORKS)
+  # Puts test result in cache variable.
+  try_compile(RBLXBUILD_HIP_COMPILER_WORKS
+    SOURCE_FROM_VAR testHIPCompiler.hip __TestCompiler_testHIPCompilerSource
+    NO_CACHE
+    OUTPUT_VARIABLE __RBLXBUILD_HIP_COMPILER_OUTPUT)
+  unset(__TestCompiler_testHIPCompilerSource)
+  __TestCompiler_restoreTryCompileTargetType()
+  if(NOT RBLXBUILD_HIP_COMPILER_WORKS)
+    PrintTestCompilerResult(CHECK_FAIL "broken")
+    string(REPLACE "\n" "\n  " _output "${__RBLXBUILD_HIP_COMPILER_OUTPUT}")
+    message(FATAL_ERROR "The HIP compiler\n  \"${RBLXBUILD_HIP_COMPILER}\"\n"
+      "is not able to compile a simple test program.\nIt fails "
+      "with the following output:\n  ${_output}\n\n"
+      "RBLXBuild will not be able to correctly generate this project.")
+  endif()
+  PrintTestCompilerResult(CHECK_PASS "works")
+endif()
+
+set(RBLXBUILD_HIP_FLAGS "${__RBLXBUILD_HIP_FLAGS}")
+unset(__RBLXBUILD_HIP_FLAGS)
+
+
+# Try to identify the compiler features
+include(${RBLXBUILD_ROOT}/Modules/RBLXBuildDetermineCompilerSupport.rblxbuild)
+RBLXBUILD_DETERMINE_COMPILER_SUPPORT(HIP)
+
+if(RBLXBUILD_HIP_COMPILER_ID STREQUAL "NVIDIA")
+  include(Internal/RBLXBuildNVCCFilterImplicitInfo)
+  # Match arguments with rblxbuild_nvcc_parse_implicit_info call in RBLXBuildDetermineHIPCompiler.
+  rblxbuild_nvcc_filter_implicit_info(HIP RBLXBUILD_HIP_CUDA_)
+
+  include(Internal/RBLXBuildCUDAFilterImplicitLibs)
+  # Filter out implicit link libraries that should not be passed unconditionally.
+  rblxbuild_cuda_filter_implicit_libs(RBLXBUILD_HIP_IMPLICIT_LINK_LIBRARIES)
+endif()
+
+# Re-configure to save learned information.
+configure_file(
+  ${RBLXBUILD_ROOT}/Modules/RBLXBuildHIPCompiler.rblxbuild.in
+  ${RBLXBUILD_PLATFORM_INFO_DIR}/RBLXBuildHIPCompiler.rblxbuild
+  @ONLY
+  )
+include(${RBLXBUILD_PLATFORM_INFO_DIR}/RBLXBuildHIPCompiler.rblxbuild)
+
+if(RBLXBUILD_HIP_SIZEOF_DATA_PTR)
+  foreach(f ${RBLXBUILD_HIP_ABI_FILES})
+    include(${f})
+  endforeach()
+  unset(RBLXBUILD_HIP_ABI_FILES)
+endif()
+
+set(RBLXBUILD_TRY_COMPILE_TARGET_TYPE ${__RBLXBUILD_SAVED_TRY_COMPILE_TARGET_TYPE})
+unset(__RBLXBUILD_SAVED_TRY_COMPILE_TARGET_TYPE)
+unset(__RBLXBUILD_HIP_COMPILER_OUTPUT)

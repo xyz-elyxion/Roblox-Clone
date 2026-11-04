@@ -1,0 +1,42 @@
+# This module is shared by multiple languages; use include blocker.
+include_guard()
+
+set(RBLXBUILD_BUILD_TYPE_INIT Debug)
+
+if(DEFINED RBLXBUILD_SYSTEM_PROCESSOR AND RBLXBUILD_SYSTEM_PROCESSOR STREQUAL "I86")
+  string(APPEND RBLXBUILD_EXE_LINKER_FLAGS_INIT " system os2")
+  string(APPEND RBLXBUILD_SHARED_LINKER_FLAGS_INIT " system os2_dll")
+  string(APPEND RBLXBUILD_MODULE_LINKER_FLAGS_INIT " system os2_dll")
+else()
+  string(APPEND RBLXBUILD_EXE_LINKER_FLAGS_INIT " system os2v2")
+  string(APPEND RBLXBUILD_SHARED_LINKER_FLAGS_INIT " system os2v2_dll")
+  string(APPEND RBLXBUILD_MODULE_LINKER_FLAGS_INIT " system os2v2_dll")
+endif()
+
+set(RBLXBUILD_C_COMPILE_OPTIONS_DLL "-bd") # Note: This variable is a ';' separated list
+set(RBLXBUILD_SHARED_LIBRARY_C_FLAGS "-bd") # ... while this is a space separated string.
+
+rblxbuild_policy(GET CMP0136 __OS2_WATCOM_CMP0136)
+if(__OS2_WATCOM_CMP0136 STREQUAL "NEW")
+  set(RBLXBUILD_WATCOM_RUNTIME_LIBRARY_DEFAULT "SingleThreaded")
+else()
+  set(RBLXBUILD_WATCOM_RUNTIME_LIBRARY_DEFAULT "")
+endif()
+unset(__OS2_WATCOM_CMP0136)
+
+string(APPEND RBLXBUILD_C_FLAGS_INIT " -bt=os2")
+string(APPEND RBLXBUILD_CXX_FLAGS_INIT " -bt=os2 -xs")
+
+macro(__os2_open_watcom lang)
+  if(NOT RBLXBUILD_${lang}_STANDARD_INCLUDE_DIRECTORIES)
+    if(DEFINED RBLXBUILD_SYSTEM_PROCESSOR AND RBLXBUILD_SYSTEM_PROCESSOR STREQUAL "I86")
+      set(RBLXBUILD_${lang}_STANDARD_INCLUDE_DIRECTORIES $ENV{WATCOM}/h $ENV{WATCOM}/h/os21x)
+    else()
+      set(RBLXBUILD_${lang}_STANDARD_INCLUDE_DIRECTORIES $ENV{WATCOM}/h $ENV{WATCOM}/h/os2)
+    endif()
+  endif()
+  set(RBLXBUILD_${lang}_COMPILE_OPTIONS_WATCOM_RUNTIME_LIBRARY_SingleThreaded         "")
+  set(RBLXBUILD_${lang}_COMPILE_OPTIONS_WATCOM_RUNTIME_LIBRARY_SingleThreadedDLL      -br)
+  set(RBLXBUILD_${lang}_COMPILE_OPTIONS_WATCOM_RUNTIME_LIBRARY_MultiThreaded          -bm)
+  set(RBLXBUILD_${lang}_COMPILE_OPTIONS_WATCOM_RUNTIME_LIBRARY_MultiThreadedDLL       -bm -br)
+endmacro()

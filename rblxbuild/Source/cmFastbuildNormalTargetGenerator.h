@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #pragma once
 
 #include <map>
@@ -22,7 +22,7 @@ class cmFastbuildNormalTargetGenerator : public cmFastbuildTargetGenerator
   std::unique_ptr<cmRulePlaceholderExpander> const RulePlaceholderExpander;
   std::string const ObjectOutDir;
   std::set<std::string> const Languages;
-  std::unordered_map<std::string, std::string> const CompileObjectCmakeRules;
+  std::unordered_map<std::string, std::string> const CompileObjectRblxbuildRules;
   std::string const CudaCompileMode;
 
   // Now we're adding our link deps to command line and using .Libraries2 for
@@ -48,7 +48,7 @@ private:
   std::set<std::string> GetLanguages();
   // Returns mapping from language to command how to compile object file for
   // the it.
-  // Example return value: {"CXX" : "<CMAKE_CXX_COMPILER> <DEFINES> <INCLUDES>
+  // Example return value: {"CXX" : "<RBLXBUILD_CXX_COMPILER> <DEFINES> <INCLUDES>
   // <FLAGS> -o <OBJECT> -c <SOURCE>" }
   std::unordered_map<std::string, std::string> GetCompileObjectCommand() const;
   std::string GetCudaCompileMode() const;
@@ -56,7 +56,7 @@ private:
 
   void AddCompilerLaunchersForLanguages();
   void AddLinkerLauncher();
-  void AddCMakeLauncher();
+  void AddRBLXBuildLauncher();
 
   void ComputePaths(FastbuildTarget& fastbuildTarget) const;
 

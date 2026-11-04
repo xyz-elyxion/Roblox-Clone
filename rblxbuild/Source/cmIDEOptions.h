@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #pragma once
 
 #include "cmConfigure.h" // IWYU pragma: keep
@@ -45,8 +45,8 @@ protected:
   // for example, "BufferSecurityCheck" = "TRUE"
   // first fill this table with the values for the configuration
   // Debug, Release, etc,
-  // Then parse the command line flags specified in CMAKE_CXX_FLAGS
-  // and CMAKE_C_FLAGS
+  // Then parse the command line flags specified in RBLXBUILD_CXX_FLAGS
+  // and RBLXBUILD_C_FLAGS
   // and overwrite or add new values to this map
   class FlagValue : public std::vector<std::string>
   {

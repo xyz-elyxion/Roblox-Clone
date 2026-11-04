@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmBuildDatabase.h"
 
 #include <cstdlib>
@@ -30,7 +30,7 @@
 
 namespace {
 
-std::string PlaceholderName = "<__CMAKE_UNKNOWN>";
+std::string PlaceholderName = "<__RBLXBUILD_UNKNOWN>";
 
 }
 
@@ -155,7 +155,7 @@ static bool ParseFilename(Json::Value const& val, std::string& result)
 #define PARSE_BLOB(val, res)                                                  \
   do {                                                                        \
     if (!ParseFilename(val, res)) {                                           \
-      cmSystemTools::Error(cmStrCat("-E cmake_module_compile_db failed to ",  \
+      cmSystemTools::Error(cmStrCat("-E rblxbuild_module_compile_db failed to ",  \
                                     "parse ", path, ": invalid blob"));       \
       return {};                                                              \
     }                                                                         \
@@ -164,7 +164,7 @@ static bool ParseFilename(Json::Value const& val, std::string& result)
 #define PARSE_FILENAME(val, res, make_full)                                   \
   do {                                                                        \
     if (!ParseFilename(val, res)) {                                           \
-      cmSystemTools::Error(cmStrCat("-E cmake_module_compile_db failed to ",  \
+      cmSystemTools::Error(cmStrCat("-E rblxbuild_module_compile_db failed to ",  \
                                     "parse ", path, ": invalid filename"));   \
       return {};                                                              \
     }                                                                         \
@@ -182,7 +182,7 @@ std::unique_ptr<cmBuildDatabase> cmBuildDatabase::Load(std::string const& path)
     cmJSONState parseState(path, &mcdb);
     if (!parseState.errors.empty()) {
       cmSystemTools::Error(
-        cmStrCat("-E cmake_module_compile_db failed to parse ", path,
+        cmStrCat("-E rblxbuild_module_compile_db failed to parse ", path,
                  parseState.GetErrorMessage()));
       return {};
     }
@@ -191,7 +191,7 @@ std::unique_ptr<cmBuildDatabase> cmBuildDatabase::Load(std::string const& path)
   Json::Value const& version = mcdb["version"];
   if (version.asUInt() > 1) {
     cmSystemTools::Error(
-      cmStrCat("-E cmake_module_compile_db failed to parse ", path,
+      cmStrCat("-E rblxbuild_module_compile_db failed to parse ", path,
                ": version ", version.asString()));
     return {};
   }
@@ -206,7 +206,7 @@ std::unique_ptr<cmBuildDatabase> cmBuildDatabase::Load(std::string const& path)
       Json::Value const& name = set["name"];
       if (!name.isString()) {
         cmSystemTools::Error(
-          cmStrCat("-E cmake_module_compile_db failed to parse ", path,
+          cmStrCat("-E rblxbuild_module_compile_db failed to parse ", path,
                    ": name is not a string"));
         return {};
       }
@@ -215,7 +215,7 @@ std::unique_ptr<cmBuildDatabase> cmBuildDatabase::Load(std::string const& path)
       Json::Value const& family_name = set["family-name"];
       if (!family_name.isString()) {
         cmSystemTools::Error(
-          cmStrCat("-E cmake_module_compile_db failed to parse ", path,
+          cmStrCat("-E rblxbuild_module_compile_db failed to parse ", path,
                    ": family-name is not a string"));
         return {};
       }
@@ -224,14 +224,14 @@ std::unique_ptr<cmBuildDatabase> cmBuildDatabase::Load(std::string const& path)
       Json::Value const& visible_sets = set["visible-sets"];
       if (!visible_sets.isArray()) {
         cmSystemTools::Error(
-          cmStrCat("-E cmake_module_compile_db failed to parse ", path,
+          cmStrCat("-E rblxbuild_module_compile_db failed to parse ", path,
                    ": visible-sets is not an array"));
         return {};
       }
       for (auto const& visible_set : visible_sets) {
         if (!visible_set.isString()) {
           cmSystemTools::Error(
-            cmStrCat("-E cmake_module_compile_db failed to parse ", path,
+            cmStrCat("-E rblxbuild_module_compile_db failed to parse ", path,
                      ": a visible-sets item is not a string"));
           return {};
         }
@@ -242,14 +242,14 @@ std::unique_ptr<cmBuildDatabase> cmBuildDatabase::Load(std::string const& path)
       Json::Value const& translation_units = set["translation-units"];
       if (!translation_units.isArray()) {
         cmSystemTools::Error(
-          cmStrCat("-E cmake_module_compile_db failed to parse ", path,
+          cmStrCat("-E rblxbuild_module_compile_db failed to parse ", path,
                    ": translation-units is not an array"));
         return {};
       }
       for (auto const& translation_unit : translation_units) {
         if (!translation_unit.isObject()) {
           cmSystemTools::Error(
-            cmStrCat("-E cmake_module_compile_db failed to parse ", path,
+            cmStrCat("-E rblxbuild_module_compile_db failed to parse ", path,
                      ": a translation-units item is not an object"));
           return {};
         }
@@ -263,7 +263,7 @@ std::unique_ptr<cmBuildDatabase> cmBuildDatabase::Load(std::string const& path)
           work_directory = TranslationUnit_.WorkDirectory;
         } else if (!workdir.isNull()) {
           cmSystemTools::Error(
-            cmStrCat("-E cmake_module_compile_db failed to parse ", path,
+            cmStrCat("-E rblxbuild_module_compile_db failed to parse ", path,
                      ": work-directory is not a string"));
           return {};
         }
@@ -283,7 +283,7 @@ std::unique_ptr<cmBuildDatabase> cmBuildDatabase::Load(std::string const& path)
           Json::Value const& priv = translation_unit["private"];
           if (!priv.isBool()) {
             cmSystemTools::Error(
-              cmStrCat("-E cmake_module_compile_db failed to parse ", path,
+              cmStrCat("-E rblxbuild_module_compile_db failed to parse ", path,
                        ": private is not a boolean"));
             return {};
           }
@@ -294,7 +294,7 @@ std::unique_ptr<cmBuildDatabase> cmBuildDatabase::Load(std::string const& path)
           Json::Value const& reqs = translation_unit["requires"];
           if (!reqs.isArray()) {
             cmSystemTools::Error(
-              cmStrCat("-E cmake_module_compile_db failed to parse ", path,
+              cmStrCat("-E rblxbuild_module_compile_db failed to parse ", path,
                        ": requires is not an array"));
             return {};
           }
@@ -302,7 +302,7 @@ std::unique_ptr<cmBuildDatabase> cmBuildDatabase::Load(std::string const& path)
           for (auto const& require : reqs) {
             if (!require.isString()) {
               cmSystemTools::Error(
-                cmStrCat("-E cmake_module_compile_db failed to parse ", path,
+                cmStrCat("-E rblxbuild_module_compile_db failed to parse ", path,
                          ": a requires item is not a string"));
               return {};
             }
@@ -315,7 +315,7 @@ std::unique_ptr<cmBuildDatabase> cmBuildDatabase::Load(std::string const& path)
           Json::Value const& provides = translation_unit["provides"];
           if (!provides.isObject()) {
             cmSystemTools::Error(
-              cmStrCat("-E cmake_module_compile_db failed to parse ", path,
+              cmStrCat("-E rblxbuild_module_compile_db failed to parse ", path,
                        ": provides is not an object"));
             return {};
           }
@@ -323,7 +323,7 @@ std::unique_ptr<cmBuildDatabase> cmBuildDatabase::Load(std::string const& path)
           for (auto i = provides.begin(); i != provides.end(); ++i) {
             if (!i->isString()) {
               cmSystemTools::Error(
-                cmStrCat("-E cmake_module_compile_db failed to parse ", path,
+                cmStrCat("-E rblxbuild_module_compile_db failed to parse ", path,
                          ": a provides value is not a string"));
               return {};
             }
@@ -337,7 +337,7 @@ std::unique_ptr<cmBuildDatabase> cmBuildDatabase::Load(std::string const& path)
             translation_unit["baseline-arguments"];
           if (!baseline_arguments.isArray()) {
             cmSystemTools::Error(
-              cmStrCat("-E cmake_module_compile_db failed to parse ", path,
+              cmStrCat("-E rblxbuild_module_compile_db failed to parse ", path,
                        ": baseline_arguments is not an array"));
             return {};
           }
@@ -348,7 +348,7 @@ std::unique_ptr<cmBuildDatabase> cmBuildDatabase::Load(std::string const& path)
                 baseline_argument.asString());
             } else {
               cmSystemTools::Error(
-                cmStrCat("-E cmake_module_compile_db failed to parse ", path,
+                cmStrCat("-E rblxbuild_module_compile_db failed to parse ", path,
                          ": a baseline argument is not a string"));
               return {};
             }
@@ -360,7 +360,7 @@ std::unique_ptr<cmBuildDatabase> cmBuildDatabase::Load(std::string const& path)
             translation_unit["local-arguments"];
           if (!local_arguments.isArray()) {
             cmSystemTools::Error(
-              cmStrCat("-E cmake_module_compile_db failed to parse ", path,
+              cmStrCat("-E rblxbuild_module_compile_db failed to parse ", path,
                        ": local_arguments is not an array"));
             return {};
           }
@@ -371,7 +371,7 @@ std::unique_ptr<cmBuildDatabase> cmBuildDatabase::Load(std::string const& path)
                 local_argument.asString());
             } else {
               cmSystemTools::Error(
-                cmStrCat("-E cmake_module_compile_db failed to parse ", path,
+                cmStrCat("-E rblxbuild_module_compile_db failed to parse ", path,
                          ": a local argument is not a string"));
               return {};
             }
@@ -382,7 +382,7 @@ std::unique_ptr<cmBuildDatabase> cmBuildDatabase::Load(std::string const& path)
           Json::Value const& arguments = translation_unit["arguments"];
           if (!arguments.isArray()) {
             cmSystemTools::Error(
-              cmStrCat("-E cmake_module_compile_db failed to parse ", path,
+              cmStrCat("-E rblxbuild_module_compile_db failed to parse ", path,
                        ": arguments is not an array"));
             return {};
           }
@@ -392,7 +392,7 @@ std::unique_ptr<cmBuildDatabase> cmBuildDatabase::Load(std::string const& path)
               TranslationUnit_.Arguments.emplace_back(argument.asString());
             } else {
               cmSystemTools::Error(
-                cmStrCat("-E cmake_module_compile_db failed to parse ", path,
+                cmStrCat("-E rblxbuild_module_compile_db failed to parse ", path,
                          ": an argument is not a string"));
               return {};
             }
@@ -494,7 +494,7 @@ cmBuildDatabase cmBuildDatabase::ForTarget(cmGeneratorTarget* gt,
   return db;
 }
 
-int cmcmd_cmake_module_compile_db(
+int cmcmd_rblxbuild_module_compile_db(
   std::vector<std::string>::const_iterator argBeg,
   std::vector<std::string>::const_iterator argEnd)
 {
@@ -517,7 +517,7 @@ int cmcmd_cmake_module_compile_db(
     if (next_is_output) {
       if (output) {
         cmSystemTools::Error(
-          "-E cmake_module_compile_db only supports one output file");
+          "-E rblxbuild_module_compile_db only supports one output file");
         return EXIT_FAILURE;
       }
 
@@ -530,7 +530,7 @@ int cmcmd_cmake_module_compile_db(
   }
 
   if (!command) {
-    cmSystemTools::Error("-E cmake_module_compile_db requires a subcommand");
+    cmSystemTools::Error("-E rblxbuild_module_compile_db requires a subcommand");
     return EXIT_FAILURE;
   }
 
@@ -539,7 +539,7 @@ int cmcmd_cmake_module_compile_db(
   if (*command == "verify"_s) {
     if (output) {
       cmSystemTools::Error(
-        "-E cmake_module_compile_db verify does not support an output");
+        "-E rblxbuild_module_compile_db verify does not support an output");
       return EXIT_FAILURE;
     }
 
@@ -553,7 +553,7 @@ int cmcmd_cmake_module_compile_db(
   } else if (*command == "merge"_s) {
     if (!output) {
       cmSystemTools::Error(
-        "-E cmake_module_compile_db verify requires an output");
+        "-E rblxbuild_module_compile_db verify requires an output");
       return EXIT_FAILURE;
     }
 
@@ -573,7 +573,7 @@ int cmcmd_cmake_module_compile_db(
     db.Write(*output);
   } else {
     cmSystemTools::Error(
-      cmStrCat("-E cmake_module_compile_db unknown subcommand ", *command));
+      cmStrCat("-E rblxbuild_module_compile_db unknown subcommand ", *command));
     return EXIT_FAILURE;
   }
 

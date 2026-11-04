@@ -262,11 +262,11 @@ static int uv__fs_futime(uv_fs_t* req) {
 #endif
 }
 
-#if defined(CMAKE_BOOTSTRAP) && defined(__sun) && defined(__i386)
-#  define CMAKE_NO_MKDTEMP
+#if defined(RBLXBUILD_BOOTSTRAP) && defined(__sun) && defined(__i386)
+#  define RBLXBUILD_NO_MKDTEMP
 #endif
 
-#if defined(CMAKE_NO_MKDTEMP)
+#if defined(RBLXBUILD_NO_MKDTEMP)
 static char* uv__mkdtemp_fallback(char *template) {
   if (!mktemp(template) || mkdir(template, 0700))
     return NULL;

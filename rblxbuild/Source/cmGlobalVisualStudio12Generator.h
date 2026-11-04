@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #pragma once
 
 #include "cmConfigure.h" // IWYU pragma: keep
@@ -10,13 +10,13 @@
 #include "cmGlobalVisualStudio11Generator.h"
 
 class cmMakefile;
-class cmake;
+class rblxbuild;
 
 /** \class cmGlobalVisualStudio12Generator  */
 class cmGlobalVisualStudio12Generator : public cmGlobalVisualStudio11Generator
 {
 protected:
-  cmGlobalVisualStudio12Generator(cmake* cm, std::string const& name);
+  cmGlobalVisualStudio12Generator(rblxbuild* cm, std::string const& name);
 
   bool ProcessGeneratorToolsetField(std::string const& key,
                                     std::string const& value) override;

@@ -12,10 +12,10 @@ readonly tag="v3.8.11"
 readonly shortlog=false
 readonly exact_tree_match=false
 readonly paths="
-  CMakeLists.txt
+  RBLXBuildLists.txt
   COPYING
-  CTestConfig.cmake
-  build/cmake
+  CTestConfig.rblxbuild
+  build/rblxbuild
   build/pkgconfig
   build/utils
   build/version
@@ -25,7 +25,7 @@ readonly paths="
 extract_source () {
     git_archive
     pushd "${extractdir}/${name}-reduced"
-    fromdos build/cmake/Find*.cmake
+    fromdos build/rblxbuild/Find*.rblxbuild
     echo "* -whitespace" > .gitattributes
     popd
 }

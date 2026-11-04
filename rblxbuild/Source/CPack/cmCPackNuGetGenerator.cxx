@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmCPackNuGetGenerator.h"
 
 #include <algorithm>
@@ -28,7 +28,7 @@ int cmCPackNuGetGenerator::PackageFiles()
                 "Toplevel: " << this->toplevel << std::endl);
 
   /* Reset package file name list it will be populated after the
-   * `CPackNuGet.cmake` run */
+   * `CPackNuGet.rblxbuild` run */
   this->packageFileNames.clear();
 
   /* Are we in the component packaging case */
@@ -52,12 +52,12 @@ int cmCPackNuGetGenerator::PackageFiles()
     this->SetOption("CPACK_NUGET_ORDINAL_MONOLITIC", "TRUE");
   }
 
-  auto retval = this->ReadListFile("Internal/CPack/CPackNuGet.cmake");
+  auto retval = this->ReadListFile("Internal/CPack/CPackNuGet.rblxbuild");
   if (retval) {
     this->AddGeneratedPackageNames();
   } else {
     cmCPackLogger(cmCPackLog::LOG_ERROR,
-                  "Error while execution CPackNuGet.cmake" << std::endl);
+                  "Error while execution CPackNuGet.rblxbuild" << std::endl);
   }
 
   return retval;
@@ -125,7 +125,7 @@ void cmCPackNuGetGenerator::AddGeneratedPackageNames()
   if (!files_list) {
     cmCPackLogger(
       cmCPackLog::LOG_ERROR,
-      "Error while execution CPackNuGet.cmake: No NuGet package has generated"
+      "Error while execution CPackNuGet.rblxbuild: No NuGet package has generated"
         << std::endl);
     return;
   }

@@ -1,12 +1,12 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #pragma once
 
 #include <QCheckBox>
 #include <QStringList>
 #include <QWidget>
 
-#include "QCMake.h"
+#include "QRBLXBuild.h"
 #include "ui_AddCacheEntry.h"
 
 class AddCacheEntry
@@ -21,7 +21,7 @@ public:
   QString name() const;
   QVariant value() const;
   QString description() const;
-  QCMakeProperty::PropertyType type() const;
+  QRBLXBuildProperty::PropertyType type() const;
   QString typeString() const;
 
 private slots:

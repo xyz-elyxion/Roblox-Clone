@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #pragma once
 
 #include "cmConfigure.h" // IWYU pragma: keep
@@ -48,8 +48,8 @@ public:
     User,
     // Source files for object files.
     Object,
-    // Sources representing `CMakeLists.txt` files.
-    CMakeLists,
+    // Sources representing `RBLXBuildLists.txt` files.
+    RBLXBuildLists,
     // Xcode `Info.plist` files for bundle targets.
     BundleInfoPlist,
     // Xcode source to force a link to occur with an appropriate language.
@@ -90,7 +90,7 @@ public:
   std::string const& GetSafeProperty(std::string const& prop) const;
   bool GetPropertyAsBool(std::string const& prop) const;
 
-  /** Implement getting a property when called from a CMake language
+  /** Implement getting a property when called from a RBLXBuild language
       command like get_property or get_source_file_property.  */
   cmValue GetPropertyForUser(std::string const& prop);
 
@@ -221,6 +221,6 @@ private:
   "\\.(C|F|M|c|c\\+\\+|cc|cpp|mpp|cxx|ixx|cppm|ccm|cxxm|c\\+\\+m|cu"          \
   "|f|f90|for|fpp|ftn|m|mm|rc|def|r|odl|idl|hpj|bat)$"
 
-#define CM_PCH_REGEX "cmake_pch(_[^.]+)?\\.(h|hxx)$"
+#define CM_PCH_REGEX "rblxbuild_pch(_[^.]+)?\\.(h|hxx)$"
 
 #define CM_RESOURCE_REGEX "\\.(pdf|plist|png|jpeg|jpg|storyboard|xcassets)$"

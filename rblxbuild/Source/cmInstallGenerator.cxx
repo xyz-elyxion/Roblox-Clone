@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmInstallGenerator.h"
 
 #include <algorithm>
@@ -27,7 +27,7 @@ cmInstallGenerator::cmInstallGenerator(
   std::string destination, std::vector<std::string> const& configurations,
   std::string component, MessageLevel message, bool excludeFromAll,
   bool allComponents, cmDiagnosticContext context)
-  : cmScriptGenerator("CMAKE_INSTALL_CONFIG_NAME", configurations)
+  : cmScriptGenerator("RBLXBUILD_INSTALL_CONFIG_NAME", configurations)
   , Destination(std::move(destination))
   , Component(std::move(component))
   , Message(message)
@@ -87,7 +87,7 @@ void cmInstallGenerator::AddInstallRule(
   }
   if (cmSystemTools::FileIsFullPath(dest)) {
     if (!files.empty()) {
-      os << indent << "list(APPEND CMAKE_ABSOLUTE_DESTINATION_FILES\n";
+      os << indent << "list(APPEND RBLXBUILD_ABSOLUTE_DESTINATION_FILES\n";
       os << indent << " \"";
       bool firstIteration = true;
       for (std::string const& file : files) {
@@ -105,27 +105,27 @@ void cmInstallGenerator::AddInstallRule(
       os << "\")\n";
     }
     if (filesVar) {
-      os << indent << "foreach(_cmake_abs_file IN LISTS " << filesVar << ")\n";
+      os << indent << "foreach(_rblxbuild_abs_file IN LISTS " << filesVar << ")\n";
       os << indent.Next()
-         << "get_filename_component(_cmake_abs_file_name "
-            "\"${_cmake_abs_file}\" NAME)\n";
-      os << indent.Next() << "list(APPEND CMAKE_ABSOLUTE_DESTINATION_FILES \""
-         << dest << "/${_cmake_abs_file_name}\")\n";
+         << "get_filename_component(_rblxbuild_abs_file_name "
+            "\"${_rblxbuild_abs_file}\" NAME)\n";
+      os << indent.Next() << "list(APPEND RBLXBUILD_ABSOLUTE_DESTINATION_FILES \""
+         << dest << "/${_rblxbuild_abs_file_name}\")\n";
       os << indent << "endforeach()\n";
-      os << indent << "unset(_cmake_abs_file_name)\n";
-      os << indent << "unset(_cmake_abs_file)\n";
+      os << indent << "unset(_rblxbuild_abs_file_name)\n";
+      os << indent << "unset(_rblxbuild_abs_file)\n";
     }
-    os << indent << "if(CMAKE_WARN_ON_ABSOLUTE_INSTALL_DESTINATION)\n";
+    os << indent << "if(RBLXBUILD_WARN_ON_ABSOLUTE_INSTALL_DESTINATION)\n";
     os << indent.Next()
        << "message(WARNING \"ABSOLUTE path INSTALL "
-          "DESTINATION : ${CMAKE_ABSOLUTE_DESTINATION_FILES}\")\n";
+          "DESTINATION : ${RBLXBUILD_ABSOLUTE_DESTINATION_FILES}\")\n";
     os << indent << "endif()\n";
 
-    os << indent << "if(CMAKE_ERROR_ON_ABSOLUTE_INSTALL_DESTINATION)\n";
+    os << indent << "if(RBLXBUILD_ERROR_ON_ABSOLUTE_INSTALL_DESTINATION)\n";
     os << indent.Next()
        << "message(FATAL_ERROR \"ABSOLUTE path INSTALL "
           "DESTINATION forbidden (by caller): "
-          "${CMAKE_ABSOLUTE_DESTINATION_FILES}\")\n";
+          "${RBLXBUILD_ABSOLUTE_DESTINATION_FILES}\")\n";
     os << indent << "endif()\n";
   }
   std::string absDest = ConvertToAbsoluteDestination(dest);
@@ -182,16 +182,16 @@ std::string cmInstallGenerator::CreateComponentTest(
 {
   if (allComponents) {
     if (excludeFromAll) {
-      return "CMAKE_INSTALL_COMPONENT";
+      return "RBLXBUILD_INSTALL_COMPONENT";
     }
     return {};
   }
 
-  std::string result = "CMAKE_INSTALL_COMPONENT STREQUAL \"";
+  std::string result = "RBLXBUILD_INSTALL_COMPONENT STREQUAL \"";
   result += component;
   result += "\"";
   if (!excludeFromAll) {
-    result += " OR NOT CMAKE_INSTALL_COMPONENT";
+    result += " OR NOT RBLXBUILD_INSTALL_COMPONENT";
   }
 
   return result;
@@ -229,12 +229,12 @@ std::string cmInstallGenerator::ConvertToAbsoluteDestination(
   std::string const& dest)
 {
   if (dest == ".") {
-    return "${CMAKE_INSTALL_PREFIX}";
+    return "${RBLXBUILD_INSTALL_PREFIX}";
   }
 
   std::string result;
   if (!dest.empty() && !cmSystemTools::FileIsFullPath(dest)) {
-    result = "${CMAKE_INSTALL_PREFIX}/";
+    result = "${RBLXBUILD_INSTALL_PREFIX}/";
   }
   result += dest;
   return result;
@@ -258,7 +258,7 @@ cmInstallGenerator::MessageLevel cmInstallGenerator::SelectMessageLevel(
   if (never) {
     return MessageNever;
   }
-  std::string m = mf->GetSafeDefinition("CMAKE_INSTALL_MESSAGE");
+  std::string m = mf->GetSafeDefinition("RBLXBUILD_INSTALL_MESSAGE");
   if (m == "ALWAYS") {
     return MessageAlways;
   }
@@ -331,7 +331,7 @@ bool cmInstallGenerator::ResolveBuildDepends(
     return false;
   };
 
-  cmGeneratorExpression ge(*lg->GetCMakeInstance(), this->GetBacktrace());
+  cmGeneratorExpression ge(*lg->GetRBLXBuildInstance(), this->GetBacktrace());
   for (std::string const& name : names) {
     if (cmGeneratorExpression::Find(name) == std::string::npos) {
       if (!resolve(name, name, false)) {

@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include <clang-tidy/ClangTidyModule.h>
 
 #include "OstringstreamUseCmstrcatCheck.h"
@@ -11,27 +11,27 @@
 
 namespace clang {
 namespace tidy {
-namespace cmake {
-class CMakeClangTidyModule : public ClangTidyModule
+namespace rblxbuild {
+class RBLXBuildClangTidyModule : public ClangTidyModule
 {
 public:
   void addCheckFactories(ClangTidyCheckFactories& CheckFactories) override
   {
-    CheckFactories.registerCheck<UseCmstrlenCheck>("cmake-use-cmstrlen");
+    CheckFactories.registerCheck<UseCmstrlenCheck>("rblxbuild-use-cmstrlen");
     CheckFactories.registerCheck<UseCmsysFstreamCheck>(
-      "cmake-use-cmsys-fstream");
+      "rblxbuild-use-cmsys-fstream");
     CheckFactories.registerCheck<UseBespokeEnumClassCheck>(
-      "cmake-use-bespoke-enum-class");
+      "rblxbuild-use-bespoke-enum-class");
     CheckFactories.registerCheck<OstringstreamUseCmstrcatCheck>(
-      "cmake-ostringstream-use-cmstrcat");
-    CheckFactories.registerCheck<UsePragmaOnceCheck>("cmake-use-pragma-once");
+      "rblxbuild-ostringstream-use-cmstrcat");
+    CheckFactories.registerCheck<UsePragmaOnceCheck>("rblxbuild-use-pragma-once");
     CheckFactories.registerCheck<StringConcatenationUseCmstrcatCheck>(
-      "cmake-string-concatenation-use-cmstrcat");
+      "rblxbuild-string-concatenation-use-cmstrcat");
   }
 };
 
-static ClangTidyModuleRegistry::Add<CMakeClangTidyModule> X(
-  "cmake-clang-tidy", "Adds lint checks for the CMake code base.");
+static ClangTidyModuleRegistry::Add<RBLXBuildClangTidyModule> X(
+  "rblxbuild-clang-tidy", "Adds lint checks for the RBLXBuild code base.");
 }
 }
 }

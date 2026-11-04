@@ -1,6 +1,6 @@
 
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmGlobalVisualStudioGenerator.h"
 
 #include <algorithm>
@@ -38,9 +38,9 @@
 #include "cmSystemTools.h"
 #include "cmTarget.h"
 #include "cmUuid.h"
-#include "cmake.h"
+#include "rblxbuild.h"
 
-cmGlobalVisualStudioGenerator::cmGlobalVisualStudioGenerator(cmake* cm)
+cmGlobalVisualStudioGenerator::cmGlobalVisualStudioGenerator(rblxbuild* cm)
   : cmGlobalGenerator(cm)
 {
   cm->GetState()->SetIsGeneratorMultiConfig(true);
@@ -65,7 +65,7 @@ void cmGlobalVisualStudioGenerator::SetVersion(VSVersion v)
 void cmGlobalVisualStudioGenerator::EnableLanguage(
   std::vector<std::string> const& lang, cmMakefile* mf, bool optional)
 {
-  mf->AddDefinition("CMAKE_VS_PLATFORM_NAME_DEFAULT",
+  mf->AddDefinition("RBLXBUILD_VS_PLATFORM_NAME_DEFAULT",
                     this->DefaultPlatformName);
   this->cmGlobalGenerator::EnableLanguage(lang, mf, optional);
 }
@@ -77,11 +77,11 @@ bool cmGlobalVisualStudioGenerator::SetGeneratorPlatform(std::string const& p,
     return false;
   }
   if (this->GetPlatformName() == "x64"_s) {
-    mf->AddDefinition("CMAKE_FORCE_WIN64", "TRUE");
+    mf->AddDefinition("RBLXBUILD_FORCE_WIN64", "TRUE");
   } else if (this->GetPlatformName() == "Itanium"_s) {
-    mf->AddDefinition("CMAKE_FORCE_IA64", "TRUE");
+    mf->AddDefinition("RBLXBUILD_FORCE_IA64", "TRUE");
   }
-  mf->AddDefinition("CMAKE_VS_PLATFORM_NAME", this->GetPlatformName());
+  mf->AddDefinition("RBLXBUILD_VS_PLATFORM_NAME", this->GetPlatformName());
   return this->cmGlobalGenerator::SetGeneratorPlatform(p, mf);
 }
 
@@ -175,16 +175,16 @@ void cmGlobalVisualStudioGenerator::AddExtraIDETargets()
     }
   }
 
-  // Configure CMake Visual Studio macros, for this user on this version
+  // Configure RBLXBuild Visual Studio macros, for this user on this version
   // of Visual Studio.
-  this->ConfigureCMakeVisualStudioMacros();
+  this->ConfigureRBLXBuildVisualStudioMacros();
 }
 
 void cmGlobalVisualStudioGenerator::ComputeTargetObjectDirectory(
   cmGeneratorTarget* gt) const
 {
   std::string dir =
-    cmStrCat(gt->GetSupportDirectory(), '/', this->GetCMakeCFGIntDir(), '/');
+    cmStrCat(gt->GetSupportDirectory(), '/', this->GetRBLXBuildCFGIntDir(), '/');
   gt->ObjectDirectory = dir;
 }
 
@@ -195,27 +195,27 @@ bool IsVisualStudioMacrosFileRegistered(std::string const& macrosFile,
 void RegisterVisualStudioMacros(std::string const& macrosFile,
                                 std::string const& regKeyBase);
 
-#define CMAKE_VSMACROS_FILENAME "CMakeVSMacros2.vsmacros"
+#define RBLXBUILD_VSMACROS_FILENAME "RBLXBuildVSMacros2.vsmacros"
 
-#define CMAKE_VSMACROS_RELOAD_MACRONAME                                       \
-  "Macros.CMakeVSMacros2.Macros.ReloadProjects"
+#define RBLXBUILD_VSMACROS_RELOAD_MACRONAME                                       \
+  "Macros.RBLXBuildVSMacros2.Macros.ReloadProjects"
 
-#define CMAKE_VSMACROS_STOP_MACRONAME "Macros.CMakeVSMacros2.Macros.StopBuild"
+#define RBLXBUILD_VSMACROS_STOP_MACRONAME "Macros.RBLXBuildVSMacros2.Macros.StopBuild"
 
-void cmGlobalVisualStudioGenerator::ConfigureCMakeVisualStudioMacros()
+void cmGlobalVisualStudioGenerator::ConfigureRBLXBuildVisualStudioMacros()
 {
   std::string dir = this->GetUserMacrosDirectory();
 
   if (!dir.empty()) {
-    std::string src = cmStrCat(cmSystemTools::GetCMakeRoot(),
-                               "/Templates/" CMAKE_VSMACROS_FILENAME);
+    std::string src = cmStrCat(cmSystemTools::GetRBLXBuildRoot(),
+                               "/Templates/" RBLXBUILD_VSMACROS_FILENAME);
 
-    std::string dst = cmStrCat(dir, "/CMakeMacros/" CMAKE_VSMACROS_FILENAME);
+    std::string dst = cmStrCat(dir, "/RBLXBuildMacros/" RBLXBUILD_VSMACROS_FILENAME);
 
     // Copy the macros file to the user directory only if the
     // destination does not exist or the source location is newer.
     // This will allow the user to edit the macros for development
-    // purposes but newer versions distributed with CMake will replace
+    // purposes but newer versions distributed with RBLXBuild will replace
     // older versions in user directories.
     int res;
     if (!cmSystemTools::FileTimeCompare(src, dst, &res) || res > 0) {
@@ -241,13 +241,13 @@ void cmGlobalVisualStudioGenerator::CallVisualStudioMacro(
 
   // Only really try to call the macro if:
   //  - there is a UserMacrosDirectory
-  //  - the CMake vsmacros file exists
-  //  - the CMake vsmacros file is registered
+  //  - the RBLXBuild vsmacros file exists
+  //  - the RBLXBuild vsmacros file is registered
   //  - there were .sln/.vcproj files changed during generation
   //
   if (!dir.empty()) {
     std::string macrosFile =
-      cmStrCat(dir, "/CMakeMacros/" CMAKE_VSMACROS_FILENAME);
+      cmStrCat(dir, "/RBLXBuildMacros/" RBLXBUILD_VSMACROS_FILENAME);
     std::string nextSubkeyName;
     if (cmSystemTools::FileExists(macrosFile) &&
         IsVisualStudioMacrosFileRegistered(
@@ -258,13 +258,13 @@ void cmGlobalVisualStudioGenerator::CallVisualStudioMacro(
         if (!filenames.empty()) {
           std::string projects = cmJoin(filenames, ";");
           cmCallVisualStudioMacro::CallMacro(
-            vsSolutionFile, CMAKE_VSMACROS_RELOAD_MACRONAME, projects,
-            this->GetCMakeInstance()->GetDebugOutput());
+            vsSolutionFile, RBLXBUILD_VSMACROS_RELOAD_MACRONAME, projects,
+            this->GetRBLXBuildInstance()->GetDebugOutput());
         }
       } else if (m == MacroStop) {
         cmCallVisualStudioMacro::CallMacro(
-          vsSolutionFile, CMAKE_VSMACROS_STOP_MACRONAME, "",
-          this->GetCMakeInstance()->GetDebugOutput());
+          vsSolutionFile, RBLXBUILD_VSMACROS_STOP_MACRONAME, "",
+          this->GetRBLXBuildInstance()->GetDebugOutput());
       }
     }
   }
@@ -284,9 +284,9 @@ bool cmGlobalVisualStudioGenerator::FindMakeProgram(cmMakefile* mf)
 {
   // Visual Studio generators know how to lookup their build tool
   // directly instead of needing a helper module to do it, so we
-  // do not actually need to put CMAKE_MAKE_PROGRAM into the cache.
-  if (mf->GetDefinition("CMAKE_MAKE_PROGRAM").IsOff()) {
-    mf->AddDefinition("CMAKE_MAKE_PROGRAM", this->GetVSMakeProgram());
+  // do not actually need to put RBLXBUILD_MAKE_PROGRAM into the cache.
+  if (mf->GetDefinition("RBLXBUILD_MAKE_PROGRAM").IsOff()) {
+    mf->AddDefinition("RBLXBUILD_MAKE_PROGRAM", this->GetVSMakeProgram());
   }
   return true;
 }
@@ -549,19 +549,19 @@ void RegisterVisualStudioMacros(std::string const& macrosFile,
     //
     if (0 != count) {
       std::ostringstream oss;
-      oss << "Could not register CMake's Visual Studio macros file '"
-          << CMAKE_VSMACROS_FILENAME "' while Visual Studio is running."
+      oss << "Could not register RBLXBuild's Visual Studio macros file '"
+          << RBLXBUILD_VSMACROS_FILENAME "' while Visual Studio is running."
           << " Please exit all running instances of Visual Studio before"
           << " continuing." << std::endl
           << std::endl
-          << "CMake needs to register Visual Studio macros when its macros"
+          << "RBLXBuild needs to register Visual Studio macros when its macros"
           << " file is updated or when it detects that its current macros file"
           << " is no longer registered with Visual Studio." << std::endl;
       cmSystemTools::Message(oss.str(), "Warning");
 
       // Count them again now that the warning is over. In the case of a GUI
       // warning, the user may have gone to close Visual Studio and then come
-      // back to the CMake GUI and clicked ok on the above warning. If so,
+      // back to the RBLXBuild GUI and clicked ok on the above warning. If so,
       // then register the macros *now* if the count is *now* 0...
       //
       count = cmCallVisualStudioMacro::GetNumberOfRunningVisualStudioInstances(
@@ -652,7 +652,7 @@ cmGlobalVisualStudioGenerator::OrderedTargetDependSet::OrderedTargetDependSet(
 std::string cmGlobalVisualStudioGenerator::ExpandCFGIntDir(
   std::string const& str, std::string const& config) const
 {
-  std::string replace = GetCMakeCFGIntDir();
+  std::string replace = GetRBLXBuildCFGIntDir();
 
   std::string tmp = str;
   for (std::string::size_type i = tmp.find(replace); i != std::string::npos;
@@ -684,9 +684,9 @@ void cmGlobalVisualStudioGenerator::AddSymbolExportCommand(
   }
   gt->LocalGenerator->ComputeObjectFilenames(mapping, configName, gt);
   std::string obj_dir = gt->ObjectDirectory;
-  std::string cmakeCommand = cmSystemTools::GetCMakeCommand();
+  std::string rblxbuildCommand = cmSystemTools::GetRBLXBuildCommand();
   std::string obj_dir_expanded = obj_dir;
-  cmSystemTools::ReplaceString(obj_dir_expanded, this->GetCMakeCFGIntDir(),
+  cmSystemTools::ReplaceString(obj_dir_expanded, this->GetRBLXBuildCFGIntDir(),
                                configName.c_str());
   cmSystemTools::MakeDirectory(obj_dir_expanded);
   std::string const objs_file = cmStrCat(obj_dir_expanded, "/objects.txt");
@@ -720,7 +720,7 @@ void cmGlobalVisualStudioGenerator::AddSymbolExportCommand(
     for (std::string const& it : objs) {
       std::string objFile = it;
       // replace $(ConfigurationName) in the object names
-      cmSystemTools::ReplaceString(objFile, this->GetCMakeCFGIntDir(),
+      cmSystemTools::ReplaceString(objFile, this->GetRBLXBuildCFGIntDir(),
                                    configName);
       if (cmHasLiteralSuffix(objFile, ".obj")) {
         fout << objFile << "\n";
@@ -733,9 +733,9 @@ void cmGlobalVisualStudioGenerator::AddSymbolExportCommand(
   }
 
   cmCustomCommandLines commandLines = cmMakeSingleCommandLine(
-    { cmakeCommand, "-E", "__create_def", mdi->DefFile, objs_file });
+    { rblxbuildCommand, "-E", "__create_def", mdi->DefFile, objs_file });
   cmValue const nmExecutable =
-    gt->Target->GetMakefile()->GetDefinition("CMAKE_NM");
+    gt->Target->GetMakefile()->GetDefinition("RBLXBUILD_NM");
   if (!cmIsOff(nmExecutable) && this->IsClangClToolset()) {
     commandLines[0].emplace_back(cmStrCat("--nm=", *nmExecutable));
   }
@@ -845,8 +845,8 @@ std::set<std::string> cmGlobalVisualStudioGenerator::IsPartOfDefaultBuild(
       // check if target <t> is part of default build
       if (target->GetName() == t) {
         std::string const propertyName =
-          cmStrCat("CMAKE_VS_INCLUDE_", t, "_TO_DEFAULT_BUILD");
-        // inspect CMAKE_VS_INCLUDE_<t>_TO_DEFAULT_BUILD properties
+          cmStrCat("RBLXBUILD_VS_INCLUDE_", t, "_TO_DEFAULT_BUILD");
+        // inspect RBLXBUILD_VS_INCLUDE_<t>_TO_DEFAULT_BUILD properties
         for (std::string const& i : configs) {
           cmValue propertyValue =
             target->Target->GetMakefile()->GetDefinition(propertyName);
@@ -876,14 +876,14 @@ std::set<std::string> cmGlobalVisualStudioGenerator::IsPartOfDefaultBuild(
 std::string cmGlobalVisualStudioGenerator::GetGUID(
   std::string const& name) const
 {
-  std::string const& guidStoreName = cmStrCat(name, "_GUID_CMAKE");
+  std::string const& guidStoreName = cmStrCat(name, "_GUID_RBLXBUILD");
   if (cmValue storedGUID =
-        this->CMakeInstance->GetCacheDefinition(guidStoreName)) {
+        this->RBLXBuildInstance->GetCacheDefinition(guidStoreName)) {
     return *storedGUID;
   }
   // Compute a GUID that is deterministic but unique to the build tree.
   std::string input =
-    cmStrCat(this->CMakeInstance->GetState()->GetBinaryDirectory(), '|', name);
+    cmStrCat(this->RBLXBuildInstance->GetState()->GetBinaryDirectory(), '|', name);
 
   cmUuid uuidGenerator;
 
@@ -916,7 +916,7 @@ cm::VS::Solution::Folder* cmGlobalVisualStudioGenerator::CreateSolutionFolder(
     cm::VS::Solution::Folder* nextFolder = solution.GetFolder(canonicalName);
     if (nextFolder->Id.empty()) {
       nextFolder->Id =
-        this->GetGUID(cmStrCat("CMAKE_FOLDER_GUID_"_s, canonicalName));
+        this->GetGUID(cmStrCat("RBLXBUILD_FOLDER_GUID_"_s, canonicalName));
       if (folder) {
         folder->Folders.emplace_back(nextFolder);
       }

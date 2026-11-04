@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmGeneratorExpressionDAGChecker.h"
 
 #include <utility>
@@ -15,7 +15,7 @@
 #include "cmLocalGenerator.h"
 #include "cmMessageType.h"
 #include "cmStringAlgorithms.h"
-#include "cmake.h"
+#include "rblxbuild.h"
 
 cmGeneratorExpressionDAGChecker::cmGeneratorExpressionDAGChecker(
   cmGeneratorTarget const* target, std::string property,
@@ -75,7 +75,7 @@ void cmGeneratorExpressionDAGChecker::ReportError(cm::GenEx::Evaluation* eval,
   cmGeneratorExpressionDAGChecker const* parent = this->Parent;
 
   if (parent && !parent->Parent) {
-    eval->Context.LG->GetCMakeInstance()->IssueMessage(
+    eval->Context.LG->GetRBLXBuildInstance()->IssueMessage(
       MessageType::FATAL_ERROR,
       cmStrCat("Error evaluating generator expression:\n"
                "  ",
@@ -88,7 +88,7 @@ void cmGeneratorExpressionDAGChecker::ReportError(cm::GenEx::Evaluation* eval,
   }
 
   {
-    eval->Context.LG->GetCMakeInstance()->IssueMessage(
+    eval->Context.LG->GetRBLXBuildInstance()->IssueMessage(
       MessageType::FATAL_ERROR,
       cmStrCat("Error evaluating generator expression:\n"
                "  ",
@@ -100,7 +100,7 @@ void cmGeneratorExpressionDAGChecker::ReportError(cm::GenEx::Evaluation* eval,
 
   int loopStep = 1;
   while (parent) {
-    eval->Context.LG->GetCMakeInstance()->IssueMessage(
+    eval->Context.LG->GetRBLXBuildInstance()->IssueMessage(
       MessageType::FATAL_ERROR,
       cmStrCat("Loop step ", loopStep, "\n  ",
                parent->Content ? parent->Content->GetOriginalExpression()

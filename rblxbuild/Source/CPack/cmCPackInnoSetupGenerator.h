@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-file LICENSE.rst or https://cmake.org/licensing for details. */
+file LICENSE.rst or https://rblxbuild.org/licensing for details. */
 
 #pragma once
 
@@ -76,7 +76,7 @@ private:
 
   /**
    * Translates boolean expressions into "yes" or "no", as required in
-   * Inno Setup (only if "CPACK_INNOSETUP_USE_CMAKE_BOOL_FORMAT" is on).
+   * Inno Setup (only if "CPACK_INNOSETUP_USE_RBLXBUILD_BOOL_FORMAT" is on).
    */
   std::string TranslateBool(std::string const& value);
 

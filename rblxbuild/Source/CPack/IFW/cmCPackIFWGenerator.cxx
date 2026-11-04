@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmCPackIFWGenerator.h"
 
 #include <sstream>
@@ -324,7 +324,7 @@ int cmCPackIFWGenerator::InitializeInternal()
 
   if (!this->IsSet(BinCreatorOpt) || !this->IsSet(RepoGenOpt) ||
       !this->IsSet(FrameworkVersionOpt)) {
-    this->ReadListFile("CPackIFW.cmake");
+    this->ReadListFile("CPackIFW.rblxbuild");
   }
 
   // Look 'binarycreator' executable (needs)
@@ -422,8 +422,8 @@ int cmCPackIFWGenerator::InitializeInternal()
   }
 
   // Executable suffix
-  std::string exeSuffix(this->GetOption("CMAKE_EXECUTABLE_SUFFIX"));
-  std::string sysName(this->GetOption("CMAKE_SYSTEM_NAME"));
+  std::string exeSuffix(this->GetOption("RBLXBUILD_EXECUTABLE_SUFFIX"));
+  std::string sysName(this->GetOption("RBLXBUILD_SYSTEM_NAME"));
   if (sysName == "Linux") {
     this->ExecutableSuffix = ".run";
   } else if (sysName == "Windows") {

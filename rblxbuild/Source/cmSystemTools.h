@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #pragma once
 
 #include "cmConfigure.h" // IWYU pragma: keep
@@ -28,10 +28,10 @@
 struct cmMessageMetadata;
 
 /** \class cmSystemTools
- * \brief A collection of useful functions for CMake.
+ * \brief A collection of useful functions for RBLXBuild.
  *
  * cmSystemTools is a class that provides helper functions
- * for the CMake build system.
+ * for the RBLXBuild build system.
  */
 class cmSystemTools : public cmsys::SystemTools
 {
@@ -110,7 +110,7 @@ public:
     return cmSystemTools::s_ErrorOccurred ||
       cmSystemTools::s_FatalErrorOccurred || GetInterruptFlag();
   }
-  //! If this is set to true, cmake stops processing commands.
+  //! If this is set to true, rblxbuild stops processing commands.
   static void SetFatalErrorOccurred()
   {
     cmSystemTools::s_FatalErrorOccurred = true;
@@ -399,8 +399,8 @@ public:
   static void ConvertToOutputSlashes(std::string& path);
 
   // ConvertToRunCommandPath does not use s_ForceUnixPaths and should
-  // be used when RunCommand is called from cmake, because the
-  // running cmake needs paths to be in its format
+  // be used when RunCommand is called from rblxbuild, because the
+  // running rblxbuild needs paths to be in its format
   static std::string ConvertToRunCommandPath(std::string const& path);
 
   /**
@@ -460,7 +460,7 @@ public:
       existing paths.  */
   static std::string ToNormalizedPathOnDisk(std::string p);
 
-#ifndef CMAKE_BOOTSTRAP
+#ifndef RBLXBUILD_BOOTSTRAP
   /** Remove an environment variable */
   static bool UnsetEnv(char const* value);
 
@@ -570,23 +570,23 @@ public:
     std::string const& name,
     std::vector<std::string> const& path = std::vector<std::string>());
 
-  /** Initialize infrastructure common to CMake/CTest/CPack.  */
-  static void InitializeCMake(char const* argv0);
+  /** Initialize infrastructure common to RBLXBuild/CTest/CPack.  */
+  static void InitializeRBLXBuild(char const* argv0);
 
-  /** Get the CMake resource paths, after InitializeCMake.  */
+  /** Get the RBLXBuild resource paths, after InitializeRBLXBuild.  */
   static std::string const& GetCTestCommand();
   static std::string const& GetCPackCommand();
-  static std::string const& GetCMakeCommand();
-  static std::string const& GetCMakeGUICommand();
-  static std::string const& GetCMakeCursesCommand();
+  static std::string const& GetRBLXBuildCommand();
+  static std::string const& GetRBLXBuildGUICommand();
+  static std::string const& GetRBLXBuildCursesCommand();
   static std::string const& GetCMClDepsCommand();
-  static std::string const& GetCMakeRoot();
-  static bool GetCMakeInBuildTree();
+  static std::string const& GetRBLXBuildRoot();
+  static bool GetRBLXBuildInBuildTree();
   static std::string const& GetHTMLDoc();
 
-  /** Get the CMake config directory **/
+  /** Get the RBLXBuild config directory **/
   static cm::optional<std::string> GetSystemConfigDirectory();
-  static cm::optional<std::string> GetCMakeConfigDirectory();
+  static cm::optional<std::string> GetRBLXBuildConfigDirectory();
 
   static std::string const& GetLogicalWorkingDirectory();
 

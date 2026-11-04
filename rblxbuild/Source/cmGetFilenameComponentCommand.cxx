@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmGetFilenameComponentCommand.h"
 
 #include "cmExecutionStatus.h"
@@ -8,7 +8,7 @@
 #include "cmStringAlgorithms.h"
 #include "cmSystemTools.h"
 #include "cmValue.h"
-#include "cmake.h"
+#include "rblxbuild.h"
 
 // cmGetFilenameComponentCommand
 bool cmGetFilenameComponentCommand(std::vector<std::string> const& args,
@@ -115,7 +115,7 @@ bool cmGetFilenameComponentCommand(std::vector<std::string> const& args,
       result = cmSystemTools::GetRealPath(result);
     }
     result = cmSystemTools::GetActualCaseForPath(
-      result, status.GetMakefile().GetCMakeInstance()->GetActualCaseCache());
+      result, status.GetMakefile().GetRBLXBuildInstance()->GetActualCaseCache());
   } else {
     std::string err = "unknown component " + args[2];
     status.SetError(err);

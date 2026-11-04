@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmBuildCommand.h"
 
 #include "cmDiagnostics.h"
@@ -17,11 +17,11 @@ bool MainSignature(std::vector<std::string> const& args,
                    cmExecutionStatus& status)
 {
   if (args.empty()) {
-    status.SetError("requires at least one argument naming a CMake variable");
+    status.SetError("requires at least one argument naming a RBLXBuild variable");
     return false;
   }
 
-  // The cmake variable in which to store the result.
+  // The rblxbuild variable in which to store the result.
   std::string const& variable = args[0];
 
   // Parse remaining arguments.
@@ -65,13 +65,13 @@ bool MainSignature(std::vector<std::string> const& args,
     }
   }
 
-  // If null/empty CONFIGURATION argument, cmake --build uses 'Debug'
+  // If null/empty CONFIGURATION argument, rblxbuild --build uses 'Debug'
   // in the currently implemented multi-configuration global generators...
   // so we put this code here to end up with the same default configuration
   // as the original 2-arg build_command signature:
   //
   if (configuration.empty()) {
-    cmSystemTools::GetEnv("CMAKE_CONFIG_TYPE", configuration);
+    cmSystemTools::GetEnv("RBLXBUILD_CONFIG_TYPE", configuration);
   }
   if (configuration.empty()) {
     configuration = "Release";
@@ -84,7 +84,7 @@ bool MainSignature(std::vector<std::string> const& args,
       "Ignoring PROJECT_NAME option because it has no effect.");
   }
 
-  std::string makecommand = mf.GetGlobalGenerator()->GenerateCMakeBuildCommand(
+  std::string makecommand = mf.GetGlobalGenerator()->GenerateRBLXBuildBuildCommand(
     target, configuration, parallel, "", false);
 
   mf.AddDefinition(variable, makecommand);
@@ -106,12 +106,12 @@ bool TwoArgsSignature(std::vector<std::string> const& args,
   cmValue cacheValue = mf.GetDefinition(define);
 
   std::string configType;
-  if (!cmSystemTools::GetEnv("CMAKE_CONFIG_TYPE", configType) ||
+  if (!cmSystemTools::GetEnv("RBLXBUILD_CONFIG_TYPE", configType) ||
       configType.empty()) {
     configType = "Release";
   }
 
-  std::string makecommand = mf.GetGlobalGenerator()->GenerateCMakeBuildCommand(
+  std::string makecommand = mf.GetGlobalGenerator()->GenerateRBLXBuildBuildCommand(
     "", configType, "", "", false);
 
   if (cacheValue) {

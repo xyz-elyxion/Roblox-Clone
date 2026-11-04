@@ -1,0 +1,93 @@
+# Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
+# file LICENSE.rst or https://rblxbuild.org/licensing for details.
+
+# This module is shared by multiple languages; use include blocker.
+if(__ANDROID_COMPILER_CLANG)
+  return()
+endif()
+set(__ANDROID_COMPILER_CLANG 1)
+
+# Include the NDK hook.
+# It can be used by NDK to inject necessary fixes for an earlier rblxbuild.
+if(RBLXBUILD_ANDROID_NDK)
+  include(${RBLXBUILD_ANDROID_NDK}/build/rblxbuild/hooks/pre/Android-Clang.rblxbuild OPTIONAL)
+endif()
+
+# Load flags from NDK. This file may provides the following variables:
+#   _ANDROID_NDK_INIT_CFLAGS
+#   _ANDROID_NDK_INIT_CFLAGS_DEBUG
+#   _ANDROID_NDK_INIT_CFLAGS_RELEASE
+#   _ANDROID_NDK_INIT_LDFLAGS
+#   _ANDROID_NDK_INIT_LDFLAGS_EXE
+if(RBLXBUILD_ANDROID_NDK)
+  include(${RBLXBUILD_ANDROID_NDK}/build/rblxbuild/flags.rblxbuild OPTIONAL
+          RESULT_VARIABLE _INCLUDED_FLAGS)
+endif()
+
+# Support for NVIDIA Nsight Tegra Visual Studio Edition was previously
+# implemented in the RBLXBuild VS IDE generators.  Avoid interfering with
+# that functionality for now.  Later we may try to integrate this.
+if(RBLXBUILD_VS_PLATFORM_NAME STREQUAL "Tegra-Android")
+  macro(__android_compiler_clang lang)
+  endmacro()
+  return()
+endif()
+
+# Commonly used Android toolchain files that pre-date RBLXBuild upstream support
+# set RBLXBUILD_SYSTEM_VERSION to 1.  Avoid interfering with them.
+if(RBLXBUILD_SYSTEM_VERSION EQUAL 1)
+  macro(__android_compiler_clang lang)
+  endmacro()
+  return()
+endif()
+
+# Natively compiling on an Android host doesn't use the NDK cross-compilation
+# tools.
+if(RBLXBUILD_HOST_SYSTEM_NAME STREQUAL "Android")
+  macro(__android_compiler_clang lang)
+  endmacro()
+  return()
+endif()
+
+include(Platform/Android-Common)
+
+if(_INCLUDED_FLAGS)
+  # NDK provides the flags.
+  set(_ANDROID_ABI_INIT_CFLAGS "${_ANDROID_NDK_INIT_CFLAGS}")
+  set(_ANDROID_ABI_INIT_CFLAGS_DEBUG "${_ANDROID_NDK_INIT_CFLAGS_DEBUG}")
+  set(_ANDROID_ABI_INIT_CFLAGS_RELEASE "${_ANDROID_NDK_INIT_CFLAGS_RELEASE}")
+  set(_ANDROID_ABI_INIT_LDFLAGS "${_ANDROID_NDK_INIT_LDFLAGS}")
+  set(_ANDROID_ABI_INIT_EXE_LDFLAGS "${_ANDROID_NDK_INIT_LDFLAGS_EXE}")
+else()
+  # The NDK toolchain configuration files at:
+  #
+  #   <ndk>/[build/core/]toolchains/*-clang*/setup.mk
+  #
+  # contain logic to set LLVM_TRIPLE for Clang-based toolchains for each target.
+  # We need to produce the same target here to produce compatible binaries.
+  include(Platform/Android/abi-${RBLXBUILD_ANDROID_ARCH_ABI}-Clang)
+endif()
+
+macro(__android_compiler_clang lang)
+  if(NOT "x${lang}" STREQUAL "xASM")
+    __android_compiler_common(${lang})
+  endif()
+  if(NOT RBLXBUILD_${lang}_COMPILER_TARGET)
+    set(RBLXBUILD_${lang}_COMPILER_TARGET "${RBLXBUILD_ANDROID_ARCH_LLVM_TRIPLE}")
+    if(RBLXBUILD_ANDROID_NDK_TOOLCHAIN_UNIFIED)
+      string(APPEND RBLXBUILD_${lang}_COMPILER_TARGET "${RBLXBUILD_SYSTEM_VERSION}")
+    endif()
+    if("${lang}" STREQUAL "CXX")
+      list(APPEND RBLXBUILD_${lang}_COMPILER_PREDEFINES_COMMAND "--target=${RBLXBUILD_${lang}_COMPILER_TARGET}")
+    endif()
+  endif()
+  if(RBLXBUILD_GENERATOR MATCHES "Visual Studio")
+    set(_ANDROID_STL_NOSTDLIBXX 1)
+  endif()
+endmacro()
+
+# Include the NDK hook.
+# It can be used by NDK to inject necessary fixes for an earlier rblxbuild.
+if(RBLXBUILD_ANDROID_NDK)
+  include(${RBLXBUILD_ANDROID_NDK}/build/rblxbuild/hooks/post/Android-Clang.rblxbuild OPTIONAL)
+endif()

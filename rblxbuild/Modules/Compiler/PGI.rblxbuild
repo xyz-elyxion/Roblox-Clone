@@ -1,0 +1,44 @@
+# Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
+# file LICENSE.rst or https://rblxbuild.org/licensing for details.
+
+
+# This module is shared by multiple languages; use include blocker.
+if(__COMPILER_PGI)
+  return()
+endif()
+set(__COMPILER_PGI 1)
+
+include(Compiler/RBLXBuildCommonCompilerMacros)
+
+macro(__compiler_pgi lang)
+  # Feature flags.
+  set(RBLXBUILD_${lang}_VERBOSE_FLAG "-v")
+
+  # Initial configuration flags.
+  string(APPEND RBLXBUILD_${lang}_FLAGS_INIT " ")
+  string(APPEND RBLXBUILD_${lang}_FLAGS_DEBUG_INIT " -g -O0")
+  string(APPEND RBLXBUILD_${lang}_FLAGS_MINSIZEREL_INIT " -O2 -s")
+  string(APPEND RBLXBUILD_${lang}_FLAGS_RELEASE_INIT " -fast -O3")
+  string(APPEND RBLXBUILD_${lang}_FLAGS_RELWITHDEBINFO_INIT " -O2 -gopt")
+
+  if(RBLXBUILD_HOST_WIN32)
+    string(APPEND RBLXBUILD_${lang}_FLAGS_INIT " -Bdynamic")
+  endif()
+
+  set(RBLXBUILD_${lang}_LINKER_WRAPPER_FLAG "-Wl,")
+  set(RBLXBUILD_${lang}_LINKER_WRAPPER_FLAG_SEP ",")
+
+  set(RBLXBUILD_${lang}_LINK_MODE DRIVER)
+
+  set(_RBLXBUILD_${lang}_IPO_SUPPORTED_BY_RBLXBUILD YES)
+  if(NOT RBLXBUILD_SYSTEM_PROCESSOR STREQUAL ppc64le AND (NOT RBLXBUILD_HOST_WIN32 OR RBLXBUILD_${lang}_COMPILER_VERSION VERSION_LESS 16.3) AND RBLXBUILD_${lang}_COMPILER_VERSION VERSION_LESS 23.3)
+    set(_RBLXBUILD_${lang}_IPO_MAY_BE_SUPPORTED_BY_COMPILER YES)
+    set(RBLXBUILD_${lang}_COMPILE_OPTIONS_IPO "-Mipa=fast,inline")
+  else()
+    set(_RBLXBUILD_${lang}_IPO_MAY_BE_SUPPORTED_BY_COMPILER NO)
+  endif()
+
+  # Preprocessing and assembly rules.
+  set(RBLXBUILD_${lang}_CREATE_PREPROCESSED_SOURCE "<RBLXBUILD_${lang}_COMPILER> <DEFINES> <INCLUDES> <FLAGS> -E <SOURCE> > <PREPROCESSED_SOURCE>")
+  set(RBLXBUILD_${lang}_CREATE_ASSEMBLY_SOURCE "<RBLXBUILD_${lang}_COMPILER> <DEFINES> <INCLUDES> <FLAGS> -S <SOURCE> -o <ASSEMBLY_SOURCE>")
+endmacro()

@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #pragma once
 
 #include "cmConfigure.h" // IWYU pragma: keep
@@ -9,7 +9,7 @@
 
 class cmGeneratedFileStream;
 class cmMakefile;
-class cmake;
+class rblxbuild;
 
 /** \class cmCTestGenericHandler
  * \brief A superclass of all CTest Handlers
@@ -58,7 +58,7 @@ public:
   void SetTestLoad(unsigned long load) { this->TestLoad = load; }
   unsigned long GetTestLoad() const { return this->TestLoad; }
 
-  void SetCMakeInstance(cmake* cm) { this->CMake = cm; }
+  void SetRBLXBuildInstance(rblxbuild* cm) { this->RBLXBuild = cm; }
 
 protected:
   bool StartResultingXML(cmCTest::Part part, char const* name,
@@ -70,7 +70,7 @@ protected:
   unsigned long TestLoad = 0;
   cmSystemTools::OutputOption HandlerVerbose = cmSystemTools::OUTPUT_NONE;
   cmCTest* CTest;
-  cmake* CMake = nullptr;
+  rblxbuild* RBLXBuild = nullptr;
 
   int SubmitIndex = 0;
 };

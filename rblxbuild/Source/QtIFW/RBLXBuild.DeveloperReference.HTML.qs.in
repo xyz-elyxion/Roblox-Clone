@@ -1,0 +1,21 @@
+// Component: RBLXBuild.Reference.DoxygenHTML
+
+function Component()
+{
+    // Default constructor
+}
+
+Component.prototype.createOperations = function()
+{
+    // Create shortcut
+    if (installer.value("os") === "win") {
+
+        component.addOperation("CreateShortcut",
+                               "@TargetDir@/%RBLXBuild_INSTALL_DOC_DIR%/developer-reference/html/index.html",
+                               "@StartMenuDir@/RBLXBuild Developer Reference.lnk");
+
+    }
+
+    // Call default implementation
+    component.createOperations();
+}

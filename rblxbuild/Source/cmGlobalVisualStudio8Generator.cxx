@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmGlobalVisualStudio8Generator.h"
 
 #include <algorithm>
@@ -34,12 +34,12 @@
 #include "cmTargetDepend.h"
 #include "cmValue.h"
 #include "cmVisualStudioGeneratorOptions.h"
-#include "cmake.h"
+#include "rblxbuild.h"
 
 struct cmIDEFlagTable;
 
 cmGlobalVisualStudio8Generator::cmGlobalVisualStudio8Generator(
-  cmake* cm, std::string const& name)
+  rblxbuild* cm, std::string const& name)
   : cmGlobalVisualStudio7Generator(cm)
 {
   this->Name = name;
@@ -62,7 +62,7 @@ void cmGlobalVisualStudio8Generator::EnableLanguage(
 void cmGlobalVisualStudio8Generator::AddPlatformDefinitions(cmMakefile* mf)
 {
   if (this->TargetsWindowsCE()) {
-    mf->AddDefinition("CMAKE_VS_WINCE_VERSION", this->WindowsCEVersion);
+    mf->AddDefinition("RBLXBUILD_VS_WINCE_VERSION", this->WindowsCEVersion);
   }
 }
 
@@ -73,21 +73,21 @@ bool cmGlobalVisualStudio8Generator::SetGeneratorPlatform(std::string const& p,
     return false;
   }
 
-  // FIXME: Add CMAKE_GENERATOR_PLATFORM field to set the framework.
+  // FIXME: Add RBLXBUILD_GENERATOR_PLATFORM field to set the framework.
   // For now, just report the generator's default, if any.
   if (cm::optional<std::string> const& targetFrameworkVersion =
         this->GetTargetFrameworkVersion()) {
-    mf->AddDefinition("CMAKE_VS_TARGET_FRAMEWORK_VERSION",
+    mf->AddDefinition("RBLXBUILD_VS_TARGET_FRAMEWORK_VERSION",
                       *targetFrameworkVersion);
   }
   if (cm::optional<std::string> const& targetFrameworkIdentifier =
         this->GetTargetFrameworkIdentifier()) {
-    mf->AddDefinition("CMAKE_VS_TARGET_FRAMEWORK_IDENTIFIER",
+    mf->AddDefinition("RBLXBUILD_VS_TARGET_FRAMEWORK_IDENTIFIER",
                       *targetFrameworkIdentifier);
   }
   if (cm::optional<std::string> const& targetFrameworkTargetsVersion =
         this->GetTargetFrameworkTargetsVersion()) {
-    mf->AddDefinition("CMAKE_VS_TARGET_FRAMEWORK_TARGETS_VERSION",
+    mf->AddDefinition("RBLXBUILD_VS_TARGET_FRAMEWORK_TARGETS_VERSION",
                       *targetFrameworkTargetsVersion);
   }
 
@@ -203,9 +203,9 @@ std::string cmGlobalVisualStudio8Generator::GetGenerateStampList()
 bool cmGlobalVisualStudio8Generator::AddCheckTarget()
 {
   // Add a special target on which all other targets depend that
-  // checks the build system and optionally re-runs CMake.
+  // checks the build system and optionally re-runs RBLXBuild.
   // Skip the target if no regeneration is to be done.
-  if (this->GlobalSettingIsOn("CMAKE_SUPPRESS_REGENERATION")) {
+  if (this->GlobalSettingIsOn("RBLXBUILD_SUPPRESS_REGENERATION")) {
     return false;
   }
 
@@ -215,7 +215,7 @@ bool cmGlobalVisualStudio8Generator::AddCheckTarget()
     cm::static_reference_cast<cmLocalVisualStudio7Generator>(generators[0]);
 
   auto cc = cm::make_unique<cmCustomCommand>();
-  cmTarget* tgt = lg.AddUtilityCommand(CMAKE_CHECK_BUILD_SYSTEM_TARGET, false,
+  cmTarget* tgt = lg.AddUtilityCommand(RBLXBUILD_CHECK_BUILD_SYSTEM_TARGET, false,
                                        std::move(cc));
 
   // Collect the input files used to generate all targets in this
@@ -242,7 +242,7 @@ bool cmGlobalVisualStudio8Generator::AddCheckTarget()
   // Create a list of all stamp files for this project.
   std::vector<std::string> stamps;
   std::string stampList = cmStrCat(
-    "CMakeFiles/", cmGlobalVisualStudio8Generator::GetGenerateStampList());
+    "RBLXBuildFiles/", cmGlobalVisualStudio8Generator::GetGenerateStampList());
   {
     std::string stampListFile =
       cmStrCat(generators[0]->GetMakefile()->GetCurrentBinaryDirectory(), '/',
@@ -251,22 +251,22 @@ bool cmGlobalVisualStudio8Generator::AddCheckTarget()
     cmGeneratedFileStream fout(stampListFile);
     for (auto const& gi : generators) {
       stampFile = cmStrCat(gi->GetMakefile()->GetCurrentBinaryDirectory(),
-                           "/CMakeFiles/generate.stamp");
+                           "/RBLXBuildFiles/generate.stamp");
       fout << stampFile << '\n';
       stamps.push_back(stampFile);
     }
   }
 
-  // Add a custom rule to re-run CMake if any input files changed.
+  // Add a custom rule to re-run RBLXBuild if any input files changed.
   {
-    // The custom rule runs cmake so set UTF-8 pipes.
+    // The custom rule runs rblxbuild so set UTF-8 pipes.
     bool stdPipesUTF8 = true;
 
     // Add a custom prebuild target to run the VerifyGlobs script.
-    cmake* cm = this->GetCMakeInstance();
+    rblxbuild* cm = this->GetRBLXBuildInstance();
     if (cm->DoWriteGlobVerifyTarget()) {
       cmCustomCommandLines verifyCommandLines = cmMakeSingleCommandLine(
-        { cmSystemTools::GetCMakeCommand(), "-P", cm->GetGlobVerifyScript() });
+        { cmSystemTools::GetRBLXBuildCommand(), "-P", cm->GetGlobVerifyScript() });
       std::vector<std::string> byproducts;
       byproducts.push_back(cm->GetGlobVerifyStamp());
 
@@ -275,7 +275,7 @@ bool cmGlobalVisualStudio8Generator::AddCheckTarget()
       cc->SetCommandLines(verifyCommandLines);
       cc->SetComment("Checking File Globs");
       cc->SetStdPipesUTF8(stdPipesUTF8);
-      lg.AddCustomCommandToTarget(CMAKE_CHECK_BUILD_SYSTEM_TARGET,
+      lg.AddCustomCommandToTarget(RBLXBUILD_CHECK_BUILD_SYSTEM_TARGET,
                                   cmCustomCommandType::PRE_BUILD,
                                   std::move(cc));
 
@@ -285,13 +285,13 @@ bool cmGlobalVisualStudio8Generator::AddCheckTarget()
       listFiles.push_back(cm->GetGlobVerifyStamp());
     }
 
-    // Create a rule to re-run CMake.
+    // Create a rule to re-run RBLXBuild.
     std::string argS = cmStrCat("-S", lg.GetSourceDirectory());
     std::string argB = cmStrCat("-B", lg.GetBinaryDirectory());
     std::string const sln =
       this->GetSLNFile(lg.GetBinaryDirectory(), lg.GetProjectName());
     cmCustomCommandLines commandLines = cmMakeSingleCommandLine(
-      { cmSystemTools::GetCMakeCommand(), argS, argB, "--check-stamp-list",
+      { cmSystemTools::GetRBLXBuildCommand(), argS, argB, "--check-stamp-list",
         stampList, "--vs-solution-file", sln });
     if (cm->GetIgnoreCompileWarningAsError()) {
       commandLines[0].emplace_back("--compile-no-warning-as-error");
@@ -300,7 +300,7 @@ bool cmGlobalVisualStudio8Generator::AddCheckTarget()
       commandLines[0].emplace_back("--link-no-warning-as-error");
     }
 
-    // Add the rule.  Note that we cannot use the CMakeLists.txt
+    // Add the rule.  Note that we cannot use the RBLXBuildLists.txt
     // file as the main dependency because it would get
     // overwritten by the CreateVCProjBuildRule.
     // (this could be avoided with per-target source files)
@@ -330,8 +330,8 @@ void cmGlobalVisualStudio8Generator::AddExtraIDETargets()
       auto const& tgts = LocalGenerator->GetGeneratorTargets();
       // All targets depend on the build-system check target.
       for (auto const& ti : tgts) {
-        if (ti->GetName() != CMAKE_CHECK_BUILD_SYSTEM_TARGET) {
-          ti->Target->AddUtility(CMAKE_CHECK_BUILD_SYSTEM_TARGET, false);
+        if (ti->GetName() != RBLXBUILD_CHECK_BUILD_SYSTEM_TARGET) {
+          ti->Target->AddUtility(RBLXBUILD_CHECK_BUILD_SYSTEM_TARGET, false);
         }
       }
     }

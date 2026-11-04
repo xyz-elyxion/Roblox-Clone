@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmCursesMainForm.h"
 
 #include <algorithm>
@@ -23,7 +23,7 @@
 #include "cmSystemTools.h"
 #include "cmValue.h"
 #include "cmVersion.h"
-#include "cmake.h"
+#include "rblxbuild.h"
 
 inline int ctrl(int z)
 {
@@ -36,18 +36,18 @@ cmCursesMainForm::cmCursesMainForm(std::vector<std::string> args,
   , InitialWidth(initWidth)
 {
   this->HelpMessage.emplace_back(
-    "Welcome to ccmake, curses based user interface for CMake.");
+    "Welcome to crblxbuild, curses based user interface for RBLXBuild.");
   this->HelpMessage.emplace_back();
   this->HelpMessage.emplace_back(s_ConstHelpMessage);
-  this->CMakeInstance = cm::make_unique<cmake>(cmState::Role::Project);
-  this->CMakeInstance->SetCMakeEditCommand(
-    cmSystemTools::GetCMakeCursesCommand());
+  this->RBLXBuildInstance = cm::make_unique<rblxbuild>(cmState::Role::Project);
+  this->RBLXBuildInstance->SetRBLXBuildEditCommand(
+    cmSystemTools::GetRBLXBuildCursesCommand());
 
-  // create the arguments for the cmake object
-  std::string whereCMake =
-    cmStrCat(cmSystemTools::GetProgramPath(this->Args[0]), "/cmake");
-  this->Args[0] = whereCMake;
-  this->CMakeInstance->SetArgs(this->Args);
+  // create the arguments for the rblxbuild object
+  std::string whereRBLXBuild =
+    cmStrCat(cmSystemTools::GetProgramPath(this->Args[0]), "/rblxbuild");
+  this->Args[0] = whereRBLXBuild;
+  this->RBLXBuildInstance->SetArgs(this->Args);
 }
 
 cmCursesMainForm::~cmCursesMainForm()
@@ -85,7 +85,7 @@ void cmCursesMainForm::InitializeUI()
   // which contain labels, entries and new entry markers
   std::vector<cmCursesCacheEntryComposite> newEntries;
   std::vector<std::string> cacheKeys =
-    this->CMakeInstance->GetState()->GetCacheEntryKeys();
+    this->RBLXBuildInstance->GetState()->GetCacheEntryKeys();
   newEntries.reserve(cacheKeys.size());
 
   // Count non-internal and non-static entries
@@ -93,7 +93,7 @@ void cmCursesMainForm::InitializeUI()
 
   for (std::string const& key : cacheKeys) {
     cmStateEnums::CacheEntryType t =
-      this->CMakeInstance->GetState()->GetCacheEntryType(key);
+      this->RBLXBuildInstance->GetState()->GetCacheEntryType(key);
     if (t != cmStateEnums::INTERNAL && t != cmStateEnums::STATIC &&
         t != cmStateEnums::UNINITIALIZED) {
       ++count;
@@ -115,14 +115,14 @@ void cmCursesMainForm::InitializeUI()
     // First add entries which are new
     for (std::string const& key : cacheKeys) {
       cmStateEnums::CacheEntryType t =
-        this->CMakeInstance->GetState()->GetCacheEntryType(key);
+        this->RBLXBuildInstance->GetState()->GetCacheEntryType(key);
       if (t == cmStateEnums::INTERNAL || t == cmStateEnums::STATIC ||
           t == cmStateEnums::UNINITIALIZED) {
         continue;
       }
 
       if (!this->LookForCacheEntry(key)) {
-        newEntries.emplace_back(key, this->CMakeInstance->GetState(), true, 30,
+        newEntries.emplace_back(key, this->RBLXBuildInstance->GetState(), true, 30,
                                 entrywidth);
         this->OkToGenerate = false;
       }
@@ -131,14 +131,14 @@ void cmCursesMainForm::InitializeUI()
     // then add entries which are old
     for (std::string const& key : cacheKeys) {
       cmStateEnums::CacheEntryType t =
-        this->CMakeInstance->GetState()->GetCacheEntryType(key);
+        this->RBLXBuildInstance->GetState()->GetCacheEntryType(key);
       if (t == cmStateEnums::INTERNAL || t == cmStateEnums::STATIC ||
           t == cmStateEnums::UNINITIALIZED) {
         continue;
       }
 
       if (this->LookForCacheEntry(key)) {
-        newEntries.emplace_back(key, this->CMakeInstance->GetState(), false,
+        newEntries.emplace_back(key, this->RBLXBuildInstance->GetState(), false,
                                 30, entrywidth);
       }
     }
@@ -167,9 +167,9 @@ void cmCursesMainForm::RePost()
     this->NumberOfVisibleEntries = 0;
     for (cmCursesCacheEntryComposite& entry : this->Entries) {
       cmValue existingValue =
-        this->CMakeInstance->GetState()->GetCacheEntryValue(entry.GetValue());
+        this->RBLXBuildInstance->GetState()->GetCacheEntryValue(entry.GetValue());
       bool advanced =
-        this->CMakeInstance->GetState()->GetCacheEntryPropertyAsBool(
+        this->RBLXBuildInstance->GetState()->GetCacheEntryPropertyAsBool(
           entry.GetValue(), "ADVANCED");
       if (!existingValue || (!this->AdvancedMode && advanced)) {
         continue;
@@ -188,9 +188,9 @@ void cmCursesMainForm::RePost()
   // Assign fields
   for (cmCursesCacheEntryComposite& entry : this->Entries) {
     cmValue existingValue =
-      this->CMakeInstance->GetState()->GetCacheEntryValue(entry.GetValue());
+      this->RBLXBuildInstance->GetState()->GetCacheEntryValue(entry.GetValue());
     bool advanced =
-      this->CMakeInstance->GetState()->GetCacheEntryPropertyAsBool(
+      this->RBLXBuildInstance->GetState()->GetCacheEntryPropertyAsBool(
         entry.GetValue(), "ADVANCED");
     if (!existingValue || (!this->AdvancedMode && advanced)) {
       continue;
@@ -247,9 +247,9 @@ void cmCursesMainForm::Render(int left, int top, int width, int height)
     this->NumberOfVisibleEntries = 0;
     for (cmCursesCacheEntryComposite& entry : this->Entries) {
       cmValue existingValue =
-        this->CMakeInstance->GetState()->GetCacheEntryValue(entry.GetValue());
+        this->RBLXBuildInstance->GetState()->GetCacheEntryValue(entry.GetValue());
       bool advanced =
-        this->CMakeInstance->GetState()->GetCacheEntryPropertyAsBool(
+        this->RBLXBuildInstance->GetState()->GetCacheEntryPropertyAsBool(
           entry.GetValue(), "ADVANCED");
       if (!existingValue || (!this->AdvancedMode && advanced)) {
         continue;
@@ -265,9 +265,9 @@ void cmCursesMainForm::Render(int left, int top, int width, int height)
     int i = 0;
     for (cmCursesCacheEntryComposite& entry : this->Entries) {
       cmValue existingValue =
-        this->CMakeInstance->GetState()->GetCacheEntryValue(entry.GetValue());
+        this->RBLXBuildInstance->GetState()->GetCacheEntryValue(entry.GetValue());
       bool advanced =
-        this->CMakeInstance->GetState()->GetCacheEntryPropertyAsBool(
+        this->RBLXBuildInstance->GetState()->GetCacheEntryPropertyAsBool(
           entry.GetValue(), "ADVANCED");
       if (!existingValue || (!this->AdvancedMode && advanced)) {
         continue;
@@ -373,7 +373,7 @@ void cmCursesMainForm::PrintKeys(int process /* = 0 */)
   pos_form_cursor(this->Form);
 }
 
-// Print the key of the current entry and the CMake version
+// Print the key of the current entry and the RBLXBuild version
 // on the status bar. Designed for a width of 80 chars.
 void cmCursesMainForm::UpdateStatusBar(cm::optional<std::string> message)
 {
@@ -414,11 +414,11 @@ void cmCursesMainForm::UpdateStatusBar(cm::optional<std::string> message)
 
     // Get the help string of the current entry
     // and add it to the help string
-    auto* cmakeState = this->CMakeInstance->GetState();
-    cmValue existingValue = cmakeState->GetCacheEntryValue(labelValue);
+    auto* rblxbuildState = this->RBLXBuildInstance->GetState();
+    cmValue existingValue = rblxbuildState->GetCacheEntryValue(labelValue);
     if (existingValue) {
       cmValue help =
-        cmakeState->GetCacheEntryProperty(labelValue, "HELPSTRING");
+        rblxbuildState->GetCacheEntryProperty(labelValue, "HELPSTRING");
       if (help) {
         bar += *help;
       }
@@ -444,10 +444,10 @@ void cmCursesMainForm::UpdateStatusBar(cm::optional<std::string> message)
     set_field_back(this->Fields[index + 1], attr);
   }
 
-  // Display CMake version under the status bar
+  // Display RBLXBuild version under the status bar
   // We want to display this on the right
-  std::string version = "CMake Version ";
-  version += cmVersion::GetCMakeVersion();
+  std::string version = "RBLXBuild Version ";
+  version += cmVersion::GetRBLXBuildVersion();
   version.resize(std::min<std::string::size_type>(x, version.size()));
   move(y - 4, x - static_cast<int>(version.size()));
   printw(fmt_s, version.c_str());
@@ -478,8 +478,8 @@ void cmCursesMainForm::UpdateProgress(std::string const& msg, float prog)
 void cmCursesMainForm::Write()
 {
   this->FillCacheManagerFromUI();
-  this->CMakeInstance->SaveCache(
-    this->CMakeInstance->GetHomeOutputDirectory());
+  this->RBLXBuildInstance->SaveCache(
+    this->RBLXBuildInstance->GetHomeOutputDirectory());
   this->LoadCache(nullptr);
 }
 
@@ -489,7 +489,7 @@ int cmCursesMainForm::Configure(int noconfigure)
 
   if (noconfigure == 0) {
     this->UpdateProgress("Configuring", 0);
-    this->CMakeInstance->SetProgressCallback(
+    this->RBLXBuildInstance->SetProgressCallback(
       [this](std::string const& msg, float prog) {
         this->UpdateProgress(msg, prog);
       });
@@ -502,15 +502,15 @@ int cmCursesMainForm::Configure(int noconfigure)
   this->OkToGenerate = true;
   int retVal;
   if (noconfigure) {
-    retVal = this->CMakeInstance->DoPreConfigureChecks();
+    retVal = this->RBLXBuildInstance->DoPreConfigureChecks();
     this->OkToGenerate = false;
     if (retVal > 0) {
       retVal = 0;
     }
   } else {
-    retVal = this->CMakeInstance->Configure();
+    retVal = this->RBLXBuildInstance->Configure();
   }
-  this->CMakeInstance->SetProgressCallback(nullptr);
+  this->RBLXBuildInstance->SetProgressCallback(nullptr);
 
   keypad(stdscr, true); /* Use key symbols as KEY_DOWN */
 
@@ -557,15 +557,15 @@ int cmCursesMainForm::Generate()
   this->ResetOutputs();
 
   this->UpdateProgress("Generating", 0);
-  this->CMakeInstance->SetProgressCallback(
+  this->RBLXBuildInstance->SetProgressCallback(
     [this](std::string const& msg, float prog) {
       this->UpdateProgress(msg, prog);
     });
 
   // run the generate process
-  int retVal = this->CMakeInstance->Generate();
+  int retVal = this->RBLXBuildInstance->Generate();
 
-  this->CMakeInstance->SetProgressCallback(nullptr);
+  this->RBLXBuildInstance->SetProgressCallback(nullptr);
   keypad(stdscr, true); /* Use key symbols as KEY_DOWN */
 
   if (retVal != 0 || this->HasNonStatusOutputs) {
@@ -628,7 +628,7 @@ void cmCursesMainForm::RemoveEntry(char const* value)
                  });
 
   if (removeIt != this->Entries.end()) {
-    this->CMakeInstance->UnwatchUnusedCli(value);
+    this->RBLXBuildInstance->UnwatchUnusedCli(value);
     // Free the form before destroying the fields it references
     if (this->Form) {
       unpost_form(this->Form);
@@ -645,22 +645,22 @@ void cmCursesMainForm::FillCacheManagerFromUI()
   for (cmCursesCacheEntryComposite& entry : this->Entries) {
     std::string const& cacheKey = entry.Key;
     cmValue existingValue =
-      this->CMakeInstance->GetState()->GetCacheEntryValue(cacheKey);
+      this->RBLXBuildInstance->GetState()->GetCacheEntryValue(cacheKey);
     if (existingValue) {
       std::string const& oldValue = *existingValue;
       std::string newValue = entry.Entry->GetValue();
       std::string fixedOldValue;
       std::string fixedNewValue;
       cmStateEnums::CacheEntryType t =
-        this->CMakeInstance->GetState()->GetCacheEntryType(cacheKey);
+        this->RBLXBuildInstance->GetState()->GetCacheEntryType(cacheKey);
       this->FixValue(t, oldValue, fixedOldValue);
       this->FixValue(t, newValue, fixedNewValue);
 
       if (!(fixedOldValue == fixedNewValue)) {
         // The user has changed the value.  Mark it as modified.
-        this->CMakeInstance->GetState()->SetCacheEntryBoolProperty(
+        this->RBLXBuildInstance->GetState()->SetCacheEntryBoolProperty(
           cacheKey, "MODIFIED", true);
-        this->CMakeInstance->GetState()->SetCacheEntryValue(cacheKey,
+        this->RBLXBuildInstance->GetState()->SetCacheEntryValue(cacheKey,
                                                             fixedNewValue);
       }
     }
@@ -862,9 +862,9 @@ void cmCursesMainForm::HandleInput()
         cmValue helpString = nullptr;
 
         cmValue existingValue =
-          this->CMakeInstance->GetState()->GetCacheEntryValue(curField);
+          this->RBLXBuildInstance->GetState()->GetCacheEntryValue(curField);
         if (existingValue) {
-          helpString = this->CMakeInstance->GetState()->GetCacheEntryProperty(
+          helpString = this->RBLXBuildInstance->GetState()->GetCacheEntryProperty(
             curField, "HELPSTRING");
         }
         if (helpString) {
@@ -890,7 +890,7 @@ void cmCursesMainForm::HandleInput()
       else if (key == 'l') {
         getmaxyx(stdscr, y, x);
         cmCursesLongMessageForm msgs(
-          this->Outputs, "CMake produced the following output",
+          this->Outputs, "RBLXBuild produced the following output",
           cmCursesLongMessageForm::ScrollBehavior::NoScroll);
         CurrentForm = &msgs;
         msgs.Render(1, 1, x, y);
@@ -953,7 +953,7 @@ void cmCursesMainForm::HandleInput()
         cmCursesWidget* lbl = reinterpret_cast<cmCursesWidget*>(
           field_userptr(this->Fields[findex - 2]));
         if (lbl) {
-          this->CMakeInstance->GetState()->RemoveCacheEntry(lbl->GetValue());
+          this->RBLXBuildInstance->GetState()->RemoveCacheEntry(lbl->GetValue());
 
           std::string nextVal;
           if (nextCur) {
@@ -991,17 +991,17 @@ void cmCursesMainForm::HandleInput()
 int cmCursesMainForm::LoadCache(char const* /*unused*/)
 
 {
-  int r = this->CMakeInstance->LoadCache();
+  int r = this->RBLXBuildInstance->LoadCache();
   if (r < 0) {
     return r;
   }
 
   // Process presets before loading the cache
-  this->CMakeInstance->ProcessPresetVariables();
-  this->CMakeInstance->ProcessPresetEnvironment();
+  this->RBLXBuildInstance->ProcessPresetVariables();
+  this->RBLXBuildInstance->ProcessPresetEnvironment();
 
-  this->CMakeInstance->SetCacheArgs(this->Args);
-  this->CMakeInstance->PreLoadCMakeFiles();
+  this->RBLXBuildInstance->SetCacheArgs(this->Args);
+  this->RBLXBuildInstance->PreLoadRBLXBuildFiles();
   return r;
 }
 
@@ -1091,35 +1091,35 @@ void cmCursesMainForm::DisplayOutputs(std::string const& newOutput)
 }
 
 char const* cmCursesMainForm::s_ConstHelpMessage =
-  "CMake is used to configure and generate build files for software projects. "
-  "The basic steps for configuring a project with ccmake are as follows:\n\n"
-  "1. Run ccmake in the directory where you want the object and executable "
+  "RBLXBuild is used to configure and generate build files for software projects. "
+  "The basic steps for configuring a project with crblxbuild are as follows:\n\n"
+  "1. Run crblxbuild in the directory where you want the object and executable "
   "files to be placed (build directory). If the source directory is not the "
   "same as this build directory, you have to specify it as an argument on the "
   "command line.\n\n"
-  "2. When ccmake is run, it will read the configuration files and display "
+  "2. When crblxbuild is run, it will read the configuration files and display "
   "the current build options. "
-  "If you have run CMake before and have updated the configuration files "
+  "If you have run RBLXBuild before and have updated the configuration files "
   "since then, any new entries will be displayed on top and will be marked "
   "with a *. "
-  "On the other hand, the first time you run ccmake, all build options will "
+  "On the other hand, the first time you run crblxbuild, all build options will "
   "be new and will be marked as such. "
   "At this point, you can modify any options (see keys below) you want to "
   "change. "
-  "When you are satisfied with your changes, press 'c' to have CMake process "
+  "When you are satisfied with your changes, press 'c' to have RBLXBuild process "
   "the configuration files. "
   "Please note that changing some options may cause new ones to appear. These "
   "will be shown on top and will be marked with *. "
   "Repeat this procedure until you are satisfied with all the options and "
   "there are no new entries. "
   "At this point, a new command will appear: G)enerate and Exit. You can now "
-  "hit 'g' to have CMake generate all the build files (i.e. makefiles or "
+  "hit 'g' to have RBLXBuild generate all the build files (i.e. makefiles or "
   "project files) and exit. "
-  "At any point during the process, you can exit ccmake with 'q'. However, "
+  "At any point during the process, you can exit crblxbuild with 'q'. However, "
   "this will not generate/change any build files. Additionally, you can exit "
-  "ccmake with 'w' to write changes to the cache file without generating or "
+  "crblxbuild with 'w' to write changes to the cache file without generating or "
   "changing the build files.\n\n"
-  "ccmake KEYS:\n\n"
+  "crblxbuild KEYS:\n\n"
   "Navigation: "
   "You can use the arrow keys and page up, down to navigate the options. "
   "Additionally, you can use the following keys: \n"
@@ -1134,7 +1134,7 @@ char const* cmCursesMainForm::s_ConstHelpMessage =
   "Editing options: "
   "To change an option  press enter or return. If the current options is a "
   "boolean, this will toggle its value. "
-  "Otherwise, ccmake will enter edit mode. Alternatively, you can toggle "
+  "Otherwise, crblxbuild will enter edit mode. Alternatively, you can toggle "
   "a bool variable by pressing space, and enter edit mode with i."
   "In this mode you can edit an option using arrow keys and backspace. "
   "Alternatively, you can use the following keys:\n"
@@ -1147,12 +1147,12 @@ char const* cmCursesMainForm::s_ConstHelpMessage =
   " Esc : Restore field (discard last changes)\n"
   " Enter : Leave edit mode\n"
   "Commands:\n"
-  " q : quit ccmake without generating build files\n"
+  " q : quit crblxbuild without generating build files\n"
   " h : help, shows this screen\n"
   " c : process the configuration files with the current options\n"
   " g : generate build files and exit, only available when there are no "
   "new options and no errors have been detected during last configuration.\n"
-  " l : shows cmake output\n"
+  " l : shows rblxbuild output\n"
   " d : delete an option\n"
   " t : toggles advanced mode. In normal mode, only the most important "
   "options are shown. In advanced mode, all options are shown. We recommend "

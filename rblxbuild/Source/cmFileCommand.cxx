@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmFileCommand.h"
 
 #include <algorithm>
@@ -31,7 +31,7 @@
 
 #include "cmArgumentParser.h"
 #include "cmArgumentParserTypes.h"
-#include "cmCMakePath.h"
+#include "cmRBLXBuildPath.h"
 #include "cmCryptoHash.h"
 #include "cmDiagnostics.h"
 #include "cmELF.h"
@@ -62,9 +62,9 @@
 #include "cmTimestamp.h"
 #include "cmValue.h"
 #include "cmWorkingDirectory.h"
-#include "cmake.h"
+#include "rblxbuild.h"
 
-#if !defined(CMAKE_BOOTSTRAP)
+#if !defined(RBLXBUILD_BOOTSTRAP)
 #  include <cm3p/curl/curl.h>
 
 #  include "cmCurl.h"
@@ -262,7 +262,7 @@ bool HandleReadCommand(std::vector<std::string> const& args,
 bool HandleHashCommand(std::vector<std::string> const& args,
                        cmExecutionStatus& status)
 {
-#if !defined(CMAKE_BOOTSTRAP)
+#if !defined(RBLXBUILD_BOOTSTRAP)
   if (args.size() != 3) {
     status.SetError(
       cmStrCat(args[0], " requires a file name and output variable"));
@@ -415,10 +415,10 @@ bool HandleStringsCommand(std::vector<std::string> const& args,
           break;
         case cmPolicies::WARN:
           if (status.GetMakefile().PolicyOptionalWarningEnabled(
-                "CMAKE_POLICY_WARNING_CMP0159")) {
+                "RBLXBUILD_POLICY_WARNING_CMP0159")) {
             status.GetMakefile().IssuePolicyWarning(
               cmPolicies::CMP0159, {},
-              "For compatibility, CMake is leaving CMAKE_MATCH_<n> "
+              "For compatibility, RBLXBuild is leaving RBLXBUILD_MATCH_<n> "
               "unchanged."_s);
           }
           CM_FALLTHROUGH;
@@ -455,7 +455,7 @@ bool HandleStringsCommand(std::vector<std::string> const& args,
     // TODO: should work without temp file, but just on a memory buffer
     std::string binaryFileName =
       cmStrCat(status.GetMakefile().GetCurrentBinaryDirectory(),
-               "/CMakeFiles/FileCommandStringsBinaryFile");
+               "/RBLXBuildFiles/FileCommandStringsBinaryFile");
     if (cmHexFileConverter::TryConvert(fileName, binaryFileName)) {
       fileName = binaryFileName;
     }
@@ -638,7 +638,7 @@ bool HandleStringsCommand(std::vector<std::string> const& args,
     }
   }
 
-  // Encode the result in a CMake list.
+  // Encode the result in a RBLXBuild list.
   char const* sep = "";
   std::string output;
   for (std::string const& sr : strings) {
@@ -682,7 +682,7 @@ bool HandleGlobImpl(std::vector<std::string> const& args, bool recurse,
     g.RecurseThroughSymlinksOff();
   }
 
-  cmake* cm = status.GetMakefile().GetCMakeInstance();
+  rblxbuild* cm = status.GetMakefile().GetRBLXBuildInstance();
   std::vector<std::string> files;
   bool configureDepends = false;
   bool warnConfigureLate = false;
@@ -1356,9 +1356,9 @@ bool HandleRealPathCommand(std::vector<std::string> const& args,
   }
 
   auto computeNewPath = [=](std::string const& in, std::string& result) {
-    auto path = cmCMakePath{ in };
+    auto path = cmRBLXBuildPath{ in };
     if (path.IsRelative()) {
-      auto basePath = cmCMakePath{ *arguments.BaseDirectory };
+      auto basePath = cmRBLXBuildPath{ *arguments.BaseDirectory };
       path = basePath.Append(path);
     }
     result = cmSystemTools::GetRealPath(path.String());
@@ -1380,7 +1380,7 @@ bool HandleRealPathCommand(std::vector<std::string> const& args,
             "From input path:\n  ", input,
             "\nthe policy OLD behavior produces path:\n  ", oldPolicyPath,
             "\nbut the policy NEW behavior produces path:\n  ", realPath,
-            "\nSince the policy is not set, CMake is using the OLD "
+            "\nSince the policy is not set, RBLXBuild is using the OLD "
             "behavior for compatibility."));
       }
     }
@@ -1470,7 +1470,7 @@ bool HandleRename(std::vector<std::string> const& args,
   }
 
   // Cached knowledge of the old and new names becomes stale.
-  status.GetMakefile().GetCMakeInstance()->InvalidateFileSystemCaches();
+  status.GetMakefile().GetRBLXBuildInstance()->InvalidateFileSystemCaches();
 
   std::string err;
   switch (cmSystemTools::RenameFile(oldname, newname,
@@ -1603,7 +1603,7 @@ bool HandleRemoveImpl(std::vector<std::string> const& args, bool recurse,
                       cmExecutionStatus& status)
 {
   // Cached knowledge of the removed files becomes stale.
-  status.GetMakefile().GetCMakeInstance()->InvalidateFileSystemCaches();
+  status.GetMakefile().GetRBLXBuildInstance()->InvalidateFileSystemCaches();
 
   for (std::string const& arg :
        cmMakeRange(args).advance(1)) // Get rid of subcommand
@@ -1653,7 +1653,7 @@ std::string ToNativePath(std::string const& path)
   return outPath;
 }
 
-std::string ToCMakePath(std::string const& path)
+std::string ToRBLXBuildPath(std::string const& path)
 {
   auto temp = path;
   cmSystemTools::ConvertToUnixSlashes(temp);
@@ -1665,7 +1665,7 @@ bool HandlePathCommand(std::vector<std::string> const& args,
                        cmExecutionStatus& status)
 {
   if (args.size() != 3) {
-    status.SetError("FILE([TO_CMAKE_PATH|TO_NATIVE_PATH] path result) must be "
+    status.SetError("FILE([TO_RBLXBUILD_PATH|TO_NATIVE_PATH] path result) must be "
                     "called with exactly three arguments.");
     return false;
   }
@@ -1681,10 +1681,10 @@ bool HandlePathCommand(std::vector<std::string> const& args,
   return true;
 }
 
-bool HandleCMakePathCommand(std::vector<std::string> const& args,
+bool HandleRBLXBuildPathCommand(std::vector<std::string> const& args,
                             cmExecutionStatus& status)
 {
-  return HandlePathCommand(args, ToCMakePath, status);
+  return HandlePathCommand(args, ToRBLXBuildPath, status);
 }
 
 bool HandleNativePathCommand(std::vector<std::string> const& args,
@@ -1693,7 +1693,7 @@ bool HandleNativePathCommand(std::vector<std::string> const& args,
   return HandlePathCommand(args, ToNativePath, status);
 }
 
-#if !defined(CMAKE_BOOTSTRAP)
+#if !defined(RBLXBUILD_BOOTSTRAP)
 
 bool const TLS_VERIFY_DEFAULT = true;
 std::string const TLS_VERSION_DEFAULT = "1.2";
@@ -1705,7 +1705,7 @@ std::string CurlCompatFileURL(std::string url)
 {
   if (cmHasLiteralPrefix(url, "file://")) {
     // libcurl 7.77 and below accidentally allowed spaces in file:// URLs,
-    // which CMake has long accepted as a result.  Explicitly encode spaces.
+    // which RBLXBuild has long accepted as a result.  Explicitly encode spaces.
     cmSystemTools::ReplaceString(url, " ", "%20");
   }
   return url;
@@ -1887,7 +1887,7 @@ private:
 bool HandleDownloadCommand(std::vector<std::string> const& args,
                            cmExecutionStatus& status)
 {
-#if !defined(CMAKE_BOOTSTRAP)
+#if !defined(RBLXBUILD_BOOTSTRAP)
   auto i = args.begin();
   if (args.size() < 2) {
     status.SetError("DOWNLOAD must be called with at least two arguments.");
@@ -1904,11 +1904,11 @@ bool HandleDownloadCommand(std::vector<std::string> const& args,
   std::string statusVar;
   cm::optional<std::string> tlsVersionOpt;
   cm::optional<bool> tlsVerifyOpt;
-  cmValue cainfo = status.GetMakefile().GetDefinition("CMAKE_TLS_CAINFO");
+  cmValue cainfo = status.GetMakefile().GetDefinition("RBLXBUILD_TLS_CAINFO");
   std::string netrc_level =
-    status.GetMakefile().GetSafeDefinition("CMAKE_NETRC");
+    status.GetMakefile().GetSafeDefinition("RBLXBUILD_NETRC");
   std::string netrc_file =
-    status.GetMakefile().GetSafeDefinition("CMAKE_NETRC_FILE");
+    status.GetMakefile().GetSafeDefinition("RBLXBUILD_NETRC_FILE");
   std::string expectedHash;
   std::string hashMatchMSG;
   std::unique_ptr<cmCryptoHash> hash;
@@ -2069,13 +2069,13 @@ bool HandleDownloadCommand(std::vector<std::string> const& args,
   }
 
   if (!tlsVerifyOpt.has_value()) {
-    if (cmValue v = status.GetMakefile().GetDefinition("CMAKE_TLS_VERIFY")) {
+    if (cmValue v = status.GetMakefile().GetDefinition("RBLXBUILD_TLS_VERIFY")) {
       tlsVerifyOpt = v.IsOn();
     }
   }
   if (!tlsVerifyOpt.has_value()) {
     if (cm::optional<std::string> v =
-          cmSystemTools::GetEnvVar("CMAKE_TLS_VERIFY")) {
+          cmSystemTools::GetEnvVar("RBLXBUILD_TLS_VERIFY")) {
       tlsVerifyOpt = cmIsOn(*v);
     }
   }
@@ -2086,13 +2086,13 @@ bool HandleDownloadCommand(std::vector<std::string> const& args,
   }
 
   if (!tlsVersionOpt.has_value()) {
-    if (cmValue v = status.GetMakefile().GetDefinition("CMAKE_TLS_VERSION")) {
+    if (cmValue v = status.GetMakefile().GetDefinition("RBLXBUILD_TLS_VERSION")) {
       tlsVersionOpt = *v;
     }
   }
   if (!tlsVersionOpt.has_value()) {
     if (cm::optional<std::string> v =
-          cmSystemTools::GetEnvVar("CMAKE_TLS_VERSION")) {
+          cmSystemTools::GetEnvVar("RBLXBUILD_TLS_VERSION")) {
       tlsVersionOpt = std::move(v);
     }
   }
@@ -2234,7 +2234,7 @@ bool HandleDownloadCommand(std::vector<std::string> const& args,
   }
 
   // check to see if netrc parameters have been specified
-  // local command args takes precedence over CMAKE_NETRC*
+  // local command args takes precedence over RBLXBUILD_NETRC*
   netrc_level = cmSystemTools::UpperCase(netrc_level);
   std::string const& netrc_option_err =
     cmCurlSetNETRCOption(curl, netrc_level, netrc_file);
@@ -2326,7 +2326,7 @@ bool HandleDownloadCommand(std::vector<std::string> const& args,
       m = cmStrCat(
         std::move(m),
         ".  If this is due to https certificate verification failure, one may "
-        "set environment variable CMAKE_TLS_VERIFY=0 to suppress it.");
+        "set environment variable RBLXBUILD_TLS_VERIFY=0 to suppress it.");
     }
     status.GetMakefile().AddDefinition(
       statusVar, cmStrCat(static_cast<int>(res), ";\"", std::move(m), '"'));
@@ -2385,7 +2385,7 @@ bool HandleDownloadCommand(std::vector<std::string> const& args,
 
   return true;
 #else
-  status.SetError("DOWNLOAD not supported by bootstrap cmake.");
+  status.SetError("DOWNLOAD not supported by bootstrap rblxbuild.");
   return false;
 #endif
 }
@@ -2393,7 +2393,7 @@ bool HandleDownloadCommand(std::vector<std::string> const& args,
 bool HandleUploadCommand(std::vector<std::string> const& args,
                          cmExecutionStatus& status)
 {
-#if !defined(CMAKE_BOOTSTRAP)
+#if !defined(RBLXBUILD_BOOTSTRAP)
   if (args.size() < 3) {
     status.SetError("UPLOAD must be called with at least three arguments.");
     return false;
@@ -2412,12 +2412,12 @@ bool HandleUploadCommand(std::vector<std::string> const& args,
   bool showProgress = false;
   cm::optional<std::string> tlsVersionOpt;
   cm::optional<bool> tlsVerifyOpt;
-  cmValue cainfo = status.GetMakefile().GetDefinition("CMAKE_TLS_CAINFO");
+  cmValue cainfo = status.GetMakefile().GetDefinition("RBLXBUILD_TLS_CAINFO");
   std::string userpwd;
   std::string netrc_level =
-    status.GetMakefile().GetSafeDefinition("CMAKE_NETRC");
+    status.GetMakefile().GetSafeDefinition("RBLXBUILD_NETRC");
   std::string netrc_file =
-    status.GetMakefile().GetSafeDefinition("CMAKE_NETRC_FILE");
+    status.GetMakefile().GetSafeDefinition("RBLXBUILD_NETRC_FILE");
 
   std::vector<std::string> curl_headers;
 
@@ -2518,13 +2518,13 @@ bool HandleUploadCommand(std::vector<std::string> const& args,
   }
 
   if (!tlsVerifyOpt.has_value()) {
-    if (cmValue v = status.GetMakefile().GetDefinition("CMAKE_TLS_VERIFY")) {
+    if (cmValue v = status.GetMakefile().GetDefinition("RBLXBUILD_TLS_VERIFY")) {
       tlsVerifyOpt = v.IsOn();
     }
   }
   if (!tlsVerifyOpt.has_value()) {
     if (cm::optional<std::string> v =
-          cmSystemTools::GetEnvVar("CMAKE_TLS_VERIFY")) {
+          cmSystemTools::GetEnvVar("RBLXBUILD_TLS_VERIFY")) {
       tlsVerifyOpt = cmIsOn(*v);
     }
   }
@@ -2535,13 +2535,13 @@ bool HandleUploadCommand(std::vector<std::string> const& args,
   }
 
   if (!tlsVersionOpt.has_value()) {
-    if (cmValue v = status.GetMakefile().GetDefinition("CMAKE_TLS_VERSION")) {
+    if (cmValue v = status.GetMakefile().GetDefinition("RBLXBUILD_TLS_VERSION")) {
       tlsVersionOpt = *v;
     }
   }
   if (!tlsVersionOpt.has_value()) {
     if (cm::optional<std::string> v =
-          cmSystemTools::GetEnvVar("CMAKE_TLS_VERSION")) {
+          cmSystemTools::GetEnvVar("RBLXBUILD_TLS_VERSION")) {
       tlsVersionOpt = std::move(v);
     }
   }
@@ -2694,7 +2694,7 @@ bool HandleUploadCommand(std::vector<std::string> const& args,
   }
 
   // check to see if netrc parameters have been specified
-  // local command args takes precedence over CMAKE_NETRC*
+  // local command args takes precedence over RBLXBUILD_NETRC*
   netrc_level = cmSystemTools::UpperCase(netrc_level);
   std::string const& netrc_option_err =
     cmCurlSetNETRCOption(curl, netrc_level, netrc_file);
@@ -2725,7 +2725,7 @@ bool HandleUploadCommand(std::vector<std::string> const& args,
       m = cmStrCat(
         std::move(m),
         ".  If this is due to https certificate verification failure, one may "
-        "set environment variable CMAKE_TLS_VERIFY=0 to suppress it.");
+        "set environment variable RBLXBUILD_TLS_VERIFY=0 to suppress it.");
     }
     status.GetMakefile().AddDefinition(
       statusVar, cmStrCat(static_cast<int>(res), ";\"", std::move(m), '"'));
@@ -2758,7 +2758,7 @@ bool HandleUploadCommand(std::vector<std::string> const& args,
 
   return true;
 #else
-  status.SetError("UPLOAD not supported by bootstrap cmake.");
+  status.SetError("UPLOAD not supported by bootstrap rblxbuild.");
   return false;
 #endif
 }
@@ -2772,12 +2772,12 @@ void AddEvaluationFile(std::string const& inputName,
 {
   cmListFileBacktrace lfbt = status.GetMakefile().GetBacktrace();
 
-  cmGeneratorExpression outputGe(*status.GetMakefile().GetCMakeInstance(),
+  cmGeneratorExpression outputGe(*status.GetMakefile().GetRBLXBuildInstance(),
                                  lfbt);
   std::unique_ptr<cmCompiledGeneratorExpression> outputCge =
     outputGe.Parse(outputExpr);
 
-  cmGeneratorExpression conditionGe(*status.GetMakefile().GetCMakeInstance(),
+  cmGeneratorExpression conditionGe(*status.GetMakefile().GetRBLXBuildInstance(),
                                     lfbt);
   std::unique_ptr<cmCompiledGeneratorExpression> conditionCge =
     conditionGe.Parse(condition);
@@ -2943,7 +2943,7 @@ bool HandleGenerateCommand(std::vector<std::string> const& args,
 bool HandleLockCommand(std::vector<std::string> const& args,
                        cmExecutionStatus& status)
 {
-#if !defined(CMAKE_BOOTSTRAP)
+#if !defined(RBLXBUILD_BOOTSTRAP)
   // Default values
   bool directory = false;
   bool release = false;
@@ -3027,7 +3027,7 @@ bool HandleLockCommand(std::vector<std::string> const& args,
   }
 
   if (directory) {
-    path += "/cmake.lock";
+    path += "/rblxbuild.lock";
   }
 
   // Unify path (remove '//', '/../', ...)
@@ -3096,7 +3096,7 @@ bool HandleLockCommand(std::vector<std::string> const& args,
   return true;
 #else
   static_cast<void>(args);
-  status.SetError("sub-command LOCK not implemented in bootstrap cmake");
+  status.SetError("sub-command LOCK not implemented in bootstrap rblxbuild");
   return false;
 #endif
 }
@@ -3404,7 +3404,7 @@ bool HandleGetRuntimeDependenciesCommand(std::vector<std::string> const& args,
                                          cmExecutionStatus& status)
 {
   std::string platform =
-    status.GetMakefile().GetSafeDefinition("CMAKE_HOST_SYSTEM_NAME");
+    status.GetMakefile().GetSafeDefinition("RBLXBUILD_HOST_SYSTEM_NAME");
   if (!cmRuntimeDependencyArchive::PlatformSupportsRuntimeDependencies(
         platform)) {
     status.SetError(
@@ -3654,7 +3654,7 @@ bool HandleConfigureCommand(std::vector<std::string> const& args,
   // Re-generate if non-temporary outputs are missing.
   // when we finalize the configuration we will remove all
   // output files that now don't exist.
-  makeFile.AddCMakeOutputFile(outputFile);
+  makeFile.AddRBLXBuildOutputFile(outputFile);
 
   // Create output directory
   std::string::size_type const slashPos = outputFile.rfind('/');
@@ -4189,7 +4189,7 @@ bool cmFileCommand(std::vector<std::string> const& args,
     { "READ_MACHO"_s, HandleReadMachoCommand },
     { "REAL_PATH"_s, HandleRealPathCommand },
     { "RELATIVE_PATH"_s, HandleRelativePathCommand },
-    { "TO_CMAKE_PATH"_s, HandleCMakePathCommand },
+    { "TO_RBLXBUILD_PATH"_s, HandleRBLXBuildPathCommand },
     { "TO_NATIVE_PATH"_s, HandleNativePathCommand },
     { "TOUCH"_s, HandleTouchCommand },
     { "TOUCH_NOCREATE"_s, HandleTouchNocreateCommand },

@@ -1,0 +1,17 @@
+# This is a platform definition file for platforms without
+# operating system, typically embedded platforms.
+# It is used when RBLXBUILD_SYSTEM_NAME is set to "Generic"
+#
+# It is intentionally empty, since nothing is known
+# about the platform. So everything has to be specified
+# in the system/compiler files ${RBLXBUILD_SYSTEM_NAME}-<compiler_basename>.rblxbuild
+# and/or ${RBLXBUILD_SYSTEM_NAME}-<compiler_basename>-${RBLXBUILD_SYSTEM_PROCESSOR}.rblxbuild
+
+# (embedded) targets without operating system usually don't support shared libraries
+set_property(GLOBAL PROPERTY TARGET_SUPPORTS_SHARED_LIBS FALSE)
+
+# To help the find_xxx() commands, set at least the following so RBLXBUILD_FIND_ROOT_PATH
+# works at least for some simple cases:
+set(RBLXBUILD_SYSTEM_INCLUDE_PATH /include )
+set(RBLXBUILD_SYSTEM_LIBRARY_PATH /lib )
+set(RBLXBUILD_SYSTEM_PROGRAM_PATH /bin )

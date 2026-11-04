@@ -12,7 +12,7 @@
   <Target Name="Link" Condition="'@(Link)' != ''" DependsOnTargets="ComputeLinkSwitches">
     <PropertyGroup>
       <_SYCLLinkInputArguments>@(Link-&gt;'&quot;%(FullPath)&quot;', ' ')</_SYCLLinkInputArguments>
-      <_SYCLLinkArguments>$([System.String]::Copy('%(Link.AdditionalOptions)').Replace('__CMAKE_SYCL_OBJECTS__', '$(_SYCLLinkInputArguments)'))</_SYCLLinkArguments>
+      <_SYCLLinkArguments>$([System.String]::Copy('%(Link.AdditionalOptions)').Replace('__RBLXBUILD_SYCL_OBJECTS__', '$(_SYCLLinkInputArguments)'))</_SYCLLinkArguments>
     </PropertyGroup>
     <MakeDir Directories="%(Link.TrackerLogDirectory)"/>
     <SYCLLink BuildingInIDE="$(BuildingInsideVisualStudio)"

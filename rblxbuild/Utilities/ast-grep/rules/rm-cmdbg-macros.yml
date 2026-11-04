@@ -5,7 +5,7 @@ severity: 'off'
 message: "Remove `CM_DBG` usage before submission"
 ignores:
   # Unit tests for the header.
-  - Tests/CMakeLib/testDebug.cxx
+  - Tests/RBLXBuildLib/testDebug.cxx
 rule:
   pattern: CM_DBG($EXPR)
   kind: call_expression

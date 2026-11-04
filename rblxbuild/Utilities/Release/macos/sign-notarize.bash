@@ -2,8 +2,8 @@
 set -e
 readonly usage='usage: sign-notarize.bash <options>... [--] <package>.dmg
 
-Sign and notarize the "CMake.app" bundle inside the given "<package>.dmg" disk image.
-Also produce a "<package>.tar.gz" tarball containing the same "CMake.app".
+Sign and notarize the "RBLXBuild.app" bundle inside the given "<package>.dmg" disk image.
+Also produce a "<package>.tar.gz" tarball containing the same "RBLXBuild.app".
 
 Options:
 
@@ -119,19 +119,19 @@ hdiutil attach "${udrw_dmg}"
 codesign --verify --timestamp --options=runtime --verbose --force \
   -s "$id" \
   --entitlements "$entitlements_xml" \
-  "$vol_path"/CMake.app/Contents/bin/cmake \
-  "$vol_path"/CMake.app/Contents/bin/ccmake \
-  "$vol_path"/CMake.app/Contents/bin/ctest \
-  "$vol_path"/CMake.app/Contents/bin/cpack \
-  "$vol_path"/CMake.app/Contents/Frameworks/*.framework/Versions/[A56]/Qt* \
-  "$vol_path"/CMake.app/Contents/PlugIns/*/lib*.dylib \
-  "$vol_path"/CMake.app
+  "$vol_path"/RBLXBuild.app/Contents/bin/rblxbuild \
+  "$vol_path"/RBLXBuild.app/Contents/bin/crblxbuild \
+  "$vol_path"/RBLXBuild.app/Contents/bin/ctest \
+  "$vol_path"/RBLXBuild.app/Contents/bin/cpack \
+  "$vol_path"/RBLXBuild.app/Contents/Frameworks/*.framework/Versions/[A56]/Qt* \
+  "$vol_path"/RBLXBuild.app/Contents/PlugIns/*/lib*.dylib \
+  "$vol_path"/RBLXBuild.app
 
 # Prepare an application archive.
-ditto -c -k --keepParent "$vol_path/CMake.app" "$tmpdir/CMake.app.zip"
+ditto -c -k --keepParent "$vol_path/RBLXBuild.app" "$tmpdir/RBLXBuild.app.zip"
 
 # Notarize the application.
-notarize="xcrun notarytool submit '$tmpdir/CMake.app.zip'"
+notarize="xcrun notarytool submit '$tmpdir/RBLXBuild.app.zip'"
 if test -n "$keychain_profile"; then
     notarize="$notarize --keychain-profile '$keychain_profile'"
     if test -n "$keychain"; then
@@ -142,11 +142,11 @@ notarize="$notarize --wait"
 eval "$notarize"
 
 # Staple the notarization.
-xcrun stapler staple "$vol_path/CMake.app"
+xcrun stapler staple "$vol_path/RBLXBuild.app"
 
 # Create a tarball of the volume next to the original disk image.
 readonly tar_gz="${dmg/%.dmg/.tar.gz}"
-tar cvzf "$tar_gz" -C /Volumes "$vol_name/CMake.app"
+tar cvzf "$tar_gz" -C /Volumes "$vol_name/RBLXBuild.app"
 
 # Unmount the modified udrw image.
 hdiutil detach "$vol_path"

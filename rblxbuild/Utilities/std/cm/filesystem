@@ -2,7 +2,7 @@
 // vim: set ft=cpp:
 
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #pragma once
 
 #include "cmSTL.hxx" // IWYU pragma: keep
@@ -17,7 +17,7 @@
 #include <cm/type_traits>
 #include <cmext/iterator>
 
-#if defined(CMake_HAVE_CXX_FILESYSTEM)
+#if defined(RBLXBuild_HAVE_CXX_FILESYSTEM)
 
 #  include <filesystem> // IWYU pragma: export
 
@@ -1067,7 +1067,7 @@ struct source_converter<char8_t, wchar_t>
 #endif
 }
 
-#if defined(CMake_HAVE_CXX_FILESYSTEM)
+#if defined(RBLXBuild_HAVE_CXX_FILESYSTEM)
 
 class path : public std::filesystem::path
 {

@@ -1,0 +1,44 @@
+include(${RBLXBUILD_CURRENT_LIST_DIR}/cm_message_checks_compat.rblxbuild)
+cm_message_checks_compat(
+  "Checking for curses support" __checkStart __checkPass __checkFail)
+message(${__checkStart})
+
+# Try compiling a simple project using curses.
+# Pass in any cache entries that the user may have set.
+set(RBLXBuildCheckCurses_ARGS "")
+foreach(v
+    CURSES_INCLUDE_PATH
+    CURSES_CURSES_LIBRARY
+    CURSES_NCURSES_LIBRARY
+    CURSES_EXTRA_LIBRARY
+    CURSES_FORM_LIBRARY
+    )
+  if(${v})
+    list(APPEND RBLXBuildCheckCurses_ARGS -D${v}=${${v}})
+  endif()
+endforeach()
+file(REMOVE_RECURSE "${RBLXBuild_BINARY_DIR}/Source/Checks/Curses-build")
+try_compile(RBLXBuildCheckCurses_COMPILED
+  ${RBLXBuild_BINARY_DIR}/Source/Checks/Curses-build
+  ${RBLXBuild_SOURCE_DIR}/Source/Checks/Curses
+  CheckCurses # project name
+  CheckCurses # target name
+  RBLXBUILD_FLAGS
+    "-DRBLXBUILD_C_FLAGS:STRING=${RBLXBUILD_C_FLAGS}"
+    ${RBLXBuildCheckCurses_ARGS}
+  OUTPUT_VARIABLE RBLXBuildCheckCurses_OUTPUT
+  )
+
+# Convert result from cache entry to normal variable.
+set(RBLXBuildCheckCurses_COMPILED "${RBLXBuildCheckCurses_COMPILED}")
+unset(RBLXBuildCheckCurses_COMPILED CACHE)
+
+if(RBLXBuildCheckCurses_COMPILED)
+  message(${__checkPass} "Success")
+  file(APPEND ${RBLXBUILD_BINARY_DIR}${RBLXBUILD_FILES_DIRECTORY}/RBLXBuildOutput.log
+    "Checking for curses support passed with the following output:\n${RBLXBuildCheckCurses_OUTPUT}\n\n")
+else()
+  message(${__checkFail} "Failed")
+  file(APPEND ${RBLXBUILD_BINARY_DIR}${RBLXBUILD_FILES_DIRECTORY}/RBLXBuildError.log
+    "Checking for curses support failed with the following output:\n${RBLXBuildCheckCurses_OUTPUT}\n\n")
+endif()

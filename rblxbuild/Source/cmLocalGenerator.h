@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #pragma once
 
 #include "cmConfigure.h" // IWYU pragma: keep
@@ -49,7 +49,7 @@ class cmSourceFile;
 class cmSourceGroup;
 class cmState;
 class cmTarget;
-class cmake;
+class rblxbuild;
 
 template <typename Iter>
 class cmRange;
@@ -119,7 +119,7 @@ public:
    */
   void TraceDependencies() const;
 
-#ifndef CMAKE_BOOTSTRAP
+#ifndef RBLXBUILD_BOOTSTRAP
   /**
    * Resolve source group genex.
    */
@@ -342,10 +342,10 @@ public:
 
   /** \brief Get absolute path to dependency \a name
    *
-   * Translate a dependency as given in CMake code to the name to
+   * Translate a dependency as given in RBLXBuild code to the name to
    * appear in a generated build file.
    * - If \a name is a utility target, returns false.
-   * - If \a name is a CMake target, it will be transformed to the real output
+   * - If \a name is a RBLXBuild target, it will be transformed to the real output
    *   location of that target for the given configuration.
    * - If \a name is the full path to a file, it will be returned.
    * - Otherwise \a name is treated as a relative path with respect to
@@ -356,7 +356,7 @@ public:
                          std::string& dep, cmPolicies::PolicyStatus cmp0212);
 
   /**
-   * Translate a file dependency as given in CMake code to a full path.
+   * Translate a file dependency as given in RBLXBuild code to a full path.
    * - If \a name is a full path, it will be returned.
    * - If \a name names a source file known to this directory, such as the
    *   output of a custom command, its full path will be returned.
@@ -381,9 +381,9 @@ public:
    * and optional the compiler implicit include directories.
    *
    * @arg stripImplicitDirs Strip all directories found in
-   *      CMAKE_<LANG>_IMPLICIT_INCLUDE_DIRECTORIES from the result.
+   *      RBLXBUILD_<LANG>_IMPLICIT_INCLUDE_DIRECTORIES from the result.
    * @arg appendAllImplicitDirs Append all directories found in
-   *      CMAKE_<LANG>_IMPLICIT_INCLUDE_DIRECTORIES to the result.
+   *      RBLXBUILD_<LANG>_IMPLICIT_INCLUDE_DIRECTORIES to the result.
    */
   std::vector<BT<std::string>> GetIncludeDirectoriesImplicit(
     cmGeneratorTarget const* target, std::string const& lang = "C",
@@ -521,7 +521,7 @@ public:
 
   cmPolicies::PolicyStatus GetPolicyStatus(cmPolicies::PolicyID id) const;
 
-  cmake* GetCMakeInstance() const;
+  rblxbuild* GetRBLXBuildInstance() const;
 
   std::string const& GetSourceDirectory() const;
   std::string const& GetBinaryDirectory() const;
@@ -751,7 +751,7 @@ protected:
 
   bool EmitUniversalBinaryFlags;
 
-#if !defined(CMAKE_BOOTSTRAP)
+#if !defined(RBLXBUILD_BOOTSTRAP)
   // Map from source file path to source group for lookup acceleration
   using SourceGroupMap = std::unordered_map<std::string, cmSourceGroup*>;
   SourceGroupMap SourceGroupSearchIndex;

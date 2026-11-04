@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmSourceFileLocation.h"
 
 #include <cassert>
@@ -12,7 +12,7 @@
 #include "cmPolicies.h"
 #include "cmStringAlgorithms.h"
 #include "cmSystemTools.h"
-#include "cmake.h"
+#include "rblxbuild.h"
 
 // if CMP0187 and CMP0115 are NEW, then we assume that source files that do not
 // include a file extension are not ambiguous but intentionally do not have an
@@ -111,7 +111,7 @@ void cmSourceFileLocation::UpdateExtension(std::string const& name)
   // The global generator checks extensions of enabled languages.
   cmGlobalGenerator* gg = this->Makefile->GetGlobalGenerator();
   cmMakefile const* mf = this->Makefile;
-  auto* cm = mf->GetCMakeInstance();
+  auto* cm = mf->GetRBLXBuildInstance();
   if (!gg->GetLanguageFromExtension(ext).empty() ||
       cm->IsAKnownExtension(ext)) {
     // This is a known extension.  Use the given filename with extension.
@@ -170,7 +170,7 @@ bool cmSourceFileLocation::MatchesAmbiguousExtension(
   // disk.  One of these must match if loc refers to this source file.
   auto ext = cm::string_view(this->Name).substr(loc.Name.size() + 1);
   cmMakefile const* mf = this->Makefile;
-  auto* cm = mf->GetCMakeInstance();
+  auto* cm = mf->GetRBLXBuildInstance();
   return cm->IsAKnownExtension(ext);
 }
 

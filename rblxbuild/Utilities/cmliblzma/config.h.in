@@ -33,12 +33,12 @@ typedef KWIML_INT_uint8_t uint8_t;
 typedef KWIML_INT_uintptr_t uintptr_t;
 #endif
 
-#cmakedefine WORDS_BIGENDIAN 1
+#rblxbuilddefine WORDS_BIGENDIAN 1
 
-#cmakedefine HAVE_BYTESWAP_H 1
-#cmakedefine HAVE_BSWAP_16 1
-#cmakedefine HAVE_BSWAP_32 1
-#cmakedefine HAVE_BSWAP_64 1
+#rblxbuilddefine HAVE_BYTESWAP_H 1
+#rblxbuilddefine HAVE_BSWAP_16 1
+#rblxbuilddefine HAVE_BSWAP_32 1
+#rblxbuilddefine HAVE_BSWAP_64 1
 
 
 #define HAVE_CHECK_CRC32 1
@@ -79,13 +79,13 @@ typedef KWIML_INT_uintptr_t uintptr_t;
 #endif
 
 /* Define to 1 if you have the <limits.h> header file. */
-#cmakedefine HAVE_LIMITS_H 1
+#rblxbuilddefine HAVE_LIMITS_H 1
 
 /* Define to 1 if you have the <memory.h> header file. */
-#cmakedefine HAVE_MEMORY_H 1
+#rblxbuilddefine HAVE_MEMORY_H 1
 
 /* Define to 1 if stdbool.h conforms to C99. */
-#cmakedefine HAVE_STDBOOL_H 1
+#rblxbuilddefine HAVE_STDBOOL_H 1
 
 /* Define to 1 if you have the <stdint.h> header file. */
 #ifdef KWIML_INT_HAVE_STDINT_H
@@ -93,23 +93,23 @@ typedef KWIML_INT_uintptr_t uintptr_t;
 #endif
 
 /* Define to 1 if you have the <strings.h> header file. */
-#cmakedefine HAVE_STRINGS_H 1
+#rblxbuilddefine HAVE_STRINGS_H 1
 
 /* Define to 1 if you have the <string.h> header file. */
-#cmakedefine HAVE_STRING_H 1
+#rblxbuilddefine HAVE_STRING_H 1
 
 /* Define to 1 if you have the <sys/byteorder.h> header file. */
-#cmakedefine HAVE_SYS_BYTEORDER_H 1
+#rblxbuilddefine HAVE_SYS_BYTEORDER_H 1
 
 /* Define to 1 if you have the <sys/endian.h> header file. */
-#cmakedefine HAVE_SYS_ENDIAN_H 1
+#rblxbuilddefine HAVE_SYS_ENDIAN_H 1
 
 /* Define to 1 or 0, depending whether the compiler supports simple visibility
    declarations. */
-#cmakedefine HAVE_VISIBILITY 1
+#rblxbuilddefine HAVE_VISIBILITY 1
 
 /* Define to 1 if the system has the type `_Bool'. */
-#cmakedefine HAVE__BOOL 1
+#rblxbuilddefine HAVE__BOOL 1
 
 /* Define to 1 if the system supports fast unaligned access to 16-bit and
    32-bit integers. */

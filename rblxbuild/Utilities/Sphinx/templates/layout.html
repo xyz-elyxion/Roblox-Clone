@@ -4,11 +4,11 @@
     <label class="sidebar-toggle" for="sidebar-check"></label>
   </li>
   <li class="rootlink">
-    <img src="{{ pathto('_static/cmake-logo-16.png', 1) }}" width="16" height="16" alt=""/>
+    <img src="{{ pathto('_static/rblxbuild-logo-16.png', 1) }}" width="16" height="16" alt=""/>
   {%- if versionswitch is defined %}
-    <a href="https://cmake.org/">CMake</a> <span class="version_switch">{{ release }}</span>
+    <a href="https://rblxbuild.org/">RBLXBuild</a> <span class="version_switch">{{ release }}</span>
   {%- else %}
-    <a href="https://cmake.org/">CMake {{ release }}</a>
+    <a href="https://rblxbuild.org/">RBLXBuild {{ release }}</a>
   {%- endif %}
     <span class="reldelim1">{{ reldelim1 }}</span>
   </li>
@@ -21,8 +21,8 @@
 {{ super()|replace('class="related"', 'class="related relbar1"') }}
 {%- if outdated is defined %}
     <div class="outdated">
-      This documents an old version of CMake.
-      <a href="https://cmake.org/cmake/help/latest/{{ pagename }}.html">
+      This documents an old version of RBLXBuild.
+      <a href="https://rblxbuild.org/rblxbuild/help/latest/{{ pagename }}.html">
         Click here to see the latest release.
       </a>
       <span class="version_switch_note"></span>
@@ -33,7 +33,7 @@
 {% block extrahead %}
   {%- if opensearch is defined %}
     <link rel="search" type="application/opensearchdescription+xml"
-          title="Search within CMake Documentation of Latest Version"
+          title="Search within RBLXBuild Documentation of Latest Version"
           href="{{ pathto('../latest-opensearch.xml', 1) }}"/>
   {%- endif %}
   {%- if versionswitch is defined %}

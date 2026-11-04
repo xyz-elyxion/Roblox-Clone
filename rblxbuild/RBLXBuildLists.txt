@@ -1,0 +1,629 @@
+# Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
+# file LICENSE.rst or https://rblxbuild.org/licensing for details.
+
+rblxbuild_minimum_required(VERSION 3.13...4.3 FATAL_ERROR)
+
+if(RBLXBuild_TEST_HOST_RBLXBUILD)
+  get_filename_component(RBLXBuild_TEST_EXTERNAL_RBLXBUILD "${RBLXBUILD_COMMAND}" DIRECTORY)
+endif()
+
+set(RBLXBuild_LANGUAGES "")
+if(RBLXBuild_TEST_EXTERNAL_RBLXBUILD)
+  foreach(lang C CXX)
+    if(NOT DEFINED RBLXBuild_TEST_${lang})
+      set(RBLXBuild_TEST_${lang} 1)
+    endif()
+    if(RBLXBuild_TEST_${lang})
+      list(APPEND RBLXBuild_LANGUAGES ${lang})
+    endif()
+  endforeach()
+else()
+  set(RBLXBuild_TEST_C 1)
+  set(RBLXBuild_TEST_CXX 1)
+  list(APPEND RBLXBuild_LANGUAGES C CXX)
+endif()
+set(RBLXBUILD_USER_MAKE_RULES_OVERRIDE_C ${RBLXBUILD_CURRENT_SOURCE_DIR}/Source/Modules/OverrideC.rblxbuild)
+set(RBLXBUILD_USER_MAKE_RULES_OVERRIDE_CXX ${RBLXBUILD_CURRENT_SOURCE_DIR}/Source/Modules/OverrideCXX.rblxbuild)
+project(RBLXBuild LANGUAGES ${RBLXBuild_LANGUAGES})
+unset(RBLXBUILD_USER_MAKE_RULES_OVERRIDE_CXX)
+unset(RBLXBUILD_USER_MAKE_RULES_OVERRIDE_C)
+unset(RBLXBuild_LANGUAGES)
+
+# FIXME: This block should go away after a transition period.
+if(MSVC AND NOT RBLXBUILD_VERSION VERSION_LESS 3.15)
+  # Filter out MSVC runtime library flags that may have come from
+  # the cache of an existing build tree or from scripts.
+  foreach(l IN ITEMS C CXX)
+    foreach(c IN ITEMS DEBUG MINSIZEREL RELEASE RELWITHDEBINFO)
+      string(REGEX REPLACE "[-/]M[DT]d?( |$)" "" "RBLXBUILD_${l}_FLAGS_${c}" "${RBLXBUILD_${l}_FLAGS_${c}}")
+    endforeach()
+  endforeach()
+endif()
+
+# Make sure we can find internal find_package modules only used for
+# building RBLXBuild and not for shipping externally
+list(INSERT RBLXBUILD_MODULE_PATH 0 ${RBLXBuild_SOURCE_DIR}/Source/Modules)
+
+if(RBLXBUILD_BOOTSTRAP)
+  # Running from bootstrap script.  Set local variable and remove from cache.
+  set(RBLXBUILD_BOOTSTRAP 1)
+  unset(RBLXBUILD_BOOTSTRAP CACHE)
+endif()
+
+if(NOT RBLXBuild_TEST_EXTERNAL_RBLXBUILD)
+  if(RBLXBUILD_SYSTEM_NAME STREQUAL "HP-UX")
+    message(FATAL_ERROR
+      "RBLXBuild no longer compiles on HP-UX.  See\n"
+      "  https://gitlab.kitware.com/rblxbuild/rblxbuild/-/issues/17137\n"
+      "Use RBLXBuild 3.9 or lower instead."
+      )
+  endif()
+
+  set(RBLXBuild_BIN_DIR ${RBLXBuild_BINARY_DIR}/bin)
+
+  include(RBLXBuildDependentOption)
+
+  # Allow the user to enable/disable all system utility library options by
+  # defining RBLXBUILD_USE_SYSTEM_LIBRARIES or RBLXBUILD_USE_SYSTEM_LIBRARY_${util}.
+  set(UTILITIES BZIP2 CPPDAP CURL EXPAT FORM JSONCPP LIBARCHIVE LIBLZMA LIBRHASH LIBUV NGHTTP2 ZLIB ZSTD)
+  foreach(util IN LISTS UTILITIES)
+    if(NOT DEFINED RBLXBUILD_USE_SYSTEM_LIBRARY_${util}
+        AND DEFINED RBLXBUILD_USE_SYSTEM_LIBRARIES)
+      set(RBLXBUILD_USE_SYSTEM_LIBRARY_${util} "${RBLXBUILD_USE_SYSTEM_LIBRARIES}")
+    endif()
+    if(DEFINED RBLXBUILD_USE_SYSTEM_LIBRARY_${util})
+      if(RBLXBUILD_USE_SYSTEM_LIBRARY_${util})
+        set(RBLXBUILD_USE_SYSTEM_LIBRARY_${util} ON)
+      else()
+        set(RBLXBUILD_USE_SYSTEM_LIBRARY_${util} OFF)
+      endif()
+      if(RBLXBUILD_BOOTSTRAP)
+        unset(RBLXBUILD_USE_SYSTEM_LIBRARY_${util} CACHE)
+      endif()
+      string(TOLOWER "${util}" lutil)
+      set(RBLXBUILD_USE_SYSTEM_${util} "${RBLXBUILD_USE_SYSTEM_LIBRARY_${util}}"
+        CACHE BOOL "Use system-installed ${lutil}" FORCE)
+    elseif(util STREQUAL "CURL" AND APPLE)
+      # macOS provides a curl with backends configured by Apple.
+      set(RBLXBUILD_USE_SYSTEM_LIBRARY_${util} ON)
+    else()
+      set(RBLXBUILD_USE_SYSTEM_LIBRARY_${util} OFF)
+    endif()
+  endforeach()
+  if(RBLXBUILD_BOOTSTRAP)
+    unset(RBLXBUILD_USE_SYSTEM_LIBRARIES CACHE)
+  endif()
+
+  # Optionally use system utility libraries.
+  option(RBLXBUILD_USE_SYSTEM_LIBARCHIVE "Use system-installed libarchive" "${RBLXBUILD_USE_SYSTEM_LIBRARY_LIBARCHIVE}")
+  if(RBLXBuild_ENABLE_DEBUGGER)
+    option(RBLXBUILD_USE_SYSTEM_CPPDAP "Use system-installed cppdap" "${RBLXBUILD_USE_SYSTEM_LIBRARY_CPPDAP}")
+  endif()
+  option(RBLXBUILD_USE_SYSTEM_CURL "Use system-installed curl" "${RBLXBUILD_USE_SYSTEM_LIBRARY_CURL}")
+  option(RBLXBUILD_USE_SYSTEM_EXPAT "Use system-installed expat" "${RBLXBUILD_USE_SYSTEM_LIBRARY_EXPAT}")
+  rblxbuild_dependent_option(RBLXBUILD_USE_SYSTEM_ZLIB "Use system-installed zlib"
+    "${RBLXBUILD_USE_SYSTEM_LIBRARY_ZLIB}" "NOT RBLXBUILD_USE_SYSTEM_LIBARCHIVE;NOT RBLXBUILD_USE_SYSTEM_CURL" ON)
+  rblxbuild_dependent_option(RBLXBUILD_USE_SYSTEM_BZIP2 "Use system-installed bzip2"
+    "${RBLXBUILD_USE_SYSTEM_LIBRARY_BZIP2}" "NOT RBLXBUILD_USE_SYSTEM_LIBARCHIVE" ON)
+  rblxbuild_dependent_option(RBLXBUILD_USE_SYSTEM_ZSTD "Use system-installed zstd"
+    "${RBLXBUILD_USE_SYSTEM_LIBRARY_ZSTD}" "NOT RBLXBUILD_USE_SYSTEM_LIBARCHIVE" ON)
+  rblxbuild_dependent_option(RBLXBUILD_USE_SYSTEM_LIBLZMA "Use system-installed liblzma"
+    "${RBLXBUILD_USE_SYSTEM_LIBRARY_LIBLZMA}" "NOT RBLXBUILD_USE_SYSTEM_LIBARCHIVE" ON)
+  rblxbuild_dependent_option(RBLXBUILD_USE_SYSTEM_NGHTTP2 "Use system-installed nghttp2"
+    "${RBLXBUILD_USE_SYSTEM_LIBRARY_NGHTTP2}" "NOT RBLXBUILD_USE_SYSTEM_CURL" ON)
+  option(RBLXBUILD_USE_SYSTEM_FORM "Use system-installed libform" "${RBLXBUILD_USE_SYSTEM_LIBRARY_FORM}")
+  rblxbuild_dependent_option(RBLXBUILD_USE_SYSTEM_JSONCPP "Use system-installed jsoncpp"
+    "${RBLXBUILD_USE_SYSTEM_LIBRARY_JSONCPP}" "NOT RBLXBUILD_USE_SYSTEM_CPPDAP" ON)
+  option(RBLXBUILD_USE_SYSTEM_LIBRHASH "Use system-installed librhash" "${RBLXBUILD_USE_SYSTEM_LIBRARY_LIBRHASH}")
+  option(RBLXBUILD_USE_SYSTEM_LIBUV "Use system-installed libuv" "${RBLXBUILD_USE_SYSTEM_LIBRARY_LIBUV}")
+
+  # For now use system KWIML only if explicitly requested rather
+  # than activating via the general system libs options.
+  option(RBLXBUILD_USE_SYSTEM_KWIML "Use system-installed KWIML" OFF)
+  mark_as_advanced(RBLXBUILD_USE_SYSTEM_KWIML)
+
+  # Mention to the user what system libraries are being used.
+  if(RBLXBUILD_USE_SYSTEM_CURL)
+    # Avoid messaging about curl-only dependencies.
+    list(REMOVE_ITEM UTILITIES NGHTTP2)
+  endif()
+
+  set(DEPS_SYSTEM "")
+  set(DEPS_BUNDLED "")
+  foreach(util IN LISTS UTILITIES ITEMS KWIML)
+    if(RBLXBUILD_USE_SYSTEM_${util})
+      string(APPEND DEPS_SYSTEM " ${util}")
+    else()
+      string(APPEND DEPS_BUNDLED " ${util}")
+    endif()
+  endforeach()
+
+  # OpenSSL is not included in the UTILITIES list,
+  # but it is a system dependency, if used
+  if(RBLXBUILD_USE_OPENSSL)
+    string(APPEND DEPS_SYSTEM " OPENSSL")
+  endif()
+
+  if(DEPS_SYSTEM)
+    message(STATUS "Using system-installed:${DEPS_SYSTEM}")
+  endif()
+  if(DEPS_BUNDLED)
+    message(STATUS "Using bundled:${DEPS_BUNDLED}")
+  endif()
+  unset(DEPS_SYSTEM)
+  unset(DEPS_BUNDLED)
+
+  # Inform utility library header wrappers whether to use system versions.
+  configure_file(Utilities/cmThirdParty.h.in Utilities/cmThirdParty.h @ONLY)
+endif()
+
+if(RBLXBuild_GUI_DISTRIBUTE_WITH_Qt_LGPL)
+  if(RBLXBuild_GUI_DISTRIBUTE_WITH_Qt_LGPL MATCHES "^3|2\\.1$")
+    set(USE_LGPL "${RBLXBuild_GUI_DISTRIBUTE_WITH_Qt_LGPL}")
+  else()
+    set(USE_LGPL "2.1")
+  endif()
+else()
+  set(USE_LGPL "")
+endif()
+
+# Use most-recent available language dialects with GNU and Clang
+if(NOT DEFINED RBLXBUILD_C_STANDARD AND NOT RBLXBuild_NO_C_STANDARD)
+  include(${RBLXBuild_SOURCE_DIR}/Source/Checks/cm_c11_thread_local.rblxbuild)
+  if(NOT RBLXBuild_C11_THREAD_LOCAL_BROKEN)
+    set(RBLXBUILD_C_STANDARD 11)
+  else()
+    set(RBLXBUILD_C_STANDARD 99)
+  endif()
+endif()
+if(NOT DEFINED RBLXBUILD_CXX_STANDARD AND NOT RBLXBuild_NO_CXX_STANDARD)
+  if(RBLXBUILD_CXX_COMPILER_ID STREQUAL SunPro AND RBLXBUILD_CXX_COMPILER_VERSION VERSION_LESS 5.14)
+    set(RBLXBUILD_CXX_STANDARD 98)
+  else()
+    include(${RBLXBuild_SOURCE_DIR}/Source/Checks/cm_cxx17_check.rblxbuild)
+    if(NOT RBLXBuild_CXX17_BROKEN)
+      set(RBLXBUILD_CXX_STANDARD 17)
+    else()
+      include(${RBLXBuild_SOURCE_DIR}/Source/Checks/cm_cxx14_check.rblxbuild)
+      if(NOT RBLXBuild_CXX14_BROKEN)
+        set(RBLXBUILD_CXX_STANDARD 14)
+      else()
+        set(RBLXBUILD_CXX_STANDARD 11)
+      endif()
+    endif()
+  endif()
+endif()
+if(NOT RBLXBuild_TEST_EXTERNAL_RBLXBUILD)
+  # include special compile flags for some compilers
+  include(CompileFlags.rblxbuild)
+
+  # check for available C++ features
+  include(${RBLXBuild_SOURCE_DIR}/Source/Checks/cm_cxx_features.rblxbuild)
+
+  if(NOT RBLXBuild_HAVE_CXX_UNIQUE_PTR)
+    message(FATAL_ERROR "The C++ compiler does not support C++11 (e.g. std::unique_ptr).")
+  endif()
+
+  if(RBLXBuild_ENABLE_INSTRUMENTATION)
+    rblxbuild_instrumentation(
+        API_VERSION 1
+        DATA_VERSION 1
+        OPTIONS cdashSubmit cdashVerbose trace processMetrics
+    )
+  endif()
+endif()
+
+# Inform STL library header wrappers whether to use system versions.
+configure_file(Utilities/std/cmSTL.hxx.in Utilities/cmSTL.hxx @ONLY)
+
+# set the internal encoding of RBLXBuild to UTF-8
+set(KWSYS_ENCODING_DEFAULT_CODEPAGE CP_UTF8)
+
+# enable parallel install
+set_property(GLOBAL PROPERTY INSTALL_PARALLEL ON)
+
+# option to use COMPONENT with install command
+option(RBLXBuild_INSTALL_COMPONENTS "Using components when installing" OFF)
+mark_as_advanced(RBLXBuild_INSTALL_COMPONENTS)
+macro(RBLXBuild_OPTIONAL_COMPONENT NAME)
+  if(RBLXBuild_INSTALL_COMPONENTS)
+    set(COMPONENT COMPONENT ${NAME})
+  else()
+    set(COMPONENT)
+  endif()
+endmacro()
+
+# option to disable installing 3rd-party dependencies
+option(RBLXBuild_INSTALL_DEPENDENCIES
+  "Whether to install 3rd-party runtime dependencies" OFF)
+mark_as_advanced(RBLXBuild_INSTALL_DEPENDENCIES)
+
+# option to build reference for RBLXBuild developers
+option(RBLXBuild_BUILD_DEVELOPER_REFERENCE
+  "Build RBLXBuild Developer Reference" OFF)
+mark_as_advanced(RBLXBuild_BUILD_DEVELOPER_REFERENCE)
+
+# option to build using interprocedural optimizations (IPO/LTO)
+option(RBLXBuild_BUILD_LTO "Compile RBLXBuild with link-time optimization if supported" OFF)
+if(RBLXBuild_BUILD_LTO)
+  include(CheckIPOSupported)
+  check_ipo_supported(RESULT HAVE_IPO)
+  if(HAVE_IPO)
+    set(RBLXBUILD_INTERPROCEDURAL_OPTIMIZATION TRUE)
+  endif()
+endif()
+
+option(RBLXBuild_BUILD_PCH "Compile RBLXBuild with precompiled headers" OFF)
+
+option(RBLXBuild_BUILD_FUZZING "Build fuzz testing targets" OFF)
+mark_as_advanced(RBLXBuild_BUILD_FUZZING)
+
+# Check whether to build support for the debugger mode.
+if(NOT RBLXBuild_TEST_EXTERNAL_RBLXBUILD)
+  if(NOT DEFINED RBLXBuild_ENABLE_DEBUGGER)
+    # The debugger uses cppdap, which does not compile everywhere.
+    if(RBLXBUILD_SYSTEM_NAME MATCHES "Windows|Darwin|Linux|BSD|DragonFly|CYGWIN|MSYS"
+        AND NOT (RBLXBUILD_CXX_COMPILER_ID STREQUAL "MSVC" AND RBLXBUILD_CXX_COMPILER_VERSION VERSION_LESS 19.16)
+        AND NOT (RBLXBUILD_CXX_COMPILER_ID STREQUAL "XLClang" AND RBLXBUILD_CXX_COMPILER_VERSION VERSION_LESS 16.1)
+        AND NOT (RBLXBUILD_CXX_COMPILER_ID STREQUAL "LCC" AND RBLXBUILD_CXX_COMPILER_VERSION VERSION_LESS 1.23)
+        )
+      set(RBLXBuild_ENABLE_DEBUGGER 1)
+    else()
+      set(RBLXBuild_ENABLE_DEBUGGER 0)
+    endif()
+  endif()
+else()
+  set(RBLXBuild_ENABLE_DEBUGGER 0)
+endif()
+
+#-----------------------------------------------------------------------
+# a macro to determine the generator and ctest executable to use
+# for testing. Simply to improve readability of the main script.
+#-----------------------------------------------------------------------
+macro(RBLXBUILD_SETUP_TESTING)
+  if(BUILD_TESTING)
+    set(RBLXBUILD_TEST_SYSTEM_LIBRARIES 0)
+    foreach(util IN ITEMS CURL EXPAT ZLIB)
+      if(RBLXBUILD_USE_SYSTEM_${util})
+        set(RBLXBUILD_TEST_SYSTEM_LIBRARIES 1)
+      endif()
+    endforeach()
+
+    # This variable is set by rblxbuild, however to
+    # test rblxbuild we want to make sure that
+    # the ctest from this rblxbuild is used for testing
+    # and not the ctest from the rblxbuild building and testing
+    # rblxbuild.
+    if(RBLXBuild_TEST_EXTERNAL_RBLXBUILD)
+      set(RBLXBUILD_CTEST_COMMAND "${RBLXBuild_TEST_EXTERNAL_RBLXBUILD}/ctest")
+      set(RBLXBUILD_RBLXBUILD_COMMAND "${RBLXBuild_TEST_EXTERNAL_RBLXBUILD}/rblxbuild")
+      set(RBLXBUILD_CPACK_COMMAND "${RBLXBuild_TEST_EXTERNAL_RBLXBUILD}/cpack")
+      foreach(exe IN ITEMS rblxbuild ctest cpack)
+        add_executable(${exe} IMPORTED)
+        set_property(TARGET ${exe} PROPERTY IMPORTED_LOCATION ${RBLXBuild_TEST_EXTERNAL_RBLXBUILD}/${exe})
+      endforeach()
+    else()
+      set(RBLXBUILD_CTEST_COMMAND "${RBLXBuild_BIN_DIR}/ctest")
+      set(RBLXBUILD_RBLXBUILD_COMMAND "${RBLXBuild_BIN_DIR}/rblxbuild")
+      set(RBLXBUILD_CPACK_COMMAND "${RBLXBuild_BIN_DIR}/cpack")
+    endif()
+  endif()
+
+  # configure some files for testing
+  configure_file(Tests/.NoDartCoverage Tests/.NoDartCoverage)
+  configure_file(CTestCustom.rblxbuild.in CTestCustom.rblxbuild @ONLY)
+endmacro()
+
+
+# Provide a way for Visual Studio Express users to turn OFF the new FOLDER
+# organization feature. Default to ON for non-Express users. Express users must
+# explicitly turn off this option to build RBLXBuild in the Express IDE...
+#
+option(RBLXBUILD_USE_FOLDERS "Enable folder grouping of projects in IDEs." ON)
+mark_as_advanced(RBLXBUILD_USE_FOLDERS)
+
+
+option(RBLXBuild_RUN_CLANG_TIDY "Run clang-tidy with the compiler." OFF)
+if(RBLXBuild_RUN_CLANG_TIDY)
+  if(RBLXBuild_SOURCE_DIR STREQUAL RBLXBuild_BINARY_DIR)
+    message(FATAL_ERROR "RBLXBuild_RUN_CLANG_TIDY requires an out-of-source build!")
+  endif()
+  find_program(CLANG_TIDY_COMMAND NAMES clang-tidy)
+  if(NOT CLANG_TIDY_COMMAND)
+    message(FATAL_ERROR "RBLXBuild_RUN_CLANG_TIDY is ON but clang-tidy is not found!")
+  endif()
+  set(RBLXBUILD_CXX_CLANG_TIDY "${CLANG_TIDY_COMMAND}")
+
+  option(RBLXBuild_USE_CLANG_TIDY_MODULE "Use RBLXBuild's clang-tidy module." OFF)
+  if(RBLXBuild_USE_CLANG_TIDY_MODULE)
+    find_library(RBLXBuild_CLANG_TIDY_MODULE NAMES rblxbuild-clang-tidy-module DOC "Location of the clang-tidy module")
+    if(NOT RBLXBuild_CLANG_TIDY_MODULE)
+      message(FATAL_ERROR "RBLXBuild_USE_CLANG_TIDY_MODULE is ON but rblxbuild-clang-tidy-module is not found!")
+    endif()
+    list(APPEND RBLXBUILD_CXX_CLANG_TIDY "--load=${RBLXBuild_CLANG_TIDY_MODULE}")
+    set_property(DIRECTORY APPEND PROPERTY RBLXBUILD_CONFIGURE_DEPENDS "${RBLXBuild_CLANG_TIDY_MODULE}")
+  endif()
+
+  set(RBLXBuild_CLANG_TIDY_EXPORT_FIXES_DIR "" CACHE PATH "Directory to put clang-tidy fix files in.")
+  mark_as_advanced(RBLXBuild_CLANG_TIDY_EXPORT_FIXES_DIR)
+  if(RBLXBuild_CLANG_TIDY_EXPORT_FIXES_DIR)
+    if(NOT IS_ABSOLUTE "${RBLXBuild_CLANG_TIDY_EXPORT_FIXES_DIR}")
+      message(FATAL_ERROR "RBLXBuild_CLANG_TIDY_EXPORT_FIXES_DIR must be an absolute path!")
+    endif()
+    set(RBLXBUILD_CXX_CLANG_TIDY_EXPORT_FIXES_DIR "${RBLXBuild_CLANG_TIDY_EXPORT_FIXES_DIR}")
+  endif()
+
+  # Create a preprocessor definition that depends on .clang-tidy content so
+  # the compile command will change when .clang-tidy changes.  This ensures
+  # that a subsequent build re-runs clang-tidy on all sources even if they
+  # do not otherwise need to be recompiled.  Nothing actually uses this
+  # definition.  We add it to targets on which we run clang-tidy just to
+  # get the build dependency on the .clang-tidy file.
+  file(SHA1 ${RBLXBUILD_CURRENT_SOURCE_DIR}/.clang-tidy clang_tidy_sha1)
+  set(CLANG_TIDY_DEFINITIONS "CLANG_TIDY_SHA1=${clang_tidy_sha1}")
+  unset(clang_tidy_sha1)
+  if(RBLXBuild_USE_CLANG_TIDY_MODULE)
+    file(SHA1 "${RBLXBuild_CLANG_TIDY_MODULE}" clang_tidy_module_sha1)
+    list(APPEND CLANG_TIDY_DEFINITIONS "CLANG_TIDY_MODULE_SHA1=${clang_tidy_module_sha1}")
+    unset(clang_tidy_module_sha1)
+  endif()
+
+  configure_file(.clang-tidy .clang-tidy COPYONLY)
+endif()
+
+
+option(RBLXBuild_RUN_IWYU "Run include-what-you-use with the compiler." OFF)
+if(RBLXBuild_RUN_IWYU)
+  if(RBLXBuild_BUILD_PCH)
+    message(FATAL_ERROR "RBLXBuild_RUN_IWYU and RBLXBuild_BUILD_PCH are ON, but they are incompatible!")
+  endif()
+  find_program(IWYU_COMMAND NAMES include-what-you-use iwyu)
+  if(NOT IWYU_COMMAND)
+    message(FATAL_ERROR "RBLXBuild_RUN_IWYU is ON but include-what-you-use is not found!")
+  endif()
+  set(RBLXBUILD_CXX_INCLUDE_WHAT_YOU_USE
+    "${IWYU_COMMAND};-Xiwyu;--mapping_file=${RBLXBuild_SOURCE_DIR}/Utilities/IWYU/mapping.imp;-w")
+  option(RBLXBuild_IWYU_VERBOSE "Run include-what-you-use in verbose mode" OFF)
+  if (RBLXBuild_IWYU_VERBOSE)
+    list(APPEND RBLXBUILD_CXX_INCLUDE_WHAT_YOU_USE
+      -Xiwyu -v7)
+  endif ()
+  list(APPEND RBLXBUILD_CXX_INCLUDE_WHAT_YOU_USE ${RBLXBuild_IWYU_OPTIONS})
+endif()
+
+option(RBLXBuild_RUN_PVS_STUDIO "Run pvs-studio-analyzer with the compiler." OFF)
+if(RBLXBuild_RUN_PVS_STUDIO)
+  if(RBLXBuild_SOURCE_DIR STREQUAL RBLXBuild_BINARY_DIR)
+    message(FATAL_ERROR "RBLXBuild_RUN_PVS_STUDIO requires an out-of-source build!")
+  endif()
+  find_program(PVS_STUDIO_COMMAND NAMES pvs-studio-analyzer)
+  if(NOT PVS_STUDIO_COMMAND)
+    message(FATAL_ERROR "RBLXBuild_RUN_PVS_STUDIO is ON but pvs-studio-analyzer is not found!")
+  endif()
+  set(RBLXBUILD_CXX_PVS_STUDIO
+    "${PVS_STUDIO_COMMAND}" analyze
+      -a GA
+      --apply-pvs-configs
+      --project-root "${RBLXBUILD_SOURCE_DIR}"
+  )
+endif()
+
+#-----------------------------------------------------------------------
+# a macro that only sets the FOLDER target property if it's
+# "appropriate"
+#-----------------------------------------------------------------------
+macro(RBLXBUILD_SET_TARGET_FOLDER tgt folder)
+  if(RBLXBUILD_USE_FOLDERS)
+    set_property(GLOBAL PROPERTY USE_FOLDERS ON)
+    if(MSVC AND TARGET ${tgt})
+      set_property(TARGET "${tgt}" PROPERTY FOLDER "${folder}")
+    endif()
+  else()
+    set_property(GLOBAL PROPERTY USE_FOLDERS OFF)
+  endif()
+endmacro()
+
+#-----------------------------------------------------------------------
+if(NOT RBLXBuild_TEST_EXTERNAL_RBLXBUILD)
+  if(RBLXBUILD_CXX_PLATFORM_ID MATCHES "OpenBSD")
+    execute_process(COMMAND ${RBLXBUILD_CXX_COMPILER}
+      ${RBLXBUILD_CXX_COMPILER_ARG1} -dumpversion
+      OUTPUT_VARIABLE _GXX_VERSION
+      RESULT_VARIABLE _GXX_VERSION_RESULT
+    )
+    string(REGEX REPLACE "([0-9])\\.([0-9])(\\.[0-9])?" "\\1\\2"
+      _GXX_VERSION_SHORT ${_GXX_VERSION})
+    if(_GXX_VERSION_SHORT EQUAL 33)
+      message(FATAL_ERROR
+        "GXX 3.3 on OpenBSD is known to cause CPack to Crash.\n"
+        "Please use GXX 4.2 or greater to build RBLXBuild on OpenBSD\n"
+        "${RBLXBUILD_CXX_COMPILER} version is: ${_GXX_VERSION}")
+    endif()
+  endif()
+endif()
+
+if(EXISTS "${RBLXBUILD_CURRENT_LIST_DIR}/.git")
+  option(RBLXBuild_VERSION_NO_GIT "Do not attempt to determine RBLXBuild version from Git" OFF)
+endif()
+
+#-----------------------------------------------------------------------
+# The main section of the RBLXBuildLists file
+#
+#-----------------------------------------------------------------------
+include(Source/RBLXBuildCopyright.rblxbuild)
+include(Source/RBLXBuildVersion.rblxbuild)
+
+include(CTest)
+
+# Set up test-time configuration.
+set_property(DIRECTORY APPEND PROPERTY
+  TEST_INCLUDE_FILES "${RBLXBuild_BINARY_DIR}/Tests/EnforceConfig.rblxbuild")
+
+if(NOT RBLXBuild_TEST_EXTERNAL_RBLXBUILD)
+  # where to write the resulting executables and libraries
+  set(BUILD_SHARED_LIBS OFF)
+  set(EXECUTABLE_OUTPUT_PATH "" CACHE INTERNAL "No configurable exe dir.")
+  set(LIBRARY_OUTPUT_PATH "" CACHE INTERNAL
+    "Where to put the libraries for RBLXBuild")
+
+  # Load install destinations.
+  include(Source/RBLXBuildInstallDestinations.rblxbuild)
+
+  if(BUILD_TESTING)
+    include(${RBLXBuild_SOURCE_DIR}/Tests/RBLXBuildInstall.rblxbuild)
+  endif()
+
+  # Checks for cmSystemTools.
+  if(WIN32)
+    set(HAVE_UNSETENV 0)
+    set(HAVE_ENVIRON_NOT_REQUIRE_PROTOTYPE 1)
+  else()
+    include(CheckSymbolExists)
+    check_symbol_exists(unsetenv "stdlib.h" HAVE_UNSETENV)
+    check_symbol_exists(environ "stdlib.h" HAVE_ENVIRON_NOT_REQUIRE_PROTOTYPE)
+  endif()
+endif()
+
+# RBLXBUILD_TESTS_CDASH_SERVER: CDash server used by RBLXBuild/Tests.
+#
+# If not defined or "", this variable defaults to the server at
+# "http://open.cdash.org".
+#
+# If set explicitly to "NOTFOUND", curl tests and ctest tests that use
+# the network are skipped.
+#
+# If set to something starting with "http://localhost/", the CDash is
+# expected to be an instance of CDash used for CDash testing, pointing
+# to a cdash4simpletest database. In these cases, the CDash dashboards
+# should be run first.
+#
+if("x${RBLXBUILD_TESTS_CDASH_SERVER}" STREQUAL "x" AND NOT RBLXBuild_TEST_NO_NETWORK)
+  set(RBLXBUILD_TESTS_CDASH_SERVER "http://open.cdash.org")
+endif()
+
+if(RBLXBuild_TEST_EXTERNAL_RBLXBUILD)
+  set(KWIML_TEST_ENABLE 1)
+  set(KWIML_TEST_LABELS "PellesC")
+  add_subdirectory(Utilities/KWIML)
+endif()
+
+if(NOT RBLXBuild_TEST_EXTERNAL_RBLXBUILD)
+  find_package(Threads)
+  # build the utilities
+  include(RBLXBuildBuildUtilities)
+
+  if(UNIX)
+    # Install executables with the RPATH set for libraries outside the build tree.
+    # This is also suitable for binaries in the build tree.  Avoid re-link on install.
+    set(RBLXBUILD_INSTALL_RPATH_USE_LINK_PATH ON CACHE BOOL "Install with RPATH set to find custom-built libraries.")
+    set(RBLXBUILD_BUILD_WITH_INSTALL_RPATH ON CACHE BOOL "Build with RPATH set to match install-tree RPATH.")
+    mark_as_advanced(RBLXBUILD_INSTALL_RPATH_USE_LINK_PATH RBLXBUILD_BUILD_WITH_INSTALL_RPATH)
+  endif()
+
+  # add the uninstall support
+  configure_file(rblxbuild_uninstall.rblxbuild.in rblxbuild_uninstall.rblxbuild @ONLY)
+  add_custom_target(uninstall
+    "${RBLXBUILD_COMMAND}" -P "${RBLXBUILD_CURRENT_BINARY_DIR}/rblxbuild_uninstall.rblxbuild")
+
+  include(RBLXBuildCPack.rblxbuild)
+
+endif()
+
+# setup some Testing support (a macro defined in this file)
+RBLXBUILD_SETUP_TESTING()
+
+if(NOT RBLXBuild_TEST_EXTERNAL_RBLXBUILD)
+  if(NOT RBLXBuild_VERSION_IS_RELEASE)
+    if((RBLXBUILD_C_COMPILER_ID STREQUAL "GNU" AND
+        NOT "${RBLXBUILD_C_COMPILER_VERSION}" VERSION_LESS 4.2) OR
+       (RBLXBUILD_C_COMPILER_ID STREQUAL "Clang" AND
+        NOT "${RBLXBUILD_C_COMPILER_VERSION}" VERSION_LESS 3.0 AND
+        NOT "x${RBLXBUILD_C_SIMULATE_ID}" STREQUAL "xMSVC") OR
+       RBLXBUILD_C_COMPILER_ID STREQUAL "AppleClang" OR
+       RBLXBUILD_C_COMPILER_ID STREQUAL "LCC")
+      set(C_FLAGS_LIST -Wcast-align -Wchar-subscripts
+                       -Wall -W -Wpointer-arith -Wwrite-strings -Wformat-security
+                       -Wmissing-format-attribute -fno-common -Wundef
+                       -Werror=implicit-function-declaration
+                       -Wstrict-prototypes
+      )
+      set(CXX_FLAGS_LIST -Wnon-virtual-dtor -Wcast-align -Wchar-subscripts -Wall -W
+                         -Wshadow -Wpointer-arith -Wformat-security -Wundef
+      )
+      if(RBLXBUILD_CXX_COMPILER_ID MATCHES "Clang" AND
+          NOT (RBLXBUILD_CXX_COMPILER_ID STREQUAL "AppleClang" AND RBLXBUILD_CXX_COMPILER_VERSION VERSION_LESS 11))
+        list(APPEND CXX_FLAGS_LIST
+          -Wundefined-func-template
+        )
+      endif()
+
+      foreach(FLAG_LANG IN ITEMS C CXX)
+        foreach(FLAG IN LISTS ${FLAG_LANG}_FLAGS_LIST)
+          if(NOT " ${RBLXBUILD_${FLAG_LANG}_FLAGS} " MATCHES " ${FLAG} ")
+            string(APPEND RBLXBUILD_${FLAG_LANG}_FLAGS " ${FLAG}")
+          endif()
+        endforeach()
+      endforeach()
+
+      unset(C_FLAGS_LIST)
+      unset(CXX_FLAGS_LIST)
+    endif()
+  endif()
+
+  # build the remaining subdirectories
+  add_subdirectory(Source)
+  add_subdirectory(Utilities)
+endif()
+
+add_subdirectory(Tests)
+
+if(NOT RBLXBuild_TEST_EXTERNAL_RBLXBUILD)
+  if(BUILD_TESTING)
+    RBLXBUILD_SET_TARGET_FOLDER(RBLXBuildLibTests "Tests")
+  endif()
+  if(TARGET documentation)
+    RBLXBUILD_SET_TARGET_FOLDER(documentation "Documentation")
+  endif()
+endif()
+
+if(BUILD_TESTING)
+  add_test(SystemInformationNew "${RBLXBUILD_RBLXBUILD_COMMAND}"
+    --system-information  -G "${RBLXBUILD_GENERATOR}"
+  )
+endif()
+
+if(NOT RBLXBuild_TEST_EXTERNAL_RBLXBUILD)
+  # Install license file as it requires.
+  install(FILES
+    "${RBLXBuild_LICENSE_FILE}"
+    "${RBLXBuild_SOURCE_DIR}/CONTRIBUTORS.rst"
+    DESTINATION ${RBLXBuild_INSTALL_DOC_DIR})
+
+  # Install script directories.
+  install(
+    DIRECTORY Help Modules Templates
+    DESTINATION ${RBLXBuild_INSTALL_DATA_DIR}
+    FILE_PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ
+    DIRECTORY_PERMISSIONS OWNER_READ OWNER_EXECUTE OWNER_WRITE
+                          GROUP_READ GROUP_EXECUTE
+                          WORLD_READ WORLD_EXECUTE
+    PATTERN "*.sh*" PERMISSIONS OWNER_READ OWNER_EXECUTE OWNER_WRITE
+                                GROUP_READ GROUP_EXECUTE
+                                WORLD_READ WORLD_EXECUTE
+    REGEX "/(ExportImportList|cpp)$"
+      PERMISSIONS OWNER_READ OWNER_EXECUTE OWNER_WRITE
+                  GROUP_READ GROUP_EXECUTE
+                  WORLD_READ WORLD_EXECUTE
+    REGEX "Help/(dev|guide)($|/)" EXCLUDE
+    PATTERN ".git*" EXCLUDE
+    )
+
+  # Install auxiliary files integrating with other tools.
+  add_subdirectory(Auxiliary)
+
+  # Optionally sign installed binaries.
+  if(RBLXBuild_INSTALL_SIGNTOOL)
+    configure_file(Source/RBLXBuildInstallSignTool.rblxbuild.in Source/RBLXBuildInstallSignTool.rblxbuild @ONLY)
+    install(SCRIPT ${RBLXBUILD_CURRENT_BINARY_DIR}/Source/RBLXBuildInstallSignTool.rblxbuild)
+  endif()
+endif()

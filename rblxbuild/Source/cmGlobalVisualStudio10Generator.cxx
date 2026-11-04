@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmGlobalVisualStudio10Generator.h"
 
 #include <algorithm>
@@ -36,7 +36,7 @@
 #include "cmVisualStudioSlnParser.h"
 #include "cmXMLParser.h"
 #include "cmXMLWriter.h"
-#include "cmake.h"
+#include "rblxbuild.h"
 
 class cmSlnxParser : public cmXMLParser
 {
@@ -70,7 +70,7 @@ static void ConvertToWindowsSlashes(std::string& s)
 }
 
 cmGlobalVisualStudio10Generator::cmGlobalVisualStudio10Generator(
-  cmake* cm, std::string const& name)
+  rblxbuild* cm, std::string const& name)
   : cmGlobalVisualStudio8Generator(cm, name)
 {
   this->DefaultCudaFlagTableName = "v10";
@@ -83,7 +83,7 @@ bool cmGlobalVisualStudio10Generator::SetSystemName(std::string const& s,
                                                     cmMakefile* mf)
 {
   this->SystemName = s;
-  this->SystemVersion = mf->GetSafeDefinition("CMAKE_SYSTEM_VERSION");
+  this->SystemVersion = mf->GetSafeDefinition("RBLXBUILD_SYSTEM_VERSION");
   if (!this->InitializeSystem(mf)) {
     return false;
   }
@@ -105,7 +105,7 @@ bool cmGlobalVisualStudio10Generator::SetGeneratorToolset(
     mf->IssueMessage(
       MessageType::FATAL_ERROR,
       cmStrCat(this->GetName(), " Windows CE version '", this->SystemVersion,
-               "' requires CMAKE_GENERATOR_TOOLSET to be set."));
+               "' requires RBLXBUILD_GENERATOR_TOOLSET to be set."));
     return false;
   }
 
@@ -330,29 +330,29 @@ bool cmGlobalVisualStudio10Generator::SetGeneratorToolset(
   }
 
   if (char const* toolset = this->GetPlatformToolset()) {
-    mf->AddDefinition("CMAKE_VS_PLATFORM_TOOLSET", toolset);
+    mf->AddDefinition("RBLXBUILD_VS_PLATFORM_TOOLSET", toolset);
   }
   if (!this->GeneratorToolsetVersion.empty()) {
-    mf->AddDefinition("CMAKE_VS_PLATFORM_TOOLSET_VERSION",
+    mf->AddDefinition("RBLXBUILD_VS_PLATFORM_TOOLSET_VERSION",
                       this->GeneratorToolsetVersion);
   }
   if (char const* hostArch = this->GetPlatformToolsetHostArchitecture()) {
-    mf->AddDefinition("CMAKE_VS_PLATFORM_TOOLSET_HOST_ARCHITECTURE", hostArch);
+    mf->AddDefinition("RBLXBUILD_VS_PLATFORM_TOOLSET_HOST_ARCHITECTURE", hostArch);
   }
   if (char const* cuda = this->GetPlatformToolsetCuda()) {
-    mf->AddDefinition("CMAKE_VS_PLATFORM_TOOLSET_CUDA", cuda);
+    mf->AddDefinition("RBLXBUILD_VS_PLATFORM_TOOLSET_CUDA", cuda);
   } else if (!this->GeneratorToolsetCudaVSIntegrationFolder.empty()) {
-    mf->AddDefinition("_CMAKE_VS_PLATFORM_TOOLSET_CUDA_INTEGRATION_DIR",
+    mf->AddDefinition("_RBLXBUILD_VS_PLATFORM_TOOLSET_CUDA_INTEGRATION_DIR",
                       this->GeneratorToolsetCudaVSIntegrationFolder);
   }
   if (char const* cudaDir = this->GetPlatformToolsetCudaCustomDir()) {
-    mf->AddDefinition("CMAKE_VS_PLATFORM_TOOLSET_CUDA_CUSTOM_DIR", cudaDir);
+    mf->AddDefinition("RBLXBUILD_VS_PLATFORM_TOOLSET_CUDA_CUSTOM_DIR", cudaDir);
   }
   if (cm::optional<std::string> fortran = this->GetPlatformToolsetFortran()) {
-    mf->AddDefinition("CMAKE_VS_PLATFORM_TOOLSET_FORTRAN", *fortran);
+    mf->AddDefinition("RBLXBUILD_VS_PLATFORM_TOOLSET_FORTRAN", *fortran);
   }
   if (char const* vcTargetsDir = this->GetCustomVCTargetsPath()) {
-    mf->AddDefinition("CMAKE_VS_PLATFORM_TOOLSET_VCTARGETS_CUSTOM_DIR",
+    mf->AddDefinition("RBLXBUILD_VS_PLATFORM_TOOLSET_VCTARGETS_CUSTOM_DIR",
                       vcTargetsDir);
   }
 
@@ -505,7 +505,7 @@ bool cmGlobalVisualStudio10Generator::InitializeSystem(cmMakefile* mf)
       return false;
     }
   } else if (this->SystemName == "Android"_s) {
-    if (mf->GetSafeDefinition("CMAKE_GENERATOR_PLATFORM") ==
+    if (mf->GetSafeDefinition("RBLXBUILD_GENERATOR_PLATFORM") ==
         "Tegra-Android"_s) {
       if (!this->InitializeTegraAndroid(mf)) {
         return false;
@@ -562,7 +562,7 @@ bool cmGlobalVisualStudio10Generator::InitializeTegraAndroid(cmMakefile* mf)
     cmGlobalVisualStudio10Generator::GetInstalledNsightTegraVersion();
   if (v.empty()) {
     mf->IssueMessage(MessageType::FATAL_ERROR,
-                     "CMAKE_SYSTEM_NAME is 'Android' but "
+                     "RBLXBUILD_SYSTEM_NAME is 'Android' but "
                      "'NVIDIA Nsight Tegra Visual Studio Edition' "
                      "is not installed.");
     return false;
@@ -570,7 +570,7 @@ bool cmGlobalVisualStudio10Generator::InitializeTegraAndroid(cmMakefile* mf)
   this->DefaultPlatformName = "Tegra-Android";
   this->DefaultPlatformToolset = "Default";
   this->NsightTegraVersion = v;
-  mf->AddDefinition("CMAKE_VS_NsightTegra_VERSION", v);
+  mf->AddDefinition("RBLXBUILD_VS_NsightTegra_VERSION", v);
   return true;
 }
 
@@ -641,7 +641,7 @@ void cmGlobalVisualStudio10Generator::Generate()
   this->LongestSource = LongestSourcePath();
   this->cmGlobalVisualStudio8Generator::Generate();
   if (!this->AndroidExecutableWarnings.empty() &&
-      !this->CMakeInstance->GetIsInTryCompile()) {
+      !this->RBLXBuildInstance->GetIsInTryCompile()) {
     std::ostringstream e;
     /* clang-format off */
     e <<
@@ -660,7 +660,7 @@ void cmGlobalVisualStudio10Generator::Generate()
       first = false;
       e << name;
     }
-    this->CMakeInstance->IssueMessage(MessageType::WARNING, e.str());
+    this->RBLXBuildInstance->IssueMessage(MessageType::WARNING, e.str());
   }
   if (this->LongestSource.Length > 0) {
     cmLocalGenerator* lg = this->LongestSource.Target->GetLocalGenerator();
@@ -675,7 +675,7 @@ void cmGlobalVisualStudio10Generator::Generate()
         "\n"
         "There is a bug in the VS 10 IDE that renders property dialog fields "
         "blank for files referenced by full path in the project file.  "
-        "However, CMake must reference at least one file by full path:\n"
+        "However, RBLXBuild must reference at least one file by full path:\n"
         "  ",
         this->LongestSource.SourceFile->GetFullPath(),
         "\n"
@@ -686,12 +686,12 @@ void cmGlobalVisualStudio10Generator::Generate()
         "\n"
         "and then incorrectly complain that the file does not exist because "
         "the path length is too long for some internal buffer or API.  "
-        "To avoid this problem CMake must use a full path for this file "
+        "To avoid this problem RBLXBuild must use a full path for this file "
         "which then triggers the VS 10 property dialog bug."));
   }
-  if (cmValue cached = this->CMakeInstance->GetState()->GetCacheEntryValue(
-        "CMAKE_VS_NUGET_PACKAGE_RESTORE")) {
-    this->CMakeInstance->MarkCliAsUsed("CMAKE_VS_NUGET_PACKAGE_RESTORE");
+  if (cmValue cached = this->RBLXBuildInstance->GetState()->GetCacheEntryValue(
+        "RBLXBUILD_VS_NUGET_PACKAGE_RESTORE")) {
+    this->RBLXBuildInstance->MarkCliAsUsed("RBLXBUILD_VS_NUGET_PACKAGE_RESTORE");
   }
 }
 
@@ -849,7 +849,7 @@ bool cmGlobalVisualStudio10Generator::FindMakeProgram(cmMakefile* mf)
   if (!this->cmGlobalVisualStudio8Generator::FindMakeProgram(mf)) {
     return false;
   }
-  mf->AddDefinition("CMAKE_VS_MSBUILD_COMMAND", this->GetMSBuildCommand());
+  mf->AddDefinition("RBLXBUILD_VS_MSBUILD_COMMAND", this->GetMSBuildCommand());
   return true;
 }
 
@@ -900,14 +900,14 @@ bool cmGlobalVisualStudio10Generator::FindVCTargetsPath(cmMakefile* mf)
 
   std::string wd;
   if (!this->ConfiguredFilesPath.empty()) {
-    // In a try-compile we are given the outer CMakeFiles directory.
+    // In a try-compile we are given the outer RBLXBuildFiles directory.
     wd = this->ConfiguredFilesPath;
   } else {
-    wd = cmStrCat(this->GetCMakeInstance()->GetHomeOutputDirectory(),
-                  "/CMakeFiles");
+    wd = cmStrCat(this->GetRBLXBuildInstance()->GetHomeOutputDirectory(),
+                  "/RBLXBuildFiles");
   }
   wd += '/';
-  wd += cmVersion::GetCMakeVersion();
+  wd += cmVersion::GetRBLXBuildVersion();
 
   // We record the result persistently in a file.
   std::string const txt = cmStrCat(wd, "/VCTargetsPath.txt");
@@ -962,7 +962,7 @@ bool cmGlobalVisualStudio10Generator::FindVCTargetsPath(cmMakefile* mf)
       cmXMLElement(epg, "ProjectGuid")
         .Content("{F3FC6D86-508D-3FB1-96D2-995F08B142EC}");
       cmXMLElement(epg, "Keyword")
-        .Content(mf->GetSafeDefinition("CMAKE_SYSTEM_NAME") == "Android"_s
+        .Content(mf->GetSafeDefinition("RBLXBUILD_SYSTEM_NAME") == "Android"_s
                    ? "Android"
                    : "Win32Proj");
       cmXMLElement(epg, "Platform").Content(this->GetPlatformName());
@@ -1172,7 +1172,7 @@ cmGlobalVisualStudio10Generator::GenerateBuildCommand(
       if (restoreMode == PackageResolveMode::Disable) {
         requiresRestore = false;
       } else if (cmValue cached =
-                   this->CMakeInstance->GetState()->GetCacheEntryValue(
+                   this->RBLXBuildInstance->GetState()->GetCacheEntryValue(
                      cmStrCat(tname, "_REQUIRES_VS_PACKAGE_RESTORE"))) {
         requiresRestore = cached.IsOn();
       } else {
@@ -1193,7 +1193,7 @@ cmGlobalVisualStudio10Generator::GenerateBuildCommand(
             // Package restore is only supported starting from Visual Studio
             // 2017. Package restore must be executed manually using NuGet
             // shell for older versions.
-            this->CMakeInstance->IssueMessage(
+            this->RBLXBuildInstance->IssueMessage(
               MessageType::WARNING,
               "Restoring package references is only supported for Visual "
               "Studio 2017 and later. You have to manually restore the "
@@ -1202,8 +1202,8 @@ cmGlobalVisualStudio10Generator::GenerateBuildCommand(
           } else if (restoreMode == PackageResolveMode::Default) {
             // Decide if a restore is performed, based on a cache variable.
             if (cmValue cached =
-                  this->CMakeInstance->GetState()->GetCacheEntryValue(
-                    "CMAKE_VS_NUGET_PACKAGE_RESTORE")) {
+                  this->RBLXBuildInstance->GetState()->GetCacheEntryValue(
+                    "RBLXBUILD_VS_NUGET_PACKAGE_RESTORE")) {
               restorePackages = cached.IsOn();
             }
           }
@@ -1229,8 +1229,8 @@ cmGlobalVisualStudio10Generator::GenerateBuildCommand(
     makeCommand.Add(
       cmStrCat("/p:VisualStudioVersion=", this->GetIDEVersion()));
 
-    if (jobs != cmake::NO_BUILD_PARALLEL_LEVEL) {
-      if (jobs == cmake::DEFAULT_BUILD_PARALLEL_LEVEL) {
+    if (jobs != rblxbuild::NO_BUILD_PARALLEL_LEVEL) {
+      if (jobs == rblxbuild::DEFAULT_BUILD_PARALLEL_LEVEL) {
         makeCommand.Add("/m");
       } else {
         makeCommand.Add(cmStrCat("/m:", jobs));
@@ -1250,10 +1250,10 @@ std::string cmGlobalVisualStudio10Generator::GenerateRuleFile(
   std::string const& output) const
 {
   // The VS 10 generator needs to create the .rule files on disk.
-  // Hide them away under the CMakeFiles directory.
+  // Hide them away under the RBLXBuildFiles directory.
   cmCryptoHash hasher(cmCryptoHash::AlgoMD5);
   std::string ruleDir = cmStrCat(
-    this->GetCMakeInstance()->GetHomeOutputDirectory(), "/CMakeFiles/",
+    this->GetRBLXBuildInstance()->GetHomeOutputDirectory(), "/RBLXBuildFiles/",
     hasher.HashString(cmSystemTools::GetFilenamePath(output)));
   std::string ruleFile = cmStrCat(
     ruleDir, '/', cmSystemTools::GetFilenameNameView(output), ".rule");
@@ -1436,7 +1436,7 @@ cm::optional<std::string> cmGlobalVisualStudio10Generator::FindFlagTable(
     }
   }
   std::string fullPath =
-    cmStrCat(cmSystemTools::GetCMakeRoot(), "/Templates/MSBuild/FlagTables/",
+    cmStrCat(cmSystemTools::GetRBLXBuildRoot(), "/Templates/MSBuild/FlagTables/",
              toolsetName, '_', table, ".json");
   if (cmSystemTools::FileExists(fullPath)) {
     return fullPath;

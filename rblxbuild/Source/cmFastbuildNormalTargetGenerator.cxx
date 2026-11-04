@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 
 #include "cmFastbuildNormalTargetGenerator.h"
 
@@ -57,18 +57,18 @@
 #include "cmTargetDepend.h"
 #include "cmTargetTypes.h"
 #include "cmValue.h"
-#include "cmake.h"
+#include "rblxbuild.h"
 
 namespace {
 
 std::string const COMPILE_DEFINITIONS("COMPILE_DEFINITIONS");
 std::string const COMPILE_OPTIONS("COMPILE_OPTIONS");
 std::string const COMPILE_FLAGS("COMPILE_FLAGS");
-std::string const CMAKE_LANGUAGE("CMAKE");
+std::string const RBLXBUILD_LANGUAGE("RBLXBUILD");
 std::string const INCLUDE_DIRECTORIES("INCLUDE_DIRECTORIES");
 
-std::string const CMAKE_UNITY_BUILD("CMAKE_UNITY_BUILD");
-std::string const CMAKE_UNITY_BUILD_BATCH_SIZE("CMAKE_UNITY_BUILD_BATCH_SIZE");
+std::string const RBLXBUILD_UNITY_BUILD("RBLXBUILD_UNITY_BUILD");
+std::string const RBLXBUILD_UNITY_BUILD_BATCH_SIZE("RBLXBUILD_UNITY_BUILD_BATCH_SIZE");
 std::string const UNITY_BUILD("UNITY_BUILD");
 std::string const UNITY_BUILD_BATCH_SIZE("UNITY_BUILD_BATCH_SIZE");
 std::string const SKIP_UNITY_BUILD_INCLUSION("SKIP_UNITY_BUILD_INCLUSION");
@@ -116,7 +116,7 @@ cmFastbuildNormalTargetGenerator::cmFastbuildNormalTargetGenerator(
   , ObjectOutDir(this->GetGlobalGenerator()->ConvertToFastbuildPath(
       this->GeneratorTarget->GetObjectDirectory(Config)))
   , Languages(GetLanguages())
-  , CompileObjectCmakeRules(GetCompileObjectCommand())
+  , CompileObjectRblxbuildRules(GetCompileObjectCommand())
   , CudaCompileMode(this->GetCudaCompileMode())
 {
 
@@ -244,7 +244,7 @@ void cmFastbuildNormalTargetGenerator::GetLinkerExecutableAndArgs(
   LogMessage("Link Command: " + command);
 
   auto const launcher = cmCommonTargetGenerator::GetLinkerLauncher(Config);
-  // Tested in "RunCMake.LinkerLauncher" test.
+  // Tested in "RunRBLXBuild.LinkerLauncher" test.
   if (!launcher.empty() &&
       this->GeneratorTarget->GetType() != cm::TargetType::STATIC_LIBRARY) {
     outLinkerExecutable = launcher.front();
@@ -269,7 +269,7 @@ bool cmFastbuildNormalTargetGenerator::DetectBaseLinkerCommand(
   std::string const linkLanguage =
     this->GeneratorTarget->GetLinkerLanguage(Config);
   if (linkLanguage.empty()) {
-    cmSystemTools::Error("CMake can not determine linker language for "
+    cmSystemTools::Error("RBLXBuild can not determine linker language for "
                          "target: " +
                          this->GeneratorTarget->GetName());
     return false;
@@ -280,7 +280,7 @@ bool cmFastbuildNormalTargetGenerator::DetectBaseLinkerCommand(
   std::string targetFlags;
   std::string linkFlags;
   std::string frameworkPath;
-  // Tested in "RunCMake.StandardLinkDirectories" test.
+  // Tested in "RunRBLXBuild.StandardLinkDirectories" test.
   std::string linkPath;
 
   std::unique_ptr<cmLinkLineComputer> const linkLineComputer =
@@ -309,7 +309,7 @@ bool cmFastbuildNormalTargetGenerator::DetectBaseLinkerCommand(
     return false;
   }
 
-  // Tested in "RunCMake.RuntimePath" test.
+  // Tested in "RunRBLXBuild.RuntimePath" test.
   std::string const rpath = linkLineComputer->ComputeRPath(*linkInfo);
   LogMessage("RPath: " + rpath);
 
@@ -347,7 +347,7 @@ bool cmFastbuildNormalTargetGenerator::DetectBaseLinkerCommand(
   vars.Manifests = manifests.c_str();
 
   std::string const stdLibString = this->Makefile->GetSafeDefinition(
-    cmStrCat("CMAKE_", linkLanguage, "_STANDARD_LIBRARIES"));
+    cmStrCat("RBLXBUILD_", linkLanguage, "_STANDARD_LIBRARIES"));
 
   LogMessage(cmStrCat("Target type: ",
                       static_cast<int>(this->GeneratorTarget->GetType())));
@@ -371,7 +371,7 @@ bool cmFastbuildNormalTargetGenerator::DetectBaseLinkerCommand(
     target_so_name =
       cmGlobalFastbuildGenerator::QuoteIfHasSpaces(targetNames.SharedObject);
     vars.TargetSOName = target_so_name.c_str();
-    // Tested in "RunCMake.RuntimePath / RunCMake.INSTALL_NAME_DIR"
+    // Tested in "RunRBLXBuild.RuntimePath / RunRBLXBuild.INSTALL_NAME_DIR"
     // tests.
     install_dir = this->LocalGenerator->ConvertToOutputFormat(
       this->GeneratorTarget->GetInstallNameDirForBuildTree(Config),
@@ -435,7 +435,7 @@ void cmFastbuildNormalTargetGenerator::ApplyLWYUToLinkerCommand(
   FastbuildLinkerNode& linkerNode)
 {
   cmValue const lwyuCheck =
-    this->Makefile->GetDefinition("CMAKE_LINK_WHAT_YOU_USE_CHECK");
+    this->Makefile->GetDefinition("RBLXBUILD_LINK_WHAT_YOU_USE_CHECK");
   if (this->UseLWYU && lwyuCheck) {
     LogMessage("UseLWYU=true");
     std::string args = " -E __run_co_compile --lwyu=";
@@ -448,7 +448,7 @@ void cmFastbuildNormalTargetGenerator::ApplyLWYUToLinkerCommand(
         cmGeneratorTarget::NameType::Real)));
 
     LogMessage("LWUY args: " + args);
-    linkerNode.LinkerStampExe = cmSystemTools::GetCMakeCommand();
+    linkerNode.LinkerStampExe = cmSystemTools::GetRBLXBuildCommand();
     linkerNode.LinkerStampExeArgs = std::move(args);
   }
 }
@@ -532,8 +532,8 @@ void cmFastbuildNormalTargetGenerator::ComputePCH(
   if (pchHeader.empty() || pchFile.empty()) {
     return;
   }
-  // In "RunCMake.GenEx-TARGET_PROPERTY" test we call set
-  // CMAKE_PCH_EXTENSION="", so pchHeader becomes same as pchFile...
+  // In "RunRBLXBuild.GenEx-TARGET_PROPERTY" test we call set
+  // RBLXBUILD_PCH_EXTENSION="", so pchHeader becomes same as pchFile...
   if (pchHeader == pchFile) {
     LogMessage("pchHeader == pchFile > skipping");
     LogMessage("pchHeader: " + pchHeader);
@@ -585,7 +585,7 @@ void cmFastbuildNormalTargetGenerator::ComputePCH(
   // Reuse compiler options for PCH options.
   node.PCHOptions += origCompileOptions;
   if (this->Makefile->GetSafeDefinition(
-        cmStrCat("CMAKE_", language, "_COMPILER_ID")) == "MSVC") {
+        cmStrCat("RBLXBUILD_", language, "_COMPILER_ID")) == "MSVC") {
     cmSystemTools::ReplaceString(node.PCHOptions,
                                  FASTBUILD_2_INPUT_PLACEHOLDER,
                                  FASTBUILD_3_INPUT_PLACEHOLDER);
@@ -605,7 +605,7 @@ void cmFastbuildNormalTargetGenerator::EnsureDirectoryExists(
     cmSystemTools::MakeDirectory(path.c_str());
   } else {
     auto* gg = this->GetGlobalGenerator();
-    std::string fullPath = gg->GetCMakeInstance()->GetHomeOutputDirectory();
+    std::string fullPath = gg->GetRBLXBuildInstance()->GetHomeOutputDirectory();
     // Also ensures there is a trailing slash.
     fullPath += path;
     cmSystemTools::MakeDirectory(fullPath);
@@ -643,13 +643,13 @@ void cmFastbuildNormalTargetGenerator::GenerateModuleDefinitionInfo(
   if (mdi && mdi->DefFileGenerated) {
     FastbuildExecNode execNode;
     execNode.Name = target.Name + "-def-files";
-    execNode.ExecExecutable = cmSystemTools::GetCMakeCommand();
+    execNode.ExecExecutable = cmSystemTools::GetRBLXBuildCommand();
     execNode.ExecArguments =
       cmStrCat("-E __create_def ", FASTBUILD_2_INPUT_PLACEHOLDER, ' ',
                FASTBUILD_1_INPUT_PLACEHOLDER);
     std::string const obj_list_file = mdi->DefFile + ".objs";
 
-    auto const nm_executable = GetMakefile()->GetDefinition("CMAKE_NM");
+    auto const nm_executable = GetMakefile()->GetDefinition("RBLXBUILD_NM");
     if (!cmIsOff(nm_executable)) {
       execNode.ExecArguments += " --nm=";
       execNode.ExecArguments += ConvertToFastbuildPath(*nm_executable);
@@ -657,11 +657,11 @@ void cmFastbuildNormalTargetGenerator::GenerateModuleDefinitionInfo(
     execNode.ExecOutput = ConvertToFastbuildPath(mdi->DefFile);
     execNode.ExecInput.push_back(ConvertToFastbuildPath(obj_list_file));
 
-    // RunCMake.AutoExportDll
+    // RunRBLXBuild.AutoExportDll
     for (auto const& objList : target.ObjectListNodes) {
       execNode.PreBuildDependencies.emplace(objList.Name);
     }
-    // Tested in "RunCMake.AutoExportDll" / "ModuleDefinition" tests.
+    // Tested in "RunRBLXBuild.AutoExportDll" / "ModuleDefinition" tests.
     for (auto& linkerNode : target.LinkerNode) {
       linkerNode.Libraries2.emplace_back(execNode.Name);
     }
@@ -672,7 +672,7 @@ void cmFastbuildNormalTargetGenerator::GenerateModuleDefinitionInfo(
     cmGeneratedFileStream fout(obj_list_file);
     // Since we generate this file once during configuration, we should not
     // remove it when "clean" is built.
-    // Tested in "RunCMake.AutoExportDll" / "ModuleDefinition" tests.
+    // Tested in "RunRBLXBuild.AutoExportDll" / "ModuleDefinition" tests.
     this->GetGlobalGenerator()->AllFilesToKeep.insert(obj_list_file);
 
     if (mdi->WindowsExportAllSymbols) {
@@ -762,17 +762,17 @@ cmFastbuildNormalTargetGenerator::GetCompileObjectCommand() const
   result.reserve(Languages.size());
   for (std::string const& lang : Languages) {
     std::vector<std::string> commands;
-    std::string cmakeVar;
-    cmakeVar = "CMAKE_";
-    cmakeVar += lang;
-    cmakeVar += "_COMPILE_OBJECT";
+    std::string rblxbuildVar;
+    rblxbuildVar = "RBLXBUILD_";
+    rblxbuildVar += lang;
+    rblxbuildVar += "_COMPILE_OBJECT";
 
-    std::string cmakeValue =
-      LocalCommonGenerator->GetMakefile()->GetSafeDefinition(cmakeVar);
+    std::string rblxbuildValue =
+      LocalCommonGenerator->GetMakefile()->GetSafeDefinition(rblxbuildVar);
 
-    LogMessage(cmakeVar.append(" = ").append(cmakeValue));
+    LogMessage(rblxbuildVar.append(" = ").append(rblxbuildValue));
 
-    result[lang] = std::move(cmakeValue);
+    result[lang] = std::move(rblxbuildValue);
   }
   return result;
 }
@@ -785,7 +785,7 @@ std::string cmFastbuildNormalTargetGenerator::GetCudaCompileMode() const
   std::string cudaCompileMode;
   if (this->GeneratorTarget->GetPropertyAsBool("CUDA_SEPARABLE_COMPILATION")) {
     std::string const& rdcFlag =
-      this->Makefile->GetRequiredDefinition("_CMAKE_CUDA_RDC_FLAG");
+      this->Makefile->GetRequiredDefinition("_RBLXBUILD_CUDA_RDC_FLAG");
     cudaCompileMode = cmStrCat(std::move(cudaCompileMode), rdcFlag, ' ');
   }
   static std::array<cm::string_view, 4> const compileModes{
@@ -794,7 +794,7 @@ std::string cmFastbuildNormalTargetGenerator::GetCudaCompileMode() const
   bool useNormalCompileMode = true;
   for (cm::string_view mode : compileModes) {
     auto propName = cmStrCat("CUDA_", mode, "_COMPILATION");
-    auto defName = cmStrCat("_CMAKE_CUDA_", mode, "_FLAG");
+    auto defName = cmStrCat("_RBLXBUILD_CUDA_", mode, "_FLAG");
     if (this->GeneratorTarget->GetPropertyAsBool(propName)) {
       std::string const& flag = this->Makefile->GetRequiredDefinition(defName);
       cudaCompileMode = cmStrCat(std::move(cudaCompileMode), flag);
@@ -804,7 +804,7 @@ std::string cmFastbuildNormalTargetGenerator::GetCudaCompileMode() const
   }
   if (useNormalCompileMode) {
     std::string const& wholeFlag =
-      this->Makefile->GetRequiredDefinition("_CMAKE_CUDA_WHOLE_FLAG");
+      this->Makefile->GetRequiredDefinition("_RBLXBUILD_CUDA_WHOLE_FLAG");
     cudaCompileMode = cmStrCat(std::move(cudaCompileMode), wholeFlag);
   }
   return cudaCompileMode;
@@ -819,7 +819,7 @@ std::string cmFastbuildNormalTargetGenerator::GetLinkCommand() const
   if (res.empty() &&
       this->GeneratorTarget->GetType() == cm::TargetType::STATIC_LIBRARY) {
     linkCmdVar = linkCmdVar =
-      cmStrCat("CMAKE_", linkLanguage, "_ARCHIVE_CREATE");
+      cmStrCat("RBLXBUILD_", linkLanguage, "_ARCHIVE_CREATE");
     res = this->Makefile->GetSafeDefinition(linkCmdVar);
   }
   LogMessage("Link rule: " + cmStrCat(linkCmdVar, " = ", res));
@@ -866,12 +866,12 @@ void cmFastbuildNormalTargetGenerator::AddLinkerLauncher()
       this->GeneratorTarget->GetLinkerLanguage(Config), cmJoin(args, " "));
   }
 }
-void cmFastbuildNormalTargetGenerator::AddCMakeLauncher()
+void cmFastbuildNormalTargetGenerator::AddRBLXBuildLauncher()
 {
-  // Add CMake launcher (might be used for static analysis).
+  // Add RBLXBuild launcher (might be used for static analysis).
   this->GetGlobalGenerator()->AddLauncher(FASTBUILD_LAUNCHER_PREFIX,
-                                          cmSystemTools::GetCMakeCommand(),
-                                          CMAKE_LANGUAGE, "");
+                                          cmSystemTools::GetRBLXBuildCommand(),
+                                          RBLXBUILD_LANGUAGE, "");
 }
 
 void cmFastbuildNormalTargetGenerator::ComputePaths(
@@ -962,7 +962,7 @@ void cmFastbuildNormalTargetGenerator::Generate()
   ComputePaths(fastbuildTarget);
   AddCompilerLaunchersForLanguages();
   AddLinkerLauncher();
-  AddCMakeLauncher();
+  AddRBLXBuildLauncher();
 
   for (auto& cc : GenerateCommands(FastbuildBuildStep::PRE_BUILD).Nodes) {
     fastbuildTarget.PreBuildExecNodes.PreBuildDependencies.emplace(cc.Name);
@@ -1081,13 +1081,13 @@ void cmFastbuildNormalTargetGenerator::Generate()
 void cmFastbuildNormalTargetGenerator::ProcessManifests(
   FastbuildLinkerNode& linkerNode) const
 {
-  if (this->GetGlobalGenerator()->GetCMakeInstance()->GetIsInTryCompile()) {
+  if (this->GetGlobalGenerator()->GetRBLXBuildInstance()->GetIsInTryCompile()) {
     return;
   }
   std::vector<std::string> const manifests =
     this->GetManifestsAsFastbuildPath();
   // Manifests should always be in .Libraries2, so we re-link when needed.
-  // Tested in RunCMake.BuildDepends
+  // Tested in RunRBLXBuild.BuildDepends
   linkerNode.Libraries2.reserve(linkerNode.Libraries2.size() +
                                 manifests.size());
   for (auto const& manifest : manifests) {
@@ -1110,7 +1110,7 @@ void cmFastbuildNormalTargetGenerator::AddStampExeIfApplicable(
   // the compilation.
   if (!fastbuildTarget.PostBuildExecNodes.Nodes.empty()) {
     std::string const AllPostBuildExecsScriptFile =
-      cmStrCat(this->Makefile->GetHomeOutputDirectory(), "/CMakeFiles/",
+      cmStrCat(this->Makefile->GetHomeOutputDirectory(), "/RBLXBuildFiles/",
                fastbuildTarget.Name,
                "-all-postbuild-commands" FASTBUILD_SCRIPT_FILE_EXTENSION);
 
@@ -1163,9 +1163,9 @@ void cmFastbuildNormalTargetGenerator::CollapseAllExecsIntoOneScriptfile(
   LogMessage("Writing collapsed Execs to " + scriptFileName);
   auto const shell = cmGlobalFastbuildGenerator::GetExternalShellExecutable();
   char const* suffix = "\n";
-#if !defined(_WIN32) && !defined(CMAKE_BOOTSTRAP)
+#if !defined(_WIN32) && !defined(RBLXBUILD_BOOTSTRAP)
   cmInstrumentation* instrumentation =
-    this->GetLocalGenerator()->GetCMakeInstance()->GetInstrumentation();
+    this->GetLocalGenerator()->GetRBLXBuildInstance()->GetInstrumentation();
   if (instrumentation->HasOption(
         cmInstrumentationQuery::Option::ProcessMetrics)) {
     // Prevent shell exec optimization from passing accumulated child resource
@@ -1225,10 +1225,10 @@ void cmFastbuildNormalTargetGenerator::ComputeCompilerAndOptions(
   auto const launcherIter =
     compilers.find(FASTBUILD_LAUNCHER_PREFIX + language);
   if (!staticCheckOptions.empty()) {
-    // If we want to run static checks - use CMake as a launcher.
-    // Tested in "RunCMake.ClangTidy", "RunCMake.IncludeWhatYouUse",
-    // "RunCMake.Cpplint", "RunCMake.Cppcheck", "RunCMake.MultiLint" tests.
-    outObjectList.Compiler = "." FASTBUILD_LAUNCHER_PREFIX + CMAKE_LANGUAGE;
+    // If we want to run static checks - use RBLXBuild as a launcher.
+    // Tested in "RunRBLXBuild.ClangTidy", "RunRBLXBuild.IncludeWhatYouUse",
+    // "RunRBLXBuild.Cpplint", "RunRBLXBuild.Cppcheck", "RunRBLXBuild.MultiLint" tests.
+    outObjectList.Compiler = "." FASTBUILD_LAUNCHER_PREFIX + RBLXBUILD_LANGUAGE;
     outObjectList.CompilerOptions = staticCheckOptions;
     // Add compile command which will be passed to the static analyzer via
     // dash-dash.
@@ -1240,7 +1240,7 @@ void cmFastbuildNormalTargetGenerator::ComputeCompilerAndOptions(
       outObjectList.CompilerOptions += compilerOptions;
     }
   } else if (launcherIter != compilers.end()) {
-    // Tested in "RunCMake.CompilerLauncher" test.
+    // Tested in "RunRBLXBuild.CompilerLauncher" test.
     outObjectList.Compiler = "." + launcherIter->first;
     outObjectList.CompilerOptions = launcherIter->second.Args;
 
@@ -1346,7 +1346,7 @@ std::string cmFastbuildNormalTargetGenerator::GetCompileOptions(
     compileObjectVars.CudaCompileMode = this->CudaCompileMode.c_str();
   }
 
-  std::string rule = CompileObjectCmakeRules.at(language);
+  std::string rule = CompileObjectRblxbuildRules.at(language);
   RulePlaceholderExpander->ExpandRuleVariables(LocalCommonGenerator, rule,
                                                compileObjectVars);
 
@@ -1382,7 +1382,7 @@ void cmFastbuildNormalTargetGenerator::GetDeviceLinkLinkerAndArgs(
   this->GeneratorTarget->GetLinkInformation(this->Config);
   cmGeneratorTarget::DeviceLinkSetter deviceLink(*this->GeneratorTarget);
   std::string linkCmd = this->GetMakefile()->GetSafeDefinition(
-    cmStrCat("CMAKE_", language, "_DEVICE_LINK_LIBRARY"));
+    cmStrCat("RBLXBUILD_", language, "_DEVICE_LINK_LIBRARY"));
   auto vars = ComputeRuleVariables();
   vars.Language = language.c_str();
   // Libraries2 tracks archive changes; the computed link line already contains
@@ -1442,10 +1442,10 @@ void cmFastbuildNormalTargetGenerator::GenerateDeviceLink(
     // Output
     deviceLinkNode.LinkerOutput = this->ConvertToFastbuildPath(cmStrCat(
       FASTBUILD_DOLLAR_TAG "TargetOutDi"
-                           "r" FASTBUILD_DOLLAR_TAG "/cmake_device_link",
+                           "r" FASTBUILD_DOLLAR_TAG "/rblxbuild_device_link",
       (args.empty() ? "" : "_" + arch),
       this->Makefile->GetSafeDefinition(
-        cmStrCat("CMAKE_", language, "_OUTPUT_EXTENSION"))));
+        cmStrCat("RBLXBUILD_", language, "_OUTPUT_EXTENSION"))));
 
     // Input
     for (auto const& objList : target.ObjectListNodes) {
@@ -1468,9 +1468,9 @@ void cmFastbuildNormalTargetGenerator::GenerateDeviceLink(
     }
     this->GetGlobalGenerator()->AddFileToClean(
       cmStrCat(this->GeneratorTarget->GetObjectDirectory(this->Config),
-               "cmake_device_link", (args.empty() ? "" : "_" + arch),
+               "rblxbuild_device_link", (args.empty() ? "" : "_" + arch),
                this->Makefile->GetSafeDefinition(
-                 cmStrCat("CMAKE_", language, "_OUTPUT_EXTENSION"))));
+                 cmStrCat("RBLXBUILD_", language, "_OUTPUT_EXTENSION"))));
     target.DeviceLinkNodes.emplace_back(std::move(deviceLinkNode));
   }
   LogMessage("GenerateDeviceLink end");
@@ -1492,7 +1492,7 @@ void cmFastbuildNormalTargetGenerator::GenerateObjects(FastbuildTarget& target)
   // Directory level.
   bool useUnity =
     GeneratorTarget->GetLocalGenerator()->GetMakefile()->IsDefinitionSet(
-      CMAKE_UNITY_BUILD);
+      RBLXBUILD_UNITY_BUILD);
   // Check if explicitly disabled for this target.
   auto const targetProp = GeneratorTarget->GetProperty(UNITY_BUILD);
   if (targetProp.IsSet() && targetProp.IsOff()) {
@@ -1581,7 +1581,7 @@ void cmFastbuildNormalTargetGenerator::GenerateObjects(FastbuildTarget& target)
       FastbuildObjectListNode& objectListNode =
         nodesPermutations[objectListHash];
 
-      // Absolute path needed in "RunCMake.SymlinkTrees" test.
+      // Absolute path needed in "RunRBLXBuild.SymlinkTrees" test.
       objectListNode.CompilerInputFiles.push_back(pathToFile);
 
       std::vector<std::string> const outputs =
@@ -1612,7 +1612,7 @@ void cmFastbuildNormalTargetGenerator::GenerateObjects(FastbuildTarget& target)
       ComputePCH(*source, objectListNode, createdPCH);
 
       objectListNode.Name = cmStrCat(this->GetName(), '_', language, "_Objs");
-      // TODO: Ask cmake the output objects and group by extension instead
+      // TODO: Ask rblxbuild the output objects and group by extension instead
       // of doing this
       if (language == "RC") {
         objectListNode.CompilerOutputExtension = ".res";
@@ -1626,7 +1626,7 @@ void cmFastbuildNormalTargetGenerator::GenerateObjects(FastbuildTarget& target)
 
         objectListNode.CompilerOutputExtension +=
           this->GetMakefile()->GetSafeDefinition(
-            cmStrCat("CMAKE_", language, "_OUTPUT_EXTENSION"));
+            cmStrCat("RBLXBUILD_", language, "_OUTPUT_EXTENSION"));
         // Tested in "CudaOnly.ExportPTX" test.
         if (customExt) {
           objectListNode.CompilerOutputExtension += customExt;
@@ -1696,7 +1696,7 @@ int cmFastbuildNormalTargetGenerator::GetUnityBatchSize() const
     else {
       unitySize = std::stoi(
         GeneratorTarget->GetLocalGenerator()->GetMakefile()->GetDefinition(
-          CMAKE_UNITY_BUILD_BATCH_SIZE));
+          RBLXBUILD_UNITY_BUILD_BATCH_SIZE));
     }
   } catch (...) {
     return unitySize;
@@ -1911,7 +1911,7 @@ void cmFastbuildNormalTargetGenerator::AppendTargetDep(
       // Use just framework's name. The exact path where to look for the
       // framework will be provided from "frameworkPath" in
       // "cmFastbuildNormalTargetGenerator::DetectBaseLinkerCommand(...)".
-      // Tested in "RunCMake.Framework - ImportedFrameworkConsumption".
+      // Tested in "RunRBLXBuild.Framework - ImportedFrameworkConsumption".
       std::string const decorated =
         item.GetFormattedItem(item.Value.Value).Value;
       LogMessage(
@@ -1973,7 +1973,7 @@ void cmFastbuildNormalTargetGenerator::AppendTargetDep(
       return;
     }
     // This dep has a special way of linking to it (e.g.
-    // "CMAKE_LINK_LIBRARY_USING_<FEATURE>").
+    // "RBLXBUILD_LINK_LIBRARY_USING_<FEATURE>").
     bool const isFeature = !feature.empty() && feature != "DEFAULT";
     if (isFeature) {
       std::string const decorated =
@@ -1994,7 +1994,7 @@ void cmFastbuildNormalTargetGenerator::AppendTargetDep(
     // ".Libraries" (since there might be multiple such deps, but
     // FASTBuild expands ".Libraries" as a continuous array, so we can't
     // inject any properties in between). Tested in
-    // "RunCMake.target_link_libraries-LINK_LIBRARY" test.
+    // "RunRBLXBuild.target_link_libraries-LINK_LIBRARY" test.
     if (isFeature) {
       LogMessage(cmStrCat("AppendTargetDep: ", dep, " as prebuild"));
       linkerNode.PreBuildDependencies.emplace(dep);
@@ -2016,7 +2016,7 @@ void cmFastbuildNormalTargetGenerator::AppendPrebuildDeps(
   if (!item.Target->IsImported()) {
     return;
   }
-  // In "RunCMake.FileAPI" imported object library "imported_object_lib" is
+  // In "RunRBLXBuild.FileAPI" imported object library "imported_object_lib" is
   // added w/o import location...
   if (item.Target->GetType() == cm::TargetType::OBJECT_LIBRARY) {
     return;
@@ -2024,7 +2024,7 @@ void cmFastbuildNormalTargetGenerator::AppendPrebuildDeps(
   cmList const list{ GetImportedLoc(item) };
   for (std::string const& linkDep : list) {
     // In case we know how to generate this file (needed for proper
-    // sorting by deps). Tested in "RunCMake.target_link_libraries-ALIAS"
+    // sorting by deps). Tested in "RunRBLXBuild.target_link_libraries-ALIAS"
     // test.
     auto fastbuildTarget =
       this->GetGlobalGenerator()->GetTargetByOutputName(linkDep);
@@ -2231,7 +2231,7 @@ void cmFastbuildNormalTargetGenerator::AppendLinkDeps(
     }
     // We're linked to `$<TARGET_OBJECTS>`.
     // Static libs transitively propagate such deps, see:
-    // https://cmake.org/cmake/help/latest/command/target_link_libraries.html#linking-object-libraries-via-target-objects
+    // https://rblxbuild.org/rblxbuild/help/latest/command/target_link_libraries.html#linking-object-libraries-via-target-objects
     if (item.ObjectSource &&
         linkerNode.Type != FastbuildLinkerNode::STATIC_LIBRARY) {
       // Tested in "ObjectLibrary" test.
@@ -2376,7 +2376,7 @@ void cmFastbuildNormalTargetGenerator::GenerateLink(
 
     if (type == cm::TargetType::EXECUTABLE ||
         type == cm::TargetType::SHARED_LIBRARY) {
-      // Tested in "RunCMake.BuildDepends" test (we need to rebuild when
+      // Tested in "RunRBLXBuild.BuildDepends" test (we need to rebuild when
       // manifest  changes).
       std::copy(objectDepends.begin(), objectDepends.end(),
                 std::back_inserter(linkerNode.Libraries2));
@@ -2482,12 +2482,12 @@ cmFastbuildNormalTargetGenerator::GetSymlinkExecs() const
       }
       LogMessage(cmStrCat("Symlinking ", from, " -> ", to));
       FastbuildExecNode postBuildExecNode;
-      postBuildExecNode.Name = "cmake_symlink_" + to;
+      postBuildExecNode.Name = "rblxbuild_symlink_" + to;
       postBuildExecNode.ExecOutput =
         cmJoin({ GeneratorTarget->GetDirectory(Config), to }, "/");
-      postBuildExecNode.ExecExecutable = cmSystemTools::GetCMakeCommand();
+      postBuildExecNode.ExecExecutable = cmSystemTools::GetRBLXBuildCommand();
       postBuildExecNode.ExecArguments = cmStrCat(
-        "-E cmake_symlink_executable ",
+        "-E rblxbuild_symlink_executable ",
         cmGlobalFastbuildGenerator::QuoteIfHasSpaces(from), ' ',
         cmGlobalFastbuildGenerator::QuoteIfHasSpaces(
           this->ConvertToFastbuildPath(postBuildExecNode.ExecOutput)));

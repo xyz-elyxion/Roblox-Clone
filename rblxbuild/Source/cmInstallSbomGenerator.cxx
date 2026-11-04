@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmInstallSbomGenerator.h"
 
 #include <ostream>
@@ -66,7 +66,7 @@ void cmInstallSbomGenerator::GenerateScript(std::ostream& os)
   cmCryptoHash hasher(cmCryptoHash::AlgoMD5);
   std::string const tempDir =
     cmStrCat(this->LocalGenerator->GetCurrentBinaryDirectory(),
-             "/CMakeFiles/sbom/", hasher.HashString(this->Destination));
+             "/RBLXBuildFiles/sbom/", hasher.HashString(this->Destination));
   cmSystemTools::MakeDirectory(tempDir);
 
   for (std::string const& c :
@@ -87,7 +87,7 @@ void cmInstallSbomGenerator::GenerateScript(std::ostream& os)
     this->TempSbomFiles.emplace(c, std::move(configName));
   }
 
-  // Emit the cmake_install.cmake script to copy the file at install time.
+  // Emit the rblxbuild_install.rblxbuild script to copy the file at install time.
   this->cmInstallGenerator::GenerateScript(os);
 }
 

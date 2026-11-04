@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 
 #include "cmInstallScriptHandler.h"
 
@@ -44,7 +44,7 @@ cmInstallScriptHandler::cmInstallScriptHandler(
   }
 
   std::string const& file =
-    cmStrCat(this->BinaryDir, "/CMakeFiles/InstallScripts.json");
+    cmStrCat(this->BinaryDir, "/RBLXBuildFiles/InstallScripts.json");
   this->Parallel = false;
 
   auto addScript = [this, &args](std::string script, std::string component,
@@ -53,12 +53,12 @@ cmInstallScriptHandler::cmInstallScriptHandler(
     if (!component.empty()) {
       this->Scripts.back().command.insert(
         this->Scripts.back().command.end() - 1,
-        cmStrCat("-DCMAKE_INSTALL_COMPONENT=", component));
+        cmStrCat("-DRBLXBUILD_INSTALL_COMPONENT=", component));
     }
     if (!config.empty()) {
       this->Scripts.back().command.insert(
         this->Scripts.back().command.end() - 1,
-        cmStrCat("-DCMAKE_INSTALL_CONFIG_NAME=", config));
+        cmStrCat("-DRBLXBUILD_INSTALL_CONFIG_NAME=", config));
     }
     this->Scripts.back().command.emplace_back(script);
     this->Directories.push_back(cmSystemTools::GetFilenamePath(script));
@@ -68,13 +68,13 @@ cmInstallScriptHandler::cmInstallScriptHandler(
   // files are written back-to-back while generating this build tree, so any
   // ordering between them lives in a sub-second window that some filesystems
   // (e.g. NFS on AIX) do not resolve by write time.  Compare at whole-second
-  // resolution: a genuinely stale index left by an older CMake reconfigure is
+  // resolution: a genuinely stale index left by an older RBLXBuild reconfigure is
   // always at least a configure run (seconds) older, while the sub-second
   // jitter of a single generate step is ignored.
   bool indexIsFresh = false;
   if (cmSystemTools::FileExists(file)) {
     long int const cacheTime = cmSystemTools::ModifiedTime(
-      cmStrCat(this->BinaryDir, "/CMakeFiles/cmake.check_cache"));
+      cmStrCat(this->BinaryDir, "/RBLXBuildFiles/rblxbuild.check_cache"));
     indexIsFresh = cacheTime <= cmSystemTools::ModifiedTime(file);
   }
   if (indexIsFresh) {
@@ -82,7 +82,7 @@ cmInstallScriptHandler::cmInstallScriptHandler(
     cmJSONState state(file, &value);
     this->Parallel = value["Parallel"].asBool();
     if (this->Parallel) {
-      args.insert(args.end() - 1, "-DCMAKE_INSTALL_LOCAL_ONLY=1");
+      args.insert(args.end() - 1, "-DRBLXBUILD_INSTALL_LOCAL_ONLY=1");
     }
     if (installConfig.empty() && value.isMember("Configs")) {
       for (auto const& config : value["Configs"]) {
@@ -103,7 +103,7 @@ cmInstallScriptHandler::cmInstallScriptHandler(
     }
   } else {
     for (auto const& component : Components) {
-      addScript(cmStrCat(this->BinaryDir, "/cmake_install.cmake"), component,
+      addScript(cmStrCat(this->BinaryDir, "/rblxbuild_install.rblxbuild"), component,
                 installConfig);
     }
   }
@@ -308,5 +308,5 @@ void InstallScriptRunner::printFailure()
     }
   }
   cmSystemTools::Stderr(
-    cmStrCat("CMake Error: install script '", this->Name, "' ", detail, '\n'));
+    cmStrCat("RBLXBuild Error: install script '", this->Name, "' ", detail, '\n'));
 }

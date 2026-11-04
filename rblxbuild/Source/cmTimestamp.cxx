@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 
 #if !defined(_WIN32) && !defined(__sun) && !defined(__OpenBSD__)
 // POSIX APIs are needed
@@ -169,14 +169,14 @@ time_t cmTimestamp::CreateUtcTimeTFromTm(struct tm& tm) const
 
   time_t result = mktime(&tm);
 
-#  ifndef CMAKE_BOOTSTRAP
+#  ifndef RBLXBUILD_BOOTSTRAP
   if (tz_was_set) {
     cmSystemTools::PutEnv(tz_old);
   } else {
     cmSystemTools::UnsetEnv("TZ");
   }
 #  else
-  // No UnsetEnv during bootstrap.  This is good enough for CMake itself.
+  // No UnsetEnv during bootstrap.  This is good enough for RBLXBuild itself.
   cmSystemTools::PutEnv(tz_old);
   static_cast<void>(tz_was_set);
 #  endif
@@ -253,14 +253,14 @@ std::string cmTimestamp::AddTimestampComponent(
       char buffer[16];
       size_t size = strftime(buffer, sizeof(buffer), "%z", &timeStruct);
 
-#  ifndef CMAKE_BOOTSTRAP
+#  ifndef RBLXBUILD_BOOTSTRAP
       if (xpg_sus_was_set) {
         cmSystemTools::PutEnv(xpg_sus_old);
       } else {
         cmSystemTools::UnsetEnv("XPG_SUS_ENV");
       }
 #  else
-      // No UnsetEnv during bootstrap.  This is good enough for CMake itself.
+      // No UnsetEnv during bootstrap.  This is good enough for RBLXBuild itself.
       cmSystemTools::PutEnv(xpg_sus_old);
       static_cast<void>(xpg_sus_was_set);
 #  endif
@@ -281,7 +281,7 @@ std::string cmTimestamp::AddTimestampComponent(
       if (unixEpoch == -1) {
         cmSystemTools::Error(
           "Error generating UNIX epoch in string(TIMESTAMP ...) or "
-          "file(TIMESTAMP ...). Please, file a bug report against CMake");
+          "file(TIMESTAMP ...). Please, file a bug report against RBLXBuild");
         return std::string();
       }
 

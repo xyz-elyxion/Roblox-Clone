@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #pragma once
 
 #include "cmConfigure.h" // IWYU pragma: keep
@@ -9,15 +9,15 @@
 
 class cmMakefile;
 
-// Each policy has a short description, the version of CMake in which
+// Each policy has a short description, the version of RBLXBuild in which
 // it was introduced, and its default status.  The status is WARN for
 // existing policies and NEW for removed policies.
 
 #define CM_FOR_EACH_POLICY_TABLE(POLICY, SELECT)                              \
   SELECT(POLICY, CMP0000,                                                     \
-         "A minimum required CMake version must be specified.", 2, 6, 0, NEW) \
+         "A minimum required RBLXBuild version must be specified.", 2, 6, 0, NEW) \
   SELECT(POLICY, CMP0001,                                                     \
-         "CMAKE_BACKWARDS_COMPATIBILITY should no longer be used.", 2, 6, 0,  \
+         "RBLXBUILD_BACKWARDS_COMPATIBILITY should no longer be used.", 2, 6, 0,  \
          NEW)                                                                 \
   SELECT(POLICY, CMP0002, "Logical target names must be globally unique.", 2, \
          6, 0, NEW)                                                           \
@@ -46,13 +46,13 @@ class cmMakefile;
   SELECT(POLICY, CMP0010, "Bad variable reference syntax is an error.", 2, 6, \
          3, NEW)                                                              \
   SELECT(POLICY, CMP0011,                                                     \
-         "Included scripts do automatic cmake_policy PUSH and POP.", 2, 6, 3, \
+         "Included scripts do automatic rblxbuild_policy PUSH and POP.", 2, 6, 3, \
          NEW)                                                                 \
   SELECT(POLICY, CMP0012, "if() recognizes numbers and boolean constants.",   \
          2, 8, 0, NEW)                                                        \
   SELECT(POLICY, CMP0013, "Duplicate binary directories are not allowed.", 2, \
          8, 0, NEW)                                                           \
-  SELECT(POLICY, CMP0014, "Input directories must have CMakeLists.txt.", 2,   \
+  SELECT(POLICY, CMP0014, "Input directories must have RBLXBuildLists.txt.", 2,   \
          8, 0, NEW)                                                           \
   SELECT(POLICY, CMP0015,                                                     \
          "link_directories() treats paths relative to the source dir.", 2, 8, \
@@ -62,11 +62,11 @@ class cmMakefile;
          "is not a target.",                                                  \
          2, 8, 3, NEW)                                                        \
   SELECT(POLICY, CMP0017,                                                     \
-         "Prefer files from the CMake module directory when including from "  \
+         "Prefer files from the RBLXBuild module directory when including from "  \
          "there.",                                                            \
          2, 8, 4, NEW)                                                        \
   SELECT(POLICY, CMP0018,                                                     \
-         "Ignore CMAKE_SHARED_LIBRARY_<Lang>_FLAGS variable.", 2, 8, 9, NEW)  \
+         "Ignore RBLXBUILD_SHARED_LIBRARY_<Lang>_FLAGS variable.", 2, 8, 9, NEW)  \
   SELECT(POLICY, CMP0019,                                                     \
          "Do not re-expand variables in include and link information.", 2, 8, \
          11, NEW)                                                             \
@@ -215,7 +215,7 @@ class cmMakefile;
   SELECT(POLICY, CMP0074, "find_package uses <PackageName>_ROOT variables.",  \
          3, 12, 0, WARN)                                                      \
   SELECT(POLICY, CMP0075,                                                     \
-         "Include file check macros honor CMAKE_REQUIRED_LIBRARIES.", 3, 12,  \
+         "Include file check macros honor RBLXBUILD_REQUIRED_LIBRARIES.", 3, 12,  \
          0, WARN)                                                             \
   SELECT(POLICY, CMP0076,                                                     \
          "target_sources() command converts relative paths to absolute.", 3,  \
@@ -252,7 +252,7 @@ class cmMakefile;
          "expressions.",                                                      \
          3, 14, 0, WARN)                                                      \
   SELECT(POLICY, CMP0088,                                                     \
-         "FindBISON runs bison in CMAKE_CURRENT_BINARY_DIR when executing.",  \
+         "FindBISON runs bison in RBLXBUILD_CURRENT_BINARY_DIR when executing.",  \
          3, 14, 0, WARN)                                                      \
   SELECT(POLICY, CMP0089,                                                     \
          "Compiler id for IBM Clang-based XL compilers is now XLClang.", 3,   \
@@ -264,7 +264,7 @@ class cmMakefile;
          "MSVC runtime library flags are selected by an abstraction.", 3, 15, \
          0, WARN)                                                             \
   SELECT(POLICY, CMP0092,                                                     \
-         "MSVC warning flags are not in CMAKE_<LANG>_FLAGS by default.", 3,   \
+         "MSVC warning flags are not in RBLXBUILD_<LANG>_FLAGS by default.", 3,   \
          15, 0, WARN)                                                         \
   SELECT(POLICY, CMP0093, "FindBoost reports Boost_VERSION in x.y.z format.", \
          3, 15, 0, WARN)                                                      \
@@ -273,7 +273,7 @@ class cmMakefile;
          "LOCATION for lookup strategy.",                                     \
          3, 15, 0, WARN)                                                      \
   SELECT(POLICY, CMP0095,                                                     \
-         "RPATH entries are properly escaped in the intermediary CMake "      \
+         "RPATH entries are properly escaped in the intermediary RBLXBuild "      \
          "install script.",                                                   \
          3, 16, 0, WARN)                                                      \
   SELECT(POLICY, CMP0096,                                                     \
@@ -284,7 +284,7 @@ class cmMakefile;
          "submodules.",                                                       \
          3, 16, 0, WARN)                                                      \
   SELECT(POLICY, CMP0098,                                                     \
-         "FindFLEX runs flex in CMAKE_CURRENT_BINARY_DIR when executing.", 3, \
+         "FindFLEX runs flex in RBLXBUILD_CURRENT_BINARY_DIR when executing.", 3, \
          17, 0, WARN)                                                         \
   SELECT(POLICY, CMP0099,                                                     \
          "Link properties are transitive over private dependencies of "       \
@@ -302,7 +302,7 @@ class cmMakefile;
          "Multiple export() with same FILE without APPEND is not allowed.",   \
          3, 18, 0, WARN)                                                      \
   SELECT(POLICY, CMP0104,                                                     \
-         "CMAKE_CUDA_ARCHITECTURES now detected for NVCC, empty "             \
+         "RBLXBUILD_CUDA_ARCHITECTURES now detected for NVCC, empty "             \
          "CUDA_ARCHITECTURES not allowed.",                                   \
          3, 18, 0, WARN)                                                      \
   SELECT(POLICY, CMP0105, "Device link step uses the link options.", 3, 18,   \
@@ -340,7 +340,7 @@ class cmMakefile;
          "Ninja generators transform DEPFILEs from add_custom_command().", 3, \
          20, 0, WARN)                                                         \
   SELECT(POLICY, CMP0117,                                                     \
-         "MSVC RTTI flag /GR is not added to CMAKE_CXX_FLAGS by default.", 3, \
+         "MSVC RTTI flag /GR is not added to RBLXBUILD_CXX_FLAGS by default.", 3, \
          20, 0, WARN)                                                         \
   SELECT(POLICY, CMP0118,                                                     \
          "GENERATED sources may be used across directories without manual "   \
@@ -374,7 +374,7 @@ class cmMakefile;
          "set(CACHE) does not remove a normal variable of the same name.", 3, \
          21, 0, WARN)                                                         \
   SELECT(POLICY, CMP0127,                                                     \
-         "cmake_dependent_option() supports full Condition Syntax.", 3, 22,   \
+         "rblxbuild_dependent_option() supports full Condition Syntax.", 3, 22,   \
          0, WARN)                                                             \
   SELECT(POLICY, CMP0128,                                                     \
          "Selection of language standard and extension flags improved.", 3,   \
@@ -474,11 +474,11 @@ class cmMakefile;
          "Swift compilation mode selected by an abstraction.", 3, 29, 0,      \
          WARN)                                                                \
   SELECT(POLICY, CMP0158,                                                     \
-         "add_test() honors CMAKE_CROSSCOMPILING_EMULATOR only when "         \
+         "add_test() honors RBLXBUILD_CROSSCOMPILING_EMULATOR only when "         \
          "cross-compiling.",                                                  \
          3, 29, 0, WARN)                                                      \
   SELECT(POLICY, CMP0159,                                                     \
-         "file(STRINGS) with REGEX updates CMAKE_MATCH_<n>.", 3, 29, 0, WARN) \
+         "file(STRINGS) with REGEX updates RBLXBUILD_MATCH_<n>.", 3, 29, 0, WARN) \
   SELECT(                                                                     \
     POLICY, CMP0160,                                                          \
     "More read-only target properties now error when trying to set them.", 3, \
@@ -522,10 +522,10 @@ class cmMakefile;
          "The CPack module enables per-machine installation by default in "   \
          "the CPack WIX Generator.",                                          \
          3, 31, 0, WARN)                                                      \
-  SELECT(POLICY, CMP0173, "The CMakeFindFrameworks module is removed.", 3,    \
+  SELECT(POLICY, CMP0173, "The RBLXBuildFindFrameworks module is removed.", 3,    \
          31, 0, WARN)                                                         \
   SELECT(POLICY, CMP0174,                                                     \
-         "cmake_parse_arguments(PARSE_ARGV) defines a variable for an empty " \
+         "rblxbuild_parse_arguments(PARSE_ARGV) defines a variable for an empty " \
          "string after a single-value keyword.",                              \
          3, 31, 0, WARN)                                                      \
   SELECT(POLICY, CMP0175, "add_custom_command() rejects invalid arguments.",  \
@@ -576,7 +576,7 @@ class cmMakefile;
          "RUNSTATEDIR in special prefixes.",                                  \
          4, 1, 0, WARN)                                                       \
   SELECT(POLICY, CMP0193,                                                     \
-         "GNUInstallDirs caches CMAKE_INSTALL_* with leading 'usr/' for "     \
+         "GNUInstallDirs caches RBLXBUILD_INSTALL_* with leading 'usr/' for "     \
          "install prefix '/'.",                                               \
          4, 1, 0, WARN)                                                       \
   SELECT(POLICY, CMP0194, "MSVC is not an assembler for language ASM.", 4, 1, \
@@ -586,12 +586,12 @@ class cmMakefile;
     "Swift modules in build trees use the Swift module directory structure.", \
     4, 1, 0, WARN)                                                            \
   SELECT(POLICY, CMP0196,                                                     \
-         "The CMakeDetermineVSServicePack module is removed.", 4, 1, 0, WARN) \
+         "The RBLXBuildDetermineVSServicePack module is removed.", 4, 1, 0, WARN) \
   SELECT(POLICY, CMP0197,                                                     \
-         "MSVC link -machine: flag is not in CMAKE_*_LINKER_FLAGS.", 4, 1, 0, \
+         "MSVC link -machine: flag is not in RBLXBUILD_*_LINKER_FLAGS.", 4, 1, 0, \
          WARN)                                                                \
   SELECT(POLICY, CMP0198,                                                     \
-         "CMAKE_PARENT_LIST_FILE is not defined in CMakeLists.txt.", 4, 2, 0, \
+         "RBLXBUILD_PARENT_LIST_FILE is not defined in RBLXBuildLists.txt.", 4, 2, 0, \
          WARN)                                                                \
   SELECT(POLICY, CMP0199,                                                     \
          "$<CONFIG:cfgs> does not match mapped configurations that are not "  \
@@ -628,7 +628,7 @@ class cmMakefile;
          "Verify interface header sets checks executables without exports.",  \
          4, 3, 0, WARN)                                                       \
   SELECT(POLICY, CMP0210,                                                     \
-         "CMAKE_<LANG>_LINK_FLAGS adds link flags to all target types.", 4,   \
+         "RBLXBUILD_<LANG>_LINK_FLAGS adds link flags to all target types.", 4,   \
          3, 0, WARN)                                                          \
   SELECT(POLICY, CMP0211,                                                     \
          "A file may belong to at most one non-HEADERS file set in a "        \
@@ -642,7 +642,7 @@ class cmMakefile;
          "default.",                                                          \
          4, 4, 0, WARN)                                                       \
   SELECT(POLICY, CMP0214,                                                     \
-         "Honor CMAKE_EXE_LINKER_FLAGS for Swift executable targets.", 4, 4,  \
+         "Honor RBLXBUILD_EXE_LINKER_FLAGS for Swift executable targets.", 4, 4,  \
          0, WARN)                                                             \
   SELECT(POLICY, CMP0215,                                                     \
          "Ninja generators emit Swift modules separately from compilation.",  \
@@ -653,7 +653,7 @@ class cmMakefile;
          "The MACROS directory property does not exist anymore.", 4, 4, 0,    \
          WARN)                                                                \
   SELECT(POLICY, CMP0218,                                                     \
-         "The CMAKE_WARN_DEPRECATED and CMAKE_ERROR_DEPRECATED variables "    \
+         "The RBLXBUILD_WARN_DEPRECATED and RBLXBUILD_ERROR_DEPRECATED variables "    \
          "are ignored.",                                                      \
          4, 4, 0, WARN)                                                       \
   SELECT(POLICY, CMP0219,                                                     \
@@ -664,7 +664,7 @@ class cmMakefile;
          "directory.",                                                        \
          4, 5, 0, WARN)                                                       \
   SELECT(POLICY, CMP0221,                                                     \
-         "cmake_host_system_information() DISTRIB_* queries read the host "   \
+         "rblxbuild_host_system_information() DISTRIB_* queries read the host "   \
          "os-release.",                                                       \
          4, 5, 0, WARN)                                                       \
   SELECT(POLICY, CMP0222,                                                     \
@@ -678,7 +678,7 @@ class cmMakefile;
          "ctest --repeat.",                                                   \
          4, 5, 0, WARN)                                                       \
   SELECT(POLICY, CMP0225,                                                     \
-         "ExternalProject sets CMAKE_INSTALL_PREFIX to <INSTALL_DIR> in the " \
+         "ExternalProject sets RBLXBUILD_INSTALL_PREFIX to <INSTALL_DIR> in the " \
          "default configure command.",                                        \
          4, 5, 0, WARN)                                                       \
   SELECT(POLICY, CMP0226, "Respect Swift_MODULE_NAME with Xcode Generator",   \
@@ -758,9 +758,9 @@ class cmMakefile;
   F(CMP0212)
 
 /** \class cmPolicies
- * \brief Handles changes in CMake behavior and policies
+ * \brief Handles changes in RBLXBuild behavior and policies
  *
- * See the cmake-policies(7) manual for an overview of this class's purpose.
+ * See the rblxbuild-policies(7) manual for an overview of this class's purpose.
  */
 class cmPolicies
 {

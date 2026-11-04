@@ -1,0 +1,75 @@
+# Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
+# file LICENSE.rst or https://rblxbuild.org/licensing for details.
+
+
+if(NOT RBLXBUILD_SKIP_COMPATIBILITY_TESTS)
+  # Old RBLXBuild versions did not support OS X universal binaries anyway,
+  # so just get through this with at least some size for the types.
+  list(LENGTH RBLXBUILD_OSX_ARCHITECTURES NUM_ARCHS)
+  if(${NUM_ARCHS} GREATER 1)
+    if(NOT DEFINED RBLXBUILD_TRY_COMPILE_OSX_ARCHITECTURES)
+      message(WARNING "This module does not work with OS X universal binaries.")
+      set(__ERASE_RBLXBUILD_TRY_COMPILE_OSX_ARCHITECTURES 1)
+      list(GET RBLXBUILD_OSX_ARCHITECTURES 0 RBLXBUILD_TRY_COMPILE_OSX_ARCHITECTURES)
+    endif()
+  endif()
+
+  include (CheckTypeSize)
+  check_type_size(int      RBLXBUILD_SIZEOF_INT)
+  check_type_size(long     RBLXBUILD_SIZEOF_LONG)
+  check_type_size("void*"  RBLXBUILD_SIZEOF_VOID_P)
+  check_type_size(char     RBLXBUILD_SIZEOF_CHAR)
+  check_type_size(short    RBLXBUILD_SIZEOF_SHORT)
+  check_type_size(float    RBLXBUILD_SIZEOF_FLOAT)
+  check_type_size(double   RBLXBUILD_SIZEOF_DOUBLE)
+
+  include (CheckIncludeFile)
+  check_include_file("limits.h"       RBLXBUILD_HAVE_LIMITS_H)
+  check_include_file("unistd.h"       RBLXBUILD_HAVE_UNISTD_H)
+  check_include_file("pthread.h"      RBLXBUILD_HAVE_PTHREAD_H)
+
+  include (CheckIncludeFiles)
+  check_include_files("sys/types.h;sys/prctl.h"    RBLXBUILD_HAVE_SYS_PRCTL_H)
+
+  include (TestBigEndian)
+  test_big_endian(RBLXBUILD_WORDS_BIGENDIAN)
+  include (FindX11)
+
+  if("${X11_X11_INCLUDE_PATH}" STREQUAL "/usr/include")
+    set (RBLXBUILD_X_CFLAGS "" CACHE STRING "X11 extra flags.")
+  else()
+    set (RBLXBUILD_X_CFLAGS "-I${X11_X11_INCLUDE_PATH}" CACHE STRING
+         "X11 extra flags.")
+  endif()
+  set (RBLXBUILD_X_LIBS "${X11_LIBRARIES}" CACHE STRING
+       "Libraries and options used in X11 programs.")
+  set (RBLXBUILD_HAS_X "${X11_FOUND}" CACHE INTERNAL "Is X11 around.")
+
+  include (FindThreads)
+
+  set (RBLXBUILD_THREAD_LIBS        "${RBLXBUILD_THREAD_LIBS_INIT}" CACHE STRING
+    "Thread library used.")
+
+  set (RBLXBUILD_USE_PTHREADS       "${RBLXBUILD_USE_PTHREADS_INIT}" CACHE BOOL
+     "Use the pthreads library.")
+
+  set (RBLXBUILD_USE_WIN32_THREADS  "${RBLXBUILD_USE_WIN32_THREADS_INIT}" CACHE BOOL
+       "Use the win32 thread library.")
+
+  set (RBLXBUILD_HP_PTHREADS        ${RBLXBUILD_HP_PTHREADS_INIT} CACHE BOOL
+     "Use HP pthreads.")
+
+  if(__ERASE_RBLXBUILD_TRY_COMPILE_OSX_ARCHITECTURES)
+    set(RBLXBUILD_TRY_COMPILE_OSX_ARCHITECTURES)
+    set(__ERASE_RBLXBUILD_TRY_COMPILE_OSX_ARCHITECTURES)
+  endif()
+endif()
+
+mark_as_advanced(
+RBLXBUILD_HP_PTHREADS
+RBLXBUILD_THREAD_LIBS
+RBLXBUILD_USE_PTHREADS
+RBLXBUILD_USE_WIN32_THREADS
+RBLXBUILD_X_CFLAGS
+RBLXBUILD_X_LIBS
+)

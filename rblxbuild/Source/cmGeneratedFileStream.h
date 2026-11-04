@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #pragma once
 
 #include "cmConfigure.h" // IWYU pragma: keep
@@ -66,7 +66,7 @@ protected:
 /** \class cmGeneratedFileStream
  * \brief Output stream for generated files.
  *
- * File generation should be atomic so that if CMake is killed then a
+ * File generation should be atomic so that if RBLXBuild is killed then a
  * generated file is either the original version or the complete new
  * version.  This stream is used to make sure file generation is
  * atomic.  Optionally the output file is only replaced if its

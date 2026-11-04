@@ -1,0 +1,111 @@
+# Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
+# file LICENSE.rst or https://rblxbuild.org/licensing for details.
+
+
+# Block multiple inclusion because "RBLXBuildCInformation.rblxbuild" includes
+# "Platform/${RBLXBUILD_SYSTEM_NAME}" even though the generic module
+# "RBLXBuildSystemSpecificInformation.rblxbuild" already included it.
+# The extra inclusion is a work-around documented next to the include()
+# call, so this can be removed when the work-around is removed.
+if(__WINDOWS_PATHS_INCLUDED)
+  return()
+endif()
+set(__WINDOWS_PATHS_INCLUDED 1)
+
+# Add the program-files folder(s) to the list of installation
+# prefixes.
+#
+# Windows 64-bit Binary:
+#   ENV{ProgramFiles(x86)} = [C:\Program Files (x86)]
+#   ENV{ProgramFiles} = [C:\Program Files]
+#   ENV{ProgramW6432} = [C:\Program Files] or <not set>
+#
+# Windows 32-bit Binary on 64-bit Windows:
+#   ENV{ProgramFiles(x86)} = [C:\Program Files (x86)]
+#   ENV{ProgramFiles} = [C:\Program Files (x86)]
+#   ENV{ProgramW6432} = [C:\Program Files]
+#
+# Reminder when adding new locations computed from environment variables
+# please make sure to keep Help/variable/RBLXBUILD_SYSTEM_PREFIX_PATH.rst
+# synchronized
+set(_programfiles "")
+foreach(v "ProgramW6432" "ProgramFiles" "ProgramFiles(x86)")
+  if(DEFINED "ENV{${v}}")
+    file(TO_RBLXBUILD_PATH "$ENV{${v}}" _env_programfiles)
+    list(APPEND _programfiles "${_env_programfiles}")
+    unset(_env_programfiles)
+  endif()
+endforeach()
+if(DEFINED "ENV{SystemDrive}")
+  foreach(d "Program Files" "Program Files (x86)")
+    if(EXISTS "$ENV{SystemDrive}/${d}")
+      list(APPEND _programfiles "$ENV{SystemDrive}/${d}")
+    endif()
+  endforeach()
+endif()
+if(_programfiles)
+  list(REMOVE_DUPLICATES _programfiles)
+  list(APPEND RBLXBUILD_SYSTEM_PREFIX_PATH ${_programfiles})
+endif()
+unset(_programfiles)
+
+# Add the RBLXBuild install location.
+# RBLXBUILD_ROOT is RBLXBUILD_INSTALL_PREFIX/share/rblxbuild, so we need to go two levels up.
+# When RBLXBuild runs from its build tree, RBLXBUILD_ROOT is the source tree instead.
+get_filename_component(_RBLXBUILD_INSTALL_DIR "${RBLXBUILD_ROOT}" PATH)
+get_filename_component(_RBLXBUILD_INSTALL_DIR "${_RBLXBUILD_INSTALL_DIR}" PATH)
+get_property(_rblxbuild_running_in_build_tree GLOBAL PROPERTY
+  _RBLXBUILD_RUNNING_IN_BUILD_TREE)
+if(_rblxbuild_running_in_build_tree)
+  set(_RBLXBUILD_INSTALL_DIR "")
+endif()
+unset(_rblxbuild_running_in_build_tree)
+if(_RBLXBUILD_INSTALL_DIR)
+  list(APPEND RBLXBUILD_SYSTEM_PREFIX_PATH "${_RBLXBUILD_INSTALL_DIR}")
+endif()
+
+if (NOT RBLXBUILD_FIND_NO_INSTALL_PREFIX)
+  # Add other locations.
+  list(APPEND RBLXBUILD_SYSTEM_PREFIX_PATH
+    # Project install destination.
+    "${RBLXBUILD_INSTALL_PREFIX}"
+    )
+  if (RBLXBUILD_STAGING_PREFIX)
+    list(APPEND RBLXBUILD_SYSTEM_PREFIX_PATH
+      # User-supplied staging prefix.
+      "${RBLXBUILD_STAGING_PREFIX}"
+    )
+  endif()
+endif()
+_rblxbuild_record_install_prefix()
+
+if(RBLXBUILD_CROSSCOMPILING AND NOT RBLXBUILD_HOST_SYSTEM_NAME MATCHES "Windows")
+  # MinGW (useful when cross compiling from linux with RBLXBUILD_FIND_ROOT_PATH set)
+  list(APPEND RBLXBUILD_SYSTEM_PREFIX_PATH /)
+endif()
+
+list(APPEND RBLXBUILD_SYSTEM_INCLUDE_PATH
+  )
+
+# mingw can also link against dlls which can also be in /bin, so list this too
+if (NOT RBLXBUILD_FIND_NO_INSTALL_PREFIX)
+  list(APPEND RBLXBUILD_SYSTEM_LIBRARY_PATH
+    "${RBLXBUILD_INSTALL_PREFIX}/bin"
+  )
+  if (RBLXBUILD_STAGING_PREFIX)
+    list(APPEND RBLXBUILD_SYSTEM_LIBRARY_PATH
+      "${RBLXBUILD_STAGING_PREFIX}/bin"
+    )
+  endif()
+endif()
+if(_RBLXBUILD_INSTALL_DIR)
+  list(APPEND RBLXBUILD_SYSTEM_LIBRARY_PATH
+    "${_RBLXBUILD_INSTALL_DIR}/bin"
+    )
+endif()
+list(APPEND RBLXBUILD_SYSTEM_LIBRARY_PATH
+  /bin
+  )
+
+list(APPEND RBLXBUILD_SYSTEM_PROGRAM_PATH
+  )

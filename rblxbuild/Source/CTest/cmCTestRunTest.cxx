@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmCTestRunTest.h"
 
 #include <algorithm>
@@ -945,36 +945,36 @@ bool cmCTestRunTest::ForkProcess()
     cmSystemTools::RemoveFile(profDataPath);
   };
 
-  // Give the test its own folder for CMake listfile coverage.
-  if (coverageTool == "CMAKE"_s) {
-    this->UseCMakeCov = true;
-    // Isolate the test from any ambient CMAKE_LISTFILE_COVERAGE_DIR
-    env.UnPutEnv("CMAKE_LISTFILE_COVERAGE_DIR");
+  // Give the test its own folder for RBLXBuild listfile coverage.
+  if (coverageTool == "RBLXBUILD"_s) {
+    this->UseRBLXBuildCov = true;
+    // Isolate the test from any ambient RBLXBUILD_LISTFILE_COVERAGE_DIR
+    env.UnPutEnv("RBLXBUILD_LISTFILE_COVERAGE_DIR");
 
     // Remove the data of an earlier run.  Never remove a regular file or a
     // symbolic link at the folder path.  A symbolic link blocks the folder,
     // because ctest would record into the link target and delete its content.
-    std::string const scratch = this->GenerateLLVMPath("_cmake-coverage");
+    std::string const scratch = this->GenerateLLVMPath("_rblxbuild-coverage");
     bool cleared = true;
     if (cmSystemTools::FileIsSymlink(scratch)) {
       cleared = false;
     } else if (cmSystemTools::FileIsDirectory(scratch)) {
       cleared = static_cast<bool>(cmSystemTools::RemoveADirectory(scratch));
     }
-    cmSystemTools::RemoveFile(this->GenerateLLVMPath(".cmake-coverage.info"));
+    cmSystemTools::RemoveFile(this->GenerateLLVMPath(".rblxbuild-coverage.info"));
 
-    this->CMakeCovScratchOk =
+    this->RBLXBuildCovScratchOk =
       cleared && static_cast<bool>(cmSystemTools::MakeDirectory(scratch));
-    if (this->CMakeCovScratchOk) {
+    if (this->RBLXBuildCovScratchOk) {
       cmCTestOptionalLog(
         this->CTest, HANDLER_VERBOSE_OUTPUT, this->TestHandler->GetQuiet(),
         this->Index,
-        ": Using environment variable CMAKE_LISTFILE_COVERAGE_DIR="_s, scratch,
+        ": Using environment variable RBLXBUILD_LISTFILE_COVERAGE_DIR="_s, scratch,
         '\n');
-      env.PutEnv(cmStrCat("CMAKE_LISTFILE_COVERAGE_DIR="_s, scratch));
+      env.PutEnv(cmStrCat("RBLXBUILD_LISTFILE_COVERAGE_DIR="_s, scratch));
     } else {
       cmCTestLog(this->CTest, WARNING,
-                 "Cannot create CMake listfile coverage folder: ", scratch,
+                 "Cannot create RBLXBuild listfile coverage folder: ", scratch,
                  '\n');
     }
   }
@@ -1189,23 +1189,23 @@ void cmCTestRunTest::CollectLLVMCoverage()
   cmSystemTools::RemoveFile(profManifestPath);
 }
 
-void cmCTestRunTest::CollectCMakeCoverage()
+void cmCTestRunTest::CollectRBLXBuildCoverage()
 {
-  if (!this->CMakeCovScratchOk) {
+  if (!this->RBLXBuildCovScratchOk) {
     return;
   }
-  this->CMakeCovScratchOk = false;
+  this->RBLXBuildCovScratchOk = false;
 
   // Coverage problems are warnings.  An error would make ctest -S fail.
   std::string const& testName = this->TestProperties->Name;
   if (this->TestProcess->GetProcessStatus() == cmProcess::State::Expired) {
-    cmCTestLog(this->CTest, WARNING, "CMake listfile coverage of test ",
+    cmCTestLog(this->CTest, WARNING, "RBLXBuild listfile coverage of test ",
                testName, " is incomplete because the test timed out.\n");
   }
 
   // List the files with cmsys::Directory, because a glob pattern would
   // treat "[" and "]" in the test name as special.
-  std::string const scratch = this->GenerateLLVMPath("_cmake-coverage");
+  std::string const scratch = this->GenerateLLVMPath("_rblxbuild-coverage");
   std::vector<std::string> inputs;
   {
     cmsys::Directory dir;
@@ -1236,13 +1236,13 @@ void cmCTestRunTest::CollectCMakeCoverage()
   }
   auto const logRemoved = [this](std::string const& path) {
     cmCTestLog(this->CTest, HANDLER_VERBOSE_OUTPUT, this->GetIndex(),
-               ": Ignoring CMake listfile coverage of a file in the build "
+               ": Ignoring RBLXBuild listfile coverage of a file in the build "
                "tree: ",
                path, '\n');
   };
   merged.RemoveBuildTreeFiles(sourceDir, buildDir, logRemoved);
 
-  // A test that runs no CMake code, or only code in the build tree or in
+  // A test that runs no RBLXBuild code, or only code in the build tree or in
   // files with no lines and no functions, has no data.  That is not a
   // problem.
   if (merged.HasData()) {
@@ -1255,7 +1255,7 @@ void cmCTestRunTest::CollectCMakeCoverage()
     }
 
     // Close() does not report a failed rename, so check the result too.
-    std::string const output = this->GenerateLLVMPath(".cmake-coverage.info");
+    std::string const output = this->GenerateLLVMPath(".rblxbuild-coverage.info");
     bool written = false;
     {
       cmGeneratedFileStream fout(output, true);
@@ -1265,7 +1265,7 @@ void cmCTestRunTest::CollectCMakeCoverage()
     }
     if (!written) {
       cmCTestLog(this->CTest, WARNING,
-                 "Cannot write CMake listfile coverage file: ", output, '\n');
+                 "Cannot write RBLXBuild listfile coverage file: ", output, '\n');
       keepScratch = true;
     }
   }
@@ -1283,9 +1283,9 @@ void cmCTestRunTest::FinalizeTest(bool started)
     this->CollectLLVMCoverage();
   }
 
-  // Merge the CMake listfile coverage files of the test
-  if (this->UseCMakeCov) {
-    this->CollectCMakeCoverage();
+  // Merge the RBLXBuild listfile coverage files of the test
+  if (this->UseRBLXBuildCov) {
+    this->CollectRBLXBuildCoverage();
   }
 
   if (started && this->CTest->GetInstrumentation().HasQuery()) {

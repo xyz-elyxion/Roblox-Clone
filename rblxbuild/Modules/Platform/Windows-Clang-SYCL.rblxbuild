@@ -1,0 +1,34 @@
+# Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
+# file LICENSE.rst or https://rblxbuild.org/licensing for details.
+
+include(Platform/Windows-Clang)
+set(_COMPILE_SYCL_MSVC " ${_RBLXBUILD_SYCL_REQUIRED_FLAG}")
+__windows_compiler_clang(SYCL)
+if(RBLXBUILD_SYCL_COMPILER_FRONTEND_VARIANT STREQUAL "GNU" AND
+   RBLXBUILD_SYCL_SIMULATE_ID STREQUAL "MSVC")
+  unset(RBLXBUILD_INCLUDE_SYSTEM_FLAG_SYCL_WARNING)
+  if(RBLXBUILD_SYCL_COMPILER_ID MATCHES "^(Clang|DPClang|IntelLLVM)$")
+    # Let the driver apply CRT defines to the host compilation only and select
+    # the matching libsycl dependency, including the debug runtime.
+    set(RBLXBUILD_SYCL_COMPILE_OPTIONS_MSVC_RUNTIME_LIBRARY_MultiThreaded -fms-runtime-lib=static)
+    set(RBLXBUILD_SYCL_COMPILE_OPTIONS_MSVC_RUNTIME_LIBRARY_MultiThreadedDLL -fms-runtime-lib=dll)
+    set(RBLXBUILD_SYCL_COMPILE_OPTIONS_MSVC_RUNTIME_LIBRARY_MultiThreadedDebug -fms-runtime-lib=static_dbg)
+    set(RBLXBUILD_SYCL_COMPILE_OPTIONS_MSVC_RUNTIME_LIBRARY_MultiThreadedDebugDLL -fms-runtime-lib=dll_dbg)
+  endif()
+endif()
+
+if(RBLXBUILD_SYCL_COMPILER_FRONTEND_VARIANT STREQUAL "GNU")
+  foreach(rule CREATE_SHARED_LIBRARY CREATE_SHARED_MODULE LINK_EXECUTABLE)
+    string(REPLACE "<RBLXBUILD_SYCL_COMPILER>" "<RBLXBUILD_SYCL_COMPILER> ${_RBLXBUILD_SYCL_REQUIRED_FLAG}"
+      RBLXBUILD_SYCL_${rule} "${RBLXBUILD_SYCL_${rule}}")
+    # Let the SYCL driver add its runtime libraries.
+    string(REPLACE "-nostartfiles -nostdlib " ""
+      RBLXBUILD_SYCL_${rule} "${RBLXBUILD_SYCL_${rule}}")
+  endforeach()
+  unset(rule)
+  set(RBLXBUILD_SYCL_VERBOSE_FLAG "-v")
+else()
+  __windows_compiler_clang_msvc_offload_link(SYCL "${_RBLXBUILD_SYCL_REQUIRED_FLAG}" "")
+  set(RBLXBUILD_SYCL_VERBOSE_FLAG "-clang:-v")
+endif()
+unset(_COMPILE_SYCL_MSVC)

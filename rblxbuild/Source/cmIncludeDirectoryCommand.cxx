@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmIncludeDirectoryCommand.h"
 
 #include <algorithm>
@@ -35,7 +35,7 @@ bool cmIncludeDirectoryCommand(std::vector<std::string> const& args,
 
   auto i = args.begin();
 
-  bool before = mf.IsOn("CMAKE_INCLUDE_DIRECTORIES_BEFORE");
+  bool before = mf.IsOn("RBLXBUILD_INCLUDE_DIRECTORIES_BEFORE");
   bool system = false;
 
   if ((*i) == "BEFORE") {

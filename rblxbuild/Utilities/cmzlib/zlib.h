@@ -1809,7 +1809,7 @@ ZEXTERN int ZEXPORT inflateBackInit_(z_streamp strm, int windowBits,
 #  define z_inflateBackInit(strm, windowBits, window) \
           inflateBackInit_((strm), (windowBits), (window), \
                            ZLIB_VERSION, (int)sizeof(z_stream))
-#elif 1 /* Hook for mangling inside CMake.  */
+#elif 1 /* Hook for mangling inside RBLXBuild.  */
 #  define cm_zlib_deflateInit(strm, level) \
           deflateInit_((strm), (level), ZLIB_VERSION, (int)sizeof(z_stream))
 #  define cm_zlib_inflateInit(strm) \
@@ -1858,7 +1858,7 @@ ZEXTERN int ZEXPORT gzgetc_(gzFile file);       /* backward compatibility */
 #  undef z_gzgetc
 #  define z_gzgetc(g) \
           ((g)->have ? ((g)->have--, (g)->pos++, *((g)->next)++) : (gzgetc)(g))
-#elif 1 /* Hook for mangling inside CMake.  */
+#elif 1 /* Hook for mangling inside RBLXBuild.  */
 #  undef cm_zlib_gzgetc
 #  define cm_zlib_gzgetc(g) \
           ((g)->have ? ((g)->have--, (g)->pos++, *((g)->next)++) : (gzgetc)(g))

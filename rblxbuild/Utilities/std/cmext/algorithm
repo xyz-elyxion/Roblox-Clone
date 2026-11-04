@@ -2,7 +2,7 @@
 // vim: set ft=cpp:
 
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #pragma once
 
 #include <algorithm>
@@ -259,7 +259,7 @@ template <
                   int> = 0>
 std::vector<typename Range::key_type> keys(Range const& range)
 {
-#if defined(CMake_HAVE_CXX_RANGES)
+#if defined(RBLXBuild_HAVE_CXX_RANGES)
   using key_type = typename Range::key_type;
 
 #  if __cplusplus >= 202302L || (defined(_MSVC_LANG) && _MSVC_LANG >= 202302L)
@@ -280,7 +280,7 @@ template <
                   int> = 0>
 std::vector<typename Range::mapped_type> values(Range const& range)
 {
-#if defined(CMake_HAVE_CXX_RANGES)
+#if defined(RBLXBuild_HAVE_CXX_RANGES)
   using value_type = typename Range::mapped_type;
 
 #  if __cplusplus >= 202302L || (defined(_MSVC_LANG) && _MSVC_LANG >= 202302L)
@@ -302,7 +302,7 @@ template <typename Range,
 std::vector<typename std::tuple_element<0, typename Range::value_type>::type>
 keys(Range const& range)
 {
-#if defined(CMake_HAVE_CXX_RANGES)
+#if defined(RBLXBuild_HAVE_CXX_RANGES)
   using key_type =
     typename std::tuple_element<0, typename Range::value_type>::type;
 
@@ -324,7 +324,7 @@ template <typename Range,
 std::vector<typename std::tuple_element<1, typename Range::value_type>::type>
 values(Range const& range)
 {
-#if defined(CMake_HAVE_CXX_RANGES)
+#if defined(RBLXBuild_HAVE_CXX_RANGES)
   using value_type =
     typename std::tuple_element<1, typename Range::value_type>::type;
 

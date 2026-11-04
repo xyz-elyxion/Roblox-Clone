@@ -1,0 +1,9 @@
+include(Compiler/Diab)
+
+__compiler_diab(C)
+
+# c89/90 is both -Xdialect-c89
+set(RBLXBUILD_C89_STANDARD_COMPILE_OPTION "-Xdialect-c89")
+set(RBLXBUILD_C90_STANDARD_COMPILE_OPTION "-Xdialect-c89")
+set(RBLXBUILD_C99_STANDARD_COMPILE_OPTION "-Xdialect-c99")
+set(RBLXBUILD_C11_STANDARD_COMPILE_OPTION "-Xdialect-c11")

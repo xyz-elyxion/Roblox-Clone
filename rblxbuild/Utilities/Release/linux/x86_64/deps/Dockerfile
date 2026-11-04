@@ -1,10 +1,10 @@
 # Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-# file LICENSE.rst or https://cmake.org/licensing for details.
+# file LICENSE.rst or https://rblxbuild.org/licensing for details.
 
-# Produce an image with custom-built dependencies for portable CMake binaries.
+# Produce an image with custom-built dependencies for portable RBLXBuild binaries.
 # Build using the directory containing this file as its own build context.
 
-ARG FROM_IMAGE_NAME=kitware/cmake:build-linux-x86_64-base-2026-01-13
+ARG FROM_IMAGE_NAME=kitware/rblxbuild:build-linux-x86_64-base-2026-01-13
 ARG FROM_IMAGE_DIGEST=@sha256:66bbc699da90b66fbfe5ee6161026587b78bcd01b903740b1287f80c40adfc95
 ARG FROM_IMAGE=$FROM_IMAGE_NAME$FROM_IMAGE_DIGEST
 FROM $FROM_IMAGE

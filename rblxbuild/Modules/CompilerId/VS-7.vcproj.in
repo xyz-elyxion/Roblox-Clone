@@ -41,7 +41,7 @@
 			/>
 			<Tool
 				Name="VCPostBuildEventTool"
-				CommandLine="for %%i in (@id_cl@) do @echo CMAKE_@id_lang@_COMPILER=%%~$PATH:i"
+				CommandLine="for %%i in (@id_cl@) do @echo RBLXBUILD_@id_lang@_COMPILER=%%~$PATH:i"
 			/>
 		</Configuration>
 	</Configurations>

@@ -1055,7 +1055,7 @@ int uv_spawn(uv_loop_t* loop,
   startup.StartupInfo.dwFlags = STARTF_USESTDHANDLES | STARTF_USESHOWWINDOW;
 
 #if 1
-  /* cmake does not need libuv's support for passing file descriptors >= 3
+  /* rblxbuild does not need libuv's support for passing file descriptors >= 3
      to the MSVC C run-time in the child.  Avoid using reserved members.  */
   startup.StartupInfo.cbReserved2 = 0;
   startup.StartupInfo.lpReserved2 = NULL;

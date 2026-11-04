@@ -1,5 +1,5 @@
 
-/* used by KDE3Macros.cmake */
+/* used by KDE3Macros.rblxbuild */
 
 extern "C" int kdemain(int argc, char* argv[]);
 extern "C" int kdeinitmain(int argc, char* argv[]) { return kdemain(argc,argv); }

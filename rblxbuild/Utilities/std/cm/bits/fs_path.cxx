@@ -1,9 +1,9 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 
 #include <cm/filesystem> // IWYU pragma: associated
 
-#if !defined(CMake_HAVE_CXX_FILESYSTEM)
+#if !defined(RBLXBuild_HAVE_CXX_FILESYSTEM)
 
 #  include <algorithm>
 #  include <cassert>
@@ -58,7 +58,7 @@ unicode_helper::utf8_state unicode_helper::decode(utf8_state const state,
 }
 }
 
-#if !defined(CMake_HAVE_CXX_FILESYSTEM)
+#if !defined(RBLXBuild_HAVE_CXX_FILESYSTEM)
 
 namespace filesystem {
 namespace internals {

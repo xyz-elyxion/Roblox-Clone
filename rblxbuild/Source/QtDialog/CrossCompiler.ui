@@ -124,7 +124,7 @@
        </widget>
       </item>
       <item row="0" column="1" >
-       <widget class="QCMakePathEditor" name="crossFindRoot" />
+       <widget class="QRBLXBuildPathEditor" name="crossFindRoot" />
       </item>
       <item row="0" column="2" >
        <widget class="QLabel" name="label_12" >
@@ -188,9 +188,9 @@
  </widget>
  <customwidgets>
   <customwidget>
-   <class>QCMakePathEditor</class>
+   <class>QRBLXBuildPathEditor</class>
    <extends>QLineEdit</extends>
-   <header>QCMakeWidgets.h</header>
+   <header>QRBLXBuildWidgets.h</header>
   </customwidget>
   <customwidget>
    <class>Compilers</class>

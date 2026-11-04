@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmOutputConverter.h"
 
 #include <algorithm>
@@ -294,7 +294,7 @@ std::string cmOutputConverter::EscapeForShell(cm::string_view str, int flags)
   return Shell_GetArgument(str, flags);
 }
 
-std::string cmOutputConverter::EscapeForCMake(cm::string_view str,
+std::string cmOutputConverter::EscapeForRBLXBuild(cm::string_view str,
                                               WrapQuotes wrapQuotes)
 {
   // Always double-quote the argument to take care of most escapes.

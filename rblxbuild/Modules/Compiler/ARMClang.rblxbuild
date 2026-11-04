@@ -1,0 +1,159 @@
+if(_ARMClang_RBLXBUILD_LOADED)
+  return()
+endif()
+
+# This file requires RBLXBUILD_LINKER and RBLXBUILD_AR set by RBLXBuildFindBinUtils.rblxbuild.
+if(NOT (DEFINED RBLXBUILD_LINKER AND DEFINED RBLXBUILD_AR))
+  return()
+endif()
+
+set(_ARMClang_RBLXBUILD_LOADED TRUE)
+
+# Save the CMP0123 setting in a variable used both below and by try_compile.
+rblxbuild_policy(GET CMP0123 RBLXBUILD_ARMClang_CMP0123)
+
+set(RBLXBUILD_EXECUTABLE_SUFFIX ".elf")
+
+if (RBLXBUILD_LINKER MATCHES "armlink")
+  set(__RBLXBUILD_ARMClang_USING_armlink TRUE)
+  set(RBLXBUILD_LIBRARY_PATH_FLAG "--userlibpath=")
+else()
+  set(__RBLXBUILD_ARMClang_USING_armlink FALSE)
+endif()
+
+# get compiler supported cpu list
+function(__armclang_set_processor_list lang out_var)
+  execute_process(COMMAND "${RBLXBUILD_${lang}_COMPILER}" --target=${RBLXBUILD_${lang}_COMPILER_TARGET} -mcpu=list
+    OUTPUT_VARIABLE processor_list
+    ERROR_VARIABLE processor_list
+    RESULT_VARIABLE _res
+    )
+  set(processor_list)
+  if(_res EQUAL 0)
+    string(REGEX MATCHALL "-mcpu=([^ \n]*)" processor_list "${processor_list}")
+    string(REGEX REPLACE "-mcpu=" "" processor_list "${processor_list}")
+  endif()
+  set(${out_var} "${processor_list}" PARENT_SCOPE)
+endfunction()
+
+# check processor is in list
+function(__armclang_check_processor processor list out_var)
+  string(TOLOWER "${processor}" processor)
+  if(processor IN_LIST list)
+    set(${out_var} TRUE PARENT_SCOPE)
+  else()
+    set(${out_var} FALSE PARENT_SCOPE)
+  endif()
+endfunction()
+
+# get compiler supported arch list
+function(__armclang_set_arch_list lang out_var)
+  execute_process(COMMAND "${RBLXBUILD_${lang}_COMPILER}" --target=${RBLXBUILD_${lang}_COMPILER_TARGET} -march=list
+    OUTPUT_VARIABLE arch_list
+    ERROR_VARIABLE arch_list
+    RESULT_VARIABLE _res
+    )
+  set(arch_list)
+  if(_res EQUAL 0)
+    string(REGEX MATCHALL "-march=([^ \n]*)" arch_list "${arch_list}")
+    string(REGEX REPLACE "-march=" "" arch_list "${arch_list}")
+  endif()
+  set(${out_var} "${arch_list}" PARENT_SCOPE)
+endfunction()
+
+# get linker supported cpu list
+function(__armlink_set_cpu_list lang out_var)
+  if(__RBLXBUILD_ARMClang_USING_armlink)
+    set(__linker_wrapper_flags "")
+  else()
+    set(__linker_wrapper_flags --target=${RBLXBUILD_${lang}_COMPILER_TARGET} -Xlinker)
+  endif()
+
+  execute_process(COMMAND "${RBLXBUILD_LINKER}" ${__linker_wrapper_flags} --cpu=list
+    OUTPUT_VARIABLE cpu_list
+    ERROR_VARIABLE cpu_list
+    RESULT_VARIABLE _res
+    )
+  set(cpu_list)
+  if(_res EQUAL 0)
+    string(REGEX MATCHALL "--cpu=([^ \n]*)" cpu_list "${cpu_list}")
+    string(REGEX REPLACE "--cpu=" "" cpu_list "${cpu_list}")
+  endif()
+  set(${out_var} "${cpu_list}" PARENT_SCOPE)
+endfunction()
+
+macro(__compiler_armclang lang)
+  if(NOT RBLXBUILD_${lang}_COMPILER_TARGET)
+    set(RBLXBUILD_${lang}_COMPILER_TARGET arm-arm-none-eabi)
+  endif()
+  if(NOT RBLXBUILD_${lang}_COMPILER_PROCESSOR_LIST)
+    __armclang_set_processor_list(${lang} RBLXBUILD_${lang}_COMPILER_PROCESSOR_LIST)
+  endif()
+  if(NOT RBLXBUILD_${lang}_COMPILER_ARCH_LIST)
+    __armclang_set_arch_list(${lang} RBLXBUILD_${lang}_COMPILER_ARCH_LIST)
+  endif()
+
+  # RBLXBUILD_SYSTEM_PROCESSOR and RBLXBUILD_SYSTEM_ARCH are not sufficient because they provide no
+  # information of additional CPU features needed in `-mcpu=<name>[+[no]<feature>+...]`.
+  # The automatic setting of compile and link options is deprecated and projects should specify their own.
+  rblxbuild_policy(GET CMP0123 policy_CMP0123)
+  if(NOT "x${RBLXBUILD_ARMClang_CMP0123}x" STREQUAL "xNEWx")
+    if(NOT "x${RBLXBUILD_ARMClang_CMP0123}x" STREQUAL "xOLDx")
+      rblxbuild_policy(ISSUE_WARNING CMP0123 POST
+        "For compatibility, RBLXBuild will automatically add cpu/arch flags based "
+        "on the RBLXBUILD_SYSTEM_PROCESSOR and/or RBLXBUILD_SYSTEM_ARCH variables."
+        )
+    endif()
+
+    if(NOT RBLXBUILD_SYSTEM_PROCESSOR AND NOT RBLXBUILD_SYSTEM_ARCH)
+      message(FATAL_ERROR "  RBLXBUILD_SYSTEM_PROCESSOR or RBLXBUILD_SYSTEM_ARCH must be set for ARMClang\n"
+        "  Supported processor: ${RBLXBUILD_${lang}_COMPILER_PROCESSOR_LIST}\n"
+        "  Supported Architecture: ${RBLXBUILD_${lang}_COMPILER_ARCH_LIST}")
+    else()
+      __armclang_check_processor("${RBLXBUILD_SYSTEM_ARCH}" "${RBLXBUILD_${lang}_COMPILER_ARCH_LIST}" _RBLXBUILD_${lang}_CHECK_ARCH_RESULT)
+      if( _RBLXBUILD_${lang}_CHECK_ARCH_RESULT)
+        string(APPEND RBLXBUILD_${lang}_FLAGS_INIT " -march=${RBLXBUILD_SYSTEM_ARCH}")
+        set(__march_flag_set TRUE)
+      endif()
+      __armclang_check_processor("${RBLXBUILD_SYSTEM_PROCESSOR}" "${RBLXBUILD_${lang}_COMPILER_PROCESSOR_LIST}" _RBLXBUILD_${lang}_CHECK_PROCESSOR_RESULT)
+      if(_RBLXBUILD_${lang}_CHECK_PROCESSOR_RESULT)
+        string(APPEND RBLXBUILD_${lang}_FLAGS_INIT " -mcpu=${RBLXBUILD_SYSTEM_PROCESSOR}")
+        set(__mcpu_flag_set TRUE)
+      endif()
+      if(NOT __march_flag_set AND NOT __mcpu_flag_set)
+        message(FATAL_ERROR "At least one of the variables RBLXBUILD_SYSTEM_PROCESSOR or RBLXBUILD_SYSTEM_ARCH must be set for ARMClang\n"
+                            "Supported processor: ${RBLXBUILD_${lang}_COMPILER_PROCESSOR_LIST}\n"
+                            "  Supported Architecture: ${RBLXBUILD_${lang}_COMPILER_ARCH_LIST}")
+      endif()
+      unset(_RBLXBUILD_${lang}_CHECK_PROCESSOR_RESULT)
+      unset(_RBLXBUILD_${lang}_CHECK_ARCH_RESULT)
+    endif()
+
+    #check if RBLXBUILD_SYSTEM_PROCESSOR belongs to supported cpu list for armlink
+    __armlink_set_cpu_list( ${lang} RBLXBUILD_LINKER_CPU_LIST)
+    list(TRANSFORM RBLXBUILD_LINKER_CPU_LIST TOLOWER)
+    __armclang_check_processor("${RBLXBUILD_SYSTEM_PROCESSOR}" "${RBLXBUILD_LINKER_CPU_LIST}" _RBLXBUILD_CHECK_LINK_CPU_RESULT)
+    if(_RBLXBUILD_CHECK_LINK_CPU_RESULT)
+      string(APPEND RBLXBUILD_EXECUTABLE_CREATE_${lang}_FLAGS " --cpu=${RBLXBUILD_SYSTEM_PROCESSOR}")
+      rblxbuild_policy(GET CMP0210 _CMP0210)
+      if (NOT _CMP0210 STREQUAL "NEW")
+        string(APPEND RBLXBUILD_${lang}_LINK_FLAGS " --cpu=${RBLXBUILD_SYSTEM_PROCESSOR}")
+      endif()
+      unset(_CMP0210)
+    endif()
+
+  endif()
+
+  if(__RBLXBUILD_ARMClang_USING_armlink)
+    unset(RBLXBUILD_${lang}_LINKER_WRAPPER_FLAG)
+    set(__RBLXBUILD_ARMClang_USING_armlink_WRAPPER "")
+  else()
+    set(__RBLXBUILD_ARMClang_USING_armlink_WRAPPER "-Xlinker")
+  endif()
+  set(RBLXBUILD_${lang}_LINK_EXECUTABLE "<RBLXBUILD_LINKER> <LINK_FLAGS> <LINK_LIBRARIES> <OBJECTS> -o <TARGET> ${__RBLXBUILD_ARMClang_USING_armlink_WRAPPER}")
+  set(RBLXBUILD_${lang}_CREATE_STATIC_LIBRARY  "<RBLXBUILD_AR> --create -cr <TARGET> <LINK_FLAGS> <OBJECTS>")
+  set(RBLXBUILD_${lang}_ARCHIVE_CREATE         "<RBLXBUILD_AR> --create -cr <TARGET> <LINK_FLAGS> <OBJECTS>")
+  set(RBLXBUILD_${lang}_RESPONSE_FILE_LINK_FLAG "${__RBLXBUILD_ARMClang_USING_armlink_WRAPPER} --via=")
+  set(RBLXBUILD_${lang}_OUTPUT_EXTENSION ".o")
+  set(RBLXBUILD_${lang}_OUTPUT_EXTENSION_REPLACE 1)
+endmacro()

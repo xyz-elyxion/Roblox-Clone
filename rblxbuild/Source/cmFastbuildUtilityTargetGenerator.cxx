@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 
 #include "cmFastbuildUtilityTargetGenerator.h"
 
@@ -91,7 +91,7 @@ void cmFastbuildUtilityTargetGenerator::Generate()
   }
   auto preBuild = GenerateCommands(FastbuildBuildStep::PRE_BUILD);
 
-  // Tested in "RunCMake.CPack*" tests.
+  // Tested in "RunRBLXBuild.CPack*" tests.
   // Utility target "package" has packaging steps as "POST_BUILD".
   for (auto& exec : GenerateCommands(FastbuildBuildStep::POST_BUILD).Nodes) {
     addUtilDepToTarget(exec.Name);

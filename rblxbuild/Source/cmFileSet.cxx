@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmFileSet.h"
 
 #include <string>
@@ -286,7 +286,7 @@ void cmFileSet::SetProperty(std::string const& prop, cmValue value)
       this->Makefile->IssueMessage(
         MessageType::FATAL_ERROR,
         "LANGUAGE property on a HEADERS file set is experimental and must be "
-        "enabled by the CMAKE_EXPERIMENTAL_SYCL gate.");
+        "enabled by the RBLXBUILD_EXPERIMENTAL_SYCL gate.");
       return;
     }
     if (value && cmGeneratorExpression::Find(*value) != std::string::npos) {

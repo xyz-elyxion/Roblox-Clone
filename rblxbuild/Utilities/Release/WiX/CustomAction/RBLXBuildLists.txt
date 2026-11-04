@@ -1,0 +1,23 @@
+if(MSVC)
+  if(NOT RBLXBUILD_VERSION VERSION_LESS 3.15)
+    set(RBLXBUILD_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+  else()
+    foreach(CONFIG DEBUG MINSIZEREL RELEASE RELWITHDEBINFO)
+      string(REPLACE "/MD" "/MT"
+        "RBLXBUILD_CXX_FLAGS_${CONFIG}"
+        "${RBLXBUILD_CXX_FLAGS_${CONFIG}}"
+        )
+      string(REPLACE "-MD" "-MT"
+        "RBLXBUILD_CXX_FLAGS_${CONFIG}"
+        "${RBLXBUILD_CXX_FLAGS_${CONFIG}}"
+        )
+    endforeach()
+  endif()
+endif()
+
+add_library(RBLXBuildWiXCustomActions MODULE
+  detect_nsis_overwrite.cpp
+  exports.def
+)
+
+target_link_libraries(RBLXBuildWiXCustomActions PRIVATE msi)

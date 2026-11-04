@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmFileAPIToolchains.h"
 
 #include <memory>
@@ -15,7 +15,7 @@
 #include "cmState.h"
 #include "cmStringAlgorithms.h"
 #include "cmValue.h"
-#include "cmake.h"
+#include "rblxbuild.h"
 
 namespace {
 
@@ -65,7 +65,7 @@ Json::Value Toolchains::DumpToolchains()
   Json::Value toolchains = Json::arrayValue;
 
   for (std::string const& lang :
-       this->FileAPI.GetCMakeInstance()->GetState()->GetEnabledLanguages()) {
+       this->FileAPI.GetRBLXBuildInstance()->GetState()->GetEnabledLanguages()) {
     if (lang == "NONE") {
       continue;
     }
@@ -98,7 +98,7 @@ Json::Value Toolchains::DumpToolchain(std::string const& lang)
   };
 
   auto const& mf =
-    this->FileAPI.GetCMakeInstance()->GetGlobalGenerator()->GetMakefiles()[0];
+    this->FileAPI.GetRBLXBuildInstance()->GetGlobalGenerator()->GetMakefiles()[0];
   Json::Value toolchain = Json::objectValue;
   toolchain["language"] = lang;
   toolchain["compiler"] =
@@ -127,7 +127,7 @@ void Toolchains::DumpToolchainVariable(cmMakefile const* mf,
                                        ToolchainVariable const& variable)
 {
   std::string const variableName =
-    cmStrCat("CMAKE_", lang, '_', variable.VariableSuffix);
+    cmStrCat("RBLXBUILD_", lang, '_', variable.VariableSuffix);
 
   if (variable.IsList) {
     cmValue data = mf->GetDefinition(variableName);

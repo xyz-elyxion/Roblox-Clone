@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "WarningMessagesDialog.h"
 
 #include "cm/string_view"
@@ -13,12 +13,12 @@
 
 #include "cmDiagnostics.h"
 
-#include "QCMake.h"
-#include "QCMakeSizeType.h"
+#include "QRBLXBuild.h"
+#include "QRBLXBuildSizeType.h"
 
-WarningMessagesDialog::WarningMessagesDialog(QWidget* prnt, QCMake* instance)
+WarningMessagesDialog::WarningMessagesDialog(QWidget* prnt, QRBLXBuild* instance)
   : QDialog(prnt)
-  , cmakeInstance(instance)
+  , rblxbuildInstance(instance)
 {
   this->setupUi(this);
   this->setInitialValues();
@@ -71,7 +71,7 @@ void WarningMessagesDialog::setInitialValues()
     treeWidget->setItemWidget(item, 3, error);
 
     cmDiagnosticAction const action =
-      this->cmakeInstance->getDiagnosticAction(category);
+      this->rblxbuildInstance->getDiagnosticAction(category);
     switch (action) {
       case cmDiagnostics::SendError:
       case cmDiagnostics::FatalError:
@@ -102,7 +102,7 @@ void WarningMessagesDialog::setupSignals()
 void WarningMessagesDialog::doAccept()
 {
   for (auto const& ii : this->buttons) {
-    this->cmakeInstance->setDiagnosticAction(
+    this->rblxbuildInstance->setDiagnosticAction(
       static_cast<cmDiagnosticCategory>(ii.first),
       static_cast<cmDiagnosticAction>(ii.second->checkedId()));
   }

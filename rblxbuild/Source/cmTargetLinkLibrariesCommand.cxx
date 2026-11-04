@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmTargetLinkLibrariesCommand.h"
 
 #include <cassert>
@@ -346,7 +346,7 @@ TLL::TLL(cmMakefile& mf, cmTarget* target)
   }
   if (this->EncodeRemoteReference) {
     cmDirectoryId const dirId = this->Makefile.GetDirectoryId();
-    this->DirectoryId = cmStrCat(CMAKE_DIRECTORY_ID_SEP, dirId.String);
+    this->DirectoryId = cmStrCat(RBLXBUILD_DIRECTORY_ID_SEP, dirId.String);
   }
 }
 
@@ -443,7 +443,7 @@ bool TLL::HandleLibrary(ProcessingState currentProcessingState,
       cmPolicies::CMP0079, {},
       cmStrCat("Target\n  "_s, this->Target->GetName(),
                "\nis not created in this directory.  For compatibility "
-               "with older versions of CMake, link library\n  "_s,
+               "with older versions of RBLXBuild, link library\n  "_s,
                lib,
                "\nwill be looked up in the directory in which the target "
                "was created rather than in this calling directory."_s));
@@ -499,7 +499,7 @@ void TLL::AffectsProperty(std::string const& prop)
 TLL::~TLL()
 {
   for (std::string const& prop : this->Props) {
-    this->Target->AppendProperty(prop, CMAKE_DIRECTORY_ID_SEP,
+    this->Target->AppendProperty(prop, RBLXBUILD_DIRECTORY_ID_SEP,
                                  this->Makefile.GetBacktrace());
   }
 }

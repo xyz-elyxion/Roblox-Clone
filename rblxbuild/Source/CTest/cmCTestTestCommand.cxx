@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmCTestTestCommand.h"
 
 #include <cassert>
@@ -15,7 +15,7 @@
 #include <cm/optional>
 
 #include "cmArgumentParserTypes.h"
-#include "cmCMakePresetsGraph.h"
+#include "cmRBLXBuildPresetsGraph.h"
 #include "cmCTest.h"
 #include "cmCTestGenericHandler.h"
 #include "cmCTestTestHandler.h"
@@ -27,7 +27,7 @@
 #include "cmSystemTools.h"
 #include "cmValue.h"
 
-using TestPreset = cmCMakePresetsGraph::TestPreset;
+using TestPreset = cmRBLXBuildPresetsGraph::TestPreset;
 
 cm::optional<cmCTestTestCommand::ResolvedTestPreset>
 cmCTestTestCommand::ResolveTestPreset(cmMakefile& mf,
@@ -82,7 +82,7 @@ cmCTestTestCommand::ResolveTestPreset(cmMakefile& mf,
     return cm::optional<ResolvedTestPreset>(std::move(resolved));
   }
 
-  resolved.PresetsGraph = cm::make_unique<cmCMakePresetsGraph>();
+  resolved.PresetsGraph = cm::make_unique<cmRBLXBuildPresetsGraph>();
   if (!resolved.PresetsGraph->ReadProjectPresets(resolved.SourceDirectory,
                                                  resolved.PresetsFile)) {
     status.SetError(
@@ -93,7 +93,7 @@ cmCTestTestCommand::ResolveTestPreset(cmMakefile& mf,
 
   auto resolveResult = resolved.PresetsGraph->ResolvePreset(
     resolved.EffectivePreset, resolved.PresetsGraph->TestPresets);
-  auto resolveError = cmCMakePresetsGraph::FormatPresetError<TestPreset>(
+  auto resolveError = cmRBLXBuildPresetsGraph::FormatPresetError<TestPreset>(
     resolveResult.StatusCode, resolveResult.ErrorPresetName,
     resolveResult.Suggestion, resolved.SourceDirectory);
   if (resolveError) {

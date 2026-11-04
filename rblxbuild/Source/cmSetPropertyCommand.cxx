@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmSetPropertyCommand.h"
 
 #include <set>
@@ -28,7 +28,7 @@
 #include "cmTarget.h"
 #include "cmTest.h"
 #include "cmValue.h"
-#include "cmake.h"
+#include "rblxbuild.h"
 
 namespace {
 bool HandleGlobalMode(cmExecutionStatus& status,
@@ -653,7 +653,7 @@ bool HandleGlobalMode(cmExecutionStatus& status,
   }
 
   // Set or append the property.
-  cmake* cm = status.GetMakefile().GetCMakeInstance();
+  rblxbuild* cm = status.GetMakefile().GetRBLXBuildInstance();
   if (appendMode) {
     cm->AppendProperty(propertyName, propertyValue, appendAsString);
   } else {
@@ -979,7 +979,7 @@ bool HandleCacheMode(cmExecutionStatus& status,
 
   for (std::string const& name : names) {
     // Get the source file.
-    cmake* cm = status.GetMakefile().GetCMakeInstance();
+    rblxbuild* cm = status.GetMakefile().GetRBLXBuildInstance();
     cmValue existingValue = cm->GetState()->GetCacheEntryValue(name);
     if (existingValue) {
       if (!HandleCacheEntry(name, status.GetMakefile(), propertyName,
@@ -1022,7 +1022,7 @@ bool HandleInstallMode(cmExecutionStatus& status,
                        std::string const& propertyValue, bool appendAsString,
                        bool appendMode, bool remove)
 {
-  cmake* cm = status.GetMakefile().GetCMakeInstance();
+  rblxbuild* cm = status.GetMakefile().GetRBLXBuildInstance();
 
   for (std::string const& name : names) {
     if (cmInstalledFile* file =

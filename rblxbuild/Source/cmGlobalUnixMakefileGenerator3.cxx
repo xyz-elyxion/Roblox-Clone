@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmGlobalUnixMakefileGenerator3.h"
 
 #include <algorithm>
@@ -34,14 +34,14 @@
 #include "cmTest.h"
 #include "cmTestGenerator.h"
 #include "cmValue.h"
-#include "cmake.h"
+#include "rblxbuild.h"
 
-cmGlobalUnixMakefileGenerator3::cmGlobalUnixMakefileGenerator3(cmake* cm)
+cmGlobalUnixMakefileGenerator3::cmGlobalUnixMakefileGenerator3(rblxbuild* cm)
   : cmGlobalCommonGenerator(cm)
 {
   // This type of makefile always requires unix style paths
   this->ForceUnixPaths = true;
-  this->FindMakeProgramFile = "CMakeUnixFindMake.cmake";
+  this->FindMakeProgramFile = "RBLXBuildUnixFindMake.rblxbuild";
   this->ToolSupportsColor = true;
 
 #if defined(_WIN32) || defined(__VMS)
@@ -114,7 +114,7 @@ bool cmGlobalUnixMakefileGenerator3::CanEscapeOctothorpe() const
 
 void cmGlobalUnixMakefileGenerator3::Configure()
 {
-  // Initialize CMAKE_EDIT_COMMAND cache entry.
+  // Initialize RBLXBUILD_EDIT_COMMAND cache entry.
   this->GetEditCacheCommand();
 
   this->cmGlobalGenerator::Configure();
@@ -155,14 +155,14 @@ void cmGlobalUnixMakefileGenerator3::Generate()
   }
   for (auto const& lg : this->LocalGenerators) {
     std::string markFileName =
-      cmStrCat(lg->GetCurrentBinaryDirectory(), "/CMakeFiles/progress.marks");
+      cmStrCat(lg->GetCurrentBinaryDirectory(), "/RBLXBuildFiles/progress.marks");
     cmGeneratedFileStream markFile(markFileName);
     markFile << this->CountProgressMarksInAll(*lg) << "\n";
   }
 
   // write the main makefile
   this->WriteMainMakefile2();
-  this->WriteMainCMakefile();
+  this->WriteMainRBLXBuildfile();
 
   if (this->CommandDatabase) {
     *this->CommandDatabase << "\n]";
@@ -178,7 +178,7 @@ void cmGlobalUnixMakefileGenerator3::AddCXXCompileCommand(
 {
   if (!this->CommandDatabase) {
     std::string commandDatabaseName =
-      this->GetCMakeInstance()->GetHomeOutputDirectory() +
+      this->GetRBLXBuildInstance()->GetHomeOutputDirectory() +
       "/compile_commands.json";
     this->CommandDatabase =
       cm::make_unique<cmGeneratedFileStream>(commandDatabaseName);
@@ -206,8 +206,8 @@ void cmGlobalUnixMakefileGenerator3::WriteMainMakefile2()
   // because the check-build-system step compares the makefile time to
   // see if the build system must be regenerated.
   std::string makefileName =
-    cmStrCat(this->GetCMakeInstance()->GetHomeOutputDirectory(),
-             "/CMakeFiles/Makefile2");
+    cmStrCat(this->GetRBLXBuildInstance()->GetHomeOutputDirectory(),
+             "/RBLXBuildFiles/Makefile2");
   cmGeneratedFileStream makefileStream(makefileName, false,
                                        this->GetMakefileEncoding());
   if (!makefileStream) {
@@ -265,25 +265,25 @@ void cmGlobalUnixMakefileGenerator3::WriteMainMakefile2()
   rootLG.WriteSpecialTargetsBottom(makefileStream);
 }
 
-void cmGlobalUnixMakefileGenerator3::WriteMainCMakefile()
+void cmGlobalUnixMakefileGenerator3::WriteMainRBLXBuildfile()
 {
-  if (this->GlobalSettingIsOn("CMAKE_SUPPRESS_REGENERATION")) {
+  if (this->GlobalSettingIsOn("RBLXBUILD_SUPPRESS_REGENERATION")) {
     return;
   }
 
   // Open the output file.  This should not be copy-if-different
   // because the check-build-system step compares the makefile time to
   // see if the build system must be regenerated.
-  std::string cmakefileName =
-    cmStrCat(this->GetCMakeInstance()->GetHomeOutputDirectory(),
-             "/CMakeFiles/Makefile.cmake");
-  cmGeneratedFileStream cmakefileStream(cmakefileName);
-  if (!cmakefileStream) {
+  std::string rblxbuildfileName =
+    cmStrCat(this->GetRBLXBuildInstance()->GetHomeOutputDirectory(),
+             "/RBLXBuildFiles/Makefile.rblxbuild");
+  cmGeneratedFileStream rblxbuildfileStream(rblxbuildfileName);
+  if (!rblxbuildfileStream) {
     return;
   }
 
   std::string makefileName =
-    cmStrCat(this->GetCMakeInstance()->GetHomeOutputDirectory(), "/Makefile");
+    cmStrCat(this->GetRBLXBuildInstance()->GetHomeOutputDirectory(), "/Makefile");
 
   {
     // get a local generator for some useful methods
@@ -291,12 +291,12 @@ void cmGlobalUnixMakefileGenerator3::WriteMainCMakefile()
       this->LocalGenerators[0]);
 
     // Write the do not edit header.
-    lg.WriteDisclaimer(cmakefileStream);
+    lg.WriteDisclaimer(rblxbuildfileStream);
   }
 
   // Save the generator name
-  cmakefileStream << "# The generator used is:\n"
-                  << "set(CMAKE_DEPENDS_GENERATOR \"" << this->GetName()
+  rblxbuildfileStream << "# The generator used is:\n"
+                  << "set(RBLXBUILD_DEPENDS_GENERATOR \"" << this->GetName()
                   << "\")\n\n";
 
   // for each cmMakefile get its list of dependencies
@@ -306,7 +306,7 @@ void cmGlobalUnixMakefileGenerator3::WriteMainCMakefile()
     cm::append(lfiles, localGen->GetMakefile()->GetListFiles());
   }
 
-  cmake* cm = this->GetCMakeInstance();
+  rblxbuild* cm = this->GetRBLXBuildInstance();
   if (cm->DoWriteGlobVerifyTarget()) {
     lfiles.push_back(cm->GetGlobVerifyScript());
     lfiles.push_back(cm->GetGlobVerifyStamp());
@@ -324,60 +324,60 @@ void cmGlobalUnixMakefileGenerator3::WriteMainCMakefile()
     auto const& lg = cm::static_reference_cast<cmLocalUnixMakefileGenerator3>(
       this->LocalGenerators[0]);
 
-    // Save the list to the cmake file.
-    cmakefileStream
+    // Save the list to the rblxbuild file.
+    rblxbuildfileStream
       << "# The top level Makefile was generated from the following files:\n"
-      << "set(CMAKE_MAKEFILE_DEPENDS\n"
-      << "  \"CMakeCache.txt\"\n";
+      << "set(RBLXBUILD_MAKEFILE_DEPENDS\n"
+      << "  \"RBLXBuildCache.txt\"\n";
     for (std::string const& f : lfiles) {
-      cmakefileStream << "  \"" << lg.MaybeRelativeToCurBinDir(f) << "\"\n";
+      rblxbuildfileStream << "  \"" << lg.MaybeRelativeToCurBinDir(f) << "\"\n";
     }
-    cmakefileStream << "  )\n\n";
+    rblxbuildfileStream << "  )\n\n";
 
     // Build the path to the cache check file.
     std::string check =
-      cmStrCat(this->GetCMakeInstance()->GetHomeOutputDirectory(),
-               "/CMakeFiles/cmake.check_cache");
+      cmStrCat(this->GetRBLXBuildInstance()->GetHomeOutputDirectory(),
+               "/RBLXBuildFiles/rblxbuild.check_cache");
 
-    // Set the corresponding makefile in the cmake file.
-    cmakefileStream << "# The corresponding makefile is:\n"
-                    << "set(CMAKE_MAKEFILE_OUTPUTS\n"
+    // Set the corresponding makefile in the rblxbuild file.
+    rblxbuildfileStream << "# The corresponding makefile is:\n"
+                    << "set(RBLXBUILD_MAKEFILE_OUTPUTS\n"
                     << "  \"" << lg.MaybeRelativeToCurBinDir(makefileName)
                     << "\"\n"
                     << "  \"" << lg.MaybeRelativeToCurBinDir(check) << "\"\n";
-    cmakefileStream << "  )\n\n";
+    rblxbuildfileStream << "  )\n\n";
 
-    // CMake must rerun if a byproduct is missing.
-    cmakefileStream << "# Byproducts of CMake generate step:\n"
-                    << "set(CMAKE_MAKEFILE_PRODUCTS\n";
+    // RBLXBuild must rerun if a byproduct is missing.
+    rblxbuildfileStream << "# Byproducts of RBLXBuild generate step:\n"
+                    << "set(RBLXBUILD_MAKEFILE_PRODUCTS\n";
 
     // add in any byproducts and all the directory information files
     std::string tmpStr;
     for (auto const& localGen : this->LocalGenerators) {
       for (std::string const& outfile :
            localGen->GetMakefile()->GetOutputFiles()) {
-        cmakefileStream << "  \"" << lg.MaybeRelativeToTopBinDir(outfile)
+        rblxbuildfileStream << "  \"" << lg.MaybeRelativeToTopBinDir(outfile)
                         << "\"\n";
       }
       tmpStr = cmStrCat(localGen->GetCurrentBinaryDirectory(),
-                        "/CMakeFiles/CMakeDirectoryInformation.cmake");
-      cmakefileStream << "  \"" << localGen->MaybeRelativeToTopBinDir(tmpStr)
+                        "/RBLXBuildFiles/RBLXBuildDirectoryInformation.rblxbuild");
+      rblxbuildfileStream << "  \"" << localGen->MaybeRelativeToTopBinDir(tmpStr)
                       << "\"\n";
     }
-    cmakefileStream << "  )\n\n";
+    rblxbuildfileStream << "  )\n\n";
   }
 
-  this->WriteMainCMakefileLanguageRules(cmakefileStream,
+  this->WriteMainRBLXBuildfileLanguageRules(rblxbuildfileStream,
                                         this->LocalGenerators);
 }
 
-void cmGlobalUnixMakefileGenerator3::WriteMainCMakefileLanguageRules(
-  cmGeneratedFileStream& cmakefileStream,
+void cmGlobalUnixMakefileGenerator3::WriteMainRBLXBuildfileLanguageRules(
+  cmGeneratedFileStream& rblxbuildfileStream,
   std::vector<std::unique_ptr<cmLocalGenerator>>& lGenerators)
 {
   // now list all the target info files
-  cmakefileStream << "# Dependency information for all targets:\n";
-  cmakefileStream << "set(CMAKE_DEPEND_INFO_FILES\n";
+  rblxbuildfileStream << "# Dependency information for all targets:\n";
+  rblxbuildfileStream << "set(RBLXBUILD_DEPEND_INFO_FILES\n";
   for (auto const& lGenerator : lGenerators) {
     auto const& lg =
       cm::static_reference_cast<cmLocalUnixMakefileGenerator3>(lGenerator);
@@ -386,13 +386,13 @@ void cmGlobalUnixMakefileGenerator3::WriteMainCMakefileLanguageRules(
       if (tgt->IsInBuildSystem() &&
           tgt->GetType() != cm::TargetType::GLOBAL_TARGET) {
         std::string tname = cmStrCat(lg.GetRelativeTargetDirectory(tgt.get()),
-                                     "/DependInfo.cmake");
+                                     "/DependInfo.rblxbuild");
         cmSystemTools::ConvertToUnixSlashes(tname);
-        cmakefileStream << "  \"" << tname << "\"\n";
+        rblxbuildfileStream << "  \"" << tname << "\"\n";
       }
     }
   }
-  cmakefileStream << "  )\n";
+  rblxbuildfileStream << "  )\n";
 }
 
 void cmGlobalUnixMakefileGenerator3::WriteDirectoryRule2(
@@ -562,9 +562,9 @@ std::string cmGlobalUnixMakefileGenerator3::ConvertToMakefilePath(
   std::string const& path) const
 {
   // Watcom WMake treats '+' as special. Quote the whole path so names
-  // containing '+' (e.g. test+1.c, stdc++.cmake) are accepted.
+  // containing '+' (e.g. test+1.c, stdc++.rblxbuild) are accepted.
   bool const isWatcomWMake =
-    this->GetCMakeInstance()->GetState()->UseWatcomWMake();
+    this->GetRBLXBuildInstance()->GetState()->UseWatcomWMake();
   bool const isForceQuote =
     isWatcomWMake && path.find('+') != std::string::npos;
 
@@ -589,7 +589,7 @@ cmGlobalUnixMakefileGenerator3::GenerateBuildCommand(
 
   // Make it possible to set verbosity also from command line
   if (verbose) {
-    makeCommand.Add(cmSystemTools::GetCMakeCommand());
+    makeCommand.Add(cmSystemTools::GetRBLXBuildCommand());
     makeCommand.Add("-E");
     makeCommand.Add("env");
     makeCommand.Add("VERBOSE=1");
@@ -601,15 +601,15 @@ cmGlobalUnixMakefileGenerator3::GenerateBuildCommand(
   makeCommand.Add("-f");
   makeCommand.Add("Makefile");
 
-  if (jobs != cmake::NO_BUILD_PARALLEL_LEVEL) {
-    if (jobs == cmake::DEFAULT_BUILD_PARALLEL_LEVEL) {
+  if (jobs != rblxbuild::NO_BUILD_PARALLEL_LEVEL) {
+    if (jobs == rblxbuild::DEFAULT_BUILD_PARALLEL_LEVEL) {
       makeCommand.Add("-j");
     } else {
       makeCommand.Add(cmStrCat("-j", jobs));
     }
 
     // Group each recipe's output so parallel jobs do not interleave.  Only
-    // done when CMake is the one passing the parallel flag to make; a native
+    // done when RBLXBuild is the one passing the parallel flag to make; a native
     // `-- -j` leaves jobs unset and thus opts out.  Grouping requires GNU
     // Make 4.0+ (its --output-sync); IsGNUMakeJobServerAware() excludes
     // non-GNU makes such as JOM before the version probe runs.  Emitted
@@ -620,7 +620,7 @@ cmGlobalUnixMakefileGenerator3::GenerateBuildCommand(
       // Set the (empty by default) USES_TERMINAL recipe prefix to "+" so
       // GNU Make leaves those recipes unbuffered, keeping interactive
       // commands able to reach the terminal under -Otarget.
-      makeCommand.Add("CMAKE_USES_TERMINAL_PREFIX=+");
+      makeCommand.Add("RBLXBUILD_USES_TERMINAL_PREFIX=+");
     }
   }
 
@@ -672,9 +672,9 @@ void cmGlobalUnixMakefileGenerator3::WriteConvenienceRules(
   std::vector<std::string> depends;
   std::vector<std::string> commands;
 
-  bool regenerate = !this->GlobalSettingIsOn("CMAKE_SUPPRESS_REGENERATION");
+  bool regenerate = !this->GlobalSettingIsOn("RBLXBUILD_SUPPRESS_REGENERATION");
   if (regenerate) {
-    depends.emplace_back("cmake_check_build_system");
+    depends.emplace_back("rblxbuild_check_build_system");
   }
 
   // write the target convenience rules
@@ -698,11 +698,11 @@ void cmGlobalUnixMakefileGenerator3::WriteConvenienceRules(
 
         // Write the rule.
         commands.clear();
-        std::string tmp = "CMakeFiles/Makefile2";
+        std::string tmp = "RBLXBuildFiles/Makefile2";
         commands.push_back(lg.GetRecursiveMakeCall(tmp, name));
         depends.clear();
         if (regenerate) {
-          depends.emplace_back("cmake_check_build_system");
+          depends.emplace_back("rblxbuild_check_build_system");
         }
         lg.WriteMakeRule(ruleFileStream, "Build rule for target.", name,
                          depends, commands, true);
@@ -739,7 +739,7 @@ void cmGlobalUnixMakefileGenerator3::WriteConvenienceRules(
   }
 
   // Forward the test_prep/ and install_prep/ convenience targets to
-  // CMakeFiles/Makefile2.
+  // RBLXBuildFiles/Makefile2.
   this->WriteTestPrepConvenienceRules(ruleFileStream);
   this->WriteInstallPrepConvenienceRules(ruleFileStream);
 }
@@ -753,9 +753,9 @@ void cmGlobalUnixMakefileGenerator3::WriteConvenienceRules2(
   std::string localName;
   std::string makeTargetName;
 
-  bool regenerate = !this->GlobalSettingIsOn("CMAKE_SUPPRESS_REGENERATION");
+  bool regenerate = !this->GlobalSettingIsOn("RBLXBUILD_SUPPRESS_REGENERATION");
   if (regenerate) {
-    depends.emplace_back("cmake_check_build_system");
+    depends.emplace_back("rblxbuild_check_build_system");
   }
 
   // for each target Generate the rule files for each target.
@@ -786,14 +786,14 @@ void cmGlobalUnixMakefileGenerator3::WriteConvenienceRules2(
       depends.clear();
 
       cmLocalUnixMakefileGenerator3::EchoProgress progress;
-      progress.Dir = cmStrCat(lg.GetBinaryDirectory(), "/CMakeFiles");
+      progress.Dir = cmStrCat(lg.GetBinaryDirectory(), "/RBLXBuildFiles");
       {
         progress.Arg = cmJoin(this->ProgressMap[gtarget.get()].Marks, ",");
       }
 
       bool targetMessages = true;
       if (cmValue tgtMsg =
-            this->GetCMakeInstance()->GetState()->GetGlobalProperty(
+            this->GetRBLXBuildInstance()->GetState()->GetGlobalProperty(
               "TARGET_MESSAGES")) {
         targetMessages = tgtMsg.IsOn();
       }
@@ -814,21 +814,21 @@ void cmGlobalUnixMakefileGenerator3::WriteConvenienceRules2(
         // TODO: Convert the total progress count to a make variable.
         std::set<cmGeneratorTarget const*> emitted;
         commands.push_back(cmStrCat(
-          "$(CMAKE_COMMAND) -E cmake_progress_start ",
+          "$(RBLXBUILD_COMMAND) -E rblxbuild_progress_start ",
           lg.ConvertToOutputFormat(progress.Dir, cmOutputConverter::SHELL),
           ' ', this->CountProgressMarksInTarget(gtarget.get(), emitted)));
       }
-      std::string tmp = "CMakeFiles/Makefile2";
+      std::string tmp = "RBLXBuildFiles/Makefile2";
       commands.push_back(lg.GetRecursiveMakeCall(tmp, localName));
       {
         commands.push_back(cmStrCat(
-          "$(CMAKE_COMMAND) -E cmake_progress_start ",
+          "$(RBLXBUILD_COMMAND) -E rblxbuild_progress_start ",
           lg.ConvertToOutputFormat(progress.Dir, cmOutputConverter::SHELL),
           " 0"));
       }
       depends.clear();
       if (regenerate) {
-        depends.emplace_back("cmake_check_build_system");
+        depends.emplace_back("rblxbuild_check_build_system");
       }
       localName =
         cmStrCat(lg.GetRelativeTargetDirectory(gtarget.get()), "/rule");
@@ -961,7 +961,7 @@ void cmGlobalUnixMakefileGenerator3::TargetProgress::WriteProgressVariables(
 {
   cmGeneratedFileStream fout(this->VariableFile);
   for (unsigned long i = 1; i <= this->NumberOfActions; ++i) {
-    fout << "CMAKE_PROGRESS_" << i << " = ";
+    fout << "RBLXBUILD_PROGRESS_" << i << " = ";
     if (total <= 100) {
       unsigned long num = i + current;
       fout << num;
@@ -1039,7 +1039,7 @@ void cmGlobalUnixMakefileGenerator3::ComputeTestPrepTargets()
   this->TestPrepTargets.clear();
   this->TestPrepEnabled = false;
   if (this->Makefiles.empty() ||
-      this->Makefiles.front()->IsOn("CMAKE_SKIP_TEST_PREP_TARGETS")) {
+      this->Makefiles.front()->IsOn("RBLXBUILD_SKIP_TEST_PREP_TARGETS")) {
     return;
   }
   this->TestPrepEnabled = true;
@@ -1148,7 +1148,7 @@ void cmGlobalUnixMakefileGenerator3::AddDirectoryTestPrepTargets(
   cmLocalGenerator::DirectoryTestPrepTarget directoryTarget;
   if (!lg->GetDirectoryTestPrepTarget(
         directoryTarget,
-        lg->GetMakefile()->GetSafeDefinition("CMAKE_BUILD_TYPE"))) {
+        lg->GetMakefile()->GetSafeDefinition("RBLXBUILD_BUILD_TYPE"))) {
     return;
   }
 
@@ -1226,8 +1226,8 @@ void cmGlobalUnixMakefileGenerator3::WriteTestPrepConvenienceRules(
   auto& lg = cm::static_reference_cast<cmLocalUnixMakefileGenerator3>(
     this->LocalGenerators[0]);
 
-  bool regenerate = !this->GlobalSettingIsOn("CMAKE_SUPPRESS_REGENERATION");
-  std::string const makefile2 = "CMakeFiles/Makefile2";
+  bool regenerate = !this->GlobalSettingIsOn("RBLXBUILD_SUPPRESS_REGENERATION");
+  std::string const makefile2 = "RBLXBuildFiles/Makefile2";
 
   std::vector<std::string> depends;
   std::vector<std::string> commands;
@@ -1242,7 +1242,7 @@ void cmGlobalUnixMakefileGenerator3::WriteTestPrepConvenienceRules(
     }
     depends.clear();
     if (regenerate) {
-      depends.emplace_back("cmake_check_build_system");
+      depends.emplace_back("rblxbuild_check_build_system");
     }
     commands.clear();
     commands.push_back(lg.GetRecursiveMakeCall(makefile2, entry.second.Name));
@@ -1252,7 +1252,7 @@ void cmGlobalUnixMakefileGenerator3::WriteTestPrepConvenienceRules(
 
   depends.clear();
   if (regenerate) {
-    depends.emplace_back("cmake_check_build_system");
+    depends.emplace_back("rblxbuild_check_build_system");
   }
   commands.clear();
   commands.push_back(lg.GetRecursiveMakeCall(makefile2, "test_prep/all"));
@@ -1358,7 +1358,7 @@ void cmGlobalUnixMakefileGenerator3::WriteInstallPrepRules(
   }
 
   std::vector<std::string> noCommands;
-  std::string const makefile2 = "CMakeFiles/Makefile2";
+  std::string const makefile2 = "RBLXBuildFiles/Makefile2";
   for (auto const& ordered : this->InstallPrepOrderedTargets) {
     std::vector<std::string> depends{ ordered.second.NormalRule };
     std::vector<std::string> commands{ rootLG.GetRecursiveMakeCall(
@@ -1394,15 +1394,15 @@ void cmGlobalUnixMakefileGenerator3::WriteInstallPrepConvenienceRules(
   auto& lg = cm::static_reference_cast<cmLocalUnixMakefileGenerator3>(
     this->LocalGenerators[0]);
 
-  bool regenerate = !this->GlobalSettingIsOn("CMAKE_SUPPRESS_REGENERATION");
-  std::string const makefile2 = "CMakeFiles/Makefile2";
+  bool regenerate = !this->GlobalSettingIsOn("RBLXBUILD_SUPPRESS_REGENERATION");
+  std::string const makefile2 = "RBLXBuildFiles/Makefile2";
 
   std::vector<std::string> depends;
   std::vector<std::string> commands;
   auto writeForward = [&](std::string const& prepName) {
     depends.clear();
     if (regenerate) {
-      depends.emplace_back("cmake_check_build_system");
+      depends.emplace_back("rblxbuild_check_build_system");
     }
     commands.clear();
     commands.push_back(lg.GetRecursiveMakeCall(makefile2, prepName));
@@ -1428,7 +1428,7 @@ void cmGlobalUnixMakefileGenerator3::WriteHelpRule(
                  "for this Makefile:");
   lg->AppendEcho(commands, "... all (the default if no target is provided)");
   lg->AppendEcho(commands, "... clean");
-  if (!this->GlobalSettingIsOn("CMAKE_SUPPRESS_REGENERATION")) {
+  if (!this->GlobalSettingIsOn("RBLXBUILD_SUPPRESS_REGENERATION")) {
     lg->AppendEcho(commands, "... depend");
   }
   if (this->CheckCMP0171()) {

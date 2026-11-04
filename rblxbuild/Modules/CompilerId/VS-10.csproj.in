@@ -53,6 +53,6 @@
     <PostBuildEvent>if not "$(RoslynTargetsPath)"=="" if exist "$(RoslynTargetsPath)\@id_cl@" set _CSC=$(RoslynTargetsPath)
 if exist "$(MSBuildToolsPath)\@id_cl@" set _CSC=$(MSBuildToolsPath)
 if "%_CSC%"=="" exit -1
-%40echo CMAKE_@id_lang@_COMPILER=%_CSC%\@id_cl@</PostBuildEvent>
+%40echo RBLXBUILD_@id_lang@_COMPILER=%_CSC%\@id_cl@</PostBuildEvent>
   </PropertyGroup>
 </Project>

@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmGlobalVisualStudio7Generator.h"
 
 #include <algorithm>
@@ -27,7 +27,7 @@
 #include "cmTarget.h"
 #include "cmTargetDepend.h"
 #include "cmVisualStudioGeneratorOptions.h"
-#include "cmake.h"
+#include "rblxbuild.h"
 
 static cmVS7FlagTable cmVS7ExtraFlagTable[] = {
   // Precompiled header and related options.  Note that the
@@ -55,7 +55,7 @@ static cmVS7FlagTable cmVS7ExtraFlagTable[] = {
   { "", "", "", "", 0 }
 };
 
-cmGlobalVisualStudio7Generator::cmGlobalVisualStudio7Generator(cmake* cm)
+cmGlobalVisualStudio7Generator::cmGlobalVisualStudio7Generator(rblxbuild* cm)
   : cmGlobalVisualStudioGenerator(cm)
 {
   this->DevEnvCommandInitialized = false;
@@ -100,9 +100,9 @@ std::string const& cmGlobalVisualStudio7Generator::GetIntelProjectVersion()
 void cmGlobalVisualStudio7Generator::EnableLanguage(
   std::vector<std::string> const& lang, cmMakefile* mf, bool optional)
 {
-  mf->AddDefinition("CMAKE_GENERATOR_RC", "rc");
-  mf->AddDefinition("CMAKE_GENERATOR_NO_COMPILER_ENV", "1");
-  mf->InitCMAKE_CONFIGURATION_TYPES("Debug;Release;MinSizeRel;RelWithDebInfo");
+  mf->AddDefinition("RBLXBUILD_GENERATOR_RC", "rc");
+  mf->AddDefinition("RBLXBUILD_GENERATOR_NO_COMPILER_ENV", "1");
+  mf->InitRBLXBUILD_CONFIGURATION_TYPES("Debug;Release;MinSizeRel;RelWithDebInfo");
 
   // Create list of configurations requested by user's cache, if any.
   this->cmGlobalVisualStudioGenerator::EnableLanguage(lang, mf, optional);
@@ -115,9 +115,9 @@ void cmGlobalVisualStudio7Generator::EnableLanguage(
   // for running commands and using dll's that the IDE environment
   // does not know about.
   std::string extraPath;
-  if (cmSystemTools::GetEnv("CMAKE_MSVCIDE_RUN_PATH", extraPath)) {
-    mf->AddCacheDefinition("CMAKE_MSVCIDE_RUN_PATH", extraPath,
-                           "Saved environment variable CMAKE_MSVCIDE_RUN_PATH",
+  if (cmSystemTools::GetEnv("RBLXBUILD_MSVCIDE_RUN_PATH", extraPath)) {
+    mf->AddCacheDefinition("RBLXBUILD_MSVCIDE_RUN_PATH", extraPath,
+                           "Saved environment variable RBLXBUILD_MSVCIDE_RUN_PATH",
                            cmStateEnums::STATIC);
   }
 }
@@ -127,7 +127,7 @@ bool cmGlobalVisualStudio7Generator::FindMakeProgram(cmMakefile* mf)
   if (!this->cmGlobalVisualStudioGenerator::FindMakeProgram(mf)) {
     return false;
   }
-  mf->AddDefinition("CMAKE_VS_DEVENV_COMMAND", this->GetDevEnvCommand());
+  mf->AddDefinition("RBLXBUILD_VS_DEVENV_COMMAND", this->GetDevEnvCommand());
   return true;
 }
 
@@ -203,7 +203,7 @@ cmGlobalVisualStudio7Generator::CreateLocalGenerator(cmMakefile* mf)
   return std::unique_ptr<cmLocalGenerator>(std::move(lg));
 }
 
-#if !defined(CMAKE_BOOTSTRAP)
+#if !defined(RBLXBUILD_BOOTSTRAP)
 Json::Value cmGlobalVisualStudio7Generator::GetJson() const
 {
   Json::Value generator = this->cmGlobalVisualStudioGenerator::GetJson();
@@ -215,7 +215,7 @@ Json::Value cmGlobalVisualStudio7Generator::GetJson() const
 bool cmGlobalVisualStudio7Generator::SetSystemName(std::string const& s,
                                                    cmMakefile* mf)
 {
-  mf->AddDefinition("CMAKE_VS_INTEL_Fortran_PROJECT_VERSION",
+  mf->AddDefinition("RBLXBUILD_VS_INTEL_Fortran_PROJECT_VERSION",
                     this->GetIntelProjectVersion());
   return this->cmGlobalVisualStudioGenerator::SetSystemName(s, mf);
 }

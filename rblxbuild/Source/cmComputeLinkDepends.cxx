@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmComputeLinkDepends.h"
 
 #include <algorithm>
@@ -36,7 +36,7 @@
 #include "cmTarget.h"
 #include "cmTargetTypes.h"
 #include "cmValue.h"
-#include "cmake.h"
+#include "rblxbuild.h"
 
 /*
 
@@ -193,13 +193,13 @@ bool IsFeatureSupported(cmMakefile* makefile, std::string const& linkLanguage,
                         std::string const& feature)
 {
   auto featureSupported = cmStrCat(
-    "CMAKE_", linkLanguage, "_LINK_LIBRARY_USING_", feature, "_SUPPORTED");
+    "RBLXBUILD_", linkLanguage, "_LINK_LIBRARY_USING_", feature, "_SUPPORTED");
   if (cmValue perLangVar = makefile->GetDefinition(featureSupported)) {
     return perLangVar.IsOn();
   }
 
   featureSupported =
-    cmStrCat("CMAKE_LINK_LIBRARY_USING_", feature, "_SUPPORTED");
+    cmStrCat("RBLXBUILD_LINK_LIBRARY_USING_", feature, "_SUPPORTED");
   return makefile->GetDefinition(featureSupported).IsOn();
 }
 
@@ -233,13 +233,13 @@ LinkLibraryFeatureAttributeSet const& GetLinkLibraryFeatureAttributes(
   }
 
   auto featureAttributesVariable =
-    cmStrCat("CMAKE_", linkLanguage, "_LINK_LIBRARY_", feature, "_ATTRIBUTES");
+    cmStrCat("RBLXBUILD_", linkLanguage, "_LINK_LIBRARY_", feature, "_ATTRIBUTES");
   auto featureAttributesValues =
     makefile->GetDefinition(featureAttributesVariable);
   if (featureAttributesValues.IsEmpty()) {
     // try language agnostic definition
     featureAttributesVariable =
-      cmStrCat("CMAKE_LINK_LIBRARY_", feature, "_ATTRIBUTES");
+      cmStrCat("RBLXBUILD_LINK_LIBRARY_", feature, "_ATTRIBUTES");
     featureAttributesValues =
       makefile->GetDefinition(featureAttributesVariable);
   }
@@ -305,7 +305,7 @@ LinkLibraryFeatureAttributeSet const& GetLinkLibraryFeatureAttributes(
       }
     }
     if (!errorMessage.empty()) {
-      makefile->GetCMakeInstance()->IssueMessage(
+      makefile->GetRBLXBuildInstance()->IssueMessage(
         MessageType::FATAL_ERROR,
         cmStrCat("Erroneous option(s) for '", featureAttributesVariable,
                  "':\n", errorMessage));
@@ -335,13 +335,13 @@ bool IsGroupFeatureSupported(cmMakefile* makefile,
                              std::string const& feature)
 {
   auto featureSupported = cmStrCat(
-    "CMAKE_", linkLanguage, "_LINK_GROUP_USING_", feature, "_SUPPORTED");
+    "RBLXBUILD_", linkLanguage, "_LINK_GROUP_USING_", feature, "_SUPPORTED");
   if (makefile->GetDefinition(featureSupported).IsOn()) {
     return true;
   }
 
   featureSupported =
-    cmStrCat("CMAKE_LINK_GROUP_USING_", feature, "_SUPPORTED");
+    cmStrCat("RBLXBUILD_LINK_GROUP_USING_", feature, "_SUPPORTED");
   return makefile->GetDefinition(featureSupported).IsOn();
 }
 
@@ -363,9 +363,9 @@ public:
 
     switch (target->GetPolicyStatusCMP0156()) {
       case cmPolicies::WARN:
-        if (!makefile->GetCMakeInstance()->GetIsInTryCompile() &&
+        if (!makefile->GetRBLXBuildInstance()->GetIsInTryCompile() &&
             makefile->PolicyOptionalWarningEnabled(
-              "CMAKE_POLICY_WARNING_CMP0156")) {
+              "RBLXBUILD_POLICY_WARNING_CMP0156")) {
           makefile->IssuePolicyWarning(
             cmPolicies::CMP0156, {},
             "Since the policy is not set, legacy libraries "
@@ -379,9 +379,9 @@ public:
       case cmPolicies::NEW: {
         // Policy 0179 applies only when policy 0156 is new
         if (target->GetPolicyStatusCMP0179() == cmPolicies::WARN &&
-            !makefile->GetCMakeInstance()->GetIsInTryCompile() &&
+            !makefile->GetRBLXBuildInstance()->GetIsInTryCompile() &&
             makefile->PolicyOptionalWarningEnabled(
-              "CMAKE_POLICY_WARNING_CMP0179")) {
+              "RBLXBUILD_POLICY_WARNING_CMP0179")) {
           makefile->IssuePolicyWarning(
             cmPolicies::CMP0179, {},
             "Since the policy is not set, static libraries de-duplication "
@@ -390,7 +390,7 @@ public:
         }
 
         if (auto libProcessing = makefile->GetDefinition(cmStrCat(
-              "CMAKE_", linkLanguage, "_LINK_LIBRARIES_PROCESSING"))) {
+              "RBLXBUILD_", linkLanguage, "_LINK_LIBRARIES_PROCESSING"))) {
           // UNICITY keyword is just for compatibility with previous
           // implementation
           cmsys::RegularExpression processingOption{
@@ -427,17 +427,17 @@ public:
             }
           }
           if (!errorMessage.empty()) {
-            makefile->GetCMakeInstance()->IssueMessage(
+            makefile->GetRBLXBuildInstance()->IssueMessage(
               MessageType::FATAL_ERROR,
-              cmStrCat("Erroneous option(s) for 'CMAKE_", linkLanguage,
+              cmStrCat("Erroneous option(s) for 'RBLXBUILD_", linkLanguage,
                        "_LINK_LIBRARIES_PROCESSING':\n", errorMessage),
               target->GetBacktrace());
           }
           // For some environments, deduplication should be activated only if
           // both policies CMP0156 and CMP0179 are NEW
           if (makefile->GetDefinition(cmStrCat(
-                "CMAKE_", linkLanguage, "_PLATFORM_LINKER_ID")) == "LLD"_s &&
-              makefile->GetDefinition("CMAKE_EXECUTABLE_FORMAT") == "ELF"_s &&
+                "RBLXBUILD_", linkLanguage, "_PLATFORM_LINKER_ID")) == "LLD"_s &&
+              makefile->GetDefinition("RBLXBUILD_EXECUTABLE_FORMAT") == "ELF"_s &&
               target->GetPolicyStatusCMP0179() != cmPolicies::NEW &&
               this->Deduplication == All) {
             this->Deduplication = Shared;
@@ -609,13 +609,13 @@ cmComputeLinkDepends::cmComputeLinkDepends(cmGeneratorTarget const* target,
   : Target(target)
   , Makefile(this->Target->Target->GetMakefile())
   , GlobalGenerator(this->Target->GetLocalGenerator()->GetGlobalGenerator())
-  , CMakeInstance(this->GlobalGenerator->GetCMakeInstance())
+  , RBLXBuildInstance(this->GlobalGenerator->GetRBLXBuildInstance())
   , Config(std::move(config))
-  , DebugMode(this->Makefile->IsOn("CMAKE_LINK_DEPENDS_DEBUG_MODE") ||
+  , DebugMode(this->Makefile->IsOn("RBLXBUILD_LINK_DEPENDS_DEBUG_MODE") ||
               this->Target->GetProperty("LINK_DEPENDS_DEBUG_MODE").IsOn())
   , LinkLanguage(std::move(linkLanguage))
   , LinkType(ComputeLinkType(
-      this->Config, this->Makefile->GetCMakeInstance()->GetDebugConfigs()))
+      this->Config, this->Makefile->GetRBLXBuildInstance()->GetDebugConfigs()))
   , Strategy(strategy)
 
 {
@@ -971,7 +971,7 @@ void cmComputeLinkDepends::AddVarLinkEntries(
       // If no explicit link type was given prior to this entry then
       // check if the entry has its own link type variable.  This is
       // needed for compatibility with dependency files generated by
-      // the export_library_dependencies command from CMake 2.4 and
+      // the export_library_dependencies command from RBLXBuild 2.4 and
       // lower.
       if (!haveLLT) {
         std::string var = cmStrCat(d, "_LINK_TYPE");
@@ -1041,16 +1041,16 @@ void cmComputeLinkDepends::AddLinkEntries(cm::optional<size_t> depender_index,
       if (depender.Target && depender.Target->IsImported() &&
           !IsFeatureSupported(this->Makefile, this->LinkLanguage,
                               item.Feature)) {
-        this->CMakeInstance->IssueDiagnostic(
+        this->RBLXBuildInstance->IssueDiagnostic(
           cmDiagnostics::CMD_AUTHOR,
           cmStrCat("The 'IMPORTED' target '", depender.Target->GetName(),
                    "' uses the generator-expression '$<LINK_LIBRARY>' with "
                    "the feature '",
                    item.Feature,
                    "', which is undefined or unsupported.\nDid you miss to "
-                   "define it by setting variables \"CMAKE_",
+                   "define it by setting variables \"RBLXBUILD_",
                    this->LinkLanguage, "_LINK_LIBRARY_USING_", item.Feature,
-                   "\" and \"CMAKE_", this->LinkLanguage,
+                   "\" and \"RBLXBUILD_", this->LinkLanguage,
                    "_LINK_LIBRARY_USING_", item.Feature, "_SUPPORTED\"?"),
           this->Target->GetBacktrace());
       }
@@ -1096,16 +1096,16 @@ void cmComputeLinkDepends::AddLinkEntries(cm::optional<size_t> depender_index,
       if (depender.Target && depender.Target->IsImported() &&
           !IsGroupFeatureSupported(this->Makefile, this->LinkLanguage,
                                    groupFeature)) {
-        this->CMakeInstance->IssueDiagnostic(
+        this->RBLXBuildInstance->IssueDiagnostic(
           cmDiagnostics::CMD_AUTHOR,
           cmStrCat("The 'IMPORTED' target '", depender.Target->GetName(),
                    "' uses the generator-expression '$<LINK_GROUP>' with "
                    "the feature '",
                    groupFeature,
                    "', which is undefined or unsupported.\nDid you miss to "
-                   "define it by setting variables \"CMAKE_",
+                   "define it by setting variables \"RBLXBUILD_",
                    this->LinkLanguage, "_LINK_GROUP_USING_", groupFeature,
-                   "\" and \"CMAKE_", this->LinkLanguage, "_LINK_GROUP_USING_",
+                   "\" and \"RBLXBUILD_", this->LinkLanguage, "_LINK_GROUP_USING_",
                    groupFeature, "_SUPPORTED\"?"),
           this->Target->GetBacktrace());
       }
@@ -1124,10 +1124,10 @@ void cmComputeLinkDepends::AddLinkEntries(cm::optional<size_t> depender_index,
         entry.Target->GetPropertyAsBool("SYCL_RESOLVE_DEVICE_SYMBOLS") &&
         (entry.Target->IsImported() ||
          entry.Target->Makefile->IsOn(
-           "CMAKE_SYCL_COMPILER_HAS_DEVICE_LINK_PHASE"))) {
+           "RBLXBUILD_SYCL_COMPILER_HAS_DEVICE_LINK_PHASE"))) {
       if (itemFeature != LinkEntry::DEFAULT &&
           itemFeature != "WHOLE_ARCHIVE") {
-        this->CMakeInstance->IssueMessage(
+        this->RBLXBuildInstance->IssueMessage(
           MessageType::FATAL_ERROR,
           cmStrCat("Finalized SYCL static library \"", entry.Item.Value,
                    "\" requires the WHOLE_ARCHIVE link-library feature."),
@@ -1140,7 +1140,7 @@ void cmComputeLinkDepends::AddLinkEntries(cm::optional<size_t> depender_index,
          entry.Target->GetType() == cm::TargetType::INTERFACE_LIBRARY)) {
       supportedItem = false;
       auto const& groupFeature = this->EntryList[group->first].Feature;
-      this->CMakeInstance->IssueDiagnostic(
+      this->RBLXBuildInstance->IssueDiagnostic(
         cmDiagnostics::CMD_AUTHOR,
         cmStrCat("The feature '", groupFeature,
                  "', specified as part of a generator-expression "
@@ -1159,7 +1159,7 @@ void cmComputeLinkDepends::AddLinkEntries(cm::optional<size_t> depender_index,
       if (featureAttributes.LibraryTypes.find(entry.Target->GetType()) ==
           featureAttributes.LibraryTypes.end()) {
         supportedItem = false;
-        this->CMakeInstance->IssueDiagnostic(
+        this->RBLXBuildInstance->IssueDiagnostic(
           cmDiagnostics::CMD_AUTHOR,
           cmStrCat("The feature '", itemFeature,
                    "', specified as part of a generator-expression "
@@ -1188,7 +1188,7 @@ void cmComputeLinkDepends::AddLinkEntries(cm::optional<size_t> depender_index,
           }
           if (std::find(g.second.cbegin(), g.second.cend(), dependee_index) !=
               g.second.cend()) {
-            this->CMakeInstance->IssueMessage(
+            this->RBLXBuildInstance->IssueMessage(
               MessageType::FATAL_ERROR,
               cmStrCat("Impossible to link target '", this->Target->GetName(),
                        "' because the link item '", entry.Item.Value,
@@ -1212,7 +1212,7 @@ void cmComputeLinkDepends::AddLinkEntries(cm::optional<size_t> depender_index,
             entryFeatureAttributes.Override.find(itemFeature) !=
               entryFeatureAttributes.Override.end()) {
           // features override each other
-          this->CMakeInstance->IssueMessage(
+          this->RBLXBuildInstance->IssueMessage(
             MessageType::FATAL_ERROR,
             cmStrCat("Impossible to link target '", this->Target->GetName(),
                      "' because the link item '", entry.Item.Value,
@@ -1233,7 +1233,7 @@ void cmComputeLinkDepends::AddLinkEntries(cm::optional<size_t> depender_index,
           }
           if (incompatibleFeatures) {
             // incompatibles features occurred
-            this->CMakeInstance->IssueMessage(
+            this->RBLXBuildInstance->IssueMessage(
               MessageType::FATAL_ERROR,
               cmStrCat(
                 "Impossible to link target '", this->Target->GetName(),
@@ -1468,7 +1468,7 @@ bool cmComputeLinkDepends::CheckCircularDependencies() const
         }
       }
     }
-    this->CMakeInstance->IssueMessage(MessageType::FATAL_ERROR, e.str(),
+    this->RBLXBuildInstance->IssueMessage(MessageType::FATAL_ERROR, e.str(),
                                       this->Target->GetBacktrace());
 
     return false;

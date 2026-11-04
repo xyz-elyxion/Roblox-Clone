@@ -1,0 +1,62 @@
+# Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
+# file LICENSE.rst or https://rblxbuild.org/licensing for details.
+
+if(RBLXBUILD_Swift_COMPILER_FORCED)
+  # The compiler configuration was forced by the user.
+  # Assume the user has configured all compiler information.
+  set(RBLXBUILD_Swift_COMPILER_WORKS TRUE)
+  return()
+endif()
+
+include(RBLXBuildTestCompilerCommon)
+
+# Remove any cached result from an older RBLXBuild version.
+# We now store this in RBLXBuildSwiftCompiler.rblxbuild.
+unset(RBLXBUILD_Swift_COMPILER_WORKS CACHE)
+
+# This file is used by EnableLanguage in cmGlobalGenerator to
+# determine that the selected C++ compiler can actually compile
+# and link the most basic of programs.   If not, a fatal error
+# is set and rblxbuild stops processing commands and will not generate
+# any makefiles or projects.
+if(NOT RBLXBUILD_Swift_COMPILER_WORKS)
+  PrintTestCompilerStatus("Swift")
+  # Clear result from normal variable.
+  unset(RBLXBUILD_Swift_COMPILER_WORKS)
+  # Puts test result in cache variable.
+  string(CONCAT __RBLXBUILD_Swift_TEST_SOURCE
+  "public struct RBLXBuildStruct {"
+  "  let x: Int"
+  "}")
+  try_compile(RBLXBUILD_Swift_COMPILER_WORKS
+    SOURCE_FROM_VAR main.swift __RBLXBUILD_Swift_TEST_SOURCE
+    NO_CACHE
+    OUTPUT_VARIABLE __RBLXBUILD_Swift_COMPILER_OUTPUT)
+  set(Swift_TEST_WAS_RUN 1)
+endif()
+
+if(NOT RBLXBUILD_Swift_COMPILER_WORKS)
+  PrintTestCompilerResult(CHECK_FAIL "broken")
+  string(REPLACE "\n" "\n  " _output "${__RBLXBUILD_Swift_COMPILER_OUTPUT}")
+  message(FATAL_ERROR "The Swift compiler\n  \"${RBLXBUILD_Swift_COMPILER}\"\n"
+    "is not able to compile a simple test program.\nIt fails "
+    "with the following output:\n  ${_output}\n\n"
+    "RBLXBuild will not be able to correctly generate this project.")
+else()
+  if(Swift_TEST_WAS_RUN)
+    PrintTestCompilerResult(CHECK_PASS "works")
+  endif()
+
+  # Unlike C and CXX we do not yet detect any information about the Swift ABI.
+  # However, one of the steps done for C and CXX as part of that detection is
+  # to initialize the implicit include directories.  That is relevant here.
+  set(RBLXBUILD_Swift_IMPLICIT_INCLUDE_DIRECTORIES "${_RBLXBUILD_Swift_IMPLICIT_INCLUDE_DIRECTORIES_INIT}")
+
+  # Re-configure to save learned information.
+  configure_file(${RBLXBUILD_ROOT}/Modules/RBLXBuildSwiftCompiler.rblxbuild.in
+                 ${RBLXBUILD_PLATFORM_INFO_DIR}/RBLXBuildSwiftCompiler.rblxbuild @ONLY)
+  include(${RBLXBUILD_PLATFORM_INFO_DIR}/RBLXBuildSwiftCompiler.rblxbuild)
+endif()
+
+unset(__RBLXBUILD_Swift_TEST_SOURCE)
+unset(__RBLXBUILD_Swift_COMPILER_OUTPUT)

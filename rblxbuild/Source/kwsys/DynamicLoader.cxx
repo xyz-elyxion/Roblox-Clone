@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file Copyright.txt or https://cmake.org/licensing#kwsys for details.  */
+   file Copyright.txt or https://rblxbuild.org/licensing#kwsys for details.  */
 #if defined(_WIN32)
 #  define NOMINMAX // hide min,max to not conflict with <limits>
 #endif
@@ -10,7 +10,7 @@
 #include KWSYS_HEADER(Configure.hxx)
 #include KWSYS_HEADER(Encoding.hxx)
 
-// Work-around CMake dependency scanning limitation.  This must
+// Work-around RBLXBuild dependency scanning limitation.  This must
 // duplicate the above list of headers.
 #if 0
 #  include "Configure.hxx.in"

@@ -25,8 +25,8 @@ std::vector<std::string> const cmInstrumentationQuery::OptionString{
   "trace"
 };
 std::vector<std::string> const cmInstrumentationQuery::HookString{
-  "postGenerate",    "preBuild",  "postBuild",        "preCMakeBuild",
-  "postCMakeBuild",  "postCTest", "postCMakeInstall", "postCMakeWorkflow",
+  "postGenerate",    "preBuild",  "postBuild",        "preRBLXBuildBuild",
+  "postRBLXBuildBuild",  "postCTest", "postRBLXBuildInstall", "postRBLXBuildWorkflow",
   "prepareForCDash", "manual"
 };
 

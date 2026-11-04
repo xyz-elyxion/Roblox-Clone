@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #pragma once
 
 #include "cmConfigure.h" // IWYU pragma: keep
@@ -15,14 +15,14 @@
 #include "cmCursesStandardIncludes.h"
 #include "cmStateTypes.h"
 
-class cmake;
+class rblxbuild;
 class cmCursesCacheEntryComposite;
 class cmCursesLongMessageForm;
 
 /** \class cmCursesMainForm
- * \brief The main page of ccmake
+ * \brief The main page of crblxbuild
  *
- * cmCursesMainForm is the main page of ccmake.
+ * cmCursesMainForm is the main page of crblxbuild.
  */
 class cmCursesMainForm : public cmCursesForm
 {
@@ -83,7 +83,7 @@ public:
   void PrintKeys(int process = 0);
 
   /**
-   * During a CMake run, an error handle should add errors
+   * During a RBLXBuild run, an error handle should add errors
    * to be displayed afterwards.
    */
   void AddError(std::string const& message, char const* title) override;
@@ -150,7 +150,7 @@ protected:
   // Last progress bar
   std::string LastProgress;
 
-  // Command line arguments to be passed to cmake each time
+  // Command line arguments to be passed to rblxbuild each time
   // it is run
   std::vector<std::string> Args;
   // Message displayed when user presses 'h'
@@ -173,7 +173,7 @@ protected:
   std::unique_ptr<cmCursesCacheEntryComposite> EmptyCacheEntry;
 
   int InitialWidth;
-  std::unique_ptr<cmake> CMakeInstance;
+  std::unique_ptr<rblxbuild> RBLXBuildInstance;
 
   std::string SearchString;
   std::string OldSearchString;

@@ -1,0 +1,129 @@
+set(RBLXBUILD_DL_LIBS "")
+set(RBLXBUILD_SHARED_LIBRARY_C_FLAGS "-fPIC")
+set(RBLXBUILD_SHARED_LIBRARY_CREATE_C_FLAGS "-shared")
+set(RBLXBUILD_SHARED_LIBRARY_RUNTIME_C_FLAG "-Wl,-rpath,")
+set(RBLXBUILD_SHARED_LIBRARY_RUNTIME_C_FLAG_SEP ":")
+set(RBLXBUILD_SHARED_LIBRARY_RPATH_ORIGIN_TOKEN "\$ORIGIN")
+set(RBLXBUILD_SHARED_LIBRARY_RPATH_LINK_C_FLAG "-Wl,-rpath-link,")
+set(RBLXBUILD_SHARED_LIBRARY_SONAME_C_FLAG "-Wl,-soname,")
+set(RBLXBUILD_EXE_EXPORTS_C_FLAG "-Wl,--export-dynamic")
+
+# Features for LINK_GROUP generator expression
+## RESCAN: request the linker to rescan static libraries until there is
+## no pending undefined symbols
+set(RBLXBUILD_LINK_GROUP_USING_RESCAN "LINKER:--start-group" "LINKER:--end-group")
+set(RBLXBUILD_LINK_GROUP_USING_RESCAN_SUPPORTED TRUE)
+
+# Determine, if the C or C++ compiler is configured for a secondary
+# architecture. If so, that will change the search paths we set below. We check
+# whether the compiler's library search paths contain a
+# "/boot/system/develop/lib/<subdir>/", which we assume to be the secondary
+# architecture specific subdirectory and extract the name of the architecture
+# accordingly.
+
+# First of all, find a C or C++ compiler we can run. The "arg1" is necessary
+# here for compilers such as "distcc gcc-x86" or "ccache gcc-x86"
+# TODO See RBLXBuildDetermineCompilerId.rblxbuild for some more things we may want to do.
+if(RBLXBUILD_C_COMPILER)
+  set(__HAIKU_COMPILER ${RBLXBUILD_C_COMPILER})
+  string (STRIP "${RBLXBUILD_C_COMPILER_ARG1}" __HAIKU_COMPILER_FLAGS)
+else()
+  set(__HAIKU_COMPILER ${RBLXBUILD_CXX_COMPILER})
+  string (STRIP "${RBLXBUILD_CXX_COMPILER_ARG1}" __HAIKU_COMPILER_FLAGS)
+endif()
+
+
+execute_process(
+  COMMAND ${__HAIKU_COMPILER} ${__HAIKU_COMPILER_FLAGS} -print-search-dirs
+  OUTPUT_VARIABLE _HAIKU_SEARCH_DIRS
+  RESULT_VARIABLE _HAIKU_SEARCH_DIRS_FOUND
+  OUTPUT_STRIP_TRAILING_WHITESPACE)
+
+string(REGEX MATCH "libraries: =?([^\n]*:)?/boot/system/develop/lib/([^/]*)/?(:?\n+)" _dummy "${_HAIKU_SEARCH_DIRS}\n")
+set(RBLXBUILD_HAIKU_SECONDARY_ARCH "${RBLXBUILD_MATCH_2}")
+
+if(NOT RBLXBUILD_HAIKU_SECONDARY_ARCH)
+  set(RBLXBUILD_HAIKU_SECONDARY_ARCH_SUBDIR "")
+  unset(RBLXBUILD_HAIKU_SECONDARY_ARCH)
+else()
+  set(RBLXBUILD_HAIKU_SECONDARY_ARCH_SUBDIR "/${RBLXBUILD_HAIKU_SECONDARY_ARCH}")
+
+  # Override RBLXBUILD_*LIBRARY_ARCHITECTURE. This will cause FIND_LIBRARY to search
+  # the libraries in the correct subdirectory first. It still isn't completely
+  # correct, since the parent directories shouldn't be searched at all. The
+  # primary architecture library might still be found, if there isn't one
+  # installed for the secondary architecture or it is installed in a less
+  # specific location.
+  set(RBLXBUILD_LIBRARY_ARCHITECTURE ${RBLXBUILD_HAIKU_SECONDARY_ARCH})
+  set(RBLXBUILD_C_LIBRARY_ARCHITECTURE ${RBLXBUILD_HAIKU_SECONDARY_ARCH})
+  set(RBLXBUILD_CXX_LIBRARY_ARCHITECTURE ${RBLXBUILD_HAIKU_SECONDARY_ARCH})
+endif()
+
+list(APPEND RBLXBUILD_SYSTEM_PREFIX_PATH
+  /boot/system/non-packaged
+  /boot/system
+  )
+
+list(APPEND RBLXBUILD_HAIKU_COMMON_INCLUDE_DIRECTORIES
+  /boot/system/non-packaged/develop/headers${RBLXBUILD_HAIKU_SECONDARY_ARCH_SUBDIR}
+  /boot/system/develop/headers/os
+  /boot/system/develop/headers/os/app
+  /boot/system/develop/headers/os/device
+  /boot/system/develop/headers/os/drivers
+  /boot/system/develop/headers/os/game
+  /boot/system/develop/headers/os/interface
+  /boot/system/develop/headers/os/kernel
+  /boot/system/develop/headers/os/locale
+  /boot/system/develop/headers/os/mail
+  /boot/system/develop/headers/os/media
+  /boot/system/develop/headers/os/midi
+  /boot/system/develop/headers/os/midi2
+  /boot/system/develop/headers/os/net
+  /boot/system/develop/headers/os/opengl
+  /boot/system/develop/headers/os/storage
+  /boot/system/develop/headers/os/support
+  /boot/system/develop/headers/os/translation
+  /boot/system/develop/headers/os/add-ons/graphics
+  /boot/system/develop/headers/os/add-ons/input_server
+  /boot/system/develop/headers/os/add-ons/screen_saver
+  /boot/system/develop/headers/os/add-ons/tracker
+  /boot/system/develop/headers/os/be_apps/Deskbar
+  /boot/system/develop/headers/os/be_apps/NetPositive
+  /boot/system/develop/headers/os/be_apps/Tracker
+  /boot/system/develop/headers/3rdparty
+  /boot/system/develop/headers/bsd
+  /boot/system/develop/headers/glibc
+  /boot/system/develop/headers/gnu
+  /boot/system/develop/headers/posix
+  /boot/system/develop/headers${RBLXBUILD_HAIKU_SECONDARY_ARCH_SUBDIR}
+  )
+if(RBLXBUILD_HAIKU_SECONDARY_ARCH)
+  list(APPEND RBLXBUILD_HAIKU_COMMON_INCLUDE_DIRECTORIES
+    /boot/system/develop/headers
+    )
+endif()
+
+list(APPEND RBLXBUILD_HAIKU_C_INCLUDE_DIRECTORIES
+  ${RBLXBUILD_HAIKU_COMMON_INCLUDE_DIRECTORIES}
+  )
+
+list(APPEND RBLXBUILD_HAIKU_CXX_INCLUDE_DIRECTORIES
+  ${RBLXBUILD_HAIKU_COMMON_INCLUDE_DIRECTORIES})
+
+list(APPEND RBLXBUILD_SYSTEM_INCLUDE_PATH ${RBLXBUILD_HAIKU_C_INCLUDE_DIRECTORIES})
+
+list(APPEND RBLXBUILD_HAIKU_DEVELOP_LIB_DIRECTORIES
+  /boot/system/non-packaged/develop/lib${RBLXBUILD_HAIKU_SECONDARY_ARCH_SUBDIR}
+  /boot/system/develop/lib${RBLXBUILD_HAIKU_SECONDARY_ARCH_SUBDIR}
+  )
+
+list(APPEND RBLXBUILD_PLATFORM_IMPLICIT_LINK_DIRECTORIES
+  ${RBLXBUILD_HAIKU_DEVELOP_LIB_DIRECTORIES}
+  )
+
+list(APPEND RBLXBUILD_SYSTEM_LIBRARY_PATH ${RBLXBUILD_HAIKU_DEVELOP_LIB_DIRECTORIES})
+
+if(RBLXBUILD_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
+  set(RBLXBUILD_INSTALL_PREFIX "/boot/system" CACHE PATH
+    "Install path prefix, prepended onto install directories." FORCE)
+endif()

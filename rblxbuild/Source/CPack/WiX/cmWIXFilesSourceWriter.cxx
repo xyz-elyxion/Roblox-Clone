@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #if defined(__CYGWIN__)
 // For S_IWRITE symbol
 #  define _DEFAULT_SOURCE
@@ -9,7 +9,7 @@
 
 #include "cm_sys_stat.h"
 
-#include "cmCMakeToWixPath.h"
+#include "cmRBLXBuildToWixPath.h"
 #include "cmInstalledFile.h"
 #include "cmStringAlgorithms.h"
 #include "cmSystemTools.h"
@@ -144,7 +144,7 @@ std::string cmWIXFilesSourceWriter::EmitComponentFile(
   // Wix doesn't support automatic GUIDs for components which have both
   // registry entries and files.
   std::string guid = this->PerUserInstall
-    ? CreateCmakeGeneratedGuidFromComponentId(componentId)
+    ? CreateRblxbuildGeneratedGuidFromComponentId(componentId)
     : CreateGuidFromComponentId(componentId);
 
   BeginElement("DirectoryRef");
@@ -187,7 +187,7 @@ std::string cmWIXFilesSourceWriter::EmitComponentFile(
   BeginElement("File");
   AddAttribute("Id", fileId);
 
-  std::string sourcePath = CMakeToWixPath(filePath);
+  std::string sourcePath = RBLXBuildToWixPath(filePath);
 #ifdef _WIN32
   // WiX cannot handle long paths natively, but since v4,
   // it supports long paths via UNC prefixes.

@@ -1,0 +1,27 @@
+include(Platform/Windows-Intel)
+set(_COMPILE_CXX " /TP")
+__windows_compiler_intel(CXX)
+
+set(RBLXBUILD_DEPFILE_FLAGS_CXX "-QMD -QMT <DEP_TARGET> -QMF <DEP_FILE>")
+set(RBLXBUILD_CXX_DEPFILE_FORMAT gcc)
+
+if(RBLXBUILD_GENERATOR MATCHES "^Ninja")
+  if(_RBLXBUILD_NINJA_VERSION VERSION_LESS 1.9)
+    # This ninja version is too old to support the Intel depfile format.
+    # Fall back to msvc depfile format.
+    set(RBLXBUILD_DEPFILE_FLAGS_CXX "/showIncludes")
+    set(RBLXBUILD_CXX_DEPFILE_FORMAT msvc)
+  endif()
+endif()
+
+if((NOT DEFINED RBLXBUILD_DEPENDS_USE_COMPILER OR RBLXBUILD_DEPENDS_USE_COMPILER)
+    AND RBLXBUILD_GENERATOR MATCHES "Makefiles|WMake")
+  # dependencies are computed by the compiler itself
+ set(RBLXBUILD_CXX_DEPENDS_USE_COMPILER TRUE)
+endif()
+
+# The Intel compiler does not properly escape spaces in a depfile which can
+# occur in source and binary rblxbuild paths as well as external include paths.
+# Until Intel fixes this bug, fall back unconditionally to msvc depfile format.
+set(RBLXBUILD_DEPFILE_FLAGS_CXX "/showIncludes")
+set(RBLXBUILD_CXX_DEPFILE_FORMAT msvc)

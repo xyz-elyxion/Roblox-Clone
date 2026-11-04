@@ -62,7 +62,7 @@ static int isreallyatty(int file) {
 #define isatty(fd) isreallyatty(fd)
 #endif
 
-#if !defined(CMAKE_BOOTSTRAP)
+#if !defined(RBLXBUILD_BOOTSTRAP)
 
 static int orig_termios_fd = -1;
 static struct termios orig_termios;
@@ -490,7 +490,7 @@ uv_handle_type uv_guess_handle(uv_file file) {
   return UV_UNKNOWN_HANDLE;
 }
 
-#if !defined(CMAKE_BOOTSTRAP)
+#if !defined(RBLXBUILD_BOOTSTRAP)
 
 /* This function is async signal-safe, meaning that it's safe to call from
  * inside a signal handler _unless_ execution was inside uv_tty_set_mode()'s

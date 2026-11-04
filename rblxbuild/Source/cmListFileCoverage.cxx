@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmListFileCoverage.h"
 
 #include <algorithm>
@@ -50,19 +50,19 @@ bool cmListFileCoverage::Start(std::string& error)
     return true;
   }
   cm::optional<std::string> const value =
-    cmSystemTools::GetEnvVar("CMAKE_LISTFILE_COVERAGE_DIR");
+    cmSystemTools::GetEnvVar("RBLXBUILD_LISTFILE_COVERAGE_DIR");
   if (!value || value->empty()) {
     return true;
   }
   std::string const& dir = *value;
   if (!cmSystemTools::FileIsFullPath(dir)) {
-    error = cmStrCat("CMAKE_LISTFILE_COVERAGE_DIR is not an absolute path: \"",
+    error = cmStrCat("RBLXBUILD_LISTFILE_COVERAGE_DIR is not an absolute path: \"",
                      dir, '"');
     return false;
   }
   cmsys::Status const status = cmSystemTools::MakeDirectory(dir);
   if (!status) {
-    error = cmStrCat("Cannot write CMake listfile coverage to directory \"",
+    error = cmStrCat("Cannot write RBLXBuild listfile coverage to directory \"",
                      dir, "\": ", status.GetString());
     return false;
   }
@@ -82,7 +82,7 @@ bool cmListFileCoverage::Start(std::string& error)
   {
     cmsys::ofstream probe(probePath.c_str());
     if (!probe) {
-      error = cmStrCat("Cannot write CMake listfile coverage to directory \"",
+      error = cmStrCat("Cannot write RBLXBuild listfile coverage to directory \"",
                        dir, "\": ", cmSystemTools::GetLastSystemError());
       return false;
     }

@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #pragma once
 
 #include <iostream>
@@ -15,7 +15,7 @@ namespace {
 template <typename T>
 T dbg_impl(char const* fname, int line, char const* expr, T value)
 {
-  if (!cmSystemTools::GetEnvVar("CMAKE_NO_DBG")) {
+  if (!cmSystemTools::GetEnvVar("RBLXBUILD_NO_DBG")) {
     std::cerr << fname << ':' << line << ": " << expr << " = " << value
               << std::endl;
   }

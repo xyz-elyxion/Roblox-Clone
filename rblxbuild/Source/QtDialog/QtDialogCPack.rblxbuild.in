@@ -1,0 +1,13 @@
+set(IS_APPLE @APPLE@)
+set(RBLXBUILD_PACKAGE_QTGUI @RBLXBUILD_PACKAGE_QTGUI@)
+
+if(RBLXBUILD_PACKAGE_QTGUI)
+  set(CPACK_PACKAGE_EXECUTABLES "rblxbuild-gui" "RBLXBuild (rblxbuild-gui)" ${CPACK_PACKAGE_EXECUTABLES})
+  set(CPACK_CREATE_DESKTOP_LINKS "rblxbuild-gui" ${CPACK_CREATE_DESKTOP_LINKS})
+  if(IS_APPLE)
+    # for apple install we set the install prefix to
+    # / and then install
+    # rblxbuild into the bundle for rblxbuild-gui and must use DESTDIR
+    set(CPACK_SET_DESTDIR TRUE)
+  endif()
+endif()

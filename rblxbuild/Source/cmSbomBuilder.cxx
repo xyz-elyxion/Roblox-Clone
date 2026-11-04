@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmSbomBuilder.h"
 
 #include <cstddef>
@@ -193,7 +193,7 @@ bool cmSbomBuilder::AddPackageInformation(
 
   artifact.BuiltTime = cmSystemTools::GetCurrentDateTime("%FT%TZ");
   cmSpdxExternalRef externalRef;
-  externalRef.Locator = cmStrCat("cmake:find_package(", name, ')');
+  externalRef.Locator = cmStrCat("rblxbuild:find_package(", name, ')');
   externalRef.ExternalRefType = "buildSystem";
   artifact.ExternalRef.emplace_back(std::move(externalRef));
   return true;
@@ -204,8 +204,8 @@ cmSpdxCreationInfo cmSbomBuilder::GenerateCreationInfo() const
   cmSpdxCreationInfo ci;
   ci.SpdxId = "_:Build#CreationInfo";
   ci.Created = cmSystemTools::GetCurrentDateTime("%FT%TZ");
-  ci.CreatedBy = { "https://gitlab.kitware.com/cmake/cmake" };
-  ci.Comment = "This SBOM was generated from the CMakeLists.txt File";
+  ci.CreatedBy = { "https://gitlab.kitware.com/rblxbuild/rblxbuild" };
+  ci.Comment = "This SBOM was generated from the RBLXBuildLists.txt File";
   ci.SpecVersion = "3.0.1";
   return ci;
 }
@@ -342,7 +342,7 @@ bool cmSbomBuilder::EvaluateLinkProperty(
     return true;
   }
 
-  cmGeneratorExpression const ge(*target->Makefile->GetCMakeInstance());
+  cmGeneratorExpression const ge(*target->Makefile->GetRBLXBuildInstance());
   auto const cge = ge.Parse(preprocessed);
   cm::GenEx::Context const context(target->GetLocalGenerator(), config);
   for (auto const usage :

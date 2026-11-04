@@ -925,7 +925,7 @@ static const flex_int16_t yy_chk[881] =
 #define YY_MORE_ADJ 0
 #define YY_RESTORE_YY_MORE_OFFSET
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 /*-------------------------------------------------------------------------
   Portions of this source have been derived from makedepf90 version 2.8.8,
 
@@ -933,7 +933,7 @@ static const flex_int16_t yy_chk[881] =
 
   The code was originally distributed under the GPL but permission
   from the copyright holder has been obtained to distribute this
-  derived work under the CMake license.
+  derived work under the RBLXBuild license.
 -------------------------------------------------------------------------*/
 
 /*

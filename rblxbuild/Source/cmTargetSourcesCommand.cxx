@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmTargetSourcesCommand.h"
 
 #include <utility>
@@ -261,7 +261,7 @@ bool TargetSourcesImpl::HandleOneFileSet(
                                          cmExperimental::Feature::SYCL)) {
     this->SetError(cmStrCat("File set TYPE \"", requestedType,
                             "\" is experimental and must be enabled by "
-                            "the CMAKE_EXPERIMENTAL_SYCL gate."));
+                            "the RBLXBUILD_EXPERIMENTAL_SYCL gate."));
     return false;
   }
 

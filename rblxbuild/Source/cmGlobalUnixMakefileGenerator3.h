@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #pragma once
 
 #include "cmConfigure.h" // IWYU pragma: keep
@@ -22,7 +22,7 @@ class cmGeneratedFileStream;
 class cmLocalGenerator;
 class cmLocalUnixMakefileGenerator3;
 class cmMakefileTargetGenerator;
-class cmake;
+class rblxbuild;
 
 /** \class cmGlobalUnixMakefileGenerator3
  * \brief Write a Unix makefiles.
@@ -59,7 +59,7 @@ class cmake;
 class cmGlobalUnixMakefileGenerator3 : public cmGlobalCommonGenerator
 {
 public:
-  cmGlobalUnixMakefileGenerator3(cmake* cm);
+  cmGlobalUnixMakefileGenerator3(rblxbuild* cm);
   static std::unique_ptr<cmGlobalGeneratorFactory> NewFactory()
   {
     return std::unique_ptr<cmGlobalGeneratorFactory>(
@@ -135,8 +135,8 @@ public:
    */
   void Generate() override;
 
-  void WriteMainCMakefileLanguageRules(
-    cmGeneratedFileStream& cmakefileStream,
+  void WriteMainRBLXBuildfileLanguageRules(
+    cmGeneratedFileStream& rblxbuildfileStream,
     std::vector<std::unique_ptr<cmLocalGenerator>>&);
 
   // write out the help rule listing the valid targets
@@ -160,7 +160,7 @@ public:
   }
 
   /** Get the command to use for a target that has no rule.  This is
-      used for multiple output dependencies and for cmake_force.  */
+      used for multiple output dependencies and for rblxbuild_force.  */
   std::string GetEmptyRuleHackCommand() { return this->EmptyRuleHackCommand; }
 
   /** Get the fake dependency to use when a rule has no real commands
@@ -215,7 +215,7 @@ public:
 
 protected:
   void WriteMainMakefile2();
-  void WriteMainCMakefile();
+  void WriteMainRBLXBuildfile();
 
   void WriteConvenienceRules2(std::ostream& ruleFileStream,
                               cmLocalUnixMakefileGenerator3& rootLG,
@@ -242,12 +242,12 @@ protected:
   void ComputeTestPrepTargets();
 
   // Write the internal "test_prep/<name>" and "test_prep/all" rules into
-  // CMakeFiles/Makefile2.
+  // RBLXBuildFiles/Makefile2.
   void WriteTestPrepRules(std::ostream& makefileStream,
                           cmLocalUnixMakefileGenerator3& rootLG);
 
   // Write the top-level "test_prep/<name>" convenience rules that forward
-  // into CMakeFiles/Makefile2.
+  // into RBLXBuildFiles/Makefile2.
   void WriteTestPrepConvenienceRules(std::ostream& ruleFileStream);
 
   // Compute the "install_prep/<component>" build targets. Each installation
@@ -256,12 +256,12 @@ protected:
   void ComputeInstallPrepTargets();
 
   // Write the internal "install_prep/<component>" and "install_prep/all" rules
-  // into CMakeFiles/Makefile2.
+  // into RBLXBuildFiles/Makefile2.
   void WriteInstallPrepRules(std::ostream& makefileStream,
                              cmLocalUnixMakefileGenerator3& rootLG);
 
   // Write the top-level "install_prep/<component>" convenience rules that
-  // forward into CMakeFiles/Makefile2.
+  // forward into RBLXBuildFiles/Makefile2.
   void WriteInstallPrepConvenienceRules(std::ostream& ruleFileStream);
 
   // Target name hooks for superclass.

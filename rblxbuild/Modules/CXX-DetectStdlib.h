@@ -1,12 +1,12 @@
 #include <version>
 // clang-format off
 #if defined(_LIBCPP_VERSION)
-CMAKE-STDLIB-DETECT: libc++
+RBLXBUILD-STDLIB-DETECT: libc++
 #elif defined(__GLIBCXX__)
-CMAKE-STDLIB-DETECT: libstdc++
+RBLXBUILD-STDLIB-DETECT: libstdc++
 #elif defined(_MSVC_STL_VERSION)
-CMAKE-STDLIB-DETECT: msvc
+RBLXBUILD-STDLIB-DETECT: msvc
 #else
-CMAKE-STDLIB-DETECT: UNKNOWN
+RBLXBUILD-STDLIB-DETECT: UNKNOWN
 #endif
    // clang-format on

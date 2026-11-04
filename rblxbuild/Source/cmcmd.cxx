@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmcmd.h"
 
 #include <algorithm>
@@ -45,21 +45,21 @@
 #include "cmUtils.hxx"
 #include "cmValue.h"
 #include "cmVersion.h"
-#include "cmake.h"
+#include "rblxbuild.h"
 
-#if !defined(CMAKE_BOOTSTRAP)
-#  include "cmDependsFortran.h" // For -E cmake_copy_f90_mod callback.
+#if !defined(RBLXBUILD_BOOTSTRAP)
+#  include "cmDependsFortran.h" // For -E rblxbuild_copy_f90_mod callback.
 #  include "cmFileTime.h"
 
 #  include "bindexplib.h"
 #endif
 
-#if !defined(CMAKE_BOOTSTRAP) || defined(CMAKE_BOOTSTRAP_MAKEFILES)
-#  include "cmCMakePath.h"
+#if !defined(RBLXBUILD_BOOTSTRAP) || defined(RBLXBUILD_BOOTSTRAP_MAKEFILES)
+#  include "cmRBLXBuildPath.h"
 #  include "cmProcessTools.h"
 #endif
 
-#if !defined(CMAKE_BOOTSTRAP) && defined(_WIN32) && !defined(__CYGWIN__)
+#if !defined(RBLXBUILD_BOOTSTRAP) && defined(_WIN32) && !defined(__CYGWIN__)
 #  include "cmVisualStudioWCEPlatformParser.h"
 #endif
 
@@ -92,11 +92,11 @@
 #  endif
 #endif
 
-int cmcmd_cmake_ninja_depends(std::vector<std::string>::const_iterator argBeg,
+int cmcmd_rblxbuild_ninja_depends(std::vector<std::string>::const_iterator argBeg,
                               std::vector<std::string>::const_iterator argEnd);
-int cmcmd_cmake_ninja_dyndep(std::vector<std::string>::const_iterator argBeg,
+int cmcmd_rblxbuild_ninja_dyndep(std::vector<std::string>::const_iterator argBeg,
                              std::vector<std::string>::const_iterator argEnd);
-int cmcmd_cmake_module_compile_db(
+int cmcmd_rblxbuild_module_compile_db(
   std::vector<std::string>::const_iterator argBeg,
   std::vector<std::string>::const_iterator argEnd);
 
@@ -206,7 +206,7 @@ bool cmRemoveDirectory(std::string const& dir, bool recursive = true)
   return true;
 }
 
-#if !defined(CMAKE_BOOTSTRAP) || defined(CMAKE_BOOTSTRAP_MAKEFILES)
+#if !defined(RBLXBUILD_BOOTSTRAP) || defined(RBLXBUILD_BOOTSTRAP_MAKEFILES)
 class CLIncludeParser : public cmProcessTools::LineParser
 {
 public:
@@ -225,7 +225,7 @@ private:
       auto path =
         cmTrimWhitespace(this->Line.c_str() + this->IncludePrefix.size());
       cmSystemTools::ConvertToLongPath(path);
-      this->DepFile << cmCMakePath(path).GenericString() << std::endl;
+      this->DepFile << cmRBLXBuildPath(path).GenericString() << std::endl;
     } else {
       this->Output << this->Line << std::endl;
     }
@@ -638,7 +638,7 @@ int HandleIcstat(std::string const& runCmd, std::string const& sourceFile,
     // Single-pass removal of consecutive spurious relative paths,
     // `"../` or `"..\`, that might appear after a newline followed by
     // an opening quote, effectively displaying paths relative to
-    // CMAKE_SOURCE_DIR.
+    // RBLXBUILD_SOURCE_DIR.
     // Example: `\n"../../../src/file.c` -> `\n"src/file.c`
     std::string cleaned;
     size_t const n = stdOut.size();
@@ -906,14 +906,14 @@ bool Bin2C(std::ostream& sout, std::istream& sin,
 
 void IssueDeprecation(std::string const& text)
 {
-  // cmake -E mode does not accept -W options, so do not suggest them.
-  cmake cm(cmState::Role::Internal);
+  // rblxbuild -E mode does not accept -W options, so do not suggest them.
+  rblxbuild cm(cmState::Role::Internal);
   cm.GetMessenger()->SetSuppressionHint(cmMessenger::SuppressionHint::Hide);
   cm.IssueDiagnostic(cmDiagnostics::CMD_DEPRECATED, text);
 }
 
 int HandleCoCompileCommands(std::vector<std::string> const& args);
-int CMakeCommandUsage(std::string const& program);
+int RBLXBuildCommandUsage(std::string const& program);
 int HashSumFile(std::vector<std::string> const& args, cmCryptoHash::Algo algo);
 int SymlinkLibrary(std::vector<std::string> const& args);
 int SymlinkExecutable(std::vector<std::string> const& args);
@@ -1032,10 +1032,10 @@ int HandleCoCompileCommands(std::vector<std::string> const& args)
 }
 
 // Copy file, copy file if different, copy file if newer.
-int _cmake_E_copy(Command::Arguments args)
+int _rblxbuild_E_copy(Command::Arguments args)
 {
   if (args.size() <= 3) {
-    return CMakeCommandUsage(args[0]);
+    return RBLXBuildCommandUsage(args[0]);
   }
   using CopyFn =
     cmsys::SystemTools::CopyStatus (*)(std::string const&, std::string const&);
@@ -1112,30 +1112,30 @@ int _cmake_E_copy(Command::Arguments args)
   }
   return return_value;
 }
-Command constexpr cmake_E_copy{
+Command constexpr rblxbuild_E_copy{
   "copy"_s,
   "<file>... destination | -t <destination> <file>..."_s,
   "copy files to destination (either file or directory)"_s,
-  _cmake_E_copy,
+  _rblxbuild_E_copy,
   Group::Common,
 };
-Command constexpr cmake_E_copy_if_different{
+Command constexpr rblxbuild_E_copy_if_different{
   "copy_if_different"_s,
   "<file>... destination | -t <destination> <file>..."_s,
   "copy files if source has changed"_s,
-  _cmake_E_copy,
+  _rblxbuild_E_copy,
   Group::Common,
 };
-Command constexpr cmake_E_copy_if_newer{
+Command constexpr rblxbuild_E_copy_if_newer{
   "copy_if_newer"_s,
   "<file>... destination | -t <destination> <file>..."_s,
   "copy files if source is newer than destination"_s,
-  _cmake_E_copy,
+  _rblxbuild_E_copy,
   Group::Common,
 };
 
 // Copy directory contents
-int _cmake_E_copy_directory(Command::Arguments args)
+int _rblxbuild_E_copy_directory(Command::Arguments args)
 {
   cmsys::SystemTools::CopyWhen when =
     cmsys::SystemTools::CopyWhen::Unconditional;
@@ -1201,35 +1201,35 @@ int _cmake_E_copy_directory(Command::Arguments args)
   }
   return return_value;
 }
-Command constexpr cmake_E_copy_directory{
+Command constexpr rblxbuild_E_copy_directory{
   "copy_directory"_s,
   "<dir>... destination | -t <destination> <dir>..."_s,
   "copy content of <dir>... directories to 'destination' directory"_s,
-  _cmake_E_copy_directory,
+  _rblxbuild_E_copy_directory,
   Group::Common,
 };
-Command constexpr cmake_E_copy_directory_if_different{
+Command constexpr rblxbuild_E_copy_directory_if_different{
   "copy_directory_if_different"_s,
   "<dir>... destination | -t <destination> <dir>..."_s,
   "copy changed content of <dir>... directories to 'destination' "
   "directory"_s,
-  _cmake_E_copy_directory,
+  _rblxbuild_E_copy_directory,
   Group::Common,
 };
-Command constexpr cmake_E_copy_directory_if_newer{
+Command constexpr rblxbuild_E_copy_directory_if_newer{
   "copy_directory_if_newer"_s,
   "<dir>... destination | -t <destination> <dir>..."_s,
   "copy newer content of <dir>... directories to 'destination' "
   "directory"_s,
-  _cmake_E_copy_directory,
+  _rblxbuild_E_copy_directory,
   Group::Common,
 };
 
 // Rename a file or directory
-int _cmake_E_rename(Command::Arguments args)
+int _rblxbuild_E_rename(Command::Arguments args)
 {
   if (args.size() != 4) {
-    return CMakeCommandUsage(args[0]);
+    return RBLXBuildCommandUsage(args[0]);
   }
   if (!cmSystemTools::RenameFile(args[2], args[3])) {
     std::string e = cmSystemTools::GetLastSystemError();
@@ -1239,19 +1239,19 @@ int _cmake_E_rename(Command::Arguments args)
   }
   return 0;
 }
-Command constexpr cmake_E_rename{
+Command constexpr rblxbuild_E_rename{
   "rename"_s,
   "oldname newname"_s,
   "rename a file or directory (on one volume)"_s,
-  _cmake_E_rename,
+  _rblxbuild_E_rename,
   Group::Common,
 };
 
 // Compare files
-int _cmake_E_compare_files(Command::Arguments args)
+int _rblxbuild_E_compare_files(Command::Arguments args)
 {
   if (args.size() != 4 && args.size() != 5) {
-    return CMakeCommandUsage(args[0]);
+    return RBLXBuildCommandUsage(args[0]);
   }
   bool filesDiffer;
   if (args.size() == 4) {
@@ -1259,7 +1259,7 @@ int _cmake_E_compare_files(Command::Arguments args)
   } else if (args[2] == "--ignore-eol") {
     filesDiffer = cmsys::SystemTools::TextFilesDiffer(args[3], args[4]);
   } else {
-    CMakeCommandUsage(args[0]);
+    RBLXBuildCommandUsage(args[0]);
     return 2;
   }
 
@@ -1268,24 +1268,24 @@ int _cmake_E_compare_files(Command::Arguments args)
   }
   return 0;
 }
-Command constexpr cmake_E_compare_files{
+Command constexpr rblxbuild_E_compare_files{
   "compare_files"_s,
   "[--ignore-eol] file1 file2"_s,
   "check if file1 is same as file2"_s,
-  _cmake_E_compare_files,
+  _rblxbuild_E_compare_files,
   Group::Common,
 };
 
-#if !defined(CMAKE_BOOTSTRAP)
+#if !defined(RBLXBUILD_BOOTSTRAP)
 // NOLINTNEXTLINE(bugprone-reserved-identifier)
-int _cmake_E___create_def(Command::Arguments args)
+int _rblxbuild_E___create_def(Command::Arguments args)
 {
   if (args.size() < 4) {
     std::cerr << "__create_def Usage: -E __create_def outfile.def "
                  "objlistfile [--nm=nm-path]\n";
     return 1;
   }
-  cmSystemTools::InitializeCMake(args[0].c_str());
+  cmSystemTools::InitializeRBLXBuild(args[0].c_str());
   cmsys::ifstream fin(args[3].c_str(), std::ios::in | std::ios::binary);
   if (!fin) {
     std::cerr << "could not open object list file: " << args[3] << '\n';
@@ -1342,53 +1342,53 @@ int _cmake_E___create_def(Command::Arguments args)
 }
 #else
 // NOLINTNEXTLINE(bugprone-reserved-identifier)
-std::nullptr_t constexpr _cmake_E___create_def = nullptr;
+std::nullptr_t constexpr _rblxbuild_E___create_def = nullptr;
 #endif
 // NOLINTNEXTLINE(bugprone-reserved-identifier)
-Command constexpr cmake_E___create_def{
-  "__create_def"_s, ""_s, ""_s, _cmake_E___create_def, Group::Internal,
+Command constexpr rblxbuild_E___create_def{
+  "__create_def"_s, ""_s, ""_s, _rblxbuild_E___create_def, Group::Internal,
 };
 
 // NOLINTNEXTLINE(bugprone-reserved-identifier)
-int _cmake_E___run_co_compile(Command::Arguments args)
+int _rblxbuild_E___run_co_compile(Command::Arguments args)
 {
-  cmSystemTools::InitializeCMake(args[0].c_str());
+  cmSystemTools::InitializeRBLXBuild(args[0].c_str());
   return HandleCoCompileCommands(args);
 }
 // NOLINTNEXTLINE(bugprone-reserved-identifier)
-Command constexpr cmake_E___run_co_compile{
-  "__run_co_compile"_s, ""_s, ""_s, _cmake_E___run_co_compile, Group::Internal,
+Command constexpr rblxbuild_E___run_co_compile{
+  "__run_co_compile"_s, ""_s, ""_s, _rblxbuild_E___run_co_compile, Group::Internal,
 };
 
 // Echo string
-int _cmake_E_echo(Command::Arguments args)
+int _rblxbuild_E_echo(Command::Arguments args)
 {
   std::cout << cmJoin(cmMakeRange(args).advance(2), " ") << std::endl;
   return 0;
 }
-Command constexpr cmake_E_echo{
+Command constexpr rblxbuild_E_echo{
   "echo"_s,      "[<string>...]"_s, "displays arguments as text"_s,
-  _cmake_E_echo, Group::Common,
+  _rblxbuild_E_echo, Group::Common,
 };
 
 // Echo string no new line
-int _cmake_E_echo_append(Command::Arguments args)
+int _rblxbuild_E_echo_append(Command::Arguments args)
 {
   std::cout << cmJoin(cmMakeRange(args).advance(2), " ");
   return 0;
 }
-Command constexpr cmake_E_echo_append{
+Command constexpr rblxbuild_E_echo_append{
   "echo_append"_s,
   "[<string>...]"_s,
   "displays arguments as text but no new line"_s,
-  _cmake_E_echo_append,
+  _rblxbuild_E_echo_append,
   Group::Common,
 };
 
-int _cmake_E_env(Command::Arguments args)
+int _rblxbuild_E_env(Command::Arguments args)
 {
-  cmSystemTools::InitializeCMake(args[0].c_str());
-#ifndef CMAKE_BOOTSTRAP
+  cmSystemTools::InitializeRBLXBuild(args[0].c_str());
+#ifndef RBLXBUILD_BOOTSTRAP
   auto envdiff = cmEnvironmentModification{};
 #endif
 
@@ -1404,24 +1404,24 @@ int _cmake_E_env(Command::Arguments args)
     }
     if (cmHasLiteralPrefix(a, "--unset=")) {
       // Unset environment variable.
-#ifdef CMAKE_BOOTSTRAP
+#ifdef RBLXBUILD_BOOTSTRAP
       cmSystemTools::UnPutEnv(a.substr(8));
 #else
       envdiff.Add(a.substr(8) + "=unset:");
 #endif
     } else if (a == "--modify") {
-#ifdef CMAKE_BOOTSTRAP
+#ifdef RBLXBUILD_BOOTSTRAP
       std::cerr
-        << "cmake -E env: --modify not available during bootstrapping\n";
+        << "rblxbuild -E env: --modify not available during bootstrapping\n";
       return 1;
 #else
       if (++ai == ae) {
-        std::cerr << "cmake -E env: --modify missing a parameter\n";
+        std::cerr << "rblxbuild -E env: --modify missing a parameter\n";
         return 1;
       }
       std::string const& op = *ai;
       if (!envdiff.Add(op)) {
-        std::cerr << "cmake -E env: invalid parameter to --modify: " << op
+        std::cerr << "rblxbuild -E env: invalid parameter to --modify: " << op
                   << '\n';
         return 1;
       }
@@ -1429,11 +1429,11 @@ int _cmake_E_env(Command::Arguments args)
     } else if (!a.empty() && a[0] == '-') {
       // Environment variable and command names cannot start in '-',
       // so this must be an unknown option.
-      std::cerr << "cmake -E env: unknown option '" << a << "'\n";
+      std::cerr << "rblxbuild -E env: unknown option '" << a << "'\n";
       return 1;
     } else if (a.find('=') != std::string::npos) {
       // Set environment variable.
-#ifdef CMAKE_BOOTSTRAP
+#ifdef RBLXBUILD_BOOTSTRAP
       cmSystemTools::PutEnv(a);
 #else
       auto const pos = a.find('=');
@@ -1448,12 +1448,12 @@ int _cmake_E_env(Command::Arguments args)
   }
 
   if (ai == ae) {
-    std::cerr << "cmake -E env: no command given\n";
+    std::cerr << "rblxbuild -E env: no command given\n";
     return 1;
   }
 
   auto env = cmEnvironment{};
-#ifndef CMAKE_BOOTSTRAP
+#ifndef RBLXBUILD_BOOTSTRAP
   env.Update(cmSystemTools::GetEnvironmentVariables());
   envdiff.ApplyTo(env);
 #endif
@@ -1469,16 +1469,16 @@ int _cmake_E_env(Command::Arguments args)
   }
   return 1;
 }
-Command constexpr cmake_E_env{
+Command constexpr rblxbuild_E_env{
   "env"_s,
   "[--unset=NAME ...] [NAME=VALUE ...] [--] <command> [<arg>...]"_s,
   "run command in a modified environment"_s,
-  _cmake_E_env,
+  _rblxbuild_E_env,
   Group::Common,
 };
 
-#if !defined(CMAKE_BOOTSTRAP)
-int _cmake_E_environment(Command::Arguments)
+#if !defined(RBLXBUILD_BOOTSTRAP)
+int _rblxbuild_E_environment(Command::Arguments)
 {
   for (auto const& env : cmSystemTools::GetEnvironmentVariables()) {
     std::cout << env << std::endl;
@@ -1486,17 +1486,17 @@ int _cmake_E_environment(Command::Arguments)
   return 0;
 }
 #else
-std::nullptr_t constexpr _cmake_E_environment = nullptr;
+std::nullptr_t constexpr _rblxbuild_E_environment = nullptr;
 #endif
-Command constexpr cmake_E_environment{
+Command constexpr rblxbuild_E_environment{
   "environment"_s,      ""_s,          "display the current environment"_s,
-  _cmake_E_environment, Group::Common,
+  _rblxbuild_E_environment, Group::Common,
 };
 
-int _cmake_E_make_directory(Command::Arguments args)
+int _rblxbuild_E_make_directory(Command::Arguments args)
 {
   if (args.size() <= 2) {
-    return CMakeCommandUsage(args[0]);
+    return RBLXBuildCommandUsage(args[0]);
   }
   // If an error occurs, we want to continue making directories.
   bool return_value = false;
@@ -1510,23 +1510,23 @@ int _cmake_E_make_directory(Command::Arguments args)
   }
   return return_value;
 }
-Command constexpr cmake_E_make_directory{
+Command constexpr rblxbuild_E_make_directory{
   "make_directory"_s,
   "<dir>..."_s,
   "create parent and <dir> directories"_s,
-  _cmake_E_make_directory,
+  _rblxbuild_E_make_directory,
   Group::Common,
 };
 
-int _cmake_E_remove_directory(Command::Arguments args)
+int _rblxbuild_E_remove_directory(Command::Arguments args)
 {
   if (args.size() <= 2) {
-    return CMakeCommandUsage(args[0]);
+    return RBLXBuildCommandUsage(args[0]);
   }
 
   IssueDeprecation(
-    "The 'cmake -E remove_directory' command has been superseded. "
-    "Use 'cmake -E rm' instead.");
+    "The 'rblxbuild -E remove_directory' command has been superseded. "
+    "Use 'rblxbuild -E rm' instead.");
 
   // If an error occurs, we want to continue removing directories.
   bool return_value = false;
@@ -1539,23 +1539,23 @@ int _cmake_E_remove_directory(Command::Arguments args)
   }
   return return_value;
 }
-Command constexpr cmake_E_remove_directory{
+Command constexpr rblxbuild_E_remove_directory{
   "remove_directory"_s,
   "<dir>..."_s,
   "remove directories and their contents (deprecated: use rm instead)"_s,
-  _cmake_E_remove_directory,
+  _rblxbuild_E_remove_directory,
   Group::Common,
 };
 
 // Remove file
-int _cmake_E_remove(Command::Arguments args)
+int _rblxbuild_E_remove(Command::Arguments args)
 {
   if (args.size() <= 2) {
-    return CMakeCommandUsage(args[0]);
+    return RBLXBuildCommandUsage(args[0]);
   }
 
-  IssueDeprecation("The 'cmake -E remove' command has been superseded. "
-                   "Use 'cmake -E rm' instead.");
+  IssueDeprecation("The 'rblxbuild -E remove' command has been superseded. "
+                   "Use 'rblxbuild -E rm' instead.");
 
   bool force = false;
   for (auto const& arg : cmMakeRange(args).advance(2)) {
@@ -1572,19 +1572,19 @@ int _cmake_E_remove(Command::Arguments args)
   }
   return 0;
 }
-Command constexpr cmake_E_remove{
+Command constexpr rblxbuild_E_remove{
   "remove"_s,
   "[-f] <file>..."_s,
   "remove the file(s), use -f to force it (deprecated: use rm instead)"_s,
-  _cmake_E_remove,
+  _rblxbuild_E_remove,
   Group::Common,
 };
 
 // Remove directories or files with rm
-int _cmake_E_rm(Command::Arguments args)
+int _rblxbuild_E_rm(Command::Arguments args)
 {
   if (args.size() <= 2) {
-    return CMakeCommandUsage(args[0]);
+    return RBLXBuildCommandUsage(args[0]);
   }
   // If an error occurs, we want to continue removing the remaining
   // files/directories.
@@ -1642,81 +1642,81 @@ int _cmake_E_rm(Command::Arguments args)
   }
   return return_value;
 }
-Command constexpr cmake_E_rm{
+Command constexpr rblxbuild_E_rm{
   "rm"_s,
   "[-rRf] [--] <file/dir>..."_s,
   "remove files or directories, use -f to force it, r or R to remove "
   "directories and their contents recursively"_s,
-  _cmake_E_rm,
+  _rblxbuild_E_rm,
   Group::Common,
 };
 
 // Touch file
-int _cmake_E_touch(Command::Arguments args)
+int _rblxbuild_E_touch(Command::Arguments args)
 {
   if (args.size() <= 2) {
-    return CMakeCommandUsage(args[0]);
+    return RBLXBuildCommandUsage(args[0]);
   }
   for (auto const& arg : cmMakeRange(args).advance(2)) {
     if (!cmSystemTools::Touch(arg, true)) {
-      std::cerr << "cmake -E touch: failed to update \"" << arg << "\".\n";
+      std::cerr << "rblxbuild -E touch: failed to update \"" << arg << "\".\n";
       return 1;
     }
   }
   return 0;
 }
-Command constexpr cmake_E_touch{
-  "touch"_s, "<file>..."_s, "touch a <file>."_s, _cmake_E_touch, Group::Common,
+Command constexpr rblxbuild_E_touch{
+  "touch"_s, "<file>..."_s, "touch a <file>."_s, _rblxbuild_E_touch, Group::Common,
 };
 
 // Touch file
-int _cmake_E_touch_nocreate(Command::Arguments args)
+int _rblxbuild_E_touch_nocreate(Command::Arguments args)
 {
   if (args.size() <= 2) {
-    return CMakeCommandUsage(args[0]);
+    return RBLXBuildCommandUsage(args[0]);
   }
   for (auto const& arg : cmMakeRange(args).advance(2)) {
     if (!cmSystemTools::Touch(arg, false)) {
-      std::cerr << "cmake -E touch_nocreate: failed to update \"" << arg
+      std::cerr << "rblxbuild -E touch_nocreate: failed to update \"" << arg
                 << "\".\n";
       return 1;
     }
   }
   return 0;
 }
-Command constexpr cmake_E_touch_nocreate{
+Command constexpr rblxbuild_E_touch_nocreate{
   "touch_nocreate"_s,
   "<file>..."_s,
   "touch a <file> but do not create it."_s,
-  _cmake_E_touch_nocreate,
+  _rblxbuild_E_touch_nocreate,
   Group::Common,
 };
 
 // capabilities
-int _cmake_E_capabilities(Command::Arguments args)
+int _rblxbuild_E_capabilities(Command::Arguments args)
 {
   if (args.size() > 2) {
     std::cerr << "-E capabilities accepts no additional arguments\n";
     return 1;
   }
-  cmSystemTools::InitializeCMake(args[0].c_str());
-  cmake cm(cmState::Role::Internal);
+  cmSystemTools::InitializeRBLXBuild(args[0].c_str());
+  rblxbuild cm(cmState::Role::Internal);
   std::cout << cm.ReportCapabilities();
   return 0;
 }
-Command constexpr cmake_E_capabilities{
+Command constexpr rblxbuild_E_capabilities{
   "capabilities"_s,
   ""_s,
-  "Report capabilities built into cmake in JSON format"_s,
-  _cmake_E_capabilities,
+  "Report capabilities built into rblxbuild in JSON format"_s,
+  _rblxbuild_E_capabilities,
   Group::Common,
 };
 
 // Sleep command
-int _cmake_E_sleep(Command::Arguments args)
+int _rblxbuild_E_sleep(Command::Arguments args)
 {
   if (args.size() <= 2) {
-    return CMakeCommandUsage(args[0]);
+    return RBLXBuildCommandUsage(args[0]);
   }
   double total = 0;
   for (auto const& arg : cmMakeRange(args).advance(2)) {
@@ -1736,18 +1736,18 @@ int _cmake_E_sleep(Command::Arguments args)
   }
   return 0;
 }
-Command constexpr cmake_E_sleep{
+Command constexpr rblxbuild_E_sleep{
   "sleep"_s,      "<number>..."_s, "sleep for given number of seconds"_s,
-  _cmake_E_sleep, Group::Common,
+  _rblxbuild_E_sleep, Group::Common,
 };
 
 // Clock command
-int _cmake_E_time(Command::Arguments args)
+int _rblxbuild_E_time(Command::Arguments args)
 {
   if (args.size() <= 2) {
-    return CMakeCommandUsage(args[0]);
+    return RBLXBuildCommandUsage(args[0]);
   }
-  cmSystemTools::InitializeCMake(args[0].c_str());
+  cmSystemTools::InitializeRBLXBuild(args[0].c_str());
   std::vector<std::string> command(args.begin() + 2, args.end());
 
   int ret = 0;
@@ -1760,90 +1760,90 @@ int _cmake_E_time(Command::Arguments args)
   std::cout << "Elapsed time (seconds): " << time_elapsed.count() << '\n';
   return ret;
 }
-Command constexpr cmake_E_time{
+Command constexpr rblxbuild_E_time{
   "time"_s,
   "command [args...]"_s,
   "run command and display elapsed time"_s,
-  _cmake_E_time,
+  _rblxbuild_E_time,
   Group::Common,
 };
 
 // Command to calculate the md5sum of a file
-int _cmake_E_md5sum(Command::Arguments args)
+int _rblxbuild_E_md5sum(Command::Arguments args)
 {
   if (args.size() < 3) {
-    return CMakeCommandUsage(args[0]);
+    return RBLXBuildCommandUsage(args[0]);
   }
   return HashSumFile(args, cmCryptoHash::AlgoMD5);
 }
-Command constexpr cmake_E_md5sum{
+Command constexpr rblxbuild_E_md5sum{
   "md5sum"_s,      "<file>..."_s, "create MD5 checksum of files"_s,
-  _cmake_E_md5sum, Group::Common,
+  _rblxbuild_E_md5sum, Group::Common,
 };
 
 // Command to calculate the sha1sum of a file
-int _cmake_E_sha1sum(Command::Arguments args)
+int _rblxbuild_E_sha1sum(Command::Arguments args)
 {
   if (args.size() < 3) {
-    return CMakeCommandUsage(args[0]);
+    return RBLXBuildCommandUsage(args[0]);
   }
   return HashSumFile(args, cmCryptoHash::AlgoSHA1);
 }
-Command constexpr cmake_E_sha1sum{
+Command constexpr rblxbuild_E_sha1sum{
   "sha1sum"_s,      "<file>..."_s, "create SHA1 checksum of files"_s,
-  _cmake_E_sha1sum, Group::Common,
+  _rblxbuild_E_sha1sum, Group::Common,
 };
 
-int _cmake_E_sha224sum(Command::Arguments args)
+int _rblxbuild_E_sha224sum(Command::Arguments args)
 {
   if (args.size() < 3) {
-    return CMakeCommandUsage(args[0]);
+    return RBLXBuildCommandUsage(args[0]);
   }
   return HashSumFile(args, cmCryptoHash::AlgoSHA224);
 }
-Command constexpr cmake_E_sha224sum{
+Command constexpr rblxbuild_E_sha224sum{
   "sha224sum"_s,      "<file>..."_s, "create SHA224 checksum of files"_s,
-  _cmake_E_sha224sum, Group::Common,
+  _rblxbuild_E_sha224sum, Group::Common,
 };
 
-int _cmake_E_sha256sum(Command::Arguments args)
+int _rblxbuild_E_sha256sum(Command::Arguments args)
 {
   if (args.size() < 3) {
-    return CMakeCommandUsage(args[0]);
+    return RBLXBuildCommandUsage(args[0]);
   }
   return HashSumFile(args, cmCryptoHash::AlgoSHA256);
 }
-Command constexpr cmake_E_sha256sum{
+Command constexpr rblxbuild_E_sha256sum{
   "sha256sum"_s,      "<file>..."_s, "create SHA256 checksum of files"_s,
-  _cmake_E_sha256sum, Group::Common,
+  _rblxbuild_E_sha256sum, Group::Common,
 };
 
-int _cmake_E_sha384sum(Command::Arguments args)
+int _rblxbuild_E_sha384sum(Command::Arguments args)
 {
   if (args.size() < 3) {
-    return CMakeCommandUsage(args[0]);
+    return RBLXBuildCommandUsage(args[0]);
   }
   return HashSumFile(args, cmCryptoHash::AlgoSHA384);
 }
-Command constexpr cmake_E_sha384sum{
+Command constexpr rblxbuild_E_sha384sum{
   "sha384sum"_s,      "<file>..."_s, "create SHA384 checksum of files"_s,
-  _cmake_E_sha384sum, Group::Common,
+  _rblxbuild_E_sha384sum, Group::Common,
 };
 
-int _cmake_E_sha512sum(Command::Arguments args)
+int _rblxbuild_E_sha512sum(Command::Arguments args)
 {
   if (args.size() < 3) {
-    return CMakeCommandUsage(args[0]);
+    return RBLXBuildCommandUsage(args[0]);
   }
   return HashSumFile(args, cmCryptoHash::AlgoSHA512);
 }
-Command constexpr cmake_E_sha512sum{
+Command constexpr rblxbuild_E_sha512sum{
   "sha512sum"_s,      "<file>..."_s, "create SHA512 checksum of files"_s,
-  _cmake_E_sha512sum, Group::Common,
+  _rblxbuild_E_sha512sum, Group::Common,
 };
 
 // Command to concat files into one
-int _cmake_E_cat(Command::Arguments args)
+int _rblxbuild_E_cat(Command::Arguments args)
 {
   if (args.size() == 2) {
     // Destroy console buffers to drop cout/cerr encoding transform.
@@ -1886,21 +1886,21 @@ int _cmake_E_cat(Command::Arguments args)
   }
   return return_value;
 }
-Command constexpr cmake_E_cat{
+Command constexpr rblxbuild_E_cat{
   "cat"_s,
   "[--] <files>..."_s,
   "concat the files and print them to the standard output"_s,
-  _cmake_E_cat,
+  _rblxbuild_E_cat,
   Group::Common,
 };
 
 // Command to change directory and run a program.
-int _cmake_E_chdir(Command::Arguments args)
+int _rblxbuild_E_chdir(Command::Arguments args)
 {
   if (args.size() < 4) {
-    return CMakeCommandUsage(args[0]);
+    return RBLXBuildCommandUsage(args[0]);
   }
-  cmSystemTools::InitializeCMake(args[0].c_str());
+  cmSystemTools::InitializeRBLXBuild(args[0].c_str());
   std::string const& directory = args[2];
   if (!cmSystemTools::FileExists(directory)) {
     cmSystemTools::Error("Directory does not exist for chdir command: " +
@@ -1918,16 +1918,16 @@ int _cmake_E_chdir(Command::Arguments args)
 
   return 1;
 }
-Command constexpr cmake_E_chdir{
+Command constexpr rblxbuild_E_chdir{
   "chdir"_s,      "dir cmd [args...]"_s, "run command in a given directory"_s,
-  _cmake_E_chdir, Group::Common,
+  _rblxbuild_E_chdir, Group::Common,
 };
 
 // Command to start progress for a build
-int _cmake_E_cmake_progress_start(Command::Arguments args)
+int _rblxbuild_E_rblxbuild_progress_start(Command::Arguments args)
 {
   if (args.size() != 4) {
-    return CMakeCommandUsage(args[0]);
+    return RBLXBuildCommandUsage(args[0]);
   }
   // basically remove the directory
   std::string dirName = cmStrCat(args[2], "/Progress");
@@ -1956,35 +1956,35 @@ int _cmake_E_cmake_progress_start(Command::Arguments args)
   }
   return 0;
 }
-Command constexpr cmake_E_cmake_progress_start{
-  "cmake_progress_start"_s, ""_s, ""_s, _cmake_E_cmake_progress_start,
+Command constexpr rblxbuild_E_rblxbuild_progress_start{
+  "rblxbuild_progress_start"_s, ""_s, ""_s, _rblxbuild_E_rblxbuild_progress_start,
   Group::Internal,
 };
 
 // Command to report progress for a build
-int _cmake_E_cmake_progress_report(Command::Arguments args)
+int _rblxbuild_E_rblxbuild_progress_report(Command::Arguments args)
 {
   if (args.size() < 3) {
-    return CMakeCommandUsage(args[0]);
+    return RBLXBuildCommandUsage(args[0]);
   }
-  // This has been superseded by cmake_echo_color --progress-*
+  // This has been superseded by rblxbuild_echo_color --progress-*
   // options.  We leave it here to avoid errors if somehow this
   // is invoked by an existing makefile without regenerating.
   return 0;
 }
-Command constexpr cmake_E_cmake_progress_report{
-  "cmake_progress_report"_s, ""_s, ""_s, _cmake_E_cmake_progress_report,
+Command constexpr rblxbuild_E_rblxbuild_progress_report{
+  "rblxbuild_progress_report"_s, ""_s, ""_s, _rblxbuild_E_rblxbuild_progress_report,
   Group::Internal,
 };
 
 // Command to create a symbolic link.  Fails on platforms not
 // supporting them.
-int _cmake_E_create_symlink(Command::Arguments args)
+int _rblxbuild_E_create_symlink(Command::Arguments args)
 {
   if (args.size() != 4) {
-    return CMakeCommandUsage(args[0]);
+    return RBLXBuildCommandUsage(args[0]);
   }
-  cmSystemTools::InitializeCMake(args[0].c_str());
+  cmSystemTools::InitializeRBLXBuild(args[0].c_str());
   std::string const& destinationFileName = args[3];
   if (cmSystemTools::PathExists(destinationFileName) &&
       !cmSystemTools::RemoveFile(destinationFileName)) {
@@ -1998,22 +1998,22 @@ int _cmake_E_create_symlink(Command::Arguments args)
   }
   return 0;
 }
-Command constexpr cmake_E_create_symlink{
+Command constexpr rblxbuild_E_create_symlink{
   "create_symlink"_s,
   "old new"_s,
   "create a symbolic link new -> old"_s,
-  _cmake_E_create_symlink,
+  _rblxbuild_E_create_symlink,
   Group::Common,
 };
 
 // Command to create a hard link.  Fails on platforms not
 // supporting them.
-int _cmake_E_create_hardlink(Command::Arguments args)
+int _rblxbuild_E_create_hardlink(Command::Arguments args)
 {
   if (args.size() != 4) {
-    return CMakeCommandUsage(args[0]);
+    return RBLXBuildCommandUsage(args[0]);
   }
-  cmSystemTools::InitializeCMake(args[0].c_str());
+  cmSystemTools::InitializeRBLXBuild(args[0].c_str());
   std::string const& sourceFileName = args[2];
   std::string const& destinationFileName = args[3];
 
@@ -2036,71 +2036,71 @@ int _cmake_E_create_hardlink(Command::Arguments args)
   }
   return 0;
 }
-Command constexpr cmake_E_create_hardlink{
+Command constexpr rblxbuild_E_create_hardlink{
   "create_hardlink"_s,      "old new"_s,   "create a hard link new -> old"_s,
-  _cmake_E_create_hardlink, Group::Common,
+  _rblxbuild_E_create_hardlink, Group::Common,
 };
 
 // Command to do nothing with an exit code of 0.
-int _cmake_E_true(Command::Arguments)
+int _rblxbuild_E_true(Command::Arguments)
 {
   return 0;
 }
-Command constexpr cmake_E_true{
+Command constexpr rblxbuild_E_true{
   "true"_s,      ""_s,          "do nothing with an exit code of 0"_s,
-  _cmake_E_true, Group::Common,
+  _rblxbuild_E_true, Group::Common,
 };
 
 // Command to do nothing with an exit code of 1.
-int _cmake_E_false(Command::Arguments)
+int _rblxbuild_E_false(Command::Arguments)
 {
   return 1;
 }
-Command constexpr cmake_E_false{
+Command constexpr rblxbuild_E_false{
   "false"_s,      ""_s,          "do nothing with an exit code of 1"_s,
-  _cmake_E_false, Group::Common,
+  _rblxbuild_E_false, Group::Common,
 };
 
-// Internal CMake shared library support.
-int _cmake_E_cmake_symlink_library(Command::Arguments args)
+// Internal RBLXBuild shared library support.
+int _rblxbuild_E_rblxbuild_symlink_library(Command::Arguments args)
 {
   if (args.size() != 5) {
-    return CMakeCommandUsage(args[0]);
+    return RBLXBuildCommandUsage(args[0]);
   }
-  cmSystemTools::InitializeCMake(args[0].c_str());
+  cmSystemTools::InitializeRBLXBuild(args[0].c_str());
   return SymlinkLibrary(args);
 }
-Command constexpr cmake_E_cmake_symlink_library{
-  "cmake_symlink_library"_s, ""_s, ""_s, _cmake_E_cmake_symlink_library,
+Command constexpr rblxbuild_E_rblxbuild_symlink_library{
+  "rblxbuild_symlink_library"_s, ""_s, ""_s, _rblxbuild_E_rblxbuild_symlink_library,
   Group::Internal,
 };
 
-// Internal CMake versioned executable support.
-int _cmake_E_cmake_symlink_executable(Command::Arguments args)
+// Internal RBLXBuild versioned executable support.
+int _rblxbuild_E_rblxbuild_symlink_executable(Command::Arguments args)
 {
   if (args.size() != 4) {
-    return CMakeCommandUsage(args[0]);
+    return RBLXBuildCommandUsage(args[0]);
   }
-  cmSystemTools::InitializeCMake(args[0].c_str());
+  cmSystemTools::InitializeRBLXBuild(args[0].c_str());
   return SymlinkExecutable(args);
 }
-Command constexpr cmake_E_cmake_symlink_executable{
-  "cmake_symlink_executable"_s,
+Command constexpr rblxbuild_E_rblxbuild_symlink_executable{
+  "rblxbuild_symlink_executable"_s,
   ""_s,
   ""_s,
-  _cmake_E_cmake_symlink_executable,
+  _rblxbuild_E_rblxbuild_symlink_executable,
   Group::Internal,
 };
 
-// Internal CMake dependency scanning support.
-// The format is: -E cmake_fastbuild_check_depends <dummy_file>
+// Internal RBLXBuild dependency scanning support.
+// The format is: -E rblxbuild_fastbuild_check_depends <dummy_file>
 // <space_separated_list_of_real_outputs>
-int _cmake_E_cmake_fastbuild_check_depends(Command::Arguments args)
+int _rblxbuild_E_rblxbuild_fastbuild_check_depends(Command::Arguments args)
 {
   if (args.size() < 3) {
-    return CMakeCommandUsage(args[0]);
+    return RBLXBuildCommandUsage(args[0]);
   }
-  cmSystemTools::InitializeCMake(args[0].c_str());
+  cmSystemTools::InitializeRBLXBuild(args[0].c_str());
   auto const dummyFile = args[2];
   for (auto const& arg : cmMakeRange(args).advance(3)) {
     if (!cmSystemTools::FileExists(arg)) {
@@ -2110,25 +2110,25 @@ int _cmake_E_cmake_fastbuild_check_depends(Command::Arguments args)
   }
   return 0;
 }
-Command constexpr cmake_E_cmake_fastbuild_check_depends{
-  "cmake_fastbuild_check_depends"_s,
+Command constexpr rblxbuild_E_rblxbuild_fastbuild_check_depends{
+  "rblxbuild_fastbuild_check_depends"_s,
   ""_s,
   ""_s,
-  _cmake_E_cmake_fastbuild_check_depends,
+  _rblxbuild_E_rblxbuild_fastbuild_check_depends,
   Group::Internal,
 };
 
-int _cmake_E_cmake_depends(Command::Arguments args)
+int _rblxbuild_E_rblxbuild_depends(Command::Arguments args)
 {
   if (args.size() < 6) {
-    return CMakeCommandUsage(args[0]);
+    return RBLXBuildCommandUsage(args[0]);
   }
-  cmSystemTools::InitializeCMake(args[0].c_str());
-  bool const verbose = isCMakeVerbose();
+  cmSystemTools::InitializeRBLXBuild(args[0].c_str());
+  bool const verbose = isRBLXBuildVerbose();
 
-  // Create a cmake object instance to process dependencies.
+  // Create a rblxbuild object instance to process dependencies.
   // All we need is the `set` command.
-  cmake cm(cmState::Role::Script);
+  rblxbuild cm(cmState::Role::Script);
   std::string gen;
   std::string homeDir;
   std::string startDir;
@@ -2140,7 +2140,7 @@ int _cmake_E_cmake_depends(Command::Arguments args)
   if (args.size() >= 8) {
     // Full signature:
     //
-    //   -E cmake_depends <generator>
+    //   -E rblxbuild_depends <generator>
     //                    <home-src-dir> <start-src-dir>
     //                    <home-out-dir> <start-out-dir>
     //                    <dep-info> [--color=$(COLOR)]
@@ -2169,7 +2169,7 @@ int _cmake_E_cmake_depends(Command::Arguments args)
   } else {
     // Support older signature for existing makefiles:
     //
-    //   -E cmake_depends <generator>
+    //   -E rblxbuild_depends <generator>
     //                    <home-out-dir> <start-out-dir>
     //                    <dep-info>
     //
@@ -2181,7 +2181,7 @@ int _cmake_E_cmake_depends(Command::Arguments args)
     homeOutDir = args[3];
     startOutDir = args[3];
     depInfo = args[5];
-    // Strip the `.dir` suffix. Old CMake always uses this pattern.
+    // Strip the `.dir` suffix. Old RBLXBuild always uses this pattern.
     std::string targetDir = cmSystemTools::GetFilenamePath(depInfo);
     targetDir = cmSystemTools::GetFilenameName(targetDir);
     targetName = targetDir.substr(0, targetDir.size() - 4);
@@ -2215,85 +2215,85 @@ int _cmake_E_cmake_depends(Command::Arguments args)
   }
   return 1;
 }
-Command constexpr cmake_E_cmake_depends{
-  "cmake_depends"_s, ""_s, ""_s, _cmake_E_cmake_depends, Group::Internal,
+Command constexpr rblxbuild_E_rblxbuild_depends{
+  "rblxbuild_depends"_s, ""_s, ""_s, _rblxbuild_E_rblxbuild_depends, Group::Internal,
 };
 
-#if !defined(CMAKE_BOOTSTRAP) || defined(CMAKE_BOOTSTRAP_MAKEFILES)
-// Internal CMake compiler dependencies filtering
-int _cmake_E_cmake_cl_compile_depends(Command::Arguments args)
+#if !defined(RBLXBUILD_BOOTSTRAP) || defined(RBLXBUILD_BOOTSTRAP_MAKEFILES)
+// Internal RBLXBuild compiler dependencies filtering
+int _rblxbuild_E_rblxbuild_cl_compile_depends(Command::Arguments args)
 {
-  cmSystemTools::InitializeCMake(args[0].c_str());
+  cmSystemTools::InitializeRBLXBuild(args[0].c_str());
   return CLCompileAndDependencies(args);
 }
 #else
-std::nullptr_t constexpr _cmake_E_cmake_cl_compile_depends = nullptr;
+std::nullptr_t constexpr _rblxbuild_E_rblxbuild_cl_compile_depends = nullptr;
 #endif
-Command constexpr cmake_E_cmake_cl_compile_depends{
-  "cmake_cl_compile_depends"_s,
+Command constexpr rblxbuild_E_rblxbuild_cl_compile_depends{
+  "rblxbuild_cl_compile_depends"_s,
   ""_s,
   ""_s,
-  _cmake_E_cmake_cl_compile_depends,
+  _rblxbuild_E_rblxbuild_cl_compile_depends,
   Group::Internal,
 };
 
-// Internal CMake link script support.
-int _cmake_E_cmake_link_script(Command::Arguments args)
+// Internal RBLXBuild link script support.
+int _rblxbuild_E_rblxbuild_link_script(Command::Arguments args)
 {
   if (args.size() < 3) {
-    return CMakeCommandUsage(args[0]);
+    return RBLXBuildCommandUsage(args[0]);
   }
-  cmSystemTools::InitializeCMake(args[0].c_str());
+  cmSystemTools::InitializeRBLXBuild(args[0].c_str());
   return ExecuteLinkScript(args);
 }
-Command constexpr cmake_E_cmake_link_script{
-  "cmake_link_script"_s, ""_s, ""_s, _cmake_E_cmake_link_script,
+Command constexpr rblxbuild_E_rblxbuild_link_script{
+  "rblxbuild_link_script"_s, ""_s, ""_s, _rblxbuild_E_rblxbuild_link_script,
   Group::Internal,
 };
 
-#if !defined(CMAKE_BOOTSTRAP)
-// Internal CMake ninja dependency scanning support.
-int _cmake_E_cmake_ninja_depends(Command::Arguments args)
+#if !defined(RBLXBUILD_BOOTSTRAP)
+// Internal RBLXBuild ninja dependency scanning support.
+int _rblxbuild_E_rblxbuild_ninja_depends(Command::Arguments args)
 {
-  cmSystemTools::InitializeCMake(args[0].c_str());
-  return cmcmd_cmake_ninja_depends(args.begin() + 2, args.end());
+  cmSystemTools::InitializeRBLXBuild(args[0].c_str());
+  return cmcmd_rblxbuild_ninja_depends(args.begin() + 2, args.end());
 }
 
-// Internal CMake ninja dyndep support.
-int _cmake_E_cmake_ninja_dyndep(Command::Arguments args)
+// Internal RBLXBuild ninja dyndep support.
+int _rblxbuild_E_rblxbuild_ninja_dyndep(Command::Arguments args)
 {
-  cmSystemTools::InitializeCMake(args[0].c_str());
-  return cmcmd_cmake_ninja_dyndep(args.begin() + 2, args.end());
+  cmSystemTools::InitializeRBLXBuild(args[0].c_str());
+  return cmcmd_rblxbuild_ninja_dyndep(args.begin() + 2, args.end());
 }
 #else
-std::nullptr_t constexpr _cmake_E_cmake_ninja_depends = nullptr;
-std::nullptr_t constexpr _cmake_E_cmake_ninja_dyndep = nullptr;
+std::nullptr_t constexpr _rblxbuild_E_rblxbuild_ninja_depends = nullptr;
+std::nullptr_t constexpr _rblxbuild_E_rblxbuild_ninja_dyndep = nullptr;
 #endif
-Command constexpr cmake_E_cmake_ninja_depends{
-  "cmake_ninja_depends"_s, ""_s, ""_s, _cmake_E_cmake_ninja_depends,
+Command constexpr rblxbuild_E_rblxbuild_ninja_depends{
+  "rblxbuild_ninja_depends"_s, ""_s, ""_s, _rblxbuild_E_rblxbuild_ninja_depends,
   Group::Internal,
 };
-Command constexpr cmake_E_cmake_ninja_dyndep{
-  "cmake_ninja_dyndep"_s, ""_s, ""_s, _cmake_E_cmake_ninja_dyndep,
+Command constexpr rblxbuild_E_rblxbuild_ninja_dyndep{
+  "rblxbuild_ninja_dyndep"_s, ""_s, ""_s, _rblxbuild_E_rblxbuild_ninja_dyndep,
   Group::Internal,
 };
 
-// Internal CMake C++ module compilation database support.
-int _cmake_E_cmake_module_compile_db(Command::Arguments args)
+// Internal RBLXBuild C++ module compilation database support.
+int _rblxbuild_E_rblxbuild_module_compile_db(Command::Arguments args)
 {
-  cmSystemTools::InitializeCMake(args[0].c_str());
-  return cmcmd_cmake_module_compile_db(args.begin() + 2, args.end());
+  cmSystemTools::InitializeRBLXBuild(args[0].c_str());
+  return cmcmd_rblxbuild_module_compile_db(args.begin() + 2, args.end());
 }
-Command constexpr cmake_E_cmake_module_compile_db{
-  "cmake_module_compile_db"_s,
+Command constexpr rblxbuild_E_rblxbuild_module_compile_db{
+  "rblxbuild_module_compile_db"_s,
   ""_s,
   ""_s,
-  _cmake_E_cmake_module_compile_db,
+  _rblxbuild_E_rblxbuild_module_compile_db,
   Group::Internal,
 };
 
-// Internal CMake unimplemented feature notification.
-int _cmake_E_cmake_unimplemented_variable(Command::Arguments args)
+// Internal RBLXBuild unimplemented feature notification.
+int _rblxbuild_E_rblxbuild_unimplemented_variable(Command::Arguments args)
 {
   std::cerr << "Feature not implemented for this platform.";
   if (args.size() == 3) {
@@ -2302,57 +2302,57 @@ int _cmake_E_cmake_unimplemented_variable(Command::Arguments args)
   std::cerr << '\n';
   return 1;
 }
-Command constexpr cmake_E_cmake_unimplemented_variable{
-  "cmake_unimplemented_variable"_s,
+Command constexpr rblxbuild_E_rblxbuild_unimplemented_variable{
+  "rblxbuild_unimplemented_variable"_s,
   ""_s,
   ""_s,
-  _cmake_E_cmake_unimplemented_variable,
+  _rblxbuild_E_rblxbuild_unimplemented_variable,
   Group::Internal,
 };
 
-int _cmake_E_vs_link_exe(Command::Arguments args)
+int _rblxbuild_E_vs_link_exe(Command::Arguments args)
 {
-  cmSystemTools::InitializeCMake(args[0].c_str());
+  cmSystemTools::InitializeRBLXBuild(args[0].c_str());
   return VisualStudioLink(args, 1, std::move(args.Console));
 }
-Command constexpr cmake_E_vs_link_exe{
-  "vs_link_exe"_s, ""_s, ""_s, _cmake_E_vs_link_exe, Group::Internal,
+Command constexpr rblxbuild_E_vs_link_exe{
+  "vs_link_exe"_s, ""_s, ""_s, _rblxbuild_E_vs_link_exe, Group::Internal,
 };
 
-int _cmake_E_vs_link_dll(Command::Arguments args)
+int _rblxbuild_E_vs_link_dll(Command::Arguments args)
 {
-  cmSystemTools::InitializeCMake(args[0].c_str());
+  cmSystemTools::InitializeRBLXBuild(args[0].c_str());
   return VisualStudioLink(args, 2, std::move(args.Console));
 }
-Command constexpr cmake_E_vs_link_dll{
-  "vs_link_dll"_s, ""_s, ""_s, _cmake_E_vs_link_dll, Group::Internal,
+Command constexpr rblxbuild_E_vs_link_dll{
+  "vs_link_dll"_s, ""_s, ""_s, _rblxbuild_E_vs_link_dll, Group::Internal,
 };
 
-int _cmake_E_cmake_llvm_rc(Command::Arguments args)
+int _rblxbuild_E_rblxbuild_llvm_rc(Command::Arguments args)
 {
-  cmSystemTools::InitializeCMake(args[0].c_str());
+  cmSystemTools::InitializeRBLXBuild(args[0].c_str());
   return RunLLVMRC(args);
 }
-Command constexpr cmake_E_cmake_llvm_rc{
-  "cmake_llvm_rc"_s, ""_s, ""_s, _cmake_E_cmake_llvm_rc, Group::Internal,
+Command constexpr rblxbuild_E_rblxbuild_llvm_rc{
+  "rblxbuild_llvm_rc"_s, ""_s, ""_s, _rblxbuild_E_rblxbuild_llvm_rc, Group::Internal,
 };
 
-// Internal CMake color makefile support.
-int _cmake_E_cmake_echo_color(Command::Arguments args)
+// Internal RBLXBuild color makefile support.
+int _rblxbuild_E_rblxbuild_echo_color(Command::Arguments args)
 {
   return ExecuteEchoColor(args);
 }
-Command constexpr cmake_E_cmake_echo_color{
-  "cmake_echo_color"_s, ""_s, ""_s, _cmake_E_cmake_echo_color, Group::Internal,
+Command constexpr rblxbuild_E_rblxbuild_echo_color{
+  "rblxbuild_echo_color"_s, ""_s, ""_s, _rblxbuild_E_rblxbuild_echo_color, Group::Internal,
 };
 
-#ifndef CMAKE_BOOTSTRAP
-int _cmake_E_cmake_autogen(Command::Arguments args)
+#ifndef RBLXBUILD_BOOTSTRAP
+int _rblxbuild_E_rblxbuild_autogen(Command::Arguments args)
 {
   if (args.size() < 4) {
-    return CMakeCommandUsage(args[0]);
+    return RBLXBuildCommandUsage(args[0]);
   }
-  cmSystemTools::InitializeCMake(args[0].c_str());
+  cmSystemTools::InitializeRBLXBuild(args[0].c_str());
   cm::string_view const infoFile = args[2];
   cm::string_view const config = args[3];
   cm::string_view const executableConfig =
@@ -2360,12 +2360,12 @@ int _cmake_E_cmake_autogen(Command::Arguments args)
   return cmQtAutoMocUic(infoFile, config, executableConfig) ? 0 : 1;
 }
 
-int _cmake_E_cmake_autorcc(Command::Arguments args)
+int _rblxbuild_E_rblxbuild_autorcc(Command::Arguments args)
 {
   if (args.size() < 3) {
-    return CMakeCommandUsage(args[0]);
+    return RBLXBuildCommandUsage(args[0]);
   }
-  cmSystemTools::InitializeCMake(args[0].c_str());
+  cmSystemTools::InitializeRBLXBuild(args[0].c_str());
   cm::string_view const infoFile = args[2];
   cm::string_view const config =
     (args.size() > 3) ? cm::string_view(args[3]) : cm::string_view();
@@ -2374,23 +2374,23 @@ int _cmake_E_cmake_autorcc(Command::Arguments args)
   return cmQtAutoRcc(infoFile, config, executableConfig) ? 0 : 1;
 }
 #else
-std::nullptr_t constexpr _cmake_E_cmake_autogen = nullptr;
-std::nullptr_t constexpr _cmake_E_cmake_autorcc = nullptr;
+std::nullptr_t constexpr _rblxbuild_E_rblxbuild_autogen = nullptr;
+std::nullptr_t constexpr _rblxbuild_E_rblxbuild_autorcc = nullptr;
 #endif
-Command constexpr cmake_E_cmake_autogen{
-  "cmake_autogen"_s, ""_s, ""_s, _cmake_E_cmake_autogen, Group::Internal,
+Command constexpr rblxbuild_E_rblxbuild_autogen{
+  "rblxbuild_autogen"_s, ""_s, ""_s, _rblxbuild_E_rblxbuild_autogen, Group::Internal,
 };
-Command constexpr cmake_E_cmake_autorcc{
-  "cmake_autorcc"_s, ""_s, ""_s, _cmake_E_cmake_autorcc, Group::Internal,
+Command constexpr rblxbuild_E_rblxbuild_autorcc{
+  "rblxbuild_autorcc"_s, ""_s, ""_s, _rblxbuild_E_rblxbuild_autorcc, Group::Internal,
 };
 
 // Tar files
-int _cmake_E_tar(Command::Arguments args)
+int _rblxbuild_E_tar(Command::Arguments args)
 {
   if (args.size() <= 3) {
-    return CMakeCommandUsage(args[0]);
+    return RBLXBuildCommandUsage(args[0]);
   }
-  cmSystemTools::InitializeCMake(args[0].c_str());
+  cmSystemTools::InitializeRBLXBuild(args[0].c_str());
   char const* knownFormats[] = {
     "7zip", "gnutar", "pax", "paxr", "raw", "zip"
   };
@@ -2421,55 +2421,55 @@ int _cmake_E_tar(Command::Arguments args)
         ++nCompress;
       } else if (cmHasLiteralPrefix(arg, "--mtime=")) {
         mtime = arg.substr(8);
-      } else if (cmHasLiteralPrefix(arg, "--cmake-tar-threads=")) {
+      } else if (cmHasLiteralPrefix(arg, "--rblxbuild-tar-threads=")) {
         std::string const& numThreadsStr = arg.substr(20);
         long numThreadsLong = 0;
         if (!cmStrToLong(numThreadsStr, &numThreadsLong)) {
-          cmSystemTools::Error(cmStrCat("Invalid --cmake-tar-threads value: '",
+          cmSystemTools::Error(cmStrCat("Invalid --rblxbuild-tar-threads value: '",
                                         numThreadsStr, "' - not a number"));
           return 1;
         }
         if (numThreadsLong >
             std::numeric_limits<decltype(numThreads)>::max()) {
-          cmSystemTools::Error(cmStrCat("Invalid --cmake-tar-threads value: '",
+          cmSystemTools::Error(cmStrCat("Invalid --rblxbuild-tar-threads value: '",
                                         numThreadsStr, "' - too large"));
           return 1;
         }
         if (numThreadsLong <
             std::numeric_limits<decltype(numThreads)>::min()) {
-          cmSystemTools::Error(cmStrCat("Invalid --cmake-tar-threads value: '",
+          cmSystemTools::Error(cmStrCat("Invalid --rblxbuild-tar-threads value: '",
                                         numThreadsStr, "' - too small"));
           return 1;
         }
 
         numThreads = static_cast<decltype(numThreads)>(numThreadsLong);
-      } else if (cmHasLiteralPrefix(arg, "--cmake-tar-encoding=")) {
+      } else if (cmHasLiteralPrefix(arg, "--rblxbuild-tar-encoding=")) {
         encoding = arg.substr(21);
         if (encoding.empty()) {
           cmSystemTools::Error(
             "Encoding value is empty - it must be filled if passed");
           return 1;
         }
-      } else if (cmHasLiteralPrefix(arg, "--cmake-tar-compression-level=")) {
+      } else if (cmHasLiteralPrefix(arg, "--rblxbuild-tar-compression-level=")) {
         std::string const& compressionLevelStr = arg.substr(30);
         long compressionLevelLong = 0;
         if (!cmStrToLong(compressionLevelStr, &compressionLevelLong)) {
           cmSystemTools::Error(
-            cmStrCat("Invalid --cmake-tar-compression-level value: '",
+            cmStrCat("Invalid --rblxbuild-tar-compression-level value: '",
                      compressionLevelStr, "' - not a number"));
           return 1;
         }
         if (compressionLevelLong >
             std::numeric_limits<decltype(compressionLevel)>::max()) {
           cmSystemTools::Error(
-            cmStrCat("Invalid --cmake-tar-compression-level value: '",
+            cmStrCat("Invalid --rblxbuild-tar-compression-level value: '",
                      compressionLevelStr, "' - too large"));
           return 1;
         }
         if (compressionLevelLong <
             std::numeric_limits<decltype(compressionLevel)>::min()) {
           cmSystemTools::Error(
-            cmStrCat("Invalid --cmake-tar-compression-level value: '",
+            cmStrCat("Invalid --rblxbuild-tar-compression-level value: '",
                      compressionLevelStr, "' - too small"));
           return 1;
         }
@@ -2477,7 +2477,7 @@ int _cmake_E_tar(Command::Arguments args)
         compressionLevel =
           static_cast<decltype(compressionLevel)>(compressionLevelLong);
         compressionLevelFlagPassed = true;
-      } else if (cmHasLiteralPrefix(arg, "--cmake-tar-compression-method=")) {
+      } else if (cmHasLiteralPrefix(arg, "--rblxbuild-tar-compression-method=")) {
         std::string const& compressionMethodStr = arg.substr(31);
         if (compressionMethodStr == "none" ||
             compressionMethodStr == "store") {
@@ -2505,7 +2505,7 @@ int _cmake_E_tar(Command::Arguments args)
           ++nCompress;
         } else {
           cmSystemTools::Error(
-            cmStrCat("Unknown --cmake-tar-compression-method value: '",
+            cmStrCat("Unknown --rblxbuild-tar-compression-method value: '",
                      compressionMethodStr, '\''));
           return 1;
         }
@@ -2575,7 +2575,7 @@ int _cmake_E_tar(Command::Arguments args)
   }
   if (compressionLevelFlagPassed) {
     if (nCompress == 0 && format != "zip" && format != "7zip") {
-      cmSystemTools::Error("Can not use --cmake-tar-compression-level "
+      cmSystemTools::Error("Can not use --rblxbuild-tar-compression-level "
                            "without compression algorithm selection");
       return 1;
     }
@@ -2621,11 +2621,11 @@ int _cmake_E_tar(Command::Arguments args)
     // sometimes we can not rename the directory after
     // the untar is done. This breaks the external project
     // untar and rename code.  So, by default we will wait
-    // 1/10th of a second after the untar.  If CMAKE_UNTAR_DELAY
+    // 1/10th of a second after the untar.  If RBLXBUILD_UNTAR_DELAY
     // is set in the env, its value will be used instead of 100.
     int delay = 100;
     std::string delayVar;
-    if (cmSystemTools::GetEnv("CMAKE_UNTAR_DELAY", delayVar)) {
+    if (cmSystemTools::GetEnv("RBLXBUILD_UNTAR_DELAY", delayVar)) {
       delay = atoi(delayVar.c_str());
     }
     if (delay) {
@@ -2639,18 +2639,18 @@ int _cmake_E_tar(Command::Arguments args)
   }
   return 0;
 }
-Command constexpr cmake_E_tar{
+Command constexpr rblxbuild_E_tar{
   "tar"_s,
   "[cxt][vf][zjJ] file.tar [file/dir1 file/dir2 ...]"_s,
   "create or extract a tar or zip archive"_s,
-  _cmake_E_tar,
+  _rblxbuild_E_tar,
   Group::Common,
 };
 
 // bin2c
-int _cmake_E_bin2c(Command::Arguments args)
+int _rblxbuild_E_bin2c(Command::Arguments args)
 {
-  cmSystemTools::InitializeCMake(args[0].c_str());
+  cmSystemTools::InitializeRBLXBuild(args[0].c_str());
   auto const usage = []() {
     std::cerr << "bin2c Usage: -E bin2c "
                  "[<options>...] "
@@ -2822,129 +2822,129 @@ int _cmake_E_bin2c(Command::Arguments args)
 
   return 0;
 }
-Command constexpr cmake_E_bin2c{
+Command constexpr rblxbuild_E_bin2c{
   "bin2c"_s,      ""_s,          "Turn a binary file into a C array"_s,
-  _cmake_E_bin2c, Group::Common,
+  _rblxbuild_E_bin2c, Group::Common,
 };
 
-int _cmake_E_server(Command::Arguments)
+int _rblxbuild_E_server(Command::Arguments)
 {
   cmSystemTools::Error(
-    "CMake server mode has been removed in favor of the file-api.");
+    "RBLXBuild server mode has been removed in favor of the file-api.");
   return 1;
 }
-Command constexpr cmake_E_server{
-  "server"_s, ""_s, ""_s, _cmake_E_server, Group::Internal,
+Command constexpr rblxbuild_E_server{
+  "server"_s, ""_s, ""_s, _rblxbuild_E_server, Group::Internal,
 };
 
-#if !defined(CMAKE_BOOTSTRAP)
-// Internal CMake Fortran module support.
-int _cmake_E_cmake_copy_f90_mod(Command::Arguments args)
+#if !defined(RBLXBUILD_BOOTSTRAP)
+// Internal RBLXBuild Fortran module support.
+int _rblxbuild_E_rblxbuild_copy_f90_mod(Command::Arguments args)
 {
   if (args.size() < 4) {
-    return CMakeCommandUsage(args[0]);
+    return RBLXBuildCommandUsage(args[0]);
   }
-  cmSystemTools::InitializeCMake(args[0].c_str());
+  cmSystemTools::InitializeRBLXBuild(args[0].c_str());
   return cmDependsFortran::CopyModule(args) ? 0 : 1;
 }
 #else
-std::nullptr_t constexpr _cmake_E_cmake_copy_f90_mod = nullptr;
+std::nullptr_t constexpr _rblxbuild_E_rblxbuild_copy_f90_mod = nullptr;
 #endif
-Command constexpr cmake_E_cmake_copy_f90_mod{
-  "cmake_copy_f90_mod"_s, ""_s, ""_s, _cmake_E_cmake_copy_f90_mod,
+Command constexpr rblxbuild_E_rblxbuild_copy_f90_mod{
+  "rblxbuild_copy_f90_mod"_s, ""_s, ""_s, _rblxbuild_E_rblxbuild_copy_f90_mod,
   Group::Internal,
 };
 
 #if defined(_WIN32) && !defined(__CYGWIN__)
 // Write registry value
-int _cmake_E_write_regv(Command::Arguments args)
+int _rblxbuild_E_write_regv(Command::Arguments args)
 {
   if (args.size() <= 3) {
-    return CMakeCommandUsage(args[0]);
+    return RBLXBuildCommandUsage(args[0]);
   }
-  cmSystemTools::InitializeCMake(args[0].c_str());
+  cmSystemTools::InitializeRBLXBuild(args[0].c_str());
   return cmSystemTools::WriteRegistryValue(args[2], args[3]) ? 0 : 1;
 }
 
 // Delete registry value
-int _cmake_E_delete_regv(Command::Arguments args)
+int _rblxbuild_E_delete_regv(Command::Arguments args)
 {
   if (args.size() <= 2) {
-    return CMakeCommandUsage(args[0]);
+    return RBLXBuildCommandUsage(args[0]);
   }
-  cmSystemTools::InitializeCMake(args[0].c_str());
+  cmSystemTools::InitializeRBLXBuild(args[0].c_str());
   return cmSystemTools::DeleteRegistryValue(args[2]) ? 0 : 1;
 }
 
-int _cmake_E_comspec(Command::Arguments args)
+int _rblxbuild_E_comspec(Command::Arguments args)
 {
   if (args.size() <= 2) {
-    return CMakeCommandUsage(args[0]);
+    return RBLXBuildCommandUsage(args[0]);
   }
-  std::cerr << "Win9x helper \"cmake -E comspec\" no longer supported\n";
+  std::cerr << "Win9x helper \"rblxbuild -E comspec\" no longer supported\n";
   return 1;
 }
 
-int _cmake_E_env_vs8_wince(Command::Arguments args)
+int _rblxbuild_E_env_vs8_wince(Command::Arguments args)
 {
   if (args.size() != 3) {
-    return CMakeCommandUsage(args[0]);
+    return RBLXBuildCommandUsage(args[0]);
   }
-  cmSystemTools::InitializeCMake(args[0].c_str());
+  cmSystemTools::InitializeRBLXBuild(args[0].c_str());
   return WindowsCEEnvironment("8.0", args[2]);
 }
 
-int _cmake_E_env_vs9_wince(Command::Arguments args)
+int _rblxbuild_E_env_vs9_wince(Command::Arguments args)
 {
   if (args.size() != 3) {
-    return CMakeCommandUsage(args[0]);
+    return RBLXBuildCommandUsage(args[0]);
   }
-  cmSystemTools::InitializeCMake(args[0].c_str());
+  cmSystemTools::InitializeRBLXBuild(args[0].c_str());
   return WindowsCEEnvironment("9.0", args[2]);
 }
 #else
-std::nullptr_t constexpr _cmake_E_write_regv = nullptr;
-std::nullptr_t constexpr _cmake_E_delete_regv = nullptr;
-std::nullptr_t constexpr _cmake_E_comspec = nullptr;
-std::nullptr_t constexpr _cmake_E_env_vs8_wince = nullptr;
-std::nullptr_t constexpr _cmake_E_env_vs9_wince = nullptr;
+std::nullptr_t constexpr _rblxbuild_E_write_regv = nullptr;
+std::nullptr_t constexpr _rblxbuild_E_delete_regv = nullptr;
+std::nullptr_t constexpr _rblxbuild_E_comspec = nullptr;
+std::nullptr_t constexpr _rblxbuild_E_env_vs8_wince = nullptr;
+std::nullptr_t constexpr _rblxbuild_E_env_vs9_wince = nullptr;
 #endif
 
-Command constexpr cmake_E_write_regv{
+Command constexpr rblxbuild_E_write_regv{
   "write_regv"_s,      "key value"_s,  "write registry value"_s,
-  _cmake_E_write_regv, Group::Windows,
+  _rblxbuild_E_write_regv, Group::Windows,
 };
-Command constexpr cmake_E_delete_regv{
+Command constexpr rblxbuild_E_delete_regv{
   "delete_regv"_s,      "key"_s,        "delete registry value"_s,
-  _cmake_E_delete_regv, Group::Windows,
+  _rblxbuild_E_delete_regv, Group::Windows,
 };
-Command constexpr cmake_E_comspec{
-  "comspec"_s, ""_s, ""_s, _cmake_E_comspec, Group::Internal,
+Command constexpr rblxbuild_E_comspec{
+  "comspec"_s, ""_s, ""_s, _rblxbuild_E_comspec, Group::Internal,
 };
-Command constexpr cmake_E_env_vs8_wince{
+Command constexpr rblxbuild_E_env_vs8_wince{
   "env_vs8_wince"_s,
   "sdkname"_s,
   "displays a batch file which sets the environment for the provided "
   "Windows CE SDK installed in VS2005"_s,
-  _cmake_E_env_vs8_wince,
+  _rblxbuild_E_env_vs8_wince,
   Group::Windows,
 };
-Command constexpr cmake_E_env_vs9_wince{
+Command constexpr rblxbuild_E_env_vs9_wince{
   "env_vs9_wince"_s,
   "sdkname"_s,
   "displays a batch file which sets the environment for the provided "
   "Windows CE SDK installed in VS2008"_s,
-  _cmake_E_env_vs9_wince,
+  _rblxbuild_E_env_vs9_wince,
   Group::Windows,
 };
 
 // Internal depfile transformation
-int _cmake_E_cmake_transform_depfile(Command::Arguments args)
+int _rblxbuild_E_rblxbuild_transform_depfile(Command::Arguments args)
 {
   if (args.size() != 10) {
-    return CMakeCommandUsage(args[0]);
+    return RBLXBuildCommandUsage(args[0]);
   }
-  cmSystemTools::InitializeCMake(args[0].c_str());
+  cmSystemTools::InitializeRBLXBuild(args[0].c_str());
   auto format = cmDepfileFormat::GccDepfile;
   if (args[3] == "gccdepfile") {
     format = cmDepfileFormat::GccDepfile;
@@ -2955,9 +2955,9 @@ int _cmake_E_cmake_transform_depfile(Command::Arguments args)
   } else {
     return 1;
   }
-  // Create a cmake object instance to process dependencies.
+  // Create a rblxbuild object instance to process dependencies.
   // All we need is the `set` command.
-  cmake cm(cmState::Role::Script);
+  rblxbuild cm(cmState::Role::Script);
   std::string homeDir;
   std::string startDir;
   std::string homeOutDir;
@@ -2986,79 +2986,79 @@ int _cmake_E_cmake_transform_depfile(Command::Arguments args)
   }
   return 1;
 }
-Command constexpr cmake_E_cmake_transform_depfile{
-  "cmake_transform_depfile"_s,
+Command constexpr rblxbuild_E_rblxbuild_transform_depfile{
+  "rblxbuild_transform_depfile"_s,
   ""_s,
   ""_s,
-  _cmake_E_cmake_transform_depfile,
+  _rblxbuild_E_rblxbuild_transform_depfile,
   Group::Internal,
 };
 
 // Order by `LC_COLLATE=C sort` to search using `std::lower_bound`.
 std::array<Command, 63> const Commands{ {
-  cmake_E___create_def,
-  cmake_E___run_co_compile,
-  cmake_E_bin2c,
-  cmake_E_capabilities,
-  cmake_E_cat,
-  cmake_E_chdir,
-  cmake_E_cmake_autogen,
-  cmake_E_cmake_autorcc,
-  cmake_E_cmake_cl_compile_depends,
-  cmake_E_cmake_copy_f90_mod,
-  cmake_E_cmake_depends,
-  cmake_E_cmake_echo_color,
-  cmake_E_cmake_fastbuild_check_depends,
-  cmake_E_cmake_link_script,
-  cmake_E_cmake_llvm_rc,
-  cmake_E_cmake_module_compile_db,
-  cmake_E_cmake_ninja_depends,
-  cmake_E_cmake_ninja_dyndep,
-  cmake_E_cmake_progress_report,
-  cmake_E_cmake_progress_start,
-  cmake_E_cmake_symlink_executable,
-  cmake_E_cmake_symlink_library,
-  cmake_E_cmake_transform_depfile,
-  cmake_E_cmake_unimplemented_variable,
-  cmake_E_compare_files,
-  cmake_E_comspec,
-  cmake_E_copy,
-  cmake_E_copy_directory,
-  cmake_E_copy_directory_if_different,
-  cmake_E_copy_directory_if_newer,
-  cmake_E_copy_if_different,
-  cmake_E_copy_if_newer,
-  cmake_E_create_hardlink,
-  cmake_E_create_symlink,
-  cmake_E_delete_regv,
-  cmake_E_echo,
-  cmake_E_echo_append,
-  cmake_E_env,
-  cmake_E_env_vs8_wince,
-  cmake_E_env_vs9_wince,
-  cmake_E_environment,
-  cmake_E_false,
-  cmake_E_make_directory,
-  cmake_E_md5sum,
-  cmake_E_remove,
-  cmake_E_remove_directory,
-  cmake_E_rename,
-  cmake_E_rm,
-  cmake_E_server,
-  cmake_E_sha1sum,
-  cmake_E_sha224sum,
-  cmake_E_sha256sum,
-  cmake_E_sha384sum,
-  cmake_E_sha512sum,
-  cmake_E_sleep,
-  cmake_E_tar,
-  cmake_E_time,
-  cmake_E_touch,
-  cmake_E_touch_nocreate,
-  cmake_E_true,
-  cmake_E_vs_link_dll,
-  cmake_E_vs_link_exe,
-  cmake_E_write_regv,
+  rblxbuild_E___create_def,
+  rblxbuild_E___run_co_compile,
+  rblxbuild_E_bin2c,
+  rblxbuild_E_capabilities,
+  rblxbuild_E_cat,
+  rblxbuild_E_chdir,
+  rblxbuild_E_rblxbuild_autogen,
+  rblxbuild_E_rblxbuild_autorcc,
+  rblxbuild_E_rblxbuild_cl_compile_depends,
+  rblxbuild_E_rblxbuild_copy_f90_mod,
+  rblxbuild_E_rblxbuild_depends,
+  rblxbuild_E_rblxbuild_echo_color,
+  rblxbuild_E_rblxbuild_fastbuild_check_depends,
+  rblxbuild_E_rblxbuild_link_script,
+  rblxbuild_E_rblxbuild_llvm_rc,
+  rblxbuild_E_rblxbuild_module_compile_db,
+  rblxbuild_E_rblxbuild_ninja_depends,
+  rblxbuild_E_rblxbuild_ninja_dyndep,
+  rblxbuild_E_rblxbuild_progress_report,
+  rblxbuild_E_rblxbuild_progress_start,
+  rblxbuild_E_rblxbuild_symlink_executable,
+  rblxbuild_E_rblxbuild_symlink_library,
+  rblxbuild_E_rblxbuild_transform_depfile,
+  rblxbuild_E_rblxbuild_unimplemented_variable,
+  rblxbuild_E_compare_files,
+  rblxbuild_E_comspec,
+  rblxbuild_E_copy,
+  rblxbuild_E_copy_directory,
+  rblxbuild_E_copy_directory_if_different,
+  rblxbuild_E_copy_directory_if_newer,
+  rblxbuild_E_copy_if_different,
+  rblxbuild_E_copy_if_newer,
+  rblxbuild_E_create_hardlink,
+  rblxbuild_E_create_symlink,
+  rblxbuild_E_delete_regv,
+  rblxbuild_E_echo,
+  rblxbuild_E_echo_append,
+  rblxbuild_E_env,
+  rblxbuild_E_env_vs8_wince,
+  rblxbuild_E_env_vs9_wince,
+  rblxbuild_E_environment,
+  rblxbuild_E_false,
+  rblxbuild_E_make_directory,
+  rblxbuild_E_md5sum,
+  rblxbuild_E_remove,
+  rblxbuild_E_remove_directory,
+  rblxbuild_E_rename,
+  rblxbuild_E_rm,
+  rblxbuild_E_server,
+  rblxbuild_E_sha1sum,
+  rblxbuild_E_sha224sum,
+  rblxbuild_E_sha256sum,
+  rblxbuild_E_sha384sum,
+  rblxbuild_E_sha512sum,
+  rblxbuild_E_sleep,
+  rblxbuild_E_tar,
+  rblxbuild_E_time,
+  rblxbuild_E_touch,
+  rblxbuild_E_touch_nocreate,
+  rblxbuild_E_true,
+  rblxbuild_E_vs_link_dll,
+  rblxbuild_E_vs_link_exe,
+  rblxbuild_E_write_regv,
 } };
 
 std::vector<std::string> CommandNames()
@@ -3097,16 +3097,16 @@ std::string FormatCommandLineHelp(cm::string_view header, Group group)
   return result;
 }
 
-int CMakeCommandUsage(std::string const& program)
+int RBLXBuildCommandUsage(std::string const& program)
 {
   /* clang-format off */
   std::string help_screen = cmStrCat(
-#ifndef CMAKE_BOOTSTRAP
-    "cmake version "
-  , cmVersion::GetCMakeVersion()
+#ifndef RBLXBUILD_BOOTSTRAP
+    "rblxbuild version "
+  , cmVersion::GetRBLXBuildVersion()
   , "\n"
 #else
-    "cmake bootstrap\n"
+    "rblxbuild bootstrap\n"
 #endif
     "Usage: "
   , program
@@ -3126,7 +3126,7 @@ int CMakeCommandUsage(std::string const& program)
 
 namespace cmcmd {
 
-int ExecuteCMakeCommand(std::vector<std::string> args_,
+int ExecuteRBLXBuildCommand(std::vector<std::string> args_,
                         cm::optional<cm::StdIo::Console> console)
 {
   Command::Arguments args(std::move(args_), std::move(console));
@@ -3147,7 +3147,7 @@ int ExecuteCMakeCommand(std::vector<std::string> args_,
     cmSystemTools::Error(error);
   }
 
-  return CMakeCommandUsage(args[0]);
+  return RBLXBuildCommandUsage(args[0]);
 }
 
 }
@@ -3207,7 +3207,7 @@ int SymlinkLibrary(std::vector<std::string> const& args)
     cmsys::Status status = SymlinkInternal(realName, soName);
     if (!status) {
       cmSystemTools::Error(
-        cmStrCat("cmake_symlink_library: System Error: ", status.GetString()));
+        cmStrCat("rblxbuild_symlink_library: System Error: ", status.GetString()));
       result = 1;
     }
   }
@@ -3215,7 +3215,7 @@ int SymlinkLibrary(std::vector<std::string> const& args)
     cmsys::Status status = SymlinkInternal(soName, name);
     if (!status) {
       cmSystemTools::Error(
-        cmStrCat("cmake_symlink_library: System Error: ", status.GetString()));
+        cmStrCat("rblxbuild_symlink_library: System Error: ", status.GetString()));
       result = 1;
     }
   }
@@ -3230,7 +3230,7 @@ int SymlinkExecutable(std::vector<std::string> const& args)
   if (name != realName) {
     cmsys::Status status = SymlinkInternal(realName, name);
     if (!status) {
-      cmSystemTools::Error(cmStrCat("cmake_symlink_executable: System Error: ",
+      cmSystemTools::Error(cmStrCat("rblxbuild_symlink_executable: System Error: ",
                                     status.GetString()));
       result = 1;
     }
@@ -3308,8 +3308,8 @@ void cmcmdProgressReport(std::string const& dir, std::string const& num)
 int ExecuteEchoColor(std::vector<std::string> const& args)
 {
   // The arguments are
-  //   args[0] == <cmake-executable>
-  //   args[1] == cmake_echo_color
+  //   args[0] == <rblxbuild-executable>
+  //   args[1] == rblxbuild_echo_color
 
   bool enabled = true;
   static cm::StdIo::TermAttrSet const noAttrs;
@@ -3371,8 +3371,8 @@ int ExecuteEchoColor(std::vector<std::string> const& args)
 int ExecuteLinkScript(std::vector<std::string> const& args)
 {
   // The arguments are
-  //   args[0] == <cmake-executable>
-  //   args[1] == cmake_link_script
+  //   args[0] == <rblxbuild-executable>
+  //   args[1] == rblxbuild_link_script
   //   args[2] == <link-script-name>
   //   args[3] == --verbose=?
   bool verbose = false;
@@ -3452,7 +3452,7 @@ int ExecuteLinkScript(std::vector<std::string> const& args)
 #if defined(_WIN32) && !defined(__CYGWIN__)
 int WindowsCEEnvironment(char const* version, std::string const& name)
 {
-#  if !defined(CMAKE_BOOTSTRAP)
+#  if !defined(RBLXBUILD_BOOTSTRAP)
   cmVisualStudioWCEPlatformParser parser(name.c_str());
   parser.ParseVersion(version);
   if (parser.Found()) {
@@ -3511,15 +3511,15 @@ int RunPreprocessor(std::vector<std::string> const& command,
 int RunLLVMRC(std::vector<std::string> const& args)
 {
   // The arguments are
-  //   args[0] == <cmake-executable>
-  //   args[1] == cmake_llvm_rc
+  //   args[0] == <rblxbuild-executable>
+  //   args[1] == rblxbuild_llvm_rc
   //   args[2] == source_file_path
   //   args[3] == intermediate_file
   //   args[4..n] == preprocess+args
   //   args[n+1] == ++
   //   args[n+2...] == llvm-rc+args
   if (args.size() < 3) {
-    std::cerr << "Invalid cmake_llvm_rc arguments";
+    std::cerr << "Invalid rblxbuild_llvm_rc arguments";
     return 1;
   }
 
@@ -3688,7 +3688,7 @@ int VisualStudioLink(std::vector<std::string> const& args, int type,
   for (std::string const& i : args) {
     // check for nmake temporary files
     if (i[0] == '@' &&
-        !(cmHasLiteralPrefix(i, "@CMakeFiles") ||
+        !(cmHasLiteralPrefix(i, "@RBLXBuildFiles") ||
           cmHasLiteralPrefix(i, "@.o/") || cmHasLiteralPrefix(i, "@.o\\"))) {
       cmsys::ifstream fin(i.substr(1).c_str());
       std::string line;
@@ -4015,7 +4015,7 @@ int cmVSLink::LinkNonIncremental()
   }
 
   // The MSVC link tool expects 'rc' to be in the PATH if it needs to embed
-  // manifests, but the user might explicitly set 'CMAKE_RC_COMPILER' instead.
+  // manifests, but the user might explicitly set 'RBLXBUILD_RC_COMPILER' instead.
   // Add its location as a fallback at the end of PATH.
   if (cmSystemTools::FileIsFullPath(this->RcPath)) {
     std::string rcDir = cmSystemTools::GetFilenamePath(this->RcPath);

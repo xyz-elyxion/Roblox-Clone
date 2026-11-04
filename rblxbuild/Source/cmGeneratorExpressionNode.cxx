@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmGeneratorExpressionNode.h"
 
 #include <algorithm>
@@ -25,8 +25,8 @@
 #include "cmsys/RegularExpression.hxx"
 #include "cmsys/String.h"
 
-#include "cmCMakePath.h"
-#include "cmCMakeString.hxx"
+#include "cmRBLXBuildPath.h"
+#include "cmRBLXBuildString.hxx"
 #include "cmComputeLinkInformation.h"
 #include "cmDirectoryPropertyHelper.h"
 #include "cmGenExContext.h"
@@ -59,7 +59,7 @@
 #include "cmTargetTypes.h"
 #include "cmUnreachable.h"
 #include "cmValue.h"
-#include "cmake.h"
+#include "rblxbuild.h"
 
 namespace {
 
@@ -93,7 +93,7 @@ bool HasKnownObjectFileLocation(cm::GenEx::Evaluation* eval,
       eval, content->GetOriginalExpression(),
       cmStrCat("The evaluation of the ", genex,
                " generator expression is only suitable for consumption by "
-               "CMake (limited",
+               "RBLXBuild (limited",
                reason, ").  It is not suitable for writing out elsewhere."));
     return false;
   }
@@ -108,7 +108,7 @@ std::string cmGeneratorExpressionNode::EvaluateDependentExpression(
   cmGeneratorExpressionDAGChecker* dagChecker,
   cmGeneratorTarget const* currentTarget)
 {
-  cmGeneratorExpression ge(*eval->Context.LG->GetCMakeInstance(),
+  cmGeneratorExpression ge(*eval->Context.LG->GetRBLXBuildInstance(),
                            eval->Backtrace);
   std::unique_ptr<cmCompiledGeneratorExpression> cge = ge.Parse(prop);
   cge->SetEvaluateForBuildsystem(eval->EvaluateForBuildsystem);
@@ -440,8 +440,8 @@ static const struct StrEqualNode : public cmGeneratorExpressionNode
     GeneratorExpressionContent const* /*content*/,
     cmGeneratorExpressionDAGChecker* /*dagChecker*/) const override
   {
-    return cm::CMakeString{ parameters.front() }.Compare(
-             cm::CMakeString::CompOperator::EQUAL, parameters[1])
+    return cm::RBLXBuildString{ parameters.front() }.Compare(
+             cm::RBLXBuildString::CompOperator::EQUAL, parameters[1])
       ? "1"
       : "0";
   }
@@ -458,8 +458,8 @@ static const struct StrLessNode : public cmGeneratorExpressionNode
     GeneratorExpressionContent const* /*content*/,
     cmGeneratorExpressionDAGChecker* /*dagChecker*/) const override
   {
-    return cm::CMakeString{ parameters.front() }.Compare(
-             cm::CMakeString::CompOperator::LESS, parameters[1])
+    return cm::RBLXBuildString{ parameters.front() }.Compare(
+             cm::RBLXBuildString::CompOperator::LESS, parameters[1])
       ? "1"
       : "0";
   }
@@ -476,8 +476,8 @@ static const struct StrLessEqualNode : public cmGeneratorExpressionNode
     GeneratorExpressionContent const* /*content*/,
     cmGeneratorExpressionDAGChecker* /*dagChecker*/) const override
   {
-    return cm::CMakeString{ parameters.front() }.Compare(
-             cm::CMakeString::CompOperator::LESS_EQUAL, parameters[1])
+    return cm::RBLXBuildString{ parameters.front() }.Compare(
+             cm::RBLXBuildString::CompOperator::LESS_EQUAL, parameters[1])
       ? "1"
       : "0";
   }
@@ -494,8 +494,8 @@ static const struct StrGreaterNode : public cmGeneratorExpressionNode
     GeneratorExpressionContent const* /*content*/,
     cmGeneratorExpressionDAGChecker* /*dagChecker*/) const override
   {
-    return cm::CMakeString{ parameters.front() }.Compare(
-             cm::CMakeString::CompOperator::GREATER, parameters[1])
+    return cm::RBLXBuildString{ parameters.front() }.Compare(
+             cm::RBLXBuildString::CompOperator::GREATER, parameters[1])
       ? "1"
       : "0";
   }
@@ -512,8 +512,8 @@ static const struct StrGreaterEqualNode : public cmGeneratorExpressionNode
     GeneratorExpressionContent const* /*content*/,
     cmGeneratorExpressionDAGChecker* /*dagChecker*/) const override
   {
-    return cm::CMakeString{ parameters.front() }.Compare(
-             cm::CMakeString::CompOperator::GREATER_EQUAL, parameters[1])
+    return cm::RBLXBuildString{ parameters.front() }.Compare(
+             cm::RBLXBuildString::CompOperator::GREATER_EQUAL, parameters[1])
       ? "1"
       : "0";
   }
@@ -1007,7 +1007,7 @@ bool GetNumericArguments(
 }
 
 // CMP0223: an empty path used to be a prefix of every path.
-bool IsPrefixCMP0223(cmCMakePath const& prefix, cm::GenEx::Evaluation* eval)
+bool IsPrefixCMP0223(cmRBLXBuildPath const& prefix, cm::GenEx::Evaluation* eval)
 {
   if (!prefix.IsEmpty()) {
     return false;
@@ -1080,7 +1080,7 @@ static const struct PathNode : public cmGeneratorExpressionNode
             if (CheckPathParameters(ev, cnt, "GET_ROOT_NAME"_s, args) &&
                 !args.front().empty()) {
               return processList(args.front(), [](std::string& value) {
-                value = cmCMakePath{ value }.GetRootName().String();
+                value = cmRBLXBuildPath{ value }.GetRootName().String();
               });
             }
             return std::string{};
@@ -1091,7 +1091,7 @@ static const struct PathNode : public cmGeneratorExpressionNode
             if (CheckPathParameters(ev, cnt, "GET_ROOT_DIRECTORY"_s, args) &&
                 !args.front().empty()) {
               return processList(args.front(), [](std::string& value) {
-                value = cmCMakePath{ value }.GetRootDirectory().String();
+                value = cmRBLXBuildPath{ value }.GetRootDirectory().String();
               });
             }
             return std::string{};
@@ -1102,7 +1102,7 @@ static const struct PathNode : public cmGeneratorExpressionNode
             if (CheckPathParameters(ev, cnt, "GET_ROOT_PATH"_s, args) &&
                 !args.front().empty()) {
               return processList(args.front(), [](std::string& value) {
-                value = cmCMakePath{ value }.GetRootPath().String();
+                value = cmRBLXBuildPath{ value }.GetRootPath().String();
               });
             }
             return std::string{};
@@ -1113,7 +1113,7 @@ static const struct PathNode : public cmGeneratorExpressionNode
             if (CheckPathParameters(ev, cnt, "GET_FILENAME"_s, args) &&
                 !args.front().empty()) {
               return processList(args.front(), [](std::string& value) {
-                value = cmCMakePath{ value }.GetFileName().String();
+                value = cmRBLXBuildPath{ value }.GetFileName().String();
               });
             }
             return std::string{};
@@ -1134,11 +1134,11 @@ static const struct PathNode : public cmGeneratorExpressionNode
               }
               if (lastOnly) {
                 return processList(args.front(), [](std::string& value) {
-                  value = cmCMakePath{ value }.GetExtension().String();
+                  value = cmRBLXBuildPath{ value }.GetExtension().String();
                 });
               }
               return processList(args.front(), [](std::string& value) {
-                value = cmCMakePath{ value }.GetWideExtension().String();
+                value = cmRBLXBuildPath{ value }.GetWideExtension().String();
               });
             }
             return std::string{};
@@ -1158,11 +1158,11 @@ static const struct PathNode : public cmGeneratorExpressionNode
               }
               if (lastOnly) {
                 return processList(args.front(), [](std::string& value) {
-                  value = cmCMakePath{ value }.GetStem().String();
+                  value = cmRBLXBuildPath{ value }.GetStem().String();
                 });
               }
               return processList(args.front(), [](std::string& value) {
-                value = cmCMakePath{ value }.GetNarrowStem().String();
+                value = cmRBLXBuildPath{ value }.GetNarrowStem().String();
               });
             }
             return std::string{};
@@ -1173,7 +1173,7 @@ static const struct PathNode : public cmGeneratorExpressionNode
             if (CheckPathParameters(ev, cnt, "GET_RELATIVE_PART"_s, args) &&
                 !args.front().empty()) {
               return processList(args.front(), [](std::string& value) {
-                value = cmCMakePath{ value }.GetRelativePath().String();
+                value = cmRBLXBuildPath{ value }.GetRelativePath().String();
               });
             }
             return std::string{};
@@ -1183,7 +1183,7 @@ static const struct PathNode : public cmGeneratorExpressionNode
              Arguments& args) -> std::string {
             if (CheckPathParameters(ev, cnt, "GET_PARENT_PATH"_s, args)) {
               return processList(args.front(), [](std::string& value) {
-                value = cmCMakePath{ value }.GetParentPath().String();
+                value = cmRBLXBuildPath{ value }.GetParentPath().String();
               });
             }
             return std::string{};
@@ -1192,28 +1192,28 @@ static const struct PathNode : public cmGeneratorExpressionNode
           [](cm::GenEx::Evaluation* ev, GeneratorExpressionContent const* cnt,
              Arguments& args) -> std::string {
             return CheckPathParameters(ev, cnt, "HAS_ROOT_NAME"_s, args)
-              ? ToString(cmCMakePath{ args.front() }.HasRootName())
+              ? ToString(cmRBLXBuildPath{ args.front() }.HasRootName())
               : std::string{ "0" };
           } },
         { "HAS_ROOT_DIRECTORY"_s,
           [](cm::GenEx::Evaluation* ev, GeneratorExpressionContent const* cnt,
              Arguments& args) -> std::string {
             return CheckPathParameters(ev, cnt, "HAS_ROOT_DIRECTORY"_s, args)
-              ? ToString(cmCMakePath{ args.front() }.HasRootDirectory())
+              ? ToString(cmRBLXBuildPath{ args.front() }.HasRootDirectory())
               : std::string{ "0" };
           } },
         { "HAS_ROOT_PATH"_s,
           [](cm::GenEx::Evaluation* ev, GeneratorExpressionContent const* cnt,
              Arguments& args) -> std::string {
             return CheckPathParameters(ev, cnt, "HAS_ROOT_PATH"_s, args)
-              ? ToString(cmCMakePath{ args.front() }.HasRootPath())
+              ? ToString(cmRBLXBuildPath{ args.front() }.HasRootPath())
               : std::string{ "0" };
           } },
         { "HAS_FILENAME"_s,
           [](cm::GenEx::Evaluation* ev, GeneratorExpressionContent const* cnt,
              Arguments& args) -> std::string {
             return CheckPathParameters(ev, cnt, "HAS_FILENAME"_s, args)
-              ? ToString(cmCMakePath{ args.front() }.HasFileName())
+              ? ToString(cmRBLXBuildPath{ args.front() }.HasFileName())
               : std::string{ "0" };
           } },
         { "HAS_EXTENSION"_s,
@@ -1221,42 +1221,42 @@ static const struct PathNode : public cmGeneratorExpressionNode
              Arguments& args) -> std::string {
             return CheckPathParameters(ev, cnt, "HAS_EXTENSION"_s, args) &&
                 !args.front().empty()
-              ? ToString(cmCMakePath{ args.front() }.HasExtension())
+              ? ToString(cmRBLXBuildPath{ args.front() }.HasExtension())
               : std::string{ "0" };
           } },
         { "HAS_STEM"_s,
           [](cm::GenEx::Evaluation* ev, GeneratorExpressionContent const* cnt,
              Arguments& args) -> std::string {
             return CheckPathParameters(ev, cnt, "HAS_STEM"_s, args)
-              ? ToString(cmCMakePath{ args.front() }.HasStem())
+              ? ToString(cmRBLXBuildPath{ args.front() }.HasStem())
               : std::string{ "0" };
           } },
         { "HAS_RELATIVE_PART"_s,
           [](cm::GenEx::Evaluation* ev, GeneratorExpressionContent const* cnt,
              Arguments& args) -> std::string {
             return CheckPathParameters(ev, cnt, "HAS_RELATIVE_PART"_s, args)
-              ? ToString(cmCMakePath{ args.front() }.HasRelativePath())
+              ? ToString(cmRBLXBuildPath{ args.front() }.HasRelativePath())
               : std::string{ "0" };
           } },
         { "HAS_PARENT_PATH"_s,
           [](cm::GenEx::Evaluation* ev, GeneratorExpressionContent const* cnt,
              Arguments& args) -> std::string {
             return CheckPathParameters(ev, cnt, "HAS_PARENT_PATH"_s, args)
-              ? ToString(cmCMakePath{ args.front() }.HasParentPath())
+              ? ToString(cmRBLXBuildPath{ args.front() }.HasParentPath())
               : std::string{ "0" };
           } },
         { "IS_ABSOLUTE"_s,
           [](cm::GenEx::Evaluation* ev, GeneratorExpressionContent const* cnt,
              Arguments& args) -> std::string {
             return CheckPathParameters(ev, cnt, "IS_ABSOLUTE"_s, args)
-              ? ToString(cmCMakePath{ args.front() }.IsAbsolute())
+              ? ToString(cmRBLXBuildPath{ args.front() }.IsAbsolute())
               : std::string{ "0" };
           } },
         { "IS_RELATIVE"_s,
           [](cm::GenEx::Evaluation* ev, GeneratorExpressionContent const* cnt,
              Arguments& args) -> std::string {
             return CheckPathParameters(ev, cnt, "IS_RELATIVE"_s, args)
-              ? ToString(cmCMakePath{ args.front() }.IsRelative())
+              ? ToString(cmRBLXBuildPath{ args.front() }.IsRelative())
               : std::string{ "0" };
           } },
         { "IS_PREFIX"_s,
@@ -1269,8 +1269,8 @@ static const struct PathNode : public cmGeneratorExpressionNode
             if (CheckPathParametersEx(
                   ev, cnt, normalize ? "IS_PREFIX,NORMALIZE"_s : "IS_PREFIX"_s,
                   args.size(), 2)) {
-              cmCMakePath prefix{ args[0] };
-              cmCMakePath value{ args[1] };
+              cmRBLXBuildPath prefix{ args[0] };
+              cmRBLXBuildPath value{ args[1] };
               if (normalize) {
                 prefix = prefix.Normal();
                 value = value.Normal();
@@ -1280,7 +1280,7 @@ static const struct PathNode : public cmGeneratorExpressionNode
             }
             return std::string{};
           } },
-        { "CMAKE_PATH"_s,
+        { "RBLXBUILD_PATH"_s,
           [](cm::GenEx::Evaluation* ev, GeneratorExpressionContent const* cnt,
              Arguments& args) -> std::string {
             bool normalize = args.front() == "NORMALIZE"_s;
@@ -1288,12 +1288,12 @@ static const struct PathNode : public cmGeneratorExpressionNode
               args.advance(1);
             }
             if (CheckPathParametersEx(ev, cnt,
-                                      normalize ? "CMAKE_PATH,NORMALIZE"_s
-                                                : "CMAKE_PATH"_s,
+                                      normalize ? "RBLXBUILD_PATH,NORMALIZE"_s
+                                                : "RBLXBUILD_PATH"_s,
                                       args.size(), 1)) {
               return processList(
                 args.front(), [normalize](std::string& value) {
-                  auto path = cmCMakePath{ value, cmCMakePath::auto_format };
+                  auto path = cmRBLXBuildPath{ value, cmRBLXBuildPath::auto_format };
                   value = normalize ? path.Normal().GenericString()
                                     : path.GenericString();
                 });
@@ -1313,7 +1313,7 @@ static const struct PathNode : public cmGeneratorExpressionNode
                                       args.size(), 1)) {
               return processList(
                 args.front(), [normalize](std::string& value) {
-                  auto path = cmCMakePath{ value };
+                  auto path = cmRBLXBuildPath{ value };
                   value = normalize ? path.Normal().NativeString()
                                     : path.NativeString();
                 });
@@ -1329,7 +1329,7 @@ static const struct PathNode : public cmGeneratorExpressionNode
               args.advance(1);
 
               return processList(list, [&args](std::string& value) {
-                cmCMakePath path{ value };
+                cmRBLXBuildPath path{ value };
                 for (auto const& p : args) {
                   path /= p;
                 }
@@ -1344,7 +1344,7 @@ static const struct PathNode : public cmGeneratorExpressionNode
             if (CheckPathParameters(ev, cnt, "REMOVE_FILENAME"_s, args) &&
                 !args.front().empty()) {
               return processList(args.front(), [](std::string& value) {
-                value = cmCMakePath{ value }.RemoveFileName().String();
+                value = cmRBLXBuildPath{ value }.RemoveFileName().String();
               });
             }
             return std::string{};
@@ -1354,8 +1354,8 @@ static const struct PathNode : public cmGeneratorExpressionNode
              Arguments& args) -> std::string {
             if (CheckPathParameters(ev, cnt, "REPLACE_FILENAME"_s, args, 2)) {
               return processList(args.front(), [&args](std::string& value) {
-                value = cmCMakePath{ value }
-                          .ReplaceFileName(cmCMakePath{ args[1] })
+                value = cmRBLXBuildPath{ value }
+                          .ReplaceFileName(cmRBLXBuildPath{ args[1] })
                           .String();
               });
             }
@@ -1377,11 +1377,11 @@ static const struct PathNode : public cmGeneratorExpressionNode
               }
               if (lastOnly) {
                 return processList(args.front(), [](std::string& value) {
-                  value = cmCMakePath{ value }.RemoveExtension().String();
+                  value = cmRBLXBuildPath{ value }.RemoveExtension().String();
                 });
               }
               return processList(args.front(), [](std::string& value) {
-                value = cmCMakePath{ value }.RemoveWideExtension().String();
+                value = cmRBLXBuildPath{ value }.RemoveWideExtension().String();
               });
             }
             return std::string{};
@@ -1400,14 +1400,14 @@ static const struct PathNode : public cmGeneratorExpressionNode
                                       args.size(), 2)) {
               if (lastOnly) {
                 return processList(args.front(), [&args](std::string& value) {
-                  value = cmCMakePath{ value }
-                            .ReplaceExtension(cmCMakePath{ args[1] })
+                  value = cmRBLXBuildPath{ value }
+                            .ReplaceExtension(cmRBLXBuildPath{ args[1] })
                             .String();
                 });
               }
               return processList(args.front(), [&args](std::string& value) {
-                value = cmCMakePath{ value }
-                          .ReplaceWideExtension(cmCMakePath{ args[1] })
+                value = cmRBLXBuildPath{ value }
+                          .ReplaceWideExtension(cmRBLXBuildPath{ args[1] })
                           .String();
               });
             }
@@ -1419,7 +1419,7 @@ static const struct PathNode : public cmGeneratorExpressionNode
             if (CheckPathParameters(ev, cnt, "NORMAL_PATH"_s, args) &&
                 !args.front().empty()) {
               return processList(args.front(), [](std::string& value) {
-                value = cmCMakePath{ value }.Normal().String();
+                value = cmRBLXBuildPath{ value }.Normal().String();
               });
             }
             return std::string{};
@@ -1429,7 +1429,7 @@ static const struct PathNode : public cmGeneratorExpressionNode
              Arguments& args) -> std::string {
             if (CheckPathParameters(ev, cnt, "RELATIVE_PATH"_s, args, 2)) {
               return processList(args.front(), [&args](std::string& value) {
-                value = cmCMakePath{ value }.Relative(args[1]).String();
+                value = cmRBLXBuildPath{ value }.Relative(args[1]).String();
               });
             }
             return std::string{};
@@ -1447,7 +1447,7 @@ static const struct PathNode : public cmGeneratorExpressionNode
                                       args.size(), 2)) {
               return processList(
                 args.front(), [&args, normalize](std::string& value) {
-                  auto path = cmCMakePath{ value }.Absolute(args[1]);
+                  auto path = cmRBLXBuildPath{ value }.Absolute(args[1]);
                   value = normalize ? path.Normal().String() : path.String();
                 });
             }
@@ -1478,7 +1478,7 @@ static const struct PathEqualNode : public cmGeneratorExpressionNode
     GeneratorExpressionContent const* /*content*/,
     cmGeneratorExpressionDAGChecker* /*dagChecker*/) const override
   {
-    return cmCMakePath{ parameters[0] } == cmCMakePath{ parameters[1] } ? "1"
+    return cmRBLXBuildPath{ parameters[0] } == cmRBLXBuildPath{ parameters[1] } ? "1"
                                                                         : "0";
   }
 } pathEqualNode;
@@ -1524,7 +1524,7 @@ static const struct StringNode : public cmGeneratorExpressionNode
           [](cm::GenEx::Evaluation* ev, GeneratorExpressionContent const* cnt,
              Arguments& args) -> std::string {
             if (CheckStringParameters(ev, cnt, "LENGTH"_s, args)) {
-              return std::to_string(cm::CMakeString{ args.front() }.Length());
+              return std::to_string(cm::RBLXBuildString{ args.front() }.Length());
             }
             return std::string{};
           } },
@@ -1532,7 +1532,7 @@ static const struct StringNode : public cmGeneratorExpressionNode
           [](cm::GenEx::Evaluation* ev, GeneratorExpressionContent const* cnt,
              Arguments& args) -> std::string {
             if (CheckStringParameters(ev, cnt, "SUBSTRING"_s, args, 3)) {
-              cm::CMakeString str{ args.front() };
+              cm::RBLXBuildString str{ args.front() };
               std::vector<long> indexes;
               if (GetNumericArguments(ev, cnt, args.advance(1), indexes)) {
                 try {
@@ -1559,15 +1559,15 @@ static const struct StringNode : public cmGeneratorExpressionNode
 
               auto const FROM = "FROM:"_s;
 
-              cm::CMakeString str{ args.front() };
-              cm::CMakeString::FindFrom from =
-                cm::CMakeString::FindFrom::Begin;
+              cm::RBLXBuildString str{ args.front() };
+              cm::RBLXBuildString::FindFrom from =
+                cm::RBLXBuildString::FindFrom::Begin;
               cm::string_view substring;
 
               args.advance(1);
               if (args.size() == 2) {
-                cm::CMakeString::FindFrom opt =
-                  static_cast<cm::CMakeString::FindFrom>(-1);
+                cm::RBLXBuildString::FindFrom opt =
+                  static_cast<cm::RBLXBuildString::FindFrom>(-1);
 
                 for (auto const& arg : args) {
                   if (cmHasPrefix(arg, FROM)) {
@@ -1579,13 +1579,13 @@ static const struct StringNode : public cmGeneratorExpressionNode
                       return std::string{};
                     }
                     opt = arg == "FROM:BEGIN"_s
-                      ? cm::CMakeString::FindFrom::Begin
-                      : cm::CMakeString::FindFrom::End;
+                      ? cm::RBLXBuildString::FindFrom::Begin
+                      : cm::RBLXBuildString::FindFrom::End;
                   } else {
                     substring = arg;
                   }
                 }
-                if (opt == static_cast<cm::CMakeString::FindFrom>(-1)) {
+                if (opt == static_cast<cm::RBLXBuildString::FindFrom>(-1)) {
                   reportError(
                     ev, cnt->GetOriginalExpression(),
                     cmStrCat("Expected option '", FROM, "' is missing."));
@@ -1596,7 +1596,7 @@ static const struct StringNode : public cmGeneratorExpressionNode
                 substring = args.front();
               }
               auto pos = str.Find(substring, from);
-              return pos == cm::CMakeString::npos ? "-1" : std::to_string(pos);
+              return pos == cm::RBLXBuildString::npos ? "-1" : std::to_string(pos);
             }
             return std::string{};
           } },
@@ -1614,15 +1614,15 @@ static const struct StringNode : public cmGeneratorExpressionNode
 
               auto const SEEK = "SEEK:"_s;
 
-              cm::CMakeString str{ args.front() };
-              cm::CMakeString::MatchItems seek =
-                cm::CMakeString::MatchItems::Once;
+              cm::RBLXBuildString str{ args.front() };
+              cm::RBLXBuildString::MatchItems seek =
+                cm::RBLXBuildString::MatchItems::Once;
               auto const* regex = &args[1];
 
               args.advance(1);
               if (args.size() == 2) {
-                cm::CMakeString::MatchItems opt =
-                  static_cast<cm::CMakeString::MatchItems>(-1);
+                cm::RBLXBuildString::MatchItems opt =
+                  static_cast<cm::RBLXBuildString::MatchItems>(-1);
 
                 for (auto const& arg : args) {
                   if (cmHasPrefix(arg, SEEK)) {
@@ -1634,13 +1634,13 @@ static const struct StringNode : public cmGeneratorExpressionNode
                       return std::string{};
                     }
                     opt = arg == "SEEK:ONCE"_s
-                      ? cm::CMakeString::MatchItems::Once
-                      : cm::CMakeString::MatchItems::All;
+                      ? cm::RBLXBuildString::MatchItems::Once
+                      : cm::RBLXBuildString::MatchItems::All;
                   } else {
                     regex = &arg;
                   }
                 }
-                if (opt == static_cast<cm::CMakeString::MatchItems>(-1)) {
+                if (opt == static_cast<cm::RBLXBuildString::MatchItems>(-1)) {
                   reportError(
                     ev, cnt->GetOriginalExpression(),
                     cmStrCat("Expected option '", SEEK, "' is missing."));
@@ -1664,7 +1664,7 @@ static const struct StringNode : public cmGeneratorExpressionNode
             if (CheckStringParametersEx(ev, cnt, "JOIN"_s, args.size(), 2,
                                         false)) {
               auto const& glue = args.front();
-              return cm::CMakeString{ args.advance(1), glue };
+              return cm::RBLXBuildString{ args.advance(1), glue };
             }
             return std::string{};
           } },
@@ -1674,7 +1674,7 @@ static const struct StringNode : public cmGeneratorExpressionNode
             if (CheckStringParametersEx(ev, cnt, "ASCII"_s, args.size(), 1,
                                         false)) {
               try {
-                return cm::CMakeString{}.FromASCII(args);
+                return cm::RBLXBuildString{}.FromASCII(args);
               } catch (std::invalid_argument const& e) {
                 reportError(ev, cnt->GetOriginalExpression(), e.what());
                 return std::string{};
@@ -1686,7 +1686,7 @@ static const struct StringNode : public cmGeneratorExpressionNode
           [](cm::GenEx::Evaluation* ev, GeneratorExpressionContent const* cnt,
              Arguments& args) -> std::string {
             cm::string_view format;
-            cm::CMakeString::UTC utc = cm::CMakeString::UTC::No;
+            cm::RBLXBuildString::UTC utc = cm::RBLXBuildString::UTC::No;
 
             if (args.size() == 2 && args.front() != "UTC"_s &&
                 args.back() != "UTC"_s) {
@@ -1703,12 +1703,12 @@ static const struct StringNode : public cmGeneratorExpressionNode
 
             for (auto const& arg : args) {
               if (arg == "UTC"_s) {
-                utc = cm::CMakeString::UTC::Yes;
+                utc = cm::RBLXBuildString::UTC::Yes;
               } else {
                 format = arg;
               }
             }
-            return cm::CMakeString{}.Timestamp(format, utc);
+            return cm::RBLXBuildString{}.Timestamp(format, utc);
           } },
         { "RANDOM"_s,
           [](cm::GenEx::Evaluation* ev, GeneratorExpressionContent const* cnt,
@@ -1764,9 +1764,9 @@ static const struct StringNode : public cmGeneratorExpressionNode
 
             try {
               if (seed_specified) {
-                return cm::CMakeString{}.Random(seed, length, alphabet);
+                return cm::RBLXBuildString{}.Random(seed, length, alphabet);
               }
-              return cm::CMakeString{}.Random(length, alphabet);
+              return cm::RBLXBuildString{}.Random(length, alphabet);
             } catch (std::exception const& e) {
               reportError(ev, cnt->GetOriginalExpression(), e.what());
               return std::string{};
@@ -1791,9 +1791,9 @@ static const struct StringNode : public cmGeneratorExpressionNode
 
               cm::string_view nameSpace;
               cm::string_view name;
-              cm::CMakeString::UUIDType type =
-                static_cast<cm::CMakeString::UUIDType>(-1);
-              cm::CMakeString::Case uuidCase = cm::CMakeString::Case::Lower;
+              cm::RBLXBuildString::UUIDType type =
+                static_cast<cm::RBLXBuildString::UUIDType>(-1);
+              cm::RBLXBuildString::Case uuidCase = cm::RBLXBuildString::Case::Lower;
               for (auto const& arg : args) {
                 if (cmHasPrefix(arg, NAMESPACE)) {
                   nameSpace =
@@ -1819,8 +1819,8 @@ static const struct StringNode : public cmGeneratorExpressionNode
                                "' option. 'MD5' or 'SHA1' expected."));
                     return std::string{};
                   }
-                  type = value == "MD5"_s ? cm::CMakeString::UUIDType::MD5
-                                          : cm::CMakeString::UUIDType::SHA1;
+                  type = value == "MD5"_s ? cm::RBLXBuildString::UUIDType::MD5
+                                          : cm::RBLXBuildString::UUIDType::SHA1;
                   continue;
                 }
                 if (cmHasPrefix(arg, CASE)) {
@@ -1832,8 +1832,8 @@ static const struct StringNode : public cmGeneratorExpressionNode
                                "' option. 'UPPER' or 'LOWER' expected."));
                     return std::string{};
                   }
-                  uuidCase = value == "UPPER"_s ? cm::CMakeString::Case::Upper
-                                                : cm::CMakeString::Case::Lower;
+                  uuidCase = value == "UPPER"_s ? cm::RBLXBuildString::Case::Upper
+                                                : cm::RBLXBuildString::Case::Lower;
                   continue;
                 }
                 reportError(ev, cnt->GetOriginalExpression(),
@@ -1846,7 +1846,7 @@ static const struct StringNode : public cmGeneratorExpressionNode
                   cmStrCat("Required option '", NAMESPACE, "' is missing."));
                 return std::string{};
               }
-              if (type == static_cast<cm::CMakeString::UUIDType>(-1)) {
+              if (type == static_cast<cm::RBLXBuildString::UUIDType>(-1)) {
                 reportError(
                   ev, cnt->GetOriginalExpression(),
                   cmStrCat("Required option '", TYPE, "' is missing."));
@@ -1854,7 +1854,7 @@ static const struct StringNode : public cmGeneratorExpressionNode
               }
 
               try {
-                return cm::CMakeString{}.UUID(nameSpace, name, type, uuidCase);
+                return cm::RBLXBuildString{}.UUID(nameSpace, name, type, uuidCase);
               } catch (std::exception const& e) {
                 reportError(ev, cnt->GetOriginalExpression(), e.what());
                 return std::string{};
@@ -1874,7 +1874,7 @@ static const struct StringNode : public cmGeneratorExpressionNode
                 return std::string{};
               }
 
-              cm::CMakeString::Regex isRegex = cm::CMakeString::Regex::No;
+              cm::RBLXBuildString::Regex isRegex = cm::RBLXBuildString::Regex::No;
               if (args.size() == 4) {
                 cm::string_view type = args.front();
                 if (type != "STRING"_s && type != "REGEX"_s) {
@@ -1885,13 +1885,13 @@ static const struct StringNode : public cmGeneratorExpressionNode
                       "' is unexpected. 'STRING' or 'REGEX' expected."));
                   return std::string{};
                 }
-                isRegex = type == "STRING"_s ? cm::CMakeString::Regex::No
-                                             : cm::CMakeString::Regex::Yes;
+                isRegex = type == "STRING"_s ? cm::RBLXBuildString::Regex::No
+                                             : cm::RBLXBuildString::Regex::Yes;
                 args.advance(1);
               }
 
               try {
-                return cm::CMakeString{ args.front() }.Replace(
+                return cm::RBLXBuildString{ args.front() }.Replace(
                   args[1], args[2], isRegex);
               } catch (std::invalid_argument const& e) {
                 reportError(ev, cnt->GetOriginalExpression(), e.what());
@@ -1905,7 +1905,7 @@ static const struct StringNode : public cmGeneratorExpressionNode
              Arguments& args) -> std::string {
             if (CheckStringParametersEx(ev, cnt, "APPEND"_s, args.size(), 2,
                                         false)) {
-              cm::CMakeString data{ args.front() };
+              cm::RBLXBuildString data{ args.front() };
               return data.Append(args.advance(1));
             }
             return std::string{};
@@ -1915,7 +1915,7 @@ static const struct StringNode : public cmGeneratorExpressionNode
              Arguments& args) -> std::string {
             if (CheckStringParametersEx(ev, cnt, "PREPEND "_s, args.size(), 2,
                                         false)) {
-              cm::CMakeString data{ args.front() };
+              cm::RBLXBuildString data{ args.front() };
               return data.Prepend(args.advance(1));
             }
             return std::string{};
@@ -1924,7 +1924,7 @@ static const struct StringNode : public cmGeneratorExpressionNode
           [](cm::GenEx::Evaluation* ev, GeneratorExpressionContent const* cnt,
              Arguments& args) -> std::string {
             if (CheckStringParameters(ev, cnt, "TOLOWER"_s, args, 1)) {
-              return cm::CMakeString{}.ToLower(args.front());
+              return cm::RBLXBuildString{}.ToLower(args.front());
             }
             return std::string{};
           } },
@@ -1932,7 +1932,7 @@ static const struct StringNode : public cmGeneratorExpressionNode
           [](cm::GenEx::Evaluation* ev, GeneratorExpressionContent const* cnt,
              Arguments& args) -> std::string {
             if (CheckStringParameters(ev, cnt, "TOUPPER"_s, args, 1)) {
-              return cm::CMakeString{}.ToUpper(args.front());
+              return cm::RBLXBuildString{}.ToUpper(args.front());
             }
             return std::string{};
           } },
@@ -1947,7 +1947,7 @@ static const struct StringNode : public cmGeneratorExpressionNode
                 return std::string{};
               }
 
-              return cm::CMakeString{ args[1] }.Strip();
+              return cm::RBLXBuildString{ args[1] }.Strip();
             }
             return std::string{};
           } },
@@ -1962,7 +1962,7 @@ static const struct StringNode : public cmGeneratorExpressionNode
                 return std::string{};
               }
 
-              return cm::CMakeString{ args[1] }.Quote();
+              return cm::RBLXBuildString{ args[1] }.Quote();
             }
             return std::string{};
           } },
@@ -1970,7 +1970,7 @@ static const struct StringNode : public cmGeneratorExpressionNode
           [](cm::GenEx::Evaluation* ev, GeneratorExpressionContent const* cnt,
              Arguments& args) -> std::string {
             if (CheckStringParameters(ev, cnt, "HEX"_s, args, 1)) {
-              return cm::CMakeString{ args.front() }.ToHexadecimal();
+              return cm::RBLXBuildString{ args.front() }.ToHexadecimal();
             }
             return std::string{};
           } },
@@ -1990,7 +1990,7 @@ static const struct StringNode : public cmGeneratorExpressionNode
                       cmStrCat("Missing value for '", ALGORITHM, "' option."));
                     return std::string{};
                   }
-                  return cm::CMakeString{ args.front() }.Hash(algo);
+                  return cm::RBLXBuildString{ args.front() }.Hash(algo);
                 } catch (std::exception const& e) {
                   reportError(ev, cnt->GetOriginalExpression(), e.what());
                   return std::string{};
@@ -2007,7 +2007,7 @@ static const struct StringNode : public cmGeneratorExpressionNode
              Arguments& args) -> std::string {
             if (CheckStringParameters(ev, cnt, "MAKE_C_IDENTIFIER"_s, args,
                                       1)) {
-              return cm::CMakeString{ args.front() }.MakeCIdentifier();
+              return cm::RBLXBuildString{ args.front() }.MakeCIdentifier();
             }
             return std::string{};
           } }
@@ -3063,7 +3063,7 @@ struct CompilerIdNode : public cmGeneratorExpressionNode
   {
     std::string const& compilerId =
       eval->Context.LG->GetMakefile()->GetSafeDefinition(
-        cmStrCat("CMAKE_", lang, "_COMPILER_ID"));
+        cmStrCat("RBLXBUILD_", lang, "_COMPILER_ID"));
     if (parameters.empty()) {
       return compilerId;
     }
@@ -3129,7 +3129,7 @@ struct CompilerVersionNode : public cmGeneratorExpressionNode
   {
     std::string const& compilerVersion =
       eval->Context.LG->GetMakefile()->GetSafeDefinition(
-        cmStrCat("CMAKE_", lang, "_COMPILER_VERSION"));
+        cmStrCat("RBLXBUILD_", lang, "_COMPILER_VERSION"));
     if (parameters.empty()) {
       return compilerVersion;
     }
@@ -3194,7 +3194,7 @@ struct CompilerFrontendVariantNode : public cmGeneratorExpressionNode
   {
     std::string const& compilerFrontendVariant =
       eval->Context.LG->GetMakefile()->GetSafeDefinition(
-        cmStrCat("CMAKE_", lang, "_COMPILER_FRONTEND_VARIANT"));
+        cmStrCat("RBLXBUILD_", lang, "_COMPILER_FRONTEND_VARIANT"));
     if (parameters.empty()) {
       return compilerFrontendVariant;
     }
@@ -3242,7 +3242,7 @@ struct PlatformIdNode : public cmGeneratorExpressionNode
     cmGeneratorExpressionDAGChecker* /*dagChecker*/) const override
   {
     std::string const& platformId =
-      eval->Context.LG->GetMakefile()->GetSafeDefinition("CMAKE_SYSTEM_NAME");
+      eval->Context.LG->GetMakefile()->GetSafeDefinition("RBLXBUILD_SYSTEM_NAME");
     if (parameters.empty()) {
       return platformId;
     }
@@ -3373,7 +3373,7 @@ static const struct ConfigurationTestNode : public cmGeneratorExpressionNode
         }
         // for backwards compat invalid config names are only errors as
         // the first parameter
-        eval->Context.LG->GetCMakeInstance()->IssueMessage(
+        eval->Context.LG->GetRBLXBuildInstance()->IssueMessage(
           MessageType::WARNING,
           cmStrCat("Warning evaluating generator expression:\n"
                    "  ",
@@ -3398,7 +3398,7 @@ static const struct ConfigurationTestNode : public cmGeneratorExpressionNode
     // configuration of the imported target. At that time, CPS should switch
     // to that mechanism and the CPS-specific logic here should be dropped.
     // (We can do that because CPS doesn't use generator expressions directly;
-    // rather, CMake generates them on import.)
+    // rather, RBLXBuild generates them on import.)
     bool const targetIsImported =
       (eval->CurrentTarget && eval->CurrentTarget->IsImported());
     bool const useConsumerConfig =
@@ -3443,7 +3443,7 @@ static const struct ConfigurationTestNode : public cmGeneratorExpressionNode
           switch (eval->HeadTarget->GetPolicyStatusCMP0199()) {
             case cmPolicies::WARN:
               if (lg->GetMakefile()->PolicyOptionalWarningEnabled(
-                    "CMAKE_POLICY_WARNING_CMP0199")) {
+                    "RBLXBUILD_POLICY_WARNING_CMP0199")) {
                 lg->IssuePolicyWarning(
                   cmPolicies::CMP0199, {},
                   cmStrCat("Evaluation of $<CONFIG> for imported target  \""_s,
@@ -3473,7 +3473,7 @@ static const struct ConfigurationTestNode : public cmGeneratorExpressionNode
           // regardless of whether it's valid or of what GetMappedConfig
           // actually picked. This will result in $<CONFIG> producing '1' for
           // multiple configs, and is almost certainly wrong, but it's what
-          // CMake did for a very long time, and... Hyrum's Law.
+          // RBLXBuild did for a very long time, and... Hyrum's Law.
           cmList mappedConfigs;
           std::string mapProp =
             cmStrCat("MAP_IMPORTED_CONFIG_",
@@ -3697,7 +3697,7 @@ struct LinkerId
   {
     std::string const& linkerId =
       eval->Context.LG->GetMakefile()->GetSafeDefinition(
-        cmStrCat("CMAKE_", lang, "_COMPILER_ID"));
+        cmStrCat("RBLXBUILD_", lang, "_COMPILER_ID"));
     if (parameters.empty()) {
       return linkerId;
     }
@@ -3810,7 +3810,7 @@ struct CompilerLinkerIdNode : public cmGeneratorExpressionNode
   {
     std::string const& compilerLinkerId =
       eval->Context.LG->GetMakefile()->GetSafeDefinition(
-        cmStrCat("CMAKE_", lang, "_COMPILER_LINKER_ID"));
+        cmStrCat("RBLXBUILD_", lang, "_COMPILER_LINKER_ID"));
     if (parameters.empty()) {
       return compilerLinkerId;
     }
@@ -3879,7 +3879,7 @@ struct CompilerLinkerFrontendVariantNode : public cmGeneratorExpressionNode
   {
     std::string const& compilerLinkerFrontendVariant =
       eval->Context.LG->GetMakefile()->GetSafeDefinition(
-        cmStrCat("CMAKE_", lang, "_COMPILER_LINKER_FRONTEND_VARIANT"));
+        cmStrCat("RBLXBUILD_", lang, "_COMPILER_LINKER_FRONTEND_VARIANT"));
     if (parameters.empty()) {
       return compilerLinkerFrontendVariant;
     }
@@ -4151,7 +4151,7 @@ static const struct GlobalPropertyNode : public cmGeneratorExpressionNode
     if (!IsValidPropertyName(eval, content, propertyName)) {
       return std::string{};
     }
-    cmake* cm = eval->Context.LG->GetCMakeInstance();
+    rblxbuild* cm = eval->Context.LG->GetRBLXBuildInstance();
     return cm->GetState()->GetGlobalProperty(propertyName);
   }
 } globalPropertyNode;
@@ -4320,7 +4320,7 @@ static const struct FileSetPropertyNode : public cmGeneratorExpressionNode
     if (!fileSet) {
       reportError(
         eval, content->GetOriginalExpression(),
-        cmStrCat("FILE_SET \"", fileSetName, "\" is not known from CMake."));
+        cmStrCat("FILE_SET \"", fileSetName, "\" is not known from RBLXBuild."));
       return std::string{};
     }
 
@@ -4387,7 +4387,7 @@ bool GetSourceFile(
       if (!makefile) {
         reportError(
           eval, content->GetOriginalExpression(),
-          cmStrCat("Directory \"", dir, "\" is not known from CMake."));
+          cmStrCat("Directory \"", dir, "\" is not known from RBLXBuild."));
         return false;
       }
     } else if (cmHasPrefix(option, TARGET_DIRECTORY)) {
@@ -4510,7 +4510,7 @@ static const struct SourcePropertyNode : public cmGeneratorExpressionNode
     if (!sourceFile) {
       reportError(
         eval, content->GetOriginalExpression(),
-        cmStrCat("Source file \"", sourceName, "\" is not known from CMake."));
+        cmStrCat("Source file \"", sourceName, "\" is not known from RBLXBuild."));
       return std::string{};
     }
 
@@ -4601,7 +4601,7 @@ static const struct RulePropertyNode : public cmGeneratorExpressionNode
     genRule = eval->Context.LG->FindGeneratorRuleToUse(ruleName);
     if (!genRule) {
       reportError(eval, content->GetOriginalExpression(),
-                  cmStrCat("Rule \"", ruleName, "\" is not known to CMake."));
+                  cmStrCat("Rule \"", ruleName, "\" is not known to RBLXBuild."));
       return std::string{};
     }
 
@@ -5317,7 +5317,7 @@ static const struct CompileFeaturesNode : public cmGeneratorExpressionNode
       std::vector<std::string> const& langAvailable =
         availableFeatures[lit.first];
       cmValue standardDefault = eval->Context.LG->GetMakefile()->GetDefinition(
-        cmStrCat("CMAKE_", lit.first, "_STANDARD_DEFAULT"));
+        cmStrCat("RBLXBUILD_", lit.first, "_STANDARD_DEFAULT"));
       for (std::string const& it : lit.second) {
         if (!cm::contains(langAvailable, it)) {
           return "0";
@@ -5498,7 +5498,7 @@ struct TargetFilesystemArtifactDependencyCMP0112
     switch (target->GetPolicyStatusCMP0112()) {
       case cmPolicies::WARN:
         if (lg->GetMakefile()->PolicyOptionalWarningEnabled(
-              "CMAKE_POLICY_WARNING_CMP0112")) {
+              "RBLXBUILD_POLICY_WARNING_CMP0112")) {
           lg->IssuePolicyWarning(
             cmPolicies::CMP0112, {},
             cmStrCat("Dependency being added to target:\n  \""_s,
@@ -5640,7 +5640,7 @@ struct TargetFilesystemArtifactResultCreator<ArtifactPdbTag>
     std::string language = target->GetLinkerLanguage(eval->Context.Config);
 
     std::string pdbSupportVar =
-      cmStrCat("CMAKE_", language, "_LINKER_SUPPORTS_PDB");
+      cmStrCat("RBLXBUILD_", language, "_LINKER_SUPPORTS_PDB");
 
     if (!eval->Context.LG->GetMakefile()->IsOn(pdbSupportVar)) {
       ::reportError(eval, content->GetOriginalExpression(),
@@ -6164,7 +6164,7 @@ struct TargetOutputNameArtifactResultGetter<ArtifactPdbTag>
     std::string language = target->GetLinkerLanguage(eval->Context.Config);
 
     std::string pdbSupportVar =
-      cmStrCat("CMAKE_", language, "_LINKER_SUPPORTS_PDB");
+      cmStrCat("RBLXBUILD_", language, "_LINKER_SUPPORTS_PDB");
 
     if (!lg->GetMakefile()->IsOn(pdbSupportVar)) {
       ::reportError(
@@ -6743,7 +6743,7 @@ void reportError(cm::GenEx::Evaluation* eval, std::string const& expr,
     return;
   }
 
-  eval->Context.LG->GetCMakeInstance()->IssueMessage(
+  eval->Context.LG->GetRBLXBuildInstance()->IssueMessage(
     MessageType::FATAL_ERROR,
     cmStrCat("Error evaluating generator expression:\n"
              "  ",

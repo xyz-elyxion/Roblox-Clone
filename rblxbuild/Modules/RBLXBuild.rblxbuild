@@ -1,0 +1,7 @@
+# Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
+# file LICENSE.rst or https://rblxbuild.org/licensing for details.
+
+
+# This file is used by rblxbuild.cxx to compute the RBLXBUILD_ROOT location.
+# Do not remove this file from cvs without updating rblxbuild.cxx to look
+# for a different file.

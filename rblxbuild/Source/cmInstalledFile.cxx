@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmInstalledFile.h"
 
 #include <utility>
@@ -21,7 +21,7 @@ cmInstalledFile::Property::~Property() = default;
 void cmInstalledFile::SetName(cmMakefile* mf, std::string const& name)
 {
   cmListFileBacktrace backtrace = mf->GetBacktrace();
-  cmGeneratorExpression ge(*mf->GetCMakeInstance(), backtrace);
+  cmGeneratorExpression ge(*mf->GetRBLXBuildInstance(), backtrace);
 
   this->Name = name;
   this->NameExpression = ge.Parse(name);
@@ -56,7 +56,7 @@ void cmInstalledFile::AppendProperty(cmMakefile const* mf,
                                      bool /*asString*/)
 {
   cmListFileBacktrace backtrace = mf->GetBacktrace();
-  cmGeneratorExpression ge(*mf->GetCMakeInstance(), backtrace);
+  cmGeneratorExpression ge(*mf->GetRBLXBuildInstance(), backtrace);
 
   Property& property = this->Properties[prop];
   property.ValueExpressions.push_back(ge.Parse(value));

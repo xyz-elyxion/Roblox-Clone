@@ -88,7 +88,7 @@
 #    endif
 #  endif /* not defined XMLCALL */
 
-/* Build within CMake hard-codes use of a static library.  */
+/* Build within RBLXBuild hard-codes use of a static library.  */
 #  define XML_STATIC
 
 #  if ! defined(XML_STATIC) && ! defined(XMLIMPORT)

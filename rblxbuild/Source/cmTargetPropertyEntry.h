@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #pragma once
 
 #include <memory>
@@ -8,7 +8,7 @@
 #include "cmListFileCache.h"
 
 class cmLinkItem;
-class cmake;
+class rblxbuild;
 class cmGeneratorFileSet;
 class cmGeneratorTarget;
 struct cmGeneratorExpressionDAGChecker;
@@ -28,7 +28,7 @@ public:
   virtual ~TargetPropertyEntry() = default;
 
   static std::unique_ptr<TargetPropertyEntry> Create(
-    cmake& cmakeInstance, const BT<std::string>& propertyValue,
+    rblxbuild& rblxbuildInstance, const BT<std::string>& propertyValue,
     bool evaluateForBuildsystem = false);
 
   virtual std::string const& Evaluate(

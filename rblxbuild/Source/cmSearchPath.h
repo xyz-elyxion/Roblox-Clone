@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #pragma once
 
 #include "cmConfigure.h" // IWYU pragma: keep
@@ -49,9 +49,9 @@ public:
 
   void AddPath(std::string const& path);
   void AddUserPath(std::string const& path);
-  void AddCMakePath(std::string const& variable);
+  void AddRBLXBuildPath(std::string const& variable);
   void AddEnvPath(std::string const& variable);
-  void AddCMakePrefixPath(std::string const& variable);
+  void AddRBLXBuildPrefixPath(std::string const& variable);
   void AddEnvPrefixPath(std::string const& variable, bool stripBin = false);
   void AddSuffixes(std::vector<std::string> const& suffixes);
   void AddPrefixPaths(std::vector<std::string> const& paths);

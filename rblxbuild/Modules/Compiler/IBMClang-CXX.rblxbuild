@@ -1,0 +1,14 @@
+include(Compiler/IBMClang)
+
+set(_ibmclang_version_cxx "${RBLXBUILD_CXX_COMPILER_VERSION}")
+set(RBLXBUILD_CXX_COMPILER_VERSION "${RBLXBUILD_CXX_COMPILER_VERSION_INTERNAL}")
+include(Compiler/Clang-CXX)
+set(RBLXBUILD_CXX_COMPILER_VERSION "${_ibmclang_version_cxx}")
+unset(_ibmclang_version_cxx)
+
+__compiler_ibmclang(CXX)
+
+__compiler_check_default_language_standard(CXX 17.1.0 17)
+
+set(RBLXBUILD_CXX_COMPILE_OBJECT
+  "<RBLXBUILD_CXX_COMPILER> -x c++ <DEFINES> <INCLUDES> <FLAGS> -o <OBJECT> -c <SOURCE>")

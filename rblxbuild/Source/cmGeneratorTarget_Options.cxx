@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 /* clang-format off */
 #include "cmGeneratorTarget.h"
 /* clang-format on */
@@ -30,7 +30,7 @@
 #include "cmStringAlgorithms.h"
 #include "cmSystemTools.h"
 #include "cmValue.h"
-#include "cmake.h"
+#include "rblxbuild.h"
 
 enum class OptionsParse
 {
@@ -87,7 +87,7 @@ void processOptions(cmGeneratorTarget const* tgt,
       }
     }
     if (!usedOptions.empty()) {
-      tgt->GetLocalGenerator()->GetCMakeInstance()->IssueMessage(
+      tgt->GetLocalGenerator()->GetRBLXBuildInstance()->IssueMessage(
         MessageType::LOG,
         cmStrCat("Used ", logName, " for target ", tgt->GetName(), ":\n",
                  usedOptions),
@@ -227,9 +227,9 @@ MsvcCharSetInfo GetMsvcCharSetInfo(
   using MsvcCharSet = cmGeneratorTarget::MsvcCharSet;
 
   if (tgt.Makefile->GetSafeDefinition(
-        cmStrCat("CMAKE_", lang, "_COMPILER_ID")) != "MSVC"_s &&
+        cmStrCat("RBLXBUILD_", lang, "_COMPILER_ID")) != "MSVC"_s &&
       tgt.Makefile->GetSafeDefinition(
-        cmStrCat("CMAKE_", lang, "_SIMULATE_ID")) != "MSVC"_s) {
+        cmStrCat("RBLXBUILD_", lang, "_SIMULATE_ID")) != "MSVC"_s) {
 
     // Only MSVC ABI uses this feature
     return { MsvcCharSet::None, false };
@@ -283,7 +283,7 @@ std::vector<BT<std::string>> cmGeneratorTarget::GetCompileOptions(
   };
 
   cmList debugProperties{ this->Makefile->GetDefinition(
-    "CMAKE_DEBUG_TARGET_PROPERTIES") };
+    "RBLXBUILD_DEBUG_TARGET_PROPERTIES") };
   bool debugOptions = !this->DebugCompileOptionsDone &&
     cm::contains(debugProperties, "COMPILE_OPTIONS");
 
@@ -327,7 +327,7 @@ std::vector<BT<std::string>> cmGeneratorTarget::GetCompileFeatures(
   };
 
   cmList debugProperties{ this->Makefile->GetDefinition(
-    "CMAKE_DEBUG_TARGET_PROPERTIES") };
+    "RBLXBUILD_DEBUG_TARGET_PROPERTIES") };
   bool debugFeatures = !this->DebugCompileFeaturesDone &&
     cm::contains(debugProperties, "COMPILE_FEATURES");
 
@@ -378,7 +378,7 @@ std::vector<BT<std::string>> cmGeneratorTarget::GetCompileDefinitions(
   };
 
   cmList debugProperties{ this->Makefile->GetDefinition(
-    "CMAKE_DEBUG_TARGET_PROPERTIES") };
+    "RBLXBUILD_DEBUG_TARGET_PROPERTIES") };
   bool debugDefines = !this->DebugCompileDefinitionsDone &&
     cm::contains(debugProperties, "COMPILE_DEFINITIONS");
 
@@ -412,7 +412,7 @@ std::vector<BT<std::string>> cmGeneratorTarget::GetCompileDefinitions(
     }
     if (!define.empty()) {
       std::unique_ptr<TargetPropertyEntry> property =
-        TargetPropertyEntry::Create(*this->LocalGenerator->GetCMakeInstance(),
+        TargetPropertyEntry::Create(*this->LocalGenerator->GetRBLXBuildInstance(),
                                     std::string{ define });
       entries.Entries.emplace_back(
         EvaluateTargetPropertyEntry(this, context, &dagChecker, *property));
@@ -445,7 +445,7 @@ std::vector<BT<std::string>> cmGeneratorTarget::GetPrecompileHeaders(
   };
 
   cmList debugProperties{ this->Makefile->GetDefinition(
-    "CMAKE_DEBUG_TARGET_PROPERTIES") };
+    "RBLXBUILD_DEBUG_TARGET_PROPERTIES") };
   bool debugDefines = !this->DebugPrecompileHeadersDone &&
     std::find(debugProperties.begin(), debugProperties.end(),
               "PRECOMPILE_HEADERS") != debugProperties.end();
@@ -505,7 +505,7 @@ std::vector<BT<std::string>> cmGeneratorTarget::GetLinkOptions(
   };
 
   cmList debugProperties{ this->Makefile->GetDefinition(
-    "CMAKE_DEBUG_TARGET_PROPERTIES") };
+    "RBLXBUILD_DEBUG_TARGET_PROPERTIES") };
   bool debugOptions = !this->DebugLinkOptionsDone &&
     cm::contains(debugProperties, "LINK_OPTIONS");
 
@@ -527,10 +527,10 @@ std::vector<BT<std::string>> cmGeneratorTarget::GetLinkOptions(
   if (this->IsDeviceLink()) {
     // wrap host link options
     std::string const wrapper(this->Makefile->GetSafeDefinition(
-      cmStrCat("CMAKE_", language, "_DEVICE_COMPILER_WRAPPER_FLAG")));
+      cmStrCat("RBLXBUILD_", language, "_DEVICE_COMPILER_WRAPPER_FLAG")));
     cmList wrapperFlag{ wrapper };
     std::string const wrapperSep(this->Makefile->GetSafeDefinition(
-      cmStrCat("CMAKE_", language, "_DEVICE_COMPILER_WRAPPER_FLAG_SEP")));
+      cmStrCat("RBLXBUILD_", language, "_DEVICE_COMPILER_WRAPPER_FLAG_SEP")));
     bool concatFlagAndArgs = true;
     if (!wrapperFlag.empty() && wrapperFlag.back() == " ") {
       concatFlagAndArgs = false;
@@ -586,11 +586,11 @@ std::vector<BT<std::string>>& cmGeneratorTarget::ResolvePrefixWrapper(
   // replace "LINKER:" or "ARCHIVER:" prefixed elements by actual linker or
   // archiver wrapper
   std::string const wrapper(this->Makefile->GetSafeDefinition(
-    cmStrCat("CMAKE_", language, (this->IsDeviceLink() ? "_DEVICE_" : "_"),
+    cmStrCat("RBLXBUILD_", language, (this->IsDeviceLink() ? "_DEVICE_" : "_"),
              prefix, "_WRAPPER_FLAG")));
   cmList wrapperFlag{ wrapper };
   std::string const wrapperSep(this->Makefile->GetSafeDefinition(
-    cmStrCat("CMAKE_", language, (this->IsDeviceLink() ? "_DEVICE_" : "_"),
+    cmStrCat("RBLXBUILD_", language, (this->IsDeviceLink() ? "_DEVICE_" : "_"),
              prefix, "_WRAPPER_FLAG_SEP")));
   bool concatFlagAndArgs = true;
   if (!wrapperFlag.empty() && wrapperFlag.back() == " ") {
@@ -630,7 +630,7 @@ std::vector<BT<std::string>>& cmGeneratorTarget::ResolvePrefixWrapper(
                      [&SHELL](std::string const& item) -> bool {
                        return item.find(SHELL) != std::string::npos;
                      }) != options.end()) {
-      this->LocalGenerator->GetCMakeInstance()->IssueMessage(
+      this->LocalGenerator->GetRBLXBuildInstance()->IssueMessage(
         MessageType::FATAL_ERROR,
         cmStrCat("'SHELL:' prefix is not supported as part of '", prefix,
                  ":' arguments."),
@@ -692,7 +692,7 @@ std::vector<BT<std::string>> cmGeneratorTarget::GetStaticLibraryLinkOptions(
   cm::EvaluatedTargetPropertyEntries entries;
   if (cmValue linkOptions = this->GetProperty("STATIC_LIBRARY_OPTIONS")) {
     std::unique_ptr<TargetPropertyEntry> entry = TargetPropertyEntry::Create(
-      *this->LocalGenerator->GetCMakeInstance(), *linkOptions);
+      *this->LocalGenerator->GetRBLXBuildInstance(), *linkOptions);
     entries.Entries.emplace_back(
       cm::EvaluateTargetPropertyEntry(this, context, &dagChecker, *entry));
   }
@@ -739,7 +739,7 @@ std::vector<BT<std::string>> cmGeneratorTarget::GetLinkDepends(
     cmList depends{ *linkDepends };
     for (auto const& depend : depends) {
       std::unique_ptr<TargetPropertyEntry> entry = TargetPropertyEntry::Create(
-        *this->LocalGenerator->GetCMakeInstance(), depend);
+        *this->LocalGenerator->GetRBLXBuildInstance(), depend);
       entries.Entries.emplace_back(
         EvaluateTargetPropertyEntry(this, context, &dagChecker, *entry));
     }

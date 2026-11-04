@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmConfigureLog.h"
 
 #include <cassert>
@@ -20,7 +20,7 @@
 #include "cmRange.h"
 #include "cmStringAlgorithms.h"
 #include "cmSystemTools.h"
-#include "cmake.h"
+#include "rblxbuild.h"
 
 cmConfigureLog::cmConfigureLog(std::string logDir,
                                std::vector<unsigned int> logVersions)
@@ -66,7 +66,7 @@ bool cmConfigureLog::IsAnyLogVersionEnabled(
 void cmConfigureLog::WriteBacktrace(cmMakefile const& mf)
 {
   std::vector<std::string> backtrace;
-  auto root = mf.GetCMakeInstance()->GetHomeDirectory();
+  auto root = mf.GetRBLXBuildInstance()->GetHomeDirectory();
   for (auto bt = mf.GetBacktrace(); !bt.Empty(); bt = bt.Pop()) {
     auto t = bt.Top();
     if (!t.Name.empty() || t.Line == cmListFileContext::DeferPlaceholderLine) {
@@ -81,12 +81,12 @@ void cmConfigureLog::WriteBacktrace(cmMakefile const& mf)
 
 void cmConfigureLog::WriteChecks(cmMakefile const& mf)
 {
-  if (!mf.GetCMakeInstance()->HasCheckInProgress()) {
+  if (!mf.GetRBLXBuildInstance()->HasCheckInProgress()) {
     return;
   }
   this->BeginObject("checks"_s);
   for (auto const& value :
-       cmReverseRange(mf.GetCMakeInstance()->GetCheckInProgressMessages())) {
+       cmReverseRange(mf.GetRBLXBuildInstance()->GetCheckInProgressMessages())) {
     this->BeginLine() << "- ";
     this->Encoder->write(value, &this->Stream);
     this->EndLine();
@@ -101,7 +101,7 @@ void cmConfigureLog::EnsureInit()
   }
   assert(!this->Stream.is_open());
 
-  std::string name = cmStrCat(this->LogDir, "/CMakeConfigureLog.yaml");
+  std::string name = cmStrCat(this->LogDir, "/RBLXBuildConfigureLog.yaml");
   this->Stream.open(name.c_str(), std::ios::out | std::ios::app);
 
   this->Opened = true;

@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #pragma once
 
 #include <cstddef>
@@ -17,7 +17,7 @@ class cmGeneratorTarget;
 class cmLocalGenerator;
 class cmMakefile;
 class cmSourceFile;
-class cmake;
+class rblxbuild;
 struct cmIDEFlagTable;
 
 /** \class cmGlobalVisualStudio10Generator
@@ -106,10 +106,10 @@ public:
     return this->PlatformToolsetNeedsDebugEnum;
   }
 
-  /** Return the CMAKE_SYSTEM_NAME.  */
+  /** Return the RBLXBUILD_SYSTEM_NAME.  */
   std::string const& GetSystemName() const { return this->SystemName; }
 
-  /** Return the CMAKE_SYSTEM_VERSION.  */
+  /** Return the RBLXBUILD_SYSTEM_VERSION.  */
   std::string const& GetSystemVersion() const { return this->SystemVersion; }
 
   /** Return the Windows version targeted on VS 2015 and above.  */
@@ -136,7 +136,7 @@ public:
   /** Return true if building for Android */
   bool TargetsAndroid() const { return this->SystemIsAndroid; }
 
-  char const* GetCMakeCFGIntDir() const override { return "$(Configuration)"; }
+  char const* GetRBLXBuildCFGIntDir() const override { return "$(Configuration)"; }
 
   /** Generate an <output>.rule file path for a given command output.  */
   std::string GenerateRuleFile(std::string const& output) const override;
@@ -165,7 +165,7 @@ public:
 
   static std::string GetInstalledNsightTegraVersion();
 
-  /** Return the first two components of CMAKE_SYSTEM_VERSION.  */
+  /** Return the first two components of RBLXBUILD_SYSTEM_VERSION.  */
   std::string GetApplicationTypeRevision() const;
 
   virtual char const* GetAndroidApplicationTypeRevision() const { return ""; }
@@ -187,7 +187,7 @@ public:
   bool SupportsShortObjectNames() const override;
 
 protected:
-  cmGlobalVisualStudio10Generator(cmake* cm, std::string const& name);
+  cmGlobalVisualStudio10Generator(rblxbuild* cm, std::string const& name);
 
   void Generate() override;
   virtual bool InitializeSystem(cmMakefile* mf);

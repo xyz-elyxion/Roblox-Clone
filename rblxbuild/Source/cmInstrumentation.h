@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #pragma once
 
 #include "cmConfigure.h" // IWYU pragma: keep
@@ -18,7 +18,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#ifndef CMAKE_BOOTSTRAP
+#ifndef RBLXBUILD_BOOTSTRAP
 #  include <cmsys/SystemInformation.hxx>
 #endif
 
@@ -57,7 +57,7 @@ public:
     TimeValue ru_stime{};
     long ru_maxrss = 0;
 
-#ifndef CMAKE_BOOTSTRAP
+#ifndef RBLXBUILD_BOOTSTRAP
     ProcessMetrics() = default;
     ProcessMetrics(cmsys::SystemInformation::ProcessResourceUsage const& usage)
       : ru_utime{ usage.ru_utime.tv_sec, usage.ru_utime.tv_usec }
@@ -101,7 +101,7 @@ public:
                       std::set<cmInstrumentationQuery::Hook> const& hooks,
                       std::vector<std::vector<std::string>> const& callback);
   void AddCustomContent(std::string const& name, Json::Value const& contents);
-  void WriteCMakeContent(std::unique_ptr<cmGlobalGenerator> const& gg);
+  void WriteRBLXBuildContent(std::unique_ptr<cmGlobalGenerator> const& gg);
   Json::Value DumpTargets(std::unique_ptr<cmGlobalGenerator> const& gg);
   void ClearGeneratedQueries();
   int CollectTimingData(cmInstrumentationQuery::Hook hook);
@@ -185,7 +185,7 @@ private:
   bool ranOSCheck = false;
   Json::Value customContent = Json::objectValue;
   std::map<std::string, Json::Value> configureSnippetData;
-#ifndef CMAKE_BOOTSTRAP
+#ifndef RBLXBUILD_BOOTSTRAP
   std::unique_ptr<cmsys::SystemInformation> systemInformation;
   cmsys::SystemInformation& GetSystemInformation();
 #endif

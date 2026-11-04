@@ -1,0 +1,27 @@
+
+# This module is shared by multiple languages; use include blocker.
+include_guard()
+
+set(RBLXBUILD_BUILD_TYPE_INIT Debug)
+
+if(DEFINED RBLXBUILD_SYSTEM_PROCESSOR AND RBLXBUILD_SYSTEM_PROCESSOR STREQUAL "I86")
+  string(APPEND RBLXBUILD_EXE_LINKER_FLAGS_INIT " system dos")
+  string(APPEND RBLXBUILD_SHARED_LINKER_FLAGS_INIT " system dos")
+  string(APPEND RBLXBUILD_MODULE_LINKER_FLAGS_INIT " system dos")
+else()
+  string(APPEND RBLXBUILD_EXE_LINKER_FLAGS_INIT " system dos4g")
+  string(APPEND RBLXBUILD_SHARED_LINKER_FLAGS_INIT " system dos4g")
+  string(APPEND RBLXBUILD_MODULE_LINKER_FLAGS_INIT " system dos4g")
+endif()
+
+set(RBLXBUILD_C_COMPILE_OPTIONS_DLL "-bd") # Note: This variable is a ';' separated list
+set(RBLXBUILD_SHARED_LIBRARY_C_FLAGS "-bd") # ... while this is a space separated string.
+
+string(APPEND RBLXBUILD_C_FLAGS_INIT " -bt=dos")
+string(APPEND RBLXBUILD_CXX_FLAGS_INIT " -bt=dos -xs")
+
+macro(__dos_open_watcom lang)
+  if(NOT RBLXBUILD_${lang}_STANDARD_INCLUDE_DIRECTORIES)
+    set(RBLXBUILD_${lang}_STANDARD_INCLUDE_DIRECTORIES $ENV{WATCOM}/h)
+  endif()
+endmacro()

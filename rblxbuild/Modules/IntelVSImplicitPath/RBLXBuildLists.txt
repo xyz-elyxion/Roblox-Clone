@@ -1,0 +1,7 @@
+rblxbuild_minimum_required(VERSION ${RBLXBUILD_VERSION})
+project(IntelFortranImplicit Fortran)
+add_custom_command(
+  OUTPUT output.rblxbuild
+  COMMAND ${RBLXBUILD_COMMAND} -P ${IntelFortranImplicit_SOURCE_DIR}/detect.rblxbuild
+  )
+add_library(FortranLib hello.f output.rblxbuild)

@@ -1,0 +1,9 @@
+
+set(RBLXBUILD_CUDA_VERBOSE_LINK_FLAG "-Wl,-v")
+
+# linker selection
+set(RBLXBUILD_CUDA_USING_LINKER_SYSTEM "")
+set(RBLXBUILD_CUDA_USING_LINKER_LLD "-fuse-ld=lld")
+set(RBLXBUILD_CUDA_USING_LINKER_BFD "-fuse-ld=bfd")
+set(RBLXBUILD_CUDA_USING_LINKER_GOLD "-fuse-ld=gold")
+set(RBLXBUILD_CUDA_USING_LINKER_MOLD "-fuse-ld=mold")

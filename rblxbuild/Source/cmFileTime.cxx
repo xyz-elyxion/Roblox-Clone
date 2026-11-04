@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmFileTime.h"
 
 #include <ctime>
@@ -22,10 +22,10 @@ bool cmFileTime::Load(std::string const& fileName)
   if (::stat(fileName.c_str(), &fst) != 0) {
     return false;
   }
-#  if CMake_STAT_HAS_ST_MTIM
+#  if RBLXBuild_STAT_HAS_ST_MTIM
   // Nanosecond resolution
   this->Time = fst.st_mtim.tv_sec * UtPerS + fst.st_mtim.tv_nsec;
-#  elif CMake_STAT_HAS_ST_MTIMESPEC
+#  elif RBLXBuild_STAT_HAS_ST_MTIMESPEC
   // Nanosecond resolution
   this->Time = fst.st_mtimespec.tv_sec * UtPerS + fst.st_mtimespec.tv_nsec;
 #  else

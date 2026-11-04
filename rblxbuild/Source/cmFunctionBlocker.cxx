@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmFunctionBlocker.h"
 
 #include <cassert>
@@ -11,7 +11,7 @@
 #include "cmDiagnostics.h"
 #include "cmExecutionStatus.h"
 #include "cmMakefile.h"
-#include "cmake.h"
+#include "rblxbuild.h"
 
 bool cmFunctionBlocker::IsFunctionBlocked(cmListFileFunction const& lff,
                                           cmExecutionStatus& status)
@@ -54,7 +54,7 @@ bool cmFunctionBlocker::IsFunctionBlocked(cmListFileFunction const& lff,
       cmListFileBacktrace endCommandBT =
         mf.GetBacktrace().Push(closingContext);
       // if trace is enabled, print a (trivially) evaluated "end" statement
-      if (mf.GetCMakeInstance()->GetTrace()) {
+      if (mf.GetRBLXBuildInstance()->GetTrace()) {
         mf.PrintCommandTrace(lff, endCommandBT,
                              cmMakefile::CommandMissingFromStack::Yes);
       }

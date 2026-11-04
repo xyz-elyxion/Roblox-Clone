@@ -65,14 +65,14 @@
  </widget>
  <customwidgets>
   <customwidget>
-   <class>QCMakePathEditor</class>
+   <class>QRBLXBuildPathEditor</class>
    <extends>QLineEdit</extends>
-   <header>QCMakeWidgets.h</header>
+   <header>QRBLXBuildWidgets.h</header>
   </customwidget>
   <customwidget>
-   <class>QCMakeFilePathEditor</class>
+   <class>QRBLXBuildFilePathEditor</class>
    <extends>QLineEdit</extends>
-   <header>QCMakeWidgets.h</header>
+   <header>QRBLXBuildWidgets.h</header>
   </customwidget>
  </customwidgets>
  <resources/>

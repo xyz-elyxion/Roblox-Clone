@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 
 #pragma once
 
@@ -93,7 +93,7 @@ public:
     char const* Config = nullptr;
   };
 
-  // Expand rule variables in CMake of the type found in language rules
+  // Expand rule variables in RBLXBuild of the type found in language rules
   void ExpandRuleVariables(cmOutputConverter* outputConverter,
                            std::string& string,
                            RuleVariables const& replaceValues);

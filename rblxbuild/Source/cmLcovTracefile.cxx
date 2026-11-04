@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmLcovTracefile.h"
 
 #include <algorithm>
@@ -186,7 +186,7 @@ bool cmLcovTracefile::MergeFiles(
     cmsys::ifstream fin(path.c_str());
     if (!fin || !tracefile.Read(fin, error)) {
       std::string warning =
-        cmStrCat("Skipping unreadable CMake listfile coverage file: ", path);
+        cmStrCat("Skipping unreadable RBLXBuild listfile coverage file: ", path);
       if (!error.empty()) {
         warning = cmStrCat(std::move(warning), "\n  ", error);
       }

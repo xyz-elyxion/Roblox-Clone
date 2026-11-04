@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 
 #include "cmLocalFastbuildGenerator.h"
 
@@ -19,7 +19,7 @@
 #include "cmStringAlgorithms.h"
 #include "cmSystemTools.h"
 #include "cmValue.h"
-#include "cmake.h"
+#include "rblxbuild.h"
 
 class cmGlobalGenerator;
 
@@ -119,7 +119,7 @@ std::string cmLocalFastbuildGenerator::ConvertToIncludeReference(
   cmGlobalFastbuildGenerator const* GG = this->GetGlobalFastbuildGenerator();
   if (GG->UsingRelativePaths && cmSystemTools::FileIsFullPath(path)) {
     std::string const binDir = this->ConvertToOutputFormat(
-      GG->GetCMakeInstance()->GetHomeOutputDirectory(), OutputFormat::SHELL);
+      GG->GetRBLXBuildInstance()->GetHomeOutputDirectory(), OutputFormat::SHELL);
     if (binDir == converted) {
       return ".";
     }

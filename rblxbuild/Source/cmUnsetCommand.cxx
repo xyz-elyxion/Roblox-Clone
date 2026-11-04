@@ -1,5 +1,5 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
-   file LICENSE.rst or https://cmake.org/licensing for details.  */
+   file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmUnsetCommand.h"
 
 #include "cmExecutionStatus.h"
@@ -23,7 +23,7 @@ bool cmUnsetCommand(std::vector<std::string> const& args,
     // what is the variable name
     auto const& envVarName = variable.substr(4, variable.size() - 5);
 
-#ifndef CMAKE_BOOTSTRAP
+#ifndef RBLXBUILD_BOOTSTRAP
     cmSystemTools::UnsetEnv(envVarName.c_str());
 #endif
     return true;

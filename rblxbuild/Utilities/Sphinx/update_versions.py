@@ -2,9 +2,9 @@
 """
 This script inserts "versionadded" directives into .rst documents found in the
 Help/ directory and module documentation comments found in the Modules/
-directory. It can be run from any directory within the CMake repository.
+directory. It can be run from any directory within the RBLXBuild repository.
 
-Each file is assigned a CMake version in which it first appears,
+Each file is assigned a RBLXBuild version in which it first appears,
 according to the git version tags.
 
 Options:
@@ -19,8 +19,8 @@ Options:
                   Only newer files will be operated on.
                   Default: v3.0.0
 
-  --next-version  The next CMake version, which hasn't been tagged yet.
-                  Default: extracted from Source/CMakeVersion.cmake
+  --next-version  The next RBLXBuild version, which hasn't been tagged yet.
+                  Default: extracted from Source/RBLXBuildVersion.rblxbuild
 """
 import re
 import pathlib
@@ -28,7 +28,7 @@ import subprocess
 import argparse
 
 tag_re = re.compile(r'^v[34]\.(\d+)\.(\d+)(?:-rc(\d+))?$')
-path_re = re.compile(r'Help/(?!dev|guide|manual|cpack_|release).*\.rst|Modules/[^/]*\.cmake$')
+path_re = re.compile(r'Help/(?!dev|guide|manual|cpack_|release).*\.rst|Modules/[^/]*\.rblxbuild$')
 
 def git_root():
     """Return the root of the .git repository from the current directory."""
@@ -37,7 +37,7 @@ def git_root():
     return pathlib.Path(result.stdout.strip())
 
 def git_tags():
-    """Return a list of CMake version tags from the repository."""
+    """Return a list of RBLXBuild version tags from the repository."""
     result = subprocess.run(['git', 'tag'], check=True, universal_newlines=True, capture_output=True)
     return [tag for tag in result.stdout.splitlines() if tag_re.match(tag)]
 
@@ -49,7 +49,7 @@ def git_list_tree(ref):
     return [path for path in result.stdout.splitlines() if path_re.match(path)]
 
 def tag_version(tag):
-    """Extract a clean CMake version from a git version tag."""
+    """Extract a clean RBLXBuild version from a git version tag."""
     return re.sub(r'^v|\.0(-rc\d+)?$', '', tag)
 
 def tag_sortkey(tag):
@@ -57,7 +57,7 @@ def tag_sortkey(tag):
     return tuple(int(part or '1000') for part in tag_re.match(tag).groups())
 
 def make_version_map(baseline, since, next_version):
-    """Map repository file paths to CMake versions in which they first appear."""
+    """Map repository file paths to RBLXBuild versions in which they first appear."""
     versions = {}
     if next_version:
         for path in git_list_tree('HEAD'):
@@ -74,12 +74,12 @@ def make_version_map(baseline, since, next_version):
             versions.pop(path, None)
     return versions
 
-cmake_version_re = re.compile(
-    rb'set\(CMake_VERSION_MAJOR\s+(\d+)\)\s+set\(CMake_VERSION_MINOR\s+(\d+)\)\s+set\(CMake_VERSION_PATCH\s+(\d+)\)', re.S)
+rblxbuild_version_re = re.compile(
+    rb'set\(RBLXBuild_VERSION_MAJOR\s+(\d+)\)\s+set\(RBLXBuild_VERSION_MINOR\s+(\d+)\)\s+set\(RBLXBuild_VERSION_PATCH\s+(\d+)\)', re.S)
 
-def cmake_version(path):
-    """Extract the current MAJOR.MINOR CMake version from CMakeVersion.cmake found at `path`."""
-    match = cmake_version_re.search(path.read_bytes())
+def rblxbuild_version(path):
+    """Extract the current MAJOR.MINOR RBLXBuild version from RBLXBuildVersion.rblxbuild found at `path`."""
+    match = rblxbuild_version_re.search(path.read_bytes())
     major, minor, patch = map(int, match.groups())
     minor += patch > 20000000  # nightly version will become the next minor
     return f'{major}.{minor}'
@@ -126,12 +126,12 @@ def main():
     parser.add_argument('--since', metavar='TAG',
         help="apply changes only to files added after this tag")
     parser.add_argument('--next-version', metavar='VER',
-        help="version for files not present in any tag (default: from CMakeVersion.cmake)")
+        help="version for files not present in any tag (default: from RBLXBuildVersion.rblxbuild)")
     args = parser.parse_args()
 
     try:
         repo_root = git_root()
-        next_version = args.next_version or cmake_version(repo_root / 'Source/CMakeVersion.cmake')
+        next_version = args.next_version or rblxbuild_version(repo_root / 'Source/RBLXBuildVersion.rblxbuild')
         version_map = make_version_map(args.baseline, args.since, next_version)
         update_repo(repo_root, version_map, args.overwrite)
     except subprocess.CalledProcessError as e:

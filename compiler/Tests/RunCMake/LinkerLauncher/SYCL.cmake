@@ -1,2 +1,0 @@
-set(CMAKE_SYCL_LINKER_LAUNCHER "${CMAKE_COMMAND};-E;env;USED_LAUNCHER=1")
-include(SYCL-common.cmake)

@@ -1,3 +1,0 @@
-CMake Error: Could not read presets from [^
-]*/Tests/RunCMake/CMakePresetsTest/InvalidConfigurePreset:
-Test preset "badConfigurePreset" references unknown configure preset "dne"$

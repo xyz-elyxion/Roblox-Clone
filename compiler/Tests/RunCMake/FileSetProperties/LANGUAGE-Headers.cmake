@@ -1,3 +1,0 @@
-add_library(foo INTERFACE)
-target_sources(foo INTERFACE FILE_SET HEADERS)
-set_property(FILE_SET HEADERS TARGET foo PROPERTY LANGUAGE CXX)

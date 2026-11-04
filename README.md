@@ -129,11 +129,23 @@ git clone --depth 1 https://github.com/Kitware/CMake.git compiler
 rm -rf compiler/.git
 ```
 
-`compiler/` holds upstream source unmodified, and removing its `.git` is what lets
-the outer repository track the files instead of carrying a nested repository. It
-is not part of this project's build: the targets documented above are still
-configured by the `CMakeLists.txt` at the root, and nothing there builds,
-bootstraps or installs the vendored copy.
+Removing its `.git` is what lets the outer repository track the files instead of
+carrying a nested repository. What is kept is the source that matters: `Source/`,
+`Modules/`, `Utilities/`, `bootstrap`, the top-level CMake scripts and the
+licences. What was pruned, because none of it is read here:
+
+- `Tests/` - CMake's own test suite, 25,000 files and 113 MB of a 183 MB tree
+- `Help/` - the reStructuredText sources the manual is generated from
+- `Auxiliary/`, `Packaging/` - editor autocompletion data and packaging templates
+- `.github/`, `.gitlab/`, `.gitlab-ci.yml`, `.devcontainer/` and the dotfile
+  tooling config - CI and editor metadata for the upstream repository
+
+So this is a source snapshot to read, not a tree that configures and builds as
+upstream CMake: `add_subdirectory(Tests)` and the manual both expect the pruned
+directories back. Nothing in this project builds it either - the targets above are
+still configured by the `CMakeLists.txt` at the root, and nothing there builds,
+bootstraps or installs the vendored copy. Commit `62b91b06` still has the complete
+tree if any of it has to come back.
 ## Run C++ Targets
 
 After building Release with the preset:

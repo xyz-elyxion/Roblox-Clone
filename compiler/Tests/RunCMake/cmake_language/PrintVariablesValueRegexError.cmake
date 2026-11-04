@@ -1,1 +1,0 @@
-cmake_language(PRINT_VARIABLES ALL VALUE_REGEX "[")

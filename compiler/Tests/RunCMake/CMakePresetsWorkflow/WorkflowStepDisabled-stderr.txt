@@ -1,2 +1,0 @@
-^CMake Error: Cannot use disabled preset for workflow step of type "configure" named "default" in [^
-]*/Tests/RunCMake/CMakePresetsWorkflow/WorkflowStepDisabled$

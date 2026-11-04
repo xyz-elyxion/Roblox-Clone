@@ -1,3 +1,0 @@
-#!/bin/sh
-# custom AppRun provided through CPACK_APPIMAGE_APPRUN_FILE
-exec "$(dirname "$0")/usr/bin/app" "$@"

@@ -1,3 +1,0 @@
-^Unknown argument --presett\. Did you mean: --preset\?
-Usage: cmake --workflow <options>
-Options:

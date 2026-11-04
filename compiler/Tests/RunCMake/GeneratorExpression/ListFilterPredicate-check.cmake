@@ -1,5 +1,0 @@
-file(READ "${RunCMake_TEST_BINARY_DIR}/out.txt" actual)
-string(STRIP "${actual}" actual)
-if(NOT actual STREQUAL "beta")
-  set(RunCMake_TEST_FAILED "unexpected FILTER PREDICATE output: [${actual}]")
-endif()

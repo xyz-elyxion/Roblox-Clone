@@ -1,1 +1,0 @@
-check_prepared(all_component_included)

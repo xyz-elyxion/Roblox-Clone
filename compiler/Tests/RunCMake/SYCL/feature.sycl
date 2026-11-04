@@ -1,4 +1,0 @@
-int feature_sycl()
-{
-  return 0;
-}

@@ -1,7 +1,0 @@
-function(used)
-  set(x 1)
-endfunction()
-function(never)
-endfunction()
-used()
-include(CMakePrintHelpers)

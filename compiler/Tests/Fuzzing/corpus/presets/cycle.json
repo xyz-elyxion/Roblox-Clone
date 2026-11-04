@@ -1,7 +1,0 @@
-{
-  "version": 6,
-  "configurePresets": [
-    { "name": "a", "inherits": "b", "generator": "Ninja", "binaryDir": "x" },
-    { "name": "b", "inherits": "a", "generator": "Ninja", "binaryDir": "y" }
-  ]
-}

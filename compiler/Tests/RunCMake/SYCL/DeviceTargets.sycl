@@ -1,4 +1,0 @@
-int sycl_device_targets()
-{
-  return 0;
-}

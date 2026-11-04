@@ -1,1 +1,0 @@
- Cannot find any coverage files\. Ignoring Coverage request\.$

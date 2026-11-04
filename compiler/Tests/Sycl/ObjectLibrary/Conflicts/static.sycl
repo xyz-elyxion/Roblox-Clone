@@ -1,4 +1,0 @@
-int conflicting_sycl_value()
-{
-  return 3;
-}

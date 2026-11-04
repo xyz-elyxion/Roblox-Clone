@@ -1,5 +1,0 @@
-import std;
-
-int main()
-{
-}

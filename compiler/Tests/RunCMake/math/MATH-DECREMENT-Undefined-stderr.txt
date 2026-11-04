@@ -1,4 +1,0 @@
-^CMake Error at MATH-DECREMENT-Undefined\.cmake:[0-9]+ \(math\):
-  math sub-command DECREMENT variable "value" is not defined
-Call Stack \(most recent call first\):
-  CMakeLists\.txt:[0-9]+ \(include\)$

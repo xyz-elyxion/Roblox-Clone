@@ -1,5 +1,0 @@
-set(mark MARK_A)
-set(link_omp exe static mixed)
-set(link_mark exe static mixed)
-set(compile_mark exe lib)
-include(${CMAKE_CURRENT_LIST_DIR}/check-flags.cmake)

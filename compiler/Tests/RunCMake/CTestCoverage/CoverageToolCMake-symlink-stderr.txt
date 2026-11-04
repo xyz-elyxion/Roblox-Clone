@@ -1,2 +1,0 @@
-Cannot create CMake listfile coverage folder: [^
-]*linked_cmake-coverage

@@ -1,5 +1,0 @@
-block()
-  block()
-    add_subdirectory(inner)
-  endblock()
-endblock()

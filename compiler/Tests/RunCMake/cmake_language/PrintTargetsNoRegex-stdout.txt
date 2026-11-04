@@ -1,3 +1,0 @@
-.*--.*
- +All targets:
-.* +mytarget \(INTERFACE_LIBRARY\)

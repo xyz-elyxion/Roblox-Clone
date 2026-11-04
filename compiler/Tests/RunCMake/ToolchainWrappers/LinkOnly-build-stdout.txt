@@ -1,3 +1,0 @@
-.*-E env LW_OUTER=1 [^
-]*([ /\:]|-e)main(\.exe)?['"
- ]

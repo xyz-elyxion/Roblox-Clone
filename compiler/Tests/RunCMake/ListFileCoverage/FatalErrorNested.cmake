@@ -1,8 +1,0 @@
-function(f)
-  message(FATAL_ERROR "boom")
-  set(a 1)
-endfunction()
-if(TRUE)
-  f()
-  set(b 1)
-endif()

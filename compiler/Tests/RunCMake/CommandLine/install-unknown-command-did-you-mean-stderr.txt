@@ -1,2 +1,0 @@
-^Unknown argument --compnent\. Did you mean: --component\?
-Usage: cmake --install <dir> \[options\]

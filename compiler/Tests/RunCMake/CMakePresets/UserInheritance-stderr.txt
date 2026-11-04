@@ -1,3 +1,0 @@
-^CMake Error: Could not read presets from [^
-]*/Tests/RunCMake/CMakePresets/UserInheritance:
-Configure preset "UserInheritance" inherits preset "UserInheritanceUser", but "UserInheritanceUser" is not reachable from the preset's file$

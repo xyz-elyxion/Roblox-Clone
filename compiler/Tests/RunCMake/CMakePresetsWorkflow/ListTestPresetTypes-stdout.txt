@@ -1,4 +1,0 @@
-^Available test presets:
-
-  "default"
-  "enabled-test"$

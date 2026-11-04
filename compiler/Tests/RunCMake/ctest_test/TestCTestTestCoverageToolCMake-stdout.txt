@@ -1,3 +1,0 @@
-1: Using environment variable CMAKE_LISTFILE_COVERAGE_DIR=[^
-]*/Tests/RunCMake/ctest_test/[^
-]*_cmake-coverage

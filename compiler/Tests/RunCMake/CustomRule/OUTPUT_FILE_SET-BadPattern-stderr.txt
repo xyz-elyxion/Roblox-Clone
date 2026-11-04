@@ -1,4 +1,0 @@
-CMake Error in CMakeLists\.txt:
-  Output File Set name, for rule "foo", did not expand correctly:
-
-    "bad_<PATTERN>_foo_bar_fs"

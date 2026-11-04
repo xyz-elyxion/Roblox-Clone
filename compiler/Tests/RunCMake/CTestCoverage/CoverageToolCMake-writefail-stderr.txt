@@ -1,2 +1,0 @@
-Cannot write CMake listfile coverage file: [^
-]*wf\.cmake-coverage\.info

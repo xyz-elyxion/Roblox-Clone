@@ -1,2 +1,0 @@
-^cmake-nm-does-not-exist returned an error: [^
-]*

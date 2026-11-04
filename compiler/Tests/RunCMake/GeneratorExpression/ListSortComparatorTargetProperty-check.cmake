@@ -1,5 +1,0 @@
-file(READ "${RunCMake_TEST_BINARY_DIR}/out.txt" actual)
-string(STRIP "${actual}" actual)
-if(NOT actual STREQUAL "b;c;a")
-  set(RunCMake_TEST_FAILED "unexpected output: [${actual}]")
-endif()

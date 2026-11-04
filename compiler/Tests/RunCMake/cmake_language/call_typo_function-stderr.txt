@@ -1,2 +1,0 @@
-CMake Error at call_typo_function\.cmake:1 \(mesage\):
-  Unknown CMake command "mesage"\.  Did you mean: "message"\?

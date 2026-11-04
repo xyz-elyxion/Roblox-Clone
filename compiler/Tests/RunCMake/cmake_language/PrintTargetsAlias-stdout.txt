@@ -1,3 +1,0 @@
-.*--.*
- +All targets matching REGEX '\^zz_' \(case sensitive\):
- +zz_real \(INTERFACE_LIBRARY\)

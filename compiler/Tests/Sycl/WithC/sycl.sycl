@@ -1,4 +1,0 @@
-extern "C" int sycl_value()
-{
-  return 42;
-}

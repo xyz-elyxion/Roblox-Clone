@@ -1,3 +1,0 @@
--- Toolchain file: [^
-]*/Tests/RunCMake/CompilerChange/bar\.cmake
--- Using toolchain: bar

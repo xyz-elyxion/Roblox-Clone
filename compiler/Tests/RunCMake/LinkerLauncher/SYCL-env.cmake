@@ -1,1 +1,0 @@
-include(SYCL-common.cmake)

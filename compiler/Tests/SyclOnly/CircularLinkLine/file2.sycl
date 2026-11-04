@@ -1,5 +1,0 @@
-#include "device.h"
-SYCL_EXTERNAL int device2()
-{
-  return device3() + 1;
-}

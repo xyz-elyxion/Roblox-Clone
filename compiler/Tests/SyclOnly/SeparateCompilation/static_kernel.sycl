@@ -1,3 +1,0 @@
-#define KERNEL_NAME SeparateCompilationStaticKernel
-#define LAUNCH_FUNCTION static_kernel
-#include "launch.sycl"

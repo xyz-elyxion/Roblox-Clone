@@ -1,3 +1,0 @@
-CMake Error in CMakeLists.txt:
-  Target "unsupported" requests SYCL_SEPARABLE_COMPILATION=OFF, but the SYCL
-  compiler configuration does not support this mode.

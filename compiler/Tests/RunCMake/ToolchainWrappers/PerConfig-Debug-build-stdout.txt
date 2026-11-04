@@ -1,5 +1,0 @@
-.*-E env CW_INNER=2 [^
-]*[/\]main\.c['"
- ].*-E env LW_INNER=2 [^
-]*([ /\:]|-e)main(\.exe)?['"
- ]

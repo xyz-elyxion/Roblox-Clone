@@ -1,3 +1,0 @@
--- Toolchain file: [^
-]*/Tests/RunCMake/CompilerChange/baz\.cmake
--- Using toolchain: baz

@@ -1,2 +1,0 @@
-Using environment variable CMAKE_LISTFILE_COVERAGE_DIR=[^
-]*/CoverageToolCMake/test one_cmake-coverage

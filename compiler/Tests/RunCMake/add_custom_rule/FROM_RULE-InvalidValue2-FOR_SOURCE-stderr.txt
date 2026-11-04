@@ -1,4 +1,0 @@
-CMake Error at FROM_RULE-InvalidValue2-FOR_SOURCE\.cmake:[0-9]+ \(add_custom_rule\):
-  add_custom_rule command specified for "FOR_SOURCE" is not a function: src\.
-Call Stack \(most recent call first\):
-  CMakeLists\.txt:[0-9]+ \(include\)

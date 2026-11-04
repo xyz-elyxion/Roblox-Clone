@@ -1,5 +1,0 @@
-if (FAIL_MODE STREQUAL "exit")
-  install(CODE [[cmake_language(EXIT 7)]])
-else ()
-  install(CODE [[message(FATAL_ERROR "intentional install failure")]])
-endif ()

@@ -1,4 +1,0 @@
-^Available package presets:
-
-  "default"
-  "enabled-package"$

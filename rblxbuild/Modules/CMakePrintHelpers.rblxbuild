@@ -1,6 +1,17 @@
 # Requirements: none
 #
-# Compatibility module. Projects written for the build tool RBLXBuild was
-# forked from include this module under its original name; the tree keeps the
-# renamed implementation, so forward to it instead of keeping two copies.
+# Compatibility module: forwards to the renamed implementation and re-exposes
+# the original names of its two functions.
 include(RBLXBuildPrintHelpers)
+
+if(COMMAND rblxbuild_print_properties AND NOT COMMAND cmake_print_properties)
+  function(cmake_print_properties)
+    rblxbuild_print_properties(${ARGV})
+  endfunction()
+endif()
+
+if(COMMAND rblxbuild_print_variables AND NOT COMMAND cmake_print_variables)
+  function(cmake_print_variables)
+    rblxbuild_print_variables(${ARGV})
+  endfunction()
+endif()

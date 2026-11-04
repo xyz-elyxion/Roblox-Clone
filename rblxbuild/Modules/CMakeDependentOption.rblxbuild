@@ -1,6 +1,14 @@
 # Requirements: none
 #
 # Compatibility module. Projects written for the build tool RBLXBuild was
-# forked from include this module under its original name; the tree keeps the
-# renamed implementation, so forward to it instead of keeping two copies.
+# forked from include this module under its original name and then call the
+# macro under its original name too, so forward to the renamed implementation
+# and re-expose the old spelling. The wrapper calls through, so there is still
+# only one implementation of the option logic.
 include(RBLXBuildDependentOption)
+
+if(COMMAND RBLXBUILD_DEPENDENT_OPTION AND NOT COMMAND cmake_dependent_option)
+  macro(cmake_dependent_option)
+    RBLXBUILD_DEPENDENT_OPTION(${ARGV})
+  endmacro()
+endif()

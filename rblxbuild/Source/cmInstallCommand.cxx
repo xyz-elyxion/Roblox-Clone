@@ -2560,12 +2560,16 @@ bool HandleExportMode(std::vector<std::string> const& args,
     return false;
   }
 
-  // Check the file extension.
-  if (!fname.empty() && !cmHasSuffix(fname, ".rblxbuild"_s)) {
+  // Check the file extension.  Projects written for the tool RBLXBuild was
+  // forked from name these files "*.cmake", so accept both spellings rather
+  // than rejecting a dependency's own export file.
+  if (!fname.empty() && !cmHasSuffix(fname, ".rblxbuild"_s) &&
+      !cmHasSuffix(fname, ".cmake"_s)) {
     status.SetError(
       cmStrCat(args[0], " given invalid export file name \"", fname,
                "\".  "
-               "The FILE argument must specify a name ending in \".rblxbuild\"."));
+               "The FILE argument must specify a name ending in \".rblxbuild\" "
+               "or \".cmake\"."));
     return false;
   }
 

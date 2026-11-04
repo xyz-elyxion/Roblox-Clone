@@ -1,6 +1,23 @@
 # Requirements: none
 #
-# Compatibility module. Projects written for the build tool RBLXBuild was
-# forked from include this module under its original name; the tree keeps the
-# renamed implementation, so forward to it instead of keeping two copies.
+# Compatibility module: forwards to the renamed implementation and re-exposes
+# the original names of its three macros.
 include(RBLXBuildPushCheckState)
+
+if(COMMAND RBLXBUILD_PUSH_CHECK_STATE AND NOT COMMAND cmake_push_check_state)
+  macro(cmake_push_check_state)
+    RBLXBUILD_PUSH_CHECK_STATE(${ARGV})
+  endmacro()
+endif()
+
+if(COMMAND RBLXBUILD_POP_CHECK_STATE AND NOT COMMAND cmake_pop_check_state)
+  macro(cmake_pop_check_state)
+    RBLXBUILD_POP_CHECK_STATE(${ARGV})
+  endmacro()
+endif()
+
+if(COMMAND RBLXBUILD_RESET_CHECK_STATE AND NOT COMMAND cmake_reset_check_state)
+  macro(cmake_reset_check_state)
+    RBLXBUILD_RESET_CHECK_STATE(${ARGV})
+  endmacro()
+endif()

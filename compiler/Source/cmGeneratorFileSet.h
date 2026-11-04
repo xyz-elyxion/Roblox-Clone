@@ -1,0 +1,170 @@
+/* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
+   file LICENSE.rst or https://cmake.org/licensing for details.  */
+#pragma once
+
+#include "cmConfigure.h" // IWYU pragma: keep
+
+#include <functional>
+#include <map>
+#include <memory>
+#include <string>
+#include <tuple>
+#include <utility>
+#include <vector>
+
+#include "cmFileSetMetadata.h"
+#include "cmGeneratorExpression.h"
+#include "cmListFileCache.h"
+#include "cmTargetPropertyEntry.h"
+#include "cmValue.h"
+
+namespace cm {
+namespace GenEx {
+struct Context;
+}
+}
+
+struct cmGeneratorExpressionDAGChecker;
+
+class cmFileSet;
+class cmGeneratorTarget;
+
+class cmGeneratorFileSet
+{
+public:
+  using TargetPropertyEntry = cm::TargetPropertyEntry;
+
+  cmGeneratorFileSet(cmGeneratorTarget const*, cmFileSet const*,
+                     cm::FileSetMetadata::FileSetDomain);
+  ~cmGeneratorFileSet() = default;
+
+  cmGeneratorFileSet(cmGeneratorFileSet&&) = default;
+  cmGeneratorFileSet(cmGeneratorFileSet const&) = delete;
+  cmGeneratorFileSet& operator=(cmGeneratorFileSet const&) = delete;
+
+  std::string const& GetName() const;
+  std::string const& GetType() const;
+  cm::FileSetMetadata::Visibility GetVisibility() const;
+
+  bool IsForSelf() const;
+  bool IsForInterface() const;
+  bool CanBeIncluded() const;
+
+  cmGeneratorTarget const* GetTarget() const { return this->Target; }
+  bool BelongsTo(cmGeneratorTarget const* target) const
+  {
+    return this->Target == target;
+  }
+
+  cmFileSet const* GetFileSet() const { return this->FileSet; }
+
+  cm::FileSetMetadata::FileSetDomain GetDomain() const { return this->Domain; }
+
+  cmValue GetProperty(std::string const& prop) const;
+
+  std::vector<BT<std::string>> GetIncludeDirectories(
+    std::string const& config, std::string const& lang) const;
+  std::vector<BT<std::string>> GetInterfaceIncludeDirectories(
+    std::string const& config, std::string const& lang,
+    cmGeneratorTarget const* consumer) const;
+
+  std::vector<BT<std::string>> GetCompileOptions(
+    std::string const& config, std::string const& language) const;
+  std::vector<BT<std::string>> GetInterfaceCompileOptions(
+    std::string const& config, std::string const& language,
+    cmGeneratorTarget const* consumer) const;
+
+  std::vector<BT<std::string>> GetCompileDefinitions(
+    std::string const& config, std::string const& language) const;
+  std::vector<BT<std::string>> GetInterfaceCompileDefinitions(
+    std::string const& config, std::string const& language,
+    cmGeneratorTarget const* consumer) const;
+
+  std::vector<BT<std::string>> const& GetDirectoryEntries() const;
+  std::vector<BT<std::string>> const& GetFileEntries() const;
+
+  std::vector<std::unique_ptr<TargetPropertyEntry>> GetSources(
+    cm::GenEx::Context const& context, cmGeneratorTarget const* target,
+    cmGeneratorExpressionDAGChecker* dagChecker = nullptr) const;
+
+  using FileMap = std::map<std::string, std::vector<std::string>>;
+
+  // returned value:
+  // first: list of directories
+  // second: is context sensitive
+  std::pair<std::vector<std::string>, bool> GetDirectories(
+    cm::GenEx::Context const& context, cmGeneratorTarget const* target,
+    cmGeneratorExpressionDAGChecker* dagChecker = nullptr) const;
+  // returned value:
+  // first: list of files per directory
+  // second: is context sensitive
+  std::pair<FileMap, bool> GetFiles(
+    cm::GenEx::Context const& context, cmGeneratorTarget const* target,
+    cmGeneratorExpressionDAGChecker* dagChecker = nullptr) const;
+
+  std::vector<std::unique_ptr<cmCompiledGeneratorExpression>> const&
+  CompileFileEntries() const;
+
+  std::vector<std::unique_ptr<cmCompiledGeneratorExpression>> const&
+  CompileDirectoryEntries() const;
+
+  std::vector<std::string> EvaluateDirectoryEntries(
+    std::vector<std::unique_ptr<cmCompiledGeneratorExpression>> const& cges,
+    cm::GenEx::Context const& context, cmGeneratorTarget const* target,
+    cmGeneratorExpressionDAGChecker* dagChecker = nullptr) const;
+
+  using EvaluateFileEntryFunction =
+    std::function<void(std::string&&, std::string&&, std::string&&)>;
+
+  // returned value: is context sensitive
+  bool EvaluateFiles(
+    cm::GenEx::Context const& context, cmGeneratorTarget const* target,
+    EvaluateFileEntryFunction callback,
+    cmGeneratorExpressionDAGChecker* dagChecker = nullptr) const;
+
+  void EvaluateFileEntry(
+    std::vector<std::string> const& dirs, EvaluateFileEntryFunction handler,
+    std::unique_ptr<cmCompiledGeneratorExpression> const& cge,
+    cm::GenEx::Context const& context, cmGeneratorTarget const* target,
+    cmGeneratorExpressionDAGChecker* dagChecker = nullptr) const;
+
+  void EvaluateFileEntry(
+    std::vector<std::string> const& dirs, FileMap& filesPerDir,
+    std::unique_ptr<cmCompiledGeneratorExpression> const& cge,
+    cm::GenEx::Context const& context, cmGeneratorTarget const* target,
+    cmGeneratorExpressionDAGChecker* dagChecker = nullptr) const;
+
+private:
+  cmGeneratorTarget const* Target;
+  cmFileSet const* FileSet;
+  cm::FileSetMetadata::FileSetDomain Domain;
+  mutable std::vector<std::unique_ptr<cmCompiledGeneratorExpression>>
+    CompiledDirectoryEntries;
+  mutable std::vector<std::unique_ptr<cmCompiledGeneratorExpression>>
+    CompiledFileEntries;
+
+  using TargetPropertyEntries =
+    std::vector<std::unique_ptr<TargetPropertyEntry>>;
+  TargetPropertyEntries IncludeDirectories;
+  TargetPropertyEntries InterfaceIncludeDirectories;
+  TargetPropertyEntries CompileOptions;
+  TargetPropertyEntries InterfaceCompileOptions;
+  TargetPropertyEntries CompileDefinitions;
+  TargetPropertyEntries InterfaceCompileDefinitions;
+
+  using ConfigAndLanguage = std::pair<std::string, std::string>;
+  using ConfigAndLanguageToBTStrings =
+    std::map<ConfigAndLanguage, std::vector<BT<std::string>>>;
+  using ConsumerConfigAndLanguage =
+    std::tuple<cmGeneratorTarget const*, std::string, std::string>;
+  using ConsumerConfigAndLanguageToBTStrings =
+    std::map<ConsumerConfigAndLanguage, std::vector<BT<std::string>>>;
+  mutable ConfigAndLanguageToBTStrings IncludeDirectoriesCache;
+  mutable ConsumerConfigAndLanguageToBTStrings
+    InterfaceIncludeDirectoriesCache;
+  mutable ConfigAndLanguageToBTStrings CompileOptionsCache;
+  mutable ConsumerConfigAndLanguageToBTStrings InterfaceCompileOptionsCache;
+  mutable ConfigAndLanguageToBTStrings CompileDefinitionsCache;
+  mutable ConsumerConfigAndLanguageToBTStrings
+    InterfaceCompileDefinitionsCache;
+};

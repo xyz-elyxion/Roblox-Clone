@@ -1,0 +1,5 @@
+function(test2)
+  unset(ARGNC)
+  cmake_parse_arguments(PARSE_ARGN pref "" "" "")
+endfunction()
+test2()

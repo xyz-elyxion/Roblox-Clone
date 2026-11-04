@@ -1,0 +1,28 @@
+include(RunCMake)
+
+if(CMake_TEST_SYCL)
+  list(APPEND RunCMake_TEST_OPTIONS -Wno-experimental)
+endif()
+
+function(configure_and_build case)
+  set(RunCMake_TEST_BINARY_DIR ${RunCMake_BINARY_DIR}/${case}-build)
+  run_cmake(${case})
+  set(RunCMake_TEST_NO_CLEAN 1)
+  set(RunCMake_TEST_OUTPUT_MERGE 1)
+  if (RunCMake_GENERATOR_IS_MULTI_CONFIG)
+    run_cmake_command(${case}-build-Debug ${CMAKE_COMMAND} --build . --config Debug)
+    run_cmake_command(${case}-build-Release ${CMAKE_COMMAND} --build . --config Release)
+  else()
+    run_cmake_command(${case}-build ${CMAKE_COMMAND} --build .)
+  endif()
+endfunction()
+
+configure_and_build(C)
+configure_and_build(CXX)
+
+if(CMake_TEST_CUDA)
+  configure_and_build(CUDA)
+endif()
+if(CMake_TEST_SYCL)
+  configure_and_build(SYCL)
+endif()

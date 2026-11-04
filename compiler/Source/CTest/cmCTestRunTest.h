@@ -1,0 +1,186 @@
+/* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
+   file LICENSE.rst or https://cmake.org/licensing for details.  */
+#pragma once
+
+#include "cmConfigure.h" // IWYU pragma: keep
+
+#include <cstddef>
+#include <map>
+#include <memory>
+#include <set>
+#include <string>
+#include <vector>
+
+#include <cm/optional>
+
+#include "cmCTest.h"
+#include "cmCTestMultiProcessHandler.h"
+#include "cmCTestTestHandler.h"
+#include "cmProcess.h"
+
+class cmEnvironment;
+
+/** \class cmRunTest
+ * \brief represents a single test to be run
+ *
+ * cmRunTest contains the information related to running a single test
+ */
+class cmCTestRunTest
+{
+public:
+  explicit cmCTestRunTest(cmCTestMultiProcessHandler& multiHandler, int index);
+
+  // Report this run as run `number` of `count` in the test's "(run N/M)"
+  // suffix.  A test repeating on its own starts at run 1 and counts up
+  // itself; a test repeated by its fixture is told which run it is.
+  void SetRunNumber(int number, int count)
+  {
+    this->RunNumber = number;
+    this->RunCount = count;
+  }
+
+  void SetRepeatMode(cmCTest::Repeat r) { this->RepeatMode = r; }
+
+  cmCTestTestHandler::cmCTestTestProperties* GetTestProperties()
+  {
+    return this->TestProperties;
+  }
+
+  int GetIndex() { return this->Index; }
+
+  void AddFailedDependency(std::string const& failedTest)
+  {
+    this->FailedDependencies.insert(failedTest);
+  }
+
+  std::string GetProcessOutput() { return this->ProcessOutput; }
+
+  cmCTestTestHandler::cmCTestTestResult GetTestResults()
+  {
+    return this->TestResult;
+  }
+
+  // Read and store output.  Returns true if it must be called again.
+  void CheckOutput(std::string const& line);
+
+  static void StartTest(std::unique_ptr<cmCTestRunTest> runner,
+                        size_t completed, size_t total);
+  static bool StartAgain(std::unique_ptr<cmCTestRunTest> runner,
+                         size_t completed);
+
+  static void StartFailure(std::unique_ptr<cmCTestRunTest> runner,
+                           size_t total, std::string const& output,
+                           std::string const& detail);
+
+  struct EndTestResult
+  {
+    bool Passed = false;
+    bool StopTimePassed = false;
+    int TestStatus = cmCTestTestHandler::NOT_RUN;
+  };
+
+  // launch the test process, return whether it started correctly
+  bool StartTest(size_t completed, size_t total);
+  // capture and report the test results
+  EndTestResult EndTest(size_t completed, size_t total, bool started);
+  // Called by ctest -N to log the command string
+  void ComputeArguments();
+
+  void ComputeWeightedCost();
+
+  void StartFailure(size_t total, std::string const& output,
+                    std::string const& detail);
+
+  cmCTest* GetCTest() const { return this->CTest; }
+
+  std::string& GetActualCommand() { return this->ActualCommand; }
+
+  std::vector<std::string> const& GetArguments() { return this->Arguments; }
+
+  void FinalizeTest(bool started = true);
+
+  void SetUseAllocatedResources(bool use)
+  {
+    this->UseAllocatedResources = use;
+  }
+  void SetAllocatedResources(
+    std::vector<std::map<
+      std::string,
+      std::vector<cmCTestMultiProcessHandler::ResourceAllocation>>> const&
+      resources)
+  {
+    this->AllocatedResources = resources;
+  }
+
+private:
+  struct TimeValue
+  {
+    long tv_sec;
+    long tv_usec;
+  };
+
+  struct ProcessMetrics
+  {
+    TimeValue ru_utime{};
+    TimeValue ru_stime{};
+    long ru_maxrss = 0;
+  };
+
+  bool NeedsToRepeat();
+  void ParseOutputForMeasurements();
+  void ExeNotFound(std::string exe);
+  bool ForkProcess();
+  void WriteLogOutputTop(size_t completed, size_t total);
+  // Run post processing of the process output for MemCheck
+  void MemCheckPostProcess();
+  std::string GenerateLLVMPath(std::string fileString);
+  std::string GetTestMetricsFile() const;
+  void CollectLLVMCoverage();
+  void CollectCMakeCoverage();
+  void SetupResourcesEnvironment(cmEnvironment& env);
+
+  // Returns "completed/total Test #Index: "
+  std::string GetTestPrefix(size_t completed, size_t total) const;
+
+  cmCTestMultiProcessHandler& MultiTestHandler;
+  int Index;
+  cmCTest* CTest;
+  cmCTestTestHandler* TestHandler;
+  cmCTestTestHandler::cmCTestTestProperties* TestProperties;
+
+  std::unique_ptr<cmProcess> TestProcess;
+  std::string ProcessOutput;
+  cmCTestTestHandler::cmCTestTestResult TestResult;
+  std::set<std::string> FailedDependencies;
+  std::string StartTime;
+  std::string ActualCommand;
+  std::vector<std::string> Arguments;
+  std::string InstrumentationCommand;
+  std::vector<std::string> InstrumentationArguments;
+  cm::optional<ProcessMetrics> ProcessResourceUsage;
+  bool UseAllocatedResources = false;
+  std::vector<std::map<
+    std::string, std::vector<cmCTestMultiProcessHandler::ResourceAllocation>>>
+    AllocatedResources;
+  // Never unless this test repeats itself.  A test repeated by its fixture
+  // leaves this Never; the fixture decides when to repeat.
+  cmCTest::Repeat RepeatMode = cmCTest::Repeat::Never;
+  int RunNumber = 1; // which run of the test this is
+  int RunCount = 1;  // how many runs it may be given
+  bool RunAgain = false;
+  bool UseLLVMCov = false;
+  bool UseCMakeCov = false;
+  // Whether this run of the test has a CMake listfile coverage folder.
+  bool CMakeCovScratchOk = false;
+  size_t TotalNumberOfTests;
+};
+
+inline int getNumWidth(size_t n)
+{
+  int w = 1;
+  while (n >= 10) {
+    n /= 10;
+    ++w;
+  }
+  return w;
+}

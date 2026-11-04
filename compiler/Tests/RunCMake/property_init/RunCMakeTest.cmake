@@ -1,0 +1,23 @@
+include(RunCMake)
+
+# Per-config properties are only initialized for known configurations.
+if (NOT RunCMake_GENERATOR_IS_MULTI_CONFIG)
+  set(RunCMake_TEST_OPTIONS -DCMAKE_BUILD_TYPE=Debug)
+endif ()
+
+run_cmake(Always)
+run_cmake(CompileSources)
+run_cmake(Executable)
+run_cmake(ImportedTargets)
+run_cmake(LibraryArtifact)
+run_cmake(Linkable)
+run_cmake(NonImportedNormalTarget)
+run_cmake(NonImportedTarget)
+run_cmake(NormalTarget)
+run_cmake(PICTargets)
+run_cmake(SharedLibrary)
+run_cmake(TargetsWithArtifact)
+run_cmake(TargetsWithCommands)
+run_cmake(TargetsWithExports)
+
+run_cmake_script(Coverage -DCMake_SOURCE_DIR=${CMake_SOURCE_DIR})

@@ -1,0 +1,3 @@
+C-STAT Command line error: Unexpected command line arguments:
+            -bad
+            -bad

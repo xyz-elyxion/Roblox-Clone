@@ -1,0 +1,51 @@
+#include <string>
+#include <utility>
+
+template <typename... Args>
+std::string cmStrCat(Args&&... args)
+{
+  return "";
+}
+
+std::string a = "This is a string variable";
+std::string b = " and this is a string variable";
+std::string concat;
+
+// Correction needed
+void test1()
+{
+  concat = cmStrCat(a, " and this is a string literal", 'O', b);
+
+  concat = cmStrCat(concat, a, a);
+  concat = cmStrCat(concat, " and this is a string literal", a);
+  concat = cmStrCat(concat, b, 'o', a);
+  concat = cmStrCat(concat, b, " and this is a string literal ", 'o', b);
+
+  if (true)
+    concat = cmStrCat(concat, a, b);
+
+  std::pair<std::string, std::string> p;
+  concat = cmStrCat(p.first, p.second, a);
+}
+
+// No correction needed
+void test2()
+{
+  a = b;
+  a = "This is a string literal";
+  a = 'X';
+  cmStrCat(a, b);
+
+  concat = a + b;
+  concat = a + " and this is a string literal";
+  concat = a + 'O';
+  concat = "This is a string literal" + b;
+  concat = 'O' + a;
+  concat += b;
+
+  std::pair<std::string, std::string> p;
+  concat = p.first + p.second;
+
+  if (true)
+    concat += a;
+}

@@ -1,0 +1,3 @@
+.*Building Swift Module 'A' objects with 1 source
+.*Building Swift Module 'B' objects with 1 source
+FAILED:( \[code=[0-9]+\])? CMakeFiles(/|\\)B\.dir(/|\\)(Debug(/|\\))?b\.swift\.o(bj)? (Debug(/|\\))?B\.swiftmodule

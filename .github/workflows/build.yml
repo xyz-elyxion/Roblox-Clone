@@ -49,18 +49,6 @@ jobs:
       - name: Test
         run: ctest --preset windows-release --output-on-failure
 
-      - name: Check that RBLXCC emits assembly
-        # MSVC cannot assemble AT&T syntax, so the Windows job stops at code
-        # generation: the driver has to write the file and name main. The full
-        # assemble-and-link path runs on the Linux and macOS jobs.
-        shell: pwsh
-        run: |
-          "int main() { return 0; }" | Set-Content -Path rblxcc-demo.cpp
-          ./build/windows-release/Release/RBLXCC.exe rblxcc-demo.cpp -S
-          if (-not (Select-String -Path rblxcc-demo.s -Pattern '^\s*\.globl main\s*$' -Quiet)) {
-              throw "RBLXCC did not emit assembly with a global main"
-          }
-
       - name: Package runnable folder
         # Runs even if the tests fail, so a red run still hands back whatever
         # targets linked.
@@ -132,28 +120,6 @@ jobs:
       - name: Test
         run: ctest --test-dir build/linux-release --output-on-failure
 
-      - name: Compile and run a program with RBLXCC
-        # The compiler target is built above and its tests drive the library, but
-        # this is the driver as a user meets it: read a file, emit assembly, have
-        # the system assembler and linker make a program, run that program.
-        run: |
-          cat > /tmp/rblxcc-demo.cpp <<'CPP'
-          int printf(char* format, ...);
-
-          int total(int limit) {
-              int sum = 0;
-              for (int i = 1; i <= limit; i++) sum += i;
-              return sum;
-          }
-
-          int main() {
-              printf("RBLXCC total=%d\n", total(4));
-              return 0;
-          }
-          CPP
-          ./build/linux-release/RBLXCC /tmp/rblxcc-demo.cpp -o /tmp/rblxcc-demo
-          test "$(/tmp/rblxcc-demo)" = "RBLXCC total=10"
-
       - name: Upload binaries
         # Same executables the macOS job hands back. Runs even when the tests
         # fail, so a red run still has the binaries that linked.
@@ -167,7 +133,6 @@ jobs:
             build/linux-release/Server
             build/linux-release/Client
             build/linux-release/WebApp
-            build/linux-release/RBLXCC
           if-no-files-found: warn
 
   macos:
@@ -228,28 +193,6 @@ jobs:
       - name: Test
         run: ctest --test-dir build/macos-release --output-on-failure
 
-      - name: Compile and run a program with RBLXCC
-        # On macOS this is the only place the driver's own assembly is assembled:
-        # underscore-prefixed symbols and direct calls instead of a PLT, which the
-        # library tests cannot check because they only read the text.
-        run: |
-          cat > /tmp/rblxcc-demo.cpp <<'CPP'
-          int printf(char* format, ...);
-
-          int total(int limit) {
-              int sum = 0;
-              for (int i = 1; i <= limit; i++) sum += i;
-              return sum;
-          }
-
-          int main() {
-              printf("RBLXCC total=%d\n", total(4));
-              return 0;
-          }
-          CPP
-          ./build/macos-release/RBLXCC /tmp/rblxcc-demo.cpp -o /tmp/rblxcc-demo
-          test "$(/tmp/rblxcc-demo)" = "RBLXCC total=10"
-
       - name: Upload binaries
         if: always()
         uses: actions/upload-artifact@v4
@@ -261,5 +204,4 @@ jobs:
             build/macos-release/Server
             build/macos-release/Client
             build/macos-release/WebApp
-            build/macos-release/RBLXCC
           if-no-files-found: warn

@@ -1,0 +1,519 @@
+/* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
+   file LICENSE.rst or https://cmake.org/licensing for details.  */
+#include "cmRST.h"
+
+#include <algorithm>
+#include <iterator>
+#include <utility>
+
+#include "cmsys/FStream.hxx"
+#include "cmsys/String.h"
+
+#include "cmAlgorithms.h"
+#include "cmRange.h"
+#include "cmStringAlgorithms.h"
+#include "cmSystemTools.h"
+#include "cmVersion.h"
+
+cmRST::cmRST(std::string docroot)
+  : DocRoot(std::move(docroot))
+  , CMakeDirective("^.. (cmake:)?("
+                   "command|diagnostic|envvar|genex|signature|variable"
+                   ")::")
+  , CMakeModuleDirective("^.. cmake-module::[ \t]+([^ \t\n]+)$")
+  , ParsedLiteralDirective("^.. parsed-literal::[ \t]*(.*)$")
+  , CodeBlockDirective("^.. code-block::[ \t]*(.*)$")
+  , ReplaceDirective("^.. (\\|[^|]+\\|) replace::[ \t]*(.*)$")
+  , IncludeDirective("^.. include::[ \t]+([^ \t\n]+)$")
+  , TocTreeDirective("^.. toctree::[ \t]*(.*)$")
+  , ProductionListDirective("^.. productionlist::[ \t]*(.*)$")
+  , NoteDirective("^.. note::[ \t]*(.*)$")
+  , VersionDirective("^.. version(added|changed)::[ \t]*(.*)$")
+  , ModuleRST(R"(^#\[(=*)\[\.rst:$)")
+  , CMakeRole("(:cmake)?:("
+              "cref|"
+              "program|command|cpack_gen|diagnostic|envvar|generator|genex|"
+              "manual|module|policy|preset|variable|"
+              "prop_cache|prop_dir|prop_fs|prop_gbl|prop_inst|prop_sf|"
+              "prop_test|prop_tgt|"
+              "option|cmake-option|cmake-build-option|cmake-install-option|"
+              "cmake-workflow-option|cpack-option|ctest-option|"
+              "ctest-dashboard-option"
+              "):`(<*([^`<]|[^` \t]<)*)([ \t]+<[^`]*>)?`")
+  , InlineLink("`(<*([^`<]|[^` \t]<)*)([ \t]+<[^`]*>)?`__?")
+  , InlineLiteral("``([^`]*)``")
+  , Substitution("(^|[^A-Za-z0-9_])"
+                 "((\\|[^| \t\r\n]([^|\r\n]*[^| \t\r\n])?\\|)(__|_|))"
+                 "([^A-Za-z0-9_]|$)")
+  , TocTreeLink("^.*[ \t]+<([^>]+)>$")
+  , Header(R"(^(#+|\*+|=+|-+|\^+|"+)$)")
+{
+  this->Replace.emplace_back();
+  this->Replace[0]["|release|"] = cmVersion::GetCMakeVersion();
+}
+
+bool cmRST::ProcessFile(std::string const& fname, bool isModule)
+{
+  cmsys::ifstream fin(fname.c_str());
+  if (fin) {
+    this->DocDir = cmSystemTools::GetFilenamePath(fname);
+    if (isModule) {
+      this->ProcessModule(fin);
+    } else {
+      this->ProcessRST(fin);
+    }
+    this->OutputLinePending = true;
+    return true;
+  }
+  return false;
+}
+
+void cmRST::ProcessRST(std::istream& is)
+{
+  std::string line;
+  while (cmSystemTools::GetLineFromStream(is, line)) {
+    this->ProcessLine(line);
+  }
+  this->Reset();
+}
+
+void cmRST::ProcessModule(std::istream& is)
+{
+  std::string line;
+  std::string rst;
+  while (cmSystemTools::GetLineFromStream(is, line)) {
+    if (!rst.empty() && rst != "#") {
+      // Bracket mode: check for end bracket
+      std::string::size_type pos = line.find(rst);
+      if (pos == std::string::npos) {
+        this->ProcessLine(line);
+      } else {
+        if (line[0] != '#') {
+          line.resize(pos);
+          this->ProcessLine(line);
+        }
+        rst.clear();
+        this->Reset();
+        this->OutputLinePending = true;
+      }
+    } else {
+      // Line mode: check for .rst start (bracket or line)
+      if (rst == "#") {
+        if (line == "#") {
+          this->ProcessLine("");
+          continue;
+        }
+        if (cmHasLiteralPrefix(line, "# ")) {
+          line.erase(0, 2);
+          this->ProcessLine(line);
+          continue;
+        }
+        rst.clear();
+        this->Reset();
+        this->OutputLinePending = true;
+      }
+      if (line == "#.rst:") {
+        rst = "#";
+      } else if (this->ModuleRST.find(line)) {
+        rst = cmStrCat(']', this->ModuleRST.match(1), ']');
+      }
+    }
+  }
+  if (rst == "#") {
+    this->Reset();
+  }
+}
+
+void cmRST::Reset()
+{
+  if (!this->MarkupLines.empty()) {
+    cmRST::UnindentLines(this->MarkupLines);
+  }
+  switch (this->DirectiveType) {
+    case Directive::None:
+      break;
+    case Directive::ParsedLiteral:
+      this->ProcessDirectiveParsedLiteral();
+      break;
+    case Directive::LiteralBlock:
+      this->ProcessDirectiveLiteralBlock();
+      break;
+    case Directive::CodeBlock:
+      this->ProcessDirectiveCodeBlock();
+      break;
+    case Directive::Replace:
+      this->ProcessDirectiveReplace();
+      break;
+    case Directive::TocTree:
+      this->ProcessDirectiveTocTree();
+      break;
+  }
+  this->MarkupType = Markup::None;
+  this->DirectiveType = Directive::None;
+  this->MarkupLines.clear();
+}
+
+void cmRST::ProcessLine(std::string const& line)
+{
+  bool lastLineEndedInColonColon = this->LastLineEndedInColonColon;
+  this->LastLineEndedInColonColon = false;
+
+  // A line starting in .. is an explicit markup start.
+  if (line == ".." ||
+      (line.size() >= 3 && line[0] == '.' && line[1] == '.' &&
+       cmsysString_isspace(line[2]))) {
+    this->Reset();
+    this->MarkupType =
+      (line.find_first_not_of(" \t", 2) == std::string::npos ? Markup::Empty
+                                                             : Markup::Normal);
+    // XXX(clang-tidy): https://bugs.llvm.org/show_bug.cgi?id=44165
+    // NOLINTNEXTLINE(bugprone-branch-clone)
+    if (this->CMakeDirective.find(line)) {
+      // Output cmake domain directives and their content normally.
+      this->NormalLine(line);
+    } else if (this->CMakeModuleDirective.find(line)) {
+      // Process cmake-module directive: scan .cmake file comments.
+      std::string file = this->CMakeModuleDirective.match(1);
+      if (file.empty() || !this->ProcessInclude(file, Include::Module)) {
+        this->NormalLine(line);
+      }
+    } else if (this->ParsedLiteralDirective.find(line)) {
+      // Record the literal lines to output after whole block.
+      this->DirectiveType = Directive::ParsedLiteral;
+      this->MarkupLines.push_back(this->ParsedLiteralDirective.match(1));
+    } else if (this->CodeBlockDirective.find(line)) {
+      // Record the literal lines to output after whole block.
+      // Ignore the language spec and record the opening line as blank.
+      this->DirectiveType = Directive::CodeBlock;
+      this->MarkupLines.emplace_back();
+    } else if (this->ReplaceDirective.find(line)) {
+      // Record the replace directive content.
+      this->DirectiveType = Directive::Replace;
+      this->ReplaceName = this->ReplaceDirective.match(1);
+      this->MarkupLines.push_back(this->ReplaceDirective.match(2));
+    } else if (this->IncludeDirective.find(line)) {
+      // Process the include directive or output the directive and its
+      // content normally if it fails.
+      std::string file = this->IncludeDirective.match(1);
+      if (file.empty() || !this->ProcessInclude(file, Include::Normal)) {
+        this->NormalLine(line);
+      }
+    } else if (this->TocTreeDirective.find(line)) {
+      // Record the toctree entries to process after whole block.
+      this->DirectiveType = Directive::TocTree;
+      this->MarkupLines.push_back(this->TocTreeDirective.match(1));
+    } else if (this->ProductionListDirective.find(line)) {
+      // Output productionlist directives and their content normally.
+      this->NormalLine(line);
+    } else if (this->NoteDirective.find(line)) {
+      // Output note directives and their content normally.
+      this->NormalLine(line);
+    } else if (this->VersionDirective.find(line)) {
+      // Output versionadded and versionchanged directives and their content
+      // normally.
+      this->NormalLine(line);
+    }
+  }
+  // An explicit markup start followed by nothing but whitespace and a
+  // blank line does not consume any indented text following.
+  else if (this->MarkupType == Markup::Empty && line.empty()) {
+    this->NormalLine(line);
+  }
+  // Indented lines following an explicit markup start are explicit markup.
+  else if (this->MarkupType != Markup::None &&
+           (line.empty() || cmsysString_isspace(line[0]))) {
+    this->MarkupType = Markup::Normal;
+    // Record markup lines if the start line was recorded.
+    if (!this->MarkupLines.empty()) {
+      this->MarkupLines.push_back(line);
+    }
+  }
+  // A blank line following a paragraph ending in "::" starts a literal block.
+  else if (lastLineEndedInColonColon && line.empty()) {
+    // Record the literal lines to output after whole block.
+    this->MarkupType = Markup::Normal;
+    this->DirectiveType = Directive::LiteralBlock;
+    this->MarkupLines.emplace_back();
+    this->OutputLine({}, false);
+  }
+  // Print non-markup lines.
+  else {
+    this->NormalLine(line);
+    this->LastLineEndedInColonColon =
+      (line.size() >= 2 && line[line.size() - 2] == ':' && line.back() == ':');
+  }
+}
+
+void cmRST::NormalLine(std::string const& line)
+{
+  this->Reset();
+  this->OutputLine(line, true);
+}
+
+void cmRST::OutputLine(std::string const& line, bool inlineMarkup)
+{
+  if (this->OutputLinePending) {
+    this->OutputLines.emplace_back(std::string{}, 0, false);
+    this->OutputLinePending = false;
+  }
+  this->OutputLines.emplace_back(line, this->ContextOffset, inlineMarkup);
+}
+
+void cmRST::Write(std::ostream& os)
+{
+  for (ContentLine const& c : this->OutputLines) {
+    this->WriteLine(os, c);
+  }
+}
+
+void cmRST::WriteLine(std::ostream& os, ContentLine const& content)
+{
+  if (content.InlineMarkup) {
+    if (this->LastLength && this->Header.find(content.Content.c_str())) {
+      os << std::string(this->LastLength, content.Content[0]) << '\n';
+      return;
+    }
+
+    this->LastLength = 0;
+    std::string line =
+      this->ReplaceSubstitutions(content.Content, content.Context);
+    std::string::size_type pos = 0;
+    for (;;) {
+      std::string::size_type* first = nullptr;
+      std::string::size_type role_start = std::string::npos;
+      std::string::size_type link_start = std::string::npos;
+      std::string::size_type lit_start = std::string::npos;
+      if (this->CMakeRole.find(line.c_str() + pos)) {
+        role_start = this->CMakeRole.start();
+        first = &role_start;
+      }
+      if (this->InlineLiteral.find(line.c_str() + pos)) {
+        lit_start = this->InlineLiteral.start();
+        if (!first || lit_start < *first) {
+          first = &lit_start;
+        }
+      }
+      if (this->InlineLink.find(line.c_str() + pos)) {
+        link_start = this->InlineLink.start();
+        if (!first || link_start < *first) {
+          first = &link_start;
+        }
+      }
+      if (first == &role_start) {
+        this->LastLength += role_start;
+        os << line.substr(pos, role_start);
+        std::string text = this->CMakeRole.match(3);
+        // If a command reference has no explicit target and
+        // no explicit "(...)" then add "()" to the text.
+        if (this->CMakeRole.match(2) == "command" &&
+            this->CMakeRole.match(5).empty() &&
+            text.find_first_of("()") == std::string::npos) {
+          text += "()";
+        }
+        this->LastLength += 4 + text.size();
+        os << "``" << text << "``";
+        pos += this->CMakeRole.end();
+      } else if (first == &lit_start) {
+        this->LastLength += lit_start;
+        os << line.substr(pos, lit_start);
+        std::string text = this->InlineLiteral.match(1);
+        pos += this->InlineLiteral.end();
+        this->LastLength += 4 + text.size();
+        os << "``" << text << "``";
+      } else if (first == &link_start) {
+        this->LastLength += link_start;
+        os << line.substr(pos, link_start);
+        std::string text = this->InlineLink.match(1);
+        bool escaped = false;
+        for (char c : text) {
+          if (escaped) {
+            escaped = false;
+            ++this->LastLength;
+            os << c;
+          } else if (c == '\\') {
+            escaped = true;
+          } else {
+            ++this->LastLength;
+            os << c;
+          }
+        }
+        pos += this->InlineLink.end();
+      } else {
+        break;
+      }
+    }
+    this->LastLength += line.size() - pos;
+    os << line.substr(pos) << '\n';
+  } else {
+    this->LastLength = content.Content.size();
+    os << content.Content << '\n';
+  }
+}
+
+std::string cmRST::ReplaceSubstitutions(std::string const& line,
+                                        size_t context)
+{
+  std::string out;
+  std::string::size_type pos = 0;
+  while (this->Substitution.find(line.c_str() + pos)) {
+    std::string::size_type start = this->Substitution.start(2);
+    std::string::size_type end = this->Substitution.end(2);
+    std::string substitute = this->Substitution.match(3);
+    auto replace = this->Replace[context].find(substitute);
+    if (replace != this->Replace[context].end()) {
+      std::pair<std::set<std::string>::iterator, bool> replaced =
+        this->Replaced.insert(substitute);
+      if (replaced.second) {
+        substitute = this->ReplaceSubstitutions(replace->second, context);
+        this->Replaced.erase(replaced.first);
+      }
+    }
+    out += line.substr(pos, start);
+    out += substitute;
+    pos += end;
+  }
+  out += line.substr(pos);
+  return out;
+}
+
+void cmRST::OutputMarkupLines(bool inlineMarkup)
+{
+  for (auto line : this->MarkupLines) {
+    if (!line.empty()) {
+      line = cmStrCat(' ', std::move(line));
+    }
+    this->OutputLine(line, inlineMarkup);
+  }
+  this->OutputLinePending = true;
+}
+
+bool cmRST::ProcessInclude(std::string file, Include type)
+{
+  bool found = false;
+  if (this->IncludeDepth < 10) {
+    cmRST r(this->DocRoot);
+    r.IncludeDepth = this->IncludeDepth + 1;
+    r.OutputLinePending = this->OutputLinePending;
+    if (type == Include::TocTree) {
+      r.ContextOffset = this->ContextOffset + this->Replace.size();
+    } else {
+      r.ContextOffset = this->ContextOffset;
+      r.Replace = this->Replace;
+    }
+    if (file[0] == '/') {
+      file = this->DocRoot + file;
+    } else {
+      file = cmStrCat(this->DocDir, '/', std::move(file));
+    }
+    found = r.ProcessFile(file, type == Include::Module);
+    if (type == Include::TocTree) {
+      this->Replace.insert(this->Replace.end(),
+                           std::make_move_iterator(r.Replace.begin()),
+                           std::make_move_iterator(r.Replace.end()));
+    } else {
+      this->Replace = std::move(r.Replace);
+    }
+    this->OutputLines.insert(this->OutputLines.end(),
+                             std::make_move_iterator(r.OutputLines.begin()),
+                             std::make_move_iterator(r.OutputLines.end()));
+    this->OutputLinePending = r.OutputLinePending;
+  }
+  return found;
+}
+
+void cmRST::ProcessDirectiveParsedLiteral()
+{
+  this->OutputMarkupLines(true);
+}
+
+void cmRST::ProcessDirectiveLiteralBlock()
+{
+  this->OutputMarkupLines(false);
+}
+
+void cmRST::ProcessDirectiveCodeBlock()
+{
+  this->OutputMarkupLines(false);
+}
+
+void cmRST::ProcessDirectiveReplace()
+{
+  // Record markup lines as replacement text.  Documents processed
+  // together share one context, so a redefinition must override.
+  std::string& replacement = this->Replace[0][this->ReplaceName];
+  replacement = cmJoin(this->MarkupLines, " ");
+  this->ReplaceName.clear();
+}
+
+void cmRST::ProcessDirectiveTocTree()
+{
+  // Process documents referenced by toctree directive.
+  for (std::string const& line : this->MarkupLines) {
+    if (!line.empty() && line[0] != ':') {
+      if (this->TocTreeLink.find(line)) {
+        std::string const& link = this->TocTreeLink.match(1);
+        this->ProcessInclude(link + ".rst", Include::TocTree);
+      } else {
+        this->ProcessInclude(line + ".rst", Include::TocTree);
+      }
+    }
+  }
+}
+
+void cmRST::UnindentLines(std::vector<std::string>& lines)
+{
+  // Remove the common indentation from the second and later lines.
+  std::string indentText;
+  std::string::size_type indentEnd = 0;
+  bool first = true;
+  for (size_t i = 1; i < lines.size(); ++i) {
+    std::string const& line = lines[i];
+
+    // Do not consider empty lines.
+    if (line.empty()) {
+      continue;
+    }
+
+    // Record indentation on first non-empty line.
+    if (first) {
+      first = false;
+      indentEnd = line.find_first_not_of(" \t");
+      indentText = line.substr(0, indentEnd);
+      continue;
+    }
+
+    // Truncate indentation to match that on this line.
+    indentEnd = std::min(indentEnd, line.size());
+    for (std::string::size_type j = 0; j != indentEnd; ++j) {
+      if (line[j] != indentText[j]) {
+        indentEnd = j;
+        break;
+      }
+    }
+  }
+
+  // Update second and later lines.
+  for (size_t i = 1; i < lines.size(); ++i) {
+    std::string& line = lines[i];
+    if (!line.empty()) {
+      line = line.substr(indentEnd);
+    }
+  }
+
+  auto it = lines.cbegin();
+  size_t leadingEmpty = std::distance(it, cmFindNot(lines, std::string()));
+
+  auto rit = lines.crbegin();
+  size_t trailingEmpty =
+    std::distance(rit, cmFindNot(cmReverseRange(lines), std::string()));
+
+  if ((leadingEmpty + trailingEmpty) >= lines.size()) {
+    // All lines are empty.  The markup block is empty.  Leave only one.
+    lines.resize(1);
+    return;
+  }
+
+  auto contentEnd = cmRotate(lines.begin(), lines.begin() + leadingEmpty,
+                             lines.end() - trailingEmpty);
+  lines.erase(contentEnd, lines.end());
+}

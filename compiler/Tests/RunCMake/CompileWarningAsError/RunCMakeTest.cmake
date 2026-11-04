@@ -1,0 +1,50 @@
+include(RunCMake)
+
+# Isolate the following cases from certain flags in the environment.
+foreach(var IN ITEMS CFLAGS CXXFLAGS SYCLFLAGS)
+  if(DEFINED ENV{${var}})
+    string(REGEX REPLACE "(^| )-w( |$)" " " env_flags "$ENV{${var}}")
+    set(ENV{${var}} "${env_flags}")
+    unset(env_flags)
+  endif()
+endforeach()
+
+function(run_compile_warn test lang extension)
+  set(RunCMake_TEST_BINARY_DIR ${RunCMake_BINARY_DIR}/${test}_${lang}-build)
+  set(RunCMake_TEST_OUTPUT_MERGE 1)
+  run_cmake_with_options(${test}_${lang} "-DLANGUAGE=${lang}" "-DEXTENSION=${extension}"
+    ${RunCMake_TEST_OPTIONS} ${ARGN})
+  set(RunCMake_TEST_NO_CLEAN 1)
+  if(ARGN MATCHES "--compile-no-warning-as-error")
+    # Cause the build system to re-run CMake to verify that this option is preserved.
+    run_cmake_command(${test}_${lang}-Touch ${CMAKE_COMMAND} -E touch_nocreate CMakeCache.txt)
+  endif()
+  run_cmake_command(${test}_${lang}-Build ${CMAKE_COMMAND} --build . ${verbose_args})
+endfunction()
+
+set(langs C CXX)
+set(exts c cxx)
+if(CMake_TEST_CUDA)
+  list(APPEND langs CUDA)
+  list(APPEND exts cu)
+endif()
+if(CMake_TEST_SYCL)
+  list(APPEND RunCMake_TEST_OPTIONS -Wno-experimental)
+  list(APPEND langs SYCL)
+  list(APPEND exts sycl)
+endif()
+
+if(CMAKE_Swift_COMPILER_VERSION AND CMAKE_Swift_COMPILER_VERSION VERSION_LESS 3.0)
+  set(CMake_TEST_Swift 0)
+endif()
+
+if(CMake_TEST_Swift)
+  list(APPEND langs Swift)
+  list(APPEND exts swift)
+endif()
+
+foreach(lang ext IN ZIP_LISTS langs exts)
+  run_compile_warn(WerrorOn ${lang} ${ext})
+  run_compile_warn(WerrorOff ${lang} ${ext})
+  run_compile_warn(WerrorOnIgnore ${lang} ${ext} "--compile-no-warning-as-error")
+endforeach()

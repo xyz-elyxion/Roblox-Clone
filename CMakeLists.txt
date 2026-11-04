@@ -23,7 +23,6 @@ option(RBLX_BUILD_SERVER "Build the game server target" ON)
 option(RBLX_BUILD_TESTS "Build C++ test targets" ON)
 option(RBLX_BUILD_WEBAPP "Build the native website backend target" ON)
 option(RBLX_BUILD_TRAINER "Build the headless AI trainer target" ON)
-option(RBLX_BUILD_CC "Build the RBLXCC C++ compiler target" ON)
 option(RBLX_BUILD_ANTICHEAT "Embed the vendored RBLXAntiCheat library in the game client (Windows only)" ON)
 option(RBLX_ENABLE_WARNINGS "Enable stricter compiler warnings" ON)
 
@@ -306,54 +305,6 @@ if(RBLX_BUILD_TRAINER)
     endif()
 endif()
 
-if(RBLX_BUILD_CC)
-    # RBLXCC is the project's own C++ compiler: a lexer and preprocessor, a
-    # recursive-descent parser that type-checks as it parses, and an x86-64 back
-    # end that writes assembly. It has no dependencies beyond the standard
-    # library, so nothing here is fetched or linked.
-    add_executable(RBLXCC
-        src/CxxMain.cpp
-        src/CxxLexer.cpp
-        src/CxxParser.cpp
-        src/CxxCodegen.cpp
-    )
-    configure_rblx_target(RBLXCC)
-
-    # CMake builds the compiler once, and the compiler builds this program: two
-    # translation units, each compiled on its own and linked into one executable
-    # by RBLXCC instead of add_executable. MSVC is skipped because the back end
-    # writes AT&T assembly, which only an assembler like cc's understands.
-    #
-    # The real targets are not here because of the language, not the wiring: they
-    # use std::string, std::vector, threads, floating point, classes and templates,
-    # plus GLFW, GLM, ImGui and reactphysics3d headers. RBLXCC implements the C++
-    # that plain programs need; until it grows those features, CMake keeps
-    # compiling them.
-    if(NOT MSVC)
-        set(RBLXCC_EXAMPLE_SOURCES
-            ${CMAKE_CURRENT_SOURCE_DIR}/examples/rblxcc/main.cpp
-            ${CMAKE_CURRENT_SOURCE_DIR}/examples/rblxcc/totals.cpp
-        )
-        set(RBLXCC_EXAMPLE_PROGRAM
-            ${CMAKE_CURRENT_BINARY_DIR}/RBLXCCExample${CMAKE_EXECUTABLE_SUFFIX}
-        )
-        add_custom_command(
-            OUTPUT ${RBLXCC_EXAMPLE_PROGRAM}
-            COMMAND $<TARGET_FILE:RBLXCC> ${RBLXCC_EXAMPLE_SOURCES} -o ${RBLXCC_EXAMPLE_PROGRAM}
-            DEPENDS RBLXCC ${RBLXCC_EXAMPLE_SOURCES}
-            COMMENT "Compiling RBLXCCExample with RBLXCC"
-            VERBATIM
-        )
-        # The target and the file it produces cannot share a name, or make reports a
-        # circular dependency between them.
-        add_custom_target(BuildRBLXCCExample ALL DEPENDS ${RBLXCC_EXAMPLE_PROGRAM})
-        if(RBLX_BUILD_TESTS)
-            add_test(NAME RBLXCCExample COMMAND ${RBLXCC_EXAMPLE_PROGRAM})
-            set_tests_properties(RBLXCCExample PROPERTIES PASS_REGULAR_EXPRESSION "total=10")
-        endif()
-    endif()
-endif()
-
 set(WEB_SOURCES
     src/WebApp.cpp
     src/WebHttp.cpp
@@ -464,21 +415,4 @@ if(RBLX_BUILD_TESTS)
     endif()
     add_test(NAME WebAppTests COMMAND WebAppTests)
 
-    # The compiler is driven through its public API: source in, diagnostics and
-    # assembly out. Half of these tests go further and assemble, link and run the
-    # programs they compile with the host C compiler.
-    add_executable(CxxCompilerTests
-        tests/cxx_compiler_tests.cpp
-        src/CxxLexer.cpp
-        src/CxxParser.cpp
-        src/CxxCodegen.cpp
-    )
-    target_include_directories(CxxCompilerTests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
-    if(TARGET RBLXCC)
-        # The suite also drives the compiler the way a user does: several source
-        # files in, one linked program out.
-        add_test(NAME CxxCompilerTests COMMAND CxxCompilerTests $<TARGET_FILE:RBLXCC>)
-    else()
-        add_test(NAME CxxCompilerTests COMMAND CxxCompilerTests)
-    endif()
 endif()

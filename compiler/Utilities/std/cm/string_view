@@ -1,0 +1,250 @@
+// -*-c++-*-
+// vim: set ft=cpp:
+
+/* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
+   file LICENSE.rst or https://cmake.org/licensing for details.  */
+#pragma once
+
+#if __cplusplus >= 201703L || defined(_MSVC_LANG) && _MSVC_LANG >= 201703L
+#  define CMake_HAVE_CXX_STRING_VIEW
+#endif
+
+#include <cm/bits/container_helpers.hxx> // IWYU pragma: export
+
+#ifdef CMake_HAVE_CXX_STRING_VIEW
+#  include <string_view> // IWYU pragma: export
+namespace cm {
+using std::string_view;
+}
+#else
+#  include <cstddef>
+#  include <functional>
+#  include <iosfwd>
+#  include <iterator>
+#  include <stdexcept>
+#  include <string>
+
+#  include <cm/bits/constexpr.hxx>
+
+namespace cm {
+
+class string_view
+{
+public:
+  using traits_type = std::string::traits_type;
+  using value_type = char;
+  using pointer = char*;
+  using const_pointer = char const*;
+  using reference = char&;
+  using const_reference = char const&;
+  using const_iterator = char const*;
+  using iterator = const_iterator;
+  using const_reverse_iterator = std::reverse_iterator<const_iterator>;
+  using reverse_iterator = const_reverse_iterator;
+  using size_type = std::string::size_type;
+  using difference_type = std::string::difference_type;
+
+  static constexpr size_type const npos = static_cast<size_type>(-1);
+
+private:
+  static inline constexpr size_type cxx11_min(size_type a, size_type b)
+  {
+    return a > b ? b : a;
+  }
+
+public:
+  constexpr string_view() noexcept = default;
+  constexpr string_view(string_view const&) noexcept = default;
+
+  constexpr string_view(char const* s, size_t count) noexcept
+    : data_(s)
+    , size_(count)
+  {
+  }
+
+  // std::char_traits<char>::length() is constexpr only from C++17
+  string_view(char const* s) noexcept
+    : data_(s)
+    , size_(traits_type::length(s))
+  {
+  }
+
+  // C++17 does not define this constructor.  Instead it defines
+  // a conversion operator on std::string to create a string_view.
+  // Since this implementation is used in C++11, std::string does
+  // not have that conversion.
+  // std::string is constexpr only from C++20.
+  string_view(std::string const& s) noexcept
+    : data_(s.data())
+    , size_(s.size())
+  {
+  }
+
+  // C++17 does not define this conversion.  Instead it defines
+  // a constructor on std::string that can take a string_view.
+  // Since this implementation is used in C++11, std::string does
+  // not have that constructor.
+  // std::string is constexpr only from C++20.
+  explicit operator std::string() const { return std::string(data_, size_); }
+
+  CONSTEXPR_CXX14 string_view& operator=(string_view const&) = default;
+
+  constexpr const_iterator begin() const noexcept { return data_; }
+  constexpr const_iterator end() const noexcept { return data_ + size_; }
+  constexpr const_iterator cbegin() const noexcept { return begin(); }
+  constexpr const_iterator cend() const noexcept { return end(); }
+
+  // `std::reverse_iterator` is constexpr only from C++17
+  const_reverse_iterator rbegin() const noexcept
+  {
+    return const_reverse_iterator(end());
+  }
+  const_reverse_iterator rend() const noexcept
+  {
+    return const_reverse_iterator(begin());
+  }
+  const_reverse_iterator crbegin() const noexcept { return rbegin(); }
+  const_reverse_iterator crend() const noexcept { return rend(); }
+
+  constexpr const_reference operator[](size_type pos) const noexcept
+  {
+    return data_[pos];
+  }
+
+  constexpr const_reference at(size_type pos) const
+  {
+    return data_[pos < size_ ? pos
+                             : throw std::out_of_range(
+                                 "Index out of range in string_view::at")];
+  }
+
+  constexpr const_reference front() const noexcept { return data_[0]; }
+  constexpr const_reference back() const noexcept { return data_[size_ - 1]; }
+  constexpr const_pointer data() const noexcept { return data_; }
+
+  constexpr size_type size() const noexcept { return size_; }
+  constexpr size_type length() const noexcept { return size_; }
+  constexpr size_type max_size() const noexcept { return npos - 1; }
+  constexpr bool empty() const noexcept { return size_ == 0; }
+
+  CONSTEXPR_CXX14 void remove_prefix(size_type n) noexcept
+  {
+    data_ += n;
+    size_ -= n;
+  }
+  CONSTEXPR_CXX14 void remove_suffix(size_type n) noexcept { size_ -= n; }
+  CONSTEXPR_CXX14 void swap(string_view& v) noexcept
+  {
+    string_view tmp = v;
+    v = *this;
+    *this = tmp;
+  }
+
+  // std::char_traits<char>::copy() is constexpr only from C++20
+  size_type copy(char* dest, size_type count, size_type pos = 0) const;
+
+  constexpr string_view substr(size_type pos = 0, size_type count = npos) const
+  {
+    return pos <= size_
+      ? string_view(data_ + pos, cxx11_min(count, size_ - pos))
+      : throw std::out_of_range("Index out of range in string_view::substr");
+    ;
+  }
+
+  // std::char_traits<char>::compare() is constexpr only from C++17
+  int compare(string_view v) const noexcept;
+  int compare(size_type pos1, size_type count1, string_view v) const;
+  int compare(size_type pos1, size_type count1, string_view v, size_type pos2,
+              size_type count2) const;
+  int compare(char const* s) const;
+  int compare(size_type pos1, size_type count1, char const* s) const;
+  int compare(size_type pos1, size_type count1, char const* s,
+              size_type count2) const;
+
+  // std::char_traits<char>::compare() is constexpr only from C++17
+  // std::char_traits<char>::find() is constexpr only from C++17
+  size_type find(string_view v, size_type pos = 0) const noexcept;
+  size_type find(char c, size_type pos = 0) const noexcept;
+  size_type find(char const* s, size_type pos, size_type count) const;
+  size_type find(char const* s, size_type pos = 0) const;
+
+  size_type rfind(string_view v, size_type pos = npos) const noexcept;
+  size_type rfind(char c, size_type pos = npos) const noexcept;
+  size_type rfind(char const* s, size_type pos, size_type count) const;
+  size_type rfind(char const* s, size_type pos = npos) const;
+
+  size_type find_first_of(string_view v, size_type pos = 0) const noexcept;
+  size_type find_first_of(char c, size_type pos = 0) const noexcept;
+  size_type find_first_of(char const* s, size_type pos, size_type count) const;
+  size_type find_first_of(char const* s, size_type pos = 0) const;
+
+  size_type find_last_of(string_view v, size_type pos = npos) const noexcept;
+  size_type find_last_of(char c, size_type pos = npos) const noexcept;
+  size_type find_last_of(char const* s, size_type pos, size_type count) const;
+  size_type find_last_of(char const* s, size_type pos = npos) const;
+
+  size_type find_first_not_of(string_view v, size_type pos = 0) const noexcept;
+  size_type find_first_not_of(char c, size_type pos = 0) const noexcept;
+  size_type find_first_not_of(char const* s, size_type pos,
+                              size_type count) const;
+  size_type find_first_not_of(char const* s, size_type pos = 0) const;
+
+  size_type find_last_not_of(string_view v,
+                             size_type pos = npos) const noexcept;
+  size_type find_last_not_of(char c, size_type pos = npos) const noexcept;
+  size_type find_last_not_of(char const* s, size_type pos,
+                             size_type count) const;
+  size_type find_last_not_of(char const* s, size_type pos = npos) const;
+
+private:
+  char const* data_ = nullptr;
+  size_type size_ = 0;
+};
+
+std::ostream& operator<<(std::ostream& o, string_view v);
+
+std::string& operator+=(std::string& s, string_view v);
+
+inline bool operator==(string_view l, string_view r) noexcept
+{
+  return l.compare(r) == 0;
+}
+
+inline bool operator!=(string_view l, string_view r) noexcept
+{
+  return l.compare(r) != 0;
+}
+
+inline bool operator<(string_view l, string_view r) noexcept
+{
+  return l.compare(r) < 0;
+}
+
+inline bool operator<=(string_view l, string_view r) noexcept
+{
+  return l.compare(r) <= 0;
+}
+
+inline bool operator>(string_view l, string_view r) noexcept
+{
+  return l.compare(r) > 0;
+}
+
+inline bool operator>=(string_view l, string_view r) noexcept
+{
+  return l.compare(r) >= 0;
+}
+}
+
+namespace std {
+
+template <>
+struct hash<cm::string_view>
+{
+  using argument_type = cm::string_view;
+  using result_type = size_t;
+  result_type operator()(argument_type const& s) const noexcept;
+};
+}
+
+#endif

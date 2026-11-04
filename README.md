@@ -254,6 +254,10 @@ What it takes:
   already declares the C library. A header is lexed where the directive stands, so
   include guards and `#pragma once` behave as written, and a diagnostic inside one
   names the header rather than the file that included it.
+- Macros: `#define SIZE 4` and `#define SQUARE(x) ((x) * (x))` expand where they
+  are written, and a variadic one leaves `__VA_ARGS__` for the arguments beyond
+  its named parameters. `#error` stops the compile with its own text, and a
+  directive inside a dead `#if` branch does nothing.
 - Statics: a `static` local keeps its value between calls and only its function
   can name it, because each one gets a symbol of its own. Its initialiser has to
   be a constant, which is what a data section can hold; anything else is refused
@@ -290,8 +294,8 @@ registers, which is why they are passed as pointers.
 
 What it refuses, with a diagnostic that says so instead of miscompiling:
 inheritance, virtual functions, constructors and destructors, operator
-overloading, templates, exceptions, `long double`, variadic macros, qualified
-names from a namespace, and structs or arrays passed or returned by value.
+overloading, templates, exceptions, `long double`, qualified names from a
+namespace, and structs or arrays passed or returned by value.
 
 `tests/cxx_compiler_tests.cpp` runs the pipeline twice over: once as a library
 (diagnostics and the shape of the emitted assembly) and once end to end, where

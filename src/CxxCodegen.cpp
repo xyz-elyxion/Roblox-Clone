@@ -1382,8 +1382,8 @@ std::string supportedSummary() {
         "source or on -I, <...> on -I) and #pragma once.\n"
         "Storage: globals, static locals and static functions.\n"
         "Not supported yet: inheritance, virtual functions, constructors, destructors,\n"
-        "operator overloading, templates, exceptions, long double, variadic macros,\n"
-        "qualified names, structs or arrays by value.";
+        "operator overloading, templates, exceptions, long double, qualified names,\n"
+        "structs or arrays by value.";
 }
 
 }  // namespace cxx

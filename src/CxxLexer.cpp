@@ -231,6 +231,7 @@ private:
             }
             if (nameEnd < rest.size() && rest[nameEnd] == '(') {
                 std::vector<std::string> parameters;
+                bool variadic = false;
                 std::size_t cursor = nameEnd + 1;
                 bool closed = false;
                 while (cursor < rest.size()) {
@@ -245,9 +246,11 @@ private:
                         break;
                     }
                     if (rest.compare(cursor, 3, "...") == 0) {
-                        error("variadic macros are not supported yet; write the call out",
-                              directiveLine, 1);
-                        return;
+                        // `...` is kept as a final parameter called __VA_ARGS__, and
+                        // the call site fills it with the arguments it has left.
+                        variadic = true;
+                        cursor += 3;
+                        continue;
                     }
                     if (!isIdentifierStart(c)) {
                         error("a macro parameter must be a name", directiveLine, 1);
@@ -261,6 +264,7 @@ private:
                     error("the parameter list of a macro needs a ')'", directiveLine, 1);
                     return;
                 }
+                if (variadic) parameters.push_back("__VA_ARGS__");
                 std::string body = rest.substr(cursor);
                 while (!body.empty() && (body.front() == ' ' || body.front() == '\t')) {
                     body.erase(body.begin());
@@ -357,6 +361,12 @@ private:
         if (word == "pragma") {
             // #pragma once is the only pragma that means anything here.
             if (active() && rest == "once" && !file_.empty() && once_) once_->insert(file_);
+            return;
+        }
+        if (word == "error") {
+            // A directive in a dead branch is not reached, which is the point of
+            // putting one there.
+            if (active()) error(rest.empty() ? "#error" : rest, directiveLine, 1);
             return;
         }
         // Anything else is ignored: there is nothing else to configure.
@@ -504,6 +514,25 @@ private:
         error("the call to '" + name + "' does not close before the end of the line", tokenLine,
               tokenColumn);
         return false;
+    }
+
+    // __VA_ARGS__ is the arguments a variadic macro has left, already joined with
+    // commas, so it is substituted as text rather than as one parenthesised value.
+    static std::string substituteVariadic(const std::string& body, const std::string& text) {
+        std::string out;
+        std::size_t i = 0;
+        while (i < body.size()) {
+            if (isIdentifierStart(body[i])) {
+                const std::size_t start = i;
+                while (i < body.size() && isIdentifierPart(body[i])) ++i;
+                const std::string word = body.substr(start, i - start);
+                out += (word == "__VA_ARGS__") ? text : word;
+                continue;
+            }
+            out += body[i];
+            ++i;
+        }
+        return out;
     }
 
     // Replaces each parameter in the body with its argument, parenthesised so that
@@ -864,9 +893,39 @@ private:
                 if (scan < source_.size() && source_[scan] == '(') {
                     std::vector<std::string> arguments;
                     if (!collectArguments(scan, name, arguments, tokenLine, tokenColumn)) return;
-                    const std::string text =
-                        substituteArguments(function->second.first, function->second.second,
-                                            arguments, name, tokenLine, tokenColumn);
+                    std::vector<std::string> parameters = function->second.first;
+                    const bool variadic =
+                        !parameters.empty() && parameters.back() == "__VA_ARGS__";
+                    if (variadic) parameters.pop_back();
+                    bool substituted = false;
+                    std::string text;
+                    if (variadic) {
+                        if (arguments.size() < parameters.size()) {
+                            error("'" + name + "' takes at least " +
+                                      std::to_string(parameters.size()) + " argument" +
+                                      (parameters.size() == 1 ? "" : "s") + " but was given " +
+                                      std::to_string(arguments.size()),
+                                  tokenLine, tokenColumn);
+                            return;
+                        }
+                        std::string rest;
+                        for (std::size_t i = parameters.size(); i < arguments.size(); ++i) {
+                            if (!rest.empty()) rest += ", ";
+                            rest += arguments[i];
+                        }
+                        arguments.resize(parameters.size());
+                        // The named parameters are still parameters; only the tail
+                        // is special.
+                        text = substituteArguments(parameters, function->second.second, arguments,
+                                                   name, tokenLine, tokenColumn);
+                        if (text.empty()) return;
+                        text = substituteVariadic(text, rest);
+                        substituted = true;
+                    }
+                    if (!substituted) {
+                        text = substituteArguments(parameters, function->second.second, arguments,
+                                                   name, tokenLine, tokenColumn);
+                    }
                     if (text.empty()) return;
                     expanding_.push_back(name);
                     Lexer nested(text, tokenLine, macros_, tokens_, diagnostics_, options_, file_,

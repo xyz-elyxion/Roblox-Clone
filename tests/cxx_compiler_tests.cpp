@@ -101,8 +101,16 @@ void diagnosticsTests() {
                 "has no enumerator named");
     expectCompiles("enum with an underlying type",
                    "enum Small : unsigned char { SA, SB }; int main() { return (int)SB; }");
-    expectError("variadic macro", "#define LOG(...) printf(__VA_ARGS__)\nint main() { return 0; }",
-                "variadic macros are not supported");
+    expectCompiles("variadic macro",
+                   "#define LOG(...) printf(__VA_ARGS__)\n"
+                   "int main() { LOG(\"%d %d\\n\", 1, 2); return 0; }");
+    expectCompiles("variadic macro with fixed parameters",
+                   "#define SHOW(fmt, ...) printf(fmt, __VA_ARGS__)\n"
+                   "int main() { SHOW(\"%d\\n\", 7); return 0; }");
+    expectError("variadic macro without its fixed arguments",
+                "#define SHOW(fmt, ...) printf(fmt, __VA_ARGS__)\n"
+                "int main() { SHOW(); return 0; }", "takes at least 1 argument");
+    expectError("error directive", "#error stop here\nint main() { return 0; }", "stop here");
     expectError("union named as a struct", "union U { int i; }; struct U u; int main() { return 0; }",
                 "is a union, not a struct");
     expectError("case outside a switch", "int main() { case 1: return 0; }",

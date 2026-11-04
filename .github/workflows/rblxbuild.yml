@@ -146,25 +146,27 @@ jobs:
             git
             make
             mingw-w64-x86_64-gcc
-            mingw-w64-x86_64-ninja
 
       - name: Show toolchain versions
         run: |
           g++ --version | head -1
           make --version | head -1
-          ninja --version
 
       - name: Bootstrap
+        # No --generator here. On MinGW bootstrap's own default is "MSYS
+        # Makefiles", the configuration whose Windows paths it converts. Forcing
+        # Ninja wrote /d/a/... MSYS paths into Bootstrap.cmk/build.ninja, which
+        # the native ninja.exe resolves against the current drive root and then
+        # reports as missing sources.
         run: |
           mkdir -p build/rblxbuild-windows
           cd build/rblxbuild-windows
           ../../rblxbuild/bootstrap \
             --parallel=$(nproc) \
-            --generator=Ninja \
             -- $RBLXBUILD_CONFIGURE_FLAGS
 
       - name: Build
-        run: ninja -C build/rblxbuild-windows
+        run: make -C build/rblxbuild-windows -j$(nproc)
 
       - name: Smoke test
         run: ./build/rblxbuild-windows/bin/rblxbuild.exe -E echo ok

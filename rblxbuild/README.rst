@@ -1,21 +1,25 @@
-CMake
-*****
+RBLXBuild
+*********
 
 Introduction
 ============
 
-CMake is a cross-platform, open-source build system generator.
-For full documentation visit the `CMake Home Page`_ and the
-`CMake Documentation Page`_. The `CMake Community Wiki`_ also
-references useful guides and recipes.
+RBLXBuild is this project's build-tool source: a snapshot of the CMake build
+system generator, rebranded and carried in ``rblxbuild/``.
 
-.. _`CMake Home Page`: https://cmake.org
-.. _`CMake Documentation Page`: https://cmake.org/documentation
-.. _`CMake Community Wiki`: https://gitlab.kitware.com/cmake/community/-/wikis/home
+It is derived from `CMake`_, which is maintained and supported by `Kitware`_ and
+developed with a community of contributors. Their copyright notices and the BSD
+3-clause licence are unchanged and stay with these files - see ``Licenses/`` and
+``LICENSE.rst``. Rebranding the product is not relicensing it.
 
-CMake is maintained and supported by `Kitware`_ and developed in
-collaboration with a productive community of contributors.
+What carries the RBLX name is the identity this project presents: the directory,
+this document and the project README. The internals keep their upstream spelling
+- the ``cmake`` command name, the ``CMAKE_*`` variables, the ``CMakeLists.txt``
+file names, the ``.cmake`` module extension and the ``cm*`` C++ symbols - because
+they are load-bearing, and renaming them in a tree nothing here can build would
+leave source that no longer resembles the thing it came from.
 
+.. _`CMake`: https://cmake.org
 .. _`Kitware`: https://www.kitware.com/cmake
 
 License

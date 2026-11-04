@@ -33,9 +33,13 @@ The rename is textual and complete, not a port:
   directory whose build file is `RBLXBuildLists.txt` or whose modules end in
   `.rblxbuild`, and no upstream module will load into `rblxbuild`. Adapting real
   code to it is a port, not a flag.
-- **It has never been compiled.** No configure, no build, no test: the tree had
-  already lost `Tests/` and `Help/`, which its own top-level build requires. Treat
-  buildability as unproven and probably broken.
+- **`rblxbuild` builds.** The prune removed `Tests/`, `Help/`, `Auxiliary/` and
+  `Packaging/`, but the root build file still added `Tests` and `Auxiliary`
+  unconditionally and configured `Tests/.NoDartCoverage`; those three references are
+  now `EXISTS`-guarded. Bootstrap, configure and `make rblxbuild` succeed, and the
+  resulting binary answers `-E echo` and `--version`. No tests exist, because
+  `Tests/` was pruned. Installation is still broken: `install(DIRECTORY Help ...)`
+  names a directory this tree does not carry.
 - **It is reversible.** `git revert` of the rename commit restores upstream
   spelling; `git checkout 62b91b06 -- compiler` restores the original unpruned
   tree under its old directory name.

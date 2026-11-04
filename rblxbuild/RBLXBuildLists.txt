@@ -309,8 +309,11 @@ macro(RBLXBUILD_SETUP_TESTING)
     endif()
   endif()
 
-  # configure some files for testing
-  configure_file(Tests/.NoDartCoverage Tests/.NoDartCoverage)
+  # configure some files for testing. Tests/ is not carried by this tree, so the
+  # NoDartCoverage marker is only configured when that directory exists.
+  if(EXISTS ${RBLXBuild_SOURCE_DIR}/Tests/.NoDartCoverage)
+    configure_file(Tests/.NoDartCoverage Tests/.NoDartCoverage)
+  endif()
   configure_file(CTestCustom.rblxbuild.in CTestCustom.rblxbuild @ONLY)
 endmacro()
 
@@ -575,7 +578,12 @@ if(NOT RBLXBuild_TEST_EXTERNAL_RBLXBUILD)
   add_subdirectory(Utilities)
 endif()
 
-add_subdirectory(Tests)
+# This tree does not carry Tests/, so the test tree is optional rather than
+# required. The target-folder and add_test blocks below are already gated on
+# BUILD_TESTING.
+if(EXISTS ${RBLXBUILD_SOURCE_DIR}/Tests)
+  add_subdirectory(Tests)
+endif()
 
 if(NOT RBLXBuild_TEST_EXTERNAL_RBLXBUILD)
   if(BUILD_TESTING)
@@ -618,8 +626,12 @@ if(NOT RBLXBuild_TEST_EXTERNAL_RBLXBUILD)
     PATTERN ".git*" EXCLUDE
     )
 
-  # Install auxiliary files integrating with other tools.
-  add_subdirectory(Auxiliary)
+  # Install auxiliary files integrating with other tools. This tree does not
+  # carry Auxiliary/ - it was pruned along with Tests/, Help/ and Packaging/ -
+  # so the directory is optional here instead of required.
+  if(EXISTS ${RBLXBUILD_SOURCE_DIR}/Auxiliary)
+    add_subdirectory(Auxiliary)
+  endif()
 
   # Optionally sign installed binaries.
   if(RBLXBuild_INSTALL_SIGNTOOL)

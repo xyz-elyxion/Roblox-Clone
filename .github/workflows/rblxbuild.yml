@@ -1,0 +1,183 @@
+name: RBLXBuild
+
+# Builds the vendored build tool in rblxbuild/, not the game. build.yml keeps
+# building the game with the CMake installed on the runner; this workflow answers
+# the separate question of whether the renamed tree still compiles itself.
+#
+# It is separate from build.yml on purpose: bootstrapping takes minutes, needs a
+# POSIX shell on Windows, and has nothing to do with Studio/Server/Client, so it
+# must not gate them. Scoped to rblxbuild/** for the same reason.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "rblxbuild/**"
+      - ".github/workflows/rblxbuild.yml"
+  pull_request:
+    paths:
+      - "rblxbuild/**"
+      - ".github/workflows/rblxbuild.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # RBLXBuild does not vendor OpenSSL - the tree only carries a curl that expects
+  # a system one. Building the tool has no use for TLS, so configure without it
+  # rather than install libssl-dev on three images. BUILD_TESTING is already off
+  # in bootstrap mode, but Tests/ was pruned from the tree and must stay unvisited.
+  RBLXBUILD_CONFIGURE_FLAGS: -DRBLXBUILD_USE_OPENSSL=OFF -DBUILD_TESTING=OFF
+
+jobs:
+  linux:
+    name: Linux (GCC)
+    runs-on: ubuntu-22.04
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install bootstrap toolchain
+        # bootstrap needs a POSIX sh, a C++ compiler and a make it recognises
+        # (gmake/make/smake). Ninja is the generator so the Makefile generator's
+        # command-line limits never come into play.
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential ninja-build
+
+      - name: Bootstrap
+        # Out of source: bootstrap aborts if Bootstrap.cmk already sits in the
+        # source tree, so the build tree stays separate from the checkout.
+        run: |
+          mkdir -p build/rblxbuild-linux
+          cd build/rblxbuild-linux
+          ../../rblxbuild/bootstrap \
+            --parallel=$(nproc) \
+            --generator=Ninja \
+            -- $RBLXBUILD_CONFIGURE_FLAGS
+
+      - name: Build
+        run: ninja -C build/rblxbuild-linux
+
+      - name: Smoke test
+        # -E echo is a lookup in the command table that the rename broke and
+        # commit 1b43e2fb fixed; it fails loudly if that order regresses.
+        run: ./build/rblxbuild-linux/bin/rblxbuild -E echo ok
+
+      - name: Upload binaries
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rblxbuild-linux-x64
+          path: |
+            build/rblxbuild-linux/bin/rblxbuild
+            build/rblxbuild-linux/bin/rblxtest
+            build/rblxbuild-linux/bin/rblxpack
+          if-no-files-found: warn
+
+  macos:
+    name: macOS (Clang)
+    # Pinned to a named image rather than macos-latest, matching build.yml.
+    runs-on: macos-15
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install bootstrap toolchain
+        # clang and make ship with the Xcode command line tools; Ninja does not.
+        run: command -v ninja || brew install ninja
+
+      - name: Bootstrap
+        run: |
+          mkdir -p build/rblxbuild-macos
+          cd build/rblxbuild-macos
+          ../../rblxbuild/bootstrap \
+            --parallel=$(sysctl -n hw.ncpu) \
+            --generator=Ninja \
+            -- $RBLXBUILD_CONFIGURE_FLAGS
+
+      - name: Build
+        run: ninja -C build/rblxbuild-macos
+
+      - name: Smoke test
+        run: ./build/rblxbuild-macos/bin/rblxbuild -E echo ok
+
+      - name: Upload binaries
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rblxbuild-macos-arm64
+          path: |
+            build/rblxbuild-macos/bin/rblxbuild
+            build/rblxbuild-macos/bin/rblxtest
+            build/rblxbuild-macos/bin/rblxpack
+          if-no-files-found: warn
+
+  windows:
+    name: Windows (MinGW via MSYS2)
+    runs-on: windows-2022
+    timeout-minutes: 60
+
+    # bootstrap is a POSIX shell script and rejects every generator except
+    # "MSYS Makefiles", "Unix Makefiles" and "Ninja", so it cannot drive MSVC.
+    # MinGW under MSYS2 is the supported way to get a first rblxbuild.exe; MSVC
+    # builds are a second pass using that binary.
+    defaults:
+      run:
+        shell: msys2 {0}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up MSYS2
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: false
+          install: >-
+            git
+            make
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-ninja
+
+      - name: Show toolchain versions
+        run: |
+          g++ --version | head -1
+          make --version | head -1
+          ninja --version
+
+      - name: Bootstrap
+        run: |
+          mkdir -p build/rblxbuild-windows
+          cd build/rblxbuild-windows
+          ../../rblxbuild/bootstrap \
+            --parallel=$(nproc) \
+            --generator=Ninja \
+            -- $RBLXBUILD_CONFIGURE_FLAGS
+
+      - name: Build
+        run: ninja -C build/rblxbuild-windows
+
+      - name: Smoke test
+        run: ./build/rblxbuild-windows/bin/rblxbuild.exe -E echo ok
+
+      - name: Upload binaries
+        # Only the executables. A dynamically linked MinGW build also needs
+        # libstdc++-6.dll, libgcc_s_seh-1.dll and libwinpthread-1.dll beside it.
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rblxbuild-windows-x64
+          path: |
+            build/rblxbuild-windows/bin/rblxbuild.exe
+            build/rblxbuild-windows/bin/rblxtest.exe
+            build/rblxbuild-windows/bin/rblxpack.exe
+          if-no-files-found: warn

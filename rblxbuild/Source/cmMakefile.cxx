@@ -3,6 +3,7 @@
 #include "cmConfigure.h" // IWYU pragma: keep
 
 #include "cmMakefile.h"
+#include "cmRBLXBuildCompat.h"
 
 #include <algorithm>
 #include <array>
@@ -1740,7 +1741,10 @@ void cmMakefile::Configure()
     bool hasVersion = false;
     // search for the right policy command
     for (cmListFileFunction const& func : listFile.Functions) {
-      if (func.LowerCaseName() == "rblxbuild_minimum_required"_s) {
+      // The upstream spelling of the command counts as well; see
+      // cmRBLXBuildCompat.h.
+      if (func.LowerCaseName() == "rblxbuild_minimum_required"_s ||
+          func.LowerCaseName() == "cmake_minimum_required"_s) {
         hasVersion = true;
         break;
       }
@@ -2513,6 +2517,16 @@ cmValue cmMakefile::GetDefinition(std::string const& name) const
   cmValue def = this->StateSnapshot.GetDefinition(name);
   if (!def) {
     def = this->GetState()->GetInitializedCacheValue(name);
+  }
+  if (!def) {
+    // Written or passed in the upstream spelling (see cmRBLXBuildCompat.h).
+    if (std::string const alias = cmRBLXBuildLegacyAlias(name);
+        !alias.empty()) {
+      def = this->StateSnapshot.GetDefinition(alias);
+      if (!def) {
+        def = this->GetState()->GetInitializedCacheValue(alias);
+      }
+    }
   }
 #ifndef RBLXBUILD_BOOTSTRAP
   cmVariableWatch* vv = this->GetVariableWatch();

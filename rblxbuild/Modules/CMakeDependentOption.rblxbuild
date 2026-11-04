@@ -1,0 +1,6 @@
+# Requirements: none
+#
+# Compatibility module. Projects written for the build tool RBLXBuild was
+# forked from include this module under its original name; the tree keeps the
+# renamed implementation, so forward to it instead of keeping two copies.
+include(RBLXBuildDependentOption)

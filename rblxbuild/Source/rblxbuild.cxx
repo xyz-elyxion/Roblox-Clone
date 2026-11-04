@@ -2365,9 +2365,8 @@ void rblxbuild::SetGlobalGenerator(std::unique_ptr<cmGlobalGenerator> gg)
 
 int rblxbuild::DoPreConfigureChecks()
 {
-  // Make sure the Source directory contains a RBLXBuildLists.txt file.
-  std::string srcList =
-    cmStrCat(this->GetHomeDirectory(), '/', this->RBLXBuildListName);
+  // Make sure the Source directory contains a build file we can read.
+  std::string srcList = this->GetRBLXBuildListFile(this->GetHomeDirectory());
   if (!cmSystemTools::FileExists(srcList)) {
     std::string err;
     if (cmSystemTools::FileIsDirectory(this->GetHomeDirectory())) {
@@ -4702,6 +4701,15 @@ std::string rblxbuild::GetRBLXBuildListFile(std::string const& dir) const
   }
   if (listFile.empty() || !cmSystemTools::FileExists(listFile, true)) {
     listFile = cmStrCat(dir, slash, "RBLXBuildLists.txt");
+  }
+  if (!cmSystemTools::FileExists(listFile, true)) {
+    // Dependencies pulled in by FetchContent bring their own build files under
+    // the name of the tool they were written for. Read those too, so a project
+    // can depend on an unmodified third-party tree.
+    std::string const legacy = cmStrCat(dir, slash, "CMakeLists.txt");
+    if (cmSystemTools::FileExists(legacy, true)) {
+      listFile = legacy;
+    }
   }
   return listFile;
 }

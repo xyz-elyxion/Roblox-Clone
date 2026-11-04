@@ -1,6 +1,7 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
    file LICENSE.rst or https://rblxbuild.org/licensing for details.  */
 #include "cmIncludeCommand.h"
+#include "cmRBLXBuildCompat.h"
 
 #include <map>
 #include <utility>
@@ -98,6 +99,15 @@ bool cmIncludeCommand(std::vector<std::string> const& args,
     // Not a path. Maybe module.
     std::string module = cmStrCat(fname, ".rblxbuild");
     std::string mfile = status.GetMakefile().GetModulesFile(module, system);
+    if (mfile.empty()) {
+      // A module named the upstream way, e.g. CMakeParseArguments or
+      // CMakePackageConfigHelpers (see cmRBLXBuildCompat.h).
+      if (std::string const alias = cmRBLXBuildLegacyAlias(fname);
+          !alias.empty()) {
+        mfile = status.GetMakefile().GetModulesFile(
+          cmStrCat(alias, ".rblxbuild"), system);
+      }
+    }
 
     if (system) {
       auto ModulePolicy = DeprecatedModules.find(fname);

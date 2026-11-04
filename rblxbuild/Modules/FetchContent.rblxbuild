@@ -2421,7 +2421,9 @@ macro(FetchContent_MakeAvailable)
         string(APPEND __rblxbuild_srcdir "/${__rblxbuild_arg_SOURCE_SUBDIR}")
       endif()
 
-      if(EXISTS ${__rblxbuild_srcdir}/RBLXBuildLists.txt)
+      # A dependency may carry either build file name: the one this tool uses,
+      # or the one the tool it was forked from uses.
+      if(EXISTS ${__rblxbuild_srcdir}/RBLXBuildLists.txt OR EXISTS ${__rblxbuild_srcdir}/CMakeLists.txt)
         if(DEFINED RBLXBUILD_EXPORT_FIND_PACKAGE_NAME)
           list(APPEND __rblxbuild_fcCurrentVarsStack "${RBLXBUILD_EXPORT_FIND_PACKAGE_NAME}")
         else()

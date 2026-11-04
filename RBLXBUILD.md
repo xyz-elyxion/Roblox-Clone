@@ -40,6 +40,18 @@ The rename is textual and complete, not a port:
   resulting binary answers `-E echo` and `--version`. No tests exist, because
   `Tests/` was pruned. Installation is still broken: `install(DIRECTORY Help ...)`
   names a directory this tree does not carry.
+- **It still reads the build files it was forked from.** The game and the four
+  dependencies it fetches (glfw, glm, rp3d, glad) are written in the upstream
+  dialect, so the tool accepts `CMakeLists.txt` alongside `RBLXBuildLists.txt`,
+  registers the `cmake_*` command names alongside the `rblxbuild_*` ones, resolves
+  `CMAKE_*` variable reads through their `RBLXBUILD_*` counterparts, forwards the
+  upstream module names from `Modules/CMake*.rblxbuild`, and lets FetchContent add
+  a dependency that carries either file. `.github/workflows/build.yml` uses this:
+  it builds the tool, then uses that tool to configure, build, test and package
+  the project, so the game is built by RBLXBuild rather than by an installed
+  CMake. The compatibility paths are single-sided: variables written under the
+  upstream spelling are not mirrored back, so `-D` options the project passes to
+  the tool itself use the `RBLXBUILD_` spelling.
 - **It is reversible.** `git revert` of the rename commit restores upstream
   spelling; `git checkout 62b91b06 -- compiler` restores the original unpruned
   tree under its old directory name.

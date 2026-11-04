@@ -132,6 +132,15 @@ void GetScriptingCommands(cmState* state)
   state->AddBuiltinCommand("rblxbuild_minimum_required", cmRBLXBuildMinimumRequired);
   state->AddBuiltinCommand("rblxbuild_path", cmRBLXBuildPathCommand);
   state->AddBuiltinCommand("rblxbuild_policy", cmRBLXBuildPolicyCommand);
+  // Build files written for the tool RBLXBuild was forked from spell these
+  // cmake_*. Accept both spellings so third-party projects run unmodified.
+  state->AddBuiltinCommand("cmake_diagnostic", cmRBLXBuildDiagnosticCommand);
+  state->AddBuiltinCommand("cmake_language", cmRBLXBuildLanguageCommand);
+  state->AddBuiltinCommand("cmake_minimum_required", cmRBLXBuildMinimumRequired);
+  state->AddBuiltinCommand("cmake_path", cmRBLXBuildPathCommand);
+  state->AddBuiltinCommand("cmake_policy", cmRBLXBuildPolicyCommand);
+  state->AddBuiltinCommand("cmake_parse_arguments", cmParseArgumentsCommand);
+  state->AddBuiltinCommand("get_cmake_property", cmGetRBLXBuildPropertyCommand);
   state->AddBuiltinCommand("configure_file", cmConfigureFileCommand);
   state->AddBuiltinCommand("execute_process", cmExecuteProcessCommand);
   state->AddBuiltinCommand("file", cmFileCommand);

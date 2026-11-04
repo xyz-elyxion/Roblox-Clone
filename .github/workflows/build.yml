@@ -1,5 +1,16 @@
 name: Build
 
+# One workflow, two stages: build the vendored build tool out of rblxbuild/, then
+# use that tool - not the CMake on the runner - to configure, build, test and
+# package the game. If the tool cannot build the project, that is the failure this
+# workflow exists to report.
+#
+# The tool bootstrap only ever runs on a POSIX shell with a compiler: on Windows
+# that means MSYS2/MinGW, because bootstrap rejects every generator except
+# "MSYS Makefiles", "Unix Makefiles" and "Ninja". Once built, the tool itself can
+# drive MSVC through the Visual Studio generator, so the game still ships a
+# normal MSVC build.
+
 on:
   push:
     branches: [main]
@@ -10,71 +21,19 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  # The tree does not vendor OpenSSL (no TLS needed to build the tool) and its
+  # Tests/ directory was pruned, so neither belongs in a bootstrap.
+  RBLXBUILD_TOOL_FLAGS: -DRBLXBUILD_USE_OPENSSL=OFF -DBUILD_TESTING=OFF
+  # GLFW and the other fetched dependencies declare minimum versions below 3.5,
+  # which RBLXBuild - like the tool it was forked from - refuses outright.
+  RBLXBUILD_POLICY_VERSION_MINIMUM: "3.5"
+
 jobs:
-  windows:
-    name: Windows Release (MSVC)
-    runs-on: windows-2022
-    timeout-minutes: 60
-
-    env:
-      # GLFW 3.3.8 and a few other FetchContent dependencies declare
-      # cmake_minimum_required() below 3.5, which CMake 4 refuses outright.
-      CMAKE_POLICY_VERSION_MINIMUM: "3.5"
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Cache FetchContent dependencies
-        # GLFW, GLM, ImGui, ImGuizmo, rp3d and stb are cloned at configure time.
-        # The key follows CMakeLists.txt, so a dependency bump refetches them.
-        uses: actions/cache@v4
-        with:
-          path: build/windows-release/_deps
-          key: deps-${{ runner.os }}-${{ hashFiles('CMakeLists.txt') }}
-          restore-keys: |
-            deps-${{ runner.os }}-
-
-      - name: Show toolchain versions
-        run: |
-          cmake --version
-          git --version
-
-      - name: Configure
-        run: cmake --preset windows-release
-
-      - name: Build
-        run: cmake --build --preset windows-release --parallel
-
-      - name: Test
-        run: ctest --preset windows-release --output-on-failure
-
-      - name: Package runnable folder
-        # Runs even if the tests fail, so a red run still hands back whatever
-        # targets linked.
-        if: always()
-        shell: pwsh
-        run: >
-          ./scripts/package-build.ps1
-          -Configuration Release
-          -BuildDir build/windows-release
-          -Output dist/rblx-windows-release
-
-      - name: Upload runnable package
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: rblx-windows-release
-          path: dist/rblx-windows-release
-          if-no-files-found: warn
-
   linux:
     name: Linux Release (GCC)
     runs-on: ubuntu-22.04
-    timeout-minutes: 45
-
-    env:
-      CMAKE_POLICY_VERSION_MINIMUM: "3.5"
+    timeout-minutes: 90
 
     steps:
       - name: Checkout
@@ -101,28 +60,42 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            build-essential ccache cmake ninja-build pkg-config \
+            build-essential ccache ninja-build pkg-config \
             libgl1-mesa-dev libx11-dev libxrandr-dev libxinerama-dev \
             libxcursor-dev libxi-dev libwayland-dev libxkbcommon-dev
 
-      - name: Configure
-        run: >
-          cmake -S . -B build/linux-release
+      - name: Build RBLXBuild
+        # Out of source: bootstrap aborts if Bootstrap.cmk sits in the source
+        # tree, so the tool's build directory stays separate from the checkout.
+        run: |
+          mkdir -p build/rblxbuild-tool
+          cd build/rblxbuild-tool
+          ../../rblxbuild/bootstrap \
+            --parallel=$(nproc) \
+            --generator=Ninja \
+            -- $RBLXBUILD_TOOL_FLAGS
+          ninja
+          ./bin/rblxbuild --version
+
+      - name: Configure the game with RBLXBuild
+        run: >-
+          ./build/rblxbuild-tool/bin/rblxbuild -S . -B build/linux-release
           -G Ninja
-          -DCMAKE_BUILD_TYPE=Release
-          -DCMAKE_C_COMPILER_LAUNCHER=ccache
-          -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+          -DRBLXBUILD_BUILD_TYPE=Release
+          -DRBLXBUILD_C_COMPILER_LAUNCHER=ccache
+          -DRBLXBUILD_CXX_COMPILER_LAUNCHER=ccache
           -DRBLX_BUILD_ANTICHEAT=OFF
 
-      - name: Build
-        run: cmake --build build/linux-release --parallel
+      - name: Build the game with RBLXBuild
+        run: ./build/rblxbuild-tool/bin/rblxbuild --build build/linux-release --parallel $(nproc)
 
       - name: Test
-        run: ctest --test-dir build/linux-release --output-on-failure
+        run: >-
+          ./build/rblxbuild-tool/bin/rblxtest
+          --test-dir build/linux-release --output-on-failure
 
       - name: Upload binaries
-        # Same executables the macOS job hands back. Runs even when the tests
-        # fail, so a red run still has the binaries that linked.
+        # Runs even when the tests fail, so a red run still has what linked.
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -137,14 +110,10 @@ jobs:
 
   macos:
     name: macOS Release (Clang)
-    # macos-14 was retired on 2026-11-02 and jobs on it were browned out before
-    # that. macos-15 is a supported arm64 image; the job stays pinned to a named
-    # image instead of macos-latest, which now follows macos-26.
+    # Pinned to a named image rather than macos-latest, matching the retired
+    # macos-14 image this job used to run on.
     runs-on: macos-15
-    timeout-minutes: 60
-
-    env:
-      CMAKE_POLICY_VERSION_MINIMUM: "3.5"
+    timeout-minutes: 90
 
     steps:
       - name: Checkout
@@ -166,32 +135,39 @@ jobs:
           restore-keys: |
             ccache-${{ runner.os }}-
 
-      - name: Show toolchain versions
-        run: |
-          cmake --version
-          clang++ --version
-
       - name: Install build dependencies
-        # GLFW, GLM, ImGui, ImGuizmo, rp3d and stb all come from FetchContent;
-        # Ninja is the only tool the image does not always provide.
+        # clang and make ship with the command line tools; Ninja and ccache do not.
         run: |
           command -v ninja || brew install ninja
           command -v ccache || brew install ccache
 
-      - name: Configure
-        run: >
-          cmake -S . -B build/macos-release
+      - name: Build RBLXBuild
+        run: |
+          mkdir -p build/rblxbuild-tool
+          cd build/rblxbuild-tool
+          ../../rblxbuild/bootstrap \
+            --parallel=$(sysctl -n hw.ncpu) \
+            --generator=Ninja \
+            -- $RBLXBUILD_TOOL_FLAGS
+          ninja
+          ./bin/rblxbuild --version
+
+      - name: Configure the game with RBLXBuild
+        run: >-
+          ./build/rblxbuild-tool/bin/rblxbuild -S . -B build/macos-release
           -G Ninja
-          -DCMAKE_BUILD_TYPE=Release
-          -DCMAKE_C_COMPILER_LAUNCHER=ccache
-          -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+          -DRBLXBUILD_BUILD_TYPE=Release
+          -DRBLXBUILD_C_COMPILER_LAUNCHER=ccache
+          -DRBLXBUILD_CXX_COMPILER_LAUNCHER=ccache
           -DRBLX_BUILD_ANTICHEAT=OFF
 
-      - name: Build
-        run: cmake --build build/macos-release --parallel
+      - name: Build the game with RBLXBuild
+        run: ./build/rblxbuild-tool/bin/rblxbuild --build build/macos-release --parallel $(sysctl -n hw.ncpu)
 
       - name: Test
-        run: ctest --test-dir build/macos-release --output-on-failure
+        run: >-
+          ./build/rblxbuild-tool/bin/rblxtest
+          --test-dir build/macos-release --output-on-failure
 
       - name: Upload binaries
         if: always()
@@ -204,4 +180,85 @@ jobs:
             build/macos-release/Server
             build/macos-release/Client
             build/macos-release/WebApp
+          if-no-files-found: warn
+
+  windows:
+    name: Windows Release (MSVC, tool built with MinGW)
+    runs-on: windows-2022
+    timeout-minutes: 90
+
+    # The bootstrap stage is a POSIX shell script, so it runs in MSYS2. The game
+    # itself is configured and built by the tool it produces, with the Visual
+    # Studio generator, so the shipped binaries are MSVC like before.
+    defaults:
+      run:
+        shell: msys2 {0}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Cache FetchContent dependencies
+        uses: actions/cache@v4
+        with:
+          path: build/windows-release/_deps
+          key: deps-${{ runner.os }}-${{ hashFiles('CMakeLists.txt') }}
+          restore-keys: |
+            deps-${{ runner.os }}-
+
+      - name: Set up MSYS2
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: false
+          install: >-
+            git
+            make
+            mingw-w64-x86_64-gcc
+
+      - name: Build RBLXBuild
+        # No --generator: bootstrap's MinGW default is "MSYS Makefiles", the
+        # configuration whose POSIX paths MSYS make translates for native g++.
+        run: |
+          mkdir -p build/rblxbuild-tool
+          cd build/rblxbuild-tool
+          ../../rblxbuild/bootstrap \
+            --parallel=$(nproc) \
+            -- $RBLXBUILD_TOOL_FLAGS
+          make -j$(nproc)
+          ./bin/rblxbuild --version
+
+      - name: Configure the game with RBLXBuild
+        run: >-
+          ./build/rblxbuild-tool/bin/rblxbuild -S . -B build/windows-release
+          -G "Visual Studio 17 2022" -A x64
+          -DRBLXBUILD_BUILD_TYPE=Release
+
+      - name: Build the game with RBLXBuild
+        run: >-
+          ./build/rblxbuild-tool/bin/rblxbuild --build build/windows-release
+          --config Release --parallel $(nproc)
+
+      - name: Test
+        run: >-
+          ./build/rblxbuild-tool/bin/rblxtest --test-dir build/windows-release
+          -C Release --output-on-failure
+
+      - name: Package runnable folder
+        # Runs even if the tests fail, so a red run still hands back whatever
+        # targets linked.
+        if: always()
+        shell: pwsh
+        run: >
+          ./scripts/package-build.ps1
+          -Configuration Release
+          -BuildDir build/windows-release
+          -Output dist/rblx-windows-release
+
+      - name: Upload runnable package
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rblx-windows-release
+          path: dist/rblx-windows-release
           if-no-files-found: warn

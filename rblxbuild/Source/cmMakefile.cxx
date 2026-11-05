@@ -188,8 +188,12 @@ cmMakefile::cmMakefile(cmGlobalGenerator* globalGenerator,
 
   this->DefineFlags = " ";
 
-  this->cmDefineRegex.compile("#([ \t]*)rblxbuilddefine[ \t]+([A-Za-z_0-9]*)");
-  this->cmDefine01Regex.compile("#([ \t]*)rblxbuilddefine01[ \t]+([A-Za-z_0-9]*)");
+  // Templates in the wild are written in the dialect projects already use,
+  // so accept that spelling of the directive as well as this tool's own.
+  this->cmDefineRegex.compile(
+    "#([ \t]*)(cmake|rblxbuild)define[ \t]+([A-Za-z_0-9]*)");
+  this->cmDefine01Regex.compile(
+    "#([ \t]*)(cmake|rblxbuild)define01[ \t]+([A-Za-z_0-9]*)");
   this->cmNamedCurly.compile("^[A-Za-z0-9/_.+-]+{");
 
   this->StateSnapshot =
@@ -3734,26 +3738,28 @@ void cmMakefile::ConfigureString(std::string const& input, std::string& output,
       ++lineEnd;
     }
 
-    // Replace #rblxbuilddefine instances.
+    // Replace define-directive instances, in either spelling.
     if (this->cmDefineRegex.find(line)) {
-      cmValue def = this->GetDefinition(this->cmDefineRegex.match(2));
+      cmValue def = this->GetDefinition(this->cmDefineRegex.match(3));
       if (!def.IsOff()) {
         std::string const indentation = this->cmDefineRegex.match(1);
-        cmSystemTools::ReplaceString(line,
-                                     cmStrCat('#', indentation, "rblxbuilddefine"),
-                                     cmStrCat('#', indentation, "define"));
+        std::string const prefix = this->cmDefineRegex.match(2);
+        cmSystemTools::ReplaceString(
+          line, cmStrCat('#', indentation, prefix, "define"),
+          cmStrCat('#', indentation, "define"));
         output += line;
       } else {
         output += "/* #undef ";
-        output += this->cmDefineRegex.match(2);
+        output += this->cmDefineRegex.match(3);
         output += " */";
       }
     } else if (this->cmDefine01Regex.find(line)) {
       std::string const indentation = this->cmDefine01Regex.match(1);
-      cmValue def = this->GetDefinition(this->cmDefine01Regex.match(2));
-      cmSystemTools::ReplaceString(line,
-                                   cmStrCat('#', indentation, "rblxbuilddefine01"),
-                                   cmStrCat('#', indentation, "define"));
+      std::string const prefix = this->cmDefine01Regex.match(2);
+      cmValue def = this->GetDefinition(this->cmDefine01Regex.match(3));
+      cmSystemTools::ReplaceString(
+        line, cmStrCat('#', indentation, prefix, "define01"),
+        cmStrCat('#', indentation, "define"));
       output += line;
       if (!def.IsOff()) {
         output += " 1";

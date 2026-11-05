@@ -39,14 +39,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Cache FetchContent dependencies
-        uses: actions/cache@v4
-        with:
-          path: build/linux-release/_deps
-          key: deps-${{ runner.os }}-${{ hashFiles('RBLXBuildLists.txt') }}
-          restore-keys: |
-            deps-${{ runner.os }}-
-
       - name: Cache ccache
         # Without this every run recompiles ~19k lines of C++ from nothing.
         uses: actions/cache@v4
@@ -130,14 +122,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Cache FetchContent dependencies
-        uses: actions/cache@v4
-        with:
-          path: build/macos-release/_deps
-          key: deps-${{ runner.os }}-${{ hashFiles('RBLXBuildLists.txt') }}
-          restore-keys: |
-            deps-${{ runner.os }}-
-
       - name: Cache ccache
         uses: actions/cache@v4
         with:
@@ -215,14 +199,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Cache FetchContent dependencies
-        uses: actions/cache@v4
-        with:
-          path: build/windows-release/_deps
-          key: deps-${{ runner.os }}-${{ hashFiles('RBLXBuildLists.txt') }}
-          restore-keys: |
-            deps-${{ runner.os }}-
 
       - name: Set up MSYS2
         uses: msys2/setup-msys2@v2

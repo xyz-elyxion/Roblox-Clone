@@ -112,14 +112,15 @@ const char* lineCommentPrefix(Language language) {
 
 bool isIgnoredDirectory(const std::string& name) {
     const std::string key = lowered(name);
-    // Generated or third-party trees. `vendor` is the site's pinned three.js and
-    // `GameRelease` is a packaged build, so neither is source anybody edits here.
+    // Generated or third-party trees. `vendor` is the site's pinned three.js,
+    // `third_party` is the vendored C++ dependencies and `GameRelease` is a
+    // packaged build, so none of them is source anybody edits here.
     static const char* const ignored[] = {
         ".git",      ".vs",        "build",       "node_modules", "vendor",
         "artifacts", "__pycache__", ".cache",     "dist",         "out",
         "cmake-build-debug",        "cmake-build-release",          ".idea",
         "rblxbuild-build-debug",    "rblxbuild-build-release",
-        "gamerelease",              "data"
+        "gamerelease",              "data",                         "third_party"
     };
     for (const char* entry : ignored) {
         if (key == entry) {

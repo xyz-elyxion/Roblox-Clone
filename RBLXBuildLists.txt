@@ -28,92 +28,36 @@ option(RBLX_ENABLE_WARNINGS "Enable stricter compiler warnings" ON)
 
 add_compile_definitions(NOMINMAX GLM_ENABLE_EXPERIMENTAL)
 
-include(FetchContent)
+# Third-party code is vendored under third_party/ at pinned commits and written in
+# this dialect, so configuring needs no network and no compatibility mode. The four
+# trees that ship a build system are added as subdirectories; imgui, ImGuizmo,
+# ImGuiColorTextEdit and stb have no build file upstream, so their sources are
+# compiled straight into our targets from these locations.
+set(RBLX_THIRD_PARTY ${RBLXBUILD_CURRENT_SOURCE_DIR}/third_party)
 
 set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "Build GLFW examples" FORCE)
 set(GLFW_BUILD_TESTS OFF CACHE BOOL "Build GLFW tests" FORCE)
 set(GLFW_BUILD_DOCS OFF CACHE BOOL "Build GLFW documentation" FORCE)
+set(GLFW_INSTALL OFF CACHE BOOL "Generate GLFW installation target" FORCE)
+add_subdirectory(${RBLX_THIRD_PARTY}/glfw)
 
-FetchContent_Declare(
-    glfw
-    GIT_REPOSITORY https://github.com/glfw/glfw
-    GIT_TAG 3.3.8
-)
-FetchContent_MakeAvailable(glfw)
+# glm is header-only for us: building the library target would produce a shared
+# object nobody loads, and its tests and install rules are upstream's business.
+set(GLM_BUILD_LIBRARY OFF CACHE BOOL "Build dynamic/static GLM library" FORCE)
+set(GLM_BUILD_TESTS OFF CACHE BOOL "Build GLM test programs" FORCE)
+set(GLM_BUILD_INSTALL OFF CACHE BOOL "Generate GLM install target" FORCE)
+add_subdirectory(${RBLX_THIRD_PARTY}/glm)
 
-FetchContent_Declare(
-    glm
-    GIT_REPOSITORY https://github.com/g-truc/glm
-    GIT_TAG 0af55ccecd98d4e5a8d1fad7de25ba429d60e863 # 1.0.1
-)
-FetchContent_MakeAvailable(glm)
+# rp3d's testbed, unit tests and install rules are off by default, so this adds
+# only the reactphysics3d library.
+add_subdirectory(${RBLX_THIRD_PARTY}/rp3d)
 
-FetchContent_Declare(
-    imgui
-    GIT_REPOSITORY https://github.com/ocornut/imgui
-    GIT_TAG 2af6dd9694288e6befe1edb7ce25510911693c22 # docking branch snapshot
-)
-FetchContent_MakeAvailable(imgui)
+add_subdirectory(${RBLX_THIRD_PARTY}/glad)
 
-FetchContent_Declare(
-    imguizmo
-    GIT_REPOSITORY https://github.com/CedricGuillemet/ImGuizmo
-    GIT_TAG be8aa4aeab86b402701c8c1df011bd8cd776760b
-)
-FetchContent_GetProperties(imguizmo)
-if(NOT imguizmo_POPULATED)
-    FetchContent_Populate(imguizmo)
-endif()
-
-# Studio's script panel is a code editor with line numbers, syntax highlighting,
-# selection and undo. ImGui has no widget for that, so it comes from the editor
-# everybody embeds in ImGui apps; it is two files and builds against the pinned
-# ImGui above.
-FetchContent_Declare(
-    imguicolortextedit
-    GIT_REPOSITORY https://github.com/BalazsJako/ImGuiColorTextEdit
-    GIT_TAG ca2f9f1462e3b60e56351bc466acda448c5ea50d
-)
-FetchContent_GetProperties(imguicolortextedit)
-if(NOT imguicolortextedit_POPULATED)
-    FetchContent_Populate(imguicolortextedit)
-endif()
-
-FetchContent_Declare(
-    rp3d
-    GIT_REPOSITORY https://github.com/DanielChappuis/reactphysics3d
-    GIT_TAG v0.9.0
-)
-FetchContent_MakeAvailable(rp3d)
-if(TARGET reactphysics3d)
-    if(MSVC)
-        # rp3d 0.9.0's DefaultLogger.h uses std::chrono::system_clock but never
-        # includes <chrono>. Older MSVC only saw it through <mutex> transitively
-        # and newer MSVC (19.4x) no longer does, which breaks the build.
-        target_compile_options(reactphysics3d PUBLIC
-            $<$<COMPILE_LANGUAGE:CXX>:/FIchrono>
-        )
-    else()
-        target_compile_options(reactphysics3d PUBLIC
-            $<$<COMPILE_LANGUAGE:CXX>:-include>
-            $<$<COMPILE_LANGUAGE:CXX>:cstdint>
-        )
-    endif()
-endif()
-
-FetchContent_Declare(
-    stb
-    GIT_REPOSITORY https://github.com/nothings/stb
-    GIT_TAG 31c1ad37456438565541f4919958214b6e762fb4
-)
-FetchContent_MakeAvailable(stb)
-
-FetchContent_Declare(
-    glad
-    GIT_REPOSITORY https://github.com/libigl/libigl-glad
-    GIT_TAG 651a425101365aa6e8504988ef9bb363d066c5ee
-)
-FetchContent_MakeAvailable(glad)
+set(imgui_SOURCE_DIR ${RBLX_THIRD_PARTY}/imgui)
+set(imguizmo_SOURCE_DIR ${RBLX_THIRD_PARTY}/imguizmo)
+set(imguicolortextedit_SOURCE_DIR ${RBLX_THIRD_PARTY}/imguicolortextedit)
+set(stb_SOURCE_DIR ${RBLX_THIRD_PARTY}/stb)
 
 set(SHARED_SOURCES
     src/Renderer.cpp

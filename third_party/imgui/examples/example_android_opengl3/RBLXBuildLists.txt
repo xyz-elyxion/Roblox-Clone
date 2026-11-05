@@ -1,0 +1,40 @@
+rblxbuild_minimum_required(VERSION 3.6)
+
+project(ImGuiExample)
+
+set(RBLXBUILD_CXX_STANDARD 11)
+set(RBLXBUILD_CXX_STANDARD_REQUIRED ON)
+set(RBLXBUILD_CXX_EXTENSIONS OFF)
+
+add_library(${RBLXBUILD_PROJECT_NAME} SHARED
+  ${RBLXBUILD_CURRENT_SOURCE_DIR}/main.cpp
+  ${RBLXBUILD_CURRENT_SOURCE_DIR}/../../imgui.cpp
+  ${RBLXBUILD_CURRENT_SOURCE_DIR}/../../imgui_demo.cpp
+  ${RBLXBUILD_CURRENT_SOURCE_DIR}/../../imgui_draw.cpp
+  ${RBLXBUILD_CURRENT_SOURCE_DIR}/../../imgui_tables.cpp
+  ${RBLXBUILD_CURRENT_SOURCE_DIR}/../../imgui_widgets.cpp
+  ${RBLXBUILD_CURRENT_SOURCE_DIR}/../../backends/imgui_impl_android.cpp
+  ${RBLXBUILD_CURRENT_SOURCE_DIR}/../../backends/imgui_impl_opengl3.cpp
+  ${ANDROID_NDK}/sources/android/native_app_glue/android_native_app_glue.c
+)
+
+set(RBLXBUILD_SHARED_LINKER_FLAGS
+  "${RBLXBUILD_SHARED_LINKER_FLAGS} -u ANativeActivity_onCreate"
+)
+
+target_compile_definitions(${RBLXBUILD_PROJECT_NAME} PRIVATE
+  IMGUI_IMPL_OPENGL_ES3
+)
+
+target_include_directories(${RBLXBUILD_PROJECT_NAME} PRIVATE
+  ${RBLXBUILD_CURRENT_SOURCE_DIR}/../..
+  ${RBLXBUILD_CURRENT_SOURCE_DIR}/../../backends
+  ${ANDROID_NDK}/sources/android/native_app_glue
+)
+
+target_link_libraries(${RBLXBUILD_PROJECT_NAME} PRIVATE
+  android
+  EGL
+  GLESv3
+  log
+)

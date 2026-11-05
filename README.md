@@ -29,6 +29,7 @@ RBLX Clone is an early prototype of a Roblox-style client, game server, Studio e
 - `web/` - public HTML pages, starter worlds and published `.world` files served by `WebApp.exe`.
 - `ServerWorld.world` - Default world file.
 - `GameRelease/` - Existing release asset folders. Do not commit generated binaries here.
+- `third_party/` - Pinned third-party sources (glfw, glm, imgui, ImGuizmo, ImGuiColorTextEdit, reactphysics3d, stb, glad), vendored and written in RBLXBuild dialect so the build reads no network.
 
 ## Prerequisites
 
@@ -52,7 +53,7 @@ On macOS:
 
 - Xcode command line tools (Clang with C++17).
 - Ninja, either from Homebrew (`brew install ninja`) or the preinstalled copy on the CI runners.
-- GLFW, GLM, ImGui, ImGuizmo, ReactPhysics3D and stb are fetched at configure time, so no Homebrew packages are needed for them.
+- GLFW, GLM, ImGui, ImGuizmo, ImGuiColorTextEdit, ReactPhysics3D, stb and glad are vendored under `third_party/`, so no Homebrew packages are needed for them and configuring needs no network access.
 
 RBLXAntiCheat is Windows-only and is skipped automatically on other platforms; `-DRBLX_BUILD_ANTICHEAT=OFF` leaves it out on Windows too.
 
@@ -158,6 +159,12 @@ build file does not add it as a subdirectory. See [RBLXBUILD.md](RBLXBUILD.md) f
 commands and how it relates to the tool this project builds with.
 Commit `62b91b06` still has the complete
 tree if any of it has to come back.
+
+The libraries the game links are vendored the same way under `third_party/`: cloned
+at the pinned commits, `.git` removed, and every build file converted to this
+dialect. Configuring therefore downloads nothing and needs no compatibility mode;
+`rblxbuild/Source/cmRBLXBuildCompat.h` remains only as a fallback for code that has
+not been converted.
 ## Run C++ Targets
 
 After building Release with the preset:

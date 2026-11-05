@@ -1,0 +1,13 @@
+# Define the environment for cross-compiling with 32-bit MinGW-w64 Clang
+SET(RBLXBUILD_SYSTEM_NAME    Windows) # Target system name
+SET(RBLXBUILD_SYSTEM_VERSION 1)
+SET(RBLXBUILD_C_COMPILER     "i686-w64-mingw32-clang")
+SET(RBLXBUILD_CXX_COMPILER   "i686-w64-mingw32-clang++")
+SET(RBLXBUILD_RC_COMPILER    "i686-w64-mingw32-windres")
+SET(RBLXBUILD_RANLIB         "i686-w64-mingw32-ranlib")
+
+# Configure the behaviour of the find commands
+SET(RBLXBUILD_FIND_ROOT_PATH "/usr/i686-w64-mingw32")
+SET(RBLXBUILD_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
+SET(RBLXBUILD_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
+SET(RBLXBUILD_FIND_ROOT_PATH_MODE_INCLUDE ONLY)

@@ -7,8 +7,12 @@
 # only one implementation of the option logic.
 include(RBLXBuildDependentOption)
 
+# Each argument is forwarded individually and quoted. Forwarding with a bare
+# ${ARGV} would re-split values that are themselves lists, so a condition like
+# "UNIX;NOT APPLE" would arrive as two arguments and shift every following
+# parameter by one, handing the fallback value to the wrong slot.
 if(COMMAND RBLXBUILD_DEPENDENT_OPTION AND NOT COMMAND cmake_dependent_option)
   macro(cmake_dependent_option)
-    RBLXBUILD_DEPENDENT_OPTION(${ARGV})
+    RBLXBUILD_DEPENDENT_OPTION("${ARGV0}" "${ARGV1}" "${ARGV2}" "${ARGV3}" "${ARGV4}")
   endmacro()
 endif()

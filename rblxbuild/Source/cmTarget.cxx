@@ -1114,20 +1114,22 @@ cmTarget::cmTarget(std::string name, cm::TargetType type, Visibility vis,
     config = cmSystemTools::UpperCase(config);
   }
 
+  std::string const defKeyPrefix = "RBLXBUILD_";
   std::string defKey;
   defKey.reserve(128);
-  defKey += "RBLXBUILD_";
-  auto initProperty = [this, mf, &defKey](std::string const& property,
-                                          char const* default_value) {
+  defKey += defKeyPrefix;
+  auto initProperty = [this, mf, &defKey, &defKeyPrefix](
+                        std::string const& property,
+                        char const* default_value) {
     // special init for ENABLE_EXPORTS
     // For SHARED_LIBRARY, only RBLXBUILD_SHARED_LIBRARY_ENABLE_EXPORTS variable
     // is used
     // For EXECUTABLE, RBLXBUILD_EXECUTABLE_ENABLE_EXPORTS or else
     // RBLXBUILD_ENABLE_EXPORTS variables are used
     if (property == "ENABLE_EXPORTS"_s) {
-      // Replace everything after "RBLXBUILD_"
+      // Replace everything after the variable prefix
       defKey.replace(
-        defKey.begin() + 6, defKey.end(),
+        defKey.begin() + defKeyPrefix.size(), defKey.end(),
         cmStrCat(this->impl->TargetType == cm::TargetType::EXECUTABLE
                    ? "EXECUTABLE"
                    : "SHARED_LIBRARY",
@@ -1151,8 +1153,9 @@ cmTarget::cmTarget(std::string name, cm::TargetType type, Visibility vis,
       return;
     }
 
-    // Replace everything after "RBLXBUILD_"
-    defKey.replace(defKey.begin() + 6, defKey.end(), property);
+    // Replace everything after the variable prefix
+    defKey.replace(defKey.begin() + defKeyPrefix.size(), defKey.end(),
+                   property);
     if (cmValue value = mf->GetDefinition(defKey)) {
       this->SetProperty(property, value);
     } else if (default_value) {

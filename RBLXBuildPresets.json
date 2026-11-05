@@ -7,7 +7,7 @@
       "generator": "Visual Studio 17 2022",
       "binaryDir": "${sourceDir}/build/windows-release",
       "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Release",
+        "RBLXBUILD_BUILD_TYPE": "Release",
         "RBLX_BUILD_CLIENT": "ON",
         "RBLX_BUILD_SERVER": "ON",
         "RBLX_BUILD_STUDIO": "ON",
@@ -20,7 +20,7 @@
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/build/macos-release",
       "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Release",
+        "RBLXBUILD_BUILD_TYPE": "Release",
         "RBLX_BUILD_CLIENT": "ON",
         "RBLX_BUILD_SERVER": "ON",
         "RBLX_BUILD_STUDIO": "ON",

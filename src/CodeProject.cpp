@@ -118,6 +118,7 @@ bool isIgnoredDirectory(const std::string& name) {
         ".git",      ".vs",        "build",       "node_modules", "vendor",
         "artifacts", "__pycache__", ".cache",     "dist",         "out",
         "cmake-build-debug",        "cmake-build-release",          ".idea",
+        "rblxbuild-build-debug",    "rblxbuild-build-release",
         "gamerelease",              "data"
     };
     for (const char* entry : ignored) {
@@ -132,7 +133,8 @@ bool isEditableFile(const std::string& name) {
     const std::string key = lowered(name);
     // Files the tree should show even though their name carries no extension.
     static const char* const named[] = {
-        "cmakelists.txt", "makefile", "dockerfile", ".gitignore", ".gitattributes",
+        "cmakelists.txt", "rblxbuildlists.txt", "makefile", "dockerfile",
+        ".gitignore", ".gitattributes",
         "license",        "readme",   ".clang-format"
     };
     for (const char* entry : named) {
@@ -146,7 +148,7 @@ bool isEditableFile(const std::string& name) {
         ".inl",  ".ipp",  ".glsl", ".vert", ".frag", ".geom", ".comp", ".tesc",
         ".tese", ".rbx",  ".lua",  ".js",   ".mjs",  ".cjs",  ".json", ".html",
         ".htm",  ".css",  ".md",   ".markdown", ".txt", ".ps1", ".bat", ".sh",
-        ".cmake", ".yml", ".yaml", ".toml", ".ini", ".world"
+        ".cmake", ".rblxbuild", ".yml", ".yaml", ".toml", ".ini", ".world"
     };
     const std::string extension = extensionOf(name);
     for (const char* entry : extensions) {

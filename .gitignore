@@ -4,6 +4,7 @@ build2/
 build_old/
 build-*/
 cmake-build-*/
+rblxbuild-build-*/
 
 # Packaging output
 /dist/
@@ -18,10 +19,13 @@ cmake-build-*/
 *.obj
 *.o
 
-# CMake generated files
+# Build-tool generated files (either spelling)
 CMakeCache.txt
 CMakeFiles/
 cmake_install.cmake
+RBLXBuildCache.txt
+RBLXBuildFiles/
+rblxbuild_install.rblxbuild
 *.vcxproj
 *.vcxproj.filters
 *.sln

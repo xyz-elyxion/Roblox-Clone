@@ -15,7 +15,7 @@ if(NOT WIN32)
     return()
 endif()
 
-set(RBLX_ANTICHEAT_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
+set(RBLX_ANTICHEAT_DIR "${RBLXBUILD_CURRENT_SOURCE_DIR}")
 
 # Core/AntiCheatLib.cpp is the _LIB_ flavour of Core/AntiCheat.cpp: only one of
 # the two is ever compiled, and the _LIB_ guard in each picks the matching one.
@@ -106,6 +106,6 @@ target_link_libraries(RBLXAntiCheat PUBLIC
 
 # The libraries above are built for x64; a 32-bit build would fail at link time
 # with confusing unresolved externals.
-if(CMAKE_SIZEOF_VOID_P EQUAL 4)
+if(RBLXBUILD_SIZEOF_VOID_P EQUAL 4)
     message(WARNING "RBLXAntiCheat ships x64-only prebuilt libraries; build the game for x64.")
 endif()

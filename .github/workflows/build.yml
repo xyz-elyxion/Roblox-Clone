@@ -1,7 +1,7 @@
 name: Build
 
 # One workflow, two stages: build the vendored build tool out of rblxbuild/, then
-# use that tool - not the CMake on the runner - to configure, build, test and
+# use that tool - not an installed CMake on the runner - to configure, build, test and
 # package the game. If the tool cannot build the project, that is the failure this
 # workflow exists to report.
 #
@@ -43,7 +43,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: build/linux-release/_deps
-          key: deps-${{ runner.os }}-${{ hashFiles('CMakeLists.txt') }}
+          key: deps-${{ runner.os }}-${{ hashFiles('RBLXBuildLists.txt') }}
           restore-keys: |
             deps-${{ runner.os }}-
 
@@ -134,7 +134,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: build/macos-release/_deps
-          key: deps-${{ runner.os }}-${{ hashFiles('CMakeLists.txt') }}
+          key: deps-${{ runner.os }}-${{ hashFiles('RBLXBuildLists.txt') }}
           restore-keys: |
             deps-${{ runner.os }}-
 
@@ -220,7 +220,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: build/windows-release/_deps
-          key: deps-${{ runner.os }}-${{ hashFiles('CMakeLists.txt') }}
+          key: deps-${{ runner.os }}-${{ hashFiles('RBLXBuildLists.txt') }}
           restore-keys: |
             deps-${{ runner.os }}-
 

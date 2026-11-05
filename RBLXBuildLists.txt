@@ -1,20 +1,20 @@
-cmake_minimum_required(VERSION 3.14)
+rblxbuild_minimum_required(VERSION 3.14)
 project(RBLXClone LANGUAGES CXX)
 
 # Link the MSVC runtime statically so the executables in the packaged build run
 # on a machine without Visual Studio (Debug) or the VC++ redistributable
-# (Release). CMP0091 only exists from CMake 3.15, so opt into it by policy; the
+# (Release). CMP0091 only exists from RBLXBuild 3.15, so opt into it by policy; the
 # 3.14 minimum is kept for toolchains that ignore the setting.
 if(POLICY CMP0091)
-    cmake_policy(SET CMP0091 NEW)
+    rblxbuild_policy(SET CMP0091 NEW)
 endif()
 if(MSVC)
-    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+    set(RBLXBUILD_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 endif()
 
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS OFF)
+set(RBLXBUILD_CXX_STANDARD 17)
+set(RBLXBUILD_CXX_STANDARD_REQUIRED ON)
+set(RBLXBUILD_CXX_EXTENSIONS OFF)
 
 option(RBLX_BUILD_STUDIO "Build the Studio editor target" ON)
 option(RBLX_BUILD_CODEEDITOR "Build the RBLXCode source editor target" ON)
@@ -145,7 +145,7 @@ set(IMGUIZMO_SOURCES
 
 function(configure_rblx_target target_name)
     target_include_directories(${target_name} PRIVATE
-        ${CMAKE_CURRENT_SOURCE_DIR}/include
+        ${RBLXBUILD_CURRENT_SOURCE_DIR}/include
         ${stb_SOURCE_DIR}
         ${imgui_SOURCE_DIR}
         ${imgui_SOURCE_DIR}/backends
@@ -208,11 +208,11 @@ if(RBLX_BUILD_CODEEDITOR)
         # glad reaches GL through GLFW at runtime, but the loader still needs
         # dlopen.
         find_package(Threads REQUIRED)
-        target_link_libraries(RBLXCode PRIVATE Threads::Threads ${CMAKE_DL_LIBS})
+        target_link_libraries(RBLXCode PRIVATE Threads::Threads ${RBLXBUILD_DL_LIBS})
     endif()
 endif()
 
-# RBLXAntiCheat is compiled straight into the client (see its CMakeLists): the
+# RBLXAntiCheat is compiled straight into the client (see its RBLXBuildLists): the
 # checks have to run inside the process they watch, so there is no separate
 # executable to launch or ship.
 if(RBLX_BUILD_ANTICHEAT AND WIN32)
@@ -238,7 +238,7 @@ if(RBLX_BUILD_CLIENT)
         # glad reaches GL through GLFW at runtime, but the loader still needs
         # dlopen, and the client's worker threads are std::thread.
         find_package(Threads REQUIRED)
-        target_link_libraries(Client PRIVATE Threads::Threads ${CMAKE_DL_LIBS})
+        target_link_libraries(Client PRIVATE Threads::Threads ${RBLXBUILD_DL_LIBS})
     endif()
     if(TARGET RBLXAntiCheat)
         target_compile_definitions(Client PRIVATE RBLX_ANTICHEAT)
@@ -337,39 +337,39 @@ endif()
 if(RBLX_BUILD_TESTS)
     enable_testing()
     add_executable(ScriptTests tests/rblx_script_tests.cpp src/RblxScript.cpp)
-    target_include_directories(ScriptTests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+    target_include_directories(ScriptTests PRIVATE ${RBLXBUILD_CURRENT_SOURCE_DIR}/include)
     add_test(NAME ScriptTests COMMAND ScriptTests)
 
     # The source editor's file handling is headless, so its checks run without a
     # display or the graphics dependencies.
     add_executable(CodeProjectTests tests/code_project_tests.cpp src/CodeProject.cpp)
-    target_include_directories(CodeProjectTests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+    target_include_directories(CodeProjectTests PRIVATE ${RBLXBUILD_CURRENT_SOURCE_DIR}/include)
     add_test(NAME CodeProjectTests COMMAND CodeProjectTests)
 
     add_executable(NetworkProtocolTests tests/network_protocol_tests.cpp)
-    target_include_directories(NetworkProtocolTests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+    target_include_directories(NetworkProtocolTests PRIVATE ${RBLXBUILD_CURRENT_SOURCE_DIR}/include)
     target_link_libraries(NetworkProtocolTests PRIVATE glm)
     add_test(NAME NetworkProtocolTests COMMAND NetworkProtocolTests)
 
     add_executable(MovementGuardTests tests/movement_guard_tests.cpp)
-    target_include_directories(MovementGuardTests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+    target_include_directories(MovementGuardTests PRIVATE ${RBLXBUILD_CURRENT_SOURCE_DIR}/include)
     target_link_libraries(MovementGuardTests PRIVATE glm)
     add_test(NAME MovementGuardTests COMMAND MovementGuardTests)
 
     add_executable(ModerationTests tests/moderation_tests.cpp)
-    target_include_directories(ModerationTests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+    target_include_directories(ModerationTests PRIVATE ${RBLXBUILD_CURRENT_SOURCE_DIR}/include)
     add_test(NAME ModerationTests COMMAND ModerationTests)
 
     add_executable(ClientCheatReportTests tests/client_cheat_report_tests.cpp)
-    target_include_directories(ClientCheatReportTests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+    target_include_directories(ClientCheatReportTests PRIVATE ${RBLXBUILD_CURRENT_SOURCE_DIR}/include)
     add_test(NAME ClientCheatReportTests COMMAND ClientCheatReportTests)
 
     add_executable(ObfuscatedTests tests/obfuscated_tests.cpp)
-    target_include_directories(ObfuscatedTests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+    target_include_directories(ObfuscatedTests PRIVATE ${RBLXBUILD_CURRENT_SOURCE_DIR}/include)
     add_test(NAME ObfuscatedTests COMMAND ObfuscatedTests)
 
     add_executable(HealthStateTests tests/health_state_tests.cpp)
-    target_include_directories(HealthStateTests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+    target_include_directories(HealthStateTests PRIVATE ${RBLXBUILD_CURRENT_SOURCE_DIR}/include)
     add_test(NAME HealthStateTests COMMAND HealthStateTests)
 
     add_executable(WebCaptchaTests
@@ -377,16 +377,16 @@ if(RBLX_BUILD_TESTS)
         src/WebJson.cpp
         src/WebCrypto.cpp
     )
-    target_include_directories(WebCaptchaTests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+    target_include_directories(WebCaptchaTests PRIVATE ${RBLXBUILD_CURRENT_SOURCE_DIR}/include)
     add_test(NAME WebCaptchaTests COMMAND WebCaptchaTests)
 
     add_executable(VehicleTests tests/vehicle_tests.cpp)
-    target_include_directories(VehicleTests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+    target_include_directories(VehicleTests PRIVATE ${RBLXBUILD_CURRENT_SOURCE_DIR}/include)
     target_link_libraries(VehicleTests PRIVATE glm)
     add_test(NAME VehicleTests COMMAND VehicleTests)
 
     add_executable(HttpClientTests tests/http_client_tests.cpp src/HttpClient.cpp)
-    target_include_directories(HttpClientTests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+    target_include_directories(HttpClientTests PRIVATE ${RBLXBUILD_CURRENT_SOURCE_DIR}/include)
     if(WIN32)
         target_link_libraries(HttpClientTests PRIVATE ws2_32)
     else()
@@ -399,7 +399,7 @@ if(RBLX_BUILD_TESTS)
         tests/web_app_tests.cpp
         ${WEB_SOURCES}
     )
-    target_include_directories(WebAppTests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+    target_include_directories(WebAppTests PRIVATE ${RBLXBUILD_CURRENT_SOURCE_DIR}/include)
     if(RBLX_ENABLE_WARNINGS)
         if(MSVC)
             target_compile_options(WebAppTests PRIVATE /W4 /permissive-)

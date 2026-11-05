@@ -3,9 +3,10 @@
 RBLXBuild is the build-tool source carried in `rblxbuild/`, and the thing that
 occupies the slot the project's own `RBLXCC` compiler used to.
 
-**It is not how this repository builds.** The targets in the root `CMakeLists.txt`,
-the presets and all three CI jobs are still driven by the CMake installed on the
-machine. Nothing in the root build references `rblxbuild/`.
+**It is how this repository builds.** The root `RBLXBuildLists.txt`, its
+`RBLXBuildPresets.json` and all three CI jobs are driven by it: CI bootstraps
+`rblxbuild/`, then configures, builds, tests and packages the game with the binary
+that comes out. No CMake install is involved.
 
 ## What it is
 
@@ -40,9 +41,10 @@ The rename is textual and complete, not a port:
   resulting binary answers `-E echo` and `--version`. No tests exist, because
   `Tests/` was pruned. Installation is still broken: `install(DIRECTORY Help ...)`
   names a directory this tree does not carry.
-- **It still reads the build files it was forked from.** The game and the four
-  dependencies it fetches (glfw, glm, rp3d, glad) are written in the upstream
-  dialect, so the tool accepts `CMakeLists.txt` alongside `RBLXBuildLists.txt`,
+- **It still reads the build files it was forked from.** The game itself is
+  written in the RBLXBuild dialect, but the dependencies it fetches (glfw, glm,
+  rp3d, glad) ship upstream-dialect files, so the tool accepts `CMakeLists.txt`
+  alongside `RBLXBuildLists.txt`,
   registers the `cmake_*` command names alongside the `rblxbuild_*` ones, resolves
   `CMAKE_*` variable reads through their `RBLXBUILD_*` counterparts, forwards the
   upstream module names from `Modules/CMake*.rblxbuild`, and lets FetchContent add

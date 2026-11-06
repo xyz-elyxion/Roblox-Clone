@@ -504,6 +504,148 @@ void testWorkspaceHelpers(const fs::path& root) {
     check(fileStamp((root / "missing.txt").string()).empty(), "a missing file has no stamp");
 }
 
+
+void testDocumentation() {
+    check(!referencePages(Language::Lua).empty(), "the script reference has pages");
+    const DocEntry* printed = findReferencePage("print", Language::Lua);
+    check(printed != nullptr && printed->kind == "function", "print has a page");
+    check(printed != nullptr && !printed->body.empty(), "a page carries its text");
+    const DocEntry* method = findReferencePage("workspace:FindFirstChild", Language::Lua);
+    check(method != nullptr && method->name == "workspace.FindFirstChild",
+          "a colon-qualified name finds the page filed under a dot");
+    check(findReferencePage("no-such-name", Language::Lua) == nullptr,
+          "a name the reference does not have has no page");
+    check(!referencePages(Language::Cpp).empty(), "the C++ reference has pages");
+    check(findReferencePage("constexpr", Language::Cpp) != nullptr, "a keyword has a page");
+    check(findReferencePage("constexpr", Language::Lua) == nullptr,
+          "a C++ keyword is not offered to a script");
+    check(!editorPages().empty(), "the editor documents its own parts");
+
+    const std::string text = "local plate = workspace:FindFirstChild(\"Spawn\")\n";
+    const std::size_t at = text.find("FindFirstChild");
+    const WordUnderCursor under = wordUnderCursor(text, at + 3);
+    check(under.word == "FindFirstChild", "the word under an offset is found");
+    check(under.qualifier == "workspace", "what qualifies it is found");
+    check(under.chain == "workspace:FindFirstChild", "the whole chain is found");
+    check(under.end - under.start == std::string("FindFirstChild").size(),
+          "the word's extent is its own length");
+    check(wordUnderCursor("x = 1", 2).empty(), "an operator has no word");
+
+    const DocEntry hovered = documentationAt(text, Language::Lua, at + 3);
+    check(hovered.name == "workspace.FindFirstChild", "hovering a method name documents it");
+    check(!hovered.summary.empty(), "the page has a summary to show");
+    check(documentationAt("x = 1\n", Language::Lua, 0).name.empty(),
+          "a bare variable in the reference has no page");
+
+    const std::string annotated =
+        "// Moves the platform up and down.\n"
+        "// Called once per frame by the loop.\n"
+        "function bob(dt)\n"
+        "    return dt\n"
+        "end\n";
+    const DocEntry local = documentationAt(annotated, Language::Lua, annotated.find("bob") + 1);
+    check(local.name == "bob", "a function declared in the file has a page");
+    check(contains(local.body, "Moves the platform up and down"),
+          "the comment above the declaration is its body");
+    check(contains(local.summary, "Moves the platform up and down."),
+          "the summary is the first sentence of that comment");
+
+    const std::string block =
+        "/*\n"
+        " * Counts the steps of the walk.\n"
+        " */\n"
+        "void step();\n";
+    check(contains(docCommentAbove(block, 4), "Counts the steps"),
+          "a block comment documents the line under it");
+    check(docCommentAbove("int a;\nint b;\n", 2).empty(),
+          "code above a line is not documentation");
+    check(docCommentAbove("// note\n\n// second\nvoid f();\n", 4).find("second") !=
+              std::string::npos,
+          "only the block next to a declaration counts");
+
+    const std::string file =
+        "// The world loader reads .world files.\n"
+        "// Nothing here needs a window.\n"
+        "\n"
+        "#include <string>\n";
+    const std::string lead = leadingComment(file);
+    check(contains(lead, "The world loader reads"), "a file's opening comment is read");
+    check(!contains(lead, "#include"), "the comment stops at the first line of code");
+    check(leadingComment("int a;\n").empty(), "a file without a comment has none");
+
+    const DocEntry filePage = documentationForFile("src/WorldLoader.cpp", file);
+    check(filePage.kind == "file", "a file has a page of its own");
+    check(contains(filePage.summary, "The world loader reads .world files."),
+          "the file's summary is its first line");
+    check(contains(filePage.signature, "C++"), "the file page names the language it is read as");
+    check(contains(filePage.signature, "lines"), "the file page says how long it is");
+}
+
+void testCompletions() {
+    const std::string script = "local speed = 12\nprint(speed)\nworkspace:Fi";
+    const CompletionList members = completionsAt(script, Language::Lua, script.size());
+    check(members.memberAccess, "a caret after a colon is a member access");
+    check(members.qualifier == "workspace", "the qualifier is the name before the colon");
+    check(members.prefix == "Fi", "the prefix is what has been typed");
+    check(members.tokenStart == script.size() - 2, "the prefix starts where the name starts");
+    bool foundMember = false;
+    bool leakedGlobal = false;
+    for (const CompletionItem& item : members.items) {
+        if (item.label == "FindFirstChild") {
+            foundMember = true;
+            check(!item.insertText.empty(), "a member carries what taking it inserts");
+            check(!item.documentation.empty(), "a member carries its documentation");
+        }
+        if (item.label == "print") {
+            leakedGlobal = true;
+        }
+    }
+    check(foundMember, "the members of workspace are offered");
+    check(!leakedGlobal, "a global is not offered as a member");
+
+    const std::string typed = "pri";
+    const CompletionList globals = completionsAt(typed, Language::Lua, typed.size());
+    check(!globals.empty(), "a prefix has suggestions");
+    check(globals.items.front().label == "print", "the name the prefix starts ranks first");
+    check(globals.items.front().insertText == "print", "taking it inserts the whole name");
+
+    const std::string file =
+        "// Draws the panel.\n"
+        "function drawPanel()\n"
+        "    local width = 640\n"
+        "end\n";
+    const CompletionList everything = completionsAt(file, Language::Lua, 0);
+    bool foundLocal = false;
+    bool foundSymbol = false;
+    for (const CompletionItem& item : everything.items) {
+        if (item.label == "width") {
+            foundLocal = true;
+        }
+        if (item.label == "drawPanel" && item.kind == "function") {
+            foundSymbol = true;
+            check(item.documentation.find("line 2") != std::string::npos,
+                  "a symbol says where it is declared");
+        }
+    }
+    check(foundLocal, "a name the file already uses is offered");
+    check(foundSymbol, "a function the file declares is offered");
+
+    const CompletionList keywords = completionsAt("con", Language::Cpp, 3);
+    bool foundKeyword = false;
+    for (const CompletionItem& item : keywords.items) {
+        if (item.label == "const" || item.label == "constexpr") {
+            foundKeyword = true;
+        }
+    }
+    check(foundKeyword, "a C++ keyword is offered in a C++ file");
+
+    const CompletionList nothing = completionsAt("zzzq", Language::Lua, 4);
+    check(nothing.empty(), "letters that match nothing offer nothing");
+    const CompletionList capped = completionsAt("a", Language::Cpp, 1, 5);
+    check(capped.items.size() <= 5, "the list stops at its cap");
+    check(completionsAt("", Language::Plain, 0).empty(), "plain text has nothing to suggest");
+}
+
 }  // namespace
 
 int main() {
@@ -524,6 +666,8 @@ int main() {
     testOutline();
     testEditingHelpers();
     testWorkspaceHelpers(root);
+    testDocumentation();
+    testCompletions();
 
     std::error_code cleanupError;
     fs::remove_all(root, cleanupError);

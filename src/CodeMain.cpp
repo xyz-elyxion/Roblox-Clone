@@ -32,6 +32,8 @@ using rblx::code::OutlineSymbol;
 using rblx::code::SearchHit;
 using rblx::code::SourceDocument;
 using rblx::code::TextMatch;
+using rblx::code::CompletionItem;
+using rblx::code::TreeNode;
 using rblx::code::TreeNode;
 
 constexpr int kWindowWidth = 1440;
@@ -140,6 +142,26 @@ struct App {
     bool outlineDirty = true;
     bool showOutline = true;
     char symbolFilter[128] = {};
+
+    // Completions and documentation for the buffer in front. Both are rebuilt
+    // from the text rather than stored, so they never describe an older buffer.
+    rblx::code::CompletionList completions;
+    int completionIndex = 0;
+    bool completionOpen = false;
+    bool completionRequested = false;
+    bool completionJustAccepted = false;
+    bool swallowKeysThisFrame = false;
+    rblx::code::DocEntry hoverPage;
+    rblx::code::DocEntry docPage;
+    bool showDoc = false;
+    char docFilter[96] = {};
+    std::vector<rblx::code::DocEntry> docIndex;
+    int docIndexFile = -1;
+    bool docIndexDirty = true;
+    // A file page for a tooltip is read once per hovered path: a tooltip is drawn
+    // every frame it is up, and re-reading the file each time would be wasteful.
+    rblx::code::DocEntry filePageCache;
+    std::string filePagePath;
 
     // Navigation history and the view settings every editor shares.
     std::vector<NavPoint> history;
@@ -646,6 +668,375 @@ struct App {
         status = "Jumped to the matching bracket";
     }
 
+
+    // -------------------------------------------------------- documentation
+
+    Language activeLanguage() const {
+        if (active < 0) {
+            return Language::Plain;
+        }
+        return rblx::code::languageForPath(files[static_cast<std::size_t>(active)].relative);
+    }
+
+    std::string activeText() const {
+        if (active < 0) {
+            return std::string();
+        }
+        return files[static_cast<std::size_t>(active)].editor->GetText();
+    }
+
+    // Where the caret is in bytes. The widget counts columns as it draws them, so
+    // a tab has to be turned back into one byte before the text can be asked
+    // what is under it.
+    std::size_t caretOffset() const {
+        if (active < 0) {
+            return 0;
+        }
+        const OpenFile& file = files[static_cast<std::size_t>(active)];
+        const std::string text = file.editor->GetText();
+        const TextEditor::Coordinates cursor = file.editor->GetCursorPosition();
+        const std::size_t lineStart =
+            rblx::code::offsetOfLine(text, std::max(1, cursor.mLine + 1));
+        std::size_t lineEnd = text.find('\n', lineStart);
+        if (lineEnd == std::string::npos) {
+            lineEnd = text.size();
+        }
+        const std::string lineText = text.substr(lineStart, lineEnd - lineStart);
+        const std::size_t column =
+            rblx::code::byteOffsetOfColumn(lineText, cursor.mColumn, tabSize);
+        return std::min(lineStart + column, text.size());
+    }
+
+    void openDoc(const rblx::code::DocEntry& page) {
+        if (page.name.empty()) {
+            status = "Nothing here has a documentation page.";
+            return;
+        }
+        docPage = page;
+        showDoc = true;
+        status = "Documentation: " + page.name;
+    }
+
+    void openDocForFile(const std::string& relative) {
+        for (const OpenFile& file : files) {
+            if (file.relative == relative) {
+                openDoc(rblx::code::documentationForFile(relative, file.editor->GetText()));
+                return;
+            }
+        }
+        std::string text;
+        std::string error;
+        if (!rblx::code::readSourceFile(rblx::code::joinProjectPath(root, relative), &text,
+                                        &error)) {
+            status = error;
+            return;
+        }
+        openDoc(rblx::code::documentationForFile(relative, text));
+    }
+
+    // What F1 does: the page for the name under the caret, and the page for the
+    // file when the caret is not on a name at all.
+    void openDocAtCaret() {
+        if (active < 0) {
+            status = "Open a file to read its documentation.";
+            return;
+        }
+        const rblx::code::DocEntry page =
+            rblx::code::documentationAt(activeText(), activeLanguage(), caretOffset());
+        if (!page.name.empty()) {
+            openDoc(page);
+            return;
+        }
+        openDocForFile(files[static_cast<std::size_t>(active)].relative);
+    }
+
+    void rebuildDocIndex() {
+        docIndex.clear();
+        for (const rblx::code::DocEntry& page : rblx::code::editorPages()) {
+            docIndex.push_back(page);
+        }
+        for (const rblx::code::DocEntry& page : rblx::code::referencePages(activeLanguage())) {
+            docIndex.push_back(page);
+        }
+        if (active >= 0) {
+            const OpenFile& file = files[static_cast<std::size_t>(active)];
+            const std::string text = file.editor->GetText();
+            const Language language = rblx::code::languageForPath(file.relative);
+            docIndex.push_back(rblx::code::documentationForFile(file.relative, text));
+            for (const OutlineSymbol& symbol : rblx::code::outlineSymbols(text, language)) {
+                rblx::code::DocEntry entry;
+                entry.name = symbol.name;
+                entry.kind = symbol.kind.empty() ? "symbol" : symbol.kind;
+                entry.signature = symbol.detail;
+                const std::string comment = rblx::code::docCommentAbove(text, symbol.line);
+                entry.summary = comment.empty()
+                                    ? "Declared in this file at line " +
+                                          std::to_string(symbol.line) + "."
+                                    : comment;
+                entry.body = comment.empty() ? entry.summary : comment;
+                docIndex.push_back(entry);
+            }
+        }
+        docIndexFile = active;
+        docIndexDirty = false;
+    }
+
+    // The page for a file, for a tooltip over the tree or a tab. The last one is
+    // kept because a tooltip asks on every frame it is up.
+    const rblx::code::DocEntry& pageForFile(const std::string& relative) {
+        if (relative == filePagePath) {
+            return filePageCache;
+        }
+        filePagePath = relative;
+        for (const OpenFile& file : files) {
+            if (file.relative == relative) {
+                filePageCache =
+                    rblx::code::documentationForFile(relative, file.editor->GetText());
+                return filePageCache;
+            }
+        }
+        std::string text;
+        std::string error;
+        if (!rblx::code::readSourceFile(rblx::code::joinProjectPath(root, relative), &text,
+                                        &error)) {
+            text.clear();
+        }
+        filePageCache = rblx::code::documentationForFile(relative, text);
+        return filePageCache;
+    }
+
+    void drawFileTooltip(const std::string& relative) {
+        const rblx::code::DocEntry& page = pageForFile(relative);
+        ImGui::BeginTooltip();
+        ImGui::TextUnformatted(relative.c_str());
+        ImGui::Separator();
+        ImGui::TextDisabled("%s", page.signature.c_str());
+        ImGui::PushTextWrapPos(ImGui::GetFontSize() * 30.0f);
+        ImGui::TextUnformatted(page.summary.c_str());
+        ImGui::PopTextWrapPos();
+        if (ImGui::SmallButton("Open documentation")) {
+            openDoc(page);
+        }
+        ImGui::EndTooltip();
+    }
+
+    void drawHoverTooltip() {
+        ImGui::BeginTooltip();
+        ImGui::TextUnformatted(hoverPage.name.c_str());
+        ImGui::SameLine();
+        ImGui::TextDisabled("%s", hoverPage.kind.c_str());
+        ImGui::Separator();
+        if (!hoverPage.signature.empty()) {
+            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.72f, 0.80f, 0.94f, 1.0f));
+            ImGui::TextUnformatted(hoverPage.signature.c_str());
+            ImGui::PopStyleColor();
+        }
+        ImGui::PushTextWrapPos(ImGui::GetFontSize() * 34.0f);
+        ImGui::TextUnformatted(hoverPage.summary.c_str());
+        ImGui::PopTextWrapPos();
+        if (ImGui::SmallButton("Open documentation  (F1)")) {
+            openDoc(hoverPage);
+        }
+        ImGui::EndTooltip();
+    }
+
+    // ---------------------------------------------------------- completions
+
+    void refreshCompletions(bool force) {
+        if (active < 0) {
+            completionOpen = false;
+            return;
+        }
+        const OpenFile& file = files[static_cast<std::size_t>(active)];
+        const rblx::code::CompletionList list = rblx::code::completionsAt(
+            file.editor->GetText(), rblx::code::languageForPath(file.relative), caretOffset());
+        // A list is not worth a window until a name is being typed, or a dot has
+        // just been typed and its members are the point.
+        if (list.empty() || (!force && !list.memberAccess && list.prefix.empty())) {
+            completionOpen = false;
+            completions = list;
+            return;
+        }
+        const bool sameList = completionOpen && completions.tokenStart == list.tokenStart &&
+                              completions.prefix == list.prefix;
+        completions = list;
+        if (!sameList) {
+            completionIndex = 0;
+        }
+        if (completionIndex >= static_cast<int>(completions.items.size())) {
+            completionIndex = 0;
+        }
+        completionOpen = true;
+    }
+
+    void acceptCompletion() {
+        if (!completionOpen || completionIndex < 0 ||
+            completionIndex >= static_cast<int>(completions.items.size()) || active < 0) {
+            completionOpen = false;
+            return;
+        }
+        OpenFile& file = files[static_cast<std::size_t>(active)];
+        TextEditor& editor = *file.editor;
+        const std::string text = editor.GetText();
+        const std::size_t start = std::min(completions.tokenStart, text.size());
+        const std::size_t end = std::min(start + completions.prefix.size(), text.size());
+        // Through the widget's selection and insert, so Ctrl+Z takes it back in one
+        // step rather than leaving half a name behind.
+        editor.SetSelection(coordinatesFor(text, start), coordinatesFor(text, end));
+        editor.Delete();
+        editor.InsertText(completions.items[static_cast<std::size_t>(completionIndex)].insertText);
+        status = "Completed " + completions.items[static_cast<std::size_t>(completionIndex)].label;
+        completionOpen = false;
+        completionJustAccepted = true;
+        findDirty = true;
+        outlineDirty = true;
+        docIndexDirty = true;
+        filePagePath.clear();
+    }
+
+    void handleCompletionKeys() {
+        if (!completionOpen) {
+            return;
+        }
+        const int count = static_cast<int>(completions.items.size());
+        if (ImGui::IsKeyPressed(ImGuiKey_Escape)) {
+            completionOpen = false;
+            swallowKeysThisFrame = true;
+            return;
+        }
+        if (ImGui::IsKeyPressed(ImGuiKey_DownArrow)) {
+            completionIndex = count == 0 ? 0 : (completionIndex + 1) % count;
+            swallowKeysThisFrame = true;
+        }
+        if (ImGui::IsKeyPressed(ImGuiKey_UpArrow)) {
+            completionIndex = count == 0 ? 0 : (completionIndex + count - 1) % count;
+            swallowKeysThisFrame = true;
+        }
+        if (ImGui::IsKeyPressed(ImGuiKey_Enter) || ImGui::IsKeyPressed(ImGuiKey_KeypadEnter) ||
+            ImGui::IsKeyPressed(ImGuiKey_Tab)) {
+            acceptCompletion();
+            swallowKeysThisFrame = true;
+        }
+    }
+
+    void drawCompletionPopup() {
+        if (!completionOpen || completions.items.empty()) {
+            return;
+        }
+        const ImGuiIO& io = ImGui::GetIO();
+        const float width = 430.0f;
+        const float height = 236.0f;
+        const float x = std::max(8.0f, std::min(io.MousePos.x + 16.0f, io.DisplaySize.x - width - 8.0f));
+        const float y = std::max(8.0f, std::min(io.MousePos.y + 20.0f, io.DisplaySize.y - height - 8.0f));
+        ImGui::SetNextWindowPos(ImVec2(x, y), ImGuiCond_Always);
+        ImGui::SetNextWindowSize(ImVec2(width, height), ImGuiCond_Always);
+        const ImGuiWindowFlags flags =
+            ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove |
+            ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing |
+            ImGuiWindowFlags_NoNavInputs;
+        ImGui::Begin("##completions", nullptr, flags);
+        ImGui::TextDisabled("%s  (%zu)", completions.prefix.empty() ? "all names" : completions.prefix.c_str(),
+                            completions.items.size());
+        ImGui::Separator();
+        ImGui::BeginChild("##completionlist", ImVec2(0.0f, -42.0f));
+        for (std::size_t i = 0; i < completions.items.size(); ++i) {
+            const CompletionItem& item = completions.items[i];
+            ImGui::PushID(static_cast<int>(i));
+            const std::string label = item.label + "    " + item.kind;
+            if (ImGui::Selectable(label.c_str(), static_cast<int>(i) == completionIndex)) {
+                completionIndex = static_cast<int>(i);
+                acceptCompletion();
+                ImGui::PopID();
+                break;
+            }
+            ImGui::PopID();
+        }
+        ImGui::EndChild();
+        ImGui::Separator();
+        if (completionIndex >= 0 && completionIndex < static_cast<int>(completions.items.size())) {
+            const CompletionItem& item = completions.items[static_cast<std::size_t>(completionIndex)];
+            ImGui::TextDisabled("%s", item.detail.c_str());
+            if (!item.documentation.empty()) {
+                ImGui::PushTextWrapPos(0.0f);
+                ImGui::TextUnformatted(item.documentation.c_str());
+                ImGui::PopTextWrapPos();
+            }
+        }
+        ImGui::End();
+    }
+
+    void drawDocumentationWindow() {
+        if (!showDoc) {
+            return;
+        }
+        if (docIndexDirty || docIndexFile != active) {
+            rebuildDocIndex();
+        }
+        ImGui::SetNextWindowSize(ImVec2(860.0f, 580.0f), ImGuiCond_FirstUseEver);
+        if (!ImGui::Begin("Documentation", &showDoc)) {
+            ImGui::End();
+            return;
+        }
+
+        ImGui::BeginChild("##doclist", ImVec2(280.0f, 0.0f), true);
+        ImGui::SetNextItemWidth(-1.0f);
+        ImGui::InputTextWithHint("##docfilter", "Filter pages", docFilter, sizeof(docFilter));
+        ImGui::Separator();
+        const std::string filter = docFilter;
+        for (std::size_t i = 0; i < docIndex.size(); ++i) {
+            const rblx::code::DocEntry& page = docIndex[i];
+            if (!filter.empty() && rblx::code::fuzzyScore(page.name, filter) < 0) {
+                continue;
+            }
+            ImGui::PushID(static_cast<int>(i));
+            const std::string label = page.kind + "   " + page.name;
+            if (ImGui::Selectable(label.c_str(), docPage.name == page.name)) {
+                openDoc(page);
+            }
+            ImGui::PopID();
+        }
+        ImGui::EndChild();
+
+        ImGui::SameLine();
+        ImGui::BeginChild("##docpage", ImVec2(0.0f, 0.0f), true);
+        if (docPage.name.empty()) {
+            ImGui::TextDisabled(
+                "Choose a page, or put the caret on a name and press F1.");
+        } else {
+            ImGui::TextUnformatted(docPage.name.c_str());
+            ImGui::SameLine();
+            ImGui::TextDisabled("%s", docPage.kind.c_str());
+            ImGui::Separator();
+            if (!docPage.signature.empty()) {
+                ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.72f, 0.80f, 0.94f, 1.0f));
+                ImGui::TextUnformatted(docPage.signature.c_str());
+                ImGui::PopStyleColor();
+            }
+            ImGui::Separator();
+            ImGui::PushTextWrapPos(0.0f);
+            ImGui::TextUnformatted(docPage.body.c_str());
+            ImGui::PopTextWrapPos();
+            if (!docPage.seeAlso.empty()) {
+                ImGui::Separator();
+                ImGui::TextDisabled("See also");
+                const std::vector<std::string> links = docPage.seeAlso;
+                for (const std::string& name : links) {
+                    if (ImGui::SmallButton(name.c_str())) {
+                        const rblx::code::DocEntry* page =
+                            rblx::code::findReferencePage(name, activeLanguage());
+                        if (page != nullptr) {
+                            openDoc(*page);
+                        } else {
+                            status = "No page for " + name;
+                        }
+                    }
+                }
+            }
+        }
+        ImGui::EndChild();
+        ImGui::End();
+    }
+
     // --------------------------------------------------------------- drawing
 
     void drawMenuBar(Window& window) {
@@ -719,6 +1110,9 @@ struct App {
             if (ImGui::MenuItem("Toggle line comment", "Ctrl+/", false, hasFile)) {
                 toggleComment();
             }
+            if (ImGui::MenuItem("Code suggestions", "Ctrl+Space", false, hasFile)) {
+                completionRequested = true;
+            }
             if (ImGui::MenuItem("Go to matching bracket", "Ctrl+]", false, hasFile)) {
                 jumpToMatchingBracket();
             }
@@ -778,6 +1172,15 @@ struct App {
             ImGui::EndMenu();
         }
         if (ImGui::BeginMenu("Help")) {
+            if (ImGui::MenuItem("Documentation", "F1", false, hasFile)) {
+                openDocAtCaret();
+            }
+            if (ImGui::MenuItem("Documentation window")) {
+                showDoc = true;
+            }
+            if (ImGui::MenuItem("Keyboard shortcuts")) {
+                showShortcuts = true;
+            }
             if (ImGui::MenuItem("Keyboard shortcuts")) {
                 showShortcuts = true;
             }
@@ -862,6 +1265,13 @@ struct App {
             if (ImGui::Selectable(child.entry.name.c_str(), selected)) {
                 openRelative(child.entry.relativePath);
             }
+            if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayNormal)) {
+                drawFileTooltip(child.entry.relativePath);
+            }
+            ImGui::PopID();
+            if (ImGui::Selectable(child.entry.name.c_str(), selected)) {
+                openRelative(child.entry.relativePath);
+            }
             ImGui::PopID();
         }
     }
@@ -888,6 +1298,12 @@ struct App {
                         outlineDirty = true;
                     }
                     ImGui::EndTabItem();
+                }
+                if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayNormal)) {
+                    drawFileTooltip(file.relative);
+                }
+                if (!open) {
+                    closing.push_back(i);
                 }
                 if (!open) {
                     closing.push_back(i);
@@ -1043,10 +1459,60 @@ struct App {
         if (file.stale) {
             footer += ImGui::GetFrameHeightWithSpacing();
         }
+        // A key the completion list has just used belongs to the list, not to the
+        // text: the widget is told not to look at the keyboard for this frame.
+        if (swallowKeysThisFrame) {
+            file.editor->SetHandleKeyboardInputs(false);
+        }
         file.editor->Render("##code", ImVec2(0.0f, -footer), true);
-        if (file.editor->IsTextChanged()) {
+        if (swallowKeysThisFrame) {
+            file.editor->SetHandleKeyboardInputs(true);
+            swallowKeysThisFrame = false;
+        }
+        const ImVec2 editorOrigin = ImGui::GetItemRectMin();
+        const bool editorHovered = ImGui::IsItemHovered();
+        const bool textChanged = file.editor->IsTextChanged();
+        const bool caretMoved = file.editor->IsCursorPositionChanged();
+        if (textChanged) {
             findDirty = true;
             outlineDirty = true;
+            docIndexDirty = true;
+            filePagePath.clear();
+        }
+
+        // What the mouse is over, documented. The widget answers where a screen
+        // position falls in the text, so a word is read the same way a click
+        // would put the caret in it.
+        hoverPage = rblx::code::DocEntry();
+        const Language languageUnderMouse = rblx::code::languageForPath(file.relative);
+        if (editorHovered && !completionOpen) {
+            const TextEditor::Coordinates under =
+                file.editor->ScreenPosToCoordinates(ImGui::GetMousePos(), editorOrigin);
+            const std::string hoverText = file.editor->GetText();
+            if (under.mLine >= 0 && under.mLine < file.editor->GetTotalLines()) {
+                const std::size_t lineStart = rblx::code::offsetOfLine(hoverText, under.mLine + 1);
+                std::size_t lineEnd = hoverText.find('\n', lineStart);
+                if (lineEnd == std::string::npos) {
+                    lineEnd = hoverText.size();
+                }
+                const std::string lineText = hoverText.substr(lineStart, lineEnd - lineStart);
+                const std::size_t offset =
+                    lineStart + rblx::code::byteOffsetOfColumn(lineText, under.mColumn, tabSize);
+                hoverPage =
+                    rblx::code::documentationAt(hoverText, languageUnderMouse, offset);
+            }
+            if (!hoverPage.name.empty()) {
+                drawHoverTooltip();
+            }
+        }
+
+        if (completionRequested) {
+            refreshCompletions(true);
+            completionRequested = false;
+        } else if (completionJustAccepted) {
+            completionJustAccepted = false;
+        } else if (textChanged || caretMoved) {
+            refreshCompletions(false);
         }
 
         if (file.stale) {
@@ -1090,6 +1556,14 @@ struct App {
         ImGuiIO& io = ImGui::GetIO();
         const bool ctrl = io.KeyCtrl;
         const bool shift = io.KeyShift;
+
+        handleCompletionKeys();
+        if (ImGui::IsKeyPressed(ImGuiKey_F1)) {
+            openDocAtCaret();
+        }
+        if (ctrl && ImGui::IsKeyPressed(ImGuiKey_Space)) {
+            completionRequested = true;
+        }
 
         if (ctrl && ImGui::IsKeyPressed(ImGuiKey_S)) {
             if (shift) {
@@ -1360,6 +1834,8 @@ struct App {
         }
         ImGui::SetNextWindowSize(ImVec2(560.0f, 430.0f), ImGuiCond_FirstUseEver);
         if (ImGui::Begin("Keyboard shortcuts", &showShortcuts)) {
+            ImGui::TextUnformatted("Ctrl+Space   suggest what fits here");
+            ImGui::TextUnformatted("F1   documentation for the name under the caret");
             ImGui::TextUnformatted("Ctrl+P   open a file by name");
             ImGui::TextUnformatted("Ctrl+Shift+O   go to a symbol in this file");
             ImGui::TextUnformatted("Ctrl+G   go to a line");
@@ -1474,6 +1950,10 @@ struct App {
         drawEditorArea();
         ImGui::EndChild();
 
+        drawCompletionPopup();
+        drawDocumentationWindow();
+        ImGui::End();
+        drawPopups();
         ImGui::End();
         drawPopups();
     }
@@ -1505,7 +1985,9 @@ int main(int argc, char** argv) {
         App app;
         std::string start = argc > 1 ? argv[1] : std::filesystem::current_path().string();
         app.setRoot(start);
-        app.status = "Editing " + app.root + " - Ctrl+P opens a file, Ctrl+F finds in it";
+        app.status = "Editing " + app.root +
+                     " - Ctrl+P opens a file, Ctrl+F finds in it, F1 documents what is under "
+                     "the caret";
 
         while (!window.shouldClose()) {
             window.pollEvents();

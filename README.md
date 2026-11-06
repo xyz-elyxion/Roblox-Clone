@@ -876,6 +876,8 @@ status bar instead of being coloured wrongly.
 | `Ctrl+Shift+F` | Project search: a case-insensitive substring across the project, one row per matching line; clicking a row opens the file on that line |
 | `Ctrl+G` | Go to a line |
 | `Ctrl+/` | Comment or uncomment the line under the caret, with the marker the language uses (`//` or `--`) |
+| `Ctrl+Space` | Suggest what fits the caret, ranked by what has been typed; after a `.` or `:` the list is the members of what stands before it |
+| `F1` | The documentation page for the name under the caret, in a window that also holds every other page |
 | `Ctrl+]` | Jump to the bracket pairing the one at the caret; brackets inside strings and comments are ignored |
 | `Alt+Left`, `Alt+Right` | Walk back and forward through the places you jumped from |
 | `Ctrl+Tab`, `Ctrl+Shift+Tab` | Switch tabs |
@@ -883,7 +885,35 @@ status bar instead of being coloured wrongly.
 | `Ctrl+R`, `Ctrl+W` | Reload from disk / close the tab |
 
 Undo, redo, cut, copy and paste belong to the text widget and work as usual; `Ctrl+Z` also takes
-back a single replace and a comment toggle. The View menu sets the tab width (2, 4 or 8), shows
+back a single replace and a comment toggle.
+
+#### Suggestions and documentation
+
+Typing a name raises a list of what fits: the members of `workspace:` or `math.` after a dot, the
+keywords of the language, the symbols this file declares, and the names the file already uses. A
+prefix match ranks above a match in the middle, which ranks above an abbreviation, and the name
+being typed is left out of its own list. `Up` and `Down` walk the suggestions, `Enter` or `Tab`
+takes the highlighted one as a single edit (so one `Ctrl+Z` takes it back), `Escape` closes the
+list, and `Ctrl+Space` asks for it without typing first.
+
+Hovering a name shows how it is written and one sentence about what it does. Hovering a file in the
+tree or a tab shows what that file says it does, taken from the comment it opens with. Either
+tooltip has a button that opens the whole page.
+
+`F1` opens the documentation window on whatever the caret is on, and the window reaches every page
+there is: the RBLX Script API this build actually implements (`print`, `warn`, `math`,
+`workspace:FindFirstChild`, `Vector3.new` and the rest of what the interpreter and the world runtime
+install), the keywords and built-ins of every other language the editor colours, the symbols the
+open file declares, the page for the file itself, and the editor's own pages for its project tree,
+find and replace, outline, suggestions and this documentation. The filter box matches names by
+abbreviation, and the related pages at the bottom of each one are links.
+
+Those pages are built from the code instead of being kept beside it, which is why hovering a
+function in this repository shows the comment already written above it: a symbol's documentation
+cannot drift from the symbol it documents. A name the reference and the file both know -- a
+keyword, say -- is described by the reference, which is the only place that knows what it means.
+
+ The View menu sets the tab width (2, 4 or 8), shows
 whitespace, switches to the light palette and hides the outline panel; the change applies to
 already open files too. Closing a tab with unsaved changes asks whether to save it first.
 

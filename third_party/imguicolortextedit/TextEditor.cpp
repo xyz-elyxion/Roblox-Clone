@@ -320,9 +320,9 @@ void TextEditor::AddUndo(UndoRecord& aValue)
 	++mUndoIndex;
 }
 
-TextEditor::Coordinates TextEditor::ScreenPosToCoordinates(const ImVec2& aPosition) const
+TextEditor::Coordinates TextEditor::ScreenPosToCoordinates(const ImVec2& aPosition, const ImVec2& aOrigin) const
 {
-	ImVec2 origin = ImGui::GetCursorScreenPos();
+	ImVec2 origin = aOrigin;
 	ImVec2 local(aPosition.x - origin.x, aPosition.y - origin.y);
 
 	int lineNo = std::max(0, (int)floor(local.y / mCharAdvance.y));
@@ -370,6 +370,11 @@ TextEditor::Coordinates TextEditor::ScreenPosToCoordinates(const ImVec2& aPositi
 	}
 
 	return SanitizeCoordinates(Coordinates(lineNo, columnCoord));
+}
+
+TextEditor::Coordinates TextEditor::ScreenPosToCoordinates(const ImVec2& aPosition) const
+{
+	return ScreenPosToCoordinates(aPosition, ImGui::GetCursorScreenPos());
 }
 
 TextEditor::Coordinates TextEditor::FindWordStart(const Coordinates & aFrom) const

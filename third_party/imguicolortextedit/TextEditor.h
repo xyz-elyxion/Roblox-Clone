@@ -218,6 +218,12 @@ public:
 	Coordinates GetCursorPosition() const { return GetActualCursorCoordinates(); }
 	void SetCursorPosition(const Coordinates& aPosition);
 
+	// Where a screen position falls in the text, given the screen position the text
+	// was drawn from. Public so a caller drawing over the editor -- a hover tooltip, a
+	// completion popup -- can ask what sits under the mouse without reaching into the
+	// widget's scroll state, which it does not expose.
+	Coordinates ScreenPosToCoordinates(const ImVec2& aPosition, const ImVec2& aOrigin) const;
+
 	inline void SetHandleMouseInputs    (bool aValue){ mHandleMouseInputs    = aValue;}
 	inline bool IsHandleMouseInputsEnabled() const { return mHandleKeyboardInputs; }
 

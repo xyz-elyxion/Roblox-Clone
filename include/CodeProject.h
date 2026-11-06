@@ -174,5 +174,86 @@ std::string formatBytes(std::size_t bytes);
 // relative part so an entry built on Windows still opens on a POSIX build.
 std::string joinProjectPath(const std::string& root, const std::string& relativePath);
 
+// ---------------------------------------------------------------------------
+// Documentation
+// ---------------------------------------------------------------------------
+
+// One page of documentation: what a name does. Pages come from three places --
+// the reference that ships with the editor (the RBLX script API and the keywords
+// of each other language), the comment above a declaration in the file being
+// read, and the comment a file opens with. They all have the same shape, so the
+// hover tooltip, the completion popup and the documentation window draw any of
+// them without knowing which it is.
+struct DocEntry {
+    std::string name;       // "workspace.FindFirstChild", "Vector3", "src/WebStore.cpp"
+    std::string kind;       // "function", "method", "field", "type", "keyword", "file", "symbol"
+    std::string signature;  // one line: how it is written
+    std::string summary;    // one sentence, for a tooltip
+    std::string body;       // the full page, paragraphs separated by blank lines
+    std::vector<std::string> seeAlso;  // names of related pages
+};
+
+// The pages that ship with the editor for a language family: the script API for
+// RBLX Script and JavaScript, the keywords and built-ins of the rest.
+const std::vector<DocEntry>& referencePages(Language language);
+// A page by name: the exact name first, then a case-insensitive match, and a
+// member's page by its bare name when the qualified one is not there. nullptr
+// when the reference has nothing under that name.
+const DocEntry* findReferencePage(const std::string& name, Language language);
+// The pages that describe the editor itself rather than the language it edits.
+const std::vector<DocEntry>& editorPages();
+
+// What sits under a byte offset: the whole identifier chain around it
+// (`workspace.FindFirstChild`), the part the offset is in, and what qualifies it.
+struct WordUnderCursor {
+    std::string chain;      // "workspace.FindFirstChild", written with '.' or ':'
+    std::string word;       // "FindFirstChild"
+    std::string qualifier;  // "workspace"
+    std::size_t start = 0;  // byte offset where `word` starts
+    std::size_t end = 0;    // byte offset just past it
+    bool empty() const { return word.empty(); }
+};
+WordUnderCursor wordUnderCursor(const std::string& text, std::size_t offset);
+
+// The documentation for whatever is at that offset: a reference page, else the
+// declaration this file makes of that name, with the comment above it as the
+// body. An entry whose name is empty means nothing was found there.
+DocEntry documentationAt(const std::string& text, Language language, std::size_t offset);
+// The comment block written directly above a 1-based line, markers stripped. ""
+// when the lines above it are code rather than commentary.
+std::string docCommentAbove(const std::string& text, int line);
+// The comment a file opens with, which is how this repository introduces a file.
+std::string leadingComment(const std::string& text);
+// A page for a file: its leading comment, and the size and language it is read as.
+DocEntry documentationForFile(const std::string& relativePath, const std::string& text);
+
+// ---------------------------------------------------------------------------
+// Completions
+// ---------------------------------------------------------------------------
+
+struct CompletionItem {
+    std::string label;          // what is listed and matched
+    std::string kind;           // "function", "field", "type", "keyword", "symbol", "word"
+    std::string detail;         // one line shown beside the label
+    std::string insertText;     // replaces the typed prefix
+    std::string documentation;  // the summary shown under the list
+};
+
+// The suggestions for one caret position, already filtered by what was typed.
+struct CompletionList {
+    std::vector<CompletionItem> items;
+    std::size_t tokenStart = 0;  // byte offset the typed prefix starts at
+    std::string prefix;          // the prefix typed so far, possibly empty
+    std::string qualifier;       // "workspace" in "workspace.Fi|"
+    bool memberAccess = false;   // the caret follows a '.' or a ':'
+    bool empty() const { return items.empty(); }
+};
+// What is worth offering at that offset: the members of the qualifier after a
+// dot, otherwise the names this file uses, the reference and its keywords. A
+// prefix match ranks above a match in the middle, which ranks above an
+// abbreviation, and the list is capped so a large file cannot stall a frame.
+CompletionList completionsAt(const std::string& text, Language language, std::size_t offset,
+                             std::size_t maxItems = 200);
+
 }  // namespace code
 }  // namespace rblx

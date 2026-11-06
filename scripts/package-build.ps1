@@ -16,7 +16,14 @@ param(
 
     [string]$BuildDir = '',
 
-    [string]$Output = ''
+    [string]$Output = '',
+
+    # What this build calls itself, and where the copy it installs should look
+    # for the next one. Both go into the package: manifest.json describes it,
+    # update.json tells RBLXUpdater.exe where to ask.
+    [string]$Version = '1.0.0',
+
+    [string]$UpdateUrl = 'http://127.0.0.1:3000/updates/manifest.json'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -45,7 +52,7 @@ try {
     $exeDir = Join-Path $BuildDir $Configuration
     $found = @()
     $missing = @()
-    foreach ($name in @('WebApp', 'Server', 'Client', 'Studio', 'RBLXCode', 'AiTrainer')) {
+    foreach ($name in @('WebApp', 'Server', 'Client', 'Studio', 'RBLXCode', 'AiTrainer', 'RBLXUpdater')) {
         $exePath = Join-Path $exeDir "$name.exe"
         if (Test-Path -LiteralPath $exePath) {
             Copy-Item -LiteralPath $exePath -Destination $Output
@@ -195,6 +202,8 @@ try {
         '  RBLXCode.exe  source editor for the files in this folder: project tree, tabs,'
         '                C++/GLSL/RBLX script highlighting, search, save'
         '  AiTrainer.exe headless trainer: learns and replays a policy for a world, no window'
+        '  RBLXUpdater.exe installer and auto updater: checks manifest.json, downloads only the'
+        '                files that changed, then starts the game'
         '  web/          website assets (public/ pages and API scripts, seed-worlds/)'
         '  games/        example worlds and their .rbx scripts (Sky Platformer)'
         '  shaders/      OpenGL shaders used by Client and Studio'
@@ -205,6 +214,7 @@ try {
         '  start-studio.bat    opens the Studio editor'
         '  start-code.bat      opens the RBLXCode source editor on this folder'
         '  start-client.bat    opens the client directly (the website normally does this)'
+        '  play.bat            checks for an update, installs it, then starts the client'
         '  AiTrainer.exe       headless trainer, run it from this folder with the flags below'
         ''
         'FIRST RUN: THE GUIDED TOUR'
@@ -263,6 +273,40 @@ try {
         '  GAME_INSTANCE_LAUNCH_GRACE_MS delay before a server nobody has joined yet is shut down'
     ) -join $crlf
     [System.IO.File]::WriteAllText((Join-Path $Output 'README.txt'), $readmeLines + $crlf, $encoding)
+
+    # The updater ships beside the game: it is what the installed Play shortcut
+    # runs, and what play.bat runs in this folder. update.json is the machine's
+    # own setting, so it is written here and never comes from a release.
+    $updateConfig = @(
+        '{'
+        '  "manifestUrl": "' + $UpdateUrl + '",'
+        '  "launch": "Client.exe"'
+        '}'
+    ) -join $crlf
+    [System.IO.File]::WriteAllText((Join-Path $Output 'update.json'), $updateConfig + $crlf, $encoding)
+
+    $playBat = @(
+        '@echo off'
+        'rem Checks for a newer release, installs it, then starts the game.'
+        'setlocal'
+        'cd /d "%~dp0"'
+        'if not exist "RBLXUpdater.exe" ('
+        '    echo RBLXUpdater.exe is not in this package.'
+        '    pause'
+        '    exit /b 1'
+        ')'
+        'RBLXUpdater.exe --launch'
+        'if errorlevel 1 pause'
+    ) -join $crlf
+    [System.IO.File]::WriteAllText((Join-Path $Output 'play.bat'), $playBat + $crlf, $encoding)
+
+    # The release description, generated last so every file above is in it. The
+    # updater and its settings are left out on purpose: it cannot replace the copy
+    # that is running it, and the URL belongs to whoever installed this folder.
+    & (Join-Path $Output 'RBLXUpdater.exe') manifest --dir $Output --version $Version
+    if ($LASTEXITCODE -ne 0) {
+        throw "Could not write manifest.json for $Output (RBLXUpdater exit $LASTEXITCODE)."
+    }
 
     $files = Get-ChildItem -LiteralPath $Output -Recurse -File
     $totalBytes = ($files | Measure-Object -Property Length -Sum).Sum

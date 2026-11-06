@@ -24,6 +24,7 @@ option(RBLX_BUILD_TESTS "Build C++ test targets" ON)
 option(RBLX_BUILD_WEBAPP "Build the native website backend target" ON)
 option(RBLX_BUILD_TRAINER "Build the headless AI trainer target" ON)
 option(RBLX_BUILD_ANTICHEAT "Embed the vendored RBLXAntiCheat library in the game client (Windows only)" ON)
+option(RBLX_BUILD_UPDATER "Build the installer and update launcher target" ON)
 option(RBLX_ENABLE_WARNINGS "Enable stricter compiler warnings" ON)
 
 add_compile_definitions(NOMINMAX GLM_ENABLE_EXPERIMENTAL)
@@ -171,6 +172,28 @@ if(RBLX_BUILD_CODEEDITOR)
         # dlopen.
         find_package(Threads REQUIRED)
         target_link_libraries(RBLXCode PRIVATE Threads::Threads ${RBLXBUILD_DL_LIBS})
+    endif()
+endif()
+
+if(RBLX_BUILD_UPDATER)
+    # The installer and the auto updater are one target. It reads manifest.json,
+    # downloads only the files whose SHA-256 differs, replaces them through a
+    # rename, and starts the game - which is what the installed Play shortcut
+    # runs. deploy/RBLXClone.iss wraps this binary and the packaged folder in a
+    # real Windows installer.
+    add_executable(RBLXUpdater
+        src/UpdaterMain.cpp
+        src/Updater.cpp
+        src/WebJson.cpp
+        src/WebCrypto.cpp
+        src/HttpClient.cpp
+    )
+    configure_rblx_target(RBLXUpdater)
+    if(WIN32)
+        target_link_libraries(RBLXUpdater PRIVATE ws2_32)
+    else()
+        find_package(Threads REQUIRED)
+        target_link_libraries(RBLXUpdater PRIVATE Threads::Threads)
     endif()
 endif()
 
@@ -357,6 +380,18 @@ if(RBLX_BUILD_TESTS)
     )
     target_include_directories(WebCaptchaTests PRIVATE ${RBLXBUILD_CURRENT_SOURCE_DIR}/include)
     add_test(NAME WebCaptchaTests COMMAND WebCaptchaTests)
+
+    # The updater's decisions: version order, manifest parsing, a path that may
+    # not leave the install folder, which files a plan touches, and the rename
+    # that replaces a file only once its replacement is in position.
+    add_executable(UpdaterTests
+        tests/updater_tests.cpp
+        src/Updater.cpp
+        src/WebJson.cpp
+        src/WebCrypto.cpp
+    )
+    target_include_directories(UpdaterTests PRIVATE ${RBLXBUILD_CURRENT_SOURCE_DIR}/include)
+    add_test(NAME UpdaterTests COMMAND UpdaterTests)
 
     add_executable(VehicleTests tests/vehicle_tests.cpp)
     target_include_directories(VehicleTests PRIVATE ${RBLXBUILD_CURRENT_SOURCE_DIR}/include)

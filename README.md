@@ -59,6 +59,40 @@ Nothing else needs installing. The executables link the C++ runtime statically, 
 Studio nor the VC++ redistributable is required at runtime. Keep the folder layout intact: the
 executables load `shaders/`, `ServerWorld.world` and `web/` relative to the working directory.
 
+### The installer, and how a copy updates itself
+
+`deploy/RBLXClone.iss` wraps the packaged folder in a normal Windows installer (Inno Setup 6, not
+vendored because it is only used to produce the artifact):
+
+```powershell
+scripts\package-build.ps1 -Configuration Release -Version 1.2.0 -UpdateUrl http://host/rblx
+iscc deploy\RBLXClone.iss /DAppVersion=1.2.0
+```
+
+It installs to `%LOCALAPPDATA%\RBLXClone`, adds **Play RBLX Clone** to the Start menu and the
+desktop, registers an uninstaller, and asks before deleting worlds or account data on the way out.
+
+The shortcut points at `RBLXUpdater.exe` rather than `Client.exe`, so an update is checked every
+time somebody plays and nobody has to run a second program. The updater asks the URL in `update.json`
+for `manifest.json`, compares it with the manifest it saved in the install folder, and downloads only
+the files whose SHA-256 differs. Each download is checked against its hash before it is written, and
+each replacement goes through a rename with the old file moved aside first, so an interrupted update
+leaves the previous file in place; the manifest is written last, which is what marks the update
+complete. A machine that is offline, or whose build is newer than the published one, still starts the
+game.
+
+The release side is one command on the machine that produced the package:
+
+```powershell
+RBLXUpdater.exe manifest --dir dist\rblx-windows-release --version 1.2.0
+```
+
+`RBLXUpdater.exe install --manifest <url> --dir <folder>` fills a folder from scratch, which is also
+how a Linux or macOS copy is installed, and `check` (exit 10 when an update exists, 0 when current)
+is there for a scheduled task or a monitor. The rules the updater applies are covered by
+`UpdaterTests`: version order, manifest parsing, paths that try to leave the install folder, which
+files a plan touches, and the rename that replaces a file.
+
 ### From source
 
 ```bash
@@ -985,6 +1019,7 @@ games/                  The bundled worlds and their .rbx scripts
 web/                    Public pages, starter worlds, published worlds, game-server logs
 ServerWorld.world       Default world file
 scripts/                package-build.ps1 and other tooling
+deploy/                 RBLXClone.iss: the Windows installer script
 GameRelease/            Existing release asset folders (do not commit generated binaries here)
 third_party/            Pinned dependencies, converted to this build dialect
 RBLXAntiCheat/          The vendored anti-cheat library (Windows only, AGPL v3)

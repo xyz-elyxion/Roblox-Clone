@@ -321,58 +321,15 @@ int manifestCommand(const Options& options) {
     }
 
     Manifest manifest;
-    manifest.version = options.version;
-    manifest.channel = options.channel;
-
-    std::error_code error;
-    if (!fs::is_directory(options.directory, error)) {
-        printError("no folder at " + options.directory);
+    std::string error;
+    if (!rblx::update::buildManifestFromDirectory(options.directory, options.version,
+                                                  options.channel, &manifest, &error)) {
+        printError(error);
         return 1;
     }
 
-    std::vector<std::string> paths;
-    for (fs::recursive_directory_iterator it(options.directory,
-                                             fs::directory_options::skip_permission_denied, error),
-         end;
-         it != end; it.increment(error)) {
-        if (error) {
-            printError("could not list " + options.directory + ": " + error.message());
-            return 1;
-        }
-        if (!it->is_regular_file(error)) continue;
-
-        const std::string relative = fs::relative(it->path(), options.directory, error).generic_string();
-        if (error) {
-            printError("could not describe " + it->path().string());
-            return 1;
-        }
-        if (!rblx::update::isPackagedFile(relative)) continue;
-        paths.push_back(relative);
-    }
-
-    // Sorted, so two runs over the same folder produce the same document and a
-    // release can be compared line by line.
-    std::sort(paths.begin(), paths.end());
     long long total = 0;
-    for (const std::string& relative : paths) {
-        std::string digestError;
-        const std::string path = (fs::path(options.directory) / fs::path(relative)).string();
-        FileEntry entry;
-        entry.path = relative;
-        entry.sha256 = rblx::update::sha256File(path, &digestError);
-        if (entry.sha256.empty()) {
-            printError(digestError);
-            return 1;
-        }
-        const auto size = fs::file_size(path, error);
-        if (error) {
-            printError("could not measure " + path);
-            return 1;
-        }
-        entry.size = static_cast<long long>(size);
-        total += entry.size;
-        manifest.files.push_back(entry);
-    }
+    for (const FileEntry& entry : manifest.files) total += entry.size;
 
     const std::string manifestPath = (fs::path(options.directory) / "manifest.json").string();
     std::string writeError;

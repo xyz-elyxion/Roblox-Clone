@@ -94,5 +94,17 @@ bool writeConfigFile(const std::string& path, const Config& config, std::string*
 // belong to the machine. Everything else in an install folder is published.
 bool isPackagedFile(const std::string& relativePath);
 
+// Every file in a folder that belongs in a release, sorted and relative. The
+// walk behind `RBLXUpdater manifest` and the list the installer copies, so the
+// two can never disagree about what a release is.
+bool collectPayloadFiles(const std::string& directory, std::vector<std::string>* out,
+                         std::string* error);
+
+// A manifest for a folder that has none, which is what an install from a build
+// folder (rather than a published release) records so it can still be updated
+// and uninstalled file by file.
+bool buildManifestFromDirectory(const std::string& directory, const std::string& version,
+                                const std::string& channel, Manifest* out, std::string* error);
+
 }  // namespace update
 }  // namespace rblx

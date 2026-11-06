@@ -61,16 +61,26 @@ executables load `shaders/`, `ServerWorld.world` and `web/` relative to the work
 
 ### The installer, and how a copy updates itself
 
-`deploy/RBLXClone.iss` wraps the packaged folder in a normal Windows installer (Inno Setup 6, not
-vendored because it is only used to produce the artifact):
+`RBLXSetup.exe` is the installer, and it is this project's own code: no installer tool to download,
+nothing vendored that never ships. It is built with everything else and travels inside the package,
+where a player runs it from the folder they unpacked:
 
 ```powershell
-scripts\package-build.ps1 -Configuration Release -Version 1.2.0 -UpdateUrl http://host/rblx
-iscc deploy\RBLXClone.iss /DAppVersion=1.2.0
+RBLXSetup.exe                                  # install into %LOCALAPPDATA%\RBLXClone
+RBLXSetup.exe --dir D:\Games\RBLXClone --launch
+RBLXSetup.exe --uninstall                      # keeps worlds and account data
+RBLXSetup.exe --uninstall --purge              # removes those too
 ```
 
-It installs to `%LOCALAPPDATA%\RBLXClone`, adds **Play RBLX Clone** to the Start menu and the
-desktop, registers an uninstaller, and asks before deleting worlds or account data on the way out.
+It copies the folder with its layout intact and leaves anything already identical alone, so running
+it over an existing install is an upgrade rather than a clobber. It records what it installed as
+`manifest.json` — the same document the updater diffs against — which means an installed copy can
+update and uninstall itself file by file. Then it adds **Play RBLX Clone** to the Start menu and the
+desktop, registers an entry under Add/Remove Programs with its own `UninstallString`, and copies
+itself into the install so that entry works. Shortcuts are COM's `IShellLink` and the entry is
+`HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\RBLXClone`; on Linux and macOS the same
+install writes a `.desktop` entry instead. Uninstalling removes exactly the recorded files and
+leaves worlds, saves and account data unless `--purge` is given.
 
 The shortcut points at `RBLXUpdater.exe` rather than `Client.exe`, so an update is checked every
 time somebody plays and nobody has to run a second program. The updater asks the URL in `update.json`
@@ -1019,7 +1029,6 @@ games/                  The bundled worlds and their .rbx scripts
 web/                    Public pages, starter worlds, published worlds, game-server logs
 ServerWorld.world       Default world file
 scripts/                package-build.ps1 and other tooling
-deploy/                 RBLXClone.iss: the Windows installer script
 GameRelease/            Existing release asset folders (do not commit generated binaries here)
 third_party/            Pinned dependencies, converted to this build dialect
 RBLXAntiCheat/          The vendored anti-cheat library (Windows only, AGPL v3)

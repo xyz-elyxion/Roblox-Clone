@@ -198,6 +198,76 @@ bool isPackagedFile(const std::string& relativePath) {
     return true;
 }
 
+bool collectPayloadFiles(const std::string& directory, std::vector<std::string>* out,
+                         std::string* error) {
+    std::error_code code;
+    if (!std::filesystem::is_directory(directory, code)) {
+        if (error) *error = "there is no folder at " + directory;
+        return false;
+    }
+
+    std::vector<std::string> found;
+    for (std::filesystem::recursive_directory_iterator
+             it(directory, std::filesystem::directory_options::skip_permission_denied, code),
+         end;
+         it != end; it.increment(code)) {
+        if (code) {
+            if (error) *error = "could not list " + directory + ": " + code.message();
+            return false;
+        }
+        if (!it->is_regular_file(code)) continue;
+
+        const std::string relative =
+            std::filesystem::relative(it->path(), directory, code).generic_string();
+        if (code) {
+            if (error) *error = "could not describe " + it->path().string();
+            return false;
+        }
+        if (!isPackagedFile(relative)) continue;
+        found.push_back(relative);
+    }
+
+    // Sorted, so two runs over the same folder produce the same document and a
+    // release can be compared line by line.
+    std::sort(found.begin(), found.end());
+    if (out) *out = std::move(found);
+    return true;
+}
+
+bool buildManifestFromDirectory(const std::string& directory, const std::string& version,
+                                const std::string& channel, Manifest* out, std::string* error) {
+    Manifest manifest;
+    manifest.version = version.empty() ? std::string("0.0.0") : version;
+    manifest.channel = channel.empty() ? std::string("stable") : channel;
+
+    std::vector<std::string> paths;
+    if (!collectPayloadFiles(directory, &paths, error)) return false;
+
+    for (const std::string& relative : paths) {
+        const std::string path = (std::filesystem::path(directory) / relative).string();
+        FileEntry entry;
+        entry.path = relative;
+        std::string digestError;
+        entry.sha256 = sha256File(path, &digestError);
+        if (entry.sha256.empty()) {
+            if (error) *error = digestError;
+            return false;
+        }
+
+        std::error_code code;
+        const auto size = std::filesystem::file_size(path, code);
+        if (code) {
+            if (error) *error = "could not measure " + path;
+            return false;
+        }
+        entry.size = static_cast<long long>(size);
+        manifest.files.push_back(entry);
+    }
+
+    if (out) *out = manifest;
+    return true;
+}
+
 bool parseManifest(const std::string& text, Manifest* out, std::string* error) {
     if (!out) return false;
 

@@ -52,7 +52,7 @@ try {
     $exeDir = Join-Path $BuildDir $Configuration
     $found = @()
     $missing = @()
-    foreach ($name in @('WebApp', 'Server', 'Client', 'Studio', 'RBLXCode', 'AiTrainer', 'RBLXUpdater')) {
+    foreach ($name in @('WebApp', 'Server', 'Client', 'Studio', 'RBLXCode', 'AiTrainer', 'RBLXUpdater', 'RBLXSetup')) {
         $exePath = Join-Path $exeDir "$name.exe"
         if (Test-Path -LiteralPath $exePath) {
             Copy-Item -LiteralPath $exePath -Destination $Output
@@ -202,8 +202,10 @@ try {
         '  RBLXCode.exe  source editor for the files in this folder: project tree, tabs,'
         '                C++/GLSL/RBLX script highlighting, search, save'
         '  AiTrainer.exe headless trainer: learns and replays a policy for a world, no window'
-        '  RBLXUpdater.exe installer and auto updater: checks manifest.json, downloads only the'
-        '                files that changed, then starts the game'
+        '  RBLXUpdater.exe auto updater: checks manifest.json, downloads only the files that'
+        '                changed, then starts the game'
+        '  RBLXSetup.exe   installer: copies this folder into your account, adds the shortcuts'
+        '                and the Add/Remove Programs entry, and is that entry\'s uninstaller'
         '  web/          website assets (public/ pages and API scripts, seed-worlds/)'
         '  games/        example worlds and their .rbx scripts (Sky Platformer)'
         '  shaders/      OpenGL shaders used by Client and Studio'
@@ -215,6 +217,7 @@ try {
         '  start-code.bat      opens the RBLXCode source editor on this folder'
         '  start-client.bat    opens the client directly (the website normally does this)'
         '  play.bat            checks for an update, installs it, then starts the client'
+        '  RBLXSetup.exe       installs this folder for the current user (no unzip needed after)'
         '  AiTrainer.exe       headless trainer, run it from this folder with the flags below'
         ''
         'FIRST RUN: THE GUIDED TOUR'

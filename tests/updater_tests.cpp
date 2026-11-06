@@ -4,6 +4,7 @@
 
 #include "Updater.h"
 
+#include <algorithm>
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
@@ -234,6 +235,54 @@ void testApplying() {
           "an https URL is refused with a reason instead of failing at connect");
 }
 
+// What a release consists of. The installer copies this list and `manifest`
+// publishes it, so the two must agree on what is payload and what belongs to the
+// machine.
+void testPayloadWalk() {
+    const fs::path root = makeScratch("payload");
+    writeFile(root / "Client.exe", "client");
+    writeFile(root / "shaders" / "basic.vert", "shader");
+    writeFile(root / "games" / "a.world", "world");
+    writeFile(root / "RBLXSetup.exe", "setup");
+    // Never payload: the updater replaces itself, settings belong to the machine,
+    // and a staging folder is never part of a release.
+    writeFile(root / "update.json", "{}");
+    writeFile(root / "manifest.json", "{}");
+    writeFile(root / "RBLXUpdater.exe", "updater");
+    writeFile(root / ".update-staging" / "leftover", "x");
+
+    std::vector<std::string> files;
+    std::string error;
+    check(rblx::update::collectPayloadFiles(root.string(), &files, &error), "the payload walk succeeds");
+    check(files.size() == 4, "only the release files are collected");
+    check(std::is_sorted(files.begin(), files.end()), "the payload list is sorted");
+    check(std::find(files.begin(), files.end(), "RBLXSetup.exe") != files.end(),
+          "the setup is part of the payload");
+    check(std::find(files.begin(), files.end(), "RBLXUpdater.exe") == files.end(),
+          "the running updater is not part of the payload");
+    check(std::find(files.begin(), files.end(), "update.json") == files.end(),
+          "the machine's settings are not part of the payload");
+
+    rblx::update::Manifest manifest;
+    check(rblx::update::buildManifestFromDirectory(root.string(), "7.0.1", "", &manifest, &error),
+          "a manifest can be built from a folder");
+    check(manifest.version == "7.0.1", "the version given is recorded");
+    check(manifest.channel == "stable", "an empty channel means stable");
+    check(manifest.files.size() == 4, "the manifest describes the payload");
+
+    bool hashesMatch = true;
+    for (const rblx::update::FileEntry& entry : manifest.files) {
+        if (entry.sha256 != rblx::update::sha256File((root / entry.path).string(), &error)) {
+            hashesMatch = false;
+        }
+    }
+    check(hashesMatch, "every recorded hash is the hash of the file on disk");
+
+    // A folder that is not there is an error with a reason, not an empty list.
+    check(!rblx::update::collectPayloadFiles((root / "missing").string(), nullptr, &error),
+          "a missing folder is refused");
+}
+
 void testHashing() {
     check(rblx::update::sha256Text("") ==
               "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
@@ -261,6 +310,7 @@ int main() {
     testManifestDocument();
     testPlanning();
     testApplying();
+    testPayloadWalk();
     testHashing();
 
     if (failures == 0) {

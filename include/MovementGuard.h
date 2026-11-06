@@ -38,6 +38,12 @@ struct Limits {
     // A packet gap longer than this is treated as this long: a client that
     // stalls the network for a second does not earn a second of free flight.
     float maxFrameSeconds = 0.25f;
+    // A gap the client's own clock agrees with is believed in full, up to this:
+    // a player whose game really did stall for a second walked for a second.
+    float maxCorroboratedFrameSeconds = 1.0f;
+    // How far ahead of the server's arrival gap the client's stamp may run
+    // before it stops being believed.
+    float clientStampToleranceMs = 120.0f;
 };
 
 // What one frame was measured against, and what the client claimed. A guard that
@@ -108,6 +114,8 @@ public:
     void reset(const glm::vec3& position, uint64_t nowMs) {
         position_ = position;
         atMs_ = nowMs;
+        clientMs_ = 0;
+        haveClient_ = false;
         riseBudget_ = limitsBudget_;
         primed_ = true;
     }
@@ -119,15 +127,25 @@ public:
     bool primed() const { return primed_; }
     int corrections() const { return corrections_; }
 
+    // Without a client stamp, the gap is the server's own arrival time.
     Correction validate(const glm::vec3& proposed, uint64_t nowMs) {
+        return validate(proposed, nowMs, 0);
+    }
+
+    // With the client's clock (monotonic milliseconds). The stamp is what makes
+    // bursty UDP harmless: several packets that land in one server tick are
+    // still measured over the time the player actually moved.
+    Correction validate(const glm::vec3& proposed, uint64_t arrivalMs, uint32_t clientMs) {
         Correction result;
         result.position = proposed;
         if (!primed_) {
-            reset(proposed, nowMs);
+            reset(proposed, arrivalMs);
+            clientMs_ = clientMs;
+            haveClient_ = clientMs != 0;
             return result;
         }
 
-        const float dt = frameSeconds(nowMs);
+        const float dt = frameSeconds(arrivalMs, clientMs);
         const glm::vec3 delta = proposed - position_;
         const float maxHorizontal = limits_.maxHorizontalSpeed * dt + limits_.horizontalSlack;
         const float maxRise = limits_.maxRiseSpeed * dt + limits_.riseSlack;
@@ -158,29 +176,33 @@ public:
         }
 
         const float rise = result.position.y - position_.y;
-        if (rise > 0.01f) {
-            if (rise > maxRise || rise > riseBudget_) {
-                const float allowed = std::max(0.0f, std::min(maxRise, riseBudget_));
-                result.position.y = position_.y + allowed;
-                result.corrected = true;
-                // A single oversized hop is a speed hack; a step that only
-                // fails because the climb budget ran out is sustained flight.
-                result.flight = rise > riseBudget_;
-            }
-            // Spend what was actually allowed, not what was claimed: a client
-            // that keeps asking for more never gets the budget back.
-            riseBudget_ = std::max(0.0f, riseBudget_ - std::min(rise, std::max(0.0f, result.position.y - position_.y)));
-        } else {
-            riseBudget_ = std::min(limits_.riseBudget,
-                                   riseBudget_ + limits_.riseBudgetRefillPerSecond * dt);
+        if (rise > 0.01f && (rise > maxRise || rise > riseBudget_)) {
+            const float allowed = std::max(0.0f, std::min(maxRise, riseBudget_));
+            result.position.y = position_.y + allowed;
+            result.corrected = true;
+            // A single oversized hop is a speed hack; a step that only fails
+            // because the climb budget ran out is sustained flight.
+            result.flight = rise > riseBudget_;
         }
+
+        // Spend what was actually allowed, not what was claimed, so a client
+        // that keeps asking for more never gets the budget back. Coming down
+        // pays the climb back, which is what stops a player who keeps jumping
+        // from running out and being reported as flying, and time refills it
+        // too so walking up a staircase never runs a hole in it either.
+        const float climbed = std::max(0.0f, result.position.y - position_.y);
+        const float descended = std::max(0.0f, position_.y - result.position.y);
+        riseBudget_ = std::min(limits_.riseBudget,
+                               riseBudget_ - climbed + limits_.riseBudgetRefillPerSecond * dt +
+                                   descended);
+        riseBudget_ = std::max(0.0f, riseBudget_);
 
         if (result.corrected) {
             ++corrections_;
         }
 
         position_ = result.position;
-        atMs_ = nowMs;
+        atMs_ = arrivalMs;
         return result;
     }
 
@@ -195,17 +217,45 @@ public:
     const Limits& limits() const { return limits_; }
 
 private:
-    float frameSeconds(uint64_t nowMs) const {
-        float dt = 0.0f;
-        if (nowMs > atMs_) {
-            dt = static_cast<float>(nowMs - atMs_) / 1000.0f;
+    // How much time this step is credited with. The arrival gap is the floor and
+    // the client's stamp is used when the two agree, which is what tells a
+    // player who moved for 16 ms and had three packets land in one tick apart
+    // from a client claiming 16 ms of travel in a single datagram.
+    float frameSeconds(uint64_t arrivalMs, uint32_t clientMs) {
+        const float arrived = secondsBetween(atMs_, arrivalMs);
+        float measured = arrived;
+        bool corroborated = false;
+        if (haveClient_ && clientMs != 0 && clientMs > clientMs_) {
+            const float claimed = static_cast<float>(clientMs - clientMs_) / 1000.0f;
+            if (claimed <= arrived + limits_.clientStampToleranceMs / 1000.0f) {
+                measured = claimed;
+                corroborated = true;
+            }
         }
-        return std::min(std::max(dt, 1.0f / 1000.0f), limits_.maxFrameSeconds);
+
+        if (clientMs != 0) {
+            clientMs_ = clientMs;
+            haveClient_ = true;
+        }
+
+        // Long gaps are believed only when both clocks agree on them: a lone
+        // datagram claiming a quarter of a second after a millisecond on the
+        // wire is held to the millisecond.
+        const float cap = corroborated ? limits_.maxCorroboratedFrameSeconds
+                                       : limits_.maxFrameSeconds;
+        return std::min(std::max(measured, 1.0f / 1000.0f), cap);
+    }
+
+    static float secondsBetween(uint64_t fromMs, uint64_t toMs) {
+        if (toMs <= fromMs) return 0.0f;
+        return static_cast<float>(toMs - fromMs) / 1000.0f;
     }
 
     bool primed_ = false;
     glm::vec3 position_{0.0f};
     uint64_t atMs_ = 0;
+    uint32_t clientMs_ = 0;
+    bool haveClient_ = false;
     float riseBudget_ = Limits{}.riseBudget;
     float limitsBudget_ = Limits{}.riseBudget;
     int corrections_ = 0;

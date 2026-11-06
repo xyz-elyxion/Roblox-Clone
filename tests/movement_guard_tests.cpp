@@ -77,9 +77,11 @@ void testFlightClamped() {
     bool flight = false;
     float y = 0.0f;
     uint64_t now = 0;
-    for (int step = 0; step < 240; ++step) {
+    // Under the 14 units/s rise limit, so only the climb budget can catch it:
+    // at 12 units/s the budget drains by 6 units/s and runs out after ~4 s.
+    for (int step = 0; step < 400; ++step) {
         now += 16;
-        y += 8.0f * 0.016f; // quietly floating upward at 8 units/s
+        y += 12.0f * 0.016f; // quietly floating upward at 12 units/s
         const auto result = guard.validate(glm::vec3(0.0f, y, 0.0f), now);
         corrected = corrected || result.corrected;
         flight = flight || result.flight;
@@ -121,6 +123,75 @@ void testRecoveryAfterCorrection() {
     // The next honest packet continues from the corrected position, not from 200.
     const auto good = guard.validate(bad.position + glm::vec3(0.3f, 0.0f, 0.0f), 32);
     check(!good.corrected, "normal movement after a correction is accepted again");
+}
+
+// The client sends its state every frame over UDP, so three packets can land in
+// the same server tick. They are 16 ms apart on the client's clock, and used to
+// be measured as 1 ms apart, which turned an honest walk into a speed hack.
+void testBunchedPacketsAccepted() {
+    rblx::movement::Guard guard;
+    glm::vec3 position(0.0f, 5.0f, 0.0f);
+    guard.reset(position, 1000);
+    uint32_t clientMs = 5000;
+    bool corrected = false;
+    for (int step = 0; step < 3; ++step) {
+        clientMs += 16;
+        position.x += 20.0f / 60.0f; // a frame of walking at 20 units/s
+        // Every packet of the burst carries the same arrival time.
+        const auto result = guard.validate(position, 1016, clientMs);
+        corrected = corrected || result.corrected;
+        position = result.position;
+    }
+    check(!corrected, "a burst of packets in one tick is measured by the client's clock");
+}
+
+// The stamp cannot be used to buy speed: a client that claims a quarter of a
+// second while its datagrams land a millisecond apart is held to the wire.
+void testStampThatOutrunsTheWireIsNotBelieved() {
+    rblx::movement::Guard guard;
+    guard.reset(glm::vec3(0.0f), 0);
+    check(!guard.validate(glm::vec3(0.0f), 16, 1000).corrected, "stamp: the baseline is accepted");
+    const auto result = guard.validate(glm::vec3(8.0f, 0.0f, 0.0f), 17, 1250);
+    check(result.corrected, "a stamp that outruns the wire is not believed");
+    check(result.evidence.frameSeconds < 0.002f, "the uncorroborated step is measured in milliseconds");
+}
+
+// The other side of the same problem: a real one second stall. Both clocks agree
+// the player had a second, so a second of walking is not a teleport.
+void testCorroboratedStallAccepted() {
+    rblx::movement::Guard guard;
+    guard.reset(glm::vec3(0.0f), 0);
+    check(!guard.validate(glm::vec3(0.0f), 0, 7000).corrected, "stall: the baseline is accepted");
+    const auto result = guard.validate(glm::vec3(20.0f, 0.0f, 0.0f), 1000, 8000);
+    check(!result.corrected, "a stall both clocks agree on is walked, not teleported");
+    check(near(result.evidence.frameSeconds, 1.0f, 0.0001f),
+          "the acknowledged second is what the step is measured against");
+}
+
+// Jumping on the spot for a minute must not run the climb budget dry and then be
+// reported as flying. Landing pays back what the jump spent.
+void testRepeatedJumpingIsNotFlight() {
+    rblx::movement::Guard guard;
+    guard.reset(glm::vec3(0.0f), 0);
+    bool corrected = false;
+    bool flight = false;
+    uint64_t now = 0;
+    for (int jump = 0; jump < 30; ++jump) {
+        float velocity = 12.0f;
+        float y = 0.0f;
+        for (int step = 0; step < 60; ++step) {
+            const float dt = 0.016f;
+            velocity -= 20.0f * dt;
+            y = std::max(0.0f, y + velocity * dt);
+            now += 16;
+            const auto result = guard.validate(glm::vec3(0.0f, y, 0.0f), now);
+            corrected = corrected || result.corrected;
+            flight = flight || result.flight;
+            y = result.position.y;
+        }
+    }
+    check(!corrected, "thirty jumps in a row are not corrected");
+    check(!flight, "jumping is never reported as flying");
 }
 
 // A correction is only worth recording if it says what was measured and what the
@@ -235,6 +306,10 @@ int main() {
     testLongStallDoesNotGrantFlight();
     testFallingAllowed();
     testRecoveryAfterCorrection();
+    testBunchedPacketsAccepted();
+    testStampThatOutrunsTheWireIsNotBelieved();
+    testCorroboratedStallAccepted();
+    testRepeatedJumpingIsNotFlight();
     testEvidenceRecordsProof();
     testEvidenceRecordsExpectation();
     testEvidenceOnAcceptedStep();

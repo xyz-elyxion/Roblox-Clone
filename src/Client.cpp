@@ -2165,6 +2165,11 @@ int main(int argc, char** argv) {
                         // ever saw the walk cycle.
                         state.isJumping = myCharacter->isJumping;
                         state.health = myCharacter->health;
+                        // The moment this position belongs to, so the server can
+                        // judge speed by the time the player moved instead of by
+                        // when the datagram was read. Packets that bunch up after
+                        // a loss then stop looking like a speed hack.
+                        state.clientTimeMs = static_cast<uint32_t>(steadyMilliseconds());
                         if (!sendPlayerStateToServer(state)) {
                             std::cout << "Disconnected while sending player state." << std::endl;
                             isConnected = false;

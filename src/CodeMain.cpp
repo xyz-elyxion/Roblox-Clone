@@ -1181,9 +1181,6 @@ struct App {
             if (ImGui::MenuItem("Keyboard shortcuts")) {
                 showShortcuts = true;
             }
-            if (ImGui::MenuItem("Keyboard shortcuts")) {
-                showShortcuts = true;
-            }
             ImGui::EndMenu();
         }
         ImGui::SameLine(ImGui::GetWindowWidth() - 520.0f);
@@ -1269,10 +1266,6 @@ struct App {
                 drawFileTooltip(child.entry.relativePath);
             }
             ImGui::PopID();
-            if (ImGui::Selectable(child.entry.name.c_str(), selected)) {
-                openRelative(child.entry.relativePath);
-            }
-            ImGui::PopID();
         }
     }
 
@@ -1301,9 +1294,6 @@ struct App {
                 }
                 if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayNormal)) {
                     drawFileTooltip(file.relative);
-                }
-                if (!open) {
-                    closing.push_back(i);
                 }
                 if (!open) {
                     closing.push_back(i);

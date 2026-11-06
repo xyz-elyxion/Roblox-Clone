@@ -1778,8 +1778,12 @@ static int runServer(int argc, char** argv) {
                         // it: a replay is only worth watching if it shows the claim
                         // rather than the correction.
                         const glm::vec3 claimedState = player.state.position;
+                        // Measured against the client's own clock: a packet that
+                        // spent 200 ms in flight still describes movement that
+                        // happened over the time the client says it did.
                         const rblx::movement::Correction movement =
-                            player.movement.validate(player.state.position, nowMs);
+                            player.movement.validate(player.state.position, nowMs,
+                                                     pkt.clientTimeMs);
                         player.replay.add(nowMs, replayPoint(claimedState),
                                           replayPoint(movement.position));
                         if (movement.corrected) {

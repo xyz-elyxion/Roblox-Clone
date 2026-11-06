@@ -69,6 +69,11 @@ struct PacketPlayerState {
     bool isWalking;
     bool isJumping;
     float health;
+    // When the client moved to this position, on its own monotonic clock. The
+    // server measures speed against this rather than against the moment the
+    // datagram was read, because a packet that arrives late still describes
+    // movement that happened on time.
+    uint32_t clientTimeMs;
 };
 
 // 10. Player Health (Server -> Client)
@@ -190,7 +195,7 @@ namespace PacketProtocol {
     // Bumped whenever a packet layout or its meaning changes. Sent in the
     // handshake next to `kPacketLayoutSignature` so two differently built
     // binaries fail with an explanation instead of silently misparsing.
-    constexpr uint16_t kProtocolRevision = 9;
+    constexpr uint16_t kProtocolRevision = 10;
 
     constexpr uint16_t packetLayoutSignature() {
         // Any change to a packet's size moves this, so a client and a server

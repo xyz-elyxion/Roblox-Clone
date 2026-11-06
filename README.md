@@ -312,7 +312,15 @@ why the rules that matter (movement, world contents) are enforced by the server.
 
 The game server's movement guard is the only thing that can prove a speed hack or a fly hack,
 because the client's anti-cheat runs inside the client process and a modified client can simply not
-run it. A confirmed detection is reported to the website, which keeps the account's strikes:
+run it. It measures speed against the time the player moved rather than the moment a datagram was
+read: every `PLAYER_STATE` carries the client's own millisecond clock, and the server believes it
+only while it agrees with when the packet arrived. That is what separates a burst of packets
+delivered in one tick (measured over the time the player actually walked, so it is not a speed
+hack), a stall both clocks agree on (a second of walking is a second of walking), and a client
+claiming a quarter of a second in one datagram (held to the millisecond it took to arrive). Climbing
+is budgeted rather than timed, and landing pays back what a jump spent, so a player who keeps
+jumping or walks up a staircase is not reported as flying for it. A confirmed detection is reported
+to the website, which keeps the account's strikes:
 
 | Strike | Result |
 | --- | --- |

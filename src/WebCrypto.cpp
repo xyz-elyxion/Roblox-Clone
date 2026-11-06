@@ -483,5 +483,323 @@ bool verifyJwt(const std::string& token, const std::string& secret, Json* payloa
     return true;
 }
 
+namespace {
+
+// AES-256 as FIPS-197 defines it, forward direction only. GCM never runs the
+// cipher backwards: it encrypts a counter for the data and the hash key for the
+// tag, so the inverse cipher and its tables are not built at all.
+const std::uint8_t kAesSbox[256] = {
+    0x63, 0x7c, 0x77, 0x7b, 0xf2, 0x6b, 0x6f, 0xc5, 0x30, 0x01, 0x67, 0x2b, 0xfe, 0xd7, 0xab, 0x76,
+    0xca, 0x82, 0xc9, 0x7d, 0xfa, 0x59, 0x47, 0xf0, 0xad, 0xd4, 0xa2, 0xaf, 0x9c, 0xa4, 0x72, 0xc0,
+    0xb7, 0xfd, 0x93, 0x26, 0x36, 0x3f, 0xf7, 0xcc, 0x34, 0xa5, 0xe5, 0xf1, 0x71, 0xd8, 0x31, 0x15,
+    0x04, 0xc7, 0x23, 0xc3, 0x18, 0x96, 0x05, 0x9a, 0x07, 0x12, 0x80, 0xe2, 0xeb, 0x27, 0xb2, 0x75,
+    0x09, 0x83, 0x2c, 0x1a, 0x1b, 0x6e, 0x5a, 0xa0, 0x52, 0x3b, 0xd6, 0xb3, 0x29, 0xe3, 0x2f, 0x84,
+    0x53, 0xd1, 0x00, 0xed, 0x20, 0xfc, 0xb1, 0x5b, 0x6a, 0xcb, 0xbe, 0x39, 0x4a, 0x4c, 0x58, 0xcf,
+    0xd0, 0xef, 0xaa, 0xfb, 0x43, 0x4d, 0x33, 0x85, 0x45, 0xf9, 0x02, 0x7f, 0x50, 0x3c, 0x9f, 0xa8,
+    0x51, 0xa3, 0x40, 0x8f, 0x92, 0x9d, 0x38, 0xf5, 0xbc, 0xb6, 0xda, 0x21, 0x10, 0xff, 0xf3, 0xd2,
+    0xcd, 0x0c, 0x13, 0xec, 0x5f, 0x97, 0x44, 0x17, 0xc4, 0xa7, 0x7e, 0x3d, 0x64, 0x5d, 0x19, 0x73,
+    0x60, 0x81, 0x4f, 0xdc, 0x22, 0x2a, 0x90, 0x88, 0x46, 0xee, 0xb8, 0x14, 0xde, 0x5e, 0x0b, 0xdb,
+    0xe0, 0x32, 0x3a, 0x0a, 0x49, 0x06, 0x24, 0x5c, 0xc2, 0xd3, 0xac, 0x62, 0x91, 0x95, 0xe4, 0x79,
+    0xe7, 0xc8, 0x37, 0x6d, 0x8d, 0xd5, 0x4e, 0xa9, 0x6c, 0x56, 0xf4, 0xea, 0x65, 0x7a, 0xae, 0x08,
+    0xba, 0x78, 0x25, 0x2e, 0x1c, 0xa6, 0xb4, 0xc6, 0xe8, 0xdd, 0x74, 0x1f, 0x4b, 0xbd, 0x8b, 0x8a,
+    0x70, 0x3e, 0xb5, 0x66, 0x48, 0x03, 0xf6, 0x0e, 0x61, 0x35, 0x57, 0xb9, 0x86, 0xc1, 0x1d, 0x9e,
+    0xe1, 0xf8, 0x98, 0x11, 0x69, 0xd9, 0x8e, 0x94, 0x9b, 0x1e, 0x87, 0xe9, 0xce, 0x55, 0x28, 0xdf,
+    0x8c, 0xa1, 0x89, 0x0d, 0xbf, 0xe6, 0x42, 0x68, 0x41, 0x99, 0x2d, 0x0f, 0xb0, 0x54, 0xbb, 0x16
+};
+
+// Round constants for the key schedule, one per ten-word block of AES-256.
+const std::uint8_t kAesRcon[8] = { 0x00, 0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40 };
+
+// 15 round keys of 16 bytes for a 256-bit key (Nr = 14).
+struct Aes256Key {
+    std::uint8_t roundKeys[240];
+};
+
+std::uint8_t aesXtime(std::uint8_t value) {
+    return static_cast<std::uint8_t>((value << 1) ^ ((value & 0x80) ? 0x1b : 0x00));
+}
+
+void aes256ExpandKey(const std::uint8_t key[32], Aes256Key* expanded) {
+    std::memcpy(expanded->roundKeys, key, 32);
+
+    int generated = 32;
+    while (generated < 240) {
+        std::uint8_t word[4];
+        std::memcpy(word, expanded->roundKeys + generated - 4, 4);
+
+        if (generated % 32 == 0) {
+            const std::uint8_t first = word[0];
+            word[0] = static_cast<std::uint8_t>(kAesSbox[word[1]] ^ kAesRcon[generated / 32]);
+            word[1] = kAesSbox[word[2]];
+            word[2] = kAesSbox[word[3]];
+            word[3] = kAesSbox[first];
+        } else if (generated % 32 == 16) {
+            for (int i = 0; i < 4; ++i) {
+                word[i] = kAesSbox[word[i]];
+            }
+        }
+
+        for (int i = 0; i < 4; ++i) {
+            expanded->roundKeys[generated] =
+                static_cast<std::uint8_t>(expanded->roundKeys[generated - 32] ^ word[i]);
+            ++generated;
+        }
+    }
+}
+
+void aesAddRoundKey(std::uint8_t state[16], const std::uint8_t* roundKey) {
+    for (int i = 0; i < 16; ++i) {
+        state[i] = static_cast<std::uint8_t>(state[i] ^ roundKey[i]);
+    }
+}
+
+void aesSubBytes(std::uint8_t state[16]) {
+    for (int i = 0; i < 16; ++i) {
+        state[i] = kAesSbox[state[i]];
+    }
+}
+
+// Row r of the state rotates left by r. The state is column-major, so byte
+// (column * 4 + row) moves to ((column + row) % 4) * 4 + row.
+void aesShiftRows(std::uint8_t state[16]) {
+    std::uint8_t copy[16];
+    std::memcpy(copy, state, 16);
+    for (int row = 0; row < 4; ++row) {
+        for (int column = 0; column < 4; ++column) {
+            state[column * 4 + row] = copy[((column + row) % 4) * 4 + row];
+        }
+    }
+}
+
+void aesMixColumns(std::uint8_t state[16]) {
+    for (int column = 0; column < 4; ++column) {
+        std::uint8_t* s = state + column * 4;
+        const std::uint8_t a0 = s[0];
+        const std::uint8_t a1 = s[1];
+        const std::uint8_t a2 = s[2];
+        const std::uint8_t a3 = s[3];
+        s[0] = static_cast<std::uint8_t>(aesXtime(a0) ^ (aesXtime(a1) ^ a1) ^ a2 ^ a3);
+        s[1] = static_cast<std::uint8_t>(a0 ^ aesXtime(a1) ^ (aesXtime(a2) ^ a2) ^ a3);
+        s[2] = static_cast<std::uint8_t>(a0 ^ a1 ^ aesXtime(a2) ^ (aesXtime(a3) ^ a3));
+        s[3] = static_cast<std::uint8_t>((aesXtime(a0) ^ a0) ^ a1 ^ a2 ^ aesXtime(a3));
+    }
+}
+
+void aes256EncryptBlock(const Aes256Key& key, const std::uint8_t input[16],
+                        std::uint8_t output[16]) {
+    std::uint8_t state[16];
+    std::memcpy(state, input, 16);
+
+    aesAddRoundKey(state, key.roundKeys);
+    for (int round = 1; round < 14; ++round) {
+        aesSubBytes(state);
+        aesShiftRows(state);
+        aesMixColumns(state);
+        aesAddRoundKey(state, key.roundKeys + round * 16);
+    }
+    aesSubBytes(state);
+    aesShiftRows(state);
+    aesAddRoundKey(state, key.roundKeys + 14 * 16);
+
+    std::memcpy(output, state, 16);
+}
+
+// One GHASH step: y = (y xor block) * H in GF(2^128). The field is walked one
+// bit at a time here rather than with a precomputed table, because a table would
+// have to be built per key and the data file is small enough that the simpler
+// version costs nothing measurable.
+void ghashBlock(std::uint8_t y[16], const std::uint8_t h[16], const std::uint8_t block[16]) {
+    std::uint8_t v[16];
+    std::uint8_t product[16];
+    std::memcpy(v, h, 16);
+    std::memset(product, 0, 16);
+
+    for (int byte = 0; byte < 16; ++byte) {
+        const std::uint8_t value = static_cast<std::uint8_t>(y[byte] ^ block[byte]);
+        for (int bit = 0; bit < 8; ++bit) {
+            if (value & (0x80 >> bit)) {
+                for (int i = 0; i < 16; ++i) {
+                    product[i] = static_cast<std::uint8_t>(product[i] ^ v[i]);
+                }
+            }
+            const bool carry = (v[15] & 0x01) != 0;
+            for (int i = 15; i > 0; --i) {
+                v[i] = static_cast<std::uint8_t>((v[i] >> 1) | ((v[i - 1] & 0x01) << 7));
+            }
+            v[0] = static_cast<std::uint8_t>(v[0] >> 1);
+            if (carry) {
+                v[0] = static_cast<std::uint8_t>(v[0] ^ 0xe1);
+            }
+        }
+    }
+
+    std::memcpy(y, product, 16);
+}
+
+void ghashAbsorb(std::uint8_t y[16], const std::uint8_t h[16], const std::uint8_t* data,
+                 std::size_t length) {
+    std::size_t offset = 0;
+    while (offset + 16 <= length) {
+        ghashBlock(y, h, data + offset);
+        offset += 16;
+    }
+    if (offset < length) {
+        // The last partial block is zero padded, as GCM specifies.
+        std::uint8_t tail[16] = { 0 };
+        std::memcpy(tail, data + offset, length - offset);
+        ghashBlock(y, h, tail);
+    }
+}
+
+void gcmIncrementCounter(std::uint8_t counter[16]) {
+    for (int i = 15; i >= 12; --i) {
+        if (++counter[i] != 0) {
+            break;
+        }
+    }
+}
+
+// The GCM data pass: the same keystream serves encryption and decryption.
+void gcmCounterCrypt(const Aes256Key& key, const std::uint8_t j0[16], const std::uint8_t* input,
+                     std::size_t length, std::uint8_t* output) {
+    std::uint8_t counter[16];
+    std::uint8_t stream[16];
+    std::memcpy(counter, j0, 16);
+
+    for (std::size_t offset = 0; offset < length; offset += 16) {
+        gcmIncrementCounter(counter);
+        aes256EncryptBlock(key, counter, stream);
+        const std::size_t chunk = (length - offset) < 16 ? (length - offset) : 16;
+        for (std::size_t i = 0; i < chunk; ++i) {
+            output[offset + i] = static_cast<std::uint8_t>(input[offset + i] ^ stream[i]);
+        }
+    }
+}
+
+void gcmTag(const Aes256Key& key, const std::uint8_t j0[16], const std::uint8_t h[16],
+            const std::string& aad, const std::uint8_t* ciphertext, std::size_t length,
+            std::uint8_t tag[16]) {
+    std::uint8_t y[16] = { 0 };
+    ghashAbsorb(y, h, reinterpret_cast<const std::uint8_t*>(aad.data()), aad.size());
+    ghashAbsorb(y, h, ciphertext, length);
+
+    // The final block is both lengths in bits, big-endian 64-bit each.
+    std::uint8_t lengths[16];
+    const std::uint64_t aadBits = static_cast<std::uint64_t>(aad.size()) * 8;
+    const std::uint64_t textBits = static_cast<std::uint64_t>(length) * 8;
+    for (int i = 0; i < 8; ++i) {
+        lengths[i] = static_cast<std::uint8_t>((aadBits >> (56 - 8 * i)) & 0xff);
+        lengths[8 + i] = static_cast<std::uint8_t>((textBits >> (56 - 8 * i)) & 0xff);
+    }
+    ghashBlock(y, h, lengths);
+
+    std::uint8_t mask[16];
+    aes256EncryptBlock(key, j0, mask);
+    for (int i = 0; i < 16; ++i) {
+        tag[i] = static_cast<std::uint8_t>(mask[i] ^ y[i]);
+    }
+}
+
+}  // namespace
+
+std::string aes256GcmSeal(const std::string& key, const std::string& plaintext,
+                          const std::string& aad) {
+    if (key.size() != 32) {
+        return std::string();
+    }
+
+    std::uint8_t keyBytes[32];
+    std::memcpy(keyBytes, key.data(), 32);
+    Aes256Key expanded;
+    aes256ExpandKey(keyBytes, &expanded);
+
+    const std::vector<std::uint8_t> nonce = randomBytes(12);
+    std::uint8_t j0[16];
+    std::memcpy(j0, nonce.data(), 12);
+    j0[12] = 0;
+    j0[13] = 0;
+    j0[14] = 0;
+    j0[15] = 1;
+
+    std::uint8_t hashKey[16];
+    const std::uint8_t zeros[16] = { 0 };
+    aes256EncryptBlock(expanded, zeros, hashKey);
+
+    std::vector<std::uint8_t> ciphertext(plaintext.size());
+    gcmCounterCrypt(expanded, j0,
+                    reinterpret_cast<const std::uint8_t*>(plaintext.data()), plaintext.size(),
+                    ciphertext.data());
+
+    std::uint8_t tag[16];
+    gcmTag(expanded, j0, hashKey, aad, ciphertext.data(), ciphertext.size(), tag);
+    ciphertext.insert(ciphertext.end(), tag, tag + 16);
+
+    return "aes256gcm." + base64UrlEncode(nonce) + "." + base64UrlEncode(ciphertext);
+}
+
+bool aes256GcmOpen(const std::string& key, const std::string& sealed, const std::string& aad,
+                   std::string* out) {
+    if (key.size() != 32) {
+        return false;
+    }
+
+    const std::string prefix = "aes256gcm.";
+    if (sealed.size() <= prefix.size() || sealed.compare(0, prefix.size(), prefix) != 0) {
+        return false;
+    }
+    const std::size_t separator = sealed.find('.', prefix.size());
+    if (separator == std::string::npos) {
+        return false;
+    }
+
+    std::vector<std::uint8_t> nonce;
+    std::vector<std::uint8_t> payload;
+    if (!base64UrlDecode(sealed.substr(prefix.size(), separator - prefix.size()), &nonce) ||
+        !base64UrlDecode(sealed.substr(separator + 1), &payload)) {
+        return false;
+    }
+    if (nonce.size() != 12 || payload.size() < 16) {
+        return false;
+    }
+
+    std::uint8_t keyBytes[32];
+    std::memcpy(keyBytes, key.data(), 32);
+    Aes256Key expanded;
+    aes256ExpandKey(keyBytes, &expanded);
+
+    std::uint8_t j0[16];
+    std::memcpy(j0, nonce.data(), 12);
+    j0[12] = 0;
+    j0[13] = 0;
+    j0[14] = 0;
+    j0[15] = 1;
+
+    std::uint8_t hashKey[16];
+    const std::uint8_t zeros[16] = { 0 };
+    aes256EncryptBlock(expanded, zeros, hashKey);
+
+    const std::size_t textLength = payload.size() - 16;
+    std::uint8_t expected[16];
+    gcmTag(expanded, j0, hashKey, aad, payload.data(), textLength, expected);
+
+    // Compared without an early exit, so a caller cannot learn how much of the tag
+    // it got right. A tag mismatch means the value was changed or the key is
+    // wrong; either way nothing is decrypted.
+    std::uint8_t difference = 0;
+    for (int i = 0; i < 16; ++i) {
+        difference = static_cast<std::uint8_t>(difference | (expected[i] ^ payload[textLength + i]));
+    }
+    if (difference != 0) {
+        return false;
+    }
+
+    std::vector<std::uint8_t> plaintext(textLength);
+    gcmCounterCrypt(expanded, j0, payload.data(), textLength, plaintext.data());
+    if (out) {
+        out->assign(reinterpret_cast<const char*>(plaintext.data()), plaintext.size());
+    }
+    return true;
+}
+
 }  // namespace web
 }  // namespace rblx

@@ -471,6 +471,12 @@ std::string machineCaptcha(rblx::web::WebsiteApp& app) {
     return "\"captchaId\":\"" + id + "\",\"captchaNonce\":\"" + nonce + "\"";
 }
 
+// The website seals its data file with a key derived from its configuration, so a
+// test that reopens that file has to open it the same way.
+void openSealed(rblx::web::Store& store, const rblx::web::Config& config) {
+    store.setDataKey(rblx::web::dataKeyFromText("jwt:" + config.jwtSecret));
+}
+
 void checkStatus(rblx::web::WebsiteApp& app, const std::string& method,
                  const std::string& path, const std::string& body, const std::string& token,
                  int expected, const std::string& name, std::string* bodyOut = nullptr,
@@ -705,6 +711,7 @@ void testHttp() {
 
     {
         rblx::web::Store reloaded(config.dataPath);
+        openSealed(reloaded, config);
         std::string loadError;
         check(reloaded.load(&loadError), "the script path reaches the data file");
         const rblx::web::GameRecord* saved = reloaded.findGame(gameId);
@@ -781,6 +788,7 @@ void testHttp() {
     checkContains(body, "\"coins\":250", "the account sees the coins it was given");
     {
         rblx::web::Store reloaded(config.dataPath);
+        openSealed(reloaded, config);
         std::string loadError;
         check(reloaded.load(&loadError), "the grant reaches the data file");
         check(reloaded.coinsFor(outsider != nullptr ? outsider->id : 0) == 250,
@@ -837,6 +845,7 @@ void testHttp() {
     // is reloaded from the data file it was saved to.
     {
         rblx::web::Store reloaded(config.dataPath);
+        openSealed(reloaded, config);
         std::string loadError;
         check(reloaded.load(&loadError), "the moderation state reaches the data file");
         const rblx::web::UserRecord* saved = reloaded.findUserByName("Outsider");
@@ -909,6 +918,7 @@ void testHttp() {
 
     {
         rblx::web::Store reloaded(config.dataPath);
+        openSealed(reloaded, config);
         std::string loadError;
         check(reloaded.load(&loadError), "the appeal reaches the data file");
         const rblx::web::AppealRecord* saved = reloaded.findAppeal(appealId);
@@ -954,6 +964,7 @@ void testHttp() {
 
     {
         rblx::web::Store reloaded(config.dataPath);
+        openSealed(reloaded, config);
         std::string loadError;
         check(reloaded.load(&loadError), "the detection count reaches the data file");
         const rblx::web::UserRecord* saved = reloaded.findUserByName("TestPilot");
@@ -1012,6 +1023,7 @@ void testHttp() {
     // The stored document must survive a restart.
     {
         rblx::web::Store reloaded(config.dataPath);
+        openSealed(reloaded, config);
         std::string loadError;
         check(reloaded.load(&loadError), "the app persisted its data file");
         check(reloaded.findUserByName("TestPilot") != nullptr, "the account survived the write");
@@ -1226,6 +1238,7 @@ void testAdminReplay() {
     int actionId = 0;
     {
         rblx::web::Store store(config.dataPath);
+        openSealed(store, config);
         check(store.load(&error), "replay: the data file loads: " + error);
         const rblx::web::UserRecord* pilot = store.findUserByName("ReplayPilot");
         check(pilot != nullptr, "replay: the admin is in the data file");

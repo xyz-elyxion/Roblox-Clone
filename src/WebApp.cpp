@@ -3,6 +3,8 @@
 #include "HardwareId.h"
 #include "Moderation.h"
 #include "WebApp.h"
+
+#include <iostream>
 #include "WebCaptcha.h"
 #include "WebCrypto.h"
 
@@ -1004,6 +1006,7 @@ bool loadConfigFromEnvironment(Config* config, std::string* error) {
     }
     loaded.jwtExpiresSeconds = parseDurationSeconds(envString("JWT_EXPIRES_IN"), 7 * 86400);
     loaded.passwordIterations = parsePositiveInt(envString("PASSWORD_ITERATIONS"), 120000);
+    loaded.dataKeyText = envString("DATA_KEY");
 
     const std::string requestedWebRoot = envString("WEB_DIR");
     std::vector<std::string> roots;
@@ -1167,6 +1170,19 @@ bool WebsiteApp::initialize(std::string* error) {
 
     if (!config_.dataPath.empty()) {
         makeDirectories(directoryOf(config_.dataPath));
+    }
+    // Every account's credential, machine id, moderation record and detection
+    // queue is sealed with this key, and a record is only opened when a request
+    // asks for it. DATA_KEY is the real setting; without it the key is derived
+    // from JWT_SECRET so an existing install keeps reading the data it already
+    // has, at the cost of tying that data to the token secret.
+    const bool explicitDataKey = !config_.dataKeyText.empty();
+    store_.setDataKey(dataKeyFromText(explicitDataKey ? config_.dataKeyText
+                                                      : "jwt:" + config_.jwtSecret));
+    if (!explicitDataKey) {
+        std::cout << "Data file key derived from JWT_SECRET; set DATA_KEY so changing that "
+                     "secret does not lock the data file."
+                  << std::endl;
     }
     store_.setPath(config_.dataPath);
     if (!store_.load(error)) {
@@ -3704,16 +3720,15 @@ bool WebsiteApp::handleClientReport(Request& request, Response& response) {
 int WebsiteApp::applyBanWaves() {
     const long long now = nowMilliseconds();
 
-    // Collected first: acting on an account edits the list this is read from.
+    // Collected first: acting on an account edits the list this is read from. The
+    // queue is part of a record's sealed half, so the store is asked which records
+    // hold one instead of every account being opened to find out.
     std::vector<int> due;
-    for (const UserRecord& account : store_.users()) {
-        if (account.pendingDetections.empty()) {
+    for (const std::pair<int, long long>& queued : store_.queuedDetections()) {
+        if (now - queued.second < config_.banWaveWindowMs) {
             continue;
         }
-        if (now - account.pendingDetections.front().atMs < config_.banWaveWindowMs) {
-            continue;
-        }
-        due.push_back(account.id);
+        due.push_back(queued.first);
     }
 
     int acted = 0;

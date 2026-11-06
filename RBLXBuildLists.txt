@@ -393,4 +393,23 @@ if(RBLX_BUILD_TESTS)
     endif()
     add_test(NAME WebAppTests COMMAND WebAppTests)
 
+    # The sealed data file: the cipher against a published vector, and the store's
+    # rule that a record is decrypted only when a request asks for that account.
+    add_executable(StoreCryptoTests
+        tests/store_crypto_tests.cpp
+        src/WebStore.cpp
+        src/WebJson.cpp
+        src/WebCrypto.cpp
+        src/HardwareId.cpp
+    )
+    target_include_directories(StoreCryptoTests PRIVATE ${RBLXBUILD_CURRENT_SOURCE_DIR}/include)
+    if(RBLX_ENABLE_WARNINGS)
+        if(MSVC)
+            target_compile_options(StoreCryptoTests PRIVATE /W4 /permissive-)
+        else()
+            target_compile_options(StoreCryptoTests PRIVATE -Wall -Wextra -Wpedantic)
+        endif()
+    endif()
+    add_test(NAME StoreCryptoTests COMMAND StoreCryptoTests)
+
 endif()

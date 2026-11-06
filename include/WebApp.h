@@ -23,6 +23,10 @@ struct Config {
     std::string jwtSecret = "local-dev-secret-change-me";
     long long jwtExpiresSeconds = 7 * 24 * 60 * 60;
     int passwordIterations = 120000;
+    // What the data file is sealed with, as whoever runs the install wrote it: 64
+    // hex characters, or any text that is hashed into a key. Empty means the
+    // install has not chosen one and the key is derived from JWT_SECRET instead.
+    std::string dataKeyText;
     std::string dataPath;
     std::vector<std::string> corsOrigins;
     long long authRateLimitWindowMs = 15 * 60 * 1000;

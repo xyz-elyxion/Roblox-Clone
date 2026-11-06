@@ -453,6 +453,7 @@ Configuration comes from the environment:
 | `PORT` | `3000` | HTTP port |
 | `WEB_DIR` | `web` | Directory containing `public/index.html` |
 | `DATABASE_PATH` | `web/users.json` | JSON data file |
+| `DATA_KEY` | — | Key the data file is sealed with: 64 hex characters, or any text hashed into 32 bytes. Without it the key is derived from `JWT_SECRET` |
 | `JWT_SECRET` | — | Token signing secret; required, 32+ characters in production |
 | `JWT_EXPIRES_IN` | `7d` | Token lifetime |
 | `PASSWORD_ITERATIONS` | `120000` | PBKDF2-SHA256 rounds |
@@ -481,6 +482,38 @@ owns the starter games and is the default admin, so `POST /api/login` with
 `{"username":"defaultuser0","password":"local-starter-account"}` signs into it. Installs from
 earlier builds seeded the same account as `RBLXCreator`; it is renamed to `defaultuser0` on startup
 with its id, password and games unchanged.
+
+### The data file
+
+`web/users.json` holds every account, so it is sealed rather than left as JSON
+that anyone holding the file can read. Each account record is encrypted on its
+own with **AES-256-GCM** under a fresh 12-byte nonce per save. What stays
+readable is what the site already shows: the account id, the name it is looked up
+by, timestamps, coin and playtime counts, and whether it is suspended. What does
+not is the password hash, the recovery hash, the machine id, the moderation record
+and the evidence attached to a detection.
+
+Nothing is decrypted at startup. A record stays sealed until a request needs that
+one account: signing in opens the account being signed into, reading a standing
+opens that account's record, and the ban sweep asks the store which accounts hold
+a queued detection instead of opening every account to find out. A record that was
+opened stays open in memory for the life of the process, and the next save re-seals
+it with a new nonce -- so a save never re-encrypts a record it did not have to
+read, and no ciphertext on disk is ever written twice.
+
+Each sealed value is bound to its account id as associated data, so a value moved
+into another row fails to authenticate rather than decrypting into the wrong
+account. A value that does not open (wrong key, edited file) leaves that account
+with no password hash, which refuses every sign-in instead of letting one through,
+and says so on stderr.
+
+The key is `DATA_KEY`: 64 hex characters, or any other text, which is hashed with
+SHA-256 into one. Set it. Without it the key is derived from `JWT_SECRET`, so an
+upgrade from an older build keeps reading its own data and the startup log says
+which key source is in use -- but changing `JWT_SECRET` after that locks the data
+file, so set `DATA_KEY` first if you plan to rotate it. An install that has never
+had a key keeps writing the old readable layout, which is what a file from an
+earlier build looks like; the first save with a key seals every record in it.
 
 ### Accounts, recovery and deletion
 

@@ -1,6 +1,7 @@
 #include "WebStore.h"
 
 #include "HardwareId.h"
+#include "WebCrypto.h"
 
 #include <algorithm>
 #include <cctype>
@@ -80,6 +81,82 @@ void readTriple(const Json& array, double out[3]) {
     }
 }
 
+// The moderation record and detection queue travel together with the credential
+// fields inside one sealed blob, so these four helpers serve the sealed payload,
+// a file written before the format was sealed, and a file written without a key.
+Json infractionsToJson(const std::vector<InfractionRecord>& entries) {
+    Json array = Json::makeArray();
+    for (const InfractionRecord& infraction : entries) {
+        Json saved = Json::makeObject();
+        saved.set("id", infraction.id);
+        saved.set("kind", infraction.kind);
+        saved.set("reason", infraction.reason);
+        saved.set("createdAt", infraction.createdAt);
+        saved.set("expiresAt", infraction.expiresAt);
+        saved.set("strikes", infraction.strikes);
+        saved.set("automatic", infraction.automatic);
+        saved.set("detections", infraction.detections);
+        saved.set("proof", infraction.proof);
+        saved.set("expected", infraction.expected);
+        saved.set("replay", infraction.replay);
+        array.push(saved);
+    }
+    return array;
+}
+
+Json pendingToJson(const std::vector<PendingDetection>& entries) {
+    Json array = Json::makeArray();
+    for (const PendingDetection& detection : entries) {
+        Json saved = Json::makeObject();
+        saved.set("atMs", detection.atMs);
+        saved.set("reason", detection.reason);
+        saved.set("proof", detection.proof);
+        saved.set("expected", detection.expected);
+        saved.set("replay", detection.replay);
+        array.push(saved);
+    }
+    return array;
+}
+
+void readInfractions(const Json& array, std::vector<InfractionRecord>* out, int* nextId) {
+    for (const Json& saved : array.elements()) {
+        InfractionRecord infraction;
+        infraction.id = static_cast<int>(saved.member("id").asInteger(0));
+        infraction.kind = saved.member("kind").asString();
+        infraction.reason = saved.member("reason").asString();
+        infraction.createdAt = saved.member("createdAt").asString();
+        infraction.expiresAt = saved.member("expiresAt").asString();
+        infraction.strikes = static_cast<int>(saved.member("strikes").asInteger(0));
+        infraction.automatic = saved.member("automatic").asBool(false);
+        infraction.detections = static_cast<int>(saved.member("detections").asInteger(0));
+        infraction.proof = saved.member("proof").asString();
+        infraction.expected = saved.member("expected").asString();
+        infraction.replay = saved.member("replay").asString();
+        if (infraction.id <= 0 || infraction.kind.empty()) {
+            continue;
+        }
+        out->push_back(infraction);
+        if (nextId != nullptr) {
+            *nextId = std::max(*nextId, infraction.id + 1);
+        }
+    }
+}
+
+void readPending(const Json& array, std::vector<PendingDetection>* out) {
+    for (const Json& saved : array.elements()) {
+        PendingDetection pending;
+        pending.atMs = saved.member("atMs").asInteger(0);
+        pending.reason = saved.member("reason").asString();
+        pending.proof = saved.member("proof").asString();
+        pending.expected = saved.member("expected").asString();
+        pending.replay = saved.member("replay").asString();
+        if (pending.reason.empty()) {
+            continue;
+        }
+        out->push_back(pending);
+    }
+}
+
 }  // namespace
 
 Store::Store(std::string path) : path_(std::move(path)) {}
@@ -123,12 +200,23 @@ bool Store::load(std::string* error) {
         return false;
     }
 
+    // A file written by this version names its layout and seals each record; an
+    // older one has the same fields in the clear. A sealed file without the key
+    // that made it is refused outright: half-reading it would leave every account
+    // with no password hash, which looks exactly like a file nobody can sign into.
+    const bool sealedFile = document.member("format").asString() == "rblx-store/2";
+    if (sealedFile && !hasDataKey()) {
+        if (error) {
+            *error = "Data file " + path_ +
+                     " is sealed with AES-256-GCM; set DATA_KEY to the key it was written with.";
+        }
+        return false;
+    }
+
     for (const Json& entry : document.member("users").elements()) {
         UserRecord user;
         user.id = static_cast<int>(entry.member("id").asInteger(0));
         user.username = entry.member("username").asString();
-        user.passwordHash = entry.member("passwordHash").asString();
-        user.recoveryHash = entry.member("recoveryHash").asString();
         user.createdAt = entry.member("createdAt").asString();
         user.lastSeenAtMs = entry.member("lastSeenAtMs").asInteger(0);
         user.tokenVersion = static_cast<int>(entry.member("tokenVersion").asInteger(0));
@@ -139,38 +227,28 @@ bool Store::load(std::string* error) {
         user.moderatedAt = entry.member("moderatedAt").asString();
         user.clientDetections = static_cast<int>(entry.member("clientDetections").asInteger(0));
         user.lastClientDetectionAt = entry.member("lastClientDetectionAt").asString();
-        user.lastHardwareId = rblx::hwid::normalize(entry.member("lastHardwareId").asString());
-        user.hardwareIdSeenAt = entry.member("hardwareIdSeenAt").asString();
-        for (const Json& saved : entry.member("pendingDetections").elements()) {
-            PendingDetection pending;
-            pending.atMs = saved.member("atMs").asInteger(0);
-            pending.reason = saved.member("reason").asString();
-            pending.proof = saved.member("proof").asString();
-            pending.expected = saved.member("expected").asString();
-            pending.replay = saved.member("replay").asString();
-            if (pending.reason.empty()) {
-                continue;
-            }
-            user.pendingDetections.push_back(pending);
-        }
-        for (const Json& saved : entry.member("infractions").elements()) {
-            InfractionRecord infraction;
-            infraction.id = static_cast<int>(saved.member("id").asInteger(0));
-            infraction.kind = saved.member("kind").asString();
-            infraction.reason = saved.member("reason").asString();
-            infraction.createdAt = saved.member("createdAt").asString();
-            infraction.expiresAt = saved.member("expiresAt").asString();
-            infraction.strikes = static_cast<int>(saved.member("strikes").asInteger(0));
-            infraction.automatic = saved.member("automatic").asBool(false);
-            infraction.detections = static_cast<int>(saved.member("detections").asInteger(0));
-            infraction.proof = saved.member("proof").asString();
-            infraction.expected = saved.member("expected").asString();
-            infraction.replay = saved.member("replay").asString();
-            if (infraction.id <= 0 || infraction.kind.empty()) {
-                continue;
-            }
-            user.infractions.push_back(infraction);
-            nextInfractionId_ = std::max(nextInfractionId_, infraction.id + 1);
+
+        // The secret half: a record written by this version carries it sealed and
+        // unread, so loading a file touches no cipher at all. A file from before
+        // the format was sealed, or one written without a key, has the same fields
+        // in the clear and is sealed the next time it is saved with a key.
+        user.sealedSecrets = entry.member("sealed").asString();
+        user.secretsOpen = user.sealedSecrets.empty();
+        if (user.secretsOpen) {
+            user.passwordHash = entry.member("passwordHash").asString();
+            user.recoveryHash = entry.member("recoveryHash").asString();
+            user.lastHardwareId = rblx::hwid::normalize(entry.member("lastHardwareId").asString());
+            user.hardwareIdSeenAt = entry.member("hardwareIdSeenAt").asString();
+            readPending(entry.member("pendingDetections"), &user.pendingDetections);
+            readInfractions(entry.member("infractions"), &user.infractions, &nextInfractionId_);
+            user.pendingDetectionCount = static_cast<int>(user.pendingDetections.size());
+            user.oldestPendingAtMs =
+                user.pendingDetections.empty() ? 0 : user.pendingDetections.front().atMs;
+        } else {
+            // What the ban sweep needs to find this record without opening it.
+            user.pendingDetectionCount =
+                static_cast<int>(entry.member("pendingDetectionCount").asInteger(0));
+            user.oldestPendingAtMs = entry.member("oldestPendingAtMs").asInteger(0);
         }
         if (user.id > 0 && !user.username.empty()) {
             users_.push_back(user);
@@ -330,14 +408,19 @@ bool Store::load(std::string* error) {
 
 bool Store::save(std::string* error) const {
     Json document = Json::makeObject();
+    // Names the layout and the cipher: a sealed file must not be mistaken for one
+    // written before records were sealed, and a second cipher can appear beside
+    // this one instead of replacing it.
+    document.set("format", hasDataKey() ? "rblx-store/2" : "rblx-store/1");
+    if (hasDataKey()) {
+        document.set("cipher", "aes-256-gcm");
+    }
 
     Json users = Json::makeArray();
     for (const UserRecord& user : users_) {
         Json entry = Json::makeObject();
         entry.set("id", user.id);
         entry.set("username", user.username);
-        entry.set("passwordHash", user.passwordHash);
-        entry.set("recoveryHash", user.recoveryHash);
         entry.set("createdAt", user.createdAt);
         entry.set("lastSeenAtMs", user.lastSeenAtMs);
         entry.set("tokenVersion", user.tokenVersion);
@@ -348,37 +431,23 @@ bool Store::save(std::string* error) const {
         entry.set("moderatedAt", user.moderatedAt);
         entry.set("clientDetections", user.clientDetections);
         entry.set("lastClientDetectionAt", user.lastClientDetectionAt);
-        entry.set("lastHardwareId", user.lastHardwareId);
-        entry.set("hardwareIdSeenAt", user.hardwareIdSeenAt);
-        Json infractions = Json::makeArray();
-        for (const InfractionRecord& infraction : user.infractions) {
-            Json saved = Json::makeObject();
-            saved.set("id", infraction.id);
-            saved.set("kind", infraction.kind);
-            saved.set("reason", infraction.reason);
-            saved.set("createdAt", infraction.createdAt);
-            saved.set("expiresAt", infraction.expiresAt);
-            saved.set("strikes", infraction.strikes);
-            saved.set("automatic", infraction.automatic);
-            saved.set("detections", infraction.detections);
-            saved.set("proof", infraction.proof);
-            saved.set("expected", infraction.expected);
-            saved.set("replay", infraction.replay);
-            infractions.push(saved);
+        entry.set("pendingDetectionCount", user.pendingDetectionCount);
+        entry.set("oldestPendingAtMs", user.oldestPendingAtMs);
+        if (hasDataKey()) {
+            // One blob per account, sealed with a fresh nonce every save. A record
+            // nothing has asked for is written back exactly as it was read, so a
+            // save never decrypts a record it does not have to.
+            entry.set("sealed", sealSecrets(user));
+        } else {
+            // No key was ever set, so the install keeps the layout it had before
+            // the file could be sealed rather than losing its data.
+            entry.set("passwordHash", user.passwordHash);
+            entry.set("recoveryHash", user.recoveryHash);
+            entry.set("lastHardwareId", user.lastHardwareId);
+            entry.set("hardwareIdSeenAt", user.hardwareIdSeenAt);
+            entry.set("infractions", infractionsToJson(user.infractions));
+            entry.set("pendingDetections", pendingToJson(user.pendingDetections));
         }
-        entry.set("infractions", infractions);
-
-        Json pending = Json::makeArray();
-        for (const PendingDetection& detection : user.pendingDetections) {
-            Json saved = Json::makeObject();
-            saved.set("atMs", detection.atMs);
-            saved.set("reason", detection.reason);
-            saved.set("proof", detection.proof);
-            saved.set("expected", detection.expected);
-            saved.set("replay", detection.replay);
-            pending.push(saved);
-        }
-        entry.set("pendingDetections", pending);
         users.push(entry);
     }
     document.set("users", users);
@@ -518,6 +587,9 @@ const UserRecord* Store::findUserByName(const std::string& username) const {
     // UNIQUE TEXT column, so "Player" and "player" were distinct accounts.
     for (const UserRecord& user : users_) {
         if (user.username == username) {
+            // This is the account the request is about, so it is the one record
+            // that gets opened. Every other account stays sealed.
+            openSecrets(const_cast<UserRecord&>(user));
             return &user;
         }
     }
@@ -527,6 +599,7 @@ const UserRecord* Store::findUserByName(const std::string& username) const {
 const UserRecord* Store::findUserById(int id) const {
     for (const UserRecord& user : users_) {
         if (user.id == id) {
+            openSecrets(const_cast<UserRecord&>(user));
             return &user;
         }
     }
@@ -565,6 +638,7 @@ bool Store::renameUser(int id, const std::string& username) {
 bool Store::setPasswordHash(int id, const std::string& passwordHash) {
     for (UserRecord& user : users_) {
         if (user.id == id) {
+            openSecrets(user);
             user.passwordHash = passwordHash;
             return true;
         }
@@ -613,6 +687,7 @@ int Store::bumpTokenVersion(int id) {
 bool Store::setRecoveryHash(int id, const std::string& recoveryHash) {
     for (UserRecord& user : users_) {
         if (user.id == id) {
+            openSecrets(user);
             user.recoveryHash = recoveryHash;
             return true;
         }
@@ -994,6 +1069,7 @@ bool Store::addInfraction(int id, const std::string& kind, const std::string& re
         if (user.id != id) {
             continue;
         }
+        openSecrets(user);
         InfractionRecord entry;
         entry.id = nextInfractionId_++;
         entry.kind = kind;
@@ -1024,6 +1100,7 @@ const std::vector<InfractionRecord>& Store::infractionsFor(int userId) const {
     static const std::vector<InfractionRecord> empty;
     for (const UserRecord& user : users_) {
         if (user.id == userId) {
+            openSecrets(const_cast<UserRecord&>(user));
             return user.infractions;
         }
     }
@@ -1035,6 +1112,7 @@ const InfractionRecord* Store::findInfraction(int id, int* ownerId) const {
         return nullptr;
     }
     for (const UserRecord& user : users_) {
+        openSecrets(const_cast<UserRecord&>(user));
         for (const InfractionRecord& entry : user.infractions) {
             if (entry.id != id) {
                 continue;
@@ -1055,6 +1133,7 @@ bool Store::addPendingDetection(int id, const std::string& reason, const std::st
         if (user.id != id) {
             continue;
         }
+        openSecrets(user);
         PendingDetection pending;
         pending.atMs = atMs;
         pending.reason = reason;
@@ -1070,6 +1149,10 @@ bool Store::addPendingDetection(int id, const std::string& reason, const std::st
                     static_cast<std::ptrdiff_t>(user.pendingDetections.size() -
                                                 kMaxPendingDetections));
         }
+        // The header copies the ban sweep reads have to move with the queue, or a
+        // detection that arrives while the process runs would never be acted on.
+        user.pendingDetectionCount = static_cast<int>(user.pendingDetections.size());
+        user.oldestPendingAtMs = user.pendingDetections.front().atMs;
         return true;
     }
     return false;
@@ -1079,6 +1162,7 @@ const std::vector<PendingDetection>& Store::pendingDetectionsFor(int userId) con
     static const std::vector<PendingDetection> empty;
     for (const UserRecord& user : users_) {
         if (user.id == userId) {
+            openSecrets(const_cast<UserRecord&>(user));
             return user.pendingDetections;
         }
     }
@@ -1088,7 +1172,10 @@ const std::vector<PendingDetection>& Store::pendingDetectionsFor(int userId) con
 void Store::clearPendingDetections(int userId) {
     for (UserRecord& user : users_) {
         if (user.id == userId) {
+            openSecrets(user);
             user.pendingDetections.clear();
+            user.pendingDetectionCount = 0;
+            user.oldestPendingAtMs = 0;
             return;
         }
     }
@@ -1102,6 +1189,7 @@ bool Store::setLastHardwareId(int userId, const std::string& hardwareId,
     }
     for (UserRecord& user : users_) {
         if (user.id == userId) {
+            openSecrets(user);
             if (user.lastHardwareId == normalized) {
                 // The same machine as last time: only the recent-seen time moves.
                 user.hardwareIdSeenAt = nowIso;
@@ -1427,6 +1515,127 @@ void Store::resolveOwnerNames() {
             game.ownerUsername = owner->username;
         }
     }
+}
+
+std::string Store::userAad(int userId) {
+    return "rblx-store-user:" + std::to_string(userId);
+}
+
+bool Store::openSecrets(UserRecord& user) const {
+    if (user.secretsOpen) {
+        return true;
+    }
+    if (!hasDataKey()) {
+        return false;
+    }
+
+    std::string plaintext;
+    if (!aes256GcmOpen(dataKey_, user.sealedSecrets, userAad(user.id), &plaintext)) {
+        // A wrong key or a damaged blob leaves the record closed rather than
+        // half-filled. An empty password hash refuses every sign-in, so the
+        // failure is a lockout with a reason in the log, not a way in.
+        std::fprintf(stderr,
+                     "rblx-web: could not open the sealed record for account %d "
+                     "(wrong DATA_KEY or a damaged data file)\n",
+                     user.id);
+        return false;
+    }
+
+    std::string parseError;
+    const Json secret = Json::parse(plaintext, &parseError);
+    if (!secret.isObject()) {
+        std::fprintf(stderr, "rblx-web: the sealed record for account %d is not readable\n",
+                     user.id);
+        return false;
+    }
+
+    user.passwordHash = secret.member("passwordHash").asString();
+    user.recoveryHash = secret.member("recoveryHash").asString();
+    user.lastHardwareId = rblx::hwid::normalize(secret.member("lastHardwareId").asString());
+    user.hardwareIdSeenAt = secret.member("hardwareIdSeenAt").asString();
+
+    user.infractions.clear();
+    readInfractions(secret.member("infractions"), &user.infractions, &nextInfractionId_);
+    user.pendingDetections.clear();
+    readPending(secret.member("pendingDetections"), &user.pendingDetections);
+    user.pendingDetectionCount = static_cast<int>(user.pendingDetections.size());
+    user.oldestPendingAtMs =
+        user.pendingDetections.empty() ? 0 : user.pendingDetections.front().atMs;
+
+    user.secretsOpen = true;
+    return true;
+}
+
+std::string Store::sealSecrets(const UserRecord& user) const {
+    if (!user.secretsOpen) {
+        // Nothing asked to read this account, so its blob is written back exactly
+        // as it arrived and the cipher is never run for it.
+        return user.sealedSecrets;
+    }
+    if (!hasDataKey()) {
+        return std::string();
+    }
+
+    Json secret = Json::makeObject();
+    secret.set("passwordHash", user.passwordHash);
+    secret.set("recoveryHash", user.recoveryHash);
+    secret.set("lastHardwareId", user.lastHardwareId);
+    secret.set("hardwareIdSeenAt", user.hardwareIdSeenAt);
+    secret.set("infractions", infractionsToJson(user.infractions));
+    secret.set("pendingDetections", pendingToJson(user.pendingDetections));
+
+    const std::string sealed = aes256GcmSeal(dataKey_, secret.dump(), userAad(user.id));
+    if (sealed.empty()) {
+        // The random nonce could not be drawn. Keeping the previous blob is the
+        // only answer that does not throw the account's record away.
+        return user.sealedSecrets;
+    }
+    user.sealedSecrets = sealed;
+    return sealed;
+}
+
+std::vector<std::pair<int, long long>> Store::queuedDetections() const {
+    std::vector<std::pair<int, long long>> queued;
+    for (const UserRecord& user : users_) {
+        if (user.pendingDetectionCount > 0 && user.oldestPendingAtMs > 0) {
+            queued.emplace_back(user.id, user.oldestPendingAtMs);
+        }
+    }
+    return queued;
+}
+
+std::string dataKeyFromText(const std::string& text) {
+    if (text.size() == 64) {
+        bool hexadecimal = true;
+        for (std::size_t i = 0; i < text.size(); ++i) {
+            if (!std::isxdigit(static_cast<unsigned char>(text[i]))) {
+                hexadecimal = false;
+                break;
+            }
+        }
+        if (hexadecimal) {
+            const auto nibble = [](char c) -> int {
+                if (c >= '0' && c <= '9') {
+                    return c - '0';
+                }
+                if (c >= 'a' && c <= 'f') {
+                    return c - 'a' + 10;
+                }
+                return c - 'A' + 10;
+            };
+            std::string key(32, '\0');
+            for (std::size_t i = 0; i < 32; ++i) {
+                key[i] = static_cast<char>((nibble(text[i * 2]) << 4) | nibble(text[i * 2 + 1]));
+            }
+            return key;
+        }
+    }
+
+    // Anything else is key material, not a key: hashing it keeps a passphrase from
+    // being stretched into 32 bytes by padding, which would make it far weaker
+    // than it looks.
+    const Digest digest = sha256("rblx-store-key:v1:" + text);
+    return std::string(reinterpret_cast<const char*>(digest.data()), digest.size());
 }
 
 }  // namespace web

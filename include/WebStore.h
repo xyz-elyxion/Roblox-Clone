@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "WebJson.h"
@@ -167,6 +168,22 @@ struct UserRecord {
     // Detections that have arrived since the last wave. Nothing acts on one of
     // these on its own: the wave sweep turns everything held into one step.
     std::vector<PendingDetection> pendingDetections;
+
+    // The half of this record that never sits on disk in the clear -- the
+    // password and recovery hashes, the machine id, the moderation record and
+    // the detection queue -- sealed with AES-256-GCM, together with whether it
+    // has been opened since the file was read. A record loaded from disk starts
+    // sealed and empty, so a store with a thousand accounts opens exactly the one
+    // a request asked for. `Store::save` reseals every open record with a fresh
+    // nonce, so no value on disk is ever written twice.
+    mutable std::string sealedSecrets;
+    mutable bool secretsOpen = true;
+
+    // Header copies of the queue: how many detections are waiting and when the
+    // oldest arrived. They are what lets the ban sweep find the accounts that
+    // have something queued without opening every record in the file.
+    mutable int pendingDetectionCount = 0;
+    mutable long long oldestPendingAtMs = 0;
 };
 
 struct AvatarRecord {
@@ -248,6 +265,18 @@ public:
     bool load(std::string* error);
     bool save(std::string* error) const;
     void clear();
+
+    // The AES-256 key the data file is sealed with: exactly 32 bytes. Without one
+    // the file is written in the clear, which is what an older install without a
+    // key keeps doing; with one every record is sealed, and a file that already
+    // holds sealed records cannot be opened without the key that made them.
+    void setDataKey(std::string key) { dataKey_ = std::move(key); }
+    bool hasDataKey() const { return dataKey_.size() == 32; }
+
+    // Accounts holding detections the next wave can act on, each with the time of
+    // its oldest queued detection. Only records with something queued are
+    // opened, so a sweep of the whole install does not decrypt the whole file.
+    std::vector<std::pair<int, long long>> queuedDetections() const;
 
     // users
     const UserRecord* findUserByName(const std::string& username) const;
@@ -395,7 +424,18 @@ private:
     StatsRecord* findOrCreateStats(int userId);
     AvatarRecord* findOrCreateAvatar(int userId);
 
+    // Decrypts one record's sealed half into its plaintext fields, once. False
+    // when there is no key or the ciphertext does not authenticate.
+    bool openSecrets(UserRecord& user) const;
+    // The value to write for one record: the stored blob when the record was
+    // never opened, a freshly sealed one when it was.
+    std::string sealSecrets(const UserRecord& user) const;
+    // A sealed record is bound to the row it came from, so a blob copied into
+    // another account fails to open instead of decrypting in the wrong place.
+    static std::string userAad(int userId);
+
     std::string path_;
+    std::string dataKey_;
     std::vector<UserRecord> users_;
     std::vector<AvatarRecord> avatars_;
     std::vector<FriendshipRecord> friendships_;
@@ -410,9 +450,17 @@ private:
     int nextGameId_ = 1;
     int nextReportId_ = 1;
     int nextBlockId_ = 1;
-    int nextInfractionId_ = 1;
+    // Mutable because a record that is still sealed holds infractions whose ids
+    // have not been seen yet: opening it has to raise this, or the next action
+    // would reuse an id an earlier one already carries.
+    mutable int nextInfractionId_ = 1;
     int nextAppealId_ = 1;
 };
+
+// Turns key material written by a person into the 32 bytes AES-256 takes: 64 hex
+// characters are read as raw bytes, and anything else is hashed with SHA-256 so a
+// passphrase still yields a usable key instead of being rejected.
+std::string dataKeyFromText(const std::string& text);
 
 }  // namespace web
 }  // namespace rblx

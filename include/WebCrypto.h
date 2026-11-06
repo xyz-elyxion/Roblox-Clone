@@ -41,5 +41,20 @@ bool verifyPassword(const std::string& password, const std::string& stored);
 std::string signJwt(const Json& payload, const std::string& secret);
 bool verifyJwt(const std::string& token, const std::string& secret, Json* payload);
 
+// AES-256-GCM, the cipher the data file is sealed with. `key` must be exactly 32
+// bytes and `aad` is authenticated but not stored, which is how a sealed record
+// is bound to the row it belongs to: moving the ciphertext to another account
+// makes it fail to open instead of decrypting into the wrong place.
+//
+// A sealed value is "aes256gcm.<nonce>.<ciphertext and tag>", both base64url,
+// with a fresh random 12-byte nonce every time. Naming the algorithm inside the
+// value is what lets a second cipher appear later without rewriting the file.
+// `aes256GcmOpen` returns false for a short value, a bad prefix, a failed tag
+// check or a wrong key, and writes nothing to `out` unless it returns true.
+std::string aes256GcmSeal(const std::string& key, const std::string& plaintext,
+                          const std::string& aad);
+bool aes256GcmOpen(const std::string& key, const std::string& sealed, const std::string& aad,
+                   std::string* out);
+
 }  // namespace web
 }  // namespace rblx

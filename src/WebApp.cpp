@@ -1,5 +1,6 @@
 #include "AvatarItems.h"
 #include "ReplayRecorder.h"
+#include "HardwareId.h"
 #include "Moderation.h"
 #include "WebApp.h"
 #include "WebCaptcha.h"
@@ -1769,6 +1770,12 @@ void WebsiteApp::installRoutes() {
     server_.route("POST", "/api/verify", guard([this](Request& request, Response& response) {
                       return handleVerify(request, response);
                   }));
+    // Asked by the game server for a guest, who has no account to verify: the
+    // machine bar has to apply to a player joining without signing in.
+    server_.route("POST", "/api/hardware-check",
+                  guard([this](Request& request, Response& response) {
+                      return handleHardwareCheck(request, response);
+                  }));
     server_.route("POST", "/api/account/password",
                   guard([this](Request& request, Response& response) {
                       return handleChangePassword(request, response);
@@ -1885,6 +1892,14 @@ void WebsiteApp::installRoutes() {
     server_.route("POST", "/api/admin/users/:id/moderation",
                   guard([this](Request& request, Response& response) {
                       return handleAdminModerateUser(request, response);
+                  }));
+    server_.route("GET", "/api/admin/hardware-bans",
+                  guard([this](Request& request, Response& response) {
+                      return handleAdminHardwareBans(request, response);
+                  }));
+    server_.route("POST", "/api/admin/hardware-bans/lift",
+                  guard([this](Request& request, Response& response) {
+                      return handleAdminLiftHardwareBan(request, response);
                   }));
     server_.route("POST", "/api/admin/users/:id/coins",
                   guard([this](Request& request, Response& response) {
@@ -2021,6 +2036,34 @@ static rblx::moderation::State moderationStateOf(const UserRecord& record) {
     state.suspendedUntilMs = record.suspendedUntilMs;
     state.banned = record.banned;
     return state;
+}
+
+// What a barred machine is told at the join. It names no detection, for the same
+// reason the ladder's messages do not: the machine is refused either way, and
+// naming the check only tells the next cheat which one to get around.
+static std::string hardwareBanMessage(const HardwareBanRecord& ban) {
+    std::string message =
+        "This computer is banned from joining games, so signing in on another "
+        "account will not get around it.";
+    if (ban.createdAt.size() >= 10) {
+        message += " The ban was applied on " + ban.createdAt.substr(0, 10) + ".";
+    }
+    message += " Appeals go through the account that was banned.";
+    return message;
+}
+
+// Copies a ban onto the machine the account last joined from. Every path that bans
+// an account calls this, so a ban is not one account deep: a player who makes a
+// second account on the same computer is refused at the join.
+static bool banHardwareForAccount(Store& store, const UserRecord& record,
+                                  const std::string& reason, const std::string& nowIso) {
+    const std::string hardwareId = rblx::hwid::normalize(record.lastHardwareId);
+    if (!rblx::hwid::valid(hardwareId)) {
+        // No machine on record: the account was never seen joining from a client
+        // that sends one, so there is nothing to copy the ban onto.
+        return false;
+    }
+    return store.banHardware(hardwareId, record.id, record.username, reason, nowIso);
 }
 
 // Writes the refusal when the account may not hold a session right now, which is
@@ -2257,6 +2300,27 @@ bool WebsiteApp::handleVerify(Request& request, Response& response) {
     if (claimTokenVersion(claims) != user->tokenVersion) {
         errorJson(response, 401, "This session was signed out. Sign in again.");
         return true;
+    }
+
+    // The machine this join comes from, hashed by the client (see HardwareId.h).
+    // It is recorded on every join rather than only when a ban lands, so the ban
+    // reaches the machine the account actually played on.
+    const std::string hardwareId = rblx::hwid::normalize(body.member("hardwareId").asString());
+    if (rblx::hwid::valid(hardwareId)) {
+        if (store_.setLastHardwareId(user->id, hardwareId, nowIso())) {
+            std::string machineSaveError;
+            store_.save(&machineSaveError);
+        }
+        // A barred machine refuses every account joining from it, which is the
+        // whole point of banning the machine instead of the account.
+        if (const HardwareBanRecord* ban = store_.activeHardwareBan(hardwareId)) {
+            Json refusal = Json::makeObject();
+            refusal.set("success", false);
+            refusal.set("hardwareBanned", true);
+            refusal.set("error", hardwareBanMessage(*ban));
+            sendJson(response, 403, refusal);
+            return true;
+        }
     }
     // A restricted account is signed in here, not refused: the site has to show
     // it what happened and take its appeal. The answer carries the standing and
@@ -3684,6 +3748,11 @@ int WebsiteApp::applyBanWaves() {
                                  state.strikes, suspensionExpiry(state, now), createdAt, held,
                                  newest.proof, newest.expected, newest.replay);
         }
+        // A ban that stopped at the account would be worth one free account, so
+        // it is copied onto the machine it was earned on.
+        if (decision.action == rblx::moderation::Action::Banned) {
+            banHardwareForAccount(store_, *record, reason, createdAt);
+        }
         store_.clearPendingDetections(userId);
         ++acted;
 
@@ -3835,6 +3904,14 @@ bool WebsiteApp::handleInstanceModeration(Request& request, Response& response) 
     if (record == nullptr) {
         errorJson(response, 404, "No account matches that player.");
         return true;
+    }
+
+    // The machine the detection came from, when the instance sends one. Recorded
+    // the way a join records it, so the ban that follows lands on the machine the
+    // cheating happened on even if the account has moved since.
+    const std::string hardwareId = rblx::hwid::normalize(body.member("hardwareId").asString());
+    if (rblx::hwid::valid(hardwareId)) {
+        store_.setLastHardwareId(record->id, hardwareId, nowIso());
     }
 
     rblx::moderation::State state = moderationStateOf(*record);
@@ -4004,6 +4081,14 @@ bool WebsiteApp::handleAdminModerateUser(Request& request, Response& response) {
                                                    : "ban";
     store_.addInfraction(record->id, kind, reason, false, state.strikes,
                          suspensionExpiry(state, now), createdAt);
+    // A ban by hand bars the machine the same way a ban from the ladder does, and
+    // a pardon has to reach it too: an admin who fixes a false positive must not
+    // leave the player locked out of the computer it was taken on.
+    if (state.banned) {
+        banHardwareForAccount(store_, *record, reason, createdAt);
+    } else if (action == "pardon") {
+        store_.liftHardwareBansForUser(record->id, createdAt);
+    }
     std::string saveError;
     if (!store_.save(&saveError)) {
         errorJson(response, 500, saveError.empty() ? "Could not save the change." : saveError);
@@ -4025,6 +4110,112 @@ bool WebsiteApp::handleAdminModerateUser(Request& request, Response& response) {
         result.setNull("suspendedUntil");
     }
     result.set("message", message);
+    sendJson(response, 200, result);
+    return true;
+}
+
+// The machines barred from the game. Only the hash is stored, so this list is the
+// whole of what the site knows about a machine - it cannot be turned back into a
+// hostname, a serial or an account.
+bool WebsiteApp::handleAdminHardwareBans(Request& request, Response& response) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    AuthUser user;
+    if (!requireAuth(request, response, &user)) {
+        return true;
+    }
+    if (!isAdminUser(user)) {
+        errorJson(response, 403, adminDeniedMessage(user));
+        return true;
+    }
+
+    Json bans = Json::makeArray();
+    for (const HardwareBanRecord& ban : store_.hardwareBans()) {
+        Json entry = Json::makeObject();
+        entry.set("hardwareId", ban.hardwareId);
+        entry.set("userId", ban.userId);
+        entry.set("username", ban.username);
+        entry.set("reason", ban.reason);
+        entry.set("createdAt", ban.createdAt);
+        entry.set("active", ban.active);
+        entry.set("liftedAt", ban.liftedAt);
+        bans.push(entry);
+    }
+
+    Json result = Json::makeObject();
+    result.set("success", true);
+    result.set("bans", bans);
+    sendJson(response, 200, result);
+    return true;
+}
+
+// Lets one machine back in without touching the account it was banned for. Pardoning
+// the account lifts the bans it created; this is the other direction, a machine that
+// should be allowed while the account itself stays where the ladder put it.
+bool WebsiteApp::handleAdminLiftHardwareBan(Request& request, Response& response) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    AuthUser user;
+    if (!requireAuth(request, response, &user)) {
+        return true;
+    }
+    if (!isAdminUser(user)) {
+        errorJson(response, 403, adminDeniedMessage(user));
+        return true;
+    }
+
+    Json body;
+    if (!parseJsonBody(request, &body, response)) {
+        return true;
+    }
+    const std::string hardwareId = rblx::hwid::normalize(body.member("hardwareId").asString());
+    if (!rblx::hwid::valid(hardwareId)) {
+        errorJson(response, 400, "A hardware id is required.");
+        return true;
+    }
+    if (!store_.liftHardwareBan(hardwareId, nowIso())) {
+        errorJson(response, 404, "No active ban matches that machine.");
+        return true;
+    }
+    std::string saveError;
+    if (!store_.save(&saveError)) {
+        errorJson(response, 500, saveError.empty() ? "Could not save the change." : saveError);
+        return true;
+    }
+
+    std::fprintf(stdout, "  hardware ban [%s] lifted by %s\n", hardwareId.c_str(),
+                 user.username.c_str());
+
+    Json result = Json::makeObject();
+    result.set("success", true);
+    result.set("hardwareId", hardwareId);
+    sendJson(response, 200, result);
+    return true;
+}
+
+// Whether a machine may join at all. The game server asks this for a guest, who has
+// no account for /api/verify to refuse, so the ban reaches a player who simply does
+// not sign in.
+bool WebsiteApp::handleHardwareCheck(Request& request, Response& response) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    Json body;
+    if (!parseJsonBody(request, &body, response)) {
+        return true;
+    }
+
+    const std::string hardwareId = rblx::hwid::normalize(body.member("hardwareId").asString());
+    Json result = Json::makeObject();
+    result.set("success", true);
+    result.set("banned", false);
+    result.set("message", std::string());
+    // A client that cannot name its machine is not refused here: the join already
+    // carries the account's standing, and refusing every machine whose hash this
+    // build does not recognise would lock out the players it is meant to protect.
+    if (rblx::hwid::valid(hardwareId)) {
+        if (const HardwareBanRecord* ban = store_.activeHardwareBan(hardwareId)) {
+            result.set("banned", true);
+            result.set("message", hardwareBanMessage(*ban));
+            std::fprintf(stdout, "  hardware ban [%s] refused a join\n", hardwareId.c_str());
+        }
+    }
     sendJson(response, 200, result);
     return true;
 }
@@ -4297,6 +4488,9 @@ bool WebsiteApp::handleAdminAppeals(Request& request, Response& response) {
         store_.addInfraction(record->id, "pardon",
                              note.empty() ? "appeal accepted" : "appeal accepted: " + note,
                              false, 0, std::string(), createdAt);
+        // The machine was barred with the account, so accepting the appeal has to
+        // let it back in as well.
+        store_.liftHardwareBansForUser(record->id, createdAt);
     } else {
         message = "The appeal was reviewed and the restriction stands.";
     }

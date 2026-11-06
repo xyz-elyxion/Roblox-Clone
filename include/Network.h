@@ -44,6 +44,10 @@ struct PacketHeader {
 struct PacketConnect {
     char username[32];
     char authToken[256]; // JWT token for authentication
+    // The hashed machine this join comes from (see HardwareId.h), present for a
+    // guest too: a ban that only stopped signed-in players would be one free
+    // account away from no ban at all.
+    char hardwareId[33];
     // Handshake fingerprint: a build compiled from a different revision would
     // parse every later packet as garbage, so both sides compare these first.
     uint16_t protocolRevision;
@@ -189,6 +193,9 @@ namespace PacketProtocol {
     constexpr uint16_t kProtocolRevision = 9;
 
     constexpr uint16_t packetLayoutSignature() {
+        // Any change to a packet's size moves this, so a client and a server
+        // built from different sources refuse each other in the handshake instead
+        // of misreading every packet after it.
         return static_cast<uint16_t>(sizeof(PacketConnect) * 31u + sizeof(PacketWelcome) * 17u +
                                      sizeof(PacketPlayerState) * 13u +
                                      sizeof(PacketPlayerJoin) * 7u + sizeof(PacketChat) * 3u +

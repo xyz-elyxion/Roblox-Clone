@@ -4,6 +4,7 @@
 #include <sstream>
 #include <string>
 
+#include "HardwareId.h"
 #include "HttpClient.h"
 
 // The game server reports to the website: it verifies player tokens, fetches
@@ -56,15 +57,23 @@ namespace {
     }
 }
 
-VerifiedUser ServerAuth::verifyToken(const std::string& token, const std::string& serverUrl) {
+VerifiedUser ServerAuth::verifyToken(const std::string& token, const std::string& serverUrl,
+                                     const std::string& hardwareId) {
     VerifiedUser user;
     if (token.empty()) return user;
 
     // The body is read whether the answer was 200 or not: a suspended or banned
     // account is refused with a 403 and the reason the player should see, which
     // the game server passes on instead of a generic "login refused".
+    // The machine goes with the login: the website records it on the account and
+    // refuses the join when the machine itself is banned.
+    std::string body = "{}";
+    const std::string machine = rblx::hwid::normalize(hardwareId);
+    if (rblx::hwid::valid(machine)) {
+        body = "{\"hardwareId\":\"" + machine + "\"}";
+    }
     const rblx::http::Response reply =
-        rblx::http::request("POST", serverUrl + "/api/verify", "{}", token);
+        rblx::http::request("POST", serverUrl + "/api/verify", body, token);
     if (reply.body.empty() || !jsonBoolTrue(reply.body, "success")) {
         user.reason = jsonString(reply.body, "error");
         return user;
@@ -165,4 +174,34 @@ CheatReportResult ServerAuth::reportCheating(const std::string& instanceId,
     result.message = jsonString(response, "message");
     result.restricted = jsonBoolTrue(response, "restricted");
     return result;
+}
+
+bool ServerAuth::isHardwareBanned(const std::string& hardwareId, std::string* reason,
+                                  const std::string& serverUrl) {
+    if (reason != nullptr) {
+        reason->clear();
+    }
+    const std::string machine = rblx::hwid::normalize(hardwareId);
+    if (!rblx::hwid::valid(machine)) {
+        // Nothing to ask about, and refusing every join whose client could not
+        // name its machine would lock out the players this is meant to protect.
+        return false;
+    }
+
+    std::ostringstream body;
+    body << "{\"hardwareId\":\"" << machine << "\"}";
+    // Unsigned: the answer says only whether this machine may play, which the
+    // caller already knows by holding its hash.
+    const std::string response =
+        postJson(serverUrl + "/api/hardware-check", body.str(), std::string());
+    if (response.empty() || !jsonBoolTrue(response, "banned")) {
+        return false;
+    }
+    if (reason != nullptr) {
+        *reason = jsonString(response, "message");
+        if (reason->empty()) {
+            *reason = "This computer is banned from joining games.";
+        }
+    }
+    return true;
 }

@@ -23,7 +23,15 @@ struct CheatReportResult {
 
 class ServerAuth {
 public:
-    static VerifiedUser verifyToken(const std::string& token, const std::string& serverUrl = "http://localhost:3000");
+    // `hardwareId` is the hashed machine the join came from. The website records
+    // it on the account and refuses the join outright when the machine is banned.
+    static VerifiedUser verifyToken(const std::string& token,
+                                    const std::string& serverUrl = "http://localhost:3000",
+                                    const std::string& hardwareId = std::string());
+    // True when this machine may not join a game at all. Guests are checked with
+    // it because they have no account for the website to refuse instead.
+    static bool isHardwareBanned(const std::string& hardwareId, std::string* reason,
+                                 const std::string& serverUrl = "http://localhost:3000");
     static std::string getAvatar(const std::string& token, const std::string& serverUrl = "http://localhost:3000");
     static bool recordPlaytime(const std::string& token, int seconds, const std::string& serverUrl = "http://localhost:3000");
     static bool reportInstanceHeartbeat(const std::string& instanceId, const std::string& managerToken, int playerCount, const std::string& serverUrl = "http://localhost:3000");

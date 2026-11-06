@@ -1,5 +1,7 @@
 #include "ClientShared.h"
 
+#include "HardwareId.h"
+
 uint64_t steadyMilliseconds() {
     return static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(
         std::chrono::steady_clock::now().time_since_epoch()).count());
@@ -170,6 +172,10 @@ bool connectToServer(std::string& error) {
 
     pkt.protocolRevision = PacketProtocol::kProtocolRevision;
     pkt.packetLayout = PacketProtocol::packetLayoutSignature();
+    // The site bars a machine from joining, so the join has to say which machine
+    // it is. Hashed in the process: the disk serial and machine name the hash is
+    // built from never leave it.
+    copyToBuffer(pkt.hardwareId, sizeof(pkt.hardwareId), rblx::hwid::machineId());
 
     if (!sendClientPacket(PacketProtocol::buildStructPacket(PacketType::CONNECT, pkt), true)) {
         error = "Could not send the join packet.";

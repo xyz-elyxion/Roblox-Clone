@@ -52,6 +52,9 @@ struct ConnectedPlayer {
     bool active;
     int userId = -1;
     std::string authToken;
+    // The hashed machine this player joined from (see HardwareId.h). Kept so the
+    // website can be told which machine a detection happened on.
+    std::string hardwareId;
     std::chrono::steady_clock::time_point lastPlaytimeReportedAt;
     rp3d::RigidBody* shadowBody; // Server-side physics body for player
     glm::vec3 headColor = glm::vec3(0.8f, 0.6f, 0.4f);
@@ -1527,6 +1530,8 @@ static int runServer(int argc, char** argv) {
                         }
 
                         const std::string token = PacketProtocol::fixedString(pkt.authToken, sizeof(pkt.authToken));
+                        const std::string hardwareId =
+                            PacketProtocol::fixedString(pkt.hardwareId, sizeof(pkt.hardwareId));
                         const bool isGuest = token.empty();
 
                         player.headColor = glm::vec3(0.8f, 0.6f, 0.4f);
@@ -1547,7 +1552,9 @@ static int runServer(int argc, char** argv) {
                             std::cout << "Player " << id << ": checking the login with "
                                       << webServerUrl << std::endl;
                             const auto authStartedAt = std::chrono::steady_clock::now();
-                            VerifiedUser verified = ServerAuth::verifyToken(token, webServerUrl);
+                            // The machine goes with the login: the website records
+                            // it and refuses a join from a barred one.
+                            VerifiedUser verified = ServerAuth::verifyToken(token, webServerUrl, hardwareId);
                             const long long authMs = std::chrono::duration_cast<std::chrono::milliseconds>(
                                                          std::chrono::steady_clock::now() - authStartedAt)
                                                          .count();
@@ -1575,6 +1582,7 @@ static int runServer(int argc, char** argv) {
 
                             player.userId = verified.userId;
                             player.authToken = token;
+                            player.hardwareId = hardwareId;
                             player.lastPlaytimeReportedAt = std::chrono::steady_clock::now();
                             copyFixedString(player.username, sizeof(player.username), verified.username);
 
@@ -1594,8 +1602,27 @@ static int runServer(int argc, char** argv) {
                                       << " (authenticated, login checked in " << authMs << " ms)"
                                       << std::endl;
                         } else {
+                            // A machine ban has to reach guests too: joining without
+                            // an account costs nothing, so a check that only ran
+                            // behind the login would make the ban worth nothing.
+                            std::string hardwareRefusal;
+                            if (ServerAuth::isHardwareBanned(hardwareId, &hardwareRefusal, webServerUrl)) {
+                                std::cout << "Player " << id << " was refused: its machine is banned"
+                                          << std::endl;
+                                PacketChat notice;
+                                std::memset(&notice, 0, sizeof(notice));
+                                copyFixedString(notice.username, sizeof(notice.username), "Server");
+                                copyFixedString(notice.message, sizeof(notice.message),
+                                                hardwareRefusal.empty()
+                                                    ? "This computer is banned from joining games."
+                                                    : hardwareRefusal);
+                                sendToPlayer(player, PacketProtocol::buildStructPacket(PacketType::CHAT, notice), true);
+                                shouldDisconnect = true;
+                                break;
+                            }
                             player.userId = -1;
                             player.authToken.clear();
+                            player.hardwareId = hardwareId;
                             int guestNumber = (rand() % 9999) + 1;
                             snprintf(player.username, sizeof(player.username), "guest_%d", guestNumber);
                             std::cout << "Player " << id << " joined as " << player.username << " (guest)" << std::endl;

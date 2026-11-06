@@ -31,6 +31,10 @@ const std::size_t kMaxInfractionsPerUser = 50;
 // data file.
 const std::size_t kMaxPendingDetections = 20;
 
+// How many machine bans are kept. Active ones are never dropped; the oldest
+// lifted entries go first, because the record is history once a pardon landed.
+const std::size_t kMaxHardwareBans = 500;
+
 // How much playtime earns one coin. The game server reports playtime in
 // one-minute chunks, so a minute played is one coin earned.
 const long long kSecondsPerCoin = 60;
@@ -88,6 +92,21 @@ struct PendingDetection {
     std::string replay;
 };
 
+// A machine barred from joining games. `hardwareId` is the hashed machine
+// identity the client sends with every join (see HardwareId.h); the account it
+// came from is kept beside it so an admin reading the list knows which player put
+// the machine there. Lifting sets `active` false instead of deleting the row, so a
+// pardon is visible in the record rather than looking like a ban that never was.
+struct HardwareBanRecord {
+    std::string hardwareId;
+    int userId = 0;
+    std::string username;
+    std::string reason;
+    std::string createdAt;
+    bool active = true;
+    std::string liftedAt;
+};
+
 // A player asking for a restriction to be looked at again, and what an admin made
 // of it. `status` is "open", "accepted" or "denied".
 struct AppealRecord {
@@ -137,6 +156,11 @@ struct UserRecord {
     // them is the one being cheated, so they never move the ladder on their own.
     int clientDetections = 0;
     std::string lastClientDetectionAt;
+    // The machine this account last joined a game from, and when. Kept on the
+    // account so a ban that lands later can reach the computer without the game
+    // server having to resend it at exactly the wrong moment.
+    std::string lastHardwareId;
+    std::string hardwareIdSeenAt;
     // Moderation's record of this account, oldest first. The newest
     // kMaxInfractionsPerUser entries are kept.
     std::vector<InfractionRecord> infractions;
@@ -308,6 +332,24 @@ public:
     void removeFriendship(int friendshipId);
     void removeFriendshipsBetween(int firstUserId, int secondUserId);
 
+    // machines
+    // Records the machine an account joined from; false for an unknown account.
+    bool setLastHardwareId(int userId, const std::string& hardwareId, const std::string& nowIso);
+    // Bars a machine. A machine that is already barred keeps its original row, so
+    // the list does not grow one entry per detection: false is returned and
+    // nothing changes.
+    bool banHardware(const std::string& hardwareId, int userId, const std::string& username,
+                     const std::string& reason, const std::string& nowIso);
+    // The active ban for a machine, or nullptr when it is clear.
+    const HardwareBanRecord* activeHardwareBan(const std::string& hardwareId) const;
+    // Lifts one machine's ban; false when it was not barred.
+    bool liftHardwareBan(const std::string& hardwareId, const std::string& nowIso);
+    // Lifts every active ban an account put on a machine and returns how many.
+    // A pardon has to reach the machine too, or a false positive leaves the player
+    // locked out of every account on that computer.
+    int liftHardwareBansForUser(int userId, const std::string& nowIso);
+    const std::vector<HardwareBanRecord>& hardwareBans() const { return hardwareBans_; }
+
     // appeals
     int addAppeal(const AppealRecord& record);
     const AppealRecord* findAppeal(int id) const;
@@ -362,6 +404,7 @@ private:
     std::vector<ReportRecord> reports_;
     std::vector<BlockRecord> blocks_;
     std::vector<AppealRecord> appeals_;
+    std::vector<HardwareBanRecord> hardwareBans_;
     int nextUserId_ = 1;
     int nextFriendshipId_ = 1;
     int nextGameId_ = 1;

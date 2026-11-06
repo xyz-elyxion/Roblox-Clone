@@ -478,6 +478,23 @@ Games:
 - `GET /api/admin/overview` with an admin token returns site totals plus the user, game and instance lists.
 - `DELETE /api/admin/games/:id` with an admin token deletes a game and its world file.
 - `POST /api/admin/users/:id/coins` with `{ "amount": 100 }` (admin only) gives an account coins; the balance it writes is the one Settings and the avatar shop read.
+- `GET /api/admin/hardware-bans` with an admin token lists the machines barred from joining games, and `POST /api/admin/hardware-bans/lift` with `{ "hardwareId": "…" }` lets one back in.
+
+### Bans follow the machine
+
+An account ban only costs a player the minute it takes to make another account, so a ban also
+covers the computer it was earned on. The client hashes what identifies the machine - the system
+volume's serial number and the computer name on Windows, `/etc/machine-id` elsewhere - and sends
+only the 32-character hash in its join; the disk serial and hostname never leave the process.
+`POST /api/verify` takes that hash as `hardwareId`, records it on the account, and refuses the join
+when the machine is barred; a guest join is checked through `POST /api/hardware-check`, so signing
+out is not a way back in.
+
+Bans from the detection ladder and bans an admin applies both bar the machine the account was last
+seen playing from. A pardon - the admin action or an accepted appeal - lifts the machine bans that
+account created, so a false positive does not leave the player locked out of their own computer.
+The hash is not a security boundary: a modified client can send any value it likes, so this raises
+the cost of coming back rather than making it impossible.
 
 Tokens are no longer accepted in avatar URLs. `/api/verify` still accepts a body token as a deprecated compatibility fallback, but new callers should use the Authorization header.
 

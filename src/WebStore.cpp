@@ -1,5 +1,7 @@
 #include "WebStore.h"
 
+#include "HardwareId.h"
+
 #include <algorithm>
 #include <cctype>
 #include <cstdio>
@@ -91,6 +93,7 @@ void Store::clear() {
     reports_.clear();
     blocks_.clear();
     appeals_.clear();
+    hardwareBans_.clear();
     nextUserId_ = 1;
     nextFriendshipId_ = 1;
     nextGameId_ = 1;
@@ -136,6 +139,8 @@ bool Store::load(std::string* error) {
         user.moderatedAt = entry.member("moderatedAt").asString();
         user.clientDetections = static_cast<int>(entry.member("clientDetections").asInteger(0));
         user.lastClientDetectionAt = entry.member("lastClientDetectionAt").asString();
+        user.lastHardwareId = rblx::hwid::normalize(entry.member("lastHardwareId").asString());
+        user.hardwareIdSeenAt = entry.member("hardwareIdSeenAt").asString();
         for (const Json& saved : entry.member("pendingDetections").elements()) {
             PendingDetection pending;
             pending.atMs = saved.member("atMs").asInteger(0);
@@ -171,6 +176,21 @@ bool Store::load(std::string* error) {
             users_.push_back(user);
             nextUserId_ = std::max(nextUserId_, user.id + 1);
         }
+    }
+
+    for (const Json& entry : document.member("hardwareBans").elements()) {
+        HardwareBanRecord record;
+        record.hardwareId = rblx::hwid::normalize(entry.member("hardwareId").asString());
+        record.userId = static_cast<int>(entry.member("userId").asInteger(0));
+        record.username = entry.member("username").asString();
+        record.reason = entry.member("reason").asString();
+        record.createdAt = entry.member("createdAt").asString();
+        record.active = entry.member("active").asBool(true);
+        record.liftedAt = entry.member("liftedAt").asString();
+        if (!rblx::hwid::valid(record.hardwareId)) {
+            continue;
+        }
+        hardwareBans_.push_back(record);
     }
 
     for (const Json& entry : document.member("avatars").elements()) {
@@ -328,6 +348,8 @@ bool Store::save(std::string* error) const {
         entry.set("moderatedAt", user.moderatedAt);
         entry.set("clientDetections", user.clientDetections);
         entry.set("lastClientDetectionAt", user.lastClientDetectionAt);
+        entry.set("lastHardwareId", user.lastHardwareId);
+        entry.set("hardwareIdSeenAt", user.hardwareIdSeenAt);
         Json infractions = Json::makeArray();
         for (const InfractionRecord& infraction : user.infractions) {
             Json saved = Json::makeObject();
@@ -360,6 +382,20 @@ bool Store::save(std::string* error) const {
         users.push(entry);
     }
     document.set("users", users);
+
+    Json hardwareBans = Json::makeArray();
+    for (const HardwareBanRecord& ban : hardwareBans_) {
+        Json entry = Json::makeObject();
+        entry.set("hardwareId", ban.hardwareId);
+        entry.set("userId", ban.userId);
+        entry.set("username", ban.username);
+        entry.set("reason", ban.reason);
+        entry.set("createdAt", ban.createdAt);
+        entry.set("active", ban.active);
+        entry.set("liftedAt", ban.liftedAt);
+        hardwareBans.push(entry);
+    }
+    document.set("hardwareBans", hardwareBans);
 
     Json avatars = Json::makeArray();
     for (const AvatarRecord& record : avatars_) {
@@ -1056,6 +1092,100 @@ void Store::clearPendingDetections(int userId) {
             return;
         }
     }
+}
+
+bool Store::setLastHardwareId(int userId, const std::string& hardwareId,
+                              const std::string& nowIso) {
+    const std::string normalized = rblx::hwid::normalize(hardwareId);
+    if (!rblx::hwid::valid(normalized)) {
+        return false;
+    }
+    for (UserRecord& user : users_) {
+        if (user.id == userId) {
+            if (user.lastHardwareId == normalized) {
+                // The same machine as last time: only the recent-seen time moves.
+                user.hardwareIdSeenAt = nowIso;
+                return false;
+            }
+            user.lastHardwareId = normalized;
+            user.hardwareIdSeenAt = nowIso;
+            return true;
+        }
+    }
+    return false;
+}
+
+bool Store::banHardware(const std::string& hardwareId, int userId, const std::string& username,
+                        const std::string& reason, const std::string& nowIso) {
+    const std::string normalized = rblx::hwid::normalize(hardwareId);
+    if (!rblx::hwid::valid(normalized)) {
+        return false;
+    }
+    for (HardwareBanRecord& ban : hardwareBans_) {
+        if (ban.hardwareId == normalized && ban.active) {
+            return false;
+        }
+    }
+
+    HardwareBanRecord ban;
+    ban.hardwareId = normalized;
+    ban.userId = userId;
+    ban.username = username;
+    ban.reason = reason;
+    ban.createdAt = nowIso;
+    ban.active = true;
+    hardwareBans_.push_back(ban);
+
+    // Active bans are never trimmed: dropping one would silently unban a machine.
+    // Lifted rows are only history, so the oldest go first.
+    while (hardwareBans_.size() > kMaxHardwareBans) {
+        std::size_t index = 0;
+        while (index < hardwareBans_.size() && hardwareBans_[index].active) {
+            ++index;
+        }
+        if (index == hardwareBans_.size()) {
+            break;
+        }
+        hardwareBans_.erase(hardwareBans_.begin() + static_cast<std::ptrdiff_t>(index));
+    }
+    return true;
+}
+
+const HardwareBanRecord* Store::activeHardwareBan(const std::string& hardwareId) const {
+    const std::string normalized = rblx::hwid::normalize(hardwareId);
+    if (!rblx::hwid::valid(normalized)) {
+        return nullptr;
+    }
+    for (const HardwareBanRecord& ban : hardwareBans_) {
+        if (ban.active && ban.hardwareId == normalized) {
+            return &ban;
+        }
+    }
+    return nullptr;
+}
+
+bool Store::liftHardwareBan(const std::string& hardwareId, const std::string& nowIso) {
+    const std::string normalized = rblx::hwid::normalize(hardwareId);
+    for (HardwareBanRecord& ban : hardwareBans_) {
+        if (ban.active && ban.hardwareId == normalized) {
+            ban.active = false;
+            ban.liftedAt = nowIso;
+            return true;
+        }
+    }
+    return false;
+}
+
+int Store::liftHardwareBansForUser(int userId, const std::string& nowIso) {
+    int lifted = 0;
+    for (HardwareBanRecord& ban : hardwareBans_) {
+        if (ban.active && ban.userId == userId) {
+            ban.active = false;
+            ban.liftedAt = nowIso;
+            ++lifted;
+        }
+    }
+    return lifted;
 }
 
 int Store::addAppeal(const AppealRecord& record) {

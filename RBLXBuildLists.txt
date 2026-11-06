@@ -188,6 +188,9 @@ if(RBLX_BUILD_CLIENT)
         src/ClientUi.cpp
         src/WebJson.cpp
         src/WebCrypto.cpp
+        # The hashed machine id the join carries; the hash is the same sha256 the
+        # website uses, so the client links it rather than a second copy.
+        src/HardwareId.cpp
         src/HttpClient.cpp
         ${SHARED_SOURCES}
         ${IMGUI_SOURCES}
@@ -321,6 +324,19 @@ if(RBLX_BUILD_TESTS)
     add_executable(ModerationTests tests/moderation_tests.cpp)
     target_include_directories(ModerationTests PRIVATE ${RBLXBUILD_CURRENT_SOURCE_DIR}/include)
     add_test(NAME ModerationTests COMMAND ModerationTests)
+
+    # The machine id the join carries, and the ban records a ban is copied onto.
+    # The store is linked so the ban lifecycle is checked against the same class the
+    # website saves.
+    add_executable(HardwareIdTests
+        tests/hardware_id_tests.cpp
+        src/HardwareId.cpp
+        src/WebCrypto.cpp
+        src/WebStore.cpp
+        src/WebJson.cpp
+    )
+    target_include_directories(HardwareIdTests PRIVATE ${RBLXBUILD_CURRENT_SOURCE_DIR}/include)
+    add_test(NAME HardwareIdTests COMMAND HardwareIdTests)
 
     add_executable(ClientCheatReportTests tests/client_cheat_report_tests.cpp)
     target_include_directories(ClientCheatReportTests PRIVATE ${RBLXBUILD_CURRENT_SOURCE_DIR}/include)

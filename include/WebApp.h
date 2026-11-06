@@ -205,6 +205,9 @@ private:
     bool handleSignup(Request& request, Response& response);
     bool handleLogin(Request& request, Response& response);
     bool handleVerify(Request& request, Response& response);
+    // Whether a machine may join at all, for a guest whose join has no account
+    // for /api/verify to refuse.
+    bool handleHardwareCheck(Request& request, Response& response);
     bool handleSocial(Request& request, Response& response);
     bool handlePlaytime(Request& request, Response& response);
     bool handleHeartbeat(Request& request, Response& response);
@@ -238,6 +241,9 @@ private:
     bool handleInstanceModeration(Request& request, Response& response);
     // Admin override: warn, suspend, ban or pardon an account by hand.
     bool handleAdminModerateUser(Request& request, Response& response);
+    // The machines barred from the game, and the switch that lets one back in.
+    bool handleAdminHardwareBans(Request& request, Response& response);
+    bool handleAdminLiftHardwareBan(Request& request, Response& response);
     // Admin override: hand an account coins, from the dashboard.
     bool handleAdminGrantCoins(Request& request, Response& response);
     // The account's own view of its record: where it stands, every entry that

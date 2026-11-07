@@ -195,6 +195,45 @@ bool setString(HKEY key, const wchar_t* name, const std::string& value) {
                           static_cast<DWORD>((wide.size() + 1) * sizeof(wchar_t))) == ERROR_SUCCESS;
 }
 
+bool setDword(HKEY key, const wchar_t* name, DWORD value) {
+    return RegSetValueExW(key, name, 0, REG_DWORD, reinterpret_cast<const BYTE*>(&value),
+                          sizeof(value)) == ERROR_SUCCESS;
+}
+
+// The whole install in kilobytes, which is the Size column of both Installed apps
+// and Programs and Features. A file that cannot be read is skipped rather than
+// failing the registration: a missing size is cosmetic.
+DWORD installedSizeKilobytes(const std::string& directory) {
+    unsigned long long bytes = 0;
+    std::error_code error;
+    for (fs::recursive_directory_iterator it(
+             directory, fs::directory_options::skip_permission_denied, error),
+         end;
+         it != end; it.increment(error)) {
+        if (error) break;
+        if (!it->is_regular_file(error)) continue;
+        const auto size = it->file_size(error);
+        if (!error) bytes += static_cast<unsigned long long>(size);
+    }
+    const unsigned long long kilobytes = bytes / 1024;
+    const unsigned long long ceiling = 0xFFFFFFFFull;
+    return static_cast<DWORD>(kilobytes > ceiling ? ceiling : kilobytes);
+}
+
+// YYYYMMDD, the form the uninstall key documents for InstallDate.
+std::string todayAsInstallDate() {
+    SYSTEMTIME now{};
+    GetLocalTime(&now);
+    char text[16] = {};
+    std::snprintf(text, sizeof(text), "%04d%02d%02d", static_cast<int>(now.wYear),
+                  static_cast<int>(now.wMonth), static_cast<int>(now.wDay));
+    return text;
+}
+
+// Settings > Apps > Installed apps and Control Panel > Programs and Features are
+// two views of the same uninstall keys, so one complete entry under the per-user
+// key is what puts the program in both. The per-user key is deliberate: the
+// install needs no administrator, and it is listed for the account that ran it.
 bool registerUninstall(const std::string& installDirectory, const std::string& version) {
     HKEY key = nullptr;
     if (RegCreateKeyExW(HKEY_CURRENT_USER, widen(kUninstallKey).c_str(), 0, nullptr, 0, KEY_WRITE,
@@ -207,18 +246,33 @@ bool registerUninstall(const std::string& installDirectory, const std::string& v
     ok = ok && setString(key, L"DisplayVersion", version);
     ok = ok && setString(key, L"Publisher", kProductName);
     ok = ok && setString(key, L"InstallLocation", installDirectory);
-    ok = ok && setString(key, L"DisplayIcon", (fs::path(installDirectory) / "Client.exe").string());
+    // The number after the comma picks the icon out of the executable.
+    ok = ok && setString(key, L"DisplayIcon",
+                         "\"" + (fs::path(installDirectory) / "Client.exe").string() + "\",0");
+    ok = ok && setString(key, L"InstallDate", todayAsInstallDate());
+    ok = ok && setString(key, L"Comments",
+                         "RBLX Clone: game client, game server, Studio and the local website");
     // Add/Remove Programs gets a window, because a console one would flash and
     // disappear before anyone could read it. The quiet entry stays silent for
     // scripted removal.
     ok = ok && setString(key, L"UninstallString", "\"" + setup + "\" --uninstall --ui");
     ok = ok && setString(key, L"QuietUninstallString", "\"" + setup + "\" --uninstall --quiet");
 
-    // Add/Remove Programs offers Modify and Repair unless told otherwise, and
-    // this install has neither.
-    const DWORD one = 1;
-    RegSetValueExW(key, L"NoModify", 0, REG_DWORD, reinterpret_cast<const BYTE*>(&one), sizeof(one));
-    RegSetValueExW(key, L"NoRepair", 0, REG_DWORD, reinterpret_cast<const BYTE*>(&one), sizeof(one));
+    ok = setDword(key, L"EstimatedSize", installedSizeKilobytes(installDirectory)) && ok;
+    // Both lists offer Modify and Repair unless told otherwise, and this install
+    // has neither.
+    ok = setDword(key, L"NoModify", 1) && ok;
+    ok = setDword(key, L"NoRepair", 1) && ok;
+    ok = setDword(key, L"WindowsInstaller", 0) && ok;
+
+    // Values an older or third-party install may have left behind. Each one of
+    // these takes the entry out of both lists: SystemComponent hides it as a
+    // system component, a parent key files it under another product, and
+    // QuietDisplayName replaces the name the lists look for.
+    for (const wchar_t* hidden : {L"SystemComponent", L"ParentKeyName", L"ParentDisplayName",
+                                  L"QuietDisplayName", L"NoRemove"}) {
+        RegDeleteValueW(key, hidden);
+    }
 
     RegCloseKey(key);
     return ok;
@@ -230,6 +284,10 @@ bool unregisterUninstall() {
     // that this file deliberately does not set (SHDeleteKey is not even declared
     // without one).
     RegDeleteKeyW(HKEY_CURRENT_USER, widen(kUninstallKey).c_str());
+    // A 32-bit process can leave a second copy of the same entry in the 32-bit
+    // view of the key. Removing it stops a duplicate row pointing at nothing.
+    RegDeleteKeyW(HKEY_CURRENT_USER,
+                  widen(std::string("Software\\WOW6432Node\\") + kUninstallKey).c_str());
     return true;
 }
 
@@ -264,8 +322,11 @@ bool createShortcuts(const std::string& installDirectory, const Options& options
         ok = createShortcut((menu / "Play RBLX Clone.lnk").string(), updater, "--launch", installDirectory,
                             "Checks for updates, then starts RBLX Clone") &&
              ok;
+        // The website is a program, not a launcher script: WebApp.exe finds web/
+        // and the Server.exe and Client.exe beside it on its own, so the menu
+        // entry can point straight at it.
         ok = createShortcut((menu / "RBLX Clone website.lnk").string(),
-                            (fs::path(installDirectory) / "start-website.bat").string(), "", installDirectory,
+                            (fs::path(installDirectory) / "WebApp.exe").string(), "", installDirectory,
                             "Starts the local RBLX website") &&
              ok;
         ok = createShortcut((menu / "Uninstall RBLX Clone.lnk").string(), setup, "--uninstall",
@@ -507,7 +568,7 @@ int install(const Options& options, const std::string& source) {
 #ifdef _WIN32
     const bool registered = registerUninstall(target, version);
     if (registered) {
-        print(options, "  registered in Add/Remove Programs");
+        print(options, "  listed in Installed apps and Programs and Features");
     } else {
         printError("could not register the uninstall entry; the install itself is complete");
     }

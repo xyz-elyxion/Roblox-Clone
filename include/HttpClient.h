@@ -1,5 +1,6 @@
 #pragma once
 
+#include <functional>
 #include <string>
 
 // A small blocking HTTP/1.1 client used by the client and game server to talk
@@ -24,6 +25,11 @@ struct Response {
     bool networkError() const { return status == 0; }
 };
 
+// Called as a response body arrives: the bytes read so far, and the length the
+// server declared (negative when it declared none). A caller that draws a
+// progress bar passes one; everything else ignores it.
+using ProgressCallback = std::function<void(long long received, long long total)>;
+
 // Sends one request and waits for the response. `timeoutMs` bounds the
 // connect, each write and each read, so a hung server cannot block a caller
 // forever.
@@ -31,7 +37,8 @@ Response request(const std::string& method,
                  const std::string& url,
                  const std::string& body = std::string(),
                  const std::string& bearerToken = std::string(),
-                 int timeoutMs = 5000);
+                 int timeoutMs = 5000,
+                 const ProgressCallback& onProgress = ProgressCallback());
 
 }  // namespace http
 }  // namespace rblx

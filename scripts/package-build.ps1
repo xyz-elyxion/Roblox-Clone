@@ -3,8 +3,8 @@
 # The executables load their data from the working directory (shaders/,
 # ServerWorld.world, face*.png) and WebApp.exe locates the website by walking up
 # from its own directory looking for web/public/index.html. So the package has
-# to keep the executables, assets and website folder together, and the launch
-# scripts have to change into the package root before starting anything.
+# to keep the executables, assets and website folder together. Nothing here is a
+# script: Explorer starts a program in its own folder, which is what they expect.
 #
 # Usage: ./scripts/package-build.ps1 -Configuration Release
 
@@ -108,88 +108,11 @@ try {
     $crlf = "`r`n"
     $encoding = [System.Text.Encoding]::ASCII
 
-    $websiteBat = @(
-        '@echo off'
-        'rem Starts the RBLX website backend and opens it in the default browser.'
-        'setlocal'
-        'cd /d "%~dp0"'
-        'if not exist "WebApp.exe" ('
-        '    echo WebApp.exe is not in this package.'
-        '    pause'
-        '    exit /b 1'
-        ')'
-        'rem Point the website at the copies shipping in this folder.'
-        'set "SERVER_EXECUTABLE_PATH=%~dp0Server.exe"'
-        'set "CLIENT_EXECUTABLE_PATH=%~dp0Client.exe"'
-        'if not defined PORT set "PORT=3000"'
-        'rem A fresh unzip has no account data yet, so open the guided tour instead'
-        'rem of the home page. Every later start opens the site itself.'
-        'set "RBLX_FIRST_RUN="'
-        'if not exist "web\users.json" set "RBLX_FIRST_RUN=1"'
-        'echo Starting the RBLX website on http://localhost:%PORT%'
-        'start "RBLX Website" "%~dp0WebApp.exe"'
-        'timeout /t 2 /nobreak >nul'
-        'if defined RBLX_FIRST_RUN ('
-        '    start "" "http://localhost:%PORT%/welcome"'
-        ') else ('
-        '    start "" "http://localhost:%PORT%"'
-        ')'
-    ) -join $crlf
-    [System.IO.File]::WriteAllText((Join-Path $Output 'start-website.bat'), $websiteBat + $crlf, $encoding)
-
-    $studioBat = @(
-        '@echo off'
-        'rem Opens the Studio world editor.'
-        'setlocal'
-        'cd /d "%~dp0"'
-        'if not exist "Studio.exe" ('
-        '    echo Studio.exe is not in this package.'
-        '    pause'
-        '    exit /b 1'
-        ')'
-        'Studio.exe'
-        'if errorlevel 1 pause'
-    ) -join $crlf
-    [System.IO.File]::WriteAllText((Join-Path $Output 'start-studio.bat'), $studioBat + $crlf, $encoding)
-
-    $clientBat = @(
-        '@echo off'
-        'rem Opens the game client on its own. Normally the website starts it for you'
-        'rem when you press Play on a game page.'
-        'setlocal'
-        'cd /d "%~dp0"'
-        'if not exist "Client.exe" ('
-        '    echo Client.exe is not in this package.'
-        '    pause'
-        '    exit /b 1'
-        ')'
-        'Client.exe'
-        'if errorlevel 1 pause'
-    ) -join $crlf
-    [System.IO.File]::WriteAllText((Join-Path $Output 'start-client.bat'), $clientBat + $crlf, $encoding)
-
-    # The source editor opens the folder it is started in, so the launcher runs it
-    # from this folder: shaders/, web/public and games/ are all editable here, and
-    # pointing it at a source checkout is a command-line argument away.
-    $codeBat = @(
-        '@echo off'
-        'rem Opens the RBLXCode source editor on this folder.'
-        'setlocal'
-        'cd /d "%~dp0"'
-        'if not exist "RBLXCode.exe" ('
-        '    echo RBLXCode.exe is not in this package.'
-        '    pause'
-        '    exit /b 1'
-        ')'
-        'rem A folder given on the command line wins over this one.'
-        'if "%~1"=="" ('
-        '    RBLXCode.exe "%~dp0"'
-        ') else ('
-        '    RBLXCode.exe "%~1"'
-        ')'
-        'if errorlevel 1 pause'
-    ) -join $crlf
-    [System.IO.File]::WriteAllText((Join-Path $Output 'start-code.bat'), $codeBat + $crlf, $encoding)
+    # There are no launcher scripts in the package. Every program finds its data
+    # in the folder it runs from, so Explorer can start it directly: WebApp.exe
+    # locates web/ and the Server.exe and Client.exe beside it, and RBLXCode.exe
+    # opens the folder it was started in. Double-clicking a .bat only added a
+    # console window and a wrapper around that.
 
     $readmeLines = @(
         "RBLX Clone - Windows $Configuration build"
@@ -212,20 +135,21 @@ try {
         '  ServerWorld.world, face*.png, face_hex.txt  data loaded from the working directory'
         ''
         'HOW TO RUN'
-        '  start-website.bat   starts WebApp.exe, then opens http://localhost:3000'
-        '  start-studio.bat    opens the Studio editor'
-        '  start-code.bat      opens the RBLXCode source editor on this folder'
-        '  start-client.bat    opens the client directly (the website normally does this)'
-        '  play.bat            checks for an update, installs it, then starts the client'
+        '  WebApp.exe          starts the website on http://localhost:3000; press Open site'
+        '                      in its window to open it in the browser'
+        '  Studio.exe          opens the Studio editor'
+        '  RBLXCode.exe        opens the source editor on this folder'
+        '  Client.exe          opens the client directly (the website normally does this)'
+        '  RBLXUpdater.exe     checks for an update, installs it, then starts the client'
         '  RBLXSetup.exe       installs this folder for the current user (no unzip needed after)'
         '  AiTrainer.exe       headless trainer, run it from this folder with the flags below'
         ''
         'FIRST RUN: THE GUIDED TOUR'
-        '  The first start-website.bat on a fresh unzip opens the guided tour at'
-        '  http://localhost:3000/welcome: nine steps through the website, the client'
-        '  and game servers, Studio, RBLXCode and the trainer. Steps the site can see'
-        '  for itself tick themselves off; the rest you mark as done. It is linked as'
-        '  "Tour" in the site navigation, so /welcome works at any time.'
+        '  A fresh unzip has no account data yet. Start WebApp.exe, press Open site, and'
+        '  the tour is at http://localhost:3000/welcome: nine steps through the website,'
+        '  the client and game servers, Studio, RBLXCode and the trainer. Steps the site'
+        '  can see for itself tick themselves off; the rest you mark as done. It is'
+        '  linked as "Tour" in the site navigation, so /welcome works at any time.'
         ''
         'SOURCE EDITOR (RBLXCode.exe)'
         '  RBLXCode.exe                edits this folder: shaders/, web/public/, games/'
@@ -243,9 +167,9 @@ try {
         ''
         'NOTES'
         '  - Keep this folder layout intact. The executables look for shaders/ and web/'
-        '    relative to the folder they run from, and every .bat changes into it first.'
-        '  - start-website.bat tells WebApp.exe where Server.exe and Client.exe are, so'
-        '    Play launches the copies that ship with this package.'
+        '    relative to the folder they run from, which is where Explorer starts them.'
+        '  - WebApp.exe uses the Server.exe and Client.exe beside it, so Play launches'
+        '    the copies that ship with this package.'
         '  - WebApp.exe opens a server console window: the live log with level filters and'
         '    search, every running game server with its port, players and output, plus Stop,'
         '    Open site, Copy log and Clear. Closing it stops the website and its servers.'
@@ -278,8 +202,8 @@ try {
     [System.IO.File]::WriteAllText((Join-Path $Output 'README.txt'), $readmeLines + $crlf, $encoding)
 
     # The updater ships beside the game: it is what the installed Play shortcut
-    # runs, and what play.bat runs in this folder. update.json is the machine's
-    # own setting, so it is written here and never comes from a release.
+    # runs, and what a double-click of it runs in this folder. update.json is the
+    # machine's own setting, so it is written here and never comes from a release.
     $updateConfig = @(
         '{'
         '  "manifestUrl": "' + $UpdateUrl + '",'
@@ -287,21 +211,6 @@ try {
         '}'
     ) -join $crlf
     [System.IO.File]::WriteAllText((Join-Path $Output 'update.json'), $updateConfig + $crlf, $encoding)
-
-    $playBat = @(
-        '@echo off'
-        'rem Checks for a newer release, installs it, then starts the game.'
-        'setlocal'
-        'cd /d "%~dp0"'
-        'if not exist "RBLXUpdater.exe" ('
-        '    echo RBLXUpdater.exe is not in this package.'
-        '    pause'
-        '    exit /b 1'
-        ')'
-        'RBLXUpdater.exe --launch'
-        'if errorlevel 1 pause'
-    ) -join $crlf
-    [System.IO.File]::WriteAllText((Join-Path $Output 'play.bat'), $playBat + $crlf, $encoding)
 
     # The release description, generated last so every file above is in it. The
     # updater and its settings are left out on purpose: it cannot replace the copy

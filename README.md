@@ -45,15 +45,18 @@ The website starts a game server and launches the client for you.
 ### The unzip-and-run package
 
 The `Build` workflow packages every push into `rblx-windows-release` (see
-[CI and prebuilt packages](#ci-and-prebuilt-packages)). Unzip it and double-click
-`start-website.bat`: it starts `WebApp.exe` from that folder, points it at the `Server.exe` and
-`Client.exe` beside it, and opens <http://localhost:3000>.
+[CI and prebuilt packages](#ci-and-prebuilt-packages)). Unzip it and double-click `WebApp.exe`: it
+serves the site on <http://localhost:3000>, uses the `Server.exe` and `Client.exe` beside it, and
+**Open site** in its window opens the page in the browser.
 
-On a freshly unzipped copy the first launch opens the guided tour at
-<http://localhost:3000/welcome>: nine steps through the website, the client and game servers,
-Studio, RBLXCode and the trainer, each one checking itself against the running site where it can.
-**Tour** in the site navigation reopens it. `start-studio.bat` opens the world editor and
-`start-code.bat` the source editor.
+The guided tour is at <http://localhost:3000/welcome>: nine steps through the website, the client and
+game servers, Studio, RBLXCode and the trainer, each one checking itself against the running site
+where it can. **Tour** in the site navigation reopens it. `Studio.exe` opens the world editor,
+`RBLXCode.exe` the source editor, `Client.exe` the game on its own, and `RBLXUpdater.exe` checks for
+an update before starting it.
+
+There are no `.bat` files anywhere, in the package or in an install: every program looks for its data
+in the folder it runs from, which is where Explorer starts it, so a console wrapper added nothing.
 
 Nothing else needs installing. The executables link the C++ runtime statically, so neither Visual
 Studio nor the VC++ redistributable is required at runtime. Keep the folder layout intact: the
@@ -76,10 +79,12 @@ It copies the folder with its layout intact and leaves anything already identica
 it over an existing install is an upgrade rather than a clobber. It records what it installed as
 `manifest.json` — the same document the updater diffs against — which means an installed copy can
 update and uninstall itself file by file. Then it adds **Play RBLX Clone** to the Start menu and the
-desktop, registers an entry under Add/Remove Programs with its own `UninstallString`, and copies
-itself into the install so that entry works. Shortcuts are COM's `IShellLink` and the entry is
-`HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\RBLXClone`; on Linux and macOS the same
-install writes a `.desktop` entry instead. Uninstalling removes exactly the recorded files and
+desktop, lists the program in Settings → Apps → Installed apps and in Control Panel → Programs and
+Features with its own `UninstallString`, and copies itself into the install so that entry works.
+Shortcuts are COM's `IShellLink` and the entry is the per-user
+`HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\RBLXClone`, carrying the version,
+publisher, install date, size and icon those two pages display; on Linux and macOS the same install
+writes a `.desktop` entry instead. Uninstalling removes exactly the recorded files and
 leaves worlds, saves and account data unless `--purge` is given.
 
 The shortcut points at `RBLXUpdater.exe` rather than `Client.exe`, so an update is checked every
@@ -980,9 +985,9 @@ editor that rewrote every line would bury a one-line fix in a whole-file diff. B
 tree, images and models are never offered, and a file with a NUL byte or one larger than 4 MB is
 refused with the reason in the status bar rather than opened.
 
-The Windows package ships it as `start-code.bat`, which opens it on the package folder (the
-shaders, website and example games); the C++ sources are not in that package, so for those run
-`RBLXCode.exe` from a checkout or pass the clone's path.
+In the Windows package, double-click `RBLXCode.exe`: it opens the folder it was started in (the
+shaders, website and example games); the C++ sources are not in that package, so for those run it
+from a checkout, where it opens the clone, or pass another folder's path.
 
 ## AI Trainer
 
@@ -1087,7 +1092,7 @@ rblx-windows-release/
   WebApp.exe  Server.exe  Client.exe  Studio.exe  RBLXCode.exe
   web/public/  web/seed-worlds/
   shaders/  ServerWorld.world  face*.png  face_hex.txt
-  start-website.bat  start-studio.bat  start-client.bat  start-code.bat
+  RBLXUpdater.exe  RBLXSetup.exe  AiTrainer.exe  update.json  manifest.json
   README.txt
 ```
 

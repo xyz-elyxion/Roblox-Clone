@@ -110,6 +110,24 @@ void loadFonts(ImFont** body, ImFont** heading) {
     *heading = *body;
 }
 
+// "512 KB", "12.4 MB": sizes are read at a glance, and a raw byte count is not.
+std::string formatBytes(long long bytes) {
+    const char* const units[] = {"B", "KB", "MB", "GB"};
+    double value = static_cast<double>(bytes < 0 ? 0 : bytes);
+    int unit = 0;
+    while (value >= 1024.0 && unit < 3) {
+        value /= 1024.0;
+        ++unit;
+    }
+    char text[32] = {};
+    if (unit == 0) {
+        std::snprintf(text, sizeof(text), "%.0f %s", value, units[unit]);
+    } else {
+        std::snprintf(text, sizeof(text), "%.1f %s", value, units[unit]);
+    }
+    return text;
+}
+
 std::string waitingDots() {
     const int count = static_cast<int>(ImGui::GetTime() * 2.0) % 4;
     return std::string(static_cast<std::size_t>(count), '.');
@@ -154,6 +172,18 @@ void Report::progress(float fraction) {
     fraction_ = fraction;
 }
 
+void Report::progressBytes(long long done, long long total) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    doneBytes_ = done < 0 ? 0 : done;
+    totalBytes_ = total;
+    if (total > 0) {
+        const double ratio = static_cast<double>(doneBytes_) / static_cast<double>(total);
+        fraction_ = static_cast<float>(ratio < 0.0 ? 0.0 : (ratio > 1.0 ? 1.0 : ratio));
+    } else {
+        fraction_ = -1.0f;
+    }
+}
+
 void Report::cancel() {
     std::lock_guard<std::mutex> lock(mutex_);
     cancelled_ = true;
@@ -191,6 +221,8 @@ Report::Snapshot Report::snapshot() const {
     snapshot.lines = lines_;
     snapshot.problems = problems_;
     snapshot.fraction = fraction_;
+    snapshot.doneBytes = doneBytes_;
+    snapshot.totalBytes = totalBytes_;
     snapshot.done = done_;
     snapshot.ok = ok_;
     snapshot.cancelled = cancelled_;
@@ -259,6 +291,10 @@ Result run(Options& options, const std::vector<std::string>& actions,
     bool started = false;
     bool closeRequested = false;
     std::thread worker;
+    // A transfer rate is a difference between samples, so keep the last one.
+    double lastBytes = 0.0;
+    double lastSampleTime = 0.0;
+    double speed = 0.0;
 
     auto startJob = [&]() {
         if (started) return;
@@ -336,22 +372,55 @@ Result run(Options& options, const std::vector<std::string>& actions,
             ImGui::Spacing();
             ImGui::TextColored(kMuted, "This window closes when the work is done.");
         } else {
-            const float fraction = state.fraction < 0.0f
-                                       ? -1.0f * static_cast<float>(ImGui::GetTime())
-                                       : state.fraction;
-            ImGui::ProgressBar(fraction, ImVec2(-1.0f, 0.0f), "");
+            const double now = ImGui::GetTime();
+            const float fraction =
+                state.fraction < 0.0f ? -1.0f * static_cast<float>(now) : state.fraction;
+            char overlay[32] = {};
+            if (state.totalBytes > 0) {
+                std::snprintf(overlay, sizeof(overlay), "%.0f%%",
+                              static_cast<double>(fraction) * 100.0);
+            }
+            ImGui::ProgressBar(fraction, ImVec2(-1.0f, 0.0f), overlay);
             ImGui::Spacing();
 
+            // A download that knows its size says how far in it is and how fast,
+            // smoothed so the number does not flicker with every frame.
+            if (now - lastSampleTime > 0.3) {
+                if (lastSampleTime > 0.0 && state.doneBytes >= lastBytes) {
+                    const double rate = (static_cast<double>(state.doneBytes) - lastBytes) /
+                                        (now - lastSampleTime);
+                    speed = speed > 0.0 ? speed * 0.6 + rate * 0.4 : rate;
+                }
+                lastBytes = static_cast<double>(state.doneBytes);
+                lastSampleTime = now;
+            }
+
+            std::string transfer;
+            if (state.doneBytes > 0) {
+                transfer = formatBytes(state.doneBytes);
+                if (state.totalBytes > 0) transfer += " of " + formatBytes(state.totalBytes);
+                if (!state.done && speed > 1.0) {
+                    transfer += "  -  " + formatBytes(static_cast<long long>(speed)) + "/s";
+                }
+            }
+
+            std::string status;
+            ImVec4 statusColor = kMuted;
             if (!state.done) {
-                ImGui::TextColored(kMuted, "Working%s", waitingDots().c_str());
+                status = transfer.empty() ? "Working" + waitingDots() : transfer;
+            } else if (state.ok) {
+                status = "Finished.";
+                statusColor = kOk;
+            } else if (state.cancelled) {
+                status = "Stopped at the last file boundary.";
+            } else {
+                status = "That did not finish.";
+                statusColor = kError;
+            }
+            ImGui::TextColored(statusColor, "%s", status.c_str());
+            if (!state.done) {
                 ImGui::SameLine();
                 if (ImGui::SmallButton("Cancel")) report.cancel();
-            } else if (state.ok) {
-                ImGui::TextColored(kOk, "%s", "Finished.");
-            } else if (state.cancelled) {
-                ImGui::TextColored(kMuted, "%s", "Stopped at the last file boundary.");
-            } else {
-                ImGui::TextColored(kError, "%s", "That did not finish.");
             }
 
             ImGui::Spacing();

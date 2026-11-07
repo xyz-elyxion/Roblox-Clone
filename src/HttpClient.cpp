@@ -209,13 +209,25 @@ bool sendAll(SocketHandle socket, const std::string& data) {
     return true;
 }
 
+// Content-Length from a block of headers, or -1 when the server did not say.
+// Read before the body so a progress bar knows what it is moving towards.
+long long declaredLength(const std::string& headers) {
+    const std::string lowered = lower(headers);
+    const size_t position = lowered.find("content-length:");
+    if (position == std::string::npos) {
+        return -1;
+    }
+    return std::atoll(headers.c_str() + position + std::strlen("content-length:"));
+}
+
 }  // namespace
 
 Response request(const std::string& method,
                  const std::string& url,
                  const std::string& body,
                  const std::string& bearerToken,
-                 int timeoutMs) {
+                 int timeoutMs,
+                 const ProgressCallback& onProgress) {
     Response response;
 
     ParsedUrl parsed;
@@ -258,6 +270,9 @@ Response request(const std::string& method,
     // to know the response is complete.
     std::string raw;
     char buffer[4096];
+    bool headersSeen = false;
+    std::size_t bodyStart = 0;
+    long long declared = -1;
     while (true) {
 #ifdef _WIN32
         const int received = ::recv(socket, buffer, static_cast<int>(sizeof(buffer)), 0);
@@ -268,6 +283,24 @@ Response request(const std::string& method,
             break;
         }
         raw.append(buffer, static_cast<size_t>(received));
+
+        // The length is worth reading as soon as the headers are complete, even
+        // though the body is assembled below: a caller watching a download wants
+        // a total to move towards.
+        if (!headersSeen) {
+            const size_t headerEnd = raw.find("\r\n\r\n");
+            if (headerEnd != std::string::npos) {
+                headersSeen = true;
+                bodyStart = headerEnd + 4;
+                declared = declaredLength(raw.substr(0, headerEnd));
+            }
+        }
+        if (onProgress) {
+            const long long inBody =
+                headersSeen ? static_cast<long long>(raw.size() - bodyStart) : 0;
+            onProgress(inBody, declared);
+        }
+
         if (raw.size() > 8 * 1024 * 1024) {
             break;  // a runaway response must not grow without bound
         }

@@ -68,6 +68,8 @@ struct Options {
 std::function<void(const std::string&)> g_progress;
 std::function<void(const std::string&)> g_problem;
 std::function<bool()> g_cancelled;
+// Bytes downloaded and the size of the whole download, for the window's bar.
+std::function<void(long long, long long)> g_bytes;
 
 bool cancelled() { return g_cancelled && g_cancelled(); }
 
@@ -166,9 +168,10 @@ bool parseOptions(int argc, char** argv, Options* options) {
     return true;
 }
 
-bool fetch(const std::string& url, std::string* body, std::string* error) {
+bool fetch(const std::string& url, std::string* body, std::string* error,
+           const rblx::http::ProgressCallback& onProgress = rblx::http::ProgressCallback()) {
     const rblx::http::Response response =
-        rblx::http::request("GET", url, std::string(), std::string(), 120000);
+        rblx::http::request("GET", url, std::string(), std::string(), 120000, onProgress);
     if (!response.ok()) {
         if (!response.error.empty()) {
             *error = response.error + " (" + url + ")";
@@ -190,7 +193,7 @@ bool fetchManifest(const std::string& url, Manifest* manifest, std::string* erro
 // The file is checked before it is written, and written through a rename, so a
 // connection that dies halfway leaves nothing that looks installed.
 bool downloadEntry(const fs::path& staging, const std::string& baseUrl, const FileEntry& entry,
-                   std::string* error) {
+                   const rblx::http::ProgressCallback& onProgress, std::string* error) {
     const std::string url = rblx::update::joinUrl(baseUrl, entry.path);
     if (url.empty()) {
         *error = "could not build a download address for " + entry.path;
@@ -198,7 +201,7 @@ bool downloadEntry(const fs::path& staging, const std::string& baseUrl, const Fi
     }
 
     std::string body;
-    if (!fetch(url, &body, error)) return false;
+    if (!fetch(url, &body, error, onProgress)) return false;
 
     if (entry.size > 0 && static_cast<long long>(body.size()) != entry.size) {
         *error = entry.path + " is " + std::to_string(body.size()) + " bytes, the manifest says " +
@@ -279,6 +282,11 @@ bool sync(const Options& options, const std::string& manifestUrl, bool install,
                         " file(s), " + std::to_string(plan.downloadBytes / (1024 * 1024)) +
                         " MB to download");
 
+    // The bar follows the bytes that actually arrive, not a guess: the manifest
+    // says how much these files weigh, and the client reports each chunk.
+    long long downloaded = 0;
+    if (g_bytes) g_bytes(0, plan.downloadBytes);
+
     for (const FileEntry& entry : plan.download) {
         // Only between files: the file being fetched is finished, so the install
         // is left as it was rather than half replaced.
@@ -287,10 +295,18 @@ bool sync(const Options& options, const std::string& manifestUrl, bool install,
             *error = "cancelled; the installed copy is unchanged";
             return false;
         }
-        if (!downloadEntry(staging, baseUrl, entry, error)) {
+
+        long long thisFile = 0;
+        const rblx::http::ProgressCallback onProgress = [&](long long received, long long) {
+            if (received > thisFile) thisFile = received;
+            if (g_bytes) g_bytes(downloaded + thisFile, plan.downloadBytes);
+        };
+        if (!downloadEntry(staging, baseUrl, entry, onProgress, error)) {
             fs::remove_all(staging, ignored);
             return false;
         }
+        downloaded += thisFile > 0 ? thisFile : entry.size;
+        if (g_bytes) g_bytes(downloaded, plan.downloadBytes);
         print(options, "  fetched " + entry.path);
     }
 
@@ -488,6 +504,9 @@ int windowed(Options& options, bool installing) {
         g_progress = [&report](const std::string& text) { report.line(text); };
         g_problem = [&report](const std::string& text) { report.problem(text); };
         g_cancelled = [&report]() { return report.cancelled(); };
+        g_bytes = [&report](long long done, long long total) {
+            report.progressBytes(done, total);
+        };
 
         const std::string configPath = (fs::path(run.directory) / "update.json").string();
         Config config;
@@ -507,6 +526,7 @@ int windowed(Options& options, bool installing) {
         g_progress = nullptr;
         g_problem = nullptr;
         g_cancelled = nullptr;
+        g_bytes = nullptr;
         return ok;
     });
 

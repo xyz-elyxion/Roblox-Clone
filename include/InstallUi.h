@@ -22,14 +22,18 @@ namespace ui {
 //
 // line() and problem() append to the log; problem() also marks the line as a
 // failure so it is drawn in red. progress() moves the bar, and a negative
-// fraction means "working, no idea how long". cancelled() is checked by long
-// download and copy loops - always between files, never inside one, because a
-// half-written file is worse than a slow one.
+// fraction means "working, no idea how long". progressBytes() is for a download
+// that knows its size, so the bar shows a real percentage and a transfer rate
+// instead of the animation. cancelled() is checked by long download and copy
+// loops - always between files, never inside one, because a half-written file is
+// worse than a slow one.
 class Report {
 public:
     void line(const std::string& text);
     void problem(const std::string& text);
     void progress(float fraction);
+    // `done` bytes of `total`, with a negative total when the size is unknown.
+    void progressBytes(long long done, long long total);
     void cancel();
     void finish(bool ok);
 
@@ -43,6 +47,8 @@ public:
         // Parallel to `lines`: true when the line reports a failure.
         std::vector<bool> problems;
         float fraction = -1.0f;
+        long long doneBytes = 0;
+        long long totalBytes = -1;
         bool done = false;
         bool ok = false;
         bool cancelled = false;
@@ -54,6 +60,8 @@ private:
     std::vector<std::string> lines_;
     std::vector<bool> problems_;
     float fraction_ = -1.0f;
+    long long doneBytes_ = 0;
+    long long totalBytes_ = -1;
     bool done_ = false;
     bool ok_ = false;
     bool cancelled_ = false;

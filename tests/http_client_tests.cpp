@@ -223,6 +223,32 @@ int main() {
     }
 
     {
+        // The progress callback is what moves the updater's bar: it has to see
+        // the body arrive and know how large the server said it would be.
+        StubServer server("HTTP/1.1 200 OK\r\nContent-Length: 22\r\nConnection: close\r\n\r\n"
+                          "{\"success\":true,\"n\":1}",
+                          1);
+        check(server.start(), "progress stub server listens");
+
+        long long lastReceived = -1;
+        long long lastTotal = -1;
+        int calls = 0;
+        const rblx::http::Response response = rblx::http::request(
+            "GET", baseUrl(server) + "/api/games", "", "", 5000,
+            [&](long long received, long long total) {
+                ++calls;
+                lastReceived = received;
+                lastTotal = total;
+            });
+        check(response.ok(), "a request with a progress callback succeeds");
+        check(calls > 0, "progress is reported while the body arrives");
+        check(lastTotal == 22, "the declared length reaches the callback");
+        check(lastReceived == 22, "the last report covers the whole body");
+
+        server.stop();
+    }
+
+    {
         const rblx::http::Response response = rblx::http::request("GET", "https://example.com/");
         check(response.networkError(), "https URLs fail instead of pretending to work");
         check(response.error.find("TLS") != std::string::npos, "https failure explains the missing TLS support");

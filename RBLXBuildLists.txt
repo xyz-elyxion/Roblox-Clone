@@ -181,37 +181,51 @@ if(RBLX_BUILD_UPDATER)
     # rename, and starts the game - which is what the installed Play shortcut
     # runs. RBLXSetup (below) is the installer that puts a packaged folder on a
     # machine in the first place.
+    #
+    # Both show their work in a window (InstallUi), which is why they carry the
+    # same window and ImGui sources the editors do. The console commands are not a
+    # fallback for a missing window: they are how a script and the packaging step
+    # drive these tools, and they keep working exactly as before.
     add_executable(RBLXUpdater
         src/UpdaterMain.cpp
         src/Updater.cpp
         src/WebJson.cpp
         src/WebCrypto.cpp
         src/HttpClient.cpp
+        src/InstallUi.cpp
+        ${IMGUI_SOURCES}
     )
     configure_rblx_target(RBLXUpdater)
+    target_link_libraries(RBLXUpdater PRIVATE glfw glad)
     if(WIN32)
         target_link_libraries(RBLXUpdater PRIVATE ws2_32)
     else()
         find_package(Threads REQUIRED)
-        target_link_libraries(RBLXUpdater PRIVATE Threads::Threads)
+        target_link_libraries(RBLXUpdater PRIVATE Threads::Threads ${RBLXBUILD_DL_LIBS})
     endif()
 
     # The setup is the installer: it copies the packaged folder into a per-user
     # location, records what it put there as manifest.json, adds the shortcuts and
     # the Add/Remove Programs entry, and is its own uninstaller. It never touches
     # the network - the payload is the folder it was run from - so it links the
-    # same file and hash helpers the updater uses and nothing else.
+    # file and hash helpers the updater uses, the window, and nothing else.
     add_executable(RBLXSetup
         src/SetupMain.cpp
         src/Updater.cpp
         src/WebJson.cpp
         src/WebCrypto.cpp
+        src/InstallUi.cpp
+        ${IMGUI_SOURCES}
     )
     configure_rblx_target(RBLXSetup)
+    target_link_libraries(RBLXSetup PRIVATE glfw glad)
     if(WIN32)
         # IShellLink and IPersistFile are COM, the folder lookups are shell32, and
         # the uninstall entry is written with the registry API.
         target_link_libraries(RBLXSetup PRIVATE ole32 shell32 advapi32 uuid)
+    else()
+        find_package(Threads REQUIRED)
+        target_link_libraries(RBLXSetup PRIVATE Threads::Threads ${RBLXBUILD_DL_LIBS})
     endif()
 endif()
 

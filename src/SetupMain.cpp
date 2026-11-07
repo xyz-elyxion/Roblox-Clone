@@ -22,6 +22,7 @@
 // HKCU on Windows, a .desktop file on everything else. Nothing here needs a
 // network: the payload is the folder the setup was run from.
 
+#include "InstallUi.h"
 #include "Updater.h"
 
 #include <algorithm>
@@ -29,6 +30,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <filesystem>
+#include <functional>
 #include <iostream>
 #include <string>
 #include <vector>
@@ -61,18 +63,43 @@ struct Options {
     bool launch = false;
     bool quiet = false;
     bool help = false;
+    // A window instead of the console; --no-ui forces the console even when the
+    // setup was double-clicked.
+    bool ui = false;
+    bool noUi = false;
 };
 
+// Where a windowed run sends its lines. Empty means the console, which is what
+// every script and test uses.
+std::function<void(const std::string&)> g_progress;
+std::function<void(const std::string&)> g_problem;
+std::function<bool()> g_cancelled;
+
+bool cancelled() { return g_cancelled && g_cancelled(); }
+
 void print(const Options& options, const std::string& text) {
+    if (g_progress) {
+        g_progress(text);
+        return;
+    }
     if (!options.quiet) std::cout << text << std::endl;
 }
 
-void printError(const std::string& text) { std::cerr << "RBLXSetup: " << text << std::endl; }
+void printError(const std::string& text) {
+    if (g_problem) {
+        g_problem(text);
+        return;
+    }
+    std::cerr << "RBLXSetup: " << text << std::endl;
+}
 
 void usage() {
     std::cout << "RBLXSetup - installs RBLX Clone for the current user\n\n"
                  "  RBLXSetup [--dir <folder>] [--url <manifest.json>] [--no-shortcuts] [--launch]\n"
                  "  RBLXSetup --uninstall [--dir <folder>] [--purge]\n\n"
+                 "Run with no arguments to install from a window. Any argument means a\n"
+                 "script, so the console is used; --ui asks for the window anyway and\n"
+                 "--no-ui refuses it.\n\n"
                  "Installs the folder this program is in, keeps its layout, and records it\n"
                  "as manifest.json so RBLXUpdater can update or remove it file by file.\n"
                  "Run it from a packaged folder; it refuses to install into itself.\n";
@@ -181,7 +208,10 @@ bool registerUninstall(const std::string& installDirectory, const std::string& v
     ok = ok && setString(key, L"Publisher", kProductName);
     ok = ok && setString(key, L"InstallLocation", installDirectory);
     ok = ok && setString(key, L"DisplayIcon", (fs::path(installDirectory) / "Client.exe").string());
-    ok = ok && setString(key, L"UninstallString", "\"" + setup + "\" --uninstall");
+    // Add/Remove Programs gets a window, because a console one would flash and
+    // disappear before anyone could read it. The quiet entry stays silent for
+    // scripted removal.
+    ok = ok && setString(key, L"UninstallString", "\"" + setup + "\" --uninstall --ui");
     ok = ok && setString(key, L"QuietUninstallString", "\"" + setup + "\" --uninstall --quiet");
 
     // Add/Remove Programs offers Modify and Repair unless told otherwise, and
@@ -320,6 +350,13 @@ bool copyPayload(const std::string& source, const std::string& target, int* copi
     if (!rblx::update::collectPayloadFiles(source, &files, error)) return false;
 
     for (const std::string& relative : files) {
+        // Cancelling is only ever honoured between files: a half-written
+        // executable is worse than making the user wait for the current one.
+        if (cancelled()) {
+            if (error) *error = "cancelled after " + std::to_string(*copied) + " file(s)";
+            return false;
+        }
+
         const fs::path from = fs::path(source) / relative;
         const fs::path to = fs::path(target) / relative;
 
@@ -571,6 +608,10 @@ bool parseOptions(int argc, char** argv, Options* options) {
             options->shortcuts = false;
         } else if (argument == "--launch") {
             options->launch = true;
+        } else if (argument == "--ui") {
+            options->ui = true;
+        } else if (argument == "--no-ui") {
+            options->noUi = true;
         } else if (argument == "--quiet") {
             options->quiet = true;
         } else if (argument == "--help" || argument == "-h") {
@@ -582,6 +623,88 @@ bool parseOptions(int argc, char** argv, Options* options) {
         }
     }
     return true;
+}
+
+// Starts the installed copy's updater, which checks for a release before it
+// starts the game. This is what the Play button and --launch both do.
+bool launchAt(const std::string& target) {
+#ifdef _WIN32
+    const fs::path updater = fs::path(target) / "RBLXUpdater.exe";
+#else
+    // The Unix build's executables carry no extension.
+    const fs::path updater = fs::path(target) / "RBLXUpdater";
+#endif
+    if (!fs::exists(updater)) {
+        printError("there is no " + updater.string() + " in " + target + " to start");
+        return false;
+    }
+#ifdef _WIN32
+    return _spawnl(_P_NOWAIT, updater.string().c_str(), updater.string().c_str(), "--launch",
+                   static_cast<char*>(nullptr)) != -1;
+#else
+    const pid_t pid = fork();
+    if (pid < 0) return false;
+    if (pid == 0) {
+        if (chdir(target.c_str()) != 0) _exit(127);
+        execl(updater.c_str(), updater.c_str(), "--launch", static_cast<char*>(nullptr));
+        _exit(127);
+    }
+    return true;
+#endif
+}
+
+// Runs the install, or the uninstall, in a window. Returns -1 when no window
+// could be created, so the caller can do the same work on the console.
+int windowed(Options& options, const std::string& source, const char* argv0) {
+    const std::string defaultFolder =
+        options.directory.empty() ? defaultInstallDirectory() : options.directory;
+
+    rblx::ui::Options window;
+    window.title = "RBLX Clone Setup";
+    window.heading = options.uninstall ? "Remove RBLX Clone" : "Install RBLX Clone";
+    window.detail = options.uninstall
+                        ? "Removes the files it installed and the shortcut. Worlds, saves and "
+                          "account data are left in place."
+                        : "Copies this folder into your account, adds the shortcut, and records "
+                          "what it installed so the copy can update and uninstall itself.";
+    window.startLabel = options.uninstall ? "Remove" : "Install";
+    window.cancelLabel = options.uninstall ? "Keep it" : "Cancel";
+    window.folder = options.uninstall ? std::string() : defaultFolder;
+    window.showFolder = !options.uninstall;
+    window.shortcuts = options.shortcuts;
+
+    const std::vector<std::string> actions =
+        options.uninstall ? std::vector<std::string>{"Close"}
+                          : std::vector<std::string>{"Play", "Close"};
+
+    const rblx::ui::Result result = rblx::ui::run(window, actions, [&](rblx::ui::Report& report) {
+        // The window owns the folder field and the checkbox, so the copy that
+        // runs takes its settings from there rather than from the arguments.
+        Options run = options;
+        run.directory =
+            options.uninstall ? options.directory
+                              : (window.folder.empty() ? defaultFolder : window.folder);
+        run.shortcuts = window.shortcuts;
+        run.quiet = false;
+
+        g_progress = [&report](const std::string& text) { report.line(text); };
+        g_problem = [&report](const std::string& text) { report.problem(text); };
+        g_cancelled = [&report]() { return report.cancelled(); };
+
+        const bool ok = options.uninstall ? (uninstall(run, argv0) == 0) : (install(run, source) == 0);
+
+        g_progress = nullptr;
+        g_problem = nullptr;
+        g_cancelled = nullptr;
+        return ok;
+    });
+
+    if (!result.shown) return -1;
+    if (result.cancelled) return 0;
+    if (!result.action.empty() && result.action != "Close") {
+        return launchAt(defaultFolder) ? 0 : 1;
+    }
+    return result.ok ? 0 : 1;
 }
 
 }  // namespace
@@ -596,34 +719,23 @@ int main(int argc, char** argv) {
 
     const bool com = initializeCom();
     const std::string source = executableDirectory(argv[0]);
-    const int status = options.uninstall ? uninstall(options, argv[0]) : install(options, source);
+
+    // No arguments at all means somebody double-clicked the setup, so it opens a
+    // window. Any argument means a script, which wants the console, unless --ui
+    // says otherwise. A window that cannot be created falls back to the console.
+    int status = -1;
+    if (!options.noUi && (options.ui || argc == 1)) {
+        status = windowed(options, source, argv[0]);
+    }
+    if (status < 0) {
+        status = options.uninstall ? uninstall(options, argv[0]) : install(options, source);
+        if (status == 0 && options.launch && !options.uninstall) {
+            const std::string target =
+                options.directory.empty() ? defaultInstallDirectory() : options.directory;
+            if (!launchAt(target)) status = 1;
+        }
+    }
 
     if (com) uninitializeCom();
-
-    if (status == 0 && options.launch && !options.uninstall) {
-        const std::string target =
-            options.directory.empty() ? defaultInstallDirectory() : options.directory;
-#ifdef _WIN32
-        const fs::path updater = fs::path(target) / "RBLXUpdater.exe";
-#else
-        // The Unix build's executables carry no extension.
-        const fs::path updater = fs::path(target) / "RBLXUpdater";
-#endif
-        if (!fs::exists(updater)) {
-            printError("there is no " + updater.string() + " in " + target + " to start");
-            return 1;
-        }
-#ifdef _WIN32
-        _spawnl(_P_NOWAIT, updater.string().c_str(), updater.string().c_str(), "--launch",
-                static_cast<char*>(nullptr));
-#else
-        const pid_t pid = fork();
-        if (pid == 0) {
-            if (chdir(target.c_str()) != 0) _exit(127);
-            execl(updater.c_str(), updater.c_str(), "--launch", static_cast<char*>(nullptr));
-            _exit(127);
-        }
-#endif
-    }
     return status;
 }

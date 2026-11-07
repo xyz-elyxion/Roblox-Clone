@@ -22,6 +22,7 @@
 // and serve that folder over HTTP.
 
 #include "HttpClient.h"
+#include "InstallUi.h"
 #include "Updater.h"
 
 #include <algorithm>
@@ -29,6 +30,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <filesystem>
+#include <functional>
 #include <iostream>
 #include <string>
 #include <vector>
@@ -56,10 +58,32 @@ struct Options {
     std::string channel = "stable";
     bool launch = false;
     bool quiet = false;
+    // A window instead of the console; --no-ui forces the console.
+    bool ui = false;
+    bool noUi = false;
 };
 
-void printError(const std::string& text) { std::cerr << "RBLXUpdater: " << text << std::endl; }
+// Where a windowed run sends its lines. Empty means the console, which is what
+// every script, test and packaging step uses.
+std::function<void(const std::string&)> g_progress;
+std::function<void(const std::string&)> g_problem;
+std::function<bool()> g_cancelled;
+
+bool cancelled() { return g_cancelled && g_cancelled(); }
+
+void printError(const std::string& text) {
+    if (g_problem) {
+        g_problem(text);
+        return;
+    }
+    std::cerr << "RBLXUpdater: " << text << std::endl;
+}
+
 void print(const Options& options, const std::string& text) {
+    if (g_progress) {
+        g_progress(text);
+        return;
+    }
     if (!options.quiet) std::cout << text << std::endl;
 }
 
@@ -77,6 +101,8 @@ void usage() {
                  "  --version <version>   version to record when writing a manifest\n"
                  "  --channel <name>      channel to record when writing a manifest\n"
                  "  --launch              start the program named in update.json afterwards\n"
+                 "  --ui                  show the work in a window (default for --launch)\n"
+                 "  --no-ui               never show a window, even if --ui is implied\n"
                  "  --quiet               only print warnings and errors\n";
 }
 
@@ -118,6 +144,10 @@ bool parseOptions(int argc, char** argv, Options* options) {
             if (!readValue(argc, argv, ++i, "--channel", &options->channel)) return false;
         } else if (argument == "--launch") {
             options->launch = true;
+        } else if (argument == "--ui") {
+            options->ui = true;
+        } else if (argument == "--no-ui") {
+            options->noUi = true;
         } else if (argument == "--quiet") {
             options->quiet = true;
         } else if (argument == "--help" || argument == "-h" || argument == "help") {
@@ -250,6 +280,13 @@ bool sync(const Options& options, const std::string& manifestUrl, bool install,
                         " MB to download");
 
     for (const FileEntry& entry : plan.download) {
+        // Only between files: the file being fetched is finished, so the install
+        // is left as it was rather than half replaced.
+        if (cancelled()) {
+            fs::remove_all(staging, ignored);
+            *error = "cancelled; the installed copy is unchanged";
+            return false;
+        }
         if (!downloadEntry(staging, baseUrl, entry, error)) {
             fs::remove_all(staging, ignored);
             return false;
@@ -398,6 +435,97 @@ bool launchProgram(const std::string& directory, const std::string& program, std
     return true;
 }
 
+// Applies whatever the release server has, records the settings when this run
+// supplied them, and starts the game when asked to. The console path and the
+// window both come through here, so the two cannot drift apart.
+int applyRelease(Options& options, const Config& config, const std::string& configPath,
+                 bool installing, std::string* error) {
+    Manifest applied;
+    const bool updated = sync(options, config.manifestUrl, installing, &applied, error);
+    if (!updated) {
+        // Being unable to update is not a reason to refuse to play: say what
+        // happened and start the game anyway.
+        printError(*error);
+        if (!options.launch) return 1;
+        printError("starting the installed copy unchanged");
+    }
+
+    if (installing || !options.manifestUrl.empty()) {
+        std::string writeError;
+        if (!rblx::update::writeConfigFile(configPath, config, &writeError)) {
+            printError(writeError);
+            if (!options.launch) return 1;
+        }
+    }
+
+    if (!options.launch) return 0;
+    const std::string program = config.launch.empty() ? "Client.exe" : config.launch;
+    if (!launchProgram(options.directory, program, error)) {
+        printError(*error);
+        return 1;
+    }
+    return 0;
+}
+
+// Runs the update in a window and starts the game from its Play button. Returns
+// -1 when no window could be created, so the caller can use the console.
+int windowed(Options& options, bool installing) {
+    rblx::ui::Options window;
+    window.title = "RBLX Clone";
+    window.heading = "RBLX Clone";
+    window.detail =
+        "Checks for a new release, downloads only the files that changed, then starts the game.";
+    window.showFolder = false;
+    window.autoStart = true;
+
+    const std::vector<std::string> actions{"Play", "Close"};
+
+    const rblx::ui::Result result = rblx::ui::run(window, actions, [&](rblx::ui::Report& report) {
+        Options run = options;
+        run.launch = false;  // the window's Play button starts the game
+        run.quiet = false;
+
+        g_progress = [&report](const std::string& text) { report.line(text); };
+        g_problem = [&report](const std::string& text) { report.problem(text); };
+        g_cancelled = [&report]() { return report.cancelled(); };
+
+        const std::string configPath = (fs::path(run.directory) / "update.json").string();
+        Config config;
+        std::string error;
+        bool ok = false;
+        if (run.manifestUrl.empty() && !rblx::update::readConfigFile(configPath, &config, &error)) {
+            printError(error + "; run: RBLXUpdater install --manifest <url>");
+        } else {
+            if (!run.manifestUrl.empty()) {
+                std::string ignored;
+                rblx::update::readConfigFile(configPath, &config, &ignored);
+                config.manifestUrl = run.manifestUrl;
+            }
+            ok = applyRelease(run, config, configPath, installing, &error) == 0;
+        }
+
+        g_progress = nullptr;
+        g_problem = nullptr;
+        g_cancelled = nullptr;
+        return ok;
+    });
+
+    if (!result.shown) return -1;
+    if (result.action != "Play") return result.ok ? 0 : 1;
+
+    Config config;
+    std::string ignored;
+    rblx::update::readConfigFile((fs::path(options.directory) / "update.json").string(), &config,
+                                 &ignored);
+    std::string error;
+    const std::string program = config.launch.empty() ? "Client.exe" : config.launch;
+    if (!launchProgram(options.directory, program, &error)) {
+        printError(error);
+        return 1;
+    }
+    return 0;
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -419,6 +547,16 @@ int main(int argc, char** argv) {
         return 2;
     }
 
+    // The Play shortcut runs `--launch` with nothing else, and a person pressed
+    // it: show the update in a window. `--ui` asks for the window explicitly, and
+    // every other command stays on the console because a script is driving it.
+    // This runs before the settings are read, so a missing update.json is
+    // explained in the window rather than on a console nobody can see.
+    if (!options.noUi && (options.ui || (command.empty() && options.launch))) {
+        const int status = windowed(options, installing);
+        if (status >= 0) return status;
+    }
+
     const std::string configPath = (fs::path(options.directory) / "update.json").string();
     Config config;
     std::string error;
@@ -435,33 +573,5 @@ int main(int argc, char** argv) {
 
     if (command == "check") return checkCommand(options, config.manifestUrl);
 
-    Manifest applied;
-    const bool updated = sync(options, config.manifestUrl, installing, &applied, &error);
-    if (!updated) {
-        // Being unable to update is not a reason to refuse to play: say what
-        // happened and start the game anyway.
-        if (options.launch) {
-            printError(error);
-            printError("starting the installed copy unchanged");
-        } else {
-            printError(error);
-            return 1;
-        }
-    }
-
-    if (installing || !options.manifestUrl.empty()) {
-        std::string writeError;
-        if (!rblx::update::writeConfigFile(configPath, config, &writeError)) {
-            printError(writeError);
-            if (!options.launch) return 1;
-        }
-    }
-
-    if (!options.launch) return 0;
-    if (config.launch.empty()) config.launch = "Client.exe";
-    if (!launchProgram(options.directory, config.launch, &error)) {
-        printError(error);
-        return 1;
-    }
-    return 0;
+    return applyRelease(options, config, configPath, installing, &error);
 }

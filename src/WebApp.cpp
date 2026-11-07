@@ -776,6 +776,12 @@ std::string pageFileForPath(const std::string& path) {
     if (path == "/admin") {
         return "admin.html";
     }
+    // The developer portal the site navigation links to and the trainer points
+    // people at: AI tokens and the AI switches. Without this route the link was
+    // the site's own 404 page.
+    if (path == "/developers") {
+        return "developers.html";
+    }
     // The guided tour of the whole project. It is a page rather than a separate
     // program because the website is already running when somebody reads it, so
     // each step can check itself against the live API.

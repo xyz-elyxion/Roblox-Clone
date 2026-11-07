@@ -729,6 +729,12 @@ void testHttp() {
                 "the admin page is served", &body);
     checkContains(body, "data-admin-page", "the admin page markup is returned");
 
+    // The site navigation links this page for every signed-in account, so a
+    // missing route shows up as the 404 page rather than as a broken feature.
+    checkStatus(app, "GET", "/developers", std::string(), std::string(), 200,
+                "the developer portal is served", &body);
+    checkContains(body, "AI training", "the developer portal markup is returned");
+
     checkStatus(app, "DELETE", "/api/admin/games/" + std::to_string(gameId), std::string(),
                 outsiderToken, 403, "deleting a game needs an admin");
     checkStatus(app, "DELETE", "/api/admin/games/" + std::to_string(gameId), std::string(), token,

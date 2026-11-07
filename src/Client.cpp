@@ -1153,7 +1153,6 @@ int main(int argc, char** argv) {
         IMGUI_CHECKVERSION();
         ImGui::CreateContext();
         ImGuiIO& io = ImGui::GetIO(); (void)io;
-        ImGui::StyleColorsDark();
         applyModernPlayerStyle();
         const float uiScale = UiScale::Apply(window.getNativeWindow());
         ImGui_ImplGlfw_InitForOpenGL(window.getNativeWindow(), true);

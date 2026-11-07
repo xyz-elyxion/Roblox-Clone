@@ -46,10 +46,19 @@ void drawLabel(const char* text) {
     ImGui::PopStyleColor();
 }
 
+// A dark button lights up when the pointer arrives and a pale one has to go the
+// other way, or the hover reads as disabled on the light palette.
+ImVec4 shiftColor(const ImVec4& color, float step) {
+    return ImVec4(std::min(std::max(color.x + step, 0.0f), 1.0f),
+                  std::min(std::max(color.y + step, 0.0f), 1.0f),
+                  std::min(std::max(color.z + step, 0.0f), 1.0f), color.w);
+}
+
 bool modernButton(const char* label, const ImVec2& size, const ImVec4& color) {
+    const bool light = rblx::ui::theme::isLight();
     ImGui::PushStyleColor(ImGuiCol_Button, color);
-    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(std::min(color.x + 0.08f, 1.0f), std::min(color.y + 0.08f, 1.0f), std::min(color.z + 0.08f, 1.0f), color.w));
-    ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(std::max(color.x - 0.06f, 0.0f), std::max(color.y - 0.06f, 0.0f), std::max(color.z - 0.06f, 0.0f), color.w));
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, shiftColor(color, light ? -0.07f : 0.08f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, shiftColor(color, light ? -0.14f : -0.06f));
     bool pressed = ImGui::Button(label, size);
     ImGui::PopStyleColor(3);
     return pressed;
@@ -434,7 +443,7 @@ void renderDeathOverlay(float uiScale) {
     ImGui::SetNextWindowPos(ImVec2(0.0f, 0.0f), ImGuiCond_Always);
     ImGui::SetNextWindowSize(display, ImGuiCond_Always);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
-    ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.02f, 0.03f, 0.05f, 0.55f));
+    ImGui::PushStyleColor(ImGuiCol_WindowBg, rblx::ui::theme::overlay(0.55f));
     ImGui::Begin("DeathBackdrop", nullptr,
                  ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoSavedSettings |
                  ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoNav |
@@ -543,7 +552,7 @@ void renderEscapeMenu(std::deque<Part>& parts, PhysicsWorld& physicsWorld, float
     ImGui::SetNextWindowPos(ImVec2(0.0f, 0.0f), ImGuiCond_Always);
     ImGui::SetNextWindowSize(display, ImGuiCond_Always);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
-    ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.02f, 0.03f, 0.05f, 0.72f));
+    ImGui::PushStyleColor(ImGuiCol_WindowBg, rblx::ui::theme::overlay(0.72f));
     ImGui::Begin("EscapeMenuBackdrop", nullptr,
                  ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoSavedSettings |
                  ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoNav |

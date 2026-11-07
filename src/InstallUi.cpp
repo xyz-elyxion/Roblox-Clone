@@ -103,9 +103,14 @@ std::string waitingDots() {
 }
 
 void drawButton(const char* label, const ImVec4& color) {
+    // Toward the light on the dark palette, toward the dark on the light one:
+    // a hover that washes a pale button out reads as disabled.
+    const float step = theme::isLight() ? -0.07f : 0.08f;
     ImGui::PushStyleColor(ImGuiCol_Button, color);
     ImGui::PushStyleColor(ImGuiCol_ButtonHovered,
-                          ImVec4(color.x + 0.08f, color.y + 0.06f, color.z + 0.06f, 1.00f));
+                          ImVec4(std::min(std::max(color.x + step, 0.0f), 1.0f),
+                                 std::min(std::max(color.y + step, 0.0f), 1.0f),
+                                 std::min(std::max(color.z + step, 0.0f), 1.0f), 1.00f));
     ImGui::PushStyleColor(ImGuiCol_ButtonActive, color);
     ImGui::Button(label, ImVec2(132.0f, 0.0f));
     ImGui::PopStyleColor(3);

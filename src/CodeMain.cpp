@@ -170,7 +170,9 @@ struct App {
     bool navigating = false;
     int tabSize = 4;
     bool showWhitespace = false;
-    bool lightTheme = false;
+    // The editor's own palette starts out matching the window's, which comes
+    // from the shared settings file; the View menu can still differ from it.
+    bool lightTheme = rblx::ui::theme::isLight();
     double nextDiskCheck = 0.0;
 
     void setRoot(const std::string& path) {
@@ -828,7 +830,7 @@ struct App {
         ImGui::TextDisabled("%s", hoverPage.kind.c_str());
         ImGui::Separator();
         if (!hoverPage.signature.empty()) {
-            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.72f, 0.80f, 0.94f, 1.0f));
+            ImGui::PushStyleColor(ImGuiCol_Text, rblx::ui::theme::accentStrong());
             ImGui::TextUnformatted(hoverPage.signature.c_str());
             ImGui::PopStyleColor();
         }
@@ -1009,7 +1011,7 @@ struct App {
             ImGui::TextDisabled("%s", docPage.kind.c_str());
             ImGui::Separator();
             if (!docPage.signature.empty()) {
-                ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.72f, 0.80f, 0.94f, 1.0f));
+                ImGui::PushStyleColor(ImGuiCol_Text, rblx::ui::theme::accentStrong());
                 ImGui::TextUnformatted(docPage.signature.c_str());
                 ImGui::PopStyleColor();
             }
@@ -1507,7 +1509,7 @@ struct App {
         }
 
         if (file.stale) {
-            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.95f, 0.72f, 0.28f, 1.0f));
+            ImGui::PushStyleColor(ImGuiCol_Text, rblx::ui::theme::warning());
             ImGui::TextUnformatted("This file changed on disk while you had edits in it.");
             ImGui::PopStyleColor();
             ImGui::SameLine();

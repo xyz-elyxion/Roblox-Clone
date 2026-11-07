@@ -100,7 +100,23 @@ published yet" rather than as a failure.
 
 Every window this project opens — the installer and updater, the server console, Studio, RBLXCode and
 the client's menus — takes its palette and spacing from `include/UiTheme.h`, so they read as one
-program rather than five.
+program rather than five. There are two palettes, a dark one and a light one built on the same mint
+accent, and a single settings file chooses between them for every window:
+
+```ini
+# %APPDATA%\RBLXClone\ui.settings
+# Linux and macOS: ~/.config/rblxclone/ui.settings
+# XDG_CONFIG_HOME is honoured when it is set.
+theme = light
+```
+
+Nothing is written until somebody makes that file, and without it every window draws the dark
+palette. `RBLX_THEME=light` or `RBLX_THEME=dark` overrides the file for one launch, and
+`RBLX_UI_SETTINGS` points at a different file, which is how the tests below run without touching the
+user's settings. Lines starting with `#` or `;` are comments, both the key and the value are
+case-insensitive, and an unknown key or value is ignored rather than treated as an error, so a
+settings file written for a later version still loads. RBLXCode's own editor palette starts out
+matching the window and stays switchable from its View menu.
 
 The release side is one command on the machine that produced the package:
 

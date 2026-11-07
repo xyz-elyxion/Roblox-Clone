@@ -73,6 +73,10 @@ std::string testWebRoot() {
                          std::ios::binary | std::ios::trunc);
     editor << "<!doctype html><title>editor</title><div data-editor-page></div>";
     editor.close();
+    std::ofstream developers((directory / "public" / "developers.html").string().c_str(),
+                             std::ios::binary | std::ios::trunc);
+    developers << "<!doctype html><title>developers</title><h1>AI training</h1>";
+    developers.close();
     return directory.string();
 }
 

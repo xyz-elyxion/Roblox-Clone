@@ -93,8 +93,10 @@ for `manifest.json`, compares it with the manifest it saved in the install folde
 the files whose SHA-256 differs. Each download is checked against its hash before it is written, and
 each replacement goes through a rename with the old file moved aside first, so an interrupted update
 leaves the previous file in place; the manifest is written last, which is what marks the update
-complete. A machine that is offline, or whose build is newer than the published one, still starts the
-game.
+complete. A machine that is offline, whose release server has published nothing yet (the usual state
+of a fresh copy, and of every build that has never been put on a server), or whose build is newer
+than the published one, still starts the game; a 404 for `manifest.json` is reported as "nothing is
+published yet" rather than as a failure.
 
 The release side is one command on the machine that produced the package:
 

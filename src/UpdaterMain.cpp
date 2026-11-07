@@ -169,13 +169,15 @@ bool parseOptions(int argc, char** argv, Options* options) {
 }
 
 bool fetch(const std::string& url, std::string* body, std::string* error,
-           const rblx::http::ProgressCallback& onProgress = rblx::http::ProgressCallback()) {
+           const rblx::http::ProgressCallback& onProgress = rblx::http::ProgressCallback(),
+           int* status = nullptr) {
     // g_cancelled makes the download itself interruptible, not just the space
     // between two files: a large file or an unreachable server would otherwise
     // leave the window's Cancel button with nothing to act on for two minutes.
     const rblx::http::Response response =
         rblx::http::request("GET", url, std::string(), std::string(), 120000, onProgress,
                             g_cancelled);
+    if (status) *status = response.status;
     if (!response.ok()) {
         if (!response.error.empty()) {
             *error = response.error + " (" + url + ")";
@@ -186,12 +188,21 @@ bool fetch(const std::string& url, std::string* body, std::string* error,
     }
     *body = response.body;
     return true;
-}
+}// Asking the release server ends three ways. "Nothing published" is not a
+// failure: the website serves /updates/ out of the folder releases are copied
+// into, so a fresh copy of this project has nothing there yet. The updater then
+// keeps the copy it has and the game still starts.
+enum class ManifestFetch { Ok, NotPublished, Failed };
 
-bool fetchManifest(const std::string& url, Manifest* manifest, std::string* error) {
+ManifestFetch fetchManifest(const std::string& url, Manifest* manifest, std::string* error) {
     std::string body;
-    if (!fetch(url, &body, error)) return false;
-    return rblx::update::parseManifest(body, manifest, error);
+    int status = 0;
+    if (!fetch(url, &body, error, rblx::http::ProgressCallback(), &status)) {
+        if (status == 404) return ManifestFetch::NotPublished;
+        return ManifestFetch::Failed;
+    }
+    if (!rblx::update::parseManifest(body, manifest, error)) return ManifestFetch::Failed;
+    return ManifestFetch::Ok;
 }
 
 // The file is checked before it is written, and written through a rename, so a
@@ -253,7 +264,18 @@ bool sync(const Options& options, const std::string& manifestUrl, bool install,
     // Say what is being contacted before the request: a slow or unreachable
     // server otherwise leaves the window showing nothing at all.
     print(options, "checking " + manifestUrl + " for a newer release");
-    if (!fetchManifest(manifestUrl, &target, error)) {
+    const ManifestFetch fetched = fetchManifest(manifestUrl, &target, error);
+    if (fetched == ManifestFetch::NotPublished) {
+        // Installing from scratch has nothing to copy, so a missing release is
+        // still an error there; an existing copy simply stays as it is.
+        if (install) {
+            *error = "nothing is published at " + manifestUrl + " to install from";
+            return false;
+        }
+        print(options, "nothing is published at " + manifestUrl + " yet; keeping this copy");
+        return true;
+    }
+    if (fetched == ManifestFetch::Failed) {
         if (cancelled()) *error = "cancelled; the installed copy is unchanged";
         return false;
     }
@@ -352,7 +374,14 @@ bool sync(const Options& options, const std::string& manifestUrl, bool install,
 int checkCommand(const Options& options, const std::string& manifestUrl) {
     Manifest target;
     std::string error;
-    if (!fetchManifest(manifestUrl, &target, &error)) {
+    const ManifestFetch fetched = fetchManifest(manifestUrl, &target, &error);
+    if (fetched == ManifestFetch::NotPublished) {
+        // Exit 0 is "nothing to install": a monitor that polls this must not be
+        // woken up by a release server that has not published anything.
+        std::cout << "nothing is published at " << manifestUrl << " yet" << std::endl;
+        return 0;
+    }
+    if (fetched == ManifestFetch::Failed) {
         printError(error);
         return 1;
     }

@@ -7,6 +7,7 @@
 #include "PhysicsWorld.h"
 #include "ShadowMap.h"
 #include "UiScale.h"
+#include "UiTheme.h"
 
 #include <fstream>
 #include <sstream>
@@ -175,7 +176,7 @@ int main() {
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO(); (void)io;
-    ImGui::StyleColorsDark();
+    rblx::ui::theme::apply();
     const float uiScale = UiScale::Apply(window.getNativeWindow());
     ImGui_ImplGlfw_InitForOpenGL(window.getNativeWindow(), true);
     ImGui_ImplOpenGL3_Init("#version 330");

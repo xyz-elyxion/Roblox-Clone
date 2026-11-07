@@ -1,5 +1,6 @@
 #include "Editor.h"
 #include "UiScale.h"
+#include "UiTheme.h"
 #include <iostream>
 #include "imgui_internal.h" // Needed for DockBuilder
 
@@ -18,8 +19,9 @@ void Editor::init() {
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;           // Enable Docking
     io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;         // Enable Multi-Viewport / Platform Windows
 
-    // Setup Dear ImGui style
-    ImGui::StyleColorsDark();
+    // The same palette as the rest of the project, then the window's own
+    // resolution scaling on top.
+    rblx::ui::theme::apply();
     UiScale::Apply(window);
 
     // Setup Platform/Renderer backends

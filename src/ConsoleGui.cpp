@@ -33,6 +33,7 @@
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl3.h"
+#include "UiTheme.h"
 
 namespace rblx {
 namespace console {
@@ -198,35 +199,8 @@ const ServerRow* findServer(const std::vector<ServerRow>& servers, const std::st
     return nullptr;
 }
 
-void applyTheme() {
-    ImGui::StyleColorsDark();
-    ImGuiStyle& style = ImGui::GetStyle();
-    style.WindowRounding = 0.0f;
-    style.ChildRounding = 6.0f;
-    style.FrameRounding = 4.0f;
-    style.PopupRounding = 4.0f;
-    style.ScrollbarRounding = 6.0f;
-    style.GrabRounding = 4.0f;
-    style.WindowBorderSize = 0.0f;
-    style.ChildBorderSize = 1.0f;
-    style.FramePadding = ImVec2(8.0f, 4.0f);
-    style.ItemSpacing = ImVec2(8.0f, 6.0f);
-
-    ImVec4* colors = style.Colors;
-    colors[ImGuiCol_WindowBg] = ImVec4(0.07f, 0.08f, 0.10f, 1.00f);
-    colors[ImGuiCol_ChildBg] = ImVec4(0.05f, 0.06f, 0.07f, 1.00f);
-    colors[ImGuiCol_Border] = ImVec4(0.18f, 0.20f, 0.24f, 1.00f);
-    colors[ImGuiCol_FrameBg] = ImVec4(0.13f, 0.15f, 0.18f, 1.00f);
-    colors[ImGuiCol_FrameBgHovered] = ImVec4(0.18f, 0.21f, 0.25f, 1.00f);
-    colors[ImGuiCol_Button] = ImVec4(0.16f, 0.19f, 0.23f, 1.00f);
-    colors[ImGuiCol_ButtonHovered] = ImVec4(0.24f, 0.32f, 0.38f, 1.00f);
-    colors[ImGuiCol_ButtonActive] = ImVec4(0.20f, 0.42f, 0.46f, 1.00f);
-    colors[ImGuiCol_Header] = ImVec4(0.18f, 0.28f, 0.32f, 1.00f);
-    colors[ImGuiCol_HeaderHovered] = ImVec4(0.22f, 0.34f, 0.38f, 1.00f);
-    colors[ImGuiCol_HeaderActive] = ImVec4(0.24f, 0.40f, 0.44f, 1.00f);
-    colors[ImGuiCol_CheckMark] = ImVec4(0.42f, 0.86f, 0.72f, 1.00f);
-    colors[ImGuiCol_TextSelectedBg] = ImVec4(0.24f, 0.44f, 0.42f, 0.60f);
-}
+// Shared with every other window: UiTheme.h owns the palette and the spacing.
+void applyTheme() { rblx::ui::theme::apply(); }
 
 void loadConsoleFont() {
     ImGuiIO& io = ImGui::GetIO();

@@ -9,6 +9,7 @@
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl3.h"
+#include "UiTheme.h"
 
 #include <algorithm>
 #include <cstdio>
@@ -1957,10 +1958,8 @@ void beginImGui(Window& window) {
     // The layout is fixed in code, so no imgui.ini is written beside the
     // executable and every checkout opens the same way.
     io.IniFilename = nullptr;
-    ImGui::StyleColorsDark();
-    ImGui::GetStyle().WindowRounding = 0.0f;
-    ImGui::GetStyle().ChildRounding = 0.0f;
-    ImGui::GetStyle().TabRounding = 3.0f;
+    // One palette for every window in the project, from UiTheme.h.
+    rblx::ui::theme::apply();
     ImGui_ImplGlfw_InitForOpenGL(window.getNativeWindow(), true);
     ImGui_ImplOpenGL3_Init("#version 330");
 }

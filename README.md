@@ -98,6 +98,10 @@ of a fresh copy, and of every build that has never been put on a server), or who
 than the published one, still starts the game; a 404 for `manifest.json` is reported as "nothing is
 published yet" rather than as a failure.
 
+Every window this project opens — the installer and updater, the server console, Studio, RBLXCode and
+the client's menus — takes its palette and spacing from `include/UiTheme.h`, so they read as one
+program rather than five.
+
 The release side is one command on the machine that produced the package:
 
 ```powershell

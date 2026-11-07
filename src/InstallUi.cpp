@@ -21,6 +21,7 @@
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl3.h"
+#include "UiTheme.h"
 
 namespace rblx {
 namespace ui {
@@ -30,47 +31,15 @@ constexpr int kWindowWidth = 660;
 constexpr int kWindowHeight = 470;
 constexpr std::size_t kMaxLines = 400;
 
-const ImVec4 kAccent(0.42f, 0.86f, 0.72f, 1.00f);
-const ImVec4 kText(0.82f, 0.84f, 0.88f, 1.00f);
-const ImVec4 kMuted(0.55f, 0.58f, 0.64f, 1.00f);
-const ImVec4 kError(0.96f, 0.45f, 0.45f, 1.00f);
-const ImVec4 kOk(0.42f, 0.86f, 0.60f, 1.00f);
+// The palette itself lives in UiTheme.h, because every window of this project
+// reads it from there and a change in one place should reach all of them.
+const ImVec4 kAccent = theme::accent();
+const ImVec4 kText = theme::text();
+const ImVec4 kMuted = theme::muted();
+const ImVec4 kError = theme::error();
+const ImVec4 kOk = theme::ok();
 
-// The same dark palette the server console and the editors use, so a person who
-// has seen one window of this project recognises the next.
-void applyTheme() {
-    ImGui::StyleColorsDark();
-    ImGuiStyle& style = ImGui::GetStyle();
-    style.WindowRounding = 0.0f;
-    style.ChildRounding = 6.0f;
-    style.FrameRounding = 4.0f;
-    style.PopupRounding = 4.0f;
-    style.ScrollbarRounding = 6.0f;
-    style.GrabRounding = 4.0f;
-    style.WindowBorderSize = 0.0f;
-    style.ChildBorderSize = 1.0f;
-    style.FramePadding = ImVec2(10.0f, 6.0f);
-    style.ItemSpacing = ImVec2(10.0f, 8.0f);
-
-    ImVec4* colors = style.Colors;
-    colors[ImGuiCol_WindowBg] = ImVec4(0.07f, 0.08f, 0.10f, 1.00f);
-    colors[ImGuiCol_ChildBg] = ImVec4(0.05f, 0.06f, 0.07f, 1.00f);
-    colors[ImGuiCol_PopupBg] = ImVec4(0.09f, 0.10f, 0.12f, 1.00f);
-    colors[ImGuiCol_Border] = ImVec4(0.18f, 0.20f, 0.24f, 1.00f);
-    colors[ImGuiCol_FrameBg] = ImVec4(0.13f, 0.15f, 0.18f, 1.00f);
-    colors[ImGuiCol_FrameBgHovered] = ImVec4(0.18f, 0.21f, 0.25f, 1.00f);
-    colors[ImGuiCol_FrameBgActive] = ImVec4(0.20f, 0.24f, 0.28f, 1.00f);
-    colors[ImGuiCol_Button] = ImVec4(0.16f, 0.19f, 0.23f, 1.00f);
-    colors[ImGuiCol_ButtonHovered] = ImVec4(0.24f, 0.32f, 0.38f, 1.00f);
-    colors[ImGuiCol_ButtonActive] = ImVec4(0.20f, 0.42f, 0.46f, 1.00f);
-    colors[ImGuiCol_Header] = ImVec4(0.18f, 0.28f, 0.32f, 1.00f);
-    colors[ImGuiCol_HeaderHovered] = ImVec4(0.22f, 0.34f, 0.38f, 1.00f);
-    colors[ImGuiCol_HeaderActive] = ImVec4(0.24f, 0.40f, 0.44f, 1.00f);
-    colors[ImGuiCol_CheckMark] = kAccent;
-    colors[ImGuiCol_SliderGrab] = kAccent;
-    colors[ImGuiCol_PlotHistogram] = kAccent;
-    colors[ImGuiCol_TextSelectedBg] = ImVec4(0.24f, 0.44f, 0.42f, 0.60f);
-}
+void applyTheme() { theme::apply(); }
 
 // The system's own proportional font, because the built-in bitmap font looks
 // wrong in a window this size. Falls back to it when there is no font file,
@@ -445,7 +414,7 @@ Result run(Options& options, const std::vector<std::string>& actions,
                 for (std::size_t index = 0; index < actions.size(); ++index) {
                     if (index > 0) ImGui::SameLine();
                     if (index == 0) {
-                        drawButton(actions[index].c_str(), ImVec4(0.16f, 0.44f, 0.38f, 1.00f));
+                        drawButton(actions[index].c_str(), theme::primaryButton());
                     } else {
                         ImGui::Button(actions[index].c_str(), ImVec2(132.0f, 0.0f));
                     }

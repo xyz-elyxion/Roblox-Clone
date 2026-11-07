@@ -30,15 +30,21 @@ struct Response {
 // progress bar passes one; everything else ignores it.
 using ProgressCallback = std::function<void(long long received, long long total)>;
 
+// Asked while a request is in flight, so a Cancel button is answered in a
+// fraction of a second instead of when the read timeout expires.
+using CancelCheck = std::function<bool()>;
+
 // Sends one request and waits for the response. `timeoutMs` bounds the
 // connect, each write and each read, so a hung server cannot block a caller
-// forever.
+// forever. A `cancelled` check makes the wait interruptible: the request returns
+// at once with the error "cancelled" rather than reading out its timeout.
 Response request(const std::string& method,
                  const std::string& url,
                  const std::string& body = std::string(),
                  const std::string& bearerToken = std::string(),
                  int timeoutMs = 5000,
-                 const ProgressCallback& onProgress = ProgressCallback());
+                 const ProgressCallback& onProgress = ProgressCallback(),
+                 const CancelCheck& cancelled = CancelCheck());
 
 }  // namespace http
 }  // namespace rblx

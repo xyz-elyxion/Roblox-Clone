@@ -227,7 +227,8 @@ Response request(const std::string& method,
                  const std::string& body,
                  const std::string& bearerToken,
                  int timeoutMs,
-                 const ProgressCallback& onProgress) {
+                 const ProgressCallback& onProgress,
+                 const CancelCheck& cancelled) {
     Response response;
 
     ParsedUrl parsed;
@@ -236,6 +237,11 @@ Response request(const std::string& method,
     }
 
     ensureSockets();
+
+    if (cancelled && cancelled()) {
+        response.error = "cancelled";
+        return response;
+    }
 
     const SocketHandle socket = connectToHost(parsed.host, parsed.port, timeoutMs, &response.error);
     if (socket == kInvalidSocket) {
@@ -271,9 +277,34 @@ Response request(const std::string& method,
     std::string raw;
     char buffer[4096];
     bool headersSeen = false;
+    bool aborted = false;
     std::size_t bodyStart = 0;
     long long declared = -1;
     while (true) {
+        // A caller with a Cancel button gets a socket that is waited on briefly
+        // rather than blocked on, so the button is answered between chunks
+        // instead of after the read timeout.
+        if (cancelled) {
+            if (cancelled()) {
+                aborted = true;
+                break;
+            }
+            fd_set readable;
+            FD_ZERO(&readable);
+            FD_SET(socket, &readable);
+            timeval wait{};
+            wait.tv_sec = 0;
+            wait.tv_usec = 200 * 1000;
+            const int ready =
+                ::select(static_cast<int>(socket) + 1, &readable, nullptr, nullptr, &wait);
+            if (ready == 0) {
+                continue;
+            }
+            if (ready < 0) {
+                break;
+            }
+        }
+
 #ifdef _WIN32
         const int received = ::recv(socket, buffer, static_cast<int>(sizeof(buffer)), 0);
 #else
@@ -306,6 +337,14 @@ Response request(const std::string& method,
         }
     }
     RBLX_CLOSE_SOCKET(socket);
+
+    if (aborted) {
+        // An abandoned download is not a server fault, so it says so plainly.
+        // The caller decides whether a partial body is worth keeping; the
+        // updater throws it away and leaves the installed copy alone.
+        response.error = "cancelled";
+        return response;
+    }
 
     if (raw.empty()) {
         response.error = "No response from " + parsed.host + ".";

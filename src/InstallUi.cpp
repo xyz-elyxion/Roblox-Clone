@@ -407,7 +407,10 @@ Result run(Options& options, const std::vector<std::string>& actions,
             std::string status;
             ImVec4 statusColor = kMuted;
             if (!state.done) {
-                status = transfer.empty() ? "Working" + waitingDots() : transfer;
+                // The click is answered at once even when the file in flight has
+                // to finish, so the button never looks dead.
+                status = state.cancelled ? "Stopping at the next file boundary..."
+                                         : (transfer.empty() ? "Working" + waitingDots() : transfer);
             } else if (state.ok) {
                 status = "Finished.";
                 statusColor = kOk;
@@ -418,7 +421,7 @@ Result run(Options& options, const std::vector<std::string>& actions,
                 statusColor = kError;
             }
             ImGui::TextColored(statusColor, "%s", status.c_str());
-            if (!state.done) {
+            if (!state.done && !state.cancelled) {
                 ImGui::SameLine();
                 if (ImGui::SmallButton("Cancel")) report.cancel();
             }

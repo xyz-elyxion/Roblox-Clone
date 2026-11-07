@@ -170,8 +170,12 @@ bool parseOptions(int argc, char** argv, Options* options) {
 
 bool fetch(const std::string& url, std::string* body, std::string* error,
            const rblx::http::ProgressCallback& onProgress = rblx::http::ProgressCallback()) {
+    // g_cancelled makes the download itself interruptible, not just the space
+    // between two files: a large file or an unreachable server would otherwise
+    // leave the window's Cancel button with nothing to act on for two minutes.
     const rblx::http::Response response =
-        rblx::http::request("GET", url, std::string(), std::string(), 120000, onProgress);
+        rblx::http::request("GET", url, std::string(), std::string(), 120000, onProgress,
+                            g_cancelled);
     if (!response.ok()) {
         if (!response.error.empty()) {
             *error = response.error + " (" + url + ")";
@@ -246,7 +250,13 @@ void removeEmptyDirectories(const std::string& directory) {
 bool sync(const Options& options, const std::string& manifestUrl, bool install,
           Manifest* applied, std::string* error) {
     Manifest target;
-    if (!fetchManifest(manifestUrl, &target, error)) return false;
+    // Say what is being contacted before the request: a slow or unreachable
+    // server otherwise leaves the window showing nothing at all.
+    print(options, "checking " + manifestUrl + " for a newer release");
+    if (!fetchManifest(manifestUrl, &target, error)) {
+        if (cancelled()) *error = "cancelled; the installed copy is unchanged";
+        return false;
+    }
 
     const fs::path root(options.directory);
     const std::string installedPath = (root / "manifest.json").string();
@@ -303,6 +313,7 @@ bool sync(const Options& options, const std::string& manifestUrl, bool install,
         };
         if (!downloadEntry(staging, baseUrl, entry, onProgress, error)) {
             fs::remove_all(staging, ignored);
+            if (cancelled()) *error = "cancelled; the installed copy is unchanged";
             return false;
         }
         downloaded += thisFile > 0 ? thisFile : entry.size;

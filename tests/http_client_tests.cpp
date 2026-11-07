@@ -61,8 +61,9 @@ namespace {
     // records the request it received.
     class StubServer {
     public:
-        StubServer(std::string response, int connections)
-            : response_(std::move(response)), remaining_(connections) {}
+        StubServer(std::string response, int connections,
+                   std::chrono::milliseconds delay = std::chrono::milliseconds(0))
+            : response_(std::move(response)), remaining_(connections), delay_(delay) {}
 
         ~StubServer() { stop(); }
 
@@ -146,6 +147,9 @@ namespace {
                 }
 
                 lastRequest_ = request;
+                if (delay_.count() > 0) {
+                    std::this_thread::sleep_for(delay_);
+                }
                 ::send(client, response_.data(), static_cast<int>(response_.size()), 0);
                 TEST_CLOSE(client);
             }
@@ -157,6 +161,7 @@ namespace {
         uint16_t port_ = 0;
         std::thread worker_;
         std::atomic<bool> started_{false};
+        std::chrono::milliseconds delay_;
         std::string lastRequest_;
     };
 
@@ -244,6 +249,28 @@ int main() {
         check(calls > 0, "progress is reported while the body arrives");
         check(lastTotal == 22, "the declared length reaches the callback");
         check(lastReceived == 22, "the last report covers the whole body");
+
+        server.stop();
+    }
+
+    {
+        // A Cancel button has to reach a request in flight: a server that sits on
+        // its answer must not hold the caller for the read timeout.
+        StubServer server("HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\n{}", 1,
+                          std::chrono::milliseconds(1500));
+        check(server.start(), "slow stub server listens");
+
+        const auto began = std::chrono::steady_clock::now();
+        const rblx::http::Response response = rblx::http::request(
+            "GET", baseUrl(server) + "/slow", "", "", 30000, rblx::http::ProgressCallback(),
+            [&began]() {
+                return std::chrono::steady_clock::now() - began > std::chrono::milliseconds(200);
+            });
+        const auto took = std::chrono::steady_clock::now() - began;
+
+        check(response.networkError(), "a cancelled request is a network error");
+        check(response.error == "cancelled", "a cancelled request says it was cancelled");
+        check(took < std::chrono::milliseconds(1000), "cancelling does not wait for the timeout");
 
         server.stop();
     }

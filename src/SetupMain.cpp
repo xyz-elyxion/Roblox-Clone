@@ -74,6 +74,8 @@ struct Options {
 std::function<void(const std::string&)> g_progress;
 std::function<void(const std::string&)> g_problem;
 std::function<bool()> g_cancelled;
+// Bytes copied and the size of the whole payload, for the window's bar.
+std::function<void(long long, long long)> g_bytes;
 
 bool cancelled() { return g_cancelled && g_cancelled(); }
 
@@ -410,7 +412,25 @@ bool copyPayload(const std::string& source, const std::string& target, int* copi
     std::vector<std::string> files;
     if (!rblx::update::collectPayloadFiles(source, &files, error)) return false;
 
+    // The window's bar counts the bytes it is about to write, so an install
+    // shows how far through the folder it is rather than only that work is
+    // happening. Files already identical count as done when they are reached.
+    std::vector<long long> sizes;
+    sizes.reserve(files.size());
+    long long totalBytes = 0;
     for (const std::string& relative : files) {
+        std::error_code sizeError;
+        const auto size = fs::file_size(fs::path(source) / relative, sizeError);
+        const long long bytes = sizeError ? 0 : static_cast<long long>(size);
+        sizes.push_back(bytes);
+        totalBytes += bytes;
+    }
+    long long writtenBytes = 0;
+    if (g_bytes) g_bytes(0, totalBytes);
+
+    for (std::size_t index = 0; index < files.size(); ++index) {
+        const std::string& relative = files[index];
+
         // Cancelling is only ever honoured between files: a half-written
         // executable is worse than making the user wait for the current one.
         if (cancelled()) {
@@ -422,21 +442,25 @@ bool copyPayload(const std::string& source, const std::string& target, int* copi
         const fs::path to = fs::path(target) / relative;
 
         std::error_code code;
+        bool identical = false;
         if (fs::exists(to, code)) {
             const auto fromSize = fs::file_size(from, code);
             const auto toSize = fs::file_size(to, code);
             if (!code && fromSize == toSize) {
                 std::string ignored;
-                if (rblx::update::sha256File(from.string(), &ignored) ==
-                    rblx::update::sha256File(to.string(), &ignored)) {
-                    ++*skipped;
-                    continue;
-                }
+                identical = rblx::update::sha256File(from.string(), &ignored) ==
+                            rblx::update::sha256File(to.string(), &ignored);
             }
         }
 
-        if (!copyFile(from, to, error)) return false;
-        ++*copied;
+        if (!identical && !copyFile(from, to, error)) return false;
+        if (identical) {
+            ++*skipped;
+        } else {
+            ++*copied;
+        }
+        writtenBytes += sizes[index];
+        if (g_bytes) g_bytes(writtenBytes, totalBytes);
     }
     return true;
 }
@@ -751,12 +775,16 @@ int windowed(Options& options, const std::string& source, const char* argv0) {
         g_progress = [&report](const std::string& text) { report.line(text); };
         g_problem = [&report](const std::string& text) { report.problem(text); };
         g_cancelled = [&report]() { return report.cancelled(); };
+        g_bytes = [&report](long long done, long long total) {
+            report.progressBytes(done, total);
+        };
 
         const bool ok = options.uninstall ? (uninstall(run, argv0) == 0) : (install(run, source) == 0);
 
         g_progress = nullptr;
         g_problem = nullptr;
         g_cancelled = nullptr;
+        g_bytes = nullptr;
         return ok;
     });
 

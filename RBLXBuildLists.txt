@@ -25,6 +25,7 @@ option(RBLX_BUILD_WEBAPP "Build the native website backend target" ON)
 option(RBLX_BUILD_TRAINER "Build the headless AI trainer target" ON)
 option(RBLX_BUILD_ANTICHEAT "Embed the vendored RBLXAntiCheat library in the game client (Windows only)" ON)
 option(RBLX_BUILD_UPDATER "Build the installer and update launcher targets" ON)
+option(RBLX_BUILD_HOSTS "Build the game server supervisor target" ON)
 option(RBLX_ENABLE_WARNINGS "Enable stricter compiler warnings" ON)
 
 add_compile_definitions(NOMINMAX GLM_ENABLE_EXPERIMENTAL)
@@ -226,6 +227,22 @@ if(RBLX_BUILD_UPDATER)
     else()
         find_package(Threads REQUIRED)
         target_link_libraries(RBLXSetup PRIVATE Threads::Threads ${RBLXBUILD_DL_LIBS})
+    endif()
+endif()
+
+if(RBLX_BUILD_HOSTS)
+    # The project's own hosting supervisor: N game servers, each on its own port
+    # with its own log, restarted when they die and given up on when they keep
+    # dying. No window and no graphics dependency, so it runs on the same
+    # headless machine the servers do. See HOSTING.md.
+    add_executable(RBLXHosts
+        src/HostMain.cpp
+        src/ServerHost.cpp
+    )
+    configure_rblx_target(RBLXHosts)
+    if(NOT WIN32)
+        find_package(Threads REQUIRED)
+        target_link_libraries(RBLXHosts PRIVATE Threads::Threads)
     endif()
 endif()
 
@@ -478,5 +495,16 @@ if(RBLX_BUILD_TESTS)
         endif()
     endif()
     add_test(NAME StoreCryptoTests COMMAND StoreCryptoTests)
+
+    # The supervisor's decisions: ports per slot, restart with a growing delay,
+    # giving up on a slot that keeps dying, config parsing, and one real process
+    # on POSIX to prove the launcher starts and stops something.
+    add_executable(ServerHostTests tests/server_host_tests.cpp src/ServerHost.cpp)
+    target_include_directories(ServerHostTests PRIVATE ${RBLXBUILD_CURRENT_SOURCE_DIR}/include)
+    if(NOT WIN32)
+        find_package(Threads REQUIRED)
+        target_link_libraries(ServerHostTests PRIVATE Threads::Threads)
+    endif()
+    add_test(NAME ServerHostTests COMMAND ServerHostTests)
 
 endif()

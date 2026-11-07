@@ -101,3 +101,8 @@ imgui.ini
 
 # Policies produced by AiTrainer
 models/
+
+# Coolify (hosting/coolify) carries the .env templates its docker setup reads.
+# They are source, not secrets, and only fall under the .env.* rule for being
+# dotfiles, so they are put back for that one path.
+!hosting/coolify/.env.*

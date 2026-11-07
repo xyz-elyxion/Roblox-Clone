@@ -40,6 +40,7 @@ The website starts a game server and launches the client for you.
 - [RBLXBuild and vendored dependencies](#rblxbuild-and-vendored-dependencies)
 - [CI and prebuilt packages](#ci-and-prebuilt-packages)
 - [Known limitations](#known-limitations) · [Troubleshooting](#troubleshooting) · [Credits](#credits)
+- [SECURITY.md](SECURITY.md) — the security model, and how to report a problem
 
 ## Quick start
 
@@ -1021,6 +1022,8 @@ scripts/                package-build.ps1 and other tooling
 GameRelease/            Existing release asset folders (do not commit generated binaries here)
 third_party/            Pinned dependencies, converted to this build dialect
 RBLXAntiCheat/          The vendored anti-cheat library (Windows only, AGPL v3)
+AGENTS.md               How to work in this repository: build, rules, conventions
+SECURITY.md             Security model, known limitations, how to report a problem
 ```
 
 ## RBLXBuild and vendored dependencies

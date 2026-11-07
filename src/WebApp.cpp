@@ -1196,24 +1196,31 @@ bool WebsiteApp::seedStarterGames(std::string* error) {
         std::string description;
         std::string worldFile;  // relative to the repo or package root
         std::string scriptFile;
+        // The starter games the trainer is meant for start out playable by it, so
+        // an install can train on day one instead of hunting for the switch.
+        bool aiCompatible = false;
+        std::string aiCourse = "map";
+        std::string aiGoal;
     };
     const Seed seeds[] = {
         {"Starter Baseplate",
          "The default shared world, now published as the first public game.",
-         "ServerWorld.world", std::string()},
+         "ServerWorld.world", std::string(), false, "map", std::string()},
         {"Separate Server Test Arena",
          "A second published world for testing that each game starts its own local server "
          "instance.",
-         "web/seed-worlds/separate-server-test.world", std::string()},
+         "web/seed-worlds/separate-server-test.world", std::string(), false, "map",
+         std::string()},
         {"Sky Platformer",
          "A scripted platformer with moving platforms, lava and a sky goal, driven by a "
          ".rbx script.",
-         "games/sky-platformer.world", "games/sky-platformer.rbx"},
+         "games/sky-platformer.world", "games/sky-platformer.rbx", false, "map",
+         std::string()},
         {"Turbo Circuit",
          "A driving game: press E beside the car to get in, then W/S for throttle and "
          "brake and A/D to steer around the circuit. The car is simulated by the game "
          "server and the lap counter is a .rbx script.",
-         "games/turbo-circuit.world", "games/turbo-circuit.rbx"},
+         "games/turbo-circuit.world", "games/turbo-circuit.rbx", true, "map", "FinishLine"},
         {"Doors Hotel",
          "A horror run in the style of Doors: the script builds 100 rooms, each with a "
          "door that slides up when you walk into its pad and a wardrobe to hide in, "
@@ -1224,7 +1231,7 @@ bool WebsiteApp::seedStarterGames(std::string* error) {
          "are seeded, so a run is the same every time, and the rooms are built ahead of "
          "you and taken away behind you. Reach the elevator past door 100 to survive. "
          "Driven by a .rbx script.",
-         "games/doors-hotel.world", "games/doors-hotel.rbx"}
+         "games/doors-hotel.world", "games/doors-hotel.rbx", true, "doors", std::string()}
     };
 
     // Publish every starter game this data file does not have yet, so an install
@@ -1301,6 +1308,18 @@ bool WebsiteApp::seedStarterGames(std::string* error) {
                 *error = "Could not publish the starter world " + worldPath + ".";
             }
             return false;
+        }
+
+        if (seed->aiCompatible) {
+            if (const GameRecord* stored = store_.findGame(created.id)) {
+                GameRecord flagged = *stored;
+                flagged.aiCompatible = true;
+                flagged.aiCourse = seed->aiCourse;
+                flagged.aiGoal = seed->aiGoal;
+                store_.updateGame(flagged);
+                std::string flagError;
+                store_.save(&flagError);
+            }
         }
 
         if (!seed->scriptFile.empty()) {
@@ -1700,6 +1719,14 @@ Json WebsiteApp::gameJson(const GameRecord& game, bool canEdit) const {
     result.set("updatedAt", game.updatedAt);
     result.set("publishedAt", game.publishedAt);
     result.set("canEdit", canEdit);
+
+    // What the trainer sees of a game. It is on every game, not only the owner's,
+    // because the game page tells a visitor whether an AI run of it is possible.
+    Json ai = Json::makeObject();
+    ai.set("compatible", game.aiCompatible);
+    ai.set("course", game.aiCourse.empty() ? std::string("map") : game.aiCourse);
+    ai.set("goal", game.aiGoal);
+    result.set("ai", ai);
     return result;
 }
 
@@ -1736,6 +1763,26 @@ Json WebsiteApp::instanceJson(const GameInstance& instance) const {
 }
 
 void WebsiteApp::installRoutes() {
+    server_.route("GET", "/api/dev/tokens", guard([this](Request& request, Response& response) {
+                      return handleListDevTokens(request, response);
+                  }));
+    server_.route("POST", "/api/dev/tokens", guard([this](Request& request, Response& response) {
+                      return handleCreateDevToken(request, response);
+                  }));
+    server_.route("POST", "/api/dev/tokens/:id/revoke",
+                  guard([this](Request& request, Response& response) {
+                      return handleRevokeDevToken(request, response);
+                  }));
+    server_.route("POST", "/api/games/:id/ai",
+                  guard([this](Request& request, Response& response) {
+                      return handleGameAiSettings(request, response);
+                  }));
+    // The trainer's sign-in. It takes a developer token in the Authorization
+    // header, not an account session, so a token handed to a program cannot be
+    // spent as a browser session if it leaks.
+    server_.route("POST", "/api/ai/login", guard([this](Request& request, Response& response) {
+                      return handleAiLogin(request, response);
+                  }));
     server_.route("POST", "/api/signup", guard([this](Request& request, Response& response) {
                       return handleSignup(request, response);
                   }));
@@ -4883,6 +4930,281 @@ bool WebsiteApp::handleStatic(Request& request, Response& response) {
         return true;
     }
     return false;
+}
+
+// ---------------------------------------------------------------------------
+// Developer portal
+// ---------------------------------------------------------------------------
+
+Json WebsiteApp::devTokenJson(const DevTokenRecord& token) const {
+    Json result = Json::makeObject();
+    result.set("id", token.id);
+    result.set("label", token.label);
+    result.set("scope", token.scope);
+    result.set("createdAt", token.createdAt);
+    if (token.lastUsedAt.empty()) {
+        result.setNull("lastUsedAt");
+    } else {
+        result.set("lastUsedAt", token.lastUsedAt);
+    }
+    result.set("revoked", token.revoked);
+    if (token.revokedAt.empty()) {
+        result.setNull("revokedAt");
+    } else {
+        result.set("revokedAt", token.revokedAt);
+    }
+    return result;
+}
+
+bool WebsiteApp::handleListDevTokens(Request& request, Response& response) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    AuthUser user;
+    if (!requireAuth(request, response, &user)) {
+        return true;
+    }
+
+    Json tokens = Json::makeArray();
+    for (const DevTokenRecord* token : store_.devTokensFor(user.id)) {
+        tokens.push(devTokenJson(*token));
+    }
+
+    Json result = Json::makeObject();
+    result.set("success", true);
+    result.set("tokens", tokens);
+    result.set("limit", static_cast<long long>(kMaxDevTokensPerUser));
+    sendJson(response, 200, result);
+    return true;
+}
+
+bool WebsiteApp::handleCreateDevToken(Request& request, Response& response) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    AuthUser user;
+    if (!requireAuth(request, response, &user)) {
+        return true;
+    }
+    Json body;
+    if (!parseJsonBody(request, &body, response)) {
+        return true;
+    }
+
+    std::size_t live = 0;
+    for (const DevTokenRecord* token : store_.devTokensFor(user.id)) {
+        if (!token->revoked) {
+            ++live;
+        }
+    }
+    if (live >= kMaxDevTokensPerUser) {
+        errorJson(response, 409,
+                  "This account already holds " + std::to_string(kMaxDevTokensPerUser) +
+                      " AI tokens. Revoke one before creating another.");
+        return true;
+    }
+
+    std::string label = trimCopy(body.member("label").asString());
+    if (label.size() > 40) {
+        errorJson(response, 400, "A token label can be at most 40 characters.");
+        return true;
+    }
+    if (label.empty()) {
+        label = "AiTrainer";
+    }
+
+    // The secret is never stored, only its hash, so the value is shown once here
+    // and cannot be read back out of the data file. The prefix names what the
+    // string is to anyone who finds it in a log; the 192 bits after it are what
+    // makes guessing hopeless.
+    const std::string secret = "rblxai_" + randomHex(24);
+
+    DevTokenRecord record;
+    record.userId = user.id;
+    record.username = user.username;
+    record.label = label;
+    record.scope = "ai";
+    record.tokenHash = hexEncode(sha256(secret));
+    record.createdAt = nowIso();
+
+    const int tokenId = store_.addDevToken(record);
+    if (tokenId <= 0) {
+        errorJson(response, 409, "This install cannot hold another developer token.");
+        return true;
+    }
+    std::string saveError;
+    if (!store_.save(&saveError)) {
+        errorJson(response, 500, "The token was created but could not be saved.");
+        return true;
+    }
+
+    Json result = Json::makeObject();
+    result.set("success", true);
+    result.set("token", secret);
+    if (const DevTokenRecord* stored = store_.findDevToken(tokenId)) {
+        result.set("devToken", devTokenJson(*stored));
+    }
+    sendJson(response, 201, result);
+    return true;
+}
+
+bool WebsiteApp::handleRevokeDevToken(Request& request, Response& response) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    AuthUser user;
+    if (!requireAuth(request, response, &user)) {
+        return true;
+    }
+    const int tokenId = parseUserId(request.param("id"));
+    if (tokenId <= 0) {
+        errorJson(response, 400, "Token ID must be a positive number.");
+        return true;
+    }
+    if (!store_.revokeDevToken(user.id, tokenId, nowIso())) {
+        errorJson(response, 404, "Token not found, or already revoked.");
+        return true;
+    }
+    std::string saveError;
+    if (!store_.save(&saveError)) {
+        errorJson(response, 500, "The token was revoked but the change could not be saved.");
+        return true;
+    }
+
+    Json result = Json::makeObject();
+    result.set("success", true);
+    if (const DevTokenRecord* stored = store_.findDevToken(tokenId)) {
+        result.set("devToken", devTokenJson(*stored));
+    }
+    sendJson(response, 200, result);
+    return true;
+}
+
+bool WebsiteApp::handleGameAiSettings(Request& request, Response& response) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    AuthUser user;
+    if (!requireAuth(request, response, &user)) {
+        return true;
+    }
+    const int gameId = parseUserId(request.param("id"));
+    const GameRecord* existing = gameId > 0 ? store_.findGame(gameId) : nullptr;
+    if (existing == nullptr || existing->ownerId != user.id) {
+        errorJson(response, 404, "Game not found.");
+        return true;
+    }
+    Json body;
+    if (!parseJsonBody(request, &body, response)) {
+        return true;
+    }
+
+    GameRecord record = *existing;
+    if (body.has("compatible")) {
+        record.aiCompatible = body.member("compatible").asBool(record.aiCompatible);
+    }
+    if (body.has("course")) {
+        const std::string course = body.member("course").asString("map");
+        if (course != "map" && course != "doors") {
+            errorJson(response, 400, "An AI course is either \"map\" or \"doors\".");
+            return true;
+        }
+        record.aiCourse = course;
+    }
+    if (body.has("goal")) {
+        const std::string goal = trimCopy(body.member("goal").asString());
+        if (goal.size() > 64) {
+            errorJson(response, 400, "A goal part name can be at most 64 characters.");
+            return true;
+        }
+        record.aiGoal = goal;
+    }
+    // A flag with no world behind it would only fail later, on the trainer's
+    // machine, with a path the site could have refused here.
+    if (record.aiCompatible && record.worldPath.empty()) {
+        errorJson(response, 409,
+                  "Publish the game before marking it AI compatible; the trainer needs a "
+                  "world to load.");
+        return true;
+    }
+
+    record.updatedAt = nowIso();
+    store_.updateGame(record);
+    std::string saveError;
+    if (!store_.save(&saveError)) {
+        errorJson(response, 500, saveError.empty() ? "Could not save the change." : saveError);
+        return true;
+    }
+
+    Json result = Json::makeObject();
+    result.set("success", true);
+    if (const GameRecord* refreshed = store_.findGame(gameId)) {
+        result.set("game", gameJson(*refreshed, true));
+    }
+    sendJson(response, 200, result);
+    return true;
+}
+
+bool WebsiteApp::handleAiLogin(Request& request, Response& response) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    const std::string secret = bearerToken(request.header("authorization"));
+    if (secret.empty()) {
+        errorJson(response, 401,
+                  "AiTrainer signs in with a developer token. Create one in the developer "
+                  "portal at /developers.");
+        return true;
+    }
+    // A revoked token gets the same answer as an unknown one: the program holding
+    // it gets no way to tell a guess from a token that was taken away.
+    const DevTokenRecord* token = store_.findDevTokenByHash(hexEncode(sha256(secret)));
+    if (token == nullptr || token->revoked) {
+        errorJson(response, 401, "That developer token is not valid, or has been revoked.");
+        return true;
+    }
+    if (token->scope != "ai") {
+        errorJson(response, 403, "That developer token cannot start AI training.");
+        return true;
+    }
+    const UserRecord* owner = store_.findUserById(token->userId);
+    if (owner == nullptr ||
+        rblx::moderation::isRestricted(moderationStateOf(*owner), nowMilliseconds())) {
+        errorJson(response, 403, "This account cannot run AI training right now.");
+        return true;
+    }
+
+    Json body;
+    if (!parseJsonBody(request, &body, response)) {
+        return true;
+    }
+    const int gameId = static_cast<int>(body.member("gameId").asInteger(0));
+    const GameRecord* game = gameId > 0 ? store_.findGame(gameId) : nullptr;
+    // Another account's private game answers exactly like a game that does not
+    // exist, so a token cannot be used to find out what other people have made.
+    if (game == nullptr || (!game->isPublic && game->ownerId != token->userId)) {
+        errorJson(response, 404, "Game not found.");
+        return true;
+    }
+    if (!game->aiCompatible) {
+        errorJson(response, 403,
+                  "That game is not marked AI compatible. Its owner can turn it on in the "
+                  "developer portal.");
+        return true;
+    }
+    if (game->worldPath.empty()) {
+        errorJson(response, 409, "That game has no published world to train on.");
+        return true;
+    }
+
+    std::string touchError;
+    if (store_.touchDevToken(token->id, nowIso())) {
+        store_.save(&touchError);
+    }
+
+    Json gameOut = Json::makeObject();
+    gameOut.set("id", game->id);
+    gameOut.set("title", game->title);
+    gameOut.set("world", game->worldPath);
+    gameOut.set("course", game->aiCourse.empty() ? std::string("map") : game->aiCourse);
+    gameOut.set("goal", game->aiGoal);
+
+    Json result = Json::makeObject();
+    result.set("success", true);
+    result.set("account", owner->username);
+    result.set("game", gameOut);
+    sendJson(response, 200, result);
+    return true;
 }
 
 bool WebsiteApp::createGame(const AuthUser& user, const Json& body, GameRecord* created,

@@ -1265,6 +1265,99 @@ void testAdminReplay() {
     restarted.stop();
 }
 
+// A developer token is the only way the trainer signs in, and a game has to be
+// marked AI compatible before any token can start a run on it.
+void testDevTokens() {
+    const std::string webRoot = testWebRoot();
+
+    rblx::web::Config config;
+    config.nodeEnv = "test";
+    config.passwordIterations = 800;
+    config.authRateLimitMax = 1000;
+    config.rateLimitMax = 100000;
+    config.dataPath = webRoot + "/devtokens.json";
+    config.webRoot = webRoot;
+    config.repoRoot = webRoot;
+    config.gameWorldsDir = webRoot + "/game-worlds";
+    config.port = 0;
+    config.gameInstanceEmptyGraceMs = 0;
+    config.publicBaseUrl = "http://127.0.0.1:3000";
+
+    rblx::web::WebsiteApp app(config);
+    std::string error;
+    check(app.initialize(&error), "developer tokens: app initialises: " + error);
+    app.installRoutes();
+    check(app.start(&error), "developer tokens: app listens: " + error);
+    if (app.server().port() <= 0) {
+        return;
+    }
+
+    std::string body;
+    checkStatus(app, "POST", "/api/signup",
+                "{\"username\":\"TokenPilot\",\"password\":\"long-enough-password\"," +
+                    machineCaptcha(app) + "}",
+                std::string(), 201, "developer tokens: the account signs up", &body);
+    const std::string token = rblx::web::Json::parse(body, &error).member("token").asString();
+
+    checkStatus(app, "GET", "/api/dev/tokens", std::string(), token, 200,
+                "developer tokens: the list loads", &body);
+    checkContains(body, "\"tokens\":[]", "developer tokens: no token is listed yet");
+
+    checkStatus(app, "POST", "/api/dev/tokens", "{\"label\":\"Ci\"}", token, 201,
+                "developer tokens: a token is created", &body);
+    const std::string secret = rblx::web::Json::parse(body, &error).member("token").asString();
+    check(secret.rfind("rblxai_", 0) == 0, "developer tokens: the secret names what it is");
+    check(secret.size() > 32, "developer tokens: the secret has enough entropy to guess-proof it");
+
+    checkStatus(app, "GET", "/api/dev/tokens", std::string(), token, 200,
+                "developer tokens: the token is listed", &body);
+    checkContains(body, "\"label\":\"Ci\"", "developer tokens: the label is kept");
+    check(body.find(secret) == std::string::npos,
+          "developer tokens: the list never carries the secret again");
+
+    checkStatus(app, "POST", "/api/games/publish",
+                "{\"title\":\"Token World\",\"worldText\":\"" + validWorldLine() + "\"}", token, 201,
+                "developer tokens: a game is published", &body);
+    const int gameId = static_cast<int>(
+        rblx::web::Json::parse(body, &error).member("game").member("id").asInteger(0));
+    check(gameId > 0, "developer tokens: the game has an id");
+    const std::string gameBody = "{\"gameId\":" + std::to_string(gameId) + "}";
+
+    checkStatus(app, "POST", "/api/ai/login", gameBody, secret, 403,
+                "developer tokens: an unmarked game is refused", &body);
+    checkContains(body, "not marked AI compatible", "developer tokens: the refusal says why");
+
+    checkStatus(app, "POST", "/api/games/" + std::to_string(gameId) + "/ai",
+                "{\"compatible\":true,\"course\":\"doors\",\"goal\":\"Door100\"}", token, 200,
+                "developer tokens: the owner marks the game AI compatible", &body);
+    checkContains(body, "\"compatible\":true", "developer tokens: the flag is saved");
+
+    checkStatus(app, "POST", "/api/ai/login", gameBody, secret, 200,
+                "developer tokens: the trainer signs in", &body);
+    checkContains(body, "\"course\":\"doors\"", "developer tokens: the course travels with the map");
+    checkContains(body, "\"title\":\"Token World\"", "developer tokens: the game is named");
+
+    checkStatus(app, "POST", "/api/ai/login", gameBody, std::string(), 401,
+                "developer tokens: no token is no sign-in");
+    checkStatus(app, "POST", "/api/ai/login", gameBody, token, 401,
+                "developer tokens: an account session is not a developer token");
+
+    int devTokenId = 0;
+    checkStatus(app, "GET", "/api/dev/tokens", std::string(), token, 200,
+                "developer tokens: the list is read before revoking", &body);
+    const rblx::web::Json listed = rblx::web::Json::parse(body, &error);
+    if (!listed.member("tokens").elements().empty()) {
+        devTokenId = static_cast<int>(listed.member("tokens").elements().front().member("id").asInteger(0));
+    }
+    check(devTokenId > 0, "developer tokens: the listed token has an id");
+    checkStatus(app, "POST", "/api/dev/tokens/" + std::to_string(devTokenId) + "/revoke", "{}", token,
+                200, "developer tokens: the token is revoked", &body);
+    checkStatus(app, "POST", "/api/ai/login", gameBody, secret, 401,
+                "developer tokens: a revoked token cannot sign in");
+
+    app.stop();
+}
+
 void testRateLimit() {
     const std::string webRoot = testWebRoot();
 
@@ -1326,6 +1419,7 @@ int main() {
     testStarterSeeding();
     testHttp();
     testRateLimit();
+    testDevTokens();
     testBanWaves();
     testAdminReplay();
 

@@ -345,11 +345,35 @@ bool Store::load(std::string* error) {
         record.createdAt = entry.member("createdAt").asString();
         record.updatedAt = entry.member("updatedAt").asString();
         record.publishedAt = entry.member("publishedAt").asString();
+        record.aiCompatible = entry.member("aiCompatible").asBool(false);
+        record.aiCourse = entry.member("aiCourse").asString("map");
+        record.aiGoal = entry.member("aiGoal").asString();
         if (record.id <= 0 || record.ownerId <= 0) {
             continue;
         }
         games_.push_back(record);
         nextGameId_ = std::max(nextGameId_, record.id + 1);
+    }
+
+    for (const Json& entry : document.member("devTokens").elements()) {
+        DevTokenRecord record;
+        record.id = static_cast<int>(entry.member("id").asInteger(0));
+        record.userId = static_cast<int>(entry.member("userId").asInteger(0));
+        record.username = entry.member("username").asString();
+        record.label = entry.member("label").asString();
+        record.scope = entry.member("scope").asString("ai");
+        record.tokenHash = entry.member("tokenHash").asString();
+        record.createdAt = entry.member("createdAt").asString();
+        record.lastUsedAt = entry.member("lastUsedAt").asString();
+        record.revoked = entry.member("revoked").asBool(false);
+        record.revokedAt = entry.member("revokedAt").asString();
+        // A row without a hash cannot authenticate anything, so it is not a token
+        // and is dropped instead of kept as an entry that never matches.
+        if (record.id <= 0 || record.userId <= 0 || record.tokenHash.empty()) {
+            continue;
+        }
+        devTokens_.push_back(record);
+        nextDevTokenId_ = std::max(nextDevTokenId_, record.id + 1);
     }
 
     for (const Json& entry : document.member("reports").elements()) {
@@ -532,9 +556,29 @@ bool Store::save(std::string* error) const {
         entry.set("createdAt", record.createdAt);
         entry.set("updatedAt", record.updatedAt);
         entry.set("publishedAt", record.publishedAt);
+        entry.set("aiCompatible", record.aiCompatible);
+        entry.set("aiCourse", record.aiCourse);
+        entry.set("aiGoal", record.aiGoal);
         games.push(entry);
     }
     document.set("games", games);
+
+    Json devTokens = Json::makeArray();
+    for (const DevTokenRecord& record : devTokens_) {
+        Json entry = Json::makeObject();
+        entry.set("id", record.id);
+        entry.set("userId", record.userId);
+        entry.set("username", record.username);
+        entry.set("label", record.label);
+        entry.set("scope", record.scope);
+        entry.set("tokenHash", record.tokenHash);
+        entry.set("createdAt", record.createdAt);
+        entry.set("lastUsedAt", record.lastUsedAt);
+        entry.set("revoked", record.revoked);
+        entry.set("revokedAt", record.revokedAt);
+        devTokens.push(entry);
+    }
+    document.set("devTokens", devTokens);
 
     Json reports = Json::makeArray();
     for (const ReportRecord& record : reports_) {
@@ -1406,6 +1450,84 @@ std::vector<const BlockRecord*> Store::blocksBy(int userId) const {
         }
     }
     return out;
+}
+
+int Store::addDevToken(const DevTokenRecord& record) {
+    if (record.userId <= 0 || record.tokenHash.empty()) {
+        return 0;
+    }
+    std::size_t live = 0;
+    for (const DevTokenRecord& token : devTokens_) {
+        if (token.userId == record.userId && !token.revoked) {
+            ++live;
+        }
+    }
+    if (live >= kMaxDevTokensPerUser || devTokens_.size() >= kMaxDevTokens) {
+        return 0;
+    }
+    DevTokenRecord stored = record;
+    stored.id = nextDevTokenId_++;
+    if (stored.scope.empty()) {
+        stored.scope = "ai";
+    }
+    devTokens_.push_back(stored);
+    return stored.id;
+}
+
+const DevTokenRecord* Store::findDevToken(int id) const {
+    for (const DevTokenRecord& token : devTokens_) {
+        if (token.id == id) {
+            return &token;
+        }
+    }
+    return nullptr;
+}
+
+const DevTokenRecord* Store::findDevTokenByHash(const std::string& tokenHash) const {
+    if (tokenHash.empty()) {
+        return nullptr;
+    }
+    for (const DevTokenRecord& token : devTokens_) {
+        if (token.tokenHash == tokenHash) {
+            return &token;
+        }
+    }
+    return nullptr;
+}
+
+std::vector<const DevTokenRecord*> Store::devTokensFor(int userId) const {
+    std::vector<const DevTokenRecord*> tokens;
+    for (const DevTokenRecord& token : devTokens_) {
+        if (token.userId == userId) {
+            tokens.push_back(&token);
+        }
+    }
+    return tokens;
+}
+
+bool Store::revokeDevToken(int userId, int tokenId, const std::string& nowIso) {
+    for (DevTokenRecord& token : devTokens_) {
+        if (token.id != tokenId || token.userId != userId) {
+            continue;
+        }
+        if (token.revoked) {
+            return false;
+        }
+        token.revoked = true;
+        token.revokedAt = nowIso;
+        return true;
+    }
+    return false;
+}
+
+bool Store::touchDevToken(int id, const std::string& nowIso) {
+    for (DevTokenRecord& token : devTokens_) {
+        if (token.id == id) {
+            token.lastUsedAt = nowIso;
+            return true;
+        }
+    }
+    return false;
 }
 
 const GameRecord* Store::findGame(int id) const {

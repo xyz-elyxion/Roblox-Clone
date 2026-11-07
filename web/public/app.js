@@ -2919,6 +2919,195 @@ function initReportGame() {
     });
 }
 
+// The developer portal: the tokens a headless program signs in with, and the
+// switch that lets the trainer play one of this account's games. The token is
+// shown once, when it is made, because the site keeps only its hash.
+async function initDevelopersPage() {
+    const root = document.querySelector('[data-developers]');
+    if (!root) return;
+    if (!(await requireSession())) return;
+
+    const token = getToken();
+    const status = root.querySelector('[data-dev-status]');
+    const tokenList = root.querySelector('[data-dev-tokens]');
+    const gameList = root.querySelector('[data-dev-games]');
+    const form = root.querySelector('[data-dev-token-form]');
+    const output = root.querySelector('[data-dev-token-output]');
+    const outputValue = root.querySelector('[data-dev-token-value]');
+    const copyButton = root.querySelector('[data-dev-token-copy]');
+
+    function renderTokens(data) {
+        tokenList.innerHTML = '';
+        const tokens = data.tokens || [];
+        if (tokens.length === 0) {
+            tokenList.appendChild(emptyMessage('No AI tokens yet.'));
+            return;
+        }
+        tokens.forEach((devToken) => {
+            const row = document.createElement('div');
+            const label = document.createElement('strong');
+            label.textContent = devToken.label;
+            const meta = document.createElement('p');
+            meta.className = 'onboarding-hint';
+            const used = devToken.lastUsedAt
+                ? `last used ${formatDateTime(devToken.lastUsedAt)}`
+                : 'never used';
+            const state = devToken.revoked ? ' · revoked' : '';
+            meta.textContent = `Created ${formatDate(devToken.createdAt)} · ${used}${state}`;
+            row.append(label, meta);
+
+            if (!devToken.revoked) {
+                const revoke = document.createElement('button');
+                revoke.className = 'button danger';
+                revoke.type = 'button';
+                revoke.textContent = 'Revoke';
+                revoke.addEventListener('click', async () => {
+                    revoke.disabled = true;
+                    try {
+                        const { response, data: result } = await postJson(
+                            `/api/dev/tokens/${devToken.id}/revoke`, {}, token);
+                        if (!response.ok || !result.success) {
+                            throw new Error(result.error || 'Could not revoke the token.');
+                        }
+                        setStatus(status, `Revoked "${devToken.label}".`, 'success');
+                        await loadTokens();
+                    } catch (error) {
+                        revoke.disabled = false;
+                        setStatus(status, error.message || 'Could not revoke the token.', 'error');
+                    }
+                });
+                row.appendChild(revoke);
+            }
+            tokenList.appendChild(row);
+        });
+    }
+
+    function renderGames(games) {
+        gameList.innerHTML = '';
+        if (games.length === 0) {
+            gameList.appendChild(emptyMessage('You have no games yet. Publish one first.'));
+            return;
+        }
+        games.forEach((game) => {
+            const row = document.createElement('form');
+            row.className = 'dashboard-search';
+
+            const heading = document.createElement('p');
+            heading.textContent = `${game.title}${game.isPublic ? '' : ' (private)'}`;
+
+            const compatibleLabel = document.createElement('label');
+            compatibleLabel.className = 'field';
+            const compatible = document.createElement('input');
+            compatible.type = 'checkbox';
+            compatible.checked = Boolean(game.ai?.compatible);
+            const compatibleText = document.createElement('span');
+            compatibleText.textContent = 'AI compatible';
+            compatibleLabel.append(compatible, compatibleText);
+
+            const courseLabel = document.createElement('label');
+            courseLabel.className = 'field';
+            courseLabel.textContent = 'Course';
+            const course = document.createElement('select');
+            course.className = 'input';
+            [['map', 'Walk to a part'], ['doors', 'Doors hotel to door 100']].forEach(([value, text]) => {
+                const option = document.createElement('option');
+                option.value = value;
+                option.textContent = text;
+                course.appendChild(option);
+            });
+            course.value = game.ai?.course === 'doors' ? 'doors' : 'map';
+            courseLabel.appendChild(course);
+
+            const goalLabel = document.createElement('label');
+            goalLabel.className = 'field';
+            goalLabel.textContent = 'Goal part';
+            const goal = document.createElement('input');
+            goal.className = 'input';
+            goal.placeholder = 'FinishLine';
+            goal.value = game.ai?.goal || '';
+            goalLabel.appendChild(goal);
+
+            const save = document.createElement('button');
+            save.className = 'button';
+            save.type = 'submit';
+            save.textContent = 'Save';
+            row.append(heading, compatibleLabel, courseLabel, goalLabel, save);
+
+            row.addEventListener('submit', async (event) => {
+                event.preventDefault();
+                save.disabled = true;
+                try {
+                    const { response, data } = await postJson(`/api/games/${game.id}/ai`, {
+                        compatible: compatible.checked,
+                        course: course.value,
+                        goal: goal.value
+                    }, token);
+                    if (!response.ok || !data.success) {
+                        throw new Error(data.error || 'Could not save the AI setting.');
+                    }
+                    setStatus(status, `${game.title}: AI setting saved.`, 'success');
+                    await loadGames();
+                } catch (error) {
+                    save.disabled = false;
+                    setStatus(status, error.message || 'Could not save the AI setting.', 'error');
+                }
+            });
+            gameList.appendChild(row);
+        });
+    }
+
+    async function loadTokens() {
+        const { response, data } = await getJson('/api/dev/tokens', token);
+        if (!response.ok || !data.success) throw new Error(data.error || 'Could not load tokens.');
+        renderTokens(data);
+    }
+
+    async function loadGames() {
+        const { response, data } = await getJson('/api/games/mine', token);
+        if (!response.ok || !data.success) throw new Error(data.error || 'Could not load your games.');
+        renderGames(data.games || []);
+    }
+
+    form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const submit = form.querySelector('button[type="submit"]');
+        submit.disabled = true;
+        output.hidden = true;
+        try {
+            const { response, data } = await postJson('/api/dev/tokens', {
+                label: form.querySelector('#dev-token-label').value
+            }, token);
+            if (!response.ok || !data.success) {
+                throw new Error(data.error || 'Could not create the token.');
+            }
+            outputValue.textContent = data.token;
+            output.hidden = false;
+            form.reset();
+            setStatus(status, 'Token created. Copy it before leaving this page.', 'success');
+            await loadTokens();
+        } catch (error) {
+            setStatus(status, error.message || 'Could not create the token.', 'error');
+        } finally {
+            submit.disabled = false;
+        }
+    });
+
+    copyButton.addEventListener('click', async () => {
+        try {
+            await navigator.clipboard.writeText(outputValue.textContent || '');
+            setStatus(status, 'Token copied.', 'success');
+        } catch (error) {
+            setStatus(status, 'Could not copy it; select the token and copy it by hand.', 'error');
+        }
+    });
+
+    try {
+        await Promise.all([loadTokens(), loadGames()]);
+    } catch (error) {
+        setStatus(status, error.message || 'Could not load the developer portal.', 'error');
+    }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     applyDisplayPreferences();
     initNavAuth();
@@ -2938,4 +3127,5 @@ document.addEventListener('DOMContentLoaded', () => {
     initGamePage();
     initAdminPage();
     initSettings();
+    initDevelopersPage();
 });

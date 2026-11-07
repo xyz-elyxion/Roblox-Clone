@@ -232,6 +232,35 @@ struct BlockRecord {
     std::string createdAt;
 };
 
+// How many AI training tokens one account may hold at once. A developer token is
+// a long-lived credential for a program rather than a session, so a handful of
+// them is plenty, and the cap keeps one leaked account from filling the file with
+// live secrets.
+const std::size_t kMaxDevTokensPerUser = 8;
+
+// How many tokens the whole install keeps, revoked ones included.
+const std::size_t kMaxDevTokens = 500;
+
+// A developer token minted in the developer portal that lets a program sign in as
+// the account that owns it. Only the SHA-256 of the secret is stored: the value is
+// shown once, when it is issued, and cannot be recovered afterwards. `scope` names
+// what the token is for, so a token handed to a trainer cannot be used as a
+// session. `rootHash` is the hash of a separately shown root secret; the secret the
+// program holds is never on disk in the clear.
+struct DevTokenRecord {
+    int id = 0;
+    int userId = 0;
+    std::string username;
+    std::string label;
+    // "ai" today. A route checks the scope it needs instead of accepting any token.
+    std::string scope = "ai";
+    std::string tokenHash;
+    std::string createdAt;
+    std::string lastUsedAt;
+    bool revoked = false;
+    std::string revokedAt;
+};
+
 struct GameRecord {
     int id = 0;
     int ownerId = 0;
@@ -251,6 +280,15 @@ struct GameRecord {
     std::string updatedAt;
     std::string publishedAt;
     std::string ownerUsername;
+    // Whether the AI trainer may play this game. A map is off until its owner
+    // says a headless run of it makes sense; the trainer refuses every other one.
+    bool aiCompatible = false;
+    // "map" trains a policy to walk to a part in the world file; "doors" builds
+    // the 100-door hotel the Doors script generates and trains the run to door 100.
+    std::string aiCourse = "map";
+    // The part a "map" course walks to. Empty means the part furthest from the
+    // spawn, which is how the trainer has always picked its goal.
+    std::string aiGoal;
 };
 
 // In-memory records backed by a single JSON document on disk. Not thread safe:
@@ -408,6 +446,23 @@ public:
     bool blockedEitherWay(int firstUserId, int secondUserId) const;
     std::vector<const BlockRecord*> blocksBy(int userId) const;
 
+    // developer tokens
+    // Stores one token; 0 when the account already holds its share or the install
+    // holds its own. The caller mints and hashes the secret.
+    int addDevToken(const DevTokenRecord& record);
+    const DevTokenRecord* findDevToken(int id) const;
+    // The token this secret hashes to, revoked or not: the caller decides what a
+    // revoked token means, because the answer differs between "refuse" and "say it
+    // was revoked".
+    const DevTokenRecord* findDevTokenByHash(const std::string& tokenHash) const;
+    std::vector<const DevTokenRecord*> devTokensFor(int userId) const;
+    // Revokes one token the account owns; false when it is not there or is
+    // already revoked.
+    bool revokeDevToken(int userId, int tokenId, const std::string& nowIso);
+    // Records a use of a token that was just accepted. False for an unknown id.
+    bool touchDevToken(int id, const std::string& nowIso);
+    std::size_t devTokenCount() const { return devTokens_.size(); }
+
     // games
     const GameRecord* findGame(int id) const;
     std::vector<const GameRecord*> allGames() const;
@@ -445,6 +500,7 @@ private:
     std::vector<BlockRecord> blocks_;
     std::vector<AppealRecord> appeals_;
     std::vector<HardwareBanRecord> hardwareBans_;
+    std::vector<DevTokenRecord> devTokens_;
     int nextUserId_ = 1;
     int nextFriendshipId_ = 1;
     int nextGameId_ = 1;
@@ -455,6 +511,7 @@ private:
     // would reuse an id an earlier one already carries.
     mutable int nextInfractionId_ = 1;
     int nextAppealId_ = 1;
+    int nextDevTokenId_ = 1;
 };
 
 // Turns key material written by a person into the 32 bytes AES-256 takes: 64 hex

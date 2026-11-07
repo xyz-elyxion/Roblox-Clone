@@ -305,9 +305,11 @@ if(RBLX_BUILD_TRAINER)
         src/Character.cpp
         src/Camera.cpp
         src/WorldLoader.cpp
+        src/HttpClient.cpp
+        src/WebJson.cpp
     )
     configure_rblx_target(AiTrainer)
-    target_link_libraries(AiTrainer PRIVATE reactphysics3d glm)
+    target_link_libraries(AiTrainer PRIVATE reactphysics3d glm ws2_32)
 endif()
 
 set(WEB_SOURCES

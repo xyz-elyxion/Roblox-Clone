@@ -223,6 +223,17 @@ private:
     bool handleCreateGame(Request& request, Response& response);
     bool handlePublishGame(Request& request, Response& response);
     bool handleGetGame(Request& request, Response& response);
+    // The developer portal: long-lived tokens a program signs in with, and the
+    // per-game switch that lets the AI trainer play a map.
+    bool handleListDevTokens(Request& request, Response& response);
+    bool handleCreateDevToken(Request& request, Response& response);
+    bool handleRevokeDevToken(Request& request, Response& response);
+    bool handleGameAiSettings(Request& request, Response& response);
+    // AiTrainer signs in here with a developer token rather than an account
+    // session. The answer names the map to train on, and only for a game its owner
+    // has marked AI compatible.
+    bool handleAiLogin(Request& request, Response& response);
+    Json devTokenJson(const DevTokenRecord& token) const;
     bool handleUpdateGame(Request& request, Response& response);
     // The .rbx script the game server loads beside the world, as the website's
     // code editor reads and saves it.

@@ -15,7 +15,7 @@ before pointing it at the internet.
 | `Studio.exe` | World editor: build, colour, texture, script and publish |
 | `RBLXCode.exe` | Source editor for this repository, the way VS Code is the editor for its own sources |
 | `WebApp.exe` | The website: accounts, sessions, avatars, friends, games, coins, moderation, launching servers |
-| `AiTrainer.exe` | Learns to play a world headlessly and replays the result |
+| `AiTrainer.exe` | Signs in with a developer token, learns to play an AI-compatible game headlessly and replays the result |
 | `RBLXHosts.exe` | Keeps N game servers running on one machine — ports, logs, restarts, control panel — see [HOSTING.md](HOSTING.md) |
 
 ```powershell
@@ -977,26 +977,49 @@ from a checkout, where it opens the clone, or pass another folder's path.
 
 ## AI Trainer
 
-`AiTrainer` learns to play any `.world` without opening a window. It loads the world, creates the
-same `Character` and `PhysicsWorld` the game runs, and improves a small policy with the
-cross-entropy method, so walk speed, jumping and falling behave exactly as they do in game.
+`AiTrainer` learns to play a published game without opening a window. It signs in to the site with
+a developer token, the site names the map and the course, and the trainer loads the same
+`Character` and `PhysicsWorld` the game runs, so walk speed, jumping and falling behave exactly as
+they do in game. The policy itself is a plain table of weights, improved with the cross-entropy
+method.
+
+Before the first run, sign in to the site and open `/developers`. Create an AI token there (it is
+shown once; only its hash is stored) and tick **AI compatible** on the game the trainer should
+play. A game its owner has not marked is refused for every token, including the owner's own. The
+two starter games the trainer is meant for, Turbo Circuit and Doors Hotel, are switched on when a
+fresh install seeds them. `WebApp.exe` has to be running, and `--site` points the trainer at it
+when it is not on `http://127.0.0.1:3000`.
 
 ```
-AiTrainer --world games/turbo-circuit.world --goal FinishLine --generations 60
-AiTrainer --world games/turbo-circuit.world --goal FinishLine --replay
-AiTrainer --world games/turbo-circuit.world --goal FinishLine --replay --watch
+AiTrainer --token rblxai_... --game 4 --generations 60
+AiTrainer --token rblxai_... --game 4 --replay
+AiTrainer --token rblxai_... --game 4 --replay --watch
 ```
 
-The policy sees eight numbers (direction to the goal on X and Z, distance, height above the spawn,
-a bias, and how far each of three feeler rays reaches before it hits a wall on `-Z`, `-X` and
-`+X`) and picks one of six actions (forward, backward, left, right, jump, idle) on fixed world
-axes, where forward is `-Z`. Reward is progress toward the goal part, plus a bonus for reaching it
-and a penalty for falling off the map. `--goal` names the part to walk to; a name the world does
-not have falls back to the part furthest from the spawn.
+A game's AI course is one of two, set beside the switch in the portal:
 
-The trained weights are written to `models/<world>.policy` as plain text (one row per action)
-unless `--out` says otherwise. `--replay` loads that file and runs one episode, exiting 0 only if
-the goal was reached, which makes it usable as a check. Training is CPU only and needs no GPU.
+- **Walk to a part** trains the policy to reach the part named in the goal box, or the part
+  furthest from the spawn when that is empty. Turbo Circuit is this course with the goal
+  `FinishLine`.
+- **Doors hotel to door 100** builds the hundred-door hotel the Doors script generates, from the
+  same seed and the same measurements, and trains the run through all hundred doors to the
+  elevator. The hotel lives in the script rather than in the `.world` file, so the trainer builds
+  it instead of loading it. Progress is the door count, printed each generation as
+  `doors 43/100`. The door pads and the wardrobe are not simulated: the trainer learns the walk,
+  not the key presses.
+
+The policy sees eight numbers (direction to the checkpoint it is walking to on X and Z, distance,
+height above the spawn, a bias, and how far each of three feeler rays reaches before it hits a
+wall on `-Z`, `-X` and `+X`) and picks one of six actions (forward, backward, left, right, jump,
+idle) on fixed world axes, where forward is `-Z`. Reward is progress toward that checkpoint, a
+bonus for every door and for the elevator, and a penalty for falling off the map.
+
+The trained weights are written to `models/doors-hotel.policy` for a doors game, or
+`models/<world>.policy` for a map game, as plain text with one row per action and a `course`
+line, unless `--out` says otherwise. `--replay` loads that file and runs one episode, exiting 0
+only if the goal was reached, which makes it usable as a check. The hotel's default budget is
+16,000 steps because its corridor is nearly 3,000 studs long, and `--steps` overrides either
+default. Training is CPU only and needs no GPU.
 
 `--watch` draws the episode as a top-down map in the terminal while it happens: `@` is the
 character, `G` the goal, `S` the spawn, `.` the path already walked, `#` a wall and `_` floor. It

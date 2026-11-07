@@ -26,9 +26,11 @@
 
 #include "Camera.h"
 #include "Character.h"
+#include "HttpClient.h"
 #include "Part.h"
 #include "PhysicsWorld.h"
 #include "WorldLoader.h"
+#include "WebJson.h"
 
 namespace {
 
@@ -80,62 +82,74 @@ struct EpisodeResult {
     int steps = 0;
     bool reached = false;
     bool fell = false;
+    // How many checkpoints the episode got past: one for a map course, and a door
+    // count for the hotel.
+    int targetsPassed = 0;
 };
+
+// What the trainer is asked to learn. Map walks to a part in a .world file.
+// DoorsHotel builds the hundred-door hotel the Doors script generates, from the
+// same seed and the same measurements, and trains the run to the elevator past
+// door 100. The hotel is generated here because the script builds it at run time:
+// a trainer that only read the .world file would see the lobby and nothing else.
+enum class Course { Map, DoorsHotel };
+
+constexpr int kHotelDoors = 100;
+constexpr float kHotelPitch = 30.0f;
+constexpr float kHotelCornerLength = 26.0f;
+constexpr float kHotelHalfWidth = 13.0f;
+constexpr float kHotelDoorOneZ = -22.0f;
+constexpr float kHotelLobbyEndZ = 26.5f;
+constexpr double kHotelSeed = 71234.0;
+// A checkpoint sits at the height the character's own origin has once it stands
+// on a floor, so the distance to it is a distance along the corridor rather than
+// mostly a difference in height.
+constexpr float kHotelWalkY = 3.0f;
+
+// The script's own mixing function, in doubles so the same seed builds the same
+// hotel here that the game server builds: an integer-valued double is exact well
+// past the largest product below.
+double hotelHash(int index, int salt) {
+    double n = std::fmod(static_cast<double>(index) * 73856093.0 +
+                             static_cast<double>(salt) * 19349663.0 +
+                             kHotelSeed * 2654435761.0,
+                         1000003.0);
+    n = std::fmod(n * 1103515245.0 + 12345.0, 2147483648.0);
+    return n;
+}
+
+int hotelPick(int index, int salt, int count) {
+    return static_cast<int>(std::fmod(hotelHash(index, salt), static_cast<double>(count))) + 1;
+}
+
+bool hotelChance(int index, int salt, int percent) {
+    return std::fmod(hotelHash(index, salt), 100.0) < static_cast<double>(percent);
+}
 
 class TrainingWorld {
 public:
-    TrainingWorld(const std::string& worldPath, const std::string& goalName, std::string* error)
-        : goalName_(goalName) {
+    TrainingWorld(Course course, const std::string& worldPath, const std::string& goalName,
+                  std::string* error)
+        : course_(course) {
         // The policy acts on fixed world axes: forward is -Z and right is +X, the
         // same mapping the game uses when the camera looks along -Z. Using a
         // rotating camera here would hand the policy a free heading.
         inputCamera_.Yaw = -90.0f;
 
         physics_.init();
-        WorldLoader::loadWorld(worldPath, parts_, physics_);
-        if (parts_.empty()) {
-            *error = "the world file has no parts";
+        if (course_ == Course::DoorsHotel) {
+            if (!buildHotel(error)) {
+                return;
+            }
+        } else if (!loadMap(worldPath, goalName, error)) {
             return;
         }
 
-        bool hasSpawn = false;
-        for (const Part& part : parts_) {
-            if (!part.deleted && part.isSpawn) {
-                spawn_ = part.position + glm::vec3(0.0f, 5.0f, 0.0f);
-                hasSpawn = true;
-                break;
-            }
-        }
-        if (!hasSpawn) {
-            spawn_ = glm::vec3(0.0f, 10.0f, 0.0f);
-        }
-
-        const Part* goalPart = nullptr;
-        for (const Part& part : parts_) {
-            if (!part.deleted && !part.isFolder && part.name == goalName_) {
-                goalPart = &part;
-                break;
-            }
-        }
-        if (goalPart == nullptr) {
-            // No part by that name: fall back to the part furthest from the spawn,
-            // which is the end of the map for the worlds this ships with.
-            float furthest = -1.0f;
-            for (const Part& part : parts_) {
-                if (part.deleted || part.isFolder) continue;
-                const float distance = glm::length(part.position - spawn_);
-                if (distance > furthest) {
-                    furthest = distance;
-                    goalPart = &part;
-                }
-            }
-        }
-        if (goalPart == nullptr) {
-            *error = "the world has no part to walk to";
+        if (targets_.empty()) {
+            *error = "the course has nothing to walk to";
             return;
         }
-        goal_ = goalPart->position;
-        goalName_ = goalPart->name;
+        target_ = targets_.front();
 
         character_ = new Character(spawn_, &physics_, &parts_);
         character_->update(0.0f, nullptr, false);
@@ -156,12 +170,14 @@ public:
     }
 
     bool ready() const { return character_ != nullptr; }
+    bool doorsCourse() const { return course_ == Course::DoorsHotel; }
     std::size_t partCount() const { return parts_.size(); }
     const std::deque<Part>& parts() const { return parts_; }
     const std::string& goalName() const { return goalName_; }
     glm::vec3 spawn() const { return spawn_; }
-    glm::vec3 goal() const { return goal_; }
-    float startDistance() const { return glm::length(goal_ - spawn_); }
+    glm::vec3 goal() const { return targets_.back(); }
+    std::size_t targetCount() const { return targets_.size(); }
+    float startDistance() const { return glm::length(targets_.front() - spawn_); }
 
     // Called once per simulated step, which is how --watch turns an episode into
     // frames without teaching the trainer anything about drawing.
@@ -176,7 +192,9 @@ public:
         character_->update(0.0f, nullptr, false);
         physics_.update(kStepSeconds);
         position_ = character_->getPosition();
-        previousDistance_ = glm::length(goal_ - position_);
+        targetIndex_ = 0;
+        target_ = targets_.front();
+        previousDistance_ = glm::length(target_ - position_);
 
         for (int step = 0; step < maxSteps; ++step) {
             float observation[kObservationCount];
@@ -188,9 +206,9 @@ public:
             physics_.update(kStepSeconds);
 
             position_ = character_->getPosition();
-            const float distance = glm::length(goal_ - position_);
-            // Progress toward the goal is the reward, with a small per-step cost
-            // so dawdling loses to walking a straight line.
+            const float distance = glm::length(target_ - position_);
+            // Progress toward the checkpoint being walked to is the reward, with a
+            // small per-step cost so dawdling loses to walking a straight line.
             result.reward += (previousDistance_ - distance) - 0.01f;
             previousDistance_ = distance;
             result.steps = step + 1;
@@ -199,9 +217,22 @@ public:
             }
 
             if (distance <= kGoalRadius) {
-                result.reward += 50.0f;
-                result.reached = true;
-                break;
+                ++result.targetsPassed;
+                targetIndex_ = static_cast<std::size_t>(result.targetsPassed);
+                if (targetIndex_ >= targets_.size()) {
+                    result.reward += 50.0f;
+                    result.reached = true;
+                    break;
+                }
+                // The hotel run is long enough that the final bonus says nothing
+                // about how far a policy got, so every door is worth something on
+                // its own and the score reads as a door count.
+                if (course_ == Course::DoorsHotel) {
+                    result.reward += 4.0f;
+                }
+                target_ = targets_[targetIndex_];
+                previousDistance_ = glm::length(target_ - position_);
+                continue;
             }
             if (position_.y < spawn_.y - kFallLimit) {
                 result.reward -= 25.0f;
@@ -216,8 +247,221 @@ public:
     }
 
 private:
+    bool loadMap(const std::string& worldPath, const std::string& goalName, std::string* error) {
+        WorldLoader::loadWorld(worldPath, parts_, physics_);
+        if (parts_.empty()) {
+            *error = "the world file has no parts";
+            return false;
+        }
+
+        bool hasSpawn = false;
+        for (const Part& part : parts_) {
+            if (!part.deleted && part.isSpawn) {
+                spawn_ = part.position + glm::vec3(0.0f, 5.0f, 0.0f);
+                hasSpawn = true;
+                break;
+            }
+        }
+        if (!hasSpawn) {
+            spawn_ = glm::vec3(0.0f, 10.0f, 0.0f);
+        }
+
+        const Part* goalPart = nullptr;
+        for (const Part& part : parts_) {
+            if (!part.deleted && !part.isFolder && part.name == goalName) {
+                goalPart = &part;
+                break;
+            }
+        }
+        if (goalPart == nullptr) {
+            // No part by that name: fall back to the part furthest from the spawn,
+            // which is the end of the map for the worlds this ships with.
+            float furthest = -1.0f;
+            for (const Part& part : parts_) {
+                if (part.deleted || part.isFolder) continue;
+                const float distance = glm::length(part.position - spawn_);
+                if (distance > furthest) {
+                    furthest = distance;
+                    goalPart = &part;
+                }
+            }
+        }
+        if (goalPart == nullptr) {
+            *error = "the world has no part to walk to";
+            return false;
+        }
+        targets_.assign(1, goalPart->position);
+        goalName_ = goalPart->name;
+        return true;
+    }
+
+    // The hotel, built the way games/doors-hotel.rbx builds it: the path is laid
+    // out first, one room at a time, and each room then places its floor, walls
+    // and doorway in its own frame of (along, across). Rooms the seed turns are
+    // square and hand the corridor off through a side wall; the rest run straight
+    // or hold a divider or a pillar for the policy to walk around.
+    bool buildHotel(std::string* error) {
+        struct Room {
+            int dirX = 0;
+            int dirZ = -1;
+            int acrX = 1;
+            int acrZ = 0;
+            double entryX = 0.0;
+            double entryZ = 0.0;
+            float length = kHotelPitch;
+            int turn = 0;
+            int kind = 1;
+        };
+        static const int kDirX[4] = {0, 1, 0, -1};
+        static const int kDirZ[4] = {-1, 0, 1, 0};
+
+        std::vector<Room> rooms(static_cast<std::size_t>(kHotelDoors));
+        int dir = 1;
+        double ex = 0.0;
+        double ez = kHotelDoorOneZ;
+        int sinceTurn = 0;
+        for (int index = 1; index <= kHotelDoors; ++index) {
+            Room& room = rooms[static_cast<std::size_t>(index - 1)];
+            room.dirX = kDirX[dir - 1];
+            room.dirZ = kDirZ[dir - 1];
+            room.acrX = -room.dirZ;
+            room.acrZ = room.dirX;
+            room.entryX = ex;
+            room.entryZ = ez;
+
+            // A turn needs straight rooms on either side of it, and the first and
+            // last rooms keep the lobby and the elevator where the world expects.
+            int side = 0;
+            if (sinceTurn >= 3 && index > 3 && index < kHotelDoors - 2 &&
+                hotelChance(index, 21, 24)) {
+                side = hotelPick(index, 22, 2);
+                if (side == 2) {
+                    side = -1;
+                }
+            }
+            ++sinceTurn;
+
+            int kind = 1;
+            float length = kHotelPitch;
+            if (side != 0) {
+                kind = 2;
+                length = kHotelCornerLength;
+                sinceTurn = 0;
+            } else {
+                const int rolled = hotelPick(index, 23, 3);
+                if (rolled == 2) {
+                    kind = 3;
+                }
+                if (rolled == 3) {
+                    kind = 4;
+                }
+            }
+            room.turn = side;
+            room.kind = kind;
+            room.length = length;
+
+            if (side == 0) {
+                ex += room.dirX * length;
+                ez += room.dirZ * length;
+            } else {
+                ex += room.dirX * (length * 0.5) + room.acrX * (kHotelHalfWidth * side);
+                ez += room.dirZ * (length * 0.5) + room.acrZ * (kHotelHalfWidth * side);
+                dir += side;
+                if (dir > 4) {
+                    dir -= 4;
+                }
+                if (dir < 1) {
+                    dir += 4;
+                }
+            }
+        }
+
+        const glm::vec3 floorColor(0.11f, 0.095f, 0.115f);
+        const glm::vec3 wallColor(0.16f, 0.15f, 0.17f);
+        auto add = [this](const std::string& name, double x, float y, double z, float sizeX,
+                          float sizeY, float sizeZ, const glm::vec3& color) {
+            Part part(glm::vec3(static_cast<float>(x), y, static_cast<float>(z)),
+                      glm::vec3(sizeX, sizeY, sizeZ), color, ShapeType::Cube, name);
+            parts_.push_back(part);
+            physics_.addPart(&parts_.back());
+        };
+        // A part in a room's own frame. The size is given along the heading and
+        // across it, so a room on either axis is the same call.
+        auto place = [&add](const Room& room, const std::string& stem, int index, double u,
+                            double v, float y, float sizeAlong, float sizeAcross, float sizeY,
+                            const glm::vec3& color) {
+            const double x = room.entryX + room.dirX * u + room.acrX * v;
+            const double z = room.entryZ + room.dirZ * u + room.acrZ * v;
+            const float sizeX = std::fabs(static_cast<float>(room.dirX)) * sizeAlong +
+                                std::fabs(static_cast<float>(room.acrX)) * sizeAcross;
+            const float sizeZ = std::fabs(static_cast<float>(room.dirZ)) * sizeAlong +
+                                std::fabs(static_cast<float>(room.acrZ)) * sizeAcross;
+            add(stem + std::to_string(index), x, y, z, sizeX, sizeY, sizeZ, color);
+        };
+
+        const double lobbyCentre = (kHotelLobbyEndZ + kHotelDoorOneZ) * 0.5;
+        const float lobbyLength = static_cast<float>(kHotelLobbyEndZ - kHotelDoorOneZ);
+        add("LobbyFloor", 0.0, -0.5f, lobbyCentre, 26.0f, 1.0f, lobbyLength, floorColor);
+        add("LobbyWallWest", -13.5, 6.0f, lobbyCentre, 1.0f, 12.0f, lobbyLength, wallColor);
+        add("LobbyWallEast", 13.5, 6.0f, lobbyCentre, 1.0f, 12.0f, lobbyLength, wallColor);
+        add("LobbyBackWall", 0.0, 6.0f, kHotelLobbyEndZ + 0.5, 28.0f, 12.0f, 1.0f, wallColor);
+
+        targets_.clear();
+        for (int index = 1; index <= kHotelDoors; ++index) {
+            const Room& room = rooms[static_cast<std::size_t>(index - 1)];
+            const float length = room.length;
+            const int side = room.turn;
+
+            place(room, "RoomFloor", index, length * 0.5, 0.0, -0.5f, length,
+                  kHotelHalfWidth * 2.0f, 1.0f, floorColor);
+            if (side == 0) {
+                place(room, "RoomWallWest", index, length * 0.5, -kHotelHalfWidth - 0.5, 6.0f,
+                      length, 1.0f, 12.0f, wallColor);
+                place(room, "RoomWallEast", index, length * 0.5, kHotelHalfWidth + 0.5, 6.0f,
+                      length, 1.0f, 12.0f, wallColor);
+            } else {
+                place(room, "RoomWallSide", index, length * 0.5,
+                      -side * (kHotelHalfWidth + 0.5), 6.0f, length, 1.0f, 12.0f, wallColor);
+                place(room, "RoomBack", index, length + 0.5, 0.0, 6.0f, 1.0f,
+                      kHotelHalfWidth * 2.0f, 12.0f, wallColor);
+            }
+            // The doorway into the room: the two partitions leave a six-wide gap,
+            // which is where the game's door slides up out of the way.
+            place(room, "PartitionWest", index, 0.0, -8.0, 6.0f, 1.0f, 10.0f, 12.0f, wallColor);
+            place(room, "PartitionEast", index, 0.0, 8.0, 6.0f, 1.0f, 10.0f, 12.0f, wallColor);
+
+            if (room.kind == 3) {
+                const int gap = hotelPick(index, 24, 2) == 2 ? 1 : -1;
+                place(room, "Divider", index, length * 0.35, gap * 4.5, 6.0f, 1.0f, 17.0f, 12.0f,
+                      wallColor);
+            }
+            if (room.kind == 4) {
+                place(room, "Pillar", index, length * 0.5, 0.0, 5.5f, 6.0f, 8.0f, 11.0f,
+                      wallColor);
+            }
+
+            targets_.push_back(glm::vec3(
+                static_cast<float>(room.entryX + room.dirX * (length * 0.5)), kHotelWalkY,
+                static_cast<float>(room.entryZ + room.dirZ * (length * 0.5))));
+        }
+
+        // The elevator, four studs short of the last room's far wall.
+        const Room& last = rooms.back();
+        const float elevatorU = last.length - 4.0f;
+        targets_.push_back(glm::vec3(
+            static_cast<float>(last.entryX + last.dirX * elevatorU), kHotelWalkY,
+            static_cast<float>(last.entryZ + last.dirZ * elevatorU)));
+
+        spawn_ = glm::vec3(0.0f, 6.2f, 0.0f);
+        goalName_ = "Door100";
+        if (!error) {
+            return true;
+        }
+        return true;
+    }
+
     void observe(float* out) {
-        const glm::vec3 delta = goal_ - position_;
+        const glm::vec3 delta = target_ - position_;
         const float distance = glm::length(delta);
         out[0] = std::clamp(delta.x / 40.0f, -1.0f, 1.0f);
         out[1] = std::clamp(delta.z / 40.0f, -1.0f, 1.0f);
@@ -256,8 +500,13 @@ private:
     std::deque<Part> parts_;
     PhysicsWorld physics_;
     Character* character_ = nullptr;
+    Course course_ = Course::Map;
     glm::vec3 spawn_{0.0f, 0.0f, 0.0f};
-    glm::vec3 goal_{0.0f, 0.0f, 0.0f};
+    // The checkpoint being walked to, and every checkpoint after it. A map course
+    // has one; the hotel has a door per room and the elevator after the last.
+    std::vector<glm::vec3> targets_;
+    glm::vec3 target_{0.0f, 0.0f, 0.0f};
+    std::size_t targetIndex_ = 0;
     std::string goalName_;
     Part* rootPart_ = nullptr;
     Camera inputCamera_;
@@ -441,35 +690,107 @@ EpisodeResult runWatchedEpisode(TrainingWorld& world, const Policy& policy, int 
 }
 
 struct Options {
-    std::string world = "games/turbo-circuit.world";
-    std::string goal = "FinishLine";
+    // Where WebApp.exe answers. The trainer has nothing to train without a token
+    // from that site, so the address is part of every run rather than a fallback.
+    std::string site = "http://127.0.0.1:3000";
+    std::string token;
+    int gameId = 0;
     std::string out;
     int generations = kDefaultGenerations;
     int candidates = kDefaultCandidates;
     int episodes = kDefaultEpisodesPerCandidate;
-    int steps = kDefaultSteps;
+    // 0 asks the course for its own budget: a map is a short walk, a hundred-door
+    // hotel is not.
+    int steps = 0;
     unsigned int seed = 1337;
     bool replay = false;
     bool watch = false;
 };
 
+// A hundred rooms of thirty studs and fourteen corners is a little under 3000
+// studs of corridor, which a character walking at game speed covers in about four
+// minutes of simulated time.
+constexpr int kDefaultHotelSteps = 16000;
+
+int defaultStepsFor(const std::string& course) {
+    return course == "doors" ? kDefaultHotelSteps : kDefaultSteps;
+}
+
 void printUsage() {
     std::printf(
-        "Usage: AiTrainer [options]\n"
-        "  --world <file>        .world file to train on (default %s)\n"
-        "  --goal <part>         part to walk to (default FinishLine; a missing part\n"
-        "                        falls back to the part furthest from the spawn)\n"
-        "  --generations <n>     training generations (default %d)\n"
-        "  --candidates <n>      policies sampled per generation (default %d)\n"
-        "  --episodes <n>        episodes per candidate (default %d)\n"
-        "  --steps <n>           steps per episode at 60 Hz (default %d)\n"
-        "  --out <file>          where to write the trained policy\n"
-        "                        (default models/<world>.policy)\n"
-        "  --replay              load --out and run one episode with it\n"
-        "  --watch               draw the episode as a top-down map while it runs\n"
-        "  --seed <n>            sampling seed (default 1337)\n",
-        "games/turbo-circuit.world", kDefaultGenerations, kDefaultCandidates,
-        kDefaultEpisodesPerCandidate, kDefaultSteps);
+        "Usage: AiTrainer --token <token> --game <id> [options]\n"
+        "  --token <token>      developer token from the site's developer portal\n"
+        "  --game <id>          game to train on; its owner must have marked it AI\n"
+        "                       compatible, and the site names the map and the course\n"
+        "  --site <url>         where WebApp.exe answers (default %s)\n"
+        "  --generations <n>    training generations (default %d)\n"
+        "  --candidates <n>     policies sampled per generation (default %d)\n"
+        "  --episodes <n>       episodes per candidate (default %d)\n"
+        "  --steps <n>          steps per episode at 60 Hz (default %d, or %d for the\n"
+        "                       hundred-door hotel)\n"
+        "  --out <file>         where to write the trained policy\n"
+        "                       (default models/<world>.policy, or models/doors-hotel.policy)\n"
+        "  --replay             load --out and run one episode with it\n"
+        "  --watch              draw the episode as a top-down map while it runs\n"
+        "  --seed <n>           sampling seed (default 1337)\n",
+        "http://127.0.0.1:3000", kDefaultGenerations, kDefaultCandidates,
+        kDefaultEpisodesPerCandidate, kDefaultSteps, kDefaultHotelSteps);
+}
+
+// What the site said to train on. The trainer never decides on its own that a game
+// may be played by an AI: the portal's flag and the course live on the game record.
+struct Session {
+    int gameId = 0;
+    std::string title;
+    std::string world;
+    std::string course = "map";
+    std::string goal;
+};
+
+std::string withoutTrailingSlash(std::string url) {
+    while (!url.empty() && url.back() == '/') {
+        url.pop_back();
+    }
+    return url;
+}
+
+bool signIn(const Options& options, Session* session, std::string* error) {
+    const std::string url = withoutTrailingSlash(options.site) + "/api/ai/login";
+    rblx::web::Json request = rblx::web::Json::makeObject();
+    request.set("gameId", options.gameId);
+    const rblx::http::Response response =
+        rblx::http::request("POST", url, request.dump(), options.token, 8000);
+    if (response.networkError()) {
+        *error = "could not reach " + url + " (" + response.error +
+                 "). Is WebApp.exe running?";
+        return false;
+    }
+    std::string parseError;
+    const rblx::web::Json body = rblx::web::Json::parse(response.body, &parseError);
+    if (!response.ok() || !body.member("success").asBool(false)) {
+        std::string message = body.member("error").asString();
+        if (message.empty()) {
+            message = "the site answered HTTP " + std::to_string(response.status);
+        }
+        *error = message;
+        return false;
+    }
+
+    const rblx::web::Json& game = body.member("game");
+    session->gameId = static_cast<int>(game.member("id").asInteger(0));
+    session->title = game.member("title").asString();
+    session->world = game.member("world").asString();
+    session->course = game.member("course").asString("map");
+    session->goal = game.member("goal").asString();
+    if (session->world.empty()) {
+        *error = "the site did not name a world file";
+        return false;
+    }
+    if (session->course != "doors" && session->course != "map") {
+        *error = "the game asks for a course this build does not have: " + session->course;
+        return false;
+    }
+    return true;
 }
 
 std::string defaultOutputPath(const std::string& worldPath) {
@@ -490,6 +811,7 @@ bool savePolicy(const Policy& policy, const std::string& path, const TrainingWor
         return false;
     }
     out << "# RBLX AI policy v1\n";
+    out << "course " << (world.doorsCourse() ? "doors" : "map") << '\n';
     out << "goal " << world.goalName() << ' ' << world.goal().x << ' ' << world.goal().y << ' '
         << world.goal().z << '\n';
     out << "observations " << kObservationCount << '\n';
@@ -515,7 +837,7 @@ bool loadPolicy(Policy* policy, const std::string& path, std::string* error) {
     while (std::getline(in, line)) {
         if (line.empty() || line[0] == '#') continue;
         if (line.rfind("goal ", 0) == 0 || line.rfind("observations ", 0) == 0 ||
-            line.rfind("actions ", 0) == 0) {
+            line.rfind("actions ", 0) == 0 || line.rfind("course ", 0) == 0) {
             continue;
         }
         std::vector<float> rowWeights;
@@ -582,10 +904,12 @@ int main(int argc, char** argv) {
     for (int i = 1; i < argc; ++i) {
         const std::string arg = argv[i];
         const bool hasValue = i + 1 < argc;
-        if (arg == "--world" && hasValue) {
-            options.world = argv[++i];
-        } else if (arg == "--goal" && hasValue) {
-            options.goal = argv[++i];
+        if (arg == "--token" && hasValue) {
+            options.token = argv[++i];
+        } else if (arg == "--site" && hasValue) {
+            options.site = argv[++i];
+        } else if (arg == "--game" && hasValue) {
+            options.gameId = std::atoi(argv[++i]);
         } else if (arg == "--out" && hasValue) {
             options.out = argv[++i];
         } else if (arg == "--generations" && hasValue) {
@@ -611,22 +935,51 @@ int main(int argc, char** argv) {
             return 2;
         }
     }
-    if (options.out.empty()) {
-        options.out = defaultOutputPath(options.world);
+
+    if (options.token.empty() || options.gameId <= 0) {
+        std::fprintf(stderr,
+                     "AiTrainer signs in before it runs.\n"
+                     "Create a developer token at %s/developers, mark the game AI\n"
+                     "compatible there, then pass the token and the game:\n\n"
+                     "  AiTrainer.exe --token rblxai_... --game <id>\n\n",
+                     options.site.c_str());
+        printUsage();
+        return 2;
     }
 
     std::string error;
-    TrainingWorld world(options.world, options.goal, &error);
-    if (!world.ready()) {
-        std::fprintf(stderr, "Could not build a training world from %s: %s\n",
-                     options.world.c_str(), error.c_str());
+    Session session;
+    if (!signIn(options, &session, &error)) {
+        std::fprintf(stderr, "Could not sign in: %s\n", error.c_str());
         return 1;
     }
+    const Course course = session.course == "doors" ? Course::DoorsHotel : Course::Map;
+    const int steps = options.steps > 0 ? options.steps : defaultStepsFor(session.course);
 
-    std::printf("World: %s (%zu parts)\n", options.world.c_str(), world.partCount());
-    std::printf("Spawn: (%.1f, %.1f, %.1f)  Goal: %s (%.1f, %.1f, %.1f)  distance %.1f\n",
-                world.spawn().x, world.spawn().y, world.spawn().z, world.goalName().c_str(),
-                world.goal().x, world.goal().y, world.goal().z, world.startDistance());
+    std::printf("Signed in for %s (game %d)\n", session.title.c_str(), session.gameId);
+    TrainingWorld world(course, session.world, session.goal, &error);
+    if (!world.ready()) {
+        std::fprintf(stderr, "Could not build a training world for %s: %s\n",
+                     session.title.c_str(), error.c_str());
+        return 1;
+    }
+    if (options.out.empty()) {
+        options.out = course == Course::DoorsHotel
+                          ? std::string("models/doors-hotel.policy")
+                          : defaultOutputPath(session.world);
+    }
+
+    std::printf("World: %s (%zu parts)\n", session.world.c_str(), world.partCount());
+    if (world.doorsCourse()) {
+        std::printf("Course: %d doors, spawn (%.1f, %.1f, %.1f), elevator (%.1f, %.1f, %.1f), "
+                    "%.1f studs of corridor\n",
+                    kHotelDoors, world.spawn().x, world.spawn().y, world.spawn().z, world.goal().x,
+                    world.goal().y, world.goal().z, world.startDistance());
+    } else {
+        std::printf("Spawn: (%.1f, %.1f, %.1f)  Goal: %s (%.1f, %.1f, %.1f)  distance %.1f\n",
+                    world.spawn().x, world.spawn().y, world.spawn().z, world.goalName().c_str(),
+                    world.goal().x, world.goal().y, world.goal().z, world.startDistance());
+    }
 
     if (options.replay) {
         Policy policy;
@@ -635,12 +988,23 @@ int main(int argc, char** argv) {
             return 1;
         }
         const EpisodeResult result =
-            options.watch ? runWatchedEpisode(world, policy, options.steps, "replay")
-                          : world.runEpisode(policy, options.steps);
-        std::printf("Replay %s: reward %.2f, closest %.2f at (%.1f, %.1f, %.1f), %d steps, %s\n",
-                    options.out.c_str(), result.reward, result.distance, result.finalPosition.x,
-                    result.finalPosition.y, result.finalPosition.z, result.steps,
-                    result.reached ? "reached the goal" : (result.fell ? "fell" : "ran out of time"));
+            options.watch ? runWatchedEpisode(world, policy, steps, "replay")
+                          : world.runEpisode(policy, steps);
+        if (world.doorsCourse()) {
+            std::printf("Replay %s: reward %.2f, doors %d/%d at (%.1f, %.1f, %.1f), %d steps, %s\n",
+                        options.out.c_str(), result.reward, result.targetsPassed, kHotelDoors,
+                        result.finalPosition.x, result.finalPosition.y, result.finalPosition.z,
+                        result.steps,
+                        result.reached ? "reached the elevator"
+                                       : (result.fell ? "fell" : "ran out of time"));
+        } else {
+            std::printf("Replay %s: reward %.2f, closest %.2f at (%.1f, %.1f, %.1f), %d steps, %s\n",
+                        options.out.c_str(), result.reward, result.distance,
+                        result.finalPosition.x, result.finalPosition.y, result.finalPosition.z,
+                        result.steps,
+                        result.reached ? "reached the goal"
+                                       : (result.fell ? "fell" : "ran out of time"));
+        }
         return result.reached ? 0 : 3;
     }
 
@@ -666,13 +1030,19 @@ int main(int argc, char** argv) {
 
             EpisodeResult summary;
             for (int episode = 0; episode < options.episodes; ++episode) {
-                const EpisodeResult result = world.runEpisode(policy, options.steps);
+                const EpisodeResult result = world.runEpisode(policy, steps);
                 summary.reward += result.reward / static_cast<float>(options.episodes);
                 summary.distance += result.distance / static_cast<float>(options.episodes);
                 summary.steps = result.steps;
                 summary.reached = summary.reached || result.reached;
                 summary.fell = summary.fell || result.fell;
+                // The door count is what a hotel run is judged by, and the average
+                // across episodes is clearer than whichever episode ran longest.
+                summary.targetsPassed += result.targetsPassed;
                 summary.finalPosition = result.finalPosition;
+            }
+            if (options.episodes > 1) {
+                summary.targetsPassed /= options.episodes;
             }
             scores[static_cast<std::size_t>(candidate)] = summary.reward;
             results[static_cast<std::size_t>(candidate)] = summary;
@@ -710,13 +1080,24 @@ int main(int argc, char** argv) {
         // the actions it has not tried yet.
         deviation = deviationOf(elite, mean, 0.25f);
 
-        std::printf("gen %2d  best %8.2f  mean %8.2f  elite closest %.1f  reached %d/%d\n",
-                    generation + 1, generationBest, generationMean,
-                    results[static_cast<std::size_t>(order.front())].distance,
-                    static_cast<int>(std::count_if(
-                        results.begin(), results.end(),
-                        [](const EpisodeResult& result) { return result.reached; })),
-                    options.candidates);
+        if (world.doorsCourse()) {
+            std::printf("gen %2d  best %8.2f  mean %8.2f  doors %2d/%d  reached %d/%d\n",
+                        generation + 1, generationBest, generationMean,
+                        results[static_cast<std::size_t>(order.front())].targetsPassed,
+                        kHotelDoors,
+                        static_cast<int>(std::count_if(
+                            results.begin(), results.end(),
+                            [](const EpisodeResult& result) { return result.reached; })),
+                        options.candidates);
+        } else {
+            std::printf("gen %2d  best %8.2f  mean %8.2f  elite closest %.1f  reached %d/%d\n",
+                        generation + 1, generationBest, generationMean,
+                        results[static_cast<std::size_t>(order.front())].distance,
+                        static_cast<int>(std::count_if(
+                            results.begin(), results.end(),
+                            [](const EpisodeResult& result) { return result.reached; })),
+                        options.candidates);
+        }
     }
 
     if (!savePolicy(best, options.out, world, &error)) {
@@ -725,13 +1106,21 @@ int main(int argc, char** argv) {
     }
 
     if (options.watch) {
-        runWatchedEpisode(world, best, options.steps, "best policy");
+        runWatchedEpisode(world, best, steps, "best policy");
     }
 
-    std::printf("\nBest policy: reward %.2f, closest %.2f at (%.1f, %.1f, %.1f), %d steps, %s\n",
-                bestReward, bestResult.distance, bestResult.finalPosition.x,
-                bestResult.finalPosition.y, bestResult.finalPosition.z, bestResult.steps,
-                bestResult.reached ? "reached the goal" : (bestResult.fell ? "fell" : "ran out of time"));
+    if (world.doorsCourse()) {
+        std::printf("\nBest policy: reward %.2f, doors %d/%d at (%.1f, %.1f, %.1f), %d steps, %s\n",
+                    bestReward, bestResult.targetsPassed, kHotelDoors, bestResult.finalPosition.x,
+                    bestResult.finalPosition.y, bestResult.finalPosition.z, bestResult.steps,
+                    bestResult.reached ? "reached the elevator" : "ran out of time");
+    } else {
+        std::printf("\nBest policy: reward %.2f, closest %.2f at (%.1f, %.1f, %.1f), %d steps, %s\n",
+                    bestReward, bestResult.distance, bestResult.finalPosition.x,
+                    bestResult.finalPosition.y, bestResult.finalPosition.z, bestResult.steps,
+                    bestResult.reached ? "reached the goal"
+                                       : (bestResult.fell ? "fell" : "ran out of time"));
+    }
     std::printf("Saved to %s\n", options.out.c_str());
     return 0;
 }

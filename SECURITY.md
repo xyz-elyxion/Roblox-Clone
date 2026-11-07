@@ -74,6 +74,20 @@ recovery code, which is rotated on use). Deleting an account removes what it own
 signup returns a one-time recovery code because there is no email — losing it means losing
 the account, which is a recovery-policy trade-off, not a bug.
 
+**Developer tokens and the AI trainer.** `AiTrainer.exe` cannot run without signing in. A
+token is minted in `/developers` by a signed-in account, is 192 random bits behind an
+`rblxai_` prefix, and only its SHA-256 is stored, so the value is shown once and a copy of
+the data file cannot be replayed. The token carries a scope (`ai`) that no other route
+accepts: it cannot be spent as an account session, and `POST /api/ai/login` is the only
+route that reads one. A token belongs to the account that made it, is refused while that
+account is suspended or banned, and stops working the moment it is revoked. What it buys is
+narrow: the map and course of a game whose owner ticked **AI compatible**, and only of a game
+the token's account owns or of one that is public. An unmarked game is refused for every
+token, and another account's private game answers as though it did not exist. Tokens are
+capped at eight per account and 500 per install, and a use records a last-used time. Training
+requests count against the same per-address budget as the rest of `/api/`; there is no
+separate quota, so a program that retries a bad token spends that address's minute.
+
 **Request handling.** A JSON body is capped (`JSON_BODY_LIMIT_BYTES`, 2 MiB by default), a
 published world at 2 MiB, a game script at 256 KiB. Failed authentication is rate-limited
 per address (`AUTH_RATE_LIMIT_MAX` 20 per `AUTH_RATE_LIMIT_WINDOW_MS` 15 minutes) and every

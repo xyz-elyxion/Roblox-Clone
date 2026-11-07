@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Developers - RBLX Clone</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <div class="page" data-developers>
+        <header class="topbar">
+            <a class="brand" href="/" aria-label="RBLX Clone home">
+                <span>RBLX Clone</span>
+            </a>
+            <nav class="nav" aria-label="Primary">
+                <a href="/dashboard" data-nav-user hidden>Home</a>
+                <a href="/games">Games</a>
+                <a href="/create" data-nav-user hidden>Create</a>
+                <a href="/dashboard#search" data-nav-user hidden>Search</a>
+                <a href="/avatar" data-nav-user hidden>Avatar</a>
+                <a href="/profile" data-nav-user hidden>Profile</a>
+                <a href="/settings" data-nav-user hidden>Settings</a>
+                <a href="/developers" data-nav-user hidden>Developers</a>
+                <a href="/admin" data-admin-only data-nav-user hidden>Admin</a>
+                <a href="/login" data-nav-guest>Login</a>
+                <a href="/signup" data-nav-guest>Sign up</a>
+                <button class="button danger" type="button" data-logout data-nav-user hidden>Logout</button>
+            </nav>
+        </header>
+
+        <main id="main">
+            <div class="dashboard-head">
+                <div>
+                    <p class="label">Developers</p>
+                    <h1 class="page-title">AI training</h1>
+                </div>
+            </div>
+
+            <div class="status" data-dev-status aria-live="polite"></div>
+
+            <section class="dashboard-grid">
+                <article class="panel">
+                    <div class="panel-heading">
+                        <div>
+                            <p class="label">Tokens</p>
+                            <h2>Developer tokens</h2>
+                        </div>
+                    </div>
+                    <p class="onboarding-hint">
+                        <code>AiTrainer.exe</code> signs in with one of these before it trains. The value
+                        is shown once and only its hash is kept, so a token that is lost has to be
+                        replaced. Revoking one stops the next run that signs in with it.
+                    </p>
+
+                    <form class="dashboard-search" data-dev-token-form>
+                        <label class="field" for="dev-token-label">
+                            <span>Label</span>
+                            <input class="input" id="dev-token-label" name="label" maxlength="40"
+                                   placeholder="AiTrainer on this PC" autocomplete="off">
+                        </label>
+                        <button class="button" type="submit">Create token</button>
+                    </form>
+
+                    <div class="stack-list" data-dev-token-output hidden>
+                        <p class="label">Your new token</p>
+                        <code data-dev-token-value></code>
+                        <p class="onboarding-hint">
+                            Copy it now. It cannot be shown again, and the trainer needs it with
+                            <code>--token</code>.
+                        </p>
+                        <p><button class="button" type="button" data-dev-token-copy>Copy token</button></p>
+                    </div>
+
+                    <div class="stack-list" data-dev-tokens></div>
+                </article>
+
+                <article class="panel">
+                    <div class="panel-heading">
+                        <div>
+                            <p class="label">Games</p>
+                            <h2>AI compatible games</h2>
+                        </div>
+                    </div>
+                    <p class="onboarding-hint">
+                        A game the trainer is allowed to play, and what it is asked to learn. A game
+                        that is not marked here is refused for every token, including your own.
+                    </p>
+                    <div class="stack-list" data-dev-games></div>
+                </article>
+            </section>
+        </main>
+
+        <footer class="legal-footer">
+            <span>RBLX Clone · local prototype</span>
+            <nav aria-label="Legal">
+                <a href="/privacy">Privacy</a>
+                <a href="/terms">Terms</a>
+            </nav>
+        </footer>
+    </div>
+    <script src="/app.js?v=developers-1" defer></script>
+</body>
+</html>

@@ -205,7 +205,7 @@ try {
         '  RBLXUpdater.exe auto updater: checks manifest.json, downloads only the files that'
         '                changed, then starts the game'
         '  RBLXSetup.exe   installer: copies this folder into your account, adds the shortcuts'
-        '                and the Add/Remove Programs entry, and is that entry\'s uninstaller'
+        '                and the Add/Remove Programs entry, and it is what that entry runs'
         '  web/          website assets (public/ pages and API scripts, seed-worlds/)'
         '  games/        example worlds and their .rbx scripts (Sky Platformer)'
         '  shaders/      OpenGL shaders used by Client and Studio'

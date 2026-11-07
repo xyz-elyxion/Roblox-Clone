@@ -195,9 +195,11 @@ bool registerUninstall(const std::string& installDirectory, const std::string& v
 }
 
 bool unregisterUninstall() {
-    // SHDeleteKey rather than RegDeleteTree: the latter needs a Win32 version
-    // macro, and this project does not set one.
-    SHDeleteKeyW(HKEY_CURRENT_USER, widen(kUninstallKey).c_str());
+    // RegDeleteKey rather than SHDeleteKey or RegDeleteTree: the key holds values
+    // only, and both of those need an Internet Explorer or Win32 version macro
+    // that this file deliberately does not set (SHDeleteKey is not even declared
+    // without one).
+    RegDeleteKeyW(HKEY_CURRENT_USER, widen(kUninstallKey).c_str());
     return true;
 }
 

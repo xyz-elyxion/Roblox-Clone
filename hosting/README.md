@@ -29,3 +29,32 @@ Nothing in the C++ tree talks to it yet: the game servers in the console are chi
 processes started on the same machine. Driving Coolify instead (creating an
 application per game server, starting and stopping it, reading its logs) needs its
 HTTP API and a token, and is separate work from carrying the source here.
+
+## `RBLXHosting.exe` — the native panel
+
+`RBLXHosting` is that separate work, at the size that fits a desktop: a
+**Windows-only** C++ program that talks to a Coolify instance's API instead of
+running one. It lists the applications the token can see, shows whether each is
+up, and offers Start, Stop, Restart, Logs (the last 200 lines of the container)
+and a button that opens the real dashboard in a browser.
+
+```powershell
+build\windows-release\Release\RBLXHosting.exe
+```
+
+Paste the address (`http://192.168.1.10:8000`), then a token from Coolify's
+**Keys & Tokens → API tokens**. The token needs `read` for the list, `deploy` for
+the three buttons and `read:sensitive` for logs; a token without the last one
+still lists and starts, and only the Logs button is refused, with Coolify's own
+reason. The token is used from memory and never written to disk, and it is not
+logged.
+
+Two limits are real, not bugs. **There is no TLS in this project** (see
+`include/HttpClient.h`), so `https://` is refused with an explanation instead of
+failing like a wrong token: use Coolify's plain-http port on a trusted network, or
+put a local proxy that speaks http in front of it. And the panel only drives what
+already exists — creating an application is a dozen decisions (source, build pack,
+port, domain) that belong in the dashboard the button opens.
+
+On any other platform the program compiles but exits with a message saying so; it
+is built on every CI platform exactly to keep that code compiling.

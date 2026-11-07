@@ -25,6 +25,7 @@ option(RBLX_BUILD_WEBAPP "Build the native website backend target" ON)
 option(RBLX_BUILD_TRAINER "Build the headless AI trainer target" ON)
 option(RBLX_BUILD_ANTICHEAT "Embed the vendored RBLXAntiCheat library in the game client (Windows only)" ON)
 option(RBLX_BUILD_UPDATER "Build the installer and update launcher targets" ON)
+option(RBLX_BUILD_HOSTING "Build the Windows-only Coolify hosting panel" ON)
 option(RBLX_ENABLE_WARNINGS "Enable stricter compiler warnings" ON)
 
 add_compile_definitions(NOMINMAX GLM_ENABLE_EXPERIMENTAL)
@@ -226,6 +227,31 @@ if(RBLX_BUILD_UPDATER)
     else()
         find_package(Threads REQUIRED)
         target_link_libraries(RBLXSetup PRIVATE Threads::Threads ${RBLXBUILD_DL_LIBS})
+    endif()
+endif()
+
+if(RBLX_BUILD_HOSTING)
+    # The hosting panel for a Coolify instance, and the only target in this file
+    # that is deliberately Windows only: main() exits with an explanation
+    # everywhere else. It is still built on Linux and macOS so the CI compilers
+    # check the window code, which is the part that cannot be run here. The
+    # endpoints it calls live in hosting/coolify's API (routes/api.php).
+    add_executable(RBLXHosting
+        src/HostingMain.cpp
+        src/CoolifyClient.cpp
+        src/HttpClient.cpp
+        src/WebJson.cpp
+        ${IMGUI_SOURCES}
+    )
+    configure_rblx_target(RBLXHosting)
+    target_link_libraries(RBLXHosting PRIVATE glfw glad)
+    if(WIN32)
+        # ws2_32 is the socket layer; ShellExecuteA hands the dashboard to the
+        # default browser.
+        target_link_libraries(RBLXHosting PRIVATE ws2_32 shell32)
+    else()
+        find_package(Threads REQUIRED)
+        target_link_libraries(RBLXHosting PRIVATE Threads::Threads ${RBLXBUILD_DL_LIBS})
     endif()
 endif()
 
@@ -478,5 +504,23 @@ if(RBLX_BUILD_TESTS)
         endif()
     endif()
     add_test(NAME StoreCryptoTests COMMAND StoreCryptoTests)
+
+    # The Coolify API client: address handling, the bearer header, what each
+    # status means and the shapes it parses. A stub server stands in for a real
+    # instance, so no Coolify is needed to run these.
+    add_executable(CoolifyClientTests
+        tests/coolify_client_tests.cpp
+        src/CoolifyClient.cpp
+        src/HttpClient.cpp
+        src/WebJson.cpp
+    )
+    target_include_directories(CoolifyClientTests PRIVATE ${RBLXBUILD_CURRENT_SOURCE_DIR}/include)
+    if(WIN32)
+        target_link_libraries(CoolifyClientTests PRIVATE ws2_32)
+    else()
+        find_package(Threads REQUIRED)
+        target_link_libraries(CoolifyClientTests PRIVATE Threads::Threads)
+    endif()
+    add_test(NAME CoolifyClientTests COMMAND CoolifyClientTests)
 
 endif()

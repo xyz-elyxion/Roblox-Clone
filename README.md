@@ -16,6 +16,7 @@ before pointing it at the internet.
 | `RBLXCode.exe` | Source editor for this repository, the way VS Code is the editor for its own sources |
 | `WebApp.exe` | The website: accounts, sessions, avatars, friends, games, coins, moderation, launching servers |
 | `AiTrainer.exe` | Learns to play a world headlessly and replays the result |
+| `RBLXHosting.exe` | Windows-only panel for a Coolify instance: list, start, stop, restart, logs |
 
 ```powershell
 build\rblxbuild-tool\bin\rblxbuild --preset windows-release

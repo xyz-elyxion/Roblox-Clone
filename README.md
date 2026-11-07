@@ -15,7 +15,7 @@ before pointing it at the internet.
 | `Studio.exe` | World editor: build, colour, texture, script and publish |
 | `RBLXCode.exe` | Source editor for this repository, the way VS Code is the editor for its own sources |
 | `WebApp.exe` | The website: accounts, sessions, avatars, friends, games, coins, moderation, launching servers |
-| `AiTrainer.exe` | Signs in with a developer token, learns to play an AI-compatible game headlessly and replays the result |
+| `AiTrainer.exe` | Signs in with a developer token, learns to play an AI-compatible game, and can draw the run in a window while it trains |
 | `RBLXHosts.exe` | Keeps N game servers running on one machine — ports, logs, restarts, control panel — see [HOSTING.md](HOSTING.md) |
 
 ```powershell
@@ -994,6 +994,7 @@ when it is not on `http://127.0.0.1:3000`.
 AiTrainer --token rblxai_... --game 4 --generations 60
 AiTrainer --token rblxai_... --game 4 --replay
 AiTrainer --token rblxai_... --game 4 --replay --watch
+AiTrainer --token rblxai_... --game 4 --gui --agents 4
 ```
 
 A game's AI course is one of two, set beside the switch in the portal:
@@ -1027,6 +1028,17 @@ works with `--replay`, and during training it shows the best policy once trainin
 view uses ANSI colours and cursor control, so run it in a terminal rather than piping it to a file.
 Parts are drawn from their axis-aligned size, so a rotated part covers a little more than it really
 does.
+
+`--gui` opens a window instead of a terminal map: the course from above, one rectangle per part,
+with the roof left off so the inside of a building shows. A part is taken off the picture when its
+underside sits above the roof cut, so a ceiling disappears and the walls below it stay; the
+window's **Roof cut** slider moves that height, and **Hide roof** turns the rule off to compare.
+Each agent is a dot in its own colour with a trail of where it has been and a line to the
+checkpoint it is walking towards, and the header counts its doors. `--agents 4` walks four policies
+in the same world at once, which also settles four candidates per generation headless. Closing the
+window ends training and saves the best policy found so far, so it is safe to stop and look. The
+window takes its colours from the shared palette in `include/UiTheme.h`, like every other window
+here.
 
 ## Repository layout
 

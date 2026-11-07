@@ -29,10 +29,17 @@
 #include "HttpClient.h"
 #include "Part.h"
 #include "PhysicsWorld.h"
+#include "TrainerGui.h"
 #include "WorldLoader.h"
 #include "WebJson.h"
 
 namespace {
+
+// The window's own types live in rblx::trainer; named here so the training code
+// reads the same as the rest of this file.
+using AgentMarker = rblx::trainer::AgentMarker;
+using TrainerFrame = rblx::trainer::Frame;
+using TrainerWindow = rblx::trainer::TrainerWindow;
 
 constexpr float kStepSeconds = 1.0f / 60.0f;
 constexpr int kObservationCount = 8;
@@ -51,6 +58,14 @@ constexpr int kDefaultEpisodesPerCandidate = 1;
 // plays at a speed a person can follow instead of finishing in one blink.
 constexpr int kFrameStride = 4;
 constexpr int kFrameDelayMilliseconds = 16;
+// Agents stand this far apart across X when a batch starts, so four of them
+// spawn beside each other instead of inside each other.
+constexpr float kAgentSpacing = 2.0f;
+// Positions kept per agent for the window's trail. A hotel run is sixteen
+// thousand steps long, so a complete trail would cost more memory than the
+// picture is worth.
+constexpr std::size_t kTrailPoints = 2048;
+constexpr int kMaxAgents = 8;
 
 // One row of weights per action, one column per observation. The idle action
 // scores exactly zero, so an action has to earn a positive score to be taken.
@@ -128,6 +143,23 @@ bool hotelChance(int index, int salt, int percent) {
 
 class TrainingWorld {
 public:
+    // One character in the world. Its policy is handed to the batch step rather
+    // than stored here, so all this holds is where it is and how far it has got.
+    struct Agent {
+        Character* character = nullptr;
+        // This character's own root part, so its feeler rays ignore the part
+        // they start inside.
+        Part* root = nullptr;
+        glm::vec3 position{0.0f};
+        glm::vec3 target{0.0f};
+        std::size_t targetIndex = 0;
+        float previousDistance = 0.0f;
+        int lastAction = kActionCount - 1;
+        std::deque<glm::vec3> trail;
+        EpisodeResult result;
+        bool finished = false;
+    };
+
     TrainingWorld(Course course, const std::string& worldPath, const std::string& goalName,
                   std::string* error)
         : course_(course) {
@@ -149,27 +181,20 @@ public:
             *error = "the course has nothing to walk to";
             return;
         }
-        target_ = targets_.front();
 
-        character_ = new Character(spawn_, &physics_, &parts_);
-        character_->update(0.0f, nullptr, false);
-        physics_.update(kStepSeconds);
-        position_ = character_->getPosition();
-
-        for (Part& part : parts_) {
-            if (!part.deleted && part.name == "HumanoidRootPart") {
-                rootPart_ = &part;
-                break;
-            }
-        }
+        // One agent is all the constructor has to prove works; a batch asks for
+        // the rest the first time it runs.
+        prepareAgents(1);
     }
 
     ~TrainingWorld() {
-        delete character_;
-        character_ = nullptr;
+        for (Agent& agent : agents_) {
+            delete agent.character;
+            agent.character = nullptr;
+        }
     }
 
-    bool ready() const { return character_ != nullptr; }
+    bool ready() const { return !agents_.empty() && agents_.front().character != nullptr; }
     bool doorsCourse() const { return course_ == Course::DoorsHotel; }
     std::size_t partCount() const { return parts_.size(); }
     const std::deque<Part>& parts() const { return parts_; }
@@ -178,75 +203,179 @@ public:
     glm::vec3 goal() const { return targets_.back(); }
     std::size_t targetCount() const { return targets_.size(); }
     float startDistance() const { return glm::length(targets_.front() - spawn_); }
+    const std::vector<glm::vec3>& targets() const { return targets_; }
+    // The agents as the last batch left them, which is what the window draws.
+    const std::vector<Agent>& agents() const { return agents_; }
+
+    // Whether steps keep a trail for the window to draw. Off by default: a
+    // console run never shows one, and a long episode would pay for it.
+    void recordTrails(bool record) { recordTrails_ = record; }
 
     // Called once per simulated step, which is how --watch turns an episode into
     // frames without teaching the trainer anything about drawing.
     using StepObserver = std::function<void(int step, int action, const glm::vec3& position,
                                             float distance, float reward)>;
 
+    // Called once per step of a batch; returning false stops the batch, which is
+    // how closing the window ends a watched run early.
+    using BatchObserver = std::function<bool(int step)>;
+
     EpisodeResult runEpisode(const Policy& policy, int maxSteps,
                              const StepObserver& observer = StepObserver()) {
-        EpisodeResult result;
+        const std::vector<const Policy*> policies(1, &policy);
+        BatchObserver tick;
+        if (observer) {
+            tick = [this, &observer](int step) {
+                const Agent& agent = agents_.front();
+                observer(step, agent.lastAction, agent.position, agent.previousDistance,
+                         agent.result.reward);
+                return true;
+            };
+        }
+        return runBatch(policies, maxSteps, tick).front();
+    }
 
-        character_->teleportTo(spawn_);
-        character_->update(0.0f, nullptr, false);
-        physics_.update(kStepSeconds);
-        position_ = character_->getPosition();
-        targetIndex_ = 0;
-        target_ = targets_.front();
-        previousDistance_ = glm::length(target_ - position_);
+    // Runs one episode for every policy at once and returns one result per
+    // policy. Every agent observes, acts and moves in the same step, and one
+    // physics step moves all of them, so a batch costs a physics update per step
+    // rather than one per agent.
+    std::vector<EpisodeResult> runBatch(const std::vector<const Policy*>& policies, int maxSteps,
+                                        const BatchObserver& observer = BatchObserver()) {
+        if (policies.empty()) {
+            return std::vector<EpisodeResult>(1);
+        }
+        const std::size_t count = policies.size();
+        prepareAgents(count);
 
-        for (int step = 0; step < maxSteps; ++step) {
-            float observation[kObservationCount];
-            observe(observation);
-            const int action = policy.act(observation);
-            applyAction(action);
-
-            character_->update(kStepSeconds, nullptr, false);
+        std::vector<EpisodeResult> results(count);
+        std::size_t running = count;
+        for (int step = 0; step < maxSteps && running > 0; ++step) {
+            for (std::size_t index = 0; index < count; ++index) {
+                Agent& agent = agents_[index];
+                if (agent.finished) continue;
+                float observation[kObservationCount];
+                observe(agent, observation);
+                agent.lastAction = policies[index]->act(observation);
+                applyAction(agent, agent.lastAction);
+                agent.character->update(kStepSeconds, nullptr, false);
+            }
             physics_.update(kStepSeconds);
 
-            position_ = character_->getPosition();
-            const float distance = glm::length(target_ - position_);
-            // Progress toward the checkpoint being walked to is the reward, with a
-            // small per-step cost so dawdling loses to walking a straight line.
-            result.reward += (previousDistance_ - distance) - 0.01f;
-            previousDistance_ = distance;
-            result.steps = step + 1;
-            if (observer) {
-                observer(step, action, position_, distance, result.reward);
+            for (std::size_t index = 0; index < count; ++index) {
+                Agent& agent = agents_[index];
+                if (agent.finished) continue;
+                advance(agent, step);
+                if (agent.result.reached || agent.result.fell) {
+                    agent.finished = true;
+                    --running;
+                }
             }
 
-            if (distance <= kGoalRadius) {
-                ++result.targetsPassed;
-                targetIndex_ = static_cast<std::size_t>(result.targetsPassed);
-                if (targetIndex_ >= targets_.size()) {
-                    result.reward += 50.0f;
-                    result.reached = true;
-                    break;
-                }
-                // The hotel run is long enough that the final bonus says nothing
-                // about how far a policy got, so every door is worth something on
-                // its own and the score reads as a door count.
-                if (course_ == Course::DoorsHotel) {
-                    result.reward += 4.0f;
-                }
-                target_ = targets_[targetIndex_];
-                previousDistance_ = glm::length(target_ - position_);
-                continue;
-            }
-            if (position_.y < spawn_.y - kFallLimit) {
-                result.reward -= 25.0f;
-                result.fell = true;
+            if (observer && !observer(step)) {
                 break;
             }
         }
 
-        result.distance = previousDistance_;
-        result.finalPosition = position_;
-        return result;
+        for (std::size_t index = 0; index < count; ++index) {
+            Agent& agent = agents_[index];
+            agent.result.distance = agent.previousDistance;
+            agent.result.finalPosition = agent.position;
+            results[index] = agent.result;
+        }
+        return results;
     }
 
 private:
+    // One step of reward and checkpoint bookkeeping for a single agent. Split out
+    // of runBatch so the batch loop stays three lines long per phase.
+    void advance(Agent& agent, int step) {
+        agent.position = agent.character->getPosition();
+        const float distance = glm::length(agent.target - agent.position);
+        // Progress toward the checkpoint being walked to is the reward, with a
+        // small per-step cost so dawdling loses to walking a straight line.
+        agent.result.reward += (agent.previousDistance - distance) - 0.01f;
+        agent.previousDistance = distance;
+        agent.result.steps = step + 1;
+        if (recordTrails_) {
+            agent.trail.push_back(agent.position);
+            if (agent.trail.size() > kTrailPoints) {
+                agent.trail.pop_front();
+            }
+        }
+
+        if (distance <= kGoalRadius) {
+            ++agent.result.targetsPassed;
+            agent.targetIndex = static_cast<std::size_t>(agent.result.targetsPassed);
+            if (agent.targetIndex >= targets_.size()) {
+                agent.result.reward += 50.0f;
+                agent.result.reached = true;
+                return;
+            }
+            // The hotel run is long enough that the final bonus says nothing
+            // about how far a policy got, so every door is worth something on its
+            // own and the score reads as a door count.
+            if (course_ == Course::DoorsHotel) {
+                agent.result.reward += 4.0f;
+            }
+            agent.target = targets_[agent.targetIndex];
+            agent.previousDistance = glm::length(agent.target - agent.position);
+            return;
+        }
+        if (agent.position.y < spawn_.y - kFallLimit) {
+            agent.result.reward -= 25.0f;
+            agent.result.fell = true;
+        }
+    }
+
+    // Makes sure there are `count` characters and puts every one of them back on
+    // the spawn line. The lateral offset keeps them from starting inside each
+    // other, which the physics engine would spend the first steps resolving.
+    void prepareAgents(std::size_t count) {
+        while (agents_.size() < count) {
+            Agent agent;
+            const std::size_t firstPart = parts_.size();
+            agent.character = new Character(spawn_, &physics_, &parts_);
+            agent.character->update(0.0f, nullptr, false);
+            for (std::size_t index = firstPart; index < parts_.size(); ++index) {
+                Part& part = parts_[index];
+                if (!part.deleted && part.name == "HumanoidRootPart") {
+                    agent.root = &part;
+                    break;
+                }
+            }
+            agents_.push_back(agent);
+        }
+
+        for (std::size_t index = 0; index < count; ++index) {
+            Agent& agent = agents_[index];
+            const glm::vec3 start = spawnFor(index, count);
+            agent.character->teleportTo(start);
+            agent.character->update(0.0f, nullptr, false);
+            agent.targetIndex = 0;
+            agent.target = targets_.front();
+            agent.lastAction = kActionCount - 1;
+            agent.result = EpisodeResult();
+            agent.trail.clear();
+            agent.finished = false;
+        }
+        // One step settles every character on the spawn floor before the first
+        // observation, exactly as the single-agent episode used to.
+        physics_.update(kStepSeconds);
+        for (std::size_t index = 0; index < count; ++index) {
+            Agent& agent = agents_[index];
+            agent.position = agent.character->getPosition();
+            agent.previousDistance = glm::length(agent.target - agent.position);
+        }
+    }
+
+    // Every course here runs along Z, so agents line up across X, the direction
+    // with room to stand beside each other.
+    glm::vec3 spawnFor(std::size_t index, std::size_t count) const {
+        const float centre = (static_cast<float>(count) - 1.0f) * 0.5f;
+        return spawn_ +
+               glm::vec3((static_cast<float>(index) - centre) * kAgentSpacing, 0.0f, 0.0f);
+    }
+
     bool loadMap(const std::string& worldPath, const std::string& goalName, std::string* error) {
         WorldLoader::loadWorld(worldPath, parts_, physics_);
         if (parts_.empty()) {
@@ -460,58 +589,55 @@ private:
         return true;
     }
 
-    void observe(float* out) {
-        const glm::vec3 delta = target_ - position_;
+    void observe(const Agent& agent, float* out) {
+        const glm::vec3 delta = agent.target - agent.position;
         const float distance = glm::length(delta);
         out[0] = std::clamp(delta.x / 40.0f, -1.0f, 1.0f);
         out[1] = std::clamp(delta.z / 40.0f, -1.0f, 1.0f);
         out[2] = std::clamp(distance / 100.0f, 0.0f, 1.0f);
-        out[3] = std::clamp((position_.y - spawn_.y) / 10.0f, -1.0f, 1.0f);
+        out[3] = std::clamp((agent.position.y - spawn_.y) / 10.0f, -1.0f, 1.0f);
         out[4] = 1.0f;  // bias, so a weight can act as a per-action threshold
         // One feeler per movement axis. Without these the policy can only learn
         // to walk straight at the goal, which parks it against the first wall or
         // parked car in the way; with them it can learn to steer around one.
-        out[5] = freeAhead(glm::vec3(0.0f, 0.0f, -1.0f));
-        out[6] = freeAhead(glm::vec3(-1.0f, 0.0f, 0.0f));
-        out[7] = freeAhead(glm::vec3(1.0f, 0.0f, 0.0f));
+        out[5] = freeAhead(agent, glm::vec3(0.0f, 0.0f, -1.0f));
+        out[6] = freeAhead(agent, glm::vec3(-1.0f, 0.0f, 0.0f));
+        out[7] = freeAhead(agent, glm::vec3(1.0f, 0.0f, 0.0f));
     }
 
     // How much of a fixed-length probe in this direction is clear, 0 at a wall
     // to 1 when nothing is within reach.
-    float freeAhead(const glm::vec3& direction) {
+    float freeAhead(const Agent& agent, const glm::vec3& direction) {
         constexpr float kFeelDistance = 12.0f;
         PhysicsWorld::RaycastResult hit;
-        if (physics_.raycast(position_, position_ + direction * kFeelDistance, hit, rootPart_)) {
+        if (physics_.raycast(agent.position, agent.position + direction * kFeelDistance, hit,
+                             const_cast<Part*>(agent.root))) {
             return std::clamp(hit.hitFraction, 0.0f, 1.0f);
         }
         return 1.0f;
     }
 
-    void applyAction(int action) {
+    void applyAction(Agent& agent, int action) {
         const bool forward = action == 0;
         const bool backward = action == 1;
         const bool left = action == 2;
         const bool right = action == 3;
         const bool jump = action == 4;
-        character_->processInput(forward, backward, left, right, jump, inputCamera_, 0.0f,
-                                 kStepSeconds);
+        agent.character->processInput(forward, backward, left, right, jump, inputCamera_, 0.0f,
+                                      kStepSeconds);
     }
 
     std::deque<Part> parts_;
     PhysicsWorld physics_;
-    Character* character_ = nullptr;
+    std::vector<Agent> agents_;
     Course course_ = Course::Map;
     glm::vec3 spawn_{0.0f, 0.0f, 0.0f};
     // The checkpoint being walked to, and every checkpoint after it. A map course
     // has one; the hotel has a door per room and the elevator after the last.
     std::vector<glm::vec3> targets_;
-    glm::vec3 target_{0.0f, 0.0f, 0.0f};
-    std::size_t targetIndex_ = 0;
     std::string goalName_;
-    Part* rootPart_ = nullptr;
     Camera inputCamera_;
-    glm::vec3 position_{0.0f, 0.0f, 0.0f};
-    float previousDistance_ = 0.0f;
+    bool recordTrails_ = false;
 };
 
 // Top-down view used by --watch. Rotated parts are drawn from their axis-aligned
@@ -689,6 +815,57 @@ EpisodeResult runWatchedEpisode(TrainingWorld& world, const Policy& policy, int 
     return result;
 }
 
+// One frame of the window from the world as it stands. Training, replay and the
+// closing demonstration all fill it the same way, so they all show the same
+// thing: the course, the checkpoints, and every agent on it.
+void fillTrainerFrame(TrainingWorld& world, TrainerFrame* frame) {
+    frame->parts = &world.parts();
+    frame->targets = world.targets();
+    frame->spawn = world.spawn();
+    frame->goal = world.goal();
+    frame->agents.clear();
+    for (const TrainingWorld::Agent& agent : world.agents()) {
+        AgentMarker marker;
+        marker.position = agent.position;
+        marker.target = agent.target;
+        marker.targetsPassed = agent.result.targetsPassed;
+        marker.reward = agent.result.reward;
+        marker.reached = agent.result.reached;
+        marker.fell = agent.result.fell;
+        if (!agent.trail.empty()) {
+            marker.trail.assign(agent.trail.begin(), agent.trail.end());
+        }
+        frame->agents.push_back(std::move(marker));
+    }
+}
+
+// One episode with the window on: --gui --replay and the closing demonstration
+// both run one known policy this way.
+EpisodeResult runGuiEpisode(TrainingWorld& world, TrainerWindow& window, const Policy& policy,
+                           int maxSteps, const std::string& label, int doorCount) {
+    TrainerFrame frame;
+    frame.title = label;
+    frame.doorCount = doorCount;
+    fillTrainerFrame(world, &frame);
+    window.present(frame);
+
+    const std::vector<const Policy*> policies(1, &policy);
+    const std::vector<EpisodeResult> results = world.runBatch(policies, maxSteps, [&](int step) {
+        if (step % kFrameStride != 0) {
+            return true;
+        }
+        fillTrainerFrame(world, &frame);
+        const TrainingWorld::Agent& agent = world.agents().front();
+        char status[512];
+        std::snprintf(status, sizeof(status),
+                      "step %d/%d   action %s   reward %.1f   closest %.1f", step + 1, maxSteps,
+                      actionName(agent.lastAction), agent.result.reward, agent.previousDistance);
+        frame.status = status;
+        return window.present(frame);
+    });
+    return results.front();
+}
+
 struct Options {
     // Where WebApp.exe answers. The trainer has nothing to train without a token
     // from that site, so the address is part of every run rather than a fallback.
@@ -705,6 +882,10 @@ struct Options {
     unsigned int seed = 1337;
     bool replay = false;
     bool watch = false;
+    // The optional window, and how many policies walk the course at once inside
+    // it. A batch also trains faster headless, so the count is independent of it.
+    bool gui = false;
+    int agents = 1;
 };
 
 // A hundred rooms of thirty studs and fourteen corners is a little under 3000
@@ -732,6 +913,9 @@ void printUsage() {
         "                       (default models/<world>.policy, or models/doors-hotel.policy)\n"
         "  --replay             load --out and run one episode with it\n"
         "  --watch              draw the episode as a top-down map while it runs\n"
+        "  --gui                draw the course in a window while it trains, seen\n"
+        "                       from above with the roof left off\n"
+        "  --agents <n>         policies walking the course at once (default 1)\n"
         "  --seed <n>           sampling seed (default 1337)\n",
         "http://127.0.0.1:3000", kDefaultGenerations, kDefaultCandidates,
         kDefaultEpisodesPerCandidate, kDefaultSteps, kDefaultHotelSteps);
@@ -926,6 +1110,10 @@ int main(int argc, char** argv) {
             options.replay = true;
         } else if (arg == "--watch") {
             options.watch = true;
+        } else if (arg == "--gui") {
+            options.gui = true;
+        } else if (arg == "--agents" && hasValue) {
+            options.agents = std::max(1, std::min(kMaxAgents, std::atoi(argv[++i])));
         } else if (arg == "--help" || arg == "-h") {
             printUsage();
             return 0;
@@ -981,6 +1169,22 @@ int main(int argc, char** argv) {
                     world.goal().x, world.goal().y, world.goal().z, world.startDistance());
     }
 
+    // Opening the window is two optional steps: --gui asks for it, and the
+    // machine has to allow it. Everything below reads `gui`, so a refused window
+    // falls back to the headless run instead of failing.
+    TrainerWindow window;
+    bool gui = options.gui;
+    if (gui) {
+        if (!window.open("RBLX AI trainer - " + session.title, &error)) {
+            std::fprintf(stderr, "No window: %s; training headless.\n", error.c_str());
+            gui = false;
+        } else {
+            // Trails cost memory on every step, so they are only kept when
+            // something is going to draw them.
+            world.recordTrails(true);
+        }
+    }
+
     if (options.replay) {
         Policy policy;
         if (!loadPolicy(&policy, options.out, &error)) {
@@ -988,8 +1192,10 @@ int main(int argc, char** argv) {
             return 1;
         }
         const EpisodeResult result =
-            options.watch ? runWatchedEpisode(world, policy, steps, "replay")
-                          : world.runEpisode(policy, steps);
+            gui ? runGuiEpisode(world, window, policy, steps, "replay",
+                                world.doorsCourse() ? kHotelDoors : 0)
+                : (options.watch ? runWatchedEpisode(world, policy, steps, "replay")
+                                 : world.runEpisode(policy, steps));
         if (world.doorsCourse()) {
             std::printf("Replay %s: reward %.2f, doors %d/%d at (%.1f, %.1f, %.1f), %d steps, %s\n",
                         options.out.c_str(), result.reward, result.targetsPassed, kHotelDoors,
@@ -1020,37 +1226,99 @@ int main(int argc, char** argv) {
         std::vector<float> scores(static_cast<std::size_t>(options.candidates), 0.0f);
         std::vector<EpisodeResult> results(static_cast<std::size_t>(options.candidates));
 
-        for (int candidate = 0; candidate < options.candidates; ++candidate) {
-            Policy& policy = candidates[static_cast<std::size_t>(candidate)];
-            for (int i = 0; i < kParameterCount; ++i) {
-                std::normal_distribution<float> distribution(mean[static_cast<std::size_t>(i)],
-                                                             deviation[static_cast<std::size_t>(i)]);
-                policy.weights[static_cast<std::size_t>(i)] = distribution(rng);
+        // Candidates are evaluated in groups of --agents so several policies can
+        // walk the course at the same time: that is what the window draws, and a
+        // group of four settles four candidates in the time of one.
+        int candidate = 0;
+        while (candidate < options.candidates) {
+            const int batch = std::min(options.agents, options.candidates - candidate);
+            for (int i = 0; i < batch; ++i) {
+                Policy& policy = candidates[static_cast<std::size_t>(candidate + i)];
+                for (int parameter = 0; parameter < kParameterCount; ++parameter) {
+                    std::normal_distribution<float> distribution(
+                        mean[static_cast<std::size_t>(parameter)],
+                        deviation[static_cast<std::size_t>(parameter)]);
+                    policy.weights[static_cast<std::size_t>(parameter)] = distribution(rng);
+                }
             }
 
-            EpisodeResult summary;
+            std::vector<EpisodeResult> summaries(static_cast<std::size_t>(batch));
             for (int episode = 0; episode < options.episodes; ++episode) {
-                const EpisodeResult result = world.runEpisode(policy, steps);
-                summary.reward += result.reward / static_cast<float>(options.episodes);
-                summary.distance += result.distance / static_cast<float>(options.episodes);
-                summary.steps = result.steps;
-                summary.reached = summary.reached || result.reached;
-                summary.fell = summary.fell || result.fell;
-                // The door count is what a hotel run is judged by, and the average
-                // across episodes is clearer than whichever episode ran longest.
-                summary.targetsPassed += result.targetsPassed;
-                summary.finalPosition = result.finalPosition;
-            }
-            if (options.episodes > 1) {
-                summary.targetsPassed /= options.episodes;
-            }
-            scores[static_cast<std::size_t>(candidate)] = summary.reward;
-            results[static_cast<std::size_t>(candidate)] = summary;
+                std::vector<const Policy*> batchPolicies;
+                batchPolicies.reserve(static_cast<std::size_t>(batch));
+                for (int i = 0; i < batch; ++i) {
+                    batchPolicies.push_back(&candidates[static_cast<std::size_t>(candidate + i)]);
+                }
 
-            if (summary.reward > bestReward) {
-                bestReward = summary.reward;
-                best = policy;
-                bestResult = summary;
+                std::vector<EpisodeResult> batchResults;
+                if (gui) {
+                    TrainerFrame frame;
+                    frame.title = "RBLX AI trainer - " + session.title;
+                    frame.doorCount = world.doorsCourse() ? kHotelDoors : 0;
+                    fillTrainerFrame(world, &frame);
+                    window.present(frame);
+                    batchResults = world.runBatch(batchPolicies, steps, [&](int step) {
+                        if (step % kFrameStride != 0) {
+                            return true;
+                        }
+                        fillTrainerFrame(world, &frame);
+                        char status[512];
+                        std::snprintf(status, sizeof(status),
+                                      "gen %d/%d   candidates %d-%d of %d   episode %d/%d   "
+                                      "step %d/%d",
+                                      generation + 1, options.generations, candidate + 1,
+                                      candidate + batch, options.candidates, episode + 1,
+                                      options.episodes, step + 1, steps);
+                        frame.status = status;
+                        return window.present(frame);
+                    });
+                } else {
+                    batchResults.resize(static_cast<std::size_t>(batch));
+                    for (int i = 0; i < batch; ++i) {
+                        batchResults[static_cast<std::size_t>(i)] = world.runEpisode(
+                            *batchPolicies[static_cast<std::size_t>(i)], steps);
+                    }
+                }
+
+                for (int i = 0; i < batch; ++i) {
+                    const EpisodeResult& result = batchResults[static_cast<std::size_t>(i)];
+                    EpisodeResult& summary = summaries[static_cast<std::size_t>(i)];
+                    summary.reward += result.reward / static_cast<float>(options.episodes);
+                    summary.distance += result.distance / static_cast<float>(options.episodes);
+                    summary.steps = result.steps;
+                    summary.reached = summary.reached || result.reached;
+                    summary.fell = summary.fell || result.fell;
+                    // The door count is what a hotel run is judged by, and the
+                    // average across episodes is clearer than whichever episode ran
+                    // longest.
+                    summary.targetsPassed += result.targetsPassed;
+                    summary.finalPosition = result.finalPosition;
+                }
+
+                if (gui && !window.running()) {
+                    break;
+                }
+            }
+
+            for (int i = 0; i < batch; ++i) {
+                EpisodeResult& summary = summaries[static_cast<std::size_t>(i)];
+                if (options.episodes > 1) {
+                    summary.targetsPassed /= options.episodes;
+                }
+                const int index = candidate + i;
+                scores[static_cast<std::size_t>(index)] = summary.reward;
+                results[static_cast<std::size_t>(index)] = summary;
+                if (summary.reward > bestReward) {
+                    bestReward = summary.reward;
+                    best = candidates[static_cast<std::size_t>(index)];
+                    bestResult = summary;
+                }
+            }
+
+            candidate += batch;
+            if (gui && !window.running()) {
+                std::printf("Window closed; saving the best policy so far.\n");
+                break;
             }
         }
 
@@ -1105,7 +1373,14 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-    if (options.watch) {
+    if (gui) {
+        // Closing the window is how a watched run ends, so only show the best
+        // policy if it is still there; the file is written either way.
+        if (window.running()) {
+            runGuiEpisode(world, window, best, steps, "best policy",
+                          world.doorsCourse() ? kHotelDoors : 0);
+        }
+    } else if (options.watch) {
         runWatchedEpisode(world, best, steps, "best policy");
     }
 

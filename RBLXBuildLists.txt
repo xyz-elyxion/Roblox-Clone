@@ -296,20 +296,23 @@ if(RBLX_BUILD_SERVER)
 endif()
 
 if(RBLX_BUILD_TRAINER)
-    # Headless learner: loads a .world, drives the same Character and PhysicsWorld
-    # the game uses, and writes a policy file. No window and no GL, so it runs on
-    # a build machine or in CI.
+    # Learner: loads a .world, drives the same Character and PhysicsWorld the game
+    # uses, and writes a policy file. It trains with no window unless --gui is
+    # given, which is why it links GL: the window only draws, so a build machine
+    # still runs it headless.
     add_executable(AiTrainer
         src/AiTrainer.cpp
+        src/TrainerGui.cpp
         src/PhysicsWorld.cpp
         src/Character.cpp
         src/Camera.cpp
         src/WorldLoader.cpp
         src/HttpClient.cpp
         src/WebJson.cpp
+        ${IMGUI_SOURCES}
     )
     configure_rblx_target(AiTrainer)
-    target_link_libraries(AiTrainer PRIVATE reactphysics3d glm ws2_32)
+    target_link_libraries(AiTrainer PRIVATE reactphysics3d glm glfw glad ws2_32)
 endif()
 
 set(WEB_SOURCES

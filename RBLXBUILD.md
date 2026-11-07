@@ -4,7 +4,7 @@ RBLXBuild is the build-tool source carried in `rblxbuild/`, and the thing that
 occupies the slot the project's own `RBLXCC` compiler used to.
 
 **It is how this repository builds.** The root `RBLXBuildLists.txt`, its
-`RBLXBuildPresets.json` and all three CI jobs are driven by it: CI bootstraps
+`RBLXBuildPresets.json` and the CI job are driven by it: CI bootstraps
 `rblxbuild/`, then configures, builds, tests and packages the game with the binary
 that comes out. No CMake install is involved.
 

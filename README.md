@@ -84,9 +84,8 @@ desktop, lists the program in Settings → Apps → Installed apps and in Contro
 Features with its own `UninstallString`, and copies itself into the install so that entry works.
 Shortcuts are COM's `IShellLink` and the entry is the per-user
 `HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\RBLXClone`, carrying the version,
-publisher, install date, size and icon those two pages display; on Linux and macOS the same install
-writes a `.desktop` entry instead. Uninstalling removes exactly the recorded files and
-leaves worlds, saves and account data unless `--purge` is given.
+publisher, install date, size and icon those two pages display. Uninstalling removes exactly the
+recorded files and leaves worlds, saves and account data unless `--purge` is given.
 
 The shortcut points at `RBLXUpdater.exe` rather than `Client.exe`, so an update is checked every
 time somebody plays and nobody has to run a second program. The updater asks the URL in `update.json`
@@ -106,8 +105,6 @@ accent, and a single settings file chooses between them for every window:
 
 ```ini
 # %APPDATA%\RBLXClone\ui.settings
-# Linux and macOS: ~/.config/rblxclone/ui.settings
-# XDG_CONFIG_HOME is honoured when it is set.
 theme = light
 ```
 
@@ -125,9 +122,8 @@ The release side is one command on the machine that produced the package:
 RBLXUpdater.exe manifest --dir dist\rblx-windows-release --version 1.2.0
 ```
 
-`RBLXUpdater.exe install --manifest <url> --dir <folder>` fills a folder from scratch, which is also
-how a Linux or macOS copy is installed, and `check` (exit 10 when an update exists, 0 when current)
-is there for a scheduled task or a monitor. The rules the updater applies are covered by
+`RBLXUpdater.exe install --manifest <url> --dir <folder>` fills a folder from scratch, and `check`
+(exit 10 when an update exists, 0 when current) is there for a scheduled task or a monitor. The rules the updater applies are covered by
 `UpdaterTests`: version order, manifest parsing, paths that try to leave the install folder, which
 files a plan touches, and the rename that replaces a file.
 
@@ -137,12 +133,12 @@ files a plan touches, and the rename that replaces a file.
 mkdir -p build/rblxbuild-tool && cd build/rblxbuild-tool
 ../../rblxbuild/bootstrap --parallel 4       # once; builds the vendored build tool
 cd ../..
-build/rblxbuild-tool/bin/rblxbuild --preset macos-release          # or windows-release
-build/rblxbuild-tool/bin/rblxbuild --build --preset macos-release
-build/rblxbuild-tool/bin/rblxtest --preset macos-release
+build/rblxbuild-tool/bin/rblxbuild --preset windows-release
+build/rblxbuild-tool/bin/rblxbuild --build --preset windows-release
+build/rblxbuild-tool/bin/rblxtest --preset windows-release
 ```
 
-Linux and the manual configure forms are under [Building](#building).
+The MinGW and manual configure forms are under [Building](#building).
 
 ## What's in the box
 
@@ -207,36 +203,22 @@ from the repo root during development and from next to `WebApp.exe` in a package
 
 ## Requirements
 
-Client, Server and Studio build on Windows, Linux and macOS. Socket calls go through
-`include/Network.h` and website calls through `include/HttpClient.h`; each has a WinSock/WinHTTP
-branch and a POSIX branch, so the game code itself has no platform split. The anti-cheat library is
-Windows-only and is skipped on other platforms.
+Client, Server, Studio, the website and the tools build on Windows only. Socket calls go through
+`include/Network.h` and website calls through `include/HttpClient.h`, both of them WinSock now that
+the POSIX branch is gone, so there is no platform split left in the game code. The anti-cheat library
+is compiled into the client.
 
 **Windows**
 
 - Visual Studio 2022 with "Desktop development with C++", or MinGW + Ninja.
 - No CMake install: the build tool is vendored in `rblxbuild/` and bootstrapped from source.
 - An OpenGL-capable GPU and drivers.
-
-**Linux**
-
-- GCC 11+ or Clang 14+ (anything with C++17), Ninja or Make.
-- `build-essential ninja-build pkg-config` plus the GLFW development packages:
-  `libgl1-mesa-dev libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev
-  libwayland-dev libxkbcommon-dev`.
-- An OpenGL-capable GPU and drivers.
-
-**macOS**
-
-- Xcode command line tools (Clang with C++17).
-- Ninja, from Homebrew (`brew install ninja`) or the copy already on the CI runners.
 - GLFW, GLM, ImGui, ImGuizmo, ImGuiColorTextEdit, ReactPhysics3D, stb and glad are vendored under
-  `third_party/`, so no Homebrew packages are needed for them and configuring needs no network.
+  `third_party/`, so configuring needs no network.
 
 **The website** is built from the same tree and needs nothing beyond it: no Node.js, npm or SQLite.
 
-`RBLXAntiCheat` is Windows-only and skipped automatically elsewhere; `-DRBLX_BUILD_ANTICHEAT=OFF`
-leaves it out on Windows too.
+`RBLXAntiCheat` is compiled into the client; `-DRBLX_BUILD_ANTICHEAT=OFF` leaves it out.
 
 ## Building
 
@@ -274,25 +256,6 @@ build\rblxbuild-tool\bin\rblxbuild --build build/ninja
 build\rblxbuild-tool\bin\rblxtest --test-dir build/ninja --output-on-failure
 ```
 
-### Linux
-
-```bash
-build/rblxbuild-tool/bin/rblxbuild -S . -B build/linux-release -G Ninja -DRBLXBUILD_BUILD_TYPE=Release
-build/rblxbuild-tool/bin/rblxbuild --build build/linux-release --parallel
-build/rblxbuild-tool/bin/rblxtest --test-dir build/linux-release --output-on-failure
-```
-
-### macOS
-
-```bash
-build/rblxbuild-tool/bin/rblxbuild --preset macos-release
-build/rblxbuild-tool/bin/rblxbuild --build --preset macos-release
-build/rblxbuild-tool/bin/rblxtest --preset macos-release
-```
-
-The same by hand: `rblxbuild -S . -B build/macos-release -G Ninja -DRBLXBUILD_BUILD_TYPE=Release`.
-The anti-cheat library is Windows-only, so it is left out here.
-
 ### Build options
 
 | Option | Effect |
@@ -301,7 +264,8 @@ The anti-cheat library is Windows-only, so it is left out here.
 | `RBLX_BUILD_SERVER` | Build the game server |
 | `RBLX_BUILD_STUDIO` | Build the world editor |
 | `RBLX_BUILD_TESTS` | Build the C++ test suite (`rblxtest` runs it) |
-| `RBLX_BUILD_ANTICHEAT` | Compile RBLXAntiCheat into the client (Windows only) |
+| `RBLX_BUILD_ANTICHEAT` | Compile RBLXAntiCheat into the client |
+| `RBLX_BUILD_HOSTS` | Build the game server supervisor (`RBLXHosts`) |
 | `RBLX_ENABLE_WARNINGS` | Turn on the warning set |
 
 Windows builds compile the vendored RBLXAntiCheat into the client (see `RBLXAntiCheat/`); on other
@@ -319,9 +283,7 @@ After a Release build with the preset:
 .\build\windows-release\Release\WebApp.exe
 ```
 
-On Linux and macOS the same executables land directly in `build/linux-release` and
-`build/macos-release`, and `./build/linux-release/RBLXCode .` opens the source editor on the
-checkout it is launched from.
+`RBLXCode.exe .` opens the source editor on the checkout it is launched from.
 
 Start the website before using authenticated client login. A game server can also be started by
 hand, with or without a script:
@@ -329,8 +291,6 @@ hand, with or without a script:
 ```powershell
 .\build\windows-release\Release\Server.exe --world games/sky-platformer.world --script games/sky-platformer.rbx
 ```
-
-The world file picker exists only on Windows; elsewhere pass the `.world` path on the command line.
 
 ## How it fits together
 
@@ -1046,7 +1006,7 @@ does.
 
 ```
 RBLXBuildLists.txt      C++ build configuration, in RBLXBuild's dialect
-RBLXBuildPresets.json   Visual Studio Release preset (Windows), Ninja Release preset (macOS)
+RBLXBuildPresets.json   Visual Studio Release preset (windows-release)
 rblxbuild/              RBLXBuild itself: the vendored build tool's source
 include/                C++ headers
 src/                    Client, Server, Studio, rendering, physics, auth, web app, world loading
@@ -1103,12 +1063,9 @@ for code that has not been converted.
 
 ## CI and prebuilt packages
 
-The `Build` workflow runs on every push across three jobs — Linux with GCC, macOS with Clang and
-Windows with MSVC — each of which configures, builds and runs the test suite. The Windows job also
-packages the Release build into a folder you can unzip and run: open the latest run under
-**Actions** and download `rblx-windows-release`. The Linux and macOS jobs upload their five binaries
-as `rblx-linux-release` and `rblx-macos-release`; those are bare executables, which expect to be run
-from the checkout's build directory beside their assets.
+The `Build` workflow runs on every push: one Windows job with MSVC (its build tool is bootstrapped
+with MinGW) configures, builds and runs the test suite, then packages the Release build into a folder
+you can unzip and run. Open the latest run under **Actions** and download `rblx-windows-release`.
 
 ```
 rblx-windows-release/
@@ -1140,9 +1097,6 @@ and the log path instead of a bare connection error.
 ## Known limitations
 
 - This is a prototype and should be treated as local-only.
-- The Linux build of Client and Server compiles and passes its tests in CI, but nobody has played a
-  match on it yet; the world file picker exists only on Windows (elsewhere pass the `.world` path
-  on the command line).
 - The driving game's car is a kinematic arcade body: it accelerates, brakes, coasts, steers and
   stops at collidable parts, but there is no client-side prediction, so steering over a high-latency
   connection feels delayed. Collision uses the axis-aligned box around a rotated part, so a diagonal
@@ -1167,9 +1121,9 @@ and the log path instead of a bare connection error.
   `src/ClientNet.cpp` (game socket, reliable session, joining and leaving) and `src/ClientUi.cpp`
   (menus, HUD, chat, settings), sharing state through `src/ClientShared.h`. The remaining files
   could be split further.
-- The C++ build and test suite are verified with the vendored RBLXBuild using Ninja, MinGW GCC and
-  GCC on Linux. Client, Server and Studio runtime behavior still need manual testing on a
-  graphics-capable desktop.
+- The C++ build and test suite are verified with the vendored RBLXBuild using Ninja and MinGW GCC,
+  and the game links with MSVC in CI. Client, Server and Studio runtime behavior still need manual
+  testing on a graphics-capable desktop.
 
 ## Troubleshooting
 

@@ -13,9 +13,7 @@
 #include "WorldLoader.h"
 #include "RblxScript.h"
 #include "WorldScript.h"
-#ifdef _WIN32
 #include "Auth.h"
-#endif
 
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
@@ -145,19 +143,12 @@ namespace {
     }
 
     std::string loginForPublish(const std::string& webUrl, const std::string& username, const std::string& password) {
-#ifdef _WIN32
         const std::string response = Auth::login(username, password, webUrl);
         if (response.empty() || response.find("\"success\":true") == std::string::npos) {
             return "";
         }
 
         return jsonStringField(response, "token");
-#else
-        (void)webUrl;
-        (void)username;
-        (void)password;
-        return "";
-#endif
     }
 
     bool publishWorld(
@@ -169,7 +160,6 @@ namespace {
         const std::string& worldText,
         std::string& response
     ) {
-#ifdef _WIN32
         if (token.empty() || worldText.empty()) {
             return false;
         }
@@ -182,16 +172,6 @@ namespace {
 
         response = Auth::httpPost(webUrl + "/api/games/publish", body.str(), token);
         return !response.empty() && response.find("\"success\":true") != std::string::npos;
-#else
-        (void)webUrl;
-        (void)token;
-        (void)title;
-        (void)description;
-        (void)isPublic;
-        (void)worldText;
-        response = "";
-        return false;
-#endif
     }
 
     glm::mat4 partToMatrix(const Part& part) {
@@ -388,12 +368,10 @@ int main() {
                     }
                 }
             }
-#ifdef _WIN32
             ImGui::SameLine();
             if (ImGui::Button("Open site")) {
                 Auth::openBrowser(std::string(publishWebUrl) + "/create");
             }
-#endif
             ImGui::TextWrapped("%s", publishStatus.c_str());
             ImGui::End();
 

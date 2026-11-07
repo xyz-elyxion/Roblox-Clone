@@ -13,20 +13,6 @@
         "RBLX_BUILD_STUDIO": "ON",
         "RBLX_BUILD_TESTS": "ON"
       }
-    },
-    {
-      "name": "macos-release",
-      "displayName": "macOS Release",
-      "generator": "Ninja",
-      "binaryDir": "${sourceDir}/build/macos-release",
-      "cacheVariables": {
-        "RBLXBUILD_BUILD_TYPE": "Release",
-        "RBLX_BUILD_CLIENT": "ON",
-        "RBLX_BUILD_SERVER": "ON",
-        "RBLX_BUILD_STUDIO": "ON",
-        "RBLX_BUILD_TESTS": "ON",
-        "RBLX_BUILD_ANTICHEAT": "OFF"
-      }
     }
   ],
   "buildPresets": [
@@ -34,22 +20,12 @@
       "name": "windows-release",
       "configurePreset": "windows-release",
       "configuration": "Release"
-    },
-    {
-      "name": "macos-release",
-      "configurePreset": "macos-release",
-      "configuration": "Release"
     }
   ],
   "testPresets": [
     {
       "name": "windows-release",
       "configurePreset": "windows-release",
-      "configuration": "Release"
-    },
-    {
-      "name": "macos-release",
-      "configurePreset": "macos-release",
       "configuration": "Release"
     }
   ]

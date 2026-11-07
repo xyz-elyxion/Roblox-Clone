@@ -7,8 +7,8 @@
 // to the website backend (login, token verification, avatars, playtime and
 // instance heartbeats).
 //
-// It replaces the WinHTTP code both binaries carried, so the same code runs on
-// Windows and on POSIX. Only plain HTTP is supported: the backend is a local
+// It replaces the WinHTTP code both binaries carried, so the client and the game
+// server share one transport. Only plain HTTP is supported: the backend is a local
 // development server (http://localhost:3000, or 127.0.0.1 inside a game
 // server), there is no TLS stack in this project, and a request to an https://
 // URL fails with an explanatory error instead of silently returning nothing.

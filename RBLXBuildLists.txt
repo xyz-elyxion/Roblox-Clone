@@ -145,11 +145,9 @@ if(RBLX_BUILD_STUDIO)
     configure_rblx_target(Studio)
     target_include_directories(Studio PRIVATE ${imguicolortextedit_SOURCE_DIR})
     target_link_libraries(Studio PRIVATE glfw glm reactphysics3d glad)
-    if(WIN32)
-        # HttpClient is the only transport left (the website calls used to go
-        # through WinHTTP), and it is plain sockets, hence ws2_32.
-        target_link_libraries(Studio PRIVATE ws2_32 shell32)
-    endif()
+    # HttpClient is the only transport left (the website calls used to go
+    # through WinHTTP), and it is plain sockets, hence ws2_32.
+    target_link_libraries(Studio PRIVATE ws2_32 shell32)
 endif()
 
 if(RBLX_BUILD_CODEEDITOR)
@@ -168,12 +166,6 @@ if(RBLX_BUILD_CODEEDITOR)
     configure_rblx_target(RBLXCode)
     target_include_directories(RBLXCode PRIVATE ${imguicolortextedit_SOURCE_DIR})
     target_link_libraries(RBLXCode PRIVATE glfw glad)
-    if(NOT WIN32)
-        # glad reaches GL through GLFW at runtime, but the loader still needs
-        # dlopen.
-        find_package(Threads REQUIRED)
-        target_link_libraries(RBLXCode PRIVATE Threads::Threads ${RBLXBUILD_DL_LIBS})
-    endif()
 endif()
 
 if(RBLX_BUILD_UPDATER)
@@ -198,12 +190,7 @@ if(RBLX_BUILD_UPDATER)
     )
     configure_rblx_target(RBLXUpdater)
     target_link_libraries(RBLXUpdater PRIVATE glfw glad)
-    if(WIN32)
-        target_link_libraries(RBLXUpdater PRIVATE ws2_32)
-    else()
-        find_package(Threads REQUIRED)
-        target_link_libraries(RBLXUpdater PRIVATE Threads::Threads ${RBLXBUILD_DL_LIBS})
-    endif()
+    target_link_libraries(RBLXUpdater PRIVATE ws2_32)
 
     # The setup is the installer: it copies the packaged folder into a per-user
     # location, records what it put there as manifest.json, adds the shortcuts and
@@ -220,14 +207,9 @@ if(RBLX_BUILD_UPDATER)
     )
     configure_rblx_target(RBLXSetup)
     target_link_libraries(RBLXSetup PRIVATE glfw glad)
-    if(WIN32)
-        # IShellLink and IPersistFile are COM, the folder lookups are shell32, and
-        # the uninstall entry is written with the registry API.
-        target_link_libraries(RBLXSetup PRIVATE ole32 shell32 advapi32 uuid)
-    else()
-        find_package(Threads REQUIRED)
-        target_link_libraries(RBLXSetup PRIVATE Threads::Threads ${RBLXBUILD_DL_LIBS})
-    endif()
+    # IShellLink and IPersistFile are COM, the folder lookups are shell32, and
+    # the uninstall entry is written with the registry API.
+    target_link_libraries(RBLXSetup PRIVATE ole32 shell32 advapi32 uuid)
 endif()
 
 if(RBLX_BUILD_HOSTS)
@@ -240,16 +222,12 @@ if(RBLX_BUILD_HOSTS)
         src/ServerHost.cpp
     )
     configure_rblx_target(RBLXHosts)
-    if(NOT WIN32)
-        find_package(Threads REQUIRED)
-        target_link_libraries(RBLXHosts PRIVATE Threads::Threads)
-    endif()
 endif()
 
 # RBLXAntiCheat is compiled straight into the client (see its RBLXBuildLists): the
 # checks have to run inside the process they watch, so there is no separate
 # executable to launch or ship.
-if(RBLX_BUILD_ANTICHEAT AND WIN32)
+if(RBLX_BUILD_ANTICHEAT)
     add_subdirectory(RBLXAntiCheat)
 endif()
 
@@ -269,14 +247,7 @@ if(RBLX_BUILD_CLIENT)
     )
     configure_rblx_target(Client)
     target_link_libraries(Client PRIVATE glfw glm reactphysics3d glad)
-    if(WIN32)
-        target_link_libraries(Client PRIVATE ws2_32 shell32 comdlg32)
-    else()
-        # glad reaches GL through GLFW at runtime, but the loader still needs
-        # dlopen, and the client's worker threads are std::thread.
-        find_package(Threads REQUIRED)
-        target_link_libraries(Client PRIVATE Threads::Threads ${RBLXBUILD_DL_LIBS})
-    endif()
+    target_link_libraries(Client PRIVATE ws2_32 shell32 comdlg32)
     if(TARGET RBLXAntiCheat)
         target_compile_definitions(Client PRIVATE RBLX_ANTICHEAT)
         target_link_libraries(Client PRIVATE RBLXAntiCheat)
@@ -315,12 +286,7 @@ if(RBLX_BUILD_SERVER)
     )
     configure_rblx_target(Server)
     target_link_libraries(Server PRIVATE glm reactphysics3d)
-    if(WIN32)
-        target_link_libraries(Server PRIVATE ws2_32)
-    else()
-        find_package(Threads REQUIRED)
-        target_link_libraries(Server PRIVATE Threads::Threads)
-    endif()
+    target_link_libraries(Server PRIVATE ws2_32)
 endif()
 
 if(RBLX_BUILD_TRAINER)
@@ -336,10 +302,6 @@ if(RBLX_BUILD_TRAINER)
     )
     configure_rblx_target(AiTrainer)
     target_link_libraries(AiTrainer PRIVATE reactphysics3d glm)
-    if(NOT WIN32)
-        find_package(Threads REQUIRED)
-        target_link_libraries(AiTrainer PRIVATE Threads::Threads)
-    endif()
 endif()
 
 set(WEB_SOURCES
@@ -363,12 +325,7 @@ if(RBLX_BUILD_WEBAPP)
     )
     configure_rblx_target(WebApp)
     target_link_libraries(WebApp PRIVATE glfw glad)
-    if(WIN32)
-        target_link_libraries(WebApp PRIVATE ws2_32 shell32)
-    else()
-        find_package(Threads REQUIRED)
-        target_link_libraries(WebApp PRIVATE Threads::Threads)
-    endif()
+    target_link_libraries(WebApp PRIVATE ws2_32 shell32)
 endif()
 
 if(RBLX_BUILD_TESTS)
@@ -449,12 +406,7 @@ if(RBLX_BUILD_TESTS)
 
     add_executable(HttpClientTests tests/http_client_tests.cpp src/HttpClient.cpp)
     target_include_directories(HttpClientTests PRIVATE ${RBLXBUILD_CURRENT_SOURCE_DIR}/include)
-    if(WIN32)
-        target_link_libraries(HttpClientTests PRIVATE ws2_32)
-    else()
-        find_package(Threads REQUIRED)
-        target_link_libraries(HttpClientTests PRIVATE Threads::Threads)
-    endif()
+    target_link_libraries(HttpClientTests PRIVATE ws2_32)
     add_test(NAME HttpClientTests COMMAND HttpClientTests)
 
     add_executable(WebAppTests
@@ -469,12 +421,7 @@ if(RBLX_BUILD_TESTS)
             target_compile_options(WebAppTests PRIVATE -Wall -Wextra -Wpedantic)
         endif()
     endif()
-    if(WIN32)
-        target_link_libraries(WebAppTests PRIVATE ws2_32)
-    else()
-        find_package(Threads REQUIRED)
-        target_link_libraries(WebAppTests PRIVATE Threads::Threads)
-    endif()
+    target_link_libraries(WebAppTests PRIVATE ws2_32)
     add_test(NAME WebAppTests COMMAND WebAppTests)
 
     # The sealed data file: the cipher against a published vector, and the store's
@@ -497,14 +444,9 @@ if(RBLX_BUILD_TESTS)
     add_test(NAME StoreCryptoTests COMMAND StoreCryptoTests)
 
     # The supervisor's decisions: ports per slot, restart with a growing delay,
-    # giving up on a slot that keeps dying, config parsing, and one real process
-    # on POSIX to prove the launcher starts and stops something.
+    # giving up on a slot that keeps dying, and config parsing.
     add_executable(ServerHostTests tests/server_host_tests.cpp src/ServerHost.cpp)
     target_include_directories(ServerHostTests PRIVATE ${RBLXBUILD_CURRENT_SOURCE_DIR}/include)
-    if(NOT WIN32)
-        find_package(Threads REQUIRED)
-        target_link_libraries(ServerHostTests PRIVATE Threads::Threads)
-    endif()
     add_test(NAME ServerHostTests COMMAND ServerHostTests)
 
 endif()

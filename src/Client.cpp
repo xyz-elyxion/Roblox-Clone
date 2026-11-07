@@ -40,13 +40,11 @@
 #include <mutex>
 #include <iomanip>
 
-#ifdef _WIN32
 // The file picker is the only part of the client that needs a native window
 // handle, so the Win32 headers stay behind this guard.
 #define GLFW_EXPOSE_NATIVE_WIN32
 #include <GLFW/glfw3native.h>
 #include <commdlg.h>
-#endif
 
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
@@ -127,12 +125,7 @@ namespace {
 // window closes immediately. Windows uses its own `pause`; elsewhere the
 // message is already on the terminal or in client_error_log.txt.
 void pauseBeforeExit() {
-#ifdef _WIN32
     system("pause");
-#else
-    std::cout << "Press Enter to close..." << std::endl;
-    std::cin.get();
-#endif
 }
 
 // Settings
@@ -935,7 +928,6 @@ void renderDebugWindow(const ImGuiIO& io) {
 // path was passed on the command line and the menu reports that there is no
 // picker, which beats a silently empty result.
 std::string openFileDialog(GLFWwindow* window) {
-#ifdef _WIN32
     OPENFILENAMEA ofn;
     char szFile[260] = {0};
     ZeroMemory(&ofn, sizeof(ofn));
@@ -954,11 +946,6 @@ std::string openFileDialog(GLFWwindow* window) {
         return std::string(ofn.lpstrFile);
     }
     return "";
-#else
-    (void)window;
-    std::cout << "No native file picker on this platform; pass the .world path on the command line." << std::endl;
-    return "";
-#endif
 }
 
 // The air of the world this client is in. The server sends it on join, because a

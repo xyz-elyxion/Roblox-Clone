@@ -148,9 +148,7 @@ private:
         std::string logPath;
         int exitCode = -1;
         bool exitCodeKnown = false;
-#ifdef _WIN32
         void* processHandle = nullptr;
-#endif
     };
 
     struct AuthUser {

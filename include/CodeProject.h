@@ -171,7 +171,7 @@ std::string fileNameOf(const std::string& path);
 std::string relativePathOf(const std::string& root, const std::string& path);
 std::string formatBytes(std::size_t bytes);
 // Joins a project-relative path onto a root, accepting either separator in the
-// relative part so an entry built on Windows still opens on a POSIX build.
+// relative part so a path written with either separator still joins.
 std::string joinProjectPath(const std::string& root, const std::string& relativePath);
 
 // ---------------------------------------------------------------------------

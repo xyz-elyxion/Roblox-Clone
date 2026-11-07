@@ -289,7 +289,7 @@ void testPaths() {
     check(joinProjectPath(root + "/", "src/main.cpp") == "checkout/src/main.cpp",
           "a root that already ends in a slash is not doubled");
     check(joinProjectPath(root, "src\\main.cpp") == "checkout/src/main.cpp",
-          "a Windows path opens on a POSIX build");
+          "a path written with backslashes still joins");
     check(joinProjectPath("C:\\checkout\\", "src/main.cpp") == "C:\\checkout\\src/main.cpp",
           "a Windows root that ends in a backslash is not doubled either");
     check(joinProjectPath("", "src/main.cpp") == "src/main.cpp",

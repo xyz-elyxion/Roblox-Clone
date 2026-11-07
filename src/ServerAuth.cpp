@@ -9,8 +9,8 @@
 
 // The game server reports to the website: it verifies player tokens, fetches
 // avatars, records playtime, posts instance heartbeats and reports confirmed
-// cheating. All of it goes through HttpClient so the same code runs on Windows
-// and POSIX; there is no WinHTTP dependency left in the server.
+// cheating. All of it goes through HttpClient so the client and the server share
+// one transport; there is no WinHTTP dependency left in the server.
 namespace {
     bool jsonBoolTrue(const std::string& json, const std::string& field) {
         const std::string needle = "\"" + field + "\":true";

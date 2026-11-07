@@ -68,7 +68,6 @@ std::string formatRecoveryCode(const std::string& code) {
 #include <sstream>
 #include <utility>
 
-#ifdef _WIN32
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
@@ -76,17 +75,6 @@ std::string formatRecoveryCode(const std::string& code) {
 #include <ws2tcpip.h>
 #include <direct.h>
 #include <windows.h>
-#else
-#include <arpa/inet.h>
-#include <fcntl.h>
-#include <netinet/in.h>
-#include <signal.h>
-#include <sys/socket.h>
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <sys/wait.h>
-#include <unistd.h>
-#endif
 
 #include "WebCrypto.h"
 
@@ -136,11 +124,7 @@ std::string twoDigit(int value) {
 
 std::string isoFromTime(std::time_t value) {
     std::tm parts{};
-#ifdef _WIN32
     gmtime_s(&parts, &value);
-#else
-    gmtime_r(&value, &parts);
-#endif
     char year[16];
     std::snprintf(year, sizeof(year), "%04d", parts.tm_year + 1900);
     return std::string(year) + "-" + twoDigit(parts.tm_mon + 1) + "-" +
@@ -215,46 +199,26 @@ bool makeDirectories(const std::string& path) {
         if (current == "/" || (current.size() == 2 && current[1] == ':')) {
             continue;
         }
-#ifdef _WIN32
         _mkdir(current.c_str());
-#else
-        ::mkdir(current.c_str(), 0777);
-#endif
     }
     return true;
 }
 
 std::string currentDirectory() {
     char buffer[4096];
-#ifdef _WIN32
     if (_getcwd(buffer, sizeof(buffer)) == nullptr) {
         return std::string(".");
     }
-#else
-    if (::getcwd(buffer, sizeof(buffer)) == nullptr) {
-        return std::string(".");
-    }
-#endif
     return std::string(buffer);
 }
 
 std::string executableDirectory() {
-#ifdef _WIN32
     char buffer[MAX_PATH];
     const DWORD length = ::GetModuleFileNameA(nullptr, buffer, MAX_PATH);
     if (length == 0) {
         return currentDirectory();
     }
     return directoryOf(std::string(buffer, length));
-#else
-    char buffer[4096];
-    const ssize_t length = ::readlink("/proc/self/exe", buffer, sizeof(buffer) - 1);
-    if (length <= 0) {
-        return currentDirectory();
-    }
-    buffer[length] = '\0';
-    return directoryOf(std::string(buffer, static_cast<std::size_t>(length)));
-#endif
 }
 
 std::string resolvePath(const std::string& base, const std::string& path) {
@@ -824,7 +788,6 @@ std::string pageFileForPath(const std::string& path) {
     return std::string();
 }
 
-#ifdef _WIN32
 std::string quoteWindowsArgument(const std::string& argument) {
     if (!argument.empty() && argument.find_first_of(" \t\"") == std::string::npos) {
         return argument;
@@ -850,7 +813,6 @@ std::string quoteWindowsArgument(const std::string& argument) {
     result.push_back('"');
     return result;
 }
-#endif
 
 }  // namespace
 
@@ -3605,7 +3567,6 @@ bool WebsiteApp::handlePlayGame(Request& request, Response& response) {
             // promised a window that never appeared. Give it a moment and check.
             bool exitedEarly = false;
             int exitCode = 0;
-#ifdef _WIN32
             if (spawned.handle != nullptr) {
                 const HANDLE handle = static_cast<HANDLE>(spawned.handle);
                 if (::WaitForSingleObject(handle, 1200) != WAIT_TIMEOUT) {
@@ -3616,21 +3577,6 @@ bool WebsiteApp::handlePlayGame(Request& request, Response& response) {
                     exitedEarly = true;
                 }
             }
-#else
-            if (spawned.pid > 0) {
-                ::usleep(1200 * 1000);
-                int status = 0;
-                const pid_t result = ::waitpid(static_cast<pid_t>(spawned.pid), &status, WNOHANG);
-                if (result > 0) {
-                    exitedEarly = true;
-                    if (WIFEXITED(status)) {
-                        exitCode = WEXITSTATUS(status);
-                    } else if (WIFSIGNALED(status)) {
-                        exitCode = 128 + WTERMSIG(status);
-                    }
-                }
-            }
-#endif
             if (exitedEarly) {
                 player.set("launched", false);
                 player.set("exitedEarly", true);
@@ -5084,13 +5030,8 @@ std::string WebsiteApp::saveWorldFile(int gameId, const std::string& contents) {
 // server fails to bind. The protocol has to match too: a TCP bind succeeds next
 // to a running UDP game server, which would report every busy port as free.
 bool WebsiteApp::isPortFreeForGameServer(int port) {
-#ifdef _WIN32
     const SOCKET handle = ::socket(AF_INET, SOCK_DGRAM, 0);
     const bool invalid = handle == INVALID_SOCKET;
-#else
-    const int handle = ::socket(AF_INET, SOCK_DGRAM, 0);
-    const bool invalid = handle < 0;
-#endif
     if (invalid) {
         return false;
     }
@@ -5100,11 +5041,7 @@ bool WebsiteApp::isPortFreeForGameServer(int port) {
     address.sin_port = htons(static_cast<unsigned short>(port));
     address.sin_addr.s_addr = htonl(INADDR_ANY);
     const int result = ::bind(handle, reinterpret_cast<sockaddr*>(&address), sizeof(address));
-#ifdef _WIN32
     closesocket(handle);
-#else
-    ::close(handle);
-#endif
     return result == 0;
 }
 
@@ -5215,7 +5152,6 @@ bool WebsiteApp::spawnProcess(const std::string& executable, const std::vector<s
         return false;
     }
 
-#ifdef _WIN32
     std::string commandLine = quoteWindowsArgument(executable);
     for (const std::string& arg : args) {
         commandLine += " ";
@@ -5279,54 +5215,9 @@ bool WebsiteApp::spawnProcess(const std::string& executable, const std::vector<s
     spawned->pid = static_cast<long>(information.dwProcessId);
     spawned->handle = static_cast<void*>(information.hProcess);
     return true;
-#else
-    if (!stdoutLogPath.empty()) {
-        makeDirectories(directoryOf(stdoutLogPath));
-    }
-    const pid_t pid = ::fork();
-    if (pid < 0) {
-        if (error) {
-            *error = "Could not fork a child process.";
-        }
-        return false;
-    }
-    if (pid == 0) {
-        ::setsid();
-        if (!stdoutLogPath.empty() && !showConsole) {
-            const int logFd = ::open(stdoutLogPath.c_str(), O_CREAT | O_WRONLY | O_TRUNC, 0666);
-            if (logFd >= 0) {
-                ::dup2(logFd, STDOUT_FILENO);
-                ::dup2(logFd, STDERR_FILENO);
-                if (logFd > STDERR_FILENO) {
-                    ::close(logFd);
-                }
-            }
-        }
-        if (!workingDirectory.empty() && ::chdir(workingDirectory.c_str()) != 0) {
-            _exit(127);
-        }
-        std::vector<std::string> storage;
-        storage.push_back(executable);
-        for (const std::string& arg : args) {
-            storage.push_back(arg);
-        }
-        std::vector<char*> argv;
-        argv.reserve(storage.size() + 1);
-        for (std::string& item : storage) {
-            argv.push_back(const_cast<char*>(item.c_str()));
-        }
-        argv.push_back(nullptr);
-        ::execv(executable.c_str(), argv.data());
-        _exit(127);
-    }
-    spawned->pid = static_cast<long>(pid);
-    spawned->handle = nullptr;
-    return true;
-#endif
 }
 
 bool WebsiteApp::processRunning(GameInstance& instance) {
-#ifdef _WIN32
     if (instance.processHandle == nullptr) {
         return false;
     }
@@ -5340,36 +5231,13 @@ bool WebsiteApp::processRunning(GameInstance& instance) {
         instance.exitCodeKnown = true;
     }
     return false;
-#else
-    if (instance.processId <= 0) {
-        return false;
-    }
-    int status = 0;
-    const pid_t result = ::waitpid(static_cast<pid_t>(instance.processId), &status, WNOHANG);
-    if (result == 0) {
-        return true;
-    }
-    if (result > 0) {
-        instance.exitCodeKnown = true;
-        if (WIFEXITED(status)) {
-            instance.exitCode = WEXITSTATUS(status);
-        } else if (WIFSIGNALED(status)) {
-            instance.exitCode = 128 + WTERMSIG(status);
-        }
-    }
-    return false;
-#endif
 }
 
 void WebsiteApp::releaseProcess(GameInstance& instance) {
-#ifdef _WIN32
     if (instance.processHandle != nullptr) {
         ::CloseHandle(static_cast<HANDLE>(instance.processHandle));
         instance.processHandle = nullptr;
     }
-#else
-    (void)instance;
-#endif
     instance.processId = 0;
 }
 
@@ -5466,9 +5334,7 @@ WebsiteApp::GameInstance* WebsiteApp::ensureInstance(const GameRecord& game, boo
         if (spawnProcess(config_.serverExecutablePath, args, config_.repoRoot, &spawned,
                          &spawnError, instance.logPath, true)) {
             instance.processId = spawned.pid;
-#ifdef _WIN32
             instance.processHandle = spawned.handle;
-#endif
             instance.status = "starting";
             std::fprintf(stdout, "Started game server for game %d on port %d (pid %ld)\n",
                          game.id, port, spawned.pid);
@@ -5515,11 +5381,7 @@ void WebsiteApp::stopInstance(const std::string& instanceId, const std::string& 
                  instance.gameId, instance.port, reason.empty() ? "requested" : reason.c_str());
 
     if (processRunning(instance)) {
-#ifdef _WIN32
         ::TerminateProcess(static_cast<HANDLE>(instance.processHandle), 0);
-#else
-        ::kill(static_cast<pid_t>(instance.processId), SIGTERM);
-#endif
     }
     releaseProcess(instance);
     instances_.erase(found);

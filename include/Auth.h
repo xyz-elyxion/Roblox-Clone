@@ -7,17 +7,15 @@
 #include "HttpClient.h"
 #include "WebCaptcha.h"
 
-#ifdef _WIN32
     // windows.h must come first: shellapi.h uses types (HDROP and friends) that
     // it does not declare itself, so including it alone breaks every
     // translation unit that reaches this header.
     #include <windows.h>
     #include <shellapi.h>
-#endif
 
 // Client-side calls to the website backend. The transport lives in
-// HttpClient.cpp so the same code runs on Windows and POSIX; this class only
-// builds the JSON and picks the endpoints.
+// HttpClient.cpp so the client and the game server share one transport; this
+// class only builds the JSON and picks the endpoints.
 class Auth {
 public:
     static std::string jsonEscape(const std::string& value) {
@@ -124,15 +122,7 @@ public:
 
     // Opens the website's page in the user's browser.
     static void openBrowser(const std::string& url) {
-#ifdef _WIN32
         const std::wstring wurl(url.begin(), url.end());
         ShellExecuteW(nullptr, L"open", wurl.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
-#elif defined(__APPLE__)
-        const std::string command = "open '" + url + "' >/dev/null 2>&1 &";
-        (void)std::system(command.c_str());
-#else
-        const std::string command = "xdg-open '" + url + "' >/dev/null 2>&1 &";
-        (void)std::system(command.c_str());
-#endif
     }
 };

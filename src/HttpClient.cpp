@@ -7,7 +7,6 @@
 #include <cstring>
 #include <mutex>
 
-#ifdef _WIN32
     #ifndef WIN32_LEAN_AND_MEAN
         #define WIN32_LEAN_AND_MEAN
     #endif
@@ -18,22 +17,6 @@
     constexpr SocketHandle kInvalidSocket = INVALID_SOCKET;
     #define RBLX_CLOSE_SOCKET(s) closesocket(s)
     #define RBLX_LAST_ERROR() WSAGetLastError()
-#else
-    #include <arpa/inet.h>
-    #include <cerrno>
-    #include <csignal>
-    #include <fcntl.h>
-    #include <netdb.h>
-    #include <netinet/in.h>
-    #include <sys/select.h>
-    #include <sys/socket.h>
-    #include <sys/time.h>
-    #include <unistd.h>
-    using SocketHandle = int;
-    constexpr SocketHandle kInvalidSocket = -1;
-    #define RBLX_CLOSE_SOCKET(s) ::close(s)
-    #define RBLX_LAST_ERROR() errno
-#endif
 
 namespace rblx {
 namespace http {
@@ -46,20 +29,11 @@ struct ParsedUrl {
 };
 
 void ensureSockets() {
-#ifdef _WIN32
     static std::once_flag once;
     std::call_once(once, [] {
         WSADATA data;
         WSAStartup(MAKEWORD(2, 2), &data);
     });
-#else
-    static std::once_flag once;
-    std::call_once(once, [] {
-#ifdef SIGPIPE
-        std::signal(SIGPIPE, SIG_IGN);
-#endif
-    });
-#endif
 }
 
 std::string lower(std::string value) {
@@ -130,24 +104,15 @@ SocketHandle connectToHost(const std::string& host, uint16_t port, int timeoutMs
         }
 
         // Connect without blocking so the timeout is ours, not the stack's.
-#ifdef _WIN32
         unsigned long nonBlocking = 1;
         ioctlsocket(candidate, FIONBIO, &nonBlocking);
-#else
-        const int flags = fcntl(candidate, F_GETFL, 0);
-        fcntl(candidate, F_SETFL, flags | O_NONBLOCK);
-#endif
 
         const int rc = ::connect(candidate, entry->ai_addr, static_cast<int>(entry->ai_addrlen));
         bool ready = rc == 0;
         if (!ready) {
             const int lastError = RBLX_LAST_ERROR();
             const bool inProgress =
-#ifdef _WIN32
                 lastError == WSAEWOULDBLOCK;
-#else
-                lastError == EINPROGRESS || lastError == EWOULDBLOCK;
-#endif
             if (inProgress) {
                 fd_set writable;
                 FD_ZERO(&writable);
@@ -166,20 +131,11 @@ SocketHandle connectToHost(const std::string& host, uint16_t port, int timeoutMs
 
         // Back to blocking, with read/write timeouts so a stalled peer returns
         // instead of hanging the caller.
-#ifdef _WIN32
         unsigned long blocking = 0;
         ioctlsocket(candidate, FIONBIO, &blocking);
         DWORD timeout = static_cast<DWORD>(timeoutMs);
         setsockopt(candidate, SOL_SOCKET, SO_RCVTIMEO, reinterpret_cast<const char*>(&timeout), sizeof(timeout));
         setsockopt(candidate, SOL_SOCKET, SO_SNDTIMEO, reinterpret_cast<const char*>(&timeout), sizeof(timeout));
-#else
-        fcntl(candidate, F_SETFL, flags);
-        timeval timeout{};
-        timeout.tv_sec = timeoutMs / 1000;
-        timeout.tv_usec = (timeoutMs % 1000) * 1000;
-        setsockopt(candidate, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
-        setsockopt(candidate, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout));
-#endif
 
         connected = candidate;
         break;
@@ -196,11 +152,7 @@ SocketHandle connectToHost(const std::string& host, uint16_t port, int timeoutMs
 bool sendAll(SocketHandle socket, const std::string& data) {
     size_t sent = 0;
     while (sent < data.size()) {
-#ifdef _WIN32
         const int written = ::send(socket, data.data() + sent, static_cast<int>(data.size() - sent), 0);
-#else
-        const ssize_t written = ::send(socket, data.data() + sent, data.size() - sent, 0);
-#endif
         if (written <= 0) {
             return false;
         }
@@ -305,11 +257,7 @@ Response request(const std::string& method,
             }
         }
 
-#ifdef _WIN32
         const int received = ::recv(socket, buffer, static_cast<int>(sizeof(buffer)), 0);
-#else
-        const ssize_t received = ::recv(socket, buffer, sizeof(buffer), 0);
-#endif
         if (received <= 0) {
             break;
         }

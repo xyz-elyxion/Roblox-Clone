@@ -11,7 +11,6 @@
 #include <string>
 #include <thread>
 
-#ifdef _WIN32
     #ifndef WIN32_LEAN_AND_MEAN
         #define WIN32_LEAN_AND_MEAN
     #endif
@@ -21,18 +20,8 @@
     using SocketHandle = SOCKET;
     constexpr SocketHandle kInvalid = INVALID_SOCKET;
     #define TEST_CLOSE(s) closesocket(s)
-#else
-    #include <arpa/inet.h>
-    #include <netinet/in.h>
-    #include <sys/socket.h>
-    #include <unistd.h>
-    using SocketHandle = int;
-    constexpr SocketHandle kInvalid = -1;
-    #define TEST_CLOSE(s) ::close(s)
-#endif
 
 namespace {
-#ifdef _WIN32
     // Winsock refuses socket(), bind() and listen() until WSAStartup has run.
     // The client does that lazily inside rblx::http::request, but the stub
     // servers below create their listening socket before any request is made,
@@ -44,7 +33,6 @@ namespace {
             WSAStartup(MAKEWORD(2, 2), &data);
         }
     } g_winsockInit;
-#endif
 
     int failures = 0;
 
@@ -85,11 +73,7 @@ namespace {
             }
 
             sockaddr_in bound{};
-#ifdef _WIN32
             int length = sizeof(bound);
-#else
-            socklen_t length = sizeof(bound);
-#endif
             if (getsockname(listening_, reinterpret_cast<sockaddr*>(&bound), &length) != 0) {
                 return false;
             }

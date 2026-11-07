@@ -21,20 +21,15 @@
 #include <string>
 #include <thread>
 
-#ifdef _WIN32
     #ifndef WIN32_LEAN_AND_MEAN
         #define WIN32_LEAN_AND_MEAN
     #endif
     #include <windows.h>
-#else
-    #include <csignal>
-#endif
 
 namespace {
 
 std::atomic<bool> g_stopRequested{false};
 
-#ifdef _WIN32
 BOOL WINAPI consoleHandler(DWORD signal) {
     if (signal == CTRL_C_EVENT || signal == CTRL_BREAK_EVENT || signal == CTRL_CLOSE_EVENT) {
         g_stopRequested = true;
@@ -42,9 +37,6 @@ BOOL WINAPI consoleHandler(DWORD signal) {
     }
     return FALSE;
 }
-#else
-void handleSignal(int) { g_stopRequested = true; }
-#endif
 
 long long nowMs() {
     using namespace std::chrono;
@@ -178,12 +170,7 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-#ifdef _WIN32
     ::SetConsoleCtrlHandler(consoleHandler, TRUE);
-#else
-    std::signal(SIGINT, handleSignal);
-    std::signal(SIGTERM, handleSignal);
-#endif
 
     const std::unique_ptr<rblx::hosting::Launcher> launcher = rblx::hosting::makeSystemLauncher();
     rblx::hosting::Supervisor supervisor(config, launcher.get());

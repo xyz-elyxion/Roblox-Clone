@@ -29,9 +29,8 @@ With no config file the defaults are two servers on 7777 and 7778, running
   table keeps showing it, with the last error, so the reason is not lost in a
   scrolling log. When every slot has failed the program exits non-zero, which is
   what a service wrapper should see.
-- **Stopping is orderly.** Ctrl+C (or `SIGTERM`) stops the supervisor, which sends
-  each server `SIGTERM`, waits up to two seconds, then kills it. On Windows the
-  console control handler does the same with `TerminateProcess`.
+- **Stopping is orderly.** Ctrl+C reaches the supervisor's console control handler, which
+  terminates each server and waits for it to go; closing the window does the same.
 
 A live table is printed every five seconds:
 

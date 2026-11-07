@@ -119,15 +119,9 @@ inline std::string settingsPath() {
     const char* explicitPath = std::getenv("RBLX_UI_SETTINGS");
     if (explicitPath && *explicitPath) return explicitPath;
 
-#ifdef _WIN32
     const char* appData = std::getenv("APPDATA");
     if (appData && *appData) return std::string(appData) + "/RBLXClone/ui.settings";
     const char* home = std::getenv("USERPROFILE");
-#else
-    const char* configHome = std::getenv("XDG_CONFIG_HOME");
-    if (configHome && *configHome) return std::string(configHome) + "/rblxclone/ui.settings";
-    const char* home = std::getenv("HOME");
-#endif
     if (home && *home) return std::string(home) + "/.config/rblxclone/ui.settings";
     return std::string();
 }

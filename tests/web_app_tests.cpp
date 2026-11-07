@@ -15,18 +15,11 @@
 #include "WebJson.h"
 #include "WebStore.h"
 
-#ifdef _WIN32
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
 #include <winsock2.h>
 #include <ws2tcpip.h>
-#else
-#include <arpa/inet.h>
-#include <netinet/in.h>
-#include <sys/socket.h>
-#include <unistd.h>
-#endif
 
 namespace {
 
@@ -359,15 +352,9 @@ void testStore() {
 // http end to end
 // ---------------------------------------------------------------------------
 
-#ifdef _WIN32
 using TestSocket = SOCKET;
 const TestSocket kInvalidTestSocket = INVALID_SOCKET;
 void closeTestSocket(TestSocket handle) { closesocket(handle); }
-#else
-using TestSocket = int;
-const TestSocket kInvalidTestSocket = -1;
-void closeTestSocket(TestSocket handle) { ::close(handle); }
-#endif
 
 std::string sendRaw(int port, const std::string& raw) {
     const TestSocket handle = ::socket(AF_INET, SOCK_STREAM, 0);
@@ -388,12 +375,8 @@ std::string sendRaw(int port, const std::string& raw) {
 
     std::size_t sent = 0;
     while (sent < raw.size()) {
-#ifdef _WIN32
         const int written = ::send(handle, raw.data() + sent,
                                    static_cast<int>(raw.size() - sent), 0);
-#else
-        const ssize_t written = ::send(handle, raw.data() + sent, raw.size() - sent, 0);
-#endif
         if (written <= 0) {
             closeTestSocket(handle);
             return std::string();
@@ -404,11 +387,7 @@ std::string sendRaw(int port, const std::string& raw) {
     std::string response;
     char buffer[4096];
     while (true) {
-#ifdef _WIN32
         const int received = ::recv(handle, buffer, static_cast<int>(sizeof(buffer)), 0);
-#else
-        const ssize_t received = ::recv(handle, buffer, sizeof(buffer), 0);
-#endif
         if (received <= 0) {
             break;
         }

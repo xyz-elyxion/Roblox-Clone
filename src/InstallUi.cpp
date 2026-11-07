@@ -8,12 +8,10 @@
 #include <thread>
 #include <vector>
 
-#ifdef _WIN32
     #ifndef WIN32_LEAN_AND_MEAN
         #define WIN32_LEAN_AND_MEAN
     #endif
     #include <windows.h>
-#endif
 
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
@@ -51,16 +49,8 @@ void loadFonts(ImFont** body, ImFont** heading) {
     config.OversampleV = 2;
 
     const char* candidates[] = {
-#ifdef _WIN32
         "C:\\Windows\\Fonts\\segoeui.ttf",
         "C:\\Windows\\Fonts\\arial.ttf",
-#elif defined(__APPLE__)
-        "/System/Library/Fonts/Supplemental/Arial.ttf",
-        "/System/Library/Fonts/Helvetica.ttc",
-#else
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-        "/usr/share/fonts/TTF/DejaVuSans.ttf",
-#endif
     };
 
     for (const char* path : candidates) {
@@ -219,9 +209,6 @@ Result run(Options& options, const std::vector<std::string>& actions,
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-#ifdef __APPLE__
-    glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GLFW_TRUE);
-#endif
 
     GLFWwindow* window =
         glfwCreateWindow(kWindowWidth, kWindowHeight, options.title.c_str(), nullptr, nullptr);
@@ -254,9 +241,7 @@ Result run(Options& options, const std::vector<std::string>& actions,
 
     // The window owns the output from here, so the console it was started from
     // has nothing left to say. A shell that launched this keeps its own window.
-#ifdef _WIN32
     if (::GetConsoleWindow() != nullptr) ::FreeConsole();
-#endif
 
     char folderBuffer[1024] = {};
     std::snprintf(folderBuffer, sizeof(folderBuffer), "%s", options.folder.c_str());

@@ -35,12 +35,8 @@
 #include <string>
 #include <vector>
 
-#ifdef _WIN32
 #include <direct.h>
 #include <process.h>
-#else
-#include <unistd.h>
-#endif
 
 namespace {
 
@@ -469,25 +465,12 @@ bool launchProgram(const std::string& directory, const std::string& program, std
         return false;
     }
 
-#ifdef _WIN32
     _chdir(directory.c_str());
     const std::string command = path.string();
     if (_spawnl(_P_NOWAIT, command.c_str(), command.c_str(), static_cast<char*>(nullptr)) == -1) {
         *error = "could not start " + command;
         return false;
     }
-#else
-    const pid_t pid = fork();
-    if (pid < 0) {
-        *error = "could not start " + path.string();
-        return false;
-    }
-    if (pid == 0) {
-        if (chdir(directory.c_str()) != 0) _exit(127);
-        execl(path.c_str(), path.c_str(), static_cast<char*>(nullptr));
-        _exit(127);
-    }
-#endif
     return true;
 }
 

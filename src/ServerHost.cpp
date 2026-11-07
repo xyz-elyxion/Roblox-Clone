@@ -11,19 +11,10 @@
 #include <sstream>
 #include <vector>
 
-#ifndef _WIN32
-    #include <fcntl.h>
-    #include <signal.h>
-    #include <sys/stat.h>
-    #include <sys/types.h>
-    #include <sys/wait.h>
-    #include <unistd.h>
-#else
     #ifndef WIN32_LEAN_AND_MEAN
         #define WIN32_LEAN_AND_MEAN
     #endif
     #include <windows.h>
-#endif
 
 namespace rblx {
 namespace hosting {
@@ -364,14 +355,10 @@ bool ensureDirectory(const std::string& path) {
         const std::size_t slash = path.find_first_of("/\\", index);
         current = path.substr(0, slash == std::string::npos ? path.size() : slash);
         if (!current.empty()) {
-#ifndef _WIN32
-            if (::mkdir(current.c_str(), 0755) != 0 && errno != EEXIST) return false;
-#else
             if (::CreateDirectoryA(current.c_str(), nullptr) == FALSE &&
                 ::GetLastError() != ERROR_ALREADY_EXISTS) {
                 return false;
             }
-#endif
         }
         if (slash == std::string::npos) break;
         index = slash + 1;
@@ -385,89 +372,6 @@ std::string parentOf(const std::string& path) {
     return path.substr(0, slash);
 }
 
-#ifndef _WIN32
-
-class PosixLauncher : public Launcher {
-public:
-    bool launch(const Config& config, int port, const std::string& logPath, long* pid,
-                std::string* error) override {
-        ensureDirectory(parentOf(logPath));
-        std::vector<std::string> arguments = {config.server, "--port", std::to_string(port)};
-        if (!config.world.empty()) {
-            arguments.push_back("--world");
-            arguments.push_back(config.world);
-        }
-        if (!config.webUrl.empty()) {
-            arguments.push_back("--web");
-            arguments.push_back(config.webUrl);
-        }
-        arguments.push_back("--log");
-        arguments.push_back(logPath);
-
-        const pid_t child = ::fork();
-        if (child < 0) {
-            *error = "fork failed";
-            return false;
-        }
-        if (child == 0) {
-            // Its own session, so the Ctrl+C that stops this supervisor reaches
-            // only the supervisor: the servers are then stopped in order below.
-            ::setsid();
-            if (!config.directory.empty()) {
-                if (::chdir(config.directory.c_str()) != 0) {
-                    std::fprintf(stderr, "RBLXHosts: cannot enter %s\n", config.directory.c_str());
-                }
-            }
-            const int log = ::open(logPath.c_str(), O_WRONLY | O_CREAT | O_APPEND, 0644);
-            if (log >= 0) {
-                ::dup2(log, STDOUT_FILENO);
-                ::dup2(log, STDERR_FILENO);
-                if (log > STDERR_FILENO) ::close(log);
-            }
-
-            std::vector<char*> argv;
-            argv.reserve(arguments.size() + 1);
-            for (std::string& argument : arguments) {
-                argv.push_back(const_cast<char*>(argument.c_str()));
-            }
-            argv.push_back(nullptr);
-            ::execv(argv[0], argv.data());
-            // Only reached when exec failed: the log file says why, and 127 is
-            // the shell's code for "command not found".
-            std::fprintf(stderr, "RBLXHosts: cannot run %s: %s\n", arguments.front().c_str(),
-                         std::strerror(errno));
-            ::_exit(127);
-        }
-
-        *pid = static_cast<long>(child);
-        return true;
-    }
-
-    bool alive(long pid) override {
-        int status = 0;
-        const pid_t result = ::waitpid(static_cast<pid_t>(pid), &status, WNOHANG);
-        if (result == static_cast<pid_t>(pid)) return false;  // exited, and now reaped
-        if (result < 0) return errno != ECHILD;               // ECHILD: no such child of ours
-        return true;                                          // 0: still running
-    }
-
-    void stop(long pid) override {
-        ::kill(static_cast<pid_t>(pid), SIGTERM);
-        // Two seconds to close its sockets and save, then insist.
-        for (int attempt = 0; attempt < 20; ++attempt) {
-            int status = 0;
-            if (::waitpid(static_cast<pid_t>(pid), &status, WNOHANG) == static_cast<pid_t>(pid)) {
-                return;
-            }
-            ::usleep(100 * 1000);
-        }
-        ::kill(static_cast<pid_t>(pid), SIGKILL);
-        int status = 0;
-        (void)::waitpid(static_cast<pid_t>(pid), &status, 0);
-    }
-};
-
-#else
 
 std::string quoteArgument(const std::string& value) {
     std::string quoted = "\"";
@@ -551,16 +455,11 @@ private:
     std::map<long, HANDLE> handles_;
 };
 
-#endif
 
 }  // namespace
 
 std::unique_ptr<Launcher> makeSystemLauncher() {
-#ifdef _WIN32
     return std::unique_ptr<Launcher>(new WindowsLauncher());
-#else
-    return std::unique_ptr<Launcher>(new PosixLauncher());
-#endif
 }
 
 }  // namespace hosting

@@ -1,6 +1,6 @@
-// The supervisor's decisions, checked with a fake clock and a fake launcher, plus
-// one real process on POSIX to prove the system launcher actually starts and
-// stops something.
+// The supervisor's decisions, checked with a fake clock and a fake launcher: ports
+// per slot, restart with a growing delay, giving up on a slot that keeps dying and
+// config parsing.
 
 #include "ServerHost.h"
 
@@ -10,10 +10,6 @@
 #include <string>
 #include <vector>
 
-#ifndef _WIN32
-    #include <sys/stat.h>
-    #include <unistd.h>
-#endif
 
 namespace {
 
@@ -270,34 +266,6 @@ void testTable() {
     check(contains(table, "2 of 2 running"), "the table summarises the running count");
 }
 
-#ifndef _WIN32
-void testSystemLauncher() {
-    // A stand-in server: a shell script that ignores its arguments and sleeps.
-    // It proves the POSIX launcher starts, sees and stops a real child process.
-    const std::string script = "/tmp/rblx_hosts_fake_server.sh";
-    {
-        std::ofstream file(script, std::ios::binary);
-        file << "#!/bin/sh\nsleep 30\n";
-    }
-    ::chmod(script.c_str(), 0755);
-
-    rblx::hosting::Config config;
-    config.server = script;
-    config.directory = ".";
-
-    std::unique_ptr<rblx::hosting::Launcher> launcher = rblx::hosting::makeSystemLauncher();
-    long pid = 0;
-    std::string error;
-    const bool started = launcher->launch(config, 7788, "/tmp/rblx_hosts_fake.log", &pid, &error);
-    check(started && pid > 0, "the system launcher starts a real process");
-    check(launcher->alive(pid), "and sees it running");
-
-    launcher->stop(pid);
-    check(!launcher->alive(pid), "and sees it gone after stop");
-    std::remove(script.c_str());
-    std::remove("/tmp/rblx_hosts_fake.log");
-}
-#endif
 
 }  // namespace
 
@@ -311,9 +279,6 @@ int main() {
     testLaunchFailure();
     testStopAll();
     testTable();
-#ifndef _WIN32
-    testSystemLauncher();
-#endif
 
     if (failures == 0) {
         std::printf("All server host checks passed.\n");

@@ -8,48 +8,25 @@
 #include <thread>
 #include <utility>
 
-#ifdef _WIN32
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
 #include <winsock2.h>
 #include <ws2tcpip.h>
-#else
-#include <arpa/inet.h>
-#include <cerrno>
-#include <netinet/in.h>
-#include <netinet/tcp.h>
-#include <sys/socket.h>
-#include <sys/time.h>
-#include <unistd.h>
-#endif
 
 namespace rblx {
 namespace web {
 namespace {
 
-#ifdef _WIN32
 using SocketHandle = SOCKET;
 const SocketHandle kInvalidSocket = INVALID_SOCKET;
-#else
-using SocketHandle = int;
-const SocketHandle kInvalidSocket = -1;
-#endif
 
 void closeSocket(SocketHandle handle) {
-#ifdef _WIN32
     closesocket(handle);
-#else
-    ::close(handle);
-#endif
 }
 
 int lastSocketError() {
-#ifdef _WIN32
     return WSAGetLastError();
-#else
-    return errno;
-#endif
 }
 
 std::string lowerCopy(const std::string& value) {
@@ -154,13 +131,8 @@ const char* statusText(int status) {
 bool sendAll(SocketHandle handle, const std::string& data) {
     std::size_t sent = 0;
     while (sent < data.size()) {
-#ifdef _WIN32
         const int written = ::send(handle, data.data() + sent,
                                    static_cast<int>(data.size() - sent), 0);
-#else
-        const ssize_t written = ::send(handle, data.data() + sent,
-                                       data.size() - sent, 0);
-#endif
         if (written <= 0) {
             return false;
         }
@@ -223,17 +195,13 @@ void Response::file(int statusCode, const std::string& absolutePath, const std::
 }
 
 HttpServer::HttpServer() {
-#ifdef _WIN32
     WSADATA wsaData;
     WSAStartup(MAKEWORD(2, 2), &wsaData);
-#endif
 }
 
 HttpServer::~HttpServer() {
     stop();
-#ifdef _WIN32
     WSACleanup();
-#endif
 }
 
 void HttpServer::route(const std::string& method, const std::string& pattern,
@@ -347,11 +315,7 @@ bool HttpServer::listen(const std::string& host, int port, std::string* error) {
 
     if (port == 0) {
         sockaddr_in bound{};
-#ifdef _WIN32
         int length = sizeof(bound);
-#else
-        socklen_t length = sizeof(bound);
-#endif
         if (::getsockname(handle, reinterpret_cast<sockaddr*>(&bound), &length) == 0) {
             port_ = ntohs(bound.sin_port);
         }
@@ -381,11 +345,7 @@ bool HttpServer::readRequest(std::intptr_t socketHandle, Request* request, bool*
     std::size_t headerEnd = std::string::npos;
 
     while ((headerEnd = buffer.find("\r\n\r\n")) == std::string::npos) {
-#ifdef _WIN32
         const int received = ::recv(handle, chunk, static_cast<int>(sizeof(chunk)), 0);
-#else
-        const ssize_t received = ::recv(handle, chunk, sizeof(chunk), 0);
-#endif
         if (received <= 0) {
             *timedOut = received < 0;
             return false;
@@ -452,11 +412,7 @@ bool HttpServer::readRequest(std::intptr_t socketHandle, Request* request, bool*
 
     std::string body = buffer.substr(headerEnd + 4);
     while (body.size() < contentLength) {
-#ifdef _WIN32
         const int received = ::recv(handle, chunk, static_cast<int>(sizeof(chunk)), 0);
-#else
-        const ssize_t received = ::recv(handle, chunk, sizeof(chunk), 0);
-#endif
         if (received <= 0) {
             return false;
         }
@@ -466,11 +422,7 @@ bool HttpServer::readRequest(std::intptr_t socketHandle, Request* request, bool*
     request->body = body;
 
     sockaddr_in peer{};
-#ifdef _WIN32
     int peerLength = sizeof(peer);
-#else
-    socklen_t peerLength = sizeof(peer);
-#endif
     if (::getpeername(handle, reinterpret_cast<sockaddr*>(&peer), &peerLength) == 0) {
         char text[64];
         if (::inet_ntop(AF_INET, &peer.sin_addr, text, sizeof(text)) != nullptr) {
@@ -539,16 +491,9 @@ void HttpServer::handleConnection(std::intptr_t socketHandle) {
 
     // Browsers hold keep-alive sockets open, so cap the idle wait instead of
     // blocking the accept loop on a connection that never speaks again.
-#ifdef _WIN32
     DWORD timeout = 1500;
     ::setsockopt(handle, SOL_SOCKET, SO_RCVTIMEO, reinterpret_cast<const char*>(&timeout),
                  sizeof(timeout));
-#else
-    timeval timeout{};
-    timeout.tv_sec = 1;
-    timeout.tv_usec = 500000;
-    ::setsockopt(handle, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
-#endif
 
     while (running_) {
         Request request;

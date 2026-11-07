@@ -35,7 +35,6 @@
 #include <string>
 #include <vector>
 
-#ifdef _WIN32
     #ifndef WIN32_LEAN_AND_MEAN
         #define WIN32_LEAN_AND_MEAN
     #endif
@@ -43,9 +42,6 @@
     #include <objbase.h>
     #include <process.h>
     #include <shlobj.h>
-#else
-    #include <unistd.h>
-#endif
 
 namespace {
 
@@ -121,16 +117,6 @@ std::string executableDirectory(const char* argv0) {
     const fs::path parent = fs::path(path).parent_path();
     return parent.empty() ? std::string(".") : parent.string();
 }
-
-std::string homeDirectory() {
-    const char* home = std::getenv("HOME");
-#ifdef _WIN32
-    if (!home) home = std::getenv("USERPROFILE");
-#endif
-    return home ? std::string(home) : std::string(".");
-}
-
-#ifdef _WIN32
 
 std::wstring widen(const std::string& text) {
     if (text.empty()) return std::wstring();
@@ -351,42 +337,6 @@ bool initializeCom() {
 
 void uninitializeCom() { CoUninitialize(); }
 
-#else  // not Windows: a desktop entry is the equivalent of the menu shortcut.
-
-std::string defaultInstallDirectory() {
-    return (fs::path(homeDirectory()) / ".local/share/rblx-clone").string();
-}
-
-std::string applicationsDirectory() {
-    const char* data = std::getenv("XDG_DATA_HOME");
-    if (data && *data) return (fs::path(data) / "applications").string();
-    return (fs::path(homeDirectory()) / ".local/share/applications").string();
-}
-
-bool createShortcuts(const std::string& installDirectory, const Options& options) {
-    (void)options;
-    const std::string text =
-        std::string("[Desktop Entry]\nType=Application\nName=") + kProductName +
-        "\nComment=Checks for updates, then starts RBLX Clone\nExec=\"" + installDirectory +
-        "/RBLXUpdater\" --launch\nPath=" + installDirectory +
-        "\nTerminal=false\nCategories=Game;\n";
-
-    std::string error;
-    const fs::path path = fs::path(applicationsDirectory()) / "rblx-clone.desktop";
-    return rblx::update::writeFileAtomically(path.string(), text, &error);
-}
-
-bool removeShortcuts(const Options& options) {
-    (void)options;
-    std::error_code code;
-    fs::remove(fs::path(applicationsDirectory()) / "rblx-clone.desktop", code);
-    return true;
-}
-
-bool initializeCom() { return true; }
-void uninitializeCom() {}
-
-#endif
 
 bool copyFile(const fs::path& from, const fs::path& to, std::string* error) {
     std::string data;
@@ -396,8 +346,8 @@ bool copyFile(const fs::path& from, const fs::path& to, std::string* error) {
     }
     if (!rblx::update::writeFileAtomically(to.string(), data, error)) return false;
 
-    // A copied binary has to stay executable: on POSIX the install ships real
-    // executables, and writeFileAtomically creates ordinary files.
+    // A copied binary keeps the permissions of the one it came from, because
+    // writeFileAtomically creates an ordinary file.
     std::error_code code;
     const fs::perms permissions = fs::status(from, code).permissions();
     if (!code) fs::permissions(to, permissions, fs::perm_options::replace, code);
@@ -567,11 +517,7 @@ int install(const Options& options, const std::string& source) {
     // them over by name. The setup travels with the install because it is the
     // uninstaller: it removes this exact copy file by file, and running it again
     // reinstalls or upgrades in place.
-#ifdef _WIN32
     const char* const programs[] = {"RBLXUpdater.exe", "RBLXSetup.exe"};
-#else
-    const char* const programs[] = {"RBLXUpdater", "RBLXSetup"};
-#endif
     for (const char* program : programs) {
         const fs::path from = fs::path(source) / program;
         if (!fs::exists(from)) continue;
@@ -589,14 +535,12 @@ int install(const Options& options, const std::string& source) {
         }
     }
 
-#ifdef _WIN32
     const bool registered = registerUninstall(target, version);
     if (registered) {
         print(options, "  listed in Installed apps and Programs and Features");
     } else {
         printError("could not register the uninstall entry; the install itself is complete");
     }
-#endif
 
     print(options, "installed; start it with " + target);
     return 0;
@@ -633,8 +577,7 @@ int uninstall(const Options& options, const char* argv0) {
 
     // Files the release does not describe but the install owns: the settings, the
     // manifest, and the two programs that are not part of the payload. A binary
-    // that is running cannot delete itself on Windows, so it is renamed instead;
-    // on POSIX it simply goes.
+    // that is running cannot delete itself on Windows, so it is renamed instead.
     for (const char* name : {"manifest.json", "update.json", "RBLXUpdater", "RBLXUpdater.exe",
                              "RBLXSetup", "RBLXSetup.exe"}) {
         const fs::path path = fs::path(target) / name;
@@ -646,9 +589,7 @@ int uninstall(const Options& options, const char* argv0) {
     }
 
     removeShortcuts(options);
-#ifdef _WIN32
     unregisterUninstall();
-#endif
 
     if (options.purge) {
         fs::remove_all(target, code);
@@ -713,29 +654,13 @@ bool parseOptions(int argc, char** argv, Options* options) {
 // Starts the installed copy's updater, which checks for a release before it
 // starts the game. This is what the Play button and --launch both do.
 bool launchAt(const std::string& target) {
-#ifdef _WIN32
     const fs::path updater = fs::path(target) / "RBLXUpdater.exe";
-#else
-    // The Unix build's executables carry no extension.
-    const fs::path updater = fs::path(target) / "RBLXUpdater";
-#endif
     if (!fs::exists(updater)) {
         printError("there is no " + updater.string() + " in " + target + " to start");
         return false;
     }
-#ifdef _WIN32
     return _spawnl(_P_NOWAIT, updater.string().c_str(), updater.string().c_str(), "--launch",
                    static_cast<char*>(nullptr)) != -1;
-#else
-    const pid_t pid = fork();
-    if (pid < 0) return false;
-    if (pid == 0) {
-        if (chdir(target.c_str()) != 0) _exit(127);
-        execl(updater.c_str(), updater.c_str(), "--launch", static_cast<char*>(nullptr));
-        _exit(127);
-    }
-    return true;
-#endif
 }
 
 // Runs the install, or the uninstall, in a window. Returns -1 when no window

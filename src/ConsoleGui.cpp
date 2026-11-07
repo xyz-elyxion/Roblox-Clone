@@ -14,7 +14,6 @@
 #include <thread>
 #include <vector>
 
-#ifdef _WIN32
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
@@ -22,10 +21,6 @@
 #include <shellapi.h>
 #include <fcntl.h>
 #include <io.h>
-#else
-#include <fcntl.h>
-#include <unistd.h>
-#endif
 
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
@@ -42,13 +37,8 @@ namespace {
 constexpr std::size_t kMaxEntries = 2000;
 constexpr std::size_t kMaxTailBytes = 96 * 1024;
 
-#if defined(_WIN32)
 int g_echoOut = -1;
 int g_echoErr = -1;
-#else
-int g_echoOut = -1;
-int g_echoErr = -1;
-#endif
 std::atomic<bool> g_captureActive{false};
 
 long long nowMilliseconds() {
@@ -78,38 +68,22 @@ Level inferLevel(const std::string& line) {
 }
 
 void echoLine(const std::string& line) {
-#ifdef _WIN32
     if (g_echoOut < 0) {
         return;
     }
     const std::string text = line + "\r\n";
     (void)!::_write(g_echoOut, text.data(), static_cast<unsigned>(text.size()));
-#else
-    if (g_echoOut < 0) {
-        return;
-    }
-    const std::string text = line + "\n";
-    (void)!::write(g_echoOut, text.data(), text.size());
-#endif
 }
 
 void captureLoop(int readFd) {
     char buffer[4096];
     std::string pending;
     for (;;) {
-#ifdef _WIN32
         const int received = ::_read(readFd, buffer, static_cast<unsigned>(sizeof(buffer)));
         if (received <= 0) {
             break;
         }
         const std::size_t count = static_cast<std::size_t>(received);
-#else
-        const ssize_t received = ::read(readFd, buffer, sizeof(buffer));
-        if (received <= 0) {
-            break;
-        }
-        const std::size_t count = static_cast<std::size_t>(received);
-#endif
         pending.append(buffer, count);
         std::size_t newline = 0;
         while ((newline = pending.find('\n')) != std::string::npos) {
@@ -140,11 +114,7 @@ void captureLoop(int readFd) {
 std::string formatClock(long long timeMs) {
     const std::time_t seconds = static_cast<std::time_t>(timeMs / 1000);
     std::tm parts{};
-#ifdef _WIN32
     localtime_s(&parts, &seconds);
-#else
-    localtime_r(&seconds, &parts);
-#endif
     char text[16];
     std::snprintf(text, sizeof(text), "%02d:%02d:%02d", parts.tm_hour, parts.tm_min,
                   parts.tm_sec);
@@ -208,13 +178,8 @@ void loadConsoleFont() {
     config.OversampleH = 2;
     config.OversampleV = 1;
     const char* candidates[] = {
-#ifdef _WIN32
         "C:\\Windows\\Fonts\\consola.ttf",
         "C:\\Windows\\Fonts\\cour.ttf",
-#else
-        "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
-        "/usr/share/fonts/TTF/DejaVuSansMono.ttf",
-#endif
     };
     for (const char* path : candidates) {
         std::ifstream probe(path, std::ios::binary);
@@ -282,7 +247,6 @@ bool beginCapture() {
     std::fflush(stderr);
 
     int readFd = -1;
-#ifdef _WIN32
     int fds[2] = {-1, -1};
     if (::_pipe(fds, 64 * 1024, _O_BINARY) != 0) {
         return false;
@@ -302,27 +266,6 @@ bool beginCapture() {
     }
     ::_close(fds[1]);
     readFd = fds[0];
-#else
-    int fds[2] = {-1, -1};
-    if (::pipe(fds) != 0) {
-        return false;
-    }
-    g_echoOut = ::dup(STDOUT_FILENO);
-    g_echoErr = ::dup(STDERR_FILENO);
-    if (::dup2(fds[1], STDOUT_FILENO) < 0 || ::dup2(fds[1], STDERR_FILENO) < 0) {
-        if (g_echoOut >= 0) {
-            ::dup2(g_echoOut, STDOUT_FILENO);
-        }
-        if (g_echoErr >= 0) {
-            ::dup2(g_echoErr, STDERR_FILENO);
-        }
-        ::close(fds[0]);
-        ::close(fds[1]);
-        return false;
-    }
-    ::close(fds[1]);
-    readFd = fds[0];
-#endif
 
     std::setvbuf(stdout, nullptr, _IONBF, 0);
     std::setvbuf(stderr, nullptr, _IONBF, 0);
@@ -356,12 +299,7 @@ void openInBrowser(const std::string& url) {
     if (url.empty()) {
         return;
     }
-#ifdef _WIN32
     ::ShellExecuteA(nullptr, "open", url.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
-#else
-    const std::string command = "xdg-open \"" + url + "\" >/dev/null 2>&1 &";
-    (void)!std::system(command.c_str());
-#endif
 }
 
 int runConsoleWindow(Host host) {
@@ -375,9 +313,6 @@ int runConsoleWindow(Host host) {
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-#ifdef __APPLE__
-    glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GLFW_TRUE);
-#endif
 
     GLFWwindow* window = glfwCreateWindow(1040, 680, host.title.c_str(), nullptr, nullptr);
     if (window == nullptr) {
@@ -408,11 +343,9 @@ int runConsoleWindow(Host host) {
     // The whole point is replacing the black terminal window, so drop the
     // console once the GUI owns the output. Detaching only affects this
     // process: a shell the server was launched from keeps its own window.
-#ifdef _WIN32
     if (::GetConsoleWindow() != nullptr) {
         ::FreeConsole();
     }
-#endif
 
     LogBuffer& log = LogBuffer::instance();
     std::vector<Entry> entries;

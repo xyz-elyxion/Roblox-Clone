@@ -54,7 +54,8 @@ The guided tour is at <http://localhost:3000/welcome>: nine steps through the we
 game servers, Studio, RBLXCode and the trainer, each one checking itself against the running site
 where it can. **Tour** in the site navigation reopens it. `Studio.exe` opens the world editor,
 `RBLXCode.exe` the source editor, `Client.exe` the game on its own, and `RBLXUpdater.exe` checks for
-an update before starting it.
+an update before starting it. `RBLXHosts.exe` is in the same folder: `RBLXHosts.exe up` keeps a pool
+of `Server.exe` processes alive on their own ports ([HOSTING.md](HOSTING.md)).
 
 There are no `.bat` files anywhere, in the package or in an install: every program looks for its data
 in the folder it runs from, which is where Explorer starts it, so a console wrapper added nothing.
@@ -1072,7 +1073,7 @@ rblx-windows-release/
   WebApp.exe  Server.exe  Client.exe  Studio.exe  RBLXCode.exe
   web/public/  web/seed-worlds/
   shaders/  ServerWorld.world  face*.png  face_hex.txt
-  RBLXUpdater.exe  RBLXSetup.exe  AiTrainer.exe  update.json  manifest.json
+  RBLXUpdater.exe  RBLXSetup.exe  AiTrainer.exe  RBLXHosts.exe  update.json  manifest.json
   README.txt
 ```
 

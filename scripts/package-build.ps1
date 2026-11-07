@@ -52,7 +52,7 @@ try {
     $exeDir = Join-Path $BuildDir $Configuration
     $found = @()
     $missing = @()
-    foreach ($name in @('WebApp', 'Server', 'Client', 'Studio', 'RBLXCode', 'AiTrainer', 'RBLXUpdater', 'RBLXSetup')) {
+    foreach ($name in @('WebApp', 'Server', 'Client', 'Studio', 'RBLXCode', 'AiTrainer', 'RBLXUpdater', 'RBLXSetup', 'RBLXHosts')) {
         $exePath = Join-Path $exeDir "$name.exe"
         if (Test-Path -LiteralPath $exePath) {
             Copy-Item -LiteralPath $exePath -Destination $Output
@@ -129,6 +129,8 @@ try {
         '                changed, then starts the game'
         '  RBLXSetup.exe   installer: copies this folder into your account, adds the shortcuts'
         '                and the Add/Remove Programs entry, and it is what that entry runs'
+        '  RBLXHosts.exe   server supervisor: keeps a pool of Server.exe processes alive, one'
+        '                per port with its own log, restarting any that exit'
         '  web/          website assets (public/ pages and API scripts, seed-worlds/)'
         '  games/        example worlds and their .rbx scripts (Sky Platformer)'
         '  shaders/      OpenGL shaders used by Client and Studio'
@@ -143,6 +145,7 @@ try {
         '  RBLXUpdater.exe     checks for an update, installs it, then starts the client'
         '  RBLXSetup.exe       installs this folder for the current user (no unzip needed after)'
         '  AiTrainer.exe       headless trainer, run it from this folder with the flags below'
+        '  RBLXHosts.exe up    keeps a pool of servers running on their own ports (HOSTING below)'
         ''
         'FIRST RUN: THE GUIDED TOUR'
         '  A fresh unzip has no account data yet. Start WebApp.exe, press Open site, and'
@@ -164,6 +167,15 @@ try {
         '  AiTrainer.exe --world games\turbo-circuit.world --goal FinishLine --replay --watch'
         '      replays the saved policy; --watch draws the run as a top-down map in the terminal'
         '  Run it from this folder so games\ and models\ resolve. CPU only, no GPU, no window.'
+        ''
+        'HOSTING YOUR OWN SERVERS (RBLXHosts.exe)'
+        '  RBLXHosts.exe init --config hosting.conf  writes a commented default config file'
+        '  RBLXHosts.exe up --config hosting.conf    keeps the servers alive until Ctrl+C'
+        '  With no config it runs two servers on 7777 and 7778 from this folder, each with'
+        '  its log in logs\host-<port>.log. A server that exits is started again after a'
+        '  growing delay; one that keeps dying is marked failed and shown as such instead'
+        '  of looping. Ctrl+C or closing the window stops the servers it started.'
+        '  HOSTING.md in the source repository documents every key the config accepts.'
         ''
         'NOTES'
         '  - Keep this folder layout intact. The executables look for shaders/ and web/'

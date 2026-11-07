@@ -82,6 +82,7 @@ them, and writes `README.txt`, `update.json` and `manifest.json` into `dist/rblx
 | Website backend | `src/WebApp.cpp`, `src/WebHttp.cpp`, `src/WebJson.cpp`, `src/WebStore.cpp`, `src/WebCrypto.cpp`, `src/WebCaptcha.h` |
 | Website pages | `web/public` (plain HTML/CSS/JS, no build step), `web/seed-worlds` |
 | Server supervisor | `src/ServerHost.cpp`, `src/HostMain.cpp`, `include/ServerHost.h` |
+| Supervisor control panel | `src/HostDashboard.cpp`, `include/HostDashboard.h`, `web/host/` |
 | Installer / updater | `src/SetupMain.cpp`, `src/InstallUi.cpp`, `src/UpdaterMain.cpp`, `src/Updater.cpp` |
 | Trainer | `src/AiTrainer.cpp` |
 | Scripting | `src/RblxScript.cpp`, `include/RblxScript.h` |

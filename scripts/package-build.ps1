@@ -98,6 +98,9 @@ try {
     New-Item -ItemType Directory -Path $webTarget -Force | Out-Null
     Copy-Item -LiteralPath 'web/public' -Destination $webTarget -Recurse
     Copy-Item -LiteralPath 'web/seed-worlds' -Destination $webTarget -Recurse
+    # The RBLXHosts control panel. RBLXHosts.exe looks for web/host next to
+    # itself, and shows a plain page that says so if the folder is missing.
+    Copy-Item -LiteralPath 'web/host' -Destination $webTarget -Recurse
 
     # Scripted example games: the .world files and the .rbx scripts WebApp.exe
     # publishes as starter games on first start.
@@ -132,6 +135,7 @@ try {
         '  RBLXHosts.exe   server supervisor: keeps a pool of Server.exe processes alive, one'
         '                per port with its own log, restarting any that exit'
         '  web/          website assets (public/ pages and API scripts, seed-worlds/)'
+        '  web/host/     the RBLXHosts control panel page'
         '  games/        example worlds and their .rbx scripts (Sky Platformer)'
         '  shaders/      OpenGL shaders used by Client and Studio'
         '  ServerWorld.world, face*.png, face_hex.txt  data loaded from the working directory'
@@ -175,6 +179,10 @@ try {
         '  its log in logs\host-<port>.log. A server that exits is started again after a'
         '  growing delay; one that keeps dying is marked failed and shown as such instead'
         '  of looping. Ctrl+C or closing the window stops the servers it started.'
+        '  The control panel prints a URL such as'
+        '  http://127.0.0.1:7900/?token=... at startup: open it to see every slot, read a'
+        '  log, and start, stop or restart one server or the whole pool. It listens on'
+        '  loopback only and that link is the way in; --dashboard-port 0 turns it off.'
         '  HOSTING.md in the source repository documents every key the config accepts.'
         ''
         'NOTES'

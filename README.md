@@ -16,7 +16,7 @@ before pointing it at the internet.
 | `RBLXCode.exe` | Source editor for this repository, the way VS Code is the editor for its own sources |
 | `WebApp.exe` | The website: accounts, sessions, avatars, friends, games, coins, moderation, launching servers |
 | `AiTrainer.exe` | Learns to play a world headlessly and replays the result |
-| `RBLXHosts.exe` | Keeps N game servers running on one machine: ports, logs, restarts — see [HOSTING.md](HOSTING.md) |
+| `RBLXHosts.exe` | Keeps N game servers running on one machine — ports, logs, restarts, control panel — see [HOSTING.md](HOSTING.md) |
 
 ```powershell
 build\rblxbuild-tool\bin\rblxbuild --preset windows-release
@@ -56,7 +56,8 @@ game servers, Studio, RBLXCode and the trainer, each one checking itself against
 where it can. **Tour** in the site navigation reopens it. `Studio.exe` opens the world editor,
 `RBLXCode.exe` the source editor, `Client.exe` the game on its own, and `RBLXUpdater.exe` checks for
 an update before starting it. `RBLXHosts.exe` is in the same folder: `RBLXHosts.exe up` keeps a pool
-of `Server.exe` processes alive on their own ports ([HOSTING.md](HOSTING.md)).
+of `Server.exe` processes alive on their own ports and prints a loopback address for its control
+panel, where you can watch the pool and start, stop or restart a server ([HOSTING.md](HOSTING.md)).
 
 There are no `.bat` files anywhere, in the package or in an install: every program looks for its data
 in the folder it runs from, which is where Explorer starts it, so a console wrapper added nothing.
@@ -1017,6 +1018,7 @@ shaders/                OpenGL shaders used by Client and Studio
 textures/               Tileable part textures a world can name
 games/                  The bundled worlds and their .rbx scripts
 web/                    Public pages, starter worlds, published worlds, game-server logs
+web/host/               The RBLXHosts control panel page (served by RBLXHosts.exe)
 ServerWorld.world       Default world file
 scripts/                package-build.ps1 and other tooling
 GameRelease/            Existing release asset folders (do not commit generated binaries here)

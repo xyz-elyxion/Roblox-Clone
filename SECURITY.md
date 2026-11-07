@@ -85,6 +85,15 @@ after five minutes. Every response carries `X-Content-Type-Options: nosniff`,
 `frame-ancestors 'none'`). CORS allows only the site's own origin, plus localhost in
 development.
 
+**The control panel.** `RBLXHosts.exe` serves its dashboard on `127.0.0.1` and refuses a
+request that does not carry the token it printed at startup; opening the printed link
+exchanges that token for an `HttpOnly`, `SameSite=Strict` cookie, and a mutating request
+whose `Origin` is not the panel's own is refused. There is no account behind it and no
+TLS, so it is a loopback tool: whoever can read that console controls the pool. Setting
+`dashboard-host` to a LAN address hands the same power to the network, and the docs say
+to leave it alone. The panel reads game-server logs, so it shows whatever a server chose
+to print.
+
 **Moderation as security.** A confirmed speed or fly detection — from the server's movement
 guard, not from the client's self-report — is held and applied in a wave, so one burst of
 detections is one step: two warnings, then 1-, 3- and 7-day suspensions, then a ban. Client
@@ -99,5 +108,8 @@ moderation paths, `include/Moderation.h`, `include/MovementGuard.h`,
 `include/ClientCheatReport.h` or `src/HardwareId.cpp` should keep the tests beside it
 (`tests/store_crypto_tests.cpp`, `web_app_tests.cpp`, `web_captcha_tests.cpp`,
 `moderation_tests.cpp`, `movement_guard_tests.cpp`, `client_cheat_report_tests.cpp`,
-`hardware_id_tests.cpp`) passing, and this file accurate. If a change makes one of the
-statements above false, update the statement in the same change.
+`hardware_id_tests.cpp`) passing, and this file accurate. The supervisor's manual start,
+stop and restart live in `src/ServerHost.cpp` and are covered by
+`tests/server_host_tests.cpp`; the panel's token and origin checks live in
+`src/HostDashboard.cpp`. If a change makes one of the statements above false, update the
+statement in the same change.

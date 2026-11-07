@@ -101,7 +101,13 @@ std::string defaultConfigText() {
            "restart-window = 60000\n"
            "\n"
            "# Wait before the first restart; each further failure doubles it.\n"
-           "restart-delay = 1000\n";
+           "restart-delay = 1000\n"
+           "\n"
+           "# The control panel. It is opened with the token printed at startup:\n"
+           "# http://127.0.0.1:7900/?token=... Keep the host on loopback, and set the\n"
+           "# port to 0 to turn the panel off.\n"
+           "dashboard-host = 127.0.0.1\n"
+           "dashboard-port = 7900\n";
 }
 
 bool parseConfig(const std::string& text, Config* out, std::string* error) {
@@ -170,6 +176,15 @@ bool parseConfig(const std::string& text, Config* out, std::string* error) {
                 return false;
             }
             config.restartDelayMs = static_cast<int>(number);
+        } else if (key == "dashboard-host") {
+            config.dashboardHost = value;
+        } else if (key == "dashboard-port") {
+            if (!parseNumber(value, key, &number, error)) return false;
+            if (number < 0 || number > 65535) {
+                *error = "dashboard-port must be between 0 and 65535";
+                return false;
+            }
+            config.dashboardPort = static_cast<int>(number);
         }
         // Anything else is ignored on purpose: a file written for a later
         // version still runs here.
@@ -203,6 +218,7 @@ Supervisor::Supervisor(Config config, Launcher* launcher)
     instances_.reserve(static_cast<std::size_t>(count));
     restartTimes_.resize(static_cast<std::size_t>(count));
     nextAttempt_.assign(static_cast<std::size_t>(count), 0);
+    enabled_.assign(static_cast<std::size_t>(count), true);
 
     for (int index = 0; index < count; ++index) {
         Instance instance;
@@ -246,14 +262,18 @@ void Supervisor::noteFailure(Instance& instance, long long nowMs, const std::str
 }
 
 void Supervisor::tick(long long nowMs) {
-    if (stopped_ || launcher_ == nullptr) return;
+    if (launcher_ == nullptr) return;
 
     for (Instance& instance : instances_) {
+        const std::size_t slot = static_cast<std::size_t>(instance.index);
+        // A slot stopped by hand stays down until it is started again: the
+        // operator said so, and a supervisor that quietly overrode that would be
+        // the wrong kind of helpful.
+        if (!enabled_[slot]) continue;
         if (instance.state == Instance::State::Failed ||
             instance.state == Instance::State::Stopped) {
             continue;
         }
-        const std::size_t slot = static_cast<std::size_t>(instance.index);
 
         if (instance.pid != 0) {
             if (launcher_->alive(instance.pid)) {
@@ -282,14 +302,65 @@ void Supervisor::tick(long long nowMs) {
 }
 
 void Supervisor::stopAll() {
-    if (launcher_ != nullptr) {
-        for (Instance& instance : instances_) {
-            if (instance.pid != 0) launcher_->stop(instance.pid);
-            instance.pid = 0;
-            instance.state = Instance::State::Stopped;
-        }
+    for (Instance& instance : instances_) {
+        if (instance.pid != 0 && launcher_ != nullptr) launcher_->stop(instance.pid);
+        instance.pid = 0;
+        instance.state = Instance::State::Stopped;
+        enabled_[static_cast<std::size_t>(instance.index)] = false;
     }
-    stopped_ = true;
+}
+
+void Supervisor::startAll() {
+    for (Instance& instance : instances_) {
+        const std::size_t slot = static_cast<std::size_t>(instance.index);
+        restartTimes_[slot].clear();
+        nextAttempt_[slot] = 0;
+        enabled_[slot] = true;
+        if (instance.pid == 0) instance.state = Instance::State::Pending;
+        instance.lastError.clear();
+    }
+}
+
+bool Supervisor::slotAt(int index, std::size_t* slot) const {
+    if (index < 0 || static_cast<std::size_t>(index) >= instances_.size()) return false;
+    *slot = static_cast<std::size_t>(index);
+    return true;
+}
+
+bool Supervisor::startSlot(int index, std::string* error) {
+    std::size_t slot = 0;
+    if (!slotAt(index, &slot)) {
+        if (error != nullptr) *error = "there is no instance " + std::to_string(index);
+        return false;
+    }
+    // Starting by hand is a decision, not another failure, so the slot gets its
+    // whole budget back: one press is enough even after it had given up.
+    restartTimes_[slot].clear();
+    nextAttempt_[slot] = 0;
+    enabled_[slot] = true;
+    Instance& instance = instances_[slot];
+    if (instance.pid == 0) instance.state = Instance::State::Pending;
+    instance.lastError.clear();
+    return true;
+}
+
+bool Supervisor::stopSlot(int index, std::string* error) {
+    std::size_t slot = 0;
+    if (!slotAt(index, &slot)) {
+        if (error != nullptr) *error = "there is no instance " + std::to_string(index);
+        return false;
+    }
+    Instance& instance = instances_[slot];
+    if (instance.pid != 0 && launcher_ != nullptr) launcher_->stop(instance.pid);
+    instance.pid = 0;
+    instance.state = Instance::State::Stopped;
+    enabled_[slot] = false;
+    return true;
+}
+
+bool Supervisor::restartSlot(int index, std::string* error) {
+    if (!stopSlot(index, error)) return false;
+    return startSlot(index, error);
 }
 
 int Supervisor::runningCount() const {

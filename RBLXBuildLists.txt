@@ -216,12 +216,18 @@ if(RBLX_BUILD_HOSTS)
     # The project's own hosting supervisor: N game servers, each on its own port
     # with its own log, restarted when they die and given up on when they keep
     # dying. No window and no graphics dependency, so it runs on the same
-    # headless machine the servers do. See HOSTING.md.
+    # headless machine the servers do; the control panel is a page on loopback,
+    # which is why this target links the website's HTTP server and nothing else.
+    # See HOSTING.md.
     add_executable(RBLXHosts
         src/HostMain.cpp
         src/ServerHost.cpp
+        src/HostDashboard.cpp
+        src/WebHttp.cpp
     )
     configure_rblx_target(RBLXHosts)
+    # ws2_32 for the panel's listener; bcrypt for the token's random bytes.
+    target_link_libraries(RBLXHosts PRIVATE ws2_32 bcrypt)
 endif()
 
 # RBLXAntiCheat is compiled straight into the client (see its RBLXBuildLists): the

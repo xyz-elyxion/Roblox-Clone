@@ -267,6 +267,78 @@ void testTable() {
 }
 
 
+void testManualControl() {
+    FakeLauncher launcher;
+    rblx::hosting::Supervisor supervisor(smallConfig(2), &launcher);
+    supervisor.tick(0);
+    const long firstPid = supervisor.instances()[0].pid;
+
+    std::string error;
+    check(supervisor.stopSlot(0, &error), "a slot can be stopped from the panel");
+    check(supervisor.instances()[0].state == rblx::hosting::Instance::State::Stopped,
+          "and it reports stopped");
+    check(launcher.stopped.size() == 1 && launcher.stopped[0] == firstPid,
+          "the process itself is stopped, not just forgotten");
+
+    supervisor.tick(10000);
+    check(launcher.launchCount == 2, "a slot stopped by hand is not restarted");
+    check(supervisor.runningCount() == 1, "the other slot keeps running");
+
+    check(supervisor.startSlot(0, &error), "it can be started again");
+    supervisor.tick(11000);
+    check(launcher.launchCount == 3, "and the next tick launches it");
+    check(supervisor.instances()[0].state == rblx::hosting::Instance::State::Running,
+          "back to running");
+
+    const long runningPid = supervisor.instances()[0].pid;
+    check(supervisor.restartSlot(0, &error), "a running slot can be restarted");
+    check(launcher.stopped.back() == runningPid, "restarting stops the old process");
+    check(supervisor.instances()[0].pid == 0, "and leaves the slot between processes");
+    supervisor.tick(12000);
+    check(launcher.launchCount == 4 && supervisor.instances()[0].pid != runningPid,
+          "the restart brings a new process up");
+    check(supervisor.instances()[0].restarts == 0, "a manual restart is not counted as a failure");
+
+    error.clear();
+    check(!supervisor.startSlot(7, &error), "an index past the pool is refused");
+    check(contains(error, "7"), "and the refusal names the slot");
+}
+
+void testStartAfterGivingUp() {
+    FakeLauncher launcher;
+    rblx::hosting::Config config = smallConfig(1);
+    config.maxRestarts = 0;
+    config.restartDelayMs = 0;
+    rblx::hosting::Supervisor supervisor(config, &launcher);
+
+    supervisor.tick(0);
+    launcher.kill(supervisor.instances()[0].pid);
+    supervisor.tick(1000);
+    check(supervisor.instances()[0].state == rblx::hosting::Instance::State::Failed,
+          "the slot gives up on itself");
+
+    std::string error;
+    check(supervisor.startSlot(0, &error), "starting it by hand is allowed after that");
+    supervisor.tick(2000);
+    check(supervisor.instances()[0].state == rblx::hosting::Instance::State::Running,
+          "and the manual start gets a fresh failure budget");
+}
+
+void testStopAllThenStartAll() {
+    FakeLauncher launcher;
+    rblx::hosting::Supervisor supervisor(smallConfig(2), &launcher);
+    supervisor.tick(0);
+
+    supervisor.stopAll();
+    supervisor.tick(1000);
+    check(launcher.launchCount == 2, "a stopped pool stays down");
+
+    supervisor.startAll();
+    supervisor.tick(2000);
+    check(launcher.launchCount == 4, "start all brings every slot back");
+    check(supervisor.runningCount() == 2, "and they all report running");
+}
+
 }  // namespace
 
 int main() {
@@ -279,6 +351,9 @@ int main() {
     testLaunchFailure();
     testStopAll();
     testTable();
+    testManualControl();
+    testStartAfterGivingUp();
+    testStopAllThenStartAll();
 
     if (failures == 0) {
         std::printf("All server host checks passed.\n");

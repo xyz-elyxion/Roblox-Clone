@@ -5,9 +5,10 @@ number of game servers alive on one machine, each on its own port with its own l
 and restarts one that exits.
 
 That is the job the game actually needs. It is deliberately not a deploy platform:
-there is no dashboard, no container build, no multi-machine control. The servers it
-starts are the `Server` this repository builds, run as ordinary processes, so the
-whole thing is one binary with no runtime to install.
+no container build and no multi-machine control. The servers it starts are the
+`Server` this repository builds, run as ordinary processes, so the whole thing is
+one binary with no runtime to install, and the control panel is a page that binary
+serves.
 
 ```powershell
 RBLXHosts.exe init --config hosting.conf   # write a commented default file
@@ -29,6 +30,9 @@ With no config file the defaults are two servers on 7777 and 7778, running
   table keeps showing it, with the last error, so the reason is not lost in a
   scrolling log. When every slot has failed the program exits non-zero, which is
   what a service wrapper should see.
+- **A control panel.** `up` also serves a page on loopback: every slot, its log, and
+  start, stop or restart for one server or the whole pool. See
+  [The control panel](#the-control-panel).
 - **Stopping is orderly.** Ctrl+C reaches the supervisor's console control handler, which
   terminates each server and waits for it to go; closing the window does the same.
 
@@ -59,9 +63,46 @@ that names the key, not a silent zero.
 | `max-restarts` | `5` | failures allowed inside the window before a slot is failed |
 | `restart-window` | `60000` | the window, in milliseconds |
 | `restart-delay` | `1000` | first restart delay, in milliseconds |
+| `dashboard-host` | `127.0.0.1` | address the control panel binds; keep it on loopback |
+| `dashboard-port` | `7900` | the control panel's port; `0` turns the panel off |
 
 Every option can also be given on the command line, where it wins over the file:
-`--instances`, `--port`, `--dir`, `--world`, `--web`, `--server`.
+`--instances`, `--port`, `--dir`, `--world`, `--web`, `--server`, `--dashboard-host`,
+`--dashboard-port`.
+
+## The control panel
+
+`up` serves a dashboard, so the pool can be watched and driven without reading the
+console table. It prints the URL to open, with a token that is made up for the run:
+
+```
+control panel: http://127.0.0.1:7900/?token=4f9c0b1d6a2e8c73
+```
+
+Opening that link exchanges the token for an `HttpOnly` cookie and redirects, so the
+token is not left in the address bar, the history or a bookmark. Requests without it
+get `401`. `dashboard-port = 0` turns the panel off and leaves the console as the only
+view. The panel listens on `127.0.0.1` by default and should stay there: it starts and
+stops processes, so exposing it is exposing the machine.
+
+The page shows, per slot, the port, pid, state, restart count, uptime, the last error
+it hit and the tail of its log. The actions are the ones an operator needs:
+
+| action | what it does |
+| --- | --- |
+| Start | clears that slot's failure history and lets the next tick launch it |
+| Stop | terminates that server and leaves the slot down |
+| Restart | stops it and starts it again, without counting a failure |
+| Start all / Stop all | the same for the whole pool |
+
+A stopped slot stays stopped: `tick` skips it the same way it skips a slot that failed,
+so a server you stopped is not brought back behind your back. A manual start also
+clears the failure budget, which is why one press is enough after a slot has given up.
+
+The page polls `GET /api/status`; the buttons `POST /api/instances/<slot>/start|stop|restart`
+and `POST /api/pool/start|stop`; `GET /api/logs/<slot>?tail=200` returns a log as plain
+text. Those four are enough for a script to drive the pool, and a command-line client
+can send `X-RBLX-Token: <token>` instead of doing the cookie exchange.
 
 ## Playing on a hosted server
 
@@ -74,7 +115,8 @@ address the server prints when it binds its port.
 
 - **No containers.** A container would add a runtime the game does not need; the
   servers are native processes, and the platform builds them.
-- **No dashboard.** The console table is the view; the website's own console lists
-  the servers it launched.
+- **No login beyond the token.** The panel has no accounts: the token printed at
+  startup is the whole of its authentication, which is the right size for a tool that
+  only listens on loopback.
 - **No multi-machine control.** One `RBLXHosts` supervises one machine. Running it
   on two is two pools, which is all a prototype needs.

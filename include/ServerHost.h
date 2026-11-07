@@ -34,6 +34,10 @@ struct Config {
     int restartWindowMs = 60000;
     // Wait before the first restart; each further failure doubles it.
     int restartDelayMs = 1000;
+    // The control panel. It binds loopback by default because it can start and
+    // stop processes, and port 0 turns it off.
+    std::string dashboardHost = "127.0.0.1";
+    int dashboardPort = 7900;
 };
 
 // `key = value` lines, '#' or ';' comments, unknown keys ignored. Numbers are
@@ -85,8 +89,20 @@ public:
     void tick(long long nowMs);
 
     // Terminates every running slot and leaves the supervisor idle: later ticks
-    // start nothing.
+    // start nothing until startAll().
     void stopAll();
+
+    // Brings back a pool that was stopped, with a fresh failure budget for every
+    // slot: the operator asked for it.
+    void startAll();
+
+    // One slot, from the dashboard. stopSlot() leaves the slot down until
+    // startSlot() - a stopped server is not a crash and must not be restarted
+    // behind the operator's back. Both clear the failure history, so a manual
+    // start works even on a slot that had been given up on.
+    bool startSlot(int index, std::string* error);
+    bool stopSlot(int index, std::string* error);
+    bool restartSlot(int index, std::string* error);
 
     const std::vector<Instance>& instances() const { return instances_; }
 
@@ -99,15 +115,17 @@ public:
 private:
     int backoffFor(int failuresInWindow) const;
     void noteFailure(Instance& instance, long long nowMs, const std::string& error);
+    bool slotAt(int index, std::size_t* slot) const;
 
     Config config_;
     Launcher* launcher_ = nullptr;
     std::vector<Instance> instances_;
     // Per slot: when each restart happened, for the window, and when the next
-    // attempt is due while backing off.
+    // attempt is due while backing off. `enabled` is false while a slot has been
+    // stopped by hand, which is what keeps tick() from starting it again.
     std::vector<std::vector<long long>> restartTimes_;
     std::vector<long long> nextAttempt_;
-    bool stopped_ = false;
+    std::vector<bool> enabled_;
 };
 
 }  // namespace hosting

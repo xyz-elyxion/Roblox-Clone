@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RBLXHosts - server pool</title>
+    <link rel="stylesheet" href="/style.css">
+    <script src="/app.js" defer></script>
+</head>
+<body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <div class="page">
+        <header class="topbar">
+            <div>
+                <p class="label">Game server pool</p>
+                <h1 class="title">RBLXHosts</h1>
+            </div>
+            <div class="pool-actions">
+                <button class="button" type="button" data-pool="start">Start all</button>
+                <button class="button danger" type="button" data-pool="stop">Stop all</button>
+            </div>
+        </header>
+
+        <main id="main">
+            <p class="summary" data-summary aria-live="polite">Loading the pool...</p>
+            <p class="notice" data-notice hidden></p>
+
+            <section class="grid" data-instances aria-label="Servers"></section>
+
+            <section class="panel log-panel" data-log-panel hidden>
+                <div class="panel-head">
+                    <h2 data-log-title>Log</h2>
+                    <div class="panel-tools">
+                        <button class="button quiet" type="button" data-log-refresh>Refresh</button>
+                        <button class="button quiet" type="button" data-log-close>Close</button>
+                    </div>
+                </div>
+                <pre class="log" data-log></pre>
+            </section>
+
+            <section class="panel">
+                <div class="panel-head">
+                    <h2>Configuration</h2>
+                </div>
+                <dl class="config" data-config></dl>
+                <p class="hint">
+                    The pool reads these at startup. Change them in the config file or with
+                    the command line, then start <code>RBLXHosts</code> again.
+                </p>
+            </section>
+        </main>
+
+        <footer class="foot">
+            <p>Refreshes every two seconds. Stopping a server here is not a crash: it stays
+                down until you start it, and Ctrl+C in the console stops the whole pool.</p>
+        </footer>
+    </div>
+</body>
+</html>

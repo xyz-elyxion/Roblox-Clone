@@ -138,6 +138,9 @@ if(RBLX_BUILD_STUDIO)
         ${imguicolortextedit_SOURCE_DIR}/TextEditor.cpp
         src/RblxScript.cpp
         src/WorldScript.cpp
+        # The script runtime checks a sound name against the bank before it asks
+        # the host to play one, so Studio links the bank too.
+        src/SoundBank.cpp
         ${SHARED_SOURCES}
         ${IMGUI_SOURCES}
         ${IMGUIZMO_SOURCES}
@@ -248,12 +251,16 @@ if(RBLX_BUILD_CLIENT)
         # website uses, so the client links it rather than a second copy.
         src/HardwareId.cpp
         src/HttpClient.cpp
+        # The client mixes its own sounds; the bank is synthesised, not shipped.
+        src/Audio.cpp
+        src/SoundBank.cpp
         ${SHARED_SOURCES}
         ${IMGUI_SOURCES}
     )
     configure_rblx_target(Client)
     target_link_libraries(Client PRIVATE glfw glm reactphysics3d glad)
-    target_link_libraries(Client PRIVATE ws2_32 shell32 comdlg32)
+    # winmm is the OS mixer waveOut lives in; no other audio dependency exists.
+    target_link_libraries(Client PRIVATE ws2_32 shell32 comdlg32 winmm)
     if(TARGET RBLXAntiCheat)
         target_compile_definitions(Client PRIVATE RBLX_ANTICHEAT)
         target_link_libraries(Client PRIVATE RBLXAntiCheat)
@@ -289,6 +296,9 @@ if(RBLX_BUILD_SERVER)
         src/PhysicsWorld.cpp
         src/RblxScript.cpp
         src/WorldScript.cpp
+        # A script's PlaySound is validated against the bank before the name
+        # reaches a client.
+        src/SoundBank.cpp
     )
     configure_rblx_target(Server)
     target_link_libraries(Server PRIVATE glm reactphysics3d)
@@ -461,5 +471,12 @@ if(RBLX_BUILD_TESTS)
     add_executable(ServerHostTests tests/server_host_tests.cpp src/ServerHost.cpp)
     target_include_directories(ServerHostTests PRIVATE ${RBLXBUILD_CURRENT_SOURCE_DIR}/include)
     add_test(NAME ServerHostTests COMMAND ServerHostTests)
+
+    # The sound bank and the distance falloff. It never opens the audio device:
+    # synthesis, names and attenuation are what a client depends on, and they can
+    # be checked on a build server with no sound card.
+    add_executable(AudioTests tests/audio_tests.cpp src/SoundBank.cpp)
+    target_include_directories(AudioTests PRIVATE ${RBLXBUILD_CURRENT_SOURCE_DIR}/include)
+    add_test(NAME AudioTests COMMAND AudioTests)
 
 endif()

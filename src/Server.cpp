@@ -140,6 +140,16 @@ std::string gameInstanceToken;
 std::string scriptPath;
 std::unique_ptr<rblx::script::Interpreter> gameScriptInterpreter;
 std::unique_ptr<rblx::worldscript::WorldRuntime> gameScriptRuntime;
+
+// Sounds the script asked for during the tick being built. They are collected
+// and sent once instead of one packet per call: a door, a wardrobe and an entity
+// in one tick are one burst out, not three.
+std::vector<PacketSound> pendingSounds;
+
+// A script that plays a sound from every touched part would otherwise turn into
+// a flood, so a tick carries a few and drops the rest: the player already heard
+// the first ones, and the mixer has eight voices anyway.
+constexpr std::size_t kMaxSoundsPerTick = 8;
 std::map<int, glm::vec3> lastBroadcastPositions;
 
 // What the clients already know about the world: every part that was in the join
@@ -1232,6 +1242,20 @@ static int runServer(int argc, char** argv) {
                     return;
                 }
             });
+            gameScriptRuntime->setSoundHandler([](const std::string& sound,
+                                                  const glm::vec3& position, float volume,
+                                                  bool spatial) {
+                if (pendingSounds.size() >= kMaxSoundsPerTick) {
+                    return;
+                }
+                PacketSound packet;
+                std::memset(&packet, 0, sizeof(packet));
+                copyFixedString(packet.name, sizeof(packet.name), sound);
+                packet.position = position;
+                packet.volume = std::clamp(volume, 0.0f, 1.0f);
+                packet.spatial = spatial ? 1 : 0;
+                pendingSounds.push_back(packet);
+            });
 
             std::string scriptError;
             if (!gameScriptRuntime->runScript(scriptBuffer.str(), scriptPath, scriptError)) {
@@ -1352,6 +1376,13 @@ static int runServer(int argc, char** argv) {
             // the positions of the parts that already existed.
             broadcastPartChanges();
             broadcastWorldUpdate();
+            // The tick's sounds. They are cosmetic, so they travel unreliably and
+            // a lost one is simply not heard.
+            for (const PacketSound& sound : pendingSounds) {
+                broadcastPacket(PacketProtocol::buildStructPacket(PacketType::SOUND, sound), -1,
+                                false);
+            }
+            pendingSounds.clear();
             networkAccumulator = 0.0f;
         }
 

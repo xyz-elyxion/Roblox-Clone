@@ -47,6 +47,12 @@ public:
     // player respawns.
     void setDamageHandler(std::function<void(const std::string& name, float amount)> handler);
 
+    // Script-driven noise. The world a script runs on has no ears, so
+    // workspace:PlaySound asks the host to make the sound somewhere else - on the
+    // clients, where the listeners are.
+    void setSoundHandler(std::function<void(const std::string& sound, const glm::vec3& position,
+                                           float volume, bool spatial)> handler);
+
     // Fires RunService.Heartbeat handlers and checks parts for new Touched pairs.
     void heartbeat(float deltaTime);
 

@@ -9,6 +9,7 @@ local lapCount = 0
 if finish ~= nil then
     finish.Touched:Connect(function(hit)
         lapCount = lapCount + 1
+        workspace:PlaySound("lap", finish.Position, 0.7)
         print("Lap " .. lapCount .. " complete")
     end)
 end

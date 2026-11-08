@@ -28,6 +28,7 @@ end)
 
 if lava ~= nil and spawn ~= nil then
     lava.Touched:Connect(function(hit)
+        workspace:PlaySound("lava", lava.Position, 0.7)
         print("Back to spawn")
         hit:Teleport(spawn.Position)
     end)
@@ -35,6 +36,7 @@ end
 
 if goal ~= nil and spawn ~= nil then
     goal.Touched:Connect(function(hit)
+        workspace:PlaySound("chime", goal.Position, 0.8)
         print("You reached the sky goal!")
         hit:Teleport(spawn.Position)
     end)

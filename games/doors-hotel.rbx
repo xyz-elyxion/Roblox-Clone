@@ -350,6 +350,7 @@ end
 local setupDoor = function(pad, door, index)
     pad.Touched:Connect(function(hit)
         door.Position = Vector3.new(entryX[index], OPEN_DOOR_Y, entryZ[index])
+        workspace:PlaySound("door", Vector3.new(entryX[index], OPEN_DOOR_Y, entryZ[index]), 0.8)
         progress[hit.Name] = index
         if index % 10 == 0 then
             print(hit.Name .. " opened door " .. index .. " of " .. DOORS)
@@ -376,6 +377,7 @@ local setupWardrobe = function(pad, index)
         end
         markX = entryX[index] + dirX[index] * u + acrX[index] * placeV
         markZ = entryZ[index] + dirZ[index] * u + acrZ[index] * placeV
+        workspace:PlaySound("wardrobe", Vector3.new(markX, CLOSET_STAND_Y, markZ), 0.6)
         hit:Teleport(Vector3.new(markX, CLOSET_STAND_Y, markZ))
     end)
 end
@@ -599,6 +601,7 @@ local buildLobby = function()
     elevator.Transparency = 1
     elevator.CanCollide = false
     elevator.Touched:Connect(function(hit)
+        workspace:PlaySound("elevator", hit.Position, 0.9)
         print(hit.Name .. " reached door " .. DOORS .. " and left the hotel")
         progress[hit.Name] = 0
         respawnAt[hit.Name] = 0
@@ -737,6 +740,7 @@ RunService.Heartbeat:Connect(function(dt)
                         end
                         respawnRoomIndex[name] = respawnRoom(reached)
                         respawnAt[name] = RESPAWN_DELAY
+                        workspace:PlaySound("death", position, 1)
                         player:TakeDamage(DEATH_DAMAGE)
                     end
                 end
@@ -755,6 +759,9 @@ RunService.Heartbeat:Connect(function(dt)
         if cooldown < 3 and not warned then
             warned = true
             setLights(WARN_COLOR)
+            -- The warning is the only cue before the entity, so it gets the
+            -- growl as well as the red lights.
+            workspace:PlaySound("entity", Vector3.new(0, 6, deepestS), 0.7)
             print("The lights above the lobby door turn red")
         end
         if cooldown <= 0 then

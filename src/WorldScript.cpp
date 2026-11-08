@@ -1,5 +1,7 @@
 #include "WorldScript.h"
 
+#include "SoundBank.h"
+
 #include <reactphysics3d/reactphysics3d.h>
 
 #include <algorithm>
@@ -130,6 +132,7 @@ struct WorldRuntimeState : public std::enable_shared_from_this<WorldRuntimeState
     std::function<std::vector<ScriptPlayer>()> playerSource;
     std::function<void(const std::string&, const glm::vec3&)> teleportHandler;
     std::function<void(const std::string&, float)> damageHandler;
+    std::function<void(const std::string&, const glm::vec3&, float, bool)> soundHandler;
 
     int findPart(const std::string& name) const;
     Value partValue(int index);
@@ -466,6 +469,52 @@ public:
             out = children;
             return true;
         }
+        if (method == "PlaySound") {
+            if (args.empty() || !args[0].isString()) {
+                error = "PlaySound expects a sound name";
+                return false;
+            }
+            // Checked on this side of the wire: the same typo would reach the
+            // client as a name it cannot resolve, which is a noise that never
+            // comes and nothing to look at.
+            if (rblx::audio::soundByName(args[0].string) == nullptr) {
+                std::string known;
+                for (const std::string& name : rblx::audio::soundNames()) {
+                    if (!known.empty()) {
+                        known += ", ";
+                    }
+                    known += name;
+                }
+                error = "there is no sound '" + args[0].string + "'; this build has " + known;
+                return false;
+            }
+            if (!state_->soundHandler) {
+                error = "sounds cannot be played here";
+                return false;
+            }
+
+            glm::vec3 position(0.0f);
+            bool spatial = false;
+            if (args.size() >= 2) {
+                if (!readVector3(args[1], position)) {
+                    error = "PlaySound expects a Vector3 position";
+                    return false;
+                }
+                spatial = true;
+            }
+            float volume = 1.0f;
+            if (args.size() >= 3) {
+                if (!args[2].isNumber()) {
+                    error = "PlaySound expects a number for its volume";
+                    return false;
+                }
+                volume = static_cast<float>(args[2].number);
+            }
+
+            state_->soundHandler(args[0].string, position, volume, spatial);
+            out = Value::nil();
+            return true;
+        }
         if (method == "CreatePart") {
             // The way a script makes a level instead of decorating one: a room
             // builder needs parts that were never in the world file.
@@ -629,6 +678,11 @@ void WorldRuntime::setTeleportHandler(
 void WorldRuntime::setDamageHandler(
     std::function<void(const std::string&, float)> handler) {
     state_->damageHandler = std::move(handler);
+}
+
+void WorldRuntime::setSoundHandler(
+    std::function<void(const std::string&, const glm::vec3&, float, bool)> handler) {
+    state_->soundHandler = std::move(handler);
 }
 
 bool WorldRuntime::runScript(const std::string& source, const std::string& chunkName,

@@ -30,7 +30,8 @@ enum class PacketType : uint8_t {
     VEHICLE_TOGGLE = 14,
     PART_STATE = 15,
     PART_REMOVE = 16,
-    WORLD_ENVIRONMENT = 17
+    WORLD_ENVIRONMENT = 17,
+    SOUND = 18
 };
 
 #pragma pack(push, 1)
@@ -189,13 +190,29 @@ struct PacketWorldEnvironment {
     float fogDensity;
 };
 
+// 12. Sound (Server -> Client): a script asked for a noise.
+//
+// The name travels instead of an id, so a client built from other source plays
+// silence for a sound it does not know rather than the wrong noise. A spatial
+// sound carries the point it came from and the client fades it by its own
+// listener's distance: the server cannot tell how loud something is at an ear it
+// does not have. Sounds are cosmetic, so they travel unreliably and a lost one
+// is simply not heard.
+struct PacketSound {
+    char name[24];      // one of the bank's names, see SoundBank.h
+    glm::vec3 position; // where it happened, when spatial is set
+    float volume;       // 0..1, the level the script asked for
+    uint8_t spatial;    // 1 when position is a place in the world
+    uint8_t reserved[3];
+};
+
 #pragma pack(pop)
 
 namespace PacketProtocol {
     // Bumped whenever a packet layout or its meaning changes. Sent in the
     // handshake next to `kPacketLayoutSignature` so two differently built
     // binaries fail with an explanation instead of silently misparsing.
-    constexpr uint16_t kProtocolRevision = 10;
+    constexpr uint16_t kProtocolRevision = 11;
 
     constexpr uint16_t packetLayoutSignature() {
         // Any change to a packet's size moves this, so a client and a server
@@ -208,6 +225,7 @@ namespace PacketProtocol {
                                      sizeof(PacketWorldEnvironment) * 3u +
                                      sizeof(PacketVehicleState) * 13u +
                                      sizeof(PacketVehicleInput) * 7u +
+                                     sizeof(PacketSound) * 9u +
                                      sizeof(PlayerInfo) * 5u);
     }
 
@@ -263,6 +281,7 @@ namespace PacketProtocol {
             case PacketType::PART_STATE:
             case PacketType::PART_REMOVE:
             case PacketType::WORLD_ENVIRONMENT:
+            case PacketType::SOUND:
                 return true;
             default:
                 return false;
@@ -298,6 +317,8 @@ namespace PacketProtocol {
                 return payloadSize == sizeof(PacketPartRemove);
             case PacketType::WORLD_ENVIRONMENT:
                 return payloadSize == sizeof(PacketWorldEnvironment);
+            case PacketType::SOUND:
+                return payloadSize == sizeof(PacketSound);
             case PacketType::PLAYER_JOIN:
                 return payloadSize == sizeof(PacketPlayerJoin);
             case PacketType::PLAYER_LEAVE:

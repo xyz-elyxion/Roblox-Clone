@@ -16,6 +16,8 @@
 #include "Avatar.h"
 #include "UiScale.h"
 #include "ClientShared.h"
+#include "Audio.h"
+#include "SoundBank.h"
 #include "Obfuscated.h"
 #include "WebJson.h"
 #include <glm/gtx/euler_angles.hpp>
@@ -1134,6 +1136,15 @@ int main(int argc, char** argv) {
 
         Window window(SCR_WIDTH, SCR_HEIGHT, "RBLX Clone Client");
         std::cout << "Window Created." << std::endl;
+
+        // A machine with no output device still has a game to play, so audio
+        // failing is a line in the log and silence, never a reason to stop.
+        std::string audioError;
+        if (rblx::audio::init(&audioError)) {
+            std::cout << "Audio ready: " << rblx::audio::kSampleRate << " Hz mono" << std::endl;
+        } else {
+            std::cout << "Audio unavailable: " << audioError << std::endl;
+        }
         glfwSetCursorPosCallback(window.getNativeWindow(), mouse_callback);
         
         // Setup ImGui Standard Init
@@ -1367,6 +1378,33 @@ int main(int argc, char** argv) {
             }
 
             // ... Network & Physics Logic (Keep logic running)
+            // Footsteps are the client's own: the server has no reason to know a
+            // character is walking, and a packet would put them a round trip
+            // behind the feet.
+            if (myCharacter != nullptr) {
+                // The jump is an edge, not a state: isJumping stays true for the
+                // whole hop, and a sound per frame would be a drone.
+                static bool wasJumping = false;
+                if (myCharacter->isJumping && !wasJumping) {
+                    if (const rblx::audio::Clip* jump =
+                            rblx::audio::sound(rblx::audio::SoundId::Jump)) {
+                        rblx::audio::play(*jump, 0.4f, false);
+                    }
+                }
+                wasJumping = myCharacter->isJumping;
+            }
+            if (myCharacter != nullptr && !myCharacter->isJumping &&
+                glm::length(myCharacter->debugMoveDir) > 0.1f) {
+                static double lastFootstep = 0.0;
+                const double nowSeconds = glfwGetTime();
+                if (nowSeconds - lastFootstep >= 0.42) {
+                    lastFootstep = nowSeconds;
+                    if (const rblx::audio::Clip* step =
+                            rblx::audio::sound(rblx::audio::SoundId::Footstep)) {
+                        rblx::audio::play(*step, 0.35f, false);
+                    }
+                }
+            }
             if (isConnected && clientSocket != INVALID_SOCKET) {
                 int bytesReceived = receiveGameDatagrams();
                 
@@ -1475,6 +1513,33 @@ int main(int argc, char** argv) {
                              // Don't lock cursor on join, let user right click
                              isCursorLocked = false;
                              glfwSetInputMode(window.getNativeWindow(), GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+                        }
+                        else if (header->type == PacketType::SOUND) {
+                            if (header->size < sizeof(PacketSound)) {
+                                std::cerr << "ERROR: Invalid SOUND packet size" << std::endl;
+                                offset += packetSize;
+                                continue;
+                            }
+                            PacketSound* pkt =
+                                (PacketSound*)(packetBuffer + offset + sizeof(PacketHeader));
+                            const std::string name =
+                                PacketProtocol::fixedString(pkt->name, sizeof(pkt->name));
+                            const rblx::audio::Clip* clip = rblx::audio::soundByName(name);
+                            if (clip == nullptr) {
+                                // A server built from other source can ask for a
+                                // sound this client does not have; silence and a
+                                // line is the whole of the disagreement.
+                                std::cerr << "Ignoring unknown sound '" << name << "'"
+                                          << std::endl;
+                                offset += packetSize;
+                                continue;
+                            }
+                            float volume = pkt->volume;
+                            if (pkt->spatial != 0 && myCharacter != nullptr) {
+                                volume *= rblx::audio::attenuation(
+                                    glm::length(pkt->position - myCharacter->getPosition()));
+                            }
+                            rblx::audio::play(*clip, volume, false);
                         }
                         else if (header->type == PacketType::TELEPORT) {
                             if (header->size < sizeof(PacketPlayerState)) {

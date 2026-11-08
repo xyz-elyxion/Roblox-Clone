@@ -146,7 +146,7 @@ The MinGW and manual configure forms are under [Building](#building).
 ## What's in the box
 
 **The client** is a third-person game: WASD and mouse, shift lock, a player list, chat, a debug
-overlay, health and a death overlay. Health and respawning are decided by the game server, not the
+overlay, health and a death overlay, and sound. Health and respawning are decided by the game server, not the
 client: the server keeps each player's health, kills anyone who falls below the world or takes
 damage, and returns them to the world's `SpawnLocation` after a three-second countdown every
 client sees. The client draws the bar and stops taking movement input while dead; **Reset
@@ -848,7 +848,24 @@ end)
 | `RunService.Heartbeat:Connect(function(dt) ... end)` | Per-tick logic |
 | `Players:GetPlayers()`, `Players.PlayerCount` | The players in the game |
 | `player.Name`, `player:Teleport(vector)`, `player:TakeDamage(amount)` | Player access; damage is applied by the server and answered with a death and respawn |
+| `workspace:PlaySound(name[, position[, volume]])` | Plays one of the build's sounds, at a place in the world when a position is given |
 | `Vector3.new(x, y, z)` | A vector |
+
+### Sound
+
+A script makes a noise with `workspace:PlaySound("door")`, or with a `position` for one that comes
+from somewhere in the world and an optional `volume` from 0 to 1. The server checks the name against
+the build's list and forwards it to every client, which mixes it and fades it by how far the player
+is from the position, so a door down the corridor is a whisper and the one in front of you is not. A
+name the build does not have fails at the line that used it, with the list of what it does have,
+rather than becoming a sound that never comes.
+
+The sounds are synthesised by the client instead of shipped as files, which keeps the package a
+folder of executables and keeps a sound from ever drifting out of step with the code that names it.
+The set is `footstep`, `jump`, `door`, `wardrobe`, `entity`, `death`, `lap`, `lava`, `chime` and
+`elevator`; the client plays footsteps and jumps itself, because a character's own feet should not
+wait for a round trip. Three ships with the build: the lava and the goal in Sky Platformer, the lap
+bell in Turbo Circuit, and the doors, wardrobes, entity, deaths and the elevator in Doors Hotel.
 
 ### Scripts in Studio and on the server
 
@@ -1161,6 +1178,9 @@ and the log path instead of a bare connection error.
   stops at collidable parts, but there is no client-side prediction, so steering over a high-latency
   connection feels delayed. Collision uses the axis-aligned box around a rotated part, so a diagonal
   wall blocks a little more ground than it looks like it does.
+- Sound is mono and synthesised. A sound fades with distance from the player instead of panning
+  left or right, there is no volume control beyond the system mixer, and no audio file is loaded:
+  the ten built-in sounds are the whole set, so a game that wants its own noise needs a code change.
 - The HTTP client speaks plain `http://` only. There is no TLS implementation, so an `https://`
   backend URL fails with an explanation instead of working.
 - The binary protocol depends on matching C++ struct layouts, so Client and Server must be built

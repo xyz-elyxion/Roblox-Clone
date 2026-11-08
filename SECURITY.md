@@ -121,6 +121,19 @@ detections are filed against the caller's own account only. Bans also bar the ma
 account was last seen on (`POST /api/hardware-check` for guests), as a 32-character hash of
 the system volume serial and the computer name; the raw values never leave the client.
 
+**Chat.** A message is read back by game id and channel, never by a caller-supplied index, so a
+room cannot be reached around the game it belongs to; a private game's room answers `404` to
+everyone but its owner. Posting needs a session, and the text is cleaned server-side before it is
+stored — control characters stripped, CRLF folded, blank-line runs collapsed, 500 characters at
+most — so what the page renders is what the file holds and a paste cannot smuggle terminal
+sequences into it. A suspended or banned account can read and cannot post. Posting is budgeted per
+account (five messages per ten seconds by default) as well as by the site-wide `/api/` budget, so
+one account cannot flood a room and a room cannot be used to exhaust an address's minute. Blocks
+hide both accounts' messages from each other. History is bounded at 200 messages per channel and
+4000 per install, oldest first, so the data file cannot be filled through chat, and deleting a game
+or an account deletes the messages that belonged to it. Presence — who is in which room — lives in
+memory for five minutes and is never written to disk.
+
 ## Changing security-relevant code
 
 Anything under `src/WebCrypto.cpp`, `src/WebStore.cpp`, `src/WebApp.cpp`'s auth and

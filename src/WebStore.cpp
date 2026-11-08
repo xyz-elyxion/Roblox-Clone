@@ -1,5 +1,6 @@
 #include "WebStore.h"
 
+#include "ChatRoom.h"
 #include "HardwareId.h"
 #include "WebCrypto.h"
 
@@ -8,6 +9,7 @@
 #include <cstdio>
 #include <cstring>
 #include <fstream>
+#include <map>
 #include <sstream>
 #include <utility>
 
@@ -171,6 +173,7 @@ void Store::clear() {
     blocks_.clear();
     appeals_.clear();
     hardwareBans_.clear();
+    chat_.clear();
     nextUserId_ = 1;
     nextFriendshipId_ = 1;
     nextGameId_ = 1;
@@ -178,6 +181,7 @@ void Store::clear() {
     nextBlockId_ = 1;
     nextInfractionId_ = 1;
     nextAppealId_ = 1;
+    nextChatMessageId_ = 1;
 }
 
 bool Store::load(std::string* error) {
@@ -407,6 +411,26 @@ bool Store::load(std::string* error) {
         nextBlockId_ = std::max(nextBlockId_, record.id + 1);
     }
 
+    for (const Json& entry : document.member("chat").elements()) {
+        ChatMessageRecord record;
+        record.id = static_cast<int>(entry.member("id").asInteger(0));
+        record.gameId = static_cast<int>(entry.member("gameId").asInteger(0));
+        record.channel = entry.member("channel").asString();
+        record.userId = static_cast<int>(entry.member("userId").asInteger(0));
+        record.username = entry.member("username").asString();
+        record.body = entry.member("body").asString();
+        record.createdAt = entry.member("createdAt").asString();
+        record.atMs = entry.member("atMs").asInteger(0);
+        // A row without a room, an author or text cannot be shown anywhere, so
+        // it is dropped rather than carried around.
+        if (record.id <= 0 || record.gameId <= 0 || record.userId <= 0 ||
+            record.channel.empty() || record.body.empty()) {
+            continue;
+        }
+        chat_.push_back(record);
+        nextChatMessageId_ = std::max(nextChatMessageId_, record.id + 1);
+    }
+
     for (const Json& entry : document.member("appeals").elements()) {
         AppealRecord record;
         record.id = static_cast<int>(entry.member("id").asInteger(0));
@@ -606,6 +630,21 @@ bool Store::save(std::string* error) const {
     }
     document.set("blocks", blocks);
 
+    Json chat = Json::makeArray();
+    for (const ChatMessageRecord& record : chat_) {
+        Json entry = Json::makeObject();
+        entry.set("id", record.id);
+        entry.set("gameId", record.gameId);
+        entry.set("channel", record.channel);
+        entry.set("userId", record.userId);
+        entry.set("username", record.username);
+        entry.set("body", record.body);
+        entry.set("createdAt", record.createdAt);
+        entry.set("atMs", record.atMs);
+        chat.push(entry);
+    }
+    document.set("chat", chat);
+
     Json appeals = Json::makeArray();
     for (const AppealRecord& record : appeals_) {
         Json entry = Json::makeObject();
@@ -793,6 +832,7 @@ bool Store::removeUser(int id) {
                                       return isUser(record.userId);
                                   }),
                    appeals_.end());
+    removeChatMessagesForUser(id);
     return true;
 }
 
@@ -1452,6 +1492,82 @@ std::vector<const BlockRecord*> Store::blocksBy(int userId) const {
     return out;
 }
 
+int Store::addChatMessage(const ChatMessageRecord& record) {
+    if (record.gameId <= 0 || record.userId <= 0 || record.channel.empty() ||
+        record.body.empty() || chat::findChannel(record.channel) == nullptr) {
+        return 0;
+    }
+    ChatMessageRecord stored = record;
+    stored.id = nextChatMessageId_++;
+    chat_.push_back(stored);
+    trimChat();
+    return stored.id;
+}
+
+std::vector<const ChatMessageRecord*> Store::chatMessages(int gameId, const std::string& channel,
+                                                          int afterId,
+                                                          std::size_t limit) const {
+    std::vector<const ChatMessageRecord*> out;
+    // Walk from the newest end so the page is the last `limit` messages, then
+    // put it back in reading order.
+    for (auto it = chat_.rbegin(); it != chat_.rend() && out.size() < limit; ++it) {
+        if (it->gameId != gameId || it->channel != channel) {
+            continue;
+        }
+        // Ids rise with time, so the first message at or below the mark means
+        // everything older is old news for this reader.
+        if (afterId > 0 && it->id <= afterId) {
+            break;
+        }
+        out.push_back(&*it);
+    }
+    std::reverse(out.begin(), out.end());
+    return out;
+}
+
+void Store::removeChatMessagesForGame(int gameId) {
+    chat_.erase(std::remove_if(chat_.begin(), chat_.end(),
+                               [gameId](const ChatMessageRecord& record) {
+                                   return record.gameId == gameId;
+                               }),
+                chat_.end());
+}
+
+void Store::removeChatMessagesForUser(int userId) {
+    chat_.erase(std::remove_if(chat_.begin(), chat_.end(),
+                               [userId](const ChatMessageRecord& record) {
+                                   return record.userId == userId;
+                               }),
+                chat_.end());
+}
+
+void Store::trimChat() {
+    if (chat_.size() <= chat::kMaxMessagesPerChannel &&
+        chat_.size() <= chat::kMaxMessagesTotal) {
+        return;
+    }
+
+    // Newest first, keeping a channel's allowance and the file's; everything the
+    // walk never reached is what gets dropped. Per-channel order is preserved by
+    // reversing the kept rows back afterwards.
+    std::vector<ChatMessageRecord> kept;
+    kept.reserve(chat_.size());
+    std::map<std::pair<int, std::string>, std::size_t> perChannel;
+    for (auto it = chat_.rbegin(); it != chat_.rend(); ++it) {
+        if (kept.size() >= chat::kMaxMessagesTotal) {
+            break;
+        }
+        std::size_t& count = perChannel[std::make_pair(it->gameId, it->channel)];
+        if (count >= chat::kMaxMessagesPerChannel) {
+            continue;
+        }
+        ++count;
+        kept.push_back(*it);
+    }
+    std::reverse(kept.begin(), kept.end());
+    chat_.swap(kept);
+}
+
 int Store::addDevToken(const DevTokenRecord& record) {
     if (record.userId <= 0 || record.tokenHash.empty()) {
         return 0;
@@ -1624,6 +1740,9 @@ bool Store::removeGame(int id) {
     for (auto it = games_.begin(); it != games_.end(); ++it) {
         if (it->id == id) {
             games_.erase(it);
+            // Deleting a game deletes its rooms: a message addressed to a game
+            // that no longer exists is unreachable text in the data file.
+            removeChatMessagesForGame(id);
             return true;
         }
     }

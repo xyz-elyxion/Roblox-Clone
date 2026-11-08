@@ -1050,6 +1050,9 @@ bool loadConfigFromEnvironment(Config* config, std::string* error) {
     loaded.rateLimitWindowMs =
         static_cast<long long>(parsePositiveInt(envString("RATE_LIMIT_WINDOW_MS"), 60000));
     loaded.rateLimitMax = parsePositiveInt(envString("RATE_LIMIT_MAX"), 600);
+    loaded.chatRateWindowMs =
+        static_cast<long long>(parsePositiveInt(envString("CHAT_RATE_LIMIT_WINDOW_MS"), 10000));
+    loaded.chatRateMax = parsePositiveInt(envString("CHAT_RATE_LIMIT_MAX"), 5);
     loaded.banWaveWindowMs =
         static_cast<long long>(parsePositiveInt(envString("BAN_WAVE_WINDOW_MS"), 300000));
     loaded.jsonBodyLimitBytes = static_cast<std::size_t>(
@@ -1869,6 +1872,17 @@ void WebsiteApp::installRoutes() {
     server_.route("POST", "/api/friends/remove",
                   guard([this](Request& request, Response& response) {
                       return handleFriendRemove(request, response);
+                  }));
+    // Chat, next to the games it belongs to: a room is one public game.
+    server_.route("GET", "/api/chat", guard([this](Request& request, Response& response) {
+                      return handleChatServers(request, response);
+                  }));
+    server_.route("GET", "/api/chat/:id", guard([this](Request& request, Response& response) {
+                      return handleChatRoom(request, response);
+                  }));
+    server_.route("POST", "/api/chat/:id/messages",
+                  guard([this](Request& request, Response& response) {
+                      return handleChatPost(request, response);
                   }));
     server_.route("GET", "/api/games", guard([this](Request& request, Response& response) {
                       return handleListGames(request, response);

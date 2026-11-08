@@ -398,6 +398,67 @@ bool HttpServer::readRequest(std::intptr_t socketHandle, Request* request, bool*
             trimCopy(line.substr(colon + 1));
     }
 
+    const std::string transferEncoding = lowerCopy(request->header("transfer-encoding"));
+    if (transferEncoding.find("chunked") != std::string::npos) {
+        // A client, or a proxy sitting in front of the site, may send the body
+        // chunked instead of declaring a length. Reading only Content-Length
+        // would then hand the handler an empty body, which is indistinguishable
+        // from a client that sent nothing.
+        std::string raw = buffer.substr(headerEnd + 4);
+        const auto fill = [&](std::size_t wanted) {
+            while (raw.size() < wanted) {
+                const int received = ::recv(handle, chunk, static_cast<int>(sizeof(chunk)), 0);
+                if (received <= 0) {
+                    return false;
+                }
+                raw.append(chunk, static_cast<std::size_t>(received));
+            }
+            return true;
+        };
+
+        std::string decoded;
+        std::size_t cursor = 0;
+        while (true) {
+            std::size_t lineEnd = std::string::npos;
+            while ((lineEnd = raw.find("\r\n", cursor)) == std::string::npos) {
+                if (!fill(raw.size() + 1)) {
+                    return false;
+                }
+            }
+            std::string sizeText = trimCopy(raw.substr(cursor, lineEnd - cursor));
+            // A chunk may carry extensions after a semicolon; the size is the
+            // part before it.
+            const std::size_t extension = sizeText.find(';');
+            if (extension != std::string::npos) {
+                sizeText = trimCopy(sizeText.substr(0, extension));
+            }
+            std::size_t size = 0;
+            try {
+                size = static_cast<std::size_t>(std::stoull(sizeText, nullptr, 16));
+            } catch (...) {
+                return false;
+            }
+            cursor = lineEnd + 2;
+            if (size == 0) {
+                // The trailer section that may follow is not read: nothing in
+                // the site uses one.
+                break;
+            }
+            if (decoded.size() + size > bodyLimitBytes_) {
+                request->body.clear();
+                request->headers["x-body-too-large"] = "1";
+                return true;
+            }
+            if (!fill(cursor + size + 2)) {
+                return false;
+            }
+            decoded.append(raw, cursor, size);
+            cursor += size + 2;
+        }
+        request->body = decoded;
+        return true;
+    }
+
     std::size_t contentLength = 0;
     const std::string declaredLength = request->header("content-length");
     if (!declaredLength.empty()) {

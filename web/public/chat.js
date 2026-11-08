@@ -1,174 +1,55 @@
-// A Discord-shaped chat page: one server, four channels, a message log and a
-// member list. It is a preview page, so a message stays in this tab instead of
-// being posted to an API -- the game client's chat is a separate feature and
-// would not be reachable from here even if it were wired up.
+// The chat page is the website's own chat: one room per published game, four
+// channels in every room, messages kept by WebApp.exe in the data file. This
+// file reads a room, polls it while it is open and posts into it. It invents
+// nothing -- no seed conversations, no made-up members -- so a page served
+// without the backend says so instead of showing a conversation that never
+// happened.
 
-const chatChannels = [
-    {
-        id: 'general',
-        title: 'general',
-        topic: 'Whatever the current build is doing.',
-        messages: [
-            {
-                author: 'Nova',
-                at: '9:41',
-                text: 'Pushed a new roof to Sky Platformer. The spawn pads sit on the second ' +
-                    'platform now, so nobody falls into the void while the world loads.'
-            },
-            {
-                author: 'Nova',
-                at: '9:43',
-                text: 'If you joined in the last hour and spawned in the air, that was me. Sorry.'
-            },
-            {
-                author: 'Kit',
-                at: '9:58',
-                text: 'Took the long way round the lava on purpose and made it to the goal in ' +
-                    '38 seconds. The tide is fair.'
-            },
-            {
-                author: 'Patch',
-                at: '10:02',
-                bot: true,
-                text: 'Build 353bb418 is on main: sound, a synthesised bank and workspace:PlaySound. ' +
-                    'Instances launched before it will not hear the new clients.'
-            },
-            {
-                author: 'Mira',
-                at: '10:14',
-                text: 'Anyone free to playtest the doors game after lunch? I want a second pair of ' +
-                    'eyes on the wardrobe before it ships.'
-            }
-        ]
-    },
-    {
-        id: 'world-building',
-        title: 'world-building',
-        topic: 'Parts, spawns and the things that eat players.',
-        messages: [
-            {
-                author: 'Kit',
-                at: '8:52',
-                text: 'The glowing blocks are just a neon material and a slightly saturated colour. ' +
-                    'Studio shows it correctly, which is more than I expected.'
-            },
-            {
-                author: 'Nova',
-                at: '9:05',
-                text: 'Keep the moving platforms under 8 studs a second. Above that the physics step ' +
-                    'starts dropping players through the top face.'
-            },
-            {
-                author: 'Kit',
-                at: '9:07',
-                text: 'Noted. Dropped mine to 6 and it stopped happening.'
-            },
-            {
-                author: 'Mira',
-                at: '9:30',
-                text: 'Doors Hotel needs a second staircase. One exit for a whole floor is a queue, ' +
-                    'not a level.'
-            }
-        ]
-    },
-    {
-        id: 'bug-reports',
-        title: 'bug-reports',
-        topic: 'One report per message: what you did, what happened, what you expected.',
-        messages: [
-            {
-                author: 'Mira',
-                at: '7:48',
-                text: 'Stairs at roughly 40, 8, 120 have no collision. Walked straight through them ' +
-                    'twice, both times on the way up from the lower platform.'
-            },
-            {
-                author: 'Nova',
-                at: '8:02',
-                text: 'Reproduced. The steps were saved as a group with zero scale on one axis, so the ' +
-                    'collider is a plane. Fixing it in the world, not the engine.'
-            },
-            {
-                author: 'Kit',
-                at: '8:20',
-                text: 'Separate thing: the chat box keeps the draft after a respawn. Told it was fixed ' +
-                    'last week, still there on build 4cb423eb.'
-            },
-            {
-                author: 'Patch',
-                at: '8:21',
-                bot: true,
-                text: 'Reported to the tracker as CHAT-DRAFT-2. Nothing has been changed yet.'
-            }
-        ]
-    },
-    {
-        id: 'sound-design',
-        title: 'sound-design',
-        topic: 'Ten synthesised sounds, one mixer, no audio files.',
-        messages: [
-            {
-                author: 'Nova',
-                at: '10:20',
-                text: 'The bank is generated in code now: footsteps, jump, door, wardrobe, entity, ' +
-                    'death, lap, lava, chime, elevator. No files to drift out of step with the build.'
-            },
-            {
-                author: 'Mira',
-                at: '10:22',
-                text: 'The lava bed is doing its job. It is also the loudest thing in the level by a ' +
-                    'wide margin, so I turned it down in the script rather than in the mixer.'
-            },
-            {
-                author: 'Nova',
-                at: '10:24',
-                text: 'A script calls workspace:PlaySound("lava", part.Position, 0.5). The server ' +
-                    'checks the name, so a typo fails on the line that made it.'
-            },
-            {
-                author: 'Kit',
-                at: '10:31',
-                text: 'Requesting a sound for a door that is being held shut. A slow creak plus the ' +
-                    'latch, not just the slam.'
-            }
-        ]
-    }
-];
-
-const chatMembers = [
-    { name: 'Nova', role: 'Builder', online: true },
-    { name: 'Patch', role: 'Bot', online: true, bot: true },
-    { name: 'Kit', role: 'Tester', online: true },
-    { name: 'Mira', role: 'Level design', online: true },
-    { name: 'Juno', role: 'Builder', online: false },
-    { name: 'Ravi', role: 'Tester', online: false }
-];
+const chatPollMs = 4000;
 
 const chatShell = document.querySelector('[data-chat-shell]');
 const chatLog = document.querySelector('[data-chat-log]');
+const chatGuilds = document.querySelector('[data-guilds]');
+const serverTitle = document.querySelector('[data-server-title]');
+const serverMeta = document.querySelector('[data-server-meta]');
+const channelList = document.querySelector('[data-channel-list]');
 const channelTitle = document.querySelector('[data-channel-title]');
 const channelTopic = document.querySelector('[data-channel-topic]');
 const chatComposer = document.querySelector('[data-composer]');
 const messageInput = document.querySelector('[data-message-input]');
-const channelButtons = Array.from(document.querySelectorAll('[data-channel]'));
+const sendButton = chatComposer.querySelector('button[type="submit"]');
+const chatHint = document.querySelector('[data-chat-hint]');
 const memberGroups = document.querySelector('[data-member-groups]');
 const membersToggle = document.querySelector('[data-toggle-members]');
 const channelsToggle = document.querySelector('[data-toggle-channels]');
 const chatBackdrop = document.querySelector('[data-chat-backdrop]');
 
-const CHAT_PREVIEW_NOTE =
-    'Preview page: these messages stay in this tab. The game client keeps its own chat.';
+const chatState = {
+    servers: [],
+    channels: [],
+    gameId: 0,
+    channel: 'general',
+    lastId: 0,
+    lastUser: '',
+    lastMinutes: -1,
+    lastDay: '',
+    signedIn: false,
+    canPost: false,
+    userId: 0,
+    username: '',
+    maxLength: 500,
+    polling: false,
+    sending: false,
+    pollTimer: 0
+};
 
 function chatInitials(name) {
-    const letters = String(name || '?').replace(/[^a-z0-9]/gi, '');
+    const words = String(name || '?').trim().split(/\s+/).filter(Boolean);
+    if (words.length >= 2) {
+        return (words[0][0] + words[1][0]).toUpperCase();
+    }
+    const letters = String(words[0] || '?').replace(/[^a-z0-9]/gi, '');
     return (letters.slice(0, 2) || '?').toUpperCase();
-}
-
-// Grouping compares clock minutes, so a message at 23:58 and one at 00:01 stay
-// apart rather than counting as three minutes apart by subtraction.
-function chatMinutes(at) {
-    const [hours, minutes] = String(at).split(':').map(Number);
-    return (hours || 0) * 60 + (minutes || 0);
 }
 
 function chatAvatar(name) {
@@ -179,53 +60,110 @@ function chatAvatar(name) {
     return avatar;
 }
 
-function chatActiveChannel() {
-    const active = channelButtons.find((button) => button.classList.contains('is-active'));
-    return chatChannels.find((channel) => channel.id === active?.dataset.channel) || chatChannels[0];
+function chatDate(iso) {
+    const date = new Date(iso);
+    return Number.isNaN(date.getTime()) ? null : date;
 }
 
-function chatMessageElement(message, previous) {
-    const grouped = previous !== null && previous.author === message.author &&
-        Math.abs(chatMinutes(message.at) - chatMinutes(previous.at)) <= 5;
+function chatTimeLabel(date) {
+    return date ? date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+}
 
-    const row = document.createElement('article');
-    row.className = grouped ? 'chat-message is-continuation' : 'chat-message';
-    row.append(chatAvatar(message.author));
+function chatDayKey(date) {
+    return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+}
 
-    const body = document.createElement('div');
-    body.className = 'chat-message-body';
+function chatDayLabel(date) {
+    const today = new Date();
+    if (chatDayKey(date) === chatDayKey(today)) {
+        return 'Today';
+    }
+    return date.toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' });
+}
 
-    if (!grouped) {
-        const head = document.createElement('p');
-        head.className = 'chat-message-head';
+function chatMinutes(date) {
+    return date.getHours() * 60 + date.getMinutes();
+}
 
-        const author = document.createElement('span');
-        author.className = 'chat-author';
-        author.textContent = message.author;
-        head.append(author);
+function chatToken() {
+    return localStorage.getItem('authToken');
+}
 
-        if (message.bot) {
-            const tag = document.createElement('span');
-            tag.className = 'chat-bot';
-            tag.textContent = 'BOT';
-            head.append(tag);
-        }
-
-        const time = document.createElement('time');
-        time.className = 'chat-time';
-        time.textContent = message.at;
-        head.append(time);
-
-        body.append(head);
+async function chatJson(url, options) {
+    const settings = options || {};
+    const headers = Object.assign({}, settings.headers || {});
+    const token = chatToken();
+    if (token) {
+        headers.Authorization = `Bearer ${token}`;
+    }
+    let body;
+    if (settings.body) {
+        headers['Content-Type'] = 'application/json';
+        body = JSON.stringify(settings.body);
     }
 
-    const text = document.createElement('p');
-    text.className = 'chat-message-text';
-    text.textContent = message.text;
-    body.append(text);
+    let response;
+    try {
+        response = await fetch(url, {
+            method: settings.method || 'GET',
+            headers,
+            body,
+            cache: 'no-store'
+        });
+    } catch (error) {
+        return { ok: false, offline: true, message: 'The chat server is not reachable.' };
+    }
 
-    row.append(body);
-    return row;
+    let data = {};
+    try {
+        data = await response.json();
+    } catch (error) {
+        data = {};
+    }
+    return {
+        ok: response.ok,
+        status: response.status,
+        data,
+        message: data.error || `The chat answered ${response.status}.`
+    };
+}
+
+function chatSetHint(text, kind, signIn) {
+    chatHint.classList.toggle('is-error', kind === 'error');
+    chatHint.replaceChildren();
+    chatHint.append(document.createTextNode(text));
+    if (signIn) {
+        chatHint.append(document.createTextNode(' '));
+        const link = document.createElement('a');
+        link.href = '/login?next=%2Fchat';
+        link.textContent = 'Sign in';
+        chatHint.append(link);
+    }
+}
+
+function chatNotice(text) {
+    const note = document.createElement('p');
+    note.className = 'chat-note';
+    note.textContent = text;
+    return note;
+}
+
+function chatEmpty() {
+    const empty = document.createElement('div');
+    empty.className = 'chat-empty';
+
+    const heading = document.createElement('p');
+    heading.className = 'chat-empty-title';
+    heading.textContent = chatState.channel ? `#${chatState.channel} is quiet` : 'No messages yet';
+    empty.append(heading);
+
+    const text = document.createElement('p');
+    text.textContent = chatState.canPost
+        ? 'Nothing here yet. Start the conversation.'
+        : 'Nothing here yet. Sign in to post the first message.';
+    empty.append(text);
+
+    return empty;
 }
 
 function chatDivider(label) {
@@ -237,71 +175,166 @@ function chatDivider(label) {
     return divider;
 }
 
+function chatAtBottom() {
+    return chatLog.scrollHeight - chatLog.scrollTop - chatLog.clientHeight < 120;
+}
+
 function chatScrollToBottom() {
     chatLog.scrollTop = chatLog.scrollHeight;
 }
 
-function chatRenderLog(channel) {
-    chatLog.replaceChildren();
-
-    const note = document.createElement('p');
-    note.className = 'chat-note';
-    note.textContent = CHAT_PREVIEW_NOTE;
-    chatLog.append(note, chatDivider('Today'));
-
-    let previous = null;
-    for (const message of channel.messages) {
-        chatLog.append(chatMessageElement(message, previous));
-        previous = message;
-    }
-
-    chatScrollToBottom();
-}
-
 function chatAppendMessage(message) {
-    const rows = chatLog.querySelectorAll('.chat-message');
-    const previousRow = rows[rows.length - 1];
-    const previous = previousRow ? previousRow.dataset : null;
-
-    chatLog.append(chatMessageElement(message, previous));
-    const last = chatLog.querySelector('.chat-message:last-of-type');
-    if (last) {
-        last.dataset.author = message.author;
-        last.dataset.at = message.at;
+    if (message.id <= chatState.lastId) {
+        return;
     }
-    chatScrollToBottom();
-}
 
-function chatSelectChannel(id) {
-    const channel = chatChannels.find((entry) => entry.id === id) || chatChannels[0];
-
-    for (const button of channelButtons) {
-        const active = button.dataset.channel === channel.id;
-        button.classList.toggle('is-active', active);
-        if (active) {
-            button.setAttribute('aria-current', 'true');
-        } else {
-            button.removeAttribute('aria-current');
+    const when = chatDate(message.at);
+    if (when) {
+        const day = chatDayKey(when);
+        if (day !== chatState.lastDay) {
+            chatState.lastDay = day;
+            chatState.lastUser = '';
+            chatState.lastMinutes = -1;
+            const empty = chatLog.querySelector('.chat-empty');
+            if (empty) {
+                empty.remove();
+            }
+            chatLog.append(chatDivider(chatDayLabel(when)));
         }
     }
 
-    channelTitle.textContent = channel.title;
-    channelTopic.textContent = channel.topic;
-    messageInput.placeholder = `Message #${channel.title}`;
+    const minutes = when ? chatMinutes(when) : -1;
+    const grouped = message.username === chatState.lastUser &&
+        Math.abs(minutes - chatState.lastMinutes) <= 5;
 
-    chatRenderLog(channel);
+    const row = document.createElement('article');
+    row.className = grouped ? 'chat-message is-continuation' : 'chat-message';
+    row.append(chatAvatar(message.username));
+
+    const body = document.createElement('div');
+    body.className = 'chat-message-body';
+
+    if (!grouped) {
+        const head = document.createElement('p');
+        head.className = 'chat-message-head';
+
+        const author = document.createElement('span');
+        author.className = 'chat-author';
+        author.textContent = message.username;
+        head.append(author);
+
+        if (message.mine) {
+            const tag = document.createElement('span');
+            tag.className = 'chat-bot';
+            tag.textContent = 'YOU';
+            head.append(tag);
+        }
+
+        const time = document.createElement('time');
+        time.className = 'chat-time';
+        time.textContent = chatTimeLabel(when);
+        head.append(time);
+
+        body.append(head);
+    }
+
+    const text = document.createElement('p');
+    text.className = 'chat-message-text';
+    text.textContent = message.body;
+    body.append(text);
+
+    row.append(body);
+    chatLog.append(row);
+
+    chatState.lastUser = message.username;
+    chatState.lastMinutes = minutes;
+    chatState.lastId = Math.max(chatState.lastId, message.id);
 }
 
-function chatRenderMembers() {
+function chatRenderLog(messages, reset) {
+    if (reset) {
+        chatLog.replaceChildren();
+        chatState.lastUser = '';
+        chatState.lastMinutes = -1;
+        chatState.lastDay = '';
+    }
+    for (const message of messages) {
+        chatAppendMessage(message);
+    }
+    if (reset && messages.length === 0) {
+        chatLog.append(chatEmpty());
+    }
+}
+
+function chatRenderGuilds() {
+    chatGuilds.replaceChildren();
+    for (const server of chatState.servers) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'chat-guild';
+        button.textContent = chatInitials(server.title);
+        button.title = server.online > 0
+            ? `${server.title} — ${server.online} online`
+            : server.title;
+        if (server.id === chatState.gameId) {
+            button.classList.add('is-active');
+            button.setAttribute('aria-current', 'true');
+        }
+        button.addEventListener('click', () => {
+            if (server.id !== chatState.gameId) {
+                chatOpenRoom(server.id, 'general');
+            }
+        });
+        chatGuilds.append(button);
+    }
+}
+
+function chatRenderChannels() {
+    channelList.replaceChildren();
+    for (const channel of chatState.channels) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'chat-channel';
+        button.dataset.channel = channel.id;
+
+        const hash = document.createElement('span');
+        hash.className = 'chat-hash';
+        hash.setAttribute('aria-hidden', 'true');
+        hash.textContent = '#';
+
+        const name = document.createElement('span');
+        name.textContent = channel.title;
+        button.append(hash, name);
+
+        if (channel.id === chatState.channel) {
+            button.classList.add('is-active');
+            button.setAttribute('aria-current', 'true');
+        }
+
+        button.addEventListener('click', () => {
+            chatSelectChannel(channel.id);
+            if (window.matchMedia('(max-width: 900px)').matches) {
+                chatSetChannels(false);
+            }
+        });
+        channelList.append(button);
+    }
+}
+
+function chatRenderMembers(members) {
+    const online = members.filter((member) => member.online);
+    const offline = members.filter((member) => !member.online);
     const groups = [
-        { label: 'Online', members: chatMembers.filter((member) => member.online) },
-        { label: 'Offline', members: chatMembers.filter((member) => !member.online) }
+        { label: 'Online', members: online },
+        { label: 'Offline', members: offline }
     ];
 
     memberGroups.replaceChildren();
 
     for (const group of groups) {
-        if (group.members.length === 0) continue;
+        if (group.members.length === 0) {
+            continue;
+        }
 
         const section = document.createElement('section');
         section.className = 'chat-member-group';
@@ -314,26 +347,26 @@ function chatRenderMembers() {
         for (const member of group.members) {
             const row = document.createElement('div');
             row.className = member.online ? 'chat-member' : 'chat-member is-offline';
-            row.append(chatAvatar(member.name));
+            row.append(chatAvatar(member.username));
 
             const text = document.createElement('div');
             text.className = 'chat-member-text';
 
             const name = document.createElement('span');
             name.className = 'chat-member-name';
-            name.textContent = member.name;
+            name.textContent = member.username;
             text.append(name);
 
-            if (member.bot) {
+            if (member.id === chatState.userId) {
                 const tag = document.createElement('span');
                 tag.className = 'chat-bot';
-                tag.textContent = 'BOT';
+                tag.textContent = 'YOU';
                 text.append(tag);
             }
 
             const role = document.createElement('span');
             role.className = 'chat-member-role';
-            role.textContent = member.role;
+            role.textContent = member.role || 'Player';
             text.append(role);
 
             row.append(text);
@@ -342,6 +375,225 @@ function chatRenderMembers() {
 
         memberGroups.append(section);
     }
+}
+
+function chatRenderHead(game) {
+    if (!game) {
+        return;
+    }
+    serverTitle.textContent = game.title;
+    const owner = game.owner ? ` · ${game.owner}` : '';
+    serverMeta.textContent = `${game.online} online${owner}`;
+
+    const current = chatState.channels.find((channel) => channel.id === chatState.channel);
+    channelTitle.textContent = chatState.channel;
+    channelTopic.textContent = current ? current.topic : '';
+    messageInput.placeholder = `Message #${chatState.channel}`;
+}
+
+function chatSyncComposer() {
+    const open = chatState.gameId > 0;
+    messageInput.disabled = !open || !chatState.canPost;
+    sendButton.disabled = !open || !chatState.canPost || chatState.sending;
+
+    if (!open) {
+        chatSetHint('Open a game to read its chat.', 'error');
+        messageInput.placeholder = 'No room open';
+        return;
+    }
+    if (chatState.canPost) {
+        chatSetHint('Enter sends, Shift+Enter starts a new line.');
+        messageInput.placeholder = `Message #${chatState.channel}`;
+    } else if (!chatState.signedIn) {
+        chatSetHint('Reading is open to everyone; posting needs an account.', 'error', true);
+        messageInput.placeholder = 'Sign in to send a message';
+    } else {
+        chatSetHint('Your account is restricted, so posting is closed. Settings has the record.',
+            'error');
+        messageInput.placeholder = 'Posting is closed for this account';
+    }
+}
+
+function chatShowUser() {
+    const name = chatState.username || 'Guest';
+    document.querySelector('[data-user-name]').textContent = name;
+    document.querySelector('[data-user-initials]').textContent = chatInitials(name);
+    document.querySelector('[data-user-status]').textContent =
+        chatState.signedIn ? 'signed in' : 'not signed in';
+}
+
+function chatApplyRoom(data, reset) {
+    chatState.channel = data.channel || 'general';
+    chatState.channels = data.channels || [];
+    chatState.maxLength = Number(data.maxMessageLength) || 500;
+    messageInput.maxLength = chatState.maxLength;
+
+    const you = data.you || {};
+    chatState.signedIn = Boolean(you.signedIn);
+    chatState.canPost = Boolean(you.canPost);
+    chatState.userId = Number(you.id) || 0;
+    chatState.username = you.username || '';
+
+    chatRenderHead(data.game);
+    chatRenderChannels();
+    if (reset && data.hidden > 0) {
+        chatLog.append(chatNotice(
+            `${data.hidden} message${data.hidden === 1 ? '' : 's'} hidden because of a block.`));
+    }
+    chatRenderLog(data.messages || [], reset);
+    chatRenderMembers(data.members || []);
+    chatShowUser();
+    chatSyncComposer();
+    if (reset) {
+        chatScrollToBottom();
+    }
+}
+
+function chatFatal(message) {
+    chatState.gameId = 0;
+    chatState.canPost = false;
+    chatLog.replaceChildren(chatNotice(message));
+    memberGroups.replaceChildren();
+    channelList.replaceChildren();
+    chatGuilds.replaceChildren();
+    serverTitle.textContent = 'Chat';
+    serverMeta.textContent = 'not connected';
+    chatSyncComposer();
+    chatShowUser();
+    if (chatState.pollTimer) {
+        window.clearInterval(chatState.pollTimer);
+        chatState.pollTimer = 0;
+    }
+}
+
+async function chatOpenRoom(gameId, channel) {
+    chatState.gameId = gameId;
+    chatState.lastId = 0;
+    const wanted = channel || 'general';
+
+    const response = await chatJson(
+        `/api/chat/${gameId}?channel=${encodeURIComponent(wanted)}&after=0`);
+    if (!response.ok) {
+        chatFatal(response.offline
+            ? 'The chat is served by WebApp.exe, and this page cannot reach it. Start the website and reload.'
+            : response.message);
+        return;
+    }
+
+    chatApplyRoom(response.data, true);
+    chatRenderGuilds();
+    chatUpdateUrl();
+    chatStartPolling();
+}
+
+async function chatSelectChannel(channel) {
+    if (channel === chatState.channel || chatState.gameId === 0) {
+        return;
+    }
+    await chatOpenRoom(chatState.gameId, channel);
+}
+
+function chatUpdateUrl() {
+    const url = `/chat?server=${chatState.gameId}&channel=${encodeURIComponent(chatState.channel)}`;
+    if (`${window.location.pathname}${window.location.search}` !== url) {
+        window.history.replaceState(null, '', url);
+    }
+}
+
+async function chatPoll() {
+    if (chatState.polling || chatState.gameId === 0) {
+        return;
+    }
+    if (document.visibilityState !== 'visible') {
+        return;
+    }
+
+    chatState.polling = true;
+    try {
+        const query = new URLSearchParams({
+            channel: chatState.channel,
+            after: String(chatState.lastId)
+        });
+        const response = await chatJson(`/api/chat/${chatState.gameId}?${query}`, {});
+        if (!response.ok) {
+            return;
+        }
+        const data = response.data;
+        if (data.channel !== chatState.channel) {
+            return;
+        }
+
+        const you = data.you || {};
+        chatState.canPost = Boolean(you.canPost);
+        chatState.signedIn = Boolean(you.signedIn);
+        chatState.username = you.username || chatState.username;
+        chatState.userId = Number(you.id) || chatState.userId;
+
+        const atBottom = chatAtBottom();
+        chatRenderHead(data.game);
+        chatRenderMembers(data.members || []);
+        chatRenderLog(data.messages || [], false);
+        chatShowUser();
+        chatSyncComposer();
+        if (atBottom) {
+            chatScrollToBottom();
+        }
+    } finally {
+        chatState.polling = false;
+    }
+}
+
+function chatStartPolling() {
+    if (chatState.pollTimer) {
+        window.clearInterval(chatState.pollTimer);
+    }
+    chatState.pollTimer = window.setInterval(chatPoll, chatPollMs);
+}
+
+async function chatSend() {
+    const text = messageInput.value.trim();
+    if (!text || chatState.sending || !chatState.canPost || chatState.gameId === 0) {
+        return;
+    }
+
+    chatState.sending = true;
+    chatSyncComposer();
+
+    const response = await chatJson(`/api/chat/${chatState.gameId}/messages`, {
+        method: 'POST',
+        body: { channel: chatState.channel, body: text }
+    });
+
+    chatState.sending = false;
+
+    if (!response.ok) {
+        chatSetHint(response.message, 'error');
+        chatSyncComposer();
+        if (!chatState.canPost) {
+            messageInput.value = '';
+        }
+        return;
+    }
+
+    messageInput.value = '';
+    chatResizeInput();
+    chatSyncComposer();
+    messageInput.focus();
+
+    if (response.data.message) {
+        const atBottom = chatAtBottom();
+        chatAppendMessage(response.data.message);
+        if (atBottom) {
+            chatScrollToBottom();
+        }
+    } else {
+        await chatPoll();
+    }
+}
+
+function chatResizeInput() {
+    messageInput.style.height = 'auto';
+    messageInput.style.height = `${Math.min(messageInput.scrollHeight, 180)}px`;
 }
 
 function chatSyncBackdrop() {
@@ -362,51 +614,34 @@ function chatSetMembers(open) {
     chatSyncBackdrop();
 }
 
-function chatResizeInput() {
-    messageInput.style.height = 'auto';
-    messageInput.style.height = `${Math.min(messageInput.scrollHeight, 180)}px`;
-}
+async function chatLoad() {
+    const response = await chatJson('/api/chat', {});
+    if (!response.ok) {
+        chatFatal(response.offline
+            ? 'The chat is served by WebApp.exe, and this page cannot reach it. Start the website and reload.'
+            : response.message);
+        return;
+    }
 
-function chatSend() {
-    const text = messageInput.value.trim();
-    if (!text) return;
+    chatState.servers = response.data.servers || [];
+    chatState.maxLength = Number(response.data.maxMessageLength) || 500;
 
-    const stored = (localStorage.getItem('username') || '').trim();
-    const message = {
-        author: stored || 'Guest',
-        at: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        text
-    };
+    if (chatState.servers.length === 0) {
+        chatFatal('No public game has been published yet, so there is no room to open. ' +
+            'Publish a game and its chat appears here.');
+        chatLog.append(chatNotice('Games are created in Studio or on the create page.'));
+        return;
+    }
 
-    chatActiveChannel().messages.push(message);
-    chatAppendMessage(message);
-
-    messageInput.value = '';
-    chatResizeInput();
-    messageInput.focus();
-}
-
-function chatShowUser() {
-    const stored = (localStorage.getItem('username') || '').trim();
-    const name = stored || 'Guest';
-    document.querySelector('[data-user-name]').textContent = name;
-    document.querySelector('[data-user-initials]').textContent = chatInitials(name);
-    document.querySelector('[data-user-status]').textContent = stored ? 'signed in' : 'not signed in';
+    const params = new URLSearchParams(window.location.search);
+    const wanted = Number(params.get('server')) || 0;
+    const server = chatState.servers.find((entry) => entry.id === wanted) || chatState.servers[0];
+    await chatOpenRoom(server.id, params.get('channel') || 'general');
 }
 
 document.addEventListener('DOMContentLoaded', () => {
     chatShowUser();
-    chatRenderMembers();
-    chatSelectChannel('general');
-
-    for (const button of channelButtons) {
-        button.addEventListener('click', () => {
-            chatSelectChannel(button.dataset.channel);
-            if (window.matchMedia('(max-width: 900px)').matches) {
-                chatSetChannels(false);
-            }
-        });
-    }
+    chatSyncComposer();
 
     chatComposer.addEventListener('submit', (event) => {
         event.preventDefault();
@@ -436,8 +671,18 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     document.addEventListener('keydown', (event) => {
-        if (event.key !== 'Escape') return;
+        if (event.key !== 'Escape') {
+            return;
+        }
         chatSetChannels(false);
         chatSetMembers(false);
     });
+
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+            chatPoll();
+        }
+    });
+
+    chatLoad();
 });

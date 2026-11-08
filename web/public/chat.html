@@ -13,63 +13,23 @@
         <nav class="chat-guilds" aria-label="Servers">
             <a class="chat-guild chat-guild-home" href="/" aria-label="RBLX Clone home">R</a>
             <span class="chat-guild-sep" aria-hidden="true"></span>
-            <button class="chat-guild is-active" type="button" aria-current="true" title="Sky Platformer">
-                SP
-            </button>
-            <button class="chat-guild" type="button" title="Turbo Circuit">TC</button>
-            <button class="chat-guild" type="button" title="Doors Hotel">DH</button>
-            <button class="chat-guild chat-guild-add" type="button" title="Create a server" aria-label="Create a server">
-                +
-            </button>
+            <div class="chat-guilds-games" data-guilds></div>
+            <a class="chat-guild chat-guild-add" href="/create" title="Create a game"
+               aria-label="Create a game">+</a>
         </nav>
 
         <aside class="chat-channels" id="chat-channel-panel" data-channel-panel aria-label="Channels">
             <header class="chat-server">
                 <div>
-                    <h2>Sky Platformer</h2>
-                    <p class="chat-server-meta">4 online</p>
+                    <h2 data-server-title>Chat</h2>
+                    <p class="chat-server-meta" data-server-meta>connecting</p>
                 </div>
             </header>
 
             <div class="chat-groups">
                 <section class="chat-group" aria-labelledby="chat-group-text">
                     <h3 class="chat-group-title" id="chat-group-text">Text channels</h3>
-                    <button class="chat-channel is-active" type="button" data-channel="general" aria-current="true">
-                        <span class="chat-hash" aria-hidden="true">#</span>
-                        <span>general</span>
-                    </button>
-                    <button class="chat-channel" type="button" data-channel="world-building">
-                        <span class="chat-hash" aria-hidden="true">#</span>
-                        <span>world-building</span>
-                    </button>
-                    <button class="chat-channel" type="button" data-channel="bug-reports">
-                        <span class="chat-hash" aria-hidden="true">#</span>
-                        <span>bug-reports</span>
-                    </button>
-                    <button class="chat-channel" type="button" data-channel="sound-design">
-                        <span class="chat-hash" aria-hidden="true">#</span>
-                        <span>sound-design</span>
-                    </button>
-                </section>
-
-                <section class="chat-group" aria-labelledby="chat-group-voice">
-                    <h3 class="chat-group-title" id="chat-group-voice">Voice channels</h3>
-                    <div class="chat-voice">
-                        <span class="chat-voice-name">
-                            <span class="chat-hash" aria-hidden="true">&#9834;</span>
-                            Studio voice
-                        </span>
-                        <ul class="chat-voice-members">
-                            <li>Nova</li>
-                            <li>Kit</li>
-                        </ul>
-                    </div>
-                    <div class="chat-voice">
-                        <span class="chat-voice-name">
-                            <span class="chat-hash" aria-hidden="true">&#9834;</span>
-                            Playtest
-                        </span>
-                    </div>
+                    <div data-channel-list></div>
                 </section>
             </div>
 
@@ -80,7 +40,7 @@
                     <span class="chat-userbar-tag" data-user-status>not signed in</span>
                 </div>
                 <a class="chat-icon-button" href="/settings" aria-label="Settings">&#9881;</a>
-                <a class="chat-icon-button" href="/login" data-nav-guest aria-label="Sign in">&#8594;</a>
+                <a class="chat-icon-button" href="/login?next=%2Fchat" data-nav-guest aria-label="Sign in">&#8594;</a>
                 <button class="chat-icon-button" type="button" data-logout data-nav-user hidden aria-label="Log out">
                     &times;
                 </button>
@@ -95,7 +55,7 @@
                 </button>
                 <span class="chat-hash" aria-hidden="true">#</span>
                 <h1 data-channel-title>general</h1>
-                <p class="chat-topic" data-channel-topic>Whatever the current build is doing.</p>
+                <p class="chat-topic" data-channel-topic></p>
                 <button class="chat-text-button chat-members-toggle" type="button" data-toggle-members
                         aria-pressed="false">
                     Members
@@ -107,11 +67,11 @@
 
             <form class="chat-composer" data-composer>
                 <div class="chat-composer-field">
-                    <textarea rows="1" data-message-input aria-label="Message"
+                    <textarea rows="1" maxlength="500" data-message-input aria-label="Message"
                               placeholder="Message #general"></textarea>
                     <button class="button small chat-send" type="submit">Send</button>
                 </div>
-                <p class="chat-hint">Enter sends, Shift+Enter starts a new line.</p>
+                <p class="chat-hint" data-chat-hint>Enter sends, Shift+Enter starts a new line.</p>
             </form>
         </main>
 
@@ -122,7 +82,11 @@
         <div class="chat-backdrop" data-chat-backdrop hidden></div>
     </div>
 
+    <noscript>
+        <p class="chat-noscript">Chat needs JavaScript: the page reads the room it is showing.</p>
+    </noscript>
+
     <script src="/app.js?v=standing-2" defer></script>
-    <script src="/chat.js?v=chat-1" defer></script>
+    <script src="/chat.js?v=chat-2" defer></script>
 </body>
 </html>

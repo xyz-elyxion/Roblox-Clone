@@ -232,6 +232,23 @@ struct BlockRecord {
     std::string createdAt;
 };
 
+// One line in one channel of one game's chat. The username is copied in the way
+// a report's is, so a message still reads correctly after a rename or a deletion
+// rather than turning into an id nobody can look up.
+struct ChatMessageRecord {
+    int id = 0;
+    int gameId = 0;
+    // One of the channel ids in ChatRoom.h; the store never invents one.
+    std::string channel;
+    int userId = 0;
+    std::string username;
+    std::string body;
+    std::string createdAt;
+    // When the same moment as createdAt, in milliseconds, so a message's age can
+    // be compared with presence without parsing a timestamp.
+    long long atMs = 0;
+};
+
 // How many AI training tokens one account may hold at once. A developer token is
 // a long-lived credential for a program rather than a session, so a handful of
 // them is plenty, and the cap keeps one leaked account from filling the file with
@@ -446,6 +463,21 @@ public:
     bool blockedEitherWay(int firstUserId, int secondUserId) const;
     std::vector<const BlockRecord*> blocksBy(int userId) const;
 
+    // chat
+    // Appends one message and returns its id, or 0 for a record that is not a
+    // message (no game, no account, no channel or no text). The oldest messages
+    // of a channel, and of the whole file, are dropped to keep it bounded.
+    int addChatMessage(const ChatMessageRecord& record);
+    // The newest messages of one channel, oldest first. An `afterId` above zero
+    // returns only what a polling page has not seen yet.
+    std::vector<const ChatMessageRecord*> chatMessages(int gameId, const std::string& channel,
+                                                      int afterId, std::size_t limit) const;
+    std::size_t chatMessageCount() const { return chat_.size(); }
+    // A game's chat goes with the game, and an account's messages go with the
+    // account: deleting either leaves nothing behind that a reader could find.
+    void removeChatMessagesForGame(int gameId);
+    void removeChatMessagesForUser(int userId);
+
     // developer tokens
     // Stores one token; 0 when the account already holds its share or the install
     // holds its own. The caller mints and hashes the secret.
@@ -476,6 +508,8 @@ public:
 
 private:
     void resolveOwnerNames();
+    // Drops the oldest messages once a channel or the file is over its bound.
+    void trimChat();
     StatsRecord* findOrCreateStats(int userId);
     AvatarRecord* findOrCreateAvatar(int userId);
 
@@ -501,6 +535,7 @@ private:
     std::vector<AppealRecord> appeals_;
     std::vector<HardwareBanRecord> hardwareBans_;
     std::vector<DevTokenRecord> devTokens_;
+    std::vector<ChatMessageRecord> chat_;
     int nextUserId_ = 1;
     int nextFriendshipId_ = 1;
     int nextGameId_ = 1;
@@ -512,6 +547,7 @@ private:
     mutable int nextInfractionId_ = 1;
     int nextAppealId_ = 1;
     int nextDevTokenId_ = 1;
+    int nextChatMessageId_ = 1;
 };
 
 // Turns key material written by a person into the 32 bytes AES-256 takes: 64 hex

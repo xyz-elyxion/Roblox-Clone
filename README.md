@@ -503,6 +503,7 @@ Configuration comes from the environment:
 | `CORS_ORIGIN` | — | Comma-separated allowed origins; same-origin is always allowed |
 | `AUTH_RATE_LIMIT_WINDOW_MS` / `AUTH_RATE_LIMIT_MAX` | — | Extra throttling for account endpoints |
 | `RATE_LIMIT_WINDOW_MS` / `RATE_LIMIT_MAX` | `60000` / `600` | API budget per client address |
+| `CHAT_RATE_LIMIT_WINDOW_MS` / `CHAT_RATE_LIMIT_MAX` | `10000` / `5` | How many chat messages one account may post per window |
 | `BAN_WAVE_WINDOW_MS` | `300000` | How long a detection is held before the wave acts |
 | `GAME_WORLDS_DIR` | `web/game-worlds` | Where published `.world` files are written |
 | `GAME_SERVER_HOST` / `GAME_SERVER_BASE_PORT` | `127.0.0.1` / `7777` | Local game-server address |
@@ -668,12 +669,30 @@ its own copy of the script, so editing it never touches the bundled original.
 
 ### Chat
 
-`/chat` is a Discord-shaped chat view for the site: a server rail down the left, the channel list,
-the message log and the member list, filling the window instead of sitting in the page column. The
-four channels and the conversation in them are seed data that shows the shape of the page; the
-composer works, groups consecutive messages by the same author, and keeps what you send, but it
-keeps it in the tab -- there is no chat API behind this page, and the game's own chat is in the
-client, inside a running instance. It is a preview of the layout, not a second chat network.
+`/chat` is the site's chat, not a picture of one: a server rail listing every public game, the
+channel list of the room you are in, the message log and the member list. Every room has the same
+four channels — `general`, `world-building`, `bug-reports` and `sound-design` — and that list comes
+from the server, so the page and the store cannot disagree about what a channel is called.
+
+Messages are rows in the data file `WebApp.exe` already owns (`web/users.json`), with the author's
+name copied in, so a message still reads correctly after a rename or a deletion. Reading is open to
+anyone; posting needs an account, and the endpoint checks the account's standing, so a suspended or
+banned account can read a room and cannot write to it. A channel keeps its newest 200 messages and
+the install keeps its newest 4000, oldest dropped first, so chat history cannot become the largest
+thing in the file. Deleting a game or an account deletes the messages that belong to it.
+
+The page is live because it polls: while the tab is visible it asks for messages after the newest
+id it already has every four seconds, and appending only what is new is what keeps the log from
+flickering. The poll is also what keeps you in the member list, so the online dots come from the
+same request as the messages. Blocking works here as it does everywhere — a block hides both
+accounts' messages from each other, and the log reports how many it hid instead of looking
+truncated for no reason.
+
+One account may post five messages in ten seconds (`CHAT_RATE_LIMIT_MAX` per
+`CHAT_RATE_LIMIT_WINDOW_MS`); past that the composer shows the wait the server sent back rather
+than losing the text. Guests can read: the composer explains that posting needs an account and
+links to the sign-in page. Served straight from `web/public` with no backend, the page says it
+cannot reach the chat instead of showing a conversation that never happened.
 
 The layout folds down with the window: the member list becomes a drawer below 1180px and the
 channel column below 900px, both closed with Escape or a click outside. Every colour comes from the
@@ -780,6 +799,14 @@ compatibility fallback, but new callers should use the header.
 | `POST /api/friends/remove` | Removes a friend or cancels a pending request |
 | `POST /api/blocks` | `{ "userId": 2, "blocked": true }` |
 | `POST /api/reports` | `{ "targetType": "game", "targetId": 1, "reason": "..." }` |
+
+### Chat
+
+| Route | What it does |
+| --- | --- |
+| `GET /api/chat` | Public games as chat servers, the channel list, and whether the caller is signed in |
+| `GET /api/chat/:id?channel=general&after=0` | One room: messages (only newer than `after`), members, and what the caller may do |
+| `POST /api/chat/:id/messages` | `{ "channel": "general", "body": "..." }` — posts as the caller; 500 characters at most |
 
 ### Games
 

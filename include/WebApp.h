@@ -8,6 +8,7 @@
 #include <thread>
 #include <vector>
 
+#include "ChatRoom.h"
 #include "Moderation.h"
 #include "WebHttp.h"
 #include "WebJson.h"
@@ -36,6 +37,11 @@ struct Config {
     // running beside the website use the same endpoints over loopback.
     long long rateLimitWindowMs = 60 * 1000;
     int rateLimitMax = 600;
+    // How often one account may post in a game's chat. Chat is the one endpoint a
+    // person legitimately sends a burst through, so it gets a budget of its own
+    // instead of eating the site-wide one.
+    long long chatRateWindowMs = 10 * 1000;
+    int chatRateMax = 5;
     // Detections are acted on in waves. An account climbs one step once its
     // oldest held detection is this old, so everyone caught in the same window is
     // answered together and a burst on one account is one step, not a climb.
@@ -281,6 +287,20 @@ private:
     bool handleExportData(Request& request, Response& response);
     bool handleBlockUser(Request& request, Response& response);
     bool handleReport(Request& request, Response& response);
+    // Chat: the rooms a signed-out visitor may read, one room's messages and
+    // members, and posting into a channel.
+    bool handleChatServers(Request& request, Response& response);
+    bool handleChatRoom(Request& request, Response& response);
+    bool handleChatPost(Request& request, Response& response);
+    Json chatChannelJson(const chat::Channel& channel) const;
+    Json chatMessageJson(const ChatMessageRecord& message, int viewerId) const;
+    // The people in a room: whoever polled it recently plus whoever wrote the
+    // page of messages being read, so a quiet room still names its regulars.
+    Json chatMembersJson(const GameRecord& game, long long nowMs, int viewerId,
+                         const std::vector<const ChatMessageRecord*>& page);
+    int chatOnlineCount(int gameId, long long nowMs) const;
+    void markChatPresence(int gameId, int userId, long long nowMs);
+    bool isChatRateLimited(int userId, int* retryAfterSeconds);
     bool handleBuyItem(Request& request, Response& response);
     bool handleEquipItem(Request& request, Response& response);
     // Catalog plus what this account owns and wears, in one list.
@@ -334,6 +354,11 @@ private:
     std::map<std::string, std::vector<long long>> authAttempts_;
     std::map<std::string, std::deque<long long>> requestHits_;
     std::map<std::string, CaptchaChallenge> captchas_;
+    // Who is in which room right now, and when each account last posted. Both
+    // are presence rather than history: the data file keeps messages, not who
+    // happened to be looking at them when the server restarted.
+    std::map<int, std::map<int, long long>> chatPresence_;
+    std::map<int, std::deque<long long>> chatPostTimes_;
     std::thread ticker_;
     bool tickerRunning_ = false;
     bool initialized_ = false;

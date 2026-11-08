@@ -827,6 +827,17 @@ std::string quoteWindowsArgument(const std::string& argument) {
 
 }  // namespace
 
+// A room only exists once its game does, so creating one must not depend on a
+// world file lying around somewhere. This is the baseplate the Create page
+// publishes when nothing was uploaded: a flat plate with one spawn on it, in the
+// same text format Studio writes.
+std::string starterWorldSource() {
+    return
+        "2\n"
+        "0 \"Baseplate\" -1 0 0 0 0 -0.5 0 240 2 240 0.22 0.24 0.28 0 0 0 0 0 1 1 0\n"
+        "0 \"SpawnLocation\" -1 0 0 1 0 1 0 6 1 6 0.25 0.55 1.0 0 0 0 0 0 1 1 0\n";
+}
+
 bool analyzeWorldSource(const std::string& worldText, WorldAnalysis* analysis,
                         std::string* error) {
     if (analysis == nullptr) {
@@ -5243,6 +5254,9 @@ bool WebsiteApp::createGame(const AuthUser& user, const Json& body, GameRecord* 
     std::string worldText = body.member("worldText").asString();
     if (worldText.empty()) {
         worldText = body.member("world").asString();
+    }
+    if (worldText.empty() && boolValue(body.member("starter"), false)) {
+        worldText = starterWorldSource();
     }
     WorldAnalysis analysis;
     std::string worldError;

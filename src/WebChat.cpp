@@ -14,6 +14,7 @@
 #include <cstdlib>
 #include <ctime>
 #include <utility>
+#include <vector>
 
 namespace rblx {
 namespace web {
@@ -211,8 +212,23 @@ bool WebsiteApp::handleChatServers(Request& request, Response& response) {
     optionalAuth(request, &user, &signedIn);
     const long long now = chatMillis();
 
+    // The rail is the room list, and your own game keeps its room there even
+    // while the game is private: the room endpoints already let an owner in, so
+    // hiding it was what made "my own server" unreachable.
+    std::vector<const GameRecord*> listed = store_.publicGames(chat::kMaxServers);
+    if (signedIn) {
+        for (const GameRecord* owned : store_.gamesOwnedBy(user.id)) {
+            if (!owned->isPublic) {
+                listed.push_back(owned);
+            }
+        }
+    }
+
     Json servers = Json::makeArray();
-    for (const GameRecord* game : store_.publicGames(chat::kMaxServers)) {
+    for (const GameRecord* game : listed) {
+        if (servers.size() >= chat::kMaxServers) {
+            break;
+        }
         Json entry = Json::makeObject();
         entry.set("id", game->id);
         entry.set("title", game->title);

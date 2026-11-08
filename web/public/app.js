@@ -1551,6 +1551,16 @@ function initCreateGamePage() {
     const status = document.querySelector('[data-create-game-status]');
     const myGames = document.querySelector('[data-my-games-list]');
     const submit = form.querySelector('button[type="submit"]');
+    const worldFile = form.elements.world;
+    // The baseplate is the default so a room can be made from the browser; the
+    // file picker only takes part when it is the chosen source.
+    const syncWorldInput = () => {
+        worldFile.disabled = form.elements.worldMode.value !== 'file';
+    };
+    form.querySelectorAll('input[name="worldMode"]').forEach((radio) => {
+        radio.addEventListener('change', syncWorldInput);
+    });
+    syncWorldInput();
 
     requireSession()
         .then((session) => {
@@ -1565,9 +1575,10 @@ function initCreateGamePage() {
         event.preventDefault();
         setStatus(status, '', '');
 
-        const file = form.elements.world.files[0];
-        if (!file) {
-            setStatus(status, 'Choose a .world file.', 'error');
+        const useFile = form.elements.worldMode.value === 'file';
+        const file = useFile ? form.elements.world.files[0] : null;
+        if (useFile && !file) {
+            setStatus(status, 'Choose a .world file, or start from the baseplate.', 'error');
             return;
         }
 
@@ -1575,18 +1586,22 @@ function initCreateGamePage() {
         submit.textContent = 'Publishing';
 
         try {
-            const worldText = await file.text();
             const body = {
                 title: form.elements.title.value,
                 description: form.elements.description.value,
-                isPublic: form.elements.isPublic.checked,
-                worldText
+                isPublic: form.elements.isPublic.checked
             };
+            if (useFile) {
+                body.worldText = await file.text();
+            } else {
+                body.starter = true;
+            }
             const { response, data } = await postJson('/api/games', body, getToken());
             if (!response.ok || !data.success) throw new Error(data.error || 'Publish failed.');
             setStatus(status, 'Game published.', 'success');
             form.reset();
             form.elements.isPublic.checked = true;
+            syncWorldInput();
             await loadMyGames(myGames, status);
             window.history.replaceState(null, '', `/create?published=${data.game.id}`);
         } catch (error) {

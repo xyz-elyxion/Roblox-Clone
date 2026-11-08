@@ -695,6 +695,13 @@ badge disappears when the messages were actually on screen, not when a tab happe
 The mark is a row in the data file, one per account, room and channel, so a badge survives a
 restart, and the browser tab shows the total while you are reading something else.
 
+A room exists because a game does, so the rail lists the public games plus every game of your own,
+private ones included — a room you own is yours to sit in before anyone else can see it. Making
+that room used to mean having a `.world` file to upload, which a browser-only account does not
+have, so <a href="create.html">Create</a> now offers a blank baseplate as the default: a flat plate
+and one spawn, published by the server from `starterWorldSource()` rather than from a file. Picking
+"Upload a .world file" does exactly what it did before.
+
 One account may post five messages in ten seconds (`CHAT_RATE_LIMIT_MAX` per
 `CHAT_RATE_LIMIT_WINDOW_MS`); past that the composer shows the wait the server sent back rather
 than losing the text. Guests can read: the composer explains that posting needs an account and
@@ -822,7 +829,7 @@ compatibility fallback, but new callers should use the header.
 | `GET /api/games` | Public games for the games page |
 | `GET /api/games/:id` | Details, world stats and active local instances |
 | `GET /api/games/mine` | Your published games |
-| `POST /api/games` | `{ "title", "description", "isPublic", "worldText" }` — publishes a world file |
+| `POST /api/games` | `{ "title", "description", "isPublic", "worldText" }` — publishes a world file; `{ "starter": true }` instead of `worldText` publishes a blank baseplate |
 | `POST /api/games/:id/play` | Starts or reuses a local server; returns native launch metadata |
 | `GET /api/games/:id/script` | Owner only: the script text and the 256 KB limit |
 | `PUT /api/games/:id/script` | Owner only: `{ "text": "..." }` |

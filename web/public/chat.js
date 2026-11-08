@@ -5,6 +5,7 @@
 // without the backend says so instead of showing a conversation that never
 // happened.
 
+const chatBaseTitle = document.title;
 const chatPollMs = 4000;
 
 const chatShell = document.querySelector('[data-chat-shell]');
@@ -40,7 +41,9 @@ const chatState = {
     maxLength: 500,
     polling: false,
     sending: false,
-    pollTimer: 0
+    pollTimer: 0,
+    pollCount: 0,
+    unreadTotal: 0
 };
 
 function chatInitials(name) {
@@ -175,6 +178,63 @@ function chatDivider(label) {
     return divider;
 }
 
+function chatBadge(node, count) {
+    const unread = Number(count) || 0;
+    const existing = node.querySelector('.chat-badge');
+    if (unread <= 0) {
+        if (existing) {
+            existing.remove();
+        }
+        return;
+    }
+    if (existing) {
+        existing.textContent = unread > 99 ? '99+' : String(unread);
+        existing.title = `${unread} unread`;
+        return;
+    }
+    const badge = document.createElement('span');
+    badge.className = 'chat-badge';
+    badge.textContent = unread > 99 ? '99+' : String(unread);
+    badge.title = `${unread} unread`;
+    node.append(badge);
+}
+
+function chatSyncTitle() {
+    if (chatState.unreadTotal > 0) {
+        const count = chatState.unreadTotal > 99 ? '99+' : String(chatState.unreadTotal);
+        document.title = `(${count}) ${chatBaseTitle}`;
+    } else {
+        document.title = chatBaseTitle;
+    }
+}
+
+function chatRefreshBadges() {
+    let total = 0;
+    for (const server of chatState.servers) {
+        const unread = Number(server.unread) || 0;
+        total += unread;
+        const button = chatGuilds.querySelector(`.chat-guild[data-server="${server.id}"]`);
+        if (!button) {
+            continue;
+        }
+        chatBadge(button, unread);
+        button.title = server.online > 0
+            ? `${server.title} — ${server.online} online`
+            : server.title;
+    }
+    chatState.unreadTotal = total;
+    chatSyncTitle();
+}
+
+function chatUpdateChannelBadges(channels) {
+    for (const channel of channels) {
+        const button = channelList.querySelector(`[data-channel="${channel.id}"]`);
+        if (button) {
+            chatBadge(button, channel.unread);
+        }
+    }
+}
+
 function chatAtBottom() {
     return chatLog.scrollHeight - chatLog.scrollTop - chatLog.clientHeight < 120;
 }
@@ -272,6 +332,7 @@ function chatRenderGuilds() {
         const button = document.createElement('button');
         button.type = 'button';
         button.className = 'chat-guild';
+        button.dataset.server = String(server.id);
         button.textContent = chatInitials(server.title);
         button.title = server.online > 0
             ? `${server.title} — ${server.online} online`
@@ -287,6 +348,7 @@ function chatRenderGuilds() {
         });
         chatGuilds.append(button);
     }
+    chatRefreshBadges();
 }
 
 function chatRenderChannels() {
@@ -310,6 +372,8 @@ function chatRenderChannels() {
             button.classList.add('is-active');
             button.setAttribute('aria-current', 'true');
         }
+
+        chatBadge(button, channel.unread);
 
         button.addEventListener('click', () => {
             chatSelectChannel(channel.id);
@@ -434,8 +498,15 @@ function chatApplyRoom(data, reset) {
     chatState.userId = Number(you.id) || 0;
     chatState.username = you.username || '';
 
+    const known = chatState.servers.find((entry) => entry.id === data.game.id);
+    if (known) {
+        known.online = Number(data.game.online) || 0;
+        known.unread = Number(data.game.unread) || 0;
+    }
+
     chatRenderHead(data.game);
     chatRenderChannels();
+    chatRefreshBadges();
     if (reset && data.hidden > 0) {
         chatLog.append(chatNotice(
             `${data.hidden} message${data.hidden === 1 ? '' : 's'} hidden because of a block.`));
@@ -452,6 +523,8 @@ function chatApplyRoom(data, reset) {
 function chatFatal(message) {
     chatState.gameId = 0;
     chatState.canPost = false;
+    chatState.unreadTotal = 0;
+    chatSyncTitle();
     chatLog.replaceChildren(chatNotice(message));
     memberGroups.replaceChildren();
     channelList.replaceChildren();
@@ -531,8 +604,14 @@ async function chatPoll() {
 
         const atBottom = chatAtBottom();
         chatRenderHead(data.game);
+        chatUpdateChannelBadges(data.channels || []);
         chatRenderMembers(data.members || []);
         chatRenderLog(data.messages || [], false);
+
+        chatState.pollCount += 1;
+        if (chatState.pollCount % 3 === 0) {
+            await chatRefreshServers();
+        }
         chatShowUser();
         chatSyncComposer();
         if (atBottom) {
@@ -541,6 +620,21 @@ async function chatPoll() {
     } finally {
         chatState.polling = false;
     }
+}
+
+async function chatRefreshServers() {
+    const response = await chatJson('/api/chat', {});
+    if (!response.ok) {
+        return;
+    }
+    for (const server of response.data.servers || []) {
+        const known = chatState.servers.find((entry) => entry.id === server.id);
+        if (known) {
+            known.online = Number(server.online) || 0;
+            known.unread = Number(server.unread) || 0;
+        }
+    }
+    chatRefreshBadges();
 }
 
 function chatStartPolling() {
@@ -681,6 +775,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible') {
             chatPoll();
+            chatRefreshServers();
         }
     });
 

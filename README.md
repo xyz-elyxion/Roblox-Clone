@@ -688,6 +688,13 @@ same request as the messages. Blocking works here as it does everywhere — a bl
 accounts' messages from each other, and the log reports how many it hid instead of looking
 truncated for no reason.
 
+Unread state belongs to the room rather than to the tab: the rail counts each room's unread messages
+and the channel list counts each channel's, and a message stops counting when the account has seen
+it. The mark moves with the page that is being drawn — a poll of a channel marks it read — so a
+badge disappears when the messages were actually on screen, not when a tab happened to gain focus.
+The mark is a row in the data file, one per account, room and channel, so a badge survives a
+restart, and the browser tab shows the total while you are reading something else.
+
 One account may post five messages in ten seconds (`CHAT_RATE_LIMIT_MAX` per
 `CHAT_RATE_LIMIT_WINDOW_MS`); past that the composer shows the wait the server sent back rather
 than losing the text. Guests can read: the composer explains that posting needs an account and

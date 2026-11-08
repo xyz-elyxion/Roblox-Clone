@@ -133,6 +133,9 @@ hide both accounts' messages from each other. History is bounded at 200 messages
 4000 per install, oldest first, so the data file cannot be filled through chat, and deleting a game
 or an account deletes the messages that belonged to it. Presence — who is in which room — lives in
 memory for five minutes and is never written to disk.
+Read marks are one row per account, room and channel, kept beside the messages; an unread count
+is computed from the account's own mark and the room's messages, never from another account's
+data.
 
 ## Changing security-relevant code
 

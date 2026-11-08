@@ -219,6 +219,8 @@ bool WebsiteApp::handleChatServers(Request& request, Response& response) {
         entry.set("owner", game->ownerUsername);
         entry.set("iconPath", game->iconPath);
         entry.set("online", chatOnlineCount(game->id, now));
+        // Only a signed-in caller has read anything, so only they carry a badge.
+        entry.set("unread", signedIn ? store_.unreadChatMessagesInGame(user.id, game->id) : 0);
         servers.push(entry);
     }
 
@@ -295,9 +297,23 @@ bool WebsiteApp::handleChatRoom(Request& request, Response& response) {
         list.push(chatMessageJson(*message, user.id));
     }
 
+    // Opening a channel, or polling one that is already open, is reading it, so
+    // the mark moves with the page about to be drawn. The save is skipped when
+    // the mark stood still, which is every poll that found nothing new.
+    if (signedIn && !messages.empty()) {
+        if (store_.setChatReadMark(user.id, game->id, channel->id, messages.back()->id)) {
+            std::string readError;
+            store_.save(&readError);
+        }
+    }
+
     Json channels = Json::makeArray();
     for (const chat::Channel& entry : chat::channels()) {
-        channels.push(chatChannelJson(entry));
+        Json channelJson = chatChannelJson(entry);
+        channelJson.set("unread", signedIn
+                                     ? store_.unreadChatMessages(user.id, game->id, entry.id)
+                                     : 0);
+        channels.push(channelJson);
     }
 
     Json server = Json::makeObject();
@@ -307,6 +323,7 @@ bool WebsiteApp::handleChatRoom(Request& request, Response& response) {
     server.set("description", game->description);
     server.set("isOwner", signedIn && game->ownerId == user.id);
     server.set("online", chatOnlineCount(game->id, now));
+    server.set("unread", signedIn ? store_.unreadChatMessagesInGame(user.id, game->id) : 0);
 
     Json you = Json::makeObject();
     you.set("signedIn", signedIn);

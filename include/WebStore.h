@@ -249,6 +249,16 @@ struct ChatMessageRecord {
     long long atMs = 0;
 };
 
+// How far one account has read in one channel. Kept on disk so an unread badge
+// survives a restart: a badge that resets every time the website restarts would
+// teach people to ignore it.
+struct ChatReadRecord {
+    int userId = 0;
+    int gameId = 0;
+    std::string channel;
+    int lastMessageId = 0;
+};
+
 // How many AI training tokens one account may hold at once. A developer token is
 // a long-lived credential for a program rather than a session, so a handful of
 // them is plenty, and the cap keeps one leaked account from filling the file with
@@ -478,6 +488,19 @@ public:
     void removeChatMessagesForGame(int gameId);
     void removeChatMessagesForUser(int userId);
 
+    // unread
+    // The newest message id the account has seen in one channel; 0 when it has
+    // never opened that channel.
+    int chatReadMark(int userId, int gameId, const std::string& channel) const;
+    // Advances the mark; false when it would stand still or move backwards, so a
+    // caller rewrites the data file only when something was actually read.
+    bool setChatReadMark(int userId, int gameId, const std::string& channel,
+                         int lastMessageId);
+    // Messages in one channel newer than the account's mark.
+    int unreadChatMessages(int userId, int gameId, const std::string& channel) const;
+    // Every channel of one game added up, for the badge on the server rail.
+    int unreadChatMessagesInGame(int userId, int gameId) const;
+
     // developer tokens
     // Stores one token; 0 when the account already holds its share or the install
     // holds its own. The caller mints and hashes the secret.
@@ -536,6 +559,7 @@ private:
     std::vector<HardwareBanRecord> hardwareBans_;
     std::vector<DevTokenRecord> devTokens_;
     std::vector<ChatMessageRecord> chat_;
+    std::vector<ChatReadRecord> chatReads_;
     int nextUserId_ = 1;
     int nextFriendshipId_ = 1;
     int nextGameId_ = 1;

@@ -174,6 +174,7 @@ void Store::clear() {
     appeals_.clear();
     hardwareBans_.clear();
     chat_.clear();
+    chatReads_.clear();
     nextUserId_ = 1;
     nextFriendshipId_ = 1;
     nextGameId_ = 1;
@@ -431,6 +432,19 @@ bool Store::load(std::string* error) {
         nextChatMessageId_ = std::max(nextChatMessageId_, record.id + 1);
     }
 
+    for (const Json& entry : document.member("chatReads").elements()) {
+        ChatReadRecord record;
+        record.userId = static_cast<int>(entry.member("userId").asInteger(0));
+        record.gameId = static_cast<int>(entry.member("gameId").asInteger(0));
+        record.channel = entry.member("channel").asString();
+        record.lastMessageId = static_cast<int>(entry.member("lastMessageId").asInteger(0));
+        if (record.userId <= 0 || record.gameId <= 0 || record.lastMessageId <= 0 ||
+            chat::findChannel(record.channel) == nullptr) {
+            continue;
+        }
+        chatReads_.push_back(record);
+    }
+
     for (const Json& entry : document.member("appeals").elements()) {
         AppealRecord record;
         record.id = static_cast<int>(entry.member("id").asInteger(0));
@@ -644,6 +658,17 @@ bool Store::save(std::string* error) const {
         chat.push(entry);
     }
     document.set("chat", chat);
+
+    Json chatReads = Json::makeArray();
+    for (const ChatReadRecord& record : chatReads_) {
+        Json entry = Json::makeObject();
+        entry.set("userId", record.userId);
+        entry.set("gameId", record.gameId);
+        entry.set("channel", record.channel);
+        entry.set("lastMessageId", record.lastMessageId);
+        chatReads.push(entry);
+    }
+    document.set("chatReads", chatReads);
 
     Json appeals = Json::makeArray();
     for (const AppealRecord& record : appeals_) {
@@ -1531,6 +1556,13 @@ void Store::removeChatMessagesForGame(int gameId) {
                                    return record.gameId == gameId;
                                }),
                 chat_.end());
+    // A read mark without its room would keep a badge alive for a game that is
+    // gone, so the marks go with the messages.
+    chatReads_.erase(std::remove_if(chatReads_.begin(), chatReads_.end(),
+                                    [gameId](const ChatReadRecord& record) {
+                                        return record.gameId == gameId;
+                                    }),
+                     chatReads_.end());
 }
 
 void Store::removeChatMessagesForUser(int userId) {
@@ -1539,6 +1571,67 @@ void Store::removeChatMessagesForUser(int userId) {
                                    return record.userId == userId;
                                }),
                 chat_.end());
+    chatReads_.erase(std::remove_if(chatReads_.begin(), chatReads_.end(),
+                                    [userId](const ChatReadRecord& record) {
+                                        return record.userId == userId;
+                                    }),
+                     chatReads_.end());
+}
+
+int Store::chatReadMark(int userId, int gameId, const std::string& channel) const {
+    for (const ChatReadRecord& record : chatReads_) {
+        if (record.userId == userId && record.gameId == gameId &&
+            record.channel == channel) {
+            return record.lastMessageId;
+        }
+    }
+    return 0;
+}
+
+bool Store::setChatReadMark(int userId, int gameId, const std::string& channel,
+                           int lastMessageId) {
+    if (userId <= 0 || gameId <= 0 || lastMessageId <= 0 ||
+        chat::findChannel(channel) == nullptr) {
+        return false;
+    }
+    for (ChatReadRecord& record : chatReads_) {
+        if (record.userId != userId || record.gameId != gameId ||
+            record.channel != channel) {
+            continue;
+        }
+        if (lastMessageId <= record.lastMessageId) {
+            return false;
+        }
+        record.lastMessageId = lastMessageId;
+        return true;
+    }
+
+    ChatReadRecord record;
+    record.userId = userId;
+    record.gameId = gameId;
+    record.channel = channel;
+    record.lastMessageId = lastMessageId;
+    chatReads_.push_back(record);
+    return true;
+}
+
+int Store::unreadChatMessages(int userId, int gameId, const std::string& channel) const {
+    const int mark = chatReadMark(userId, gameId, channel);
+    int unread = 0;
+    for (const ChatMessageRecord& record : chat_) {
+        if (record.gameId == gameId && record.channel == channel && record.id > mark) {
+            ++unread;
+        }
+    }
+    return unread;
+}
+
+int Store::unreadChatMessagesInGame(int userId, int gameId) const {
+    int unread = 0;
+    for (const chat::Channel& channel : chat::channels()) {
+        unread += unreadChatMessages(userId, gameId, channel.id);
+    }
+    return unread;
 }
 
 void Store::trimChat() {

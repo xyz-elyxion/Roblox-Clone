@@ -2334,7 +2334,9 @@ textarea.input {
         left: 72px;
         width: 240px;
         z-index: 25;
-        transform: translateX(-110%);
+        /* Clear the rail entirely: a percentage alone parks the drawer over the
+           left few pixels of it, which clipped the unread badges. */
+        transform: translateX(calc(-100% - 80px));
         transition: transform 160ms ease;
     }
 
@@ -2435,4 +2437,35 @@ textarea.input {
     color: var(--muted);
     font-size: 14px;
     text-align: center;
+}
+
+/* Unread badges: the rail counts a room, the channel list counts a channel. */
+.chat-guilds .chat-guild {
+    position: relative;
+}
+
+.chat-badge {
+    display: inline-grid;
+    place-items: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 4px;
+    border: 2px solid var(--fg);
+    background: var(--fg);
+    color: var(--bg);
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.chat-guilds .chat-badge {
+    position: absolute;
+    top: -6px;
+    right: -8px;
+    border-color: var(--panel-alt);
+}
+
+.chat-channel .chat-badge {
+    margin-left: auto;
+    border-color: var(--panel-alt);
 }

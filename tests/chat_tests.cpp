@@ -189,6 +189,59 @@ void testStore() {
           "deleting one game spares the other");
 }
 
+void testUnread() {
+    Harness harness;
+    const int first = harness.post(1, "general", 1, "one");
+    harness.post(1, "general", 2, "two");
+    harness.post(1, "bug-reports", 2, "three");
+    harness.post(2, "general", 1, "other room");
+
+    check(harness.store.chatReadMark(2, 1, "general") == 0,
+          "a channel nobody opened has no mark");
+    check(harness.store.unreadChatMessages(2, 1, "general") == 2, "both messages are unread");
+    check(harness.store.unreadChatMessagesInGame(2, 1) == 3, "a room's channels add up");
+    check(harness.store.unreadChatMessages(2, 2, "general") == 1,
+          "another room counts on its own");
+
+    check(harness.store.setChatReadMark(2, 1, "general", first), "a mark advances");
+    check(harness.store.chatReadMark(2, 1, "general") == first,
+          "the mark keeps the newest id read");
+    check(harness.store.unreadChatMessages(2, 1, "general") == 1, "what was read stops counting");
+    check(!harness.store.setChatReadMark(2, 1, "general", first - 1),
+          "a mark never moves backwards");
+    check(!harness.store.setChatReadMark(2, 1, "general", first),
+          "the same mark is not an advance");
+    check(!harness.store.setChatReadMark(2, 1, "invented", first + 1),
+          "an unknown channel has no mark");
+
+    check(harness.store.setChatReadMark(2, 1, "bug-reports", first + 10),
+          "a mark may pass everything a channel holds");
+    check(harness.store.unreadChatMessages(2, 1, "bug-reports") == 0,
+          "a mark past the end reads the channel");
+
+    check(harness.store.unreadChatMessages(1, 1, "general") == 2,
+          "another account's unread is untouched");
+
+    // Deleting an account takes its messages and its own marks, and leaves the
+    // rest of the room exactly as it was for everybody else.
+    harness.store.removeChatMessagesForUser(2);
+    check(harness.store.chatReadMark(2, 1, "general") == 0,
+          "a deleted account takes its read marks with it");
+    bool anyFromDeleted = false;
+    for (const rblx::web::ChatMessageRecord* message :
+         harness.store.chatMessages(1, "general", 0, 100)) {
+        anyFromDeleted = anyFromDeleted || message->userId == 2;
+    }
+    check(!anyFromDeleted, "and its messages");
+    check(harness.store.unreadChatMessages(1, 1, "general") == 1,
+          "another account still sees the channel's messages as unread");
+
+    harness.store.setChatReadMark(3, 1, "general", first);
+    harness.store.removeChatMessagesForGame(1);
+    check(harness.store.chatReadMark(3, 1, "general") == 0,
+          "deleting a room clears the marks of it");
+}
+
 void testPersistence() {
     const std::string path = "chat-tests-data.json";
     std::remove(path.c_str());
@@ -199,7 +252,8 @@ void testPersistence() {
         harness.store.setPath(path);
         harness.post(1, "general", 1, "before the restart");
         harness.post(1, "sound-design", 2, "second line");
-        lastId = harness.post(2, "bug-reports", 1, "kept");
+        lastId =        harness.post(2, "bug-reports", 1, "kept");
+        check(harness.store.setChatReadMark(2, 1, "general", 1), "a read mark is set");
 
         std::string error;
         check(harness.store.save(&error), "the data file is written: " + error);
@@ -218,6 +272,9 @@ void testPersistence() {
               "a message keeps its author's name");
         check(general.size() == 1 && general[0]->atMs == 1000,
               "a message keeps its time");
+        check(reloaded.chatReadMark(2, 1, "general") == 1, "a read mark survives a reload");
+        check(reloaded.unreadChatMessages(2, 1, "general") == 0,
+              "and the reloaded room agrees it was read");
 
         // The id counter continues rather than restarting over live ids.
         rblx::web::ChatMessageRecord record;
@@ -241,6 +298,7 @@ int main() {
     testChannels();
     testNormalize();
     testStore();
+    testUnread();
     testPersistence();
 
     if (failures != 0) {

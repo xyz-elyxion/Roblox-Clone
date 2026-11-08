@@ -755,6 +755,11 @@ std::string pageFileForPath(const std::string& path) {
     if (path == "/games") {
         return "games.html";
     }
+    // A chat page in the shape of a Discord window: the game client's chat only
+    // exists inside a running instance, so the site had nothing to point at.
+    if (path == "/chat") {
+        return "chat.html";
+    }
     if (path == "/create") {
         return "create.html";
     }

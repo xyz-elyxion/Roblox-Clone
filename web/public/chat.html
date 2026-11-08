@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat - RBLX Clone</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body class="chat-body">
+    <a class="skip-link" href="#chat-log">Skip to messages</a>
+
+    <div class="chat-shell" data-chat-shell>
+        <nav class="chat-guilds" aria-label="Servers">
+            <a class="chat-guild chat-guild-home" href="/" aria-label="RBLX Clone home">R</a>
+            <span class="chat-guild-sep" aria-hidden="true"></span>
+            <button class="chat-guild is-active" type="button" aria-current="true" title="Sky Platformer">
+                SP
+            </button>
+            <button class="chat-guild" type="button" title="Turbo Circuit">TC</button>
+            <button class="chat-guild" type="button" title="Doors Hotel">DH</button>
+            <button class="chat-guild chat-guild-add" type="button" title="Create a server" aria-label="Create a server">
+                +
+            </button>
+        </nav>
+
+        <aside class="chat-channels" id="chat-channel-panel" data-channel-panel aria-label="Channels">
+            <header class="chat-server">
+                <div>
+                    <h2>Sky Platformer</h2>
+                    <p class="chat-server-meta">4 online</p>
+                </div>
+            </header>
+
+            <div class="chat-groups">
+                <section class="chat-group" aria-labelledby="chat-group-text">
+                    <h3 class="chat-group-title" id="chat-group-text">Text channels</h3>
+                    <button class="chat-channel is-active" type="button" data-channel="general" aria-current="true">
+                        <span class="chat-hash" aria-hidden="true">#</span>
+                        <span>general</span>
+                    </button>
+                    <button class="chat-channel" type="button" data-channel="world-building">
+                        <span class="chat-hash" aria-hidden="true">#</span>
+                        <span>world-building</span>
+                    </button>
+                    <button class="chat-channel" type="button" data-channel="bug-reports">
+                        <span class="chat-hash" aria-hidden="true">#</span>
+                        <span>bug-reports</span>
+                    </button>
+                    <button class="chat-channel" type="button" data-channel="sound-design">
+                        <span class="chat-hash" aria-hidden="true">#</span>
+                        <span>sound-design</span>
+                    </button>
+                </section>
+
+                <section class="chat-group" aria-labelledby="chat-group-voice">
+                    <h3 class="chat-group-title" id="chat-group-voice">Voice channels</h3>
+                    <div class="chat-voice">
+                        <span class="chat-voice-name">
+                            <span class="chat-hash" aria-hidden="true">&#9834;</span>
+                            Studio voice
+                        </span>
+                        <ul class="chat-voice-members">
+                            <li>Nova</li>
+                            <li>Kit</li>
+                        </ul>
+                    </div>
+                    <div class="chat-voice">
+                        <span class="chat-voice-name">
+                            <span class="chat-hash" aria-hidden="true">&#9834;</span>
+                            Playtest
+                        </span>
+                    </div>
+                </section>
+            </div>
+
+            <div class="chat-userbar">
+                <span class="chat-avatar" data-user-initials aria-hidden="true">G</span>
+                <div class="chat-userbar-text">
+                    <span class="chat-userbar-name" data-user-name>Guest</span>
+                    <span class="chat-userbar-tag" data-user-status>not signed in</span>
+                </div>
+                <a class="chat-icon-button" href="/settings" aria-label="Settings">&#9881;</a>
+                <a class="chat-icon-button" href="/login" data-nav-guest aria-label="Sign in">&#8594;</a>
+                <button class="chat-icon-button" type="button" data-logout data-nav-user hidden aria-label="Log out">
+                    &times;
+                </button>
+            </div>
+        </aside>
+
+        <main class="chat-main" id="main">
+            <header class="chat-head">
+                <button class="chat-icon-button chat-channels-toggle" type="button" data-toggle-channels
+                        aria-expanded="false" aria-controls="chat-channel-panel" aria-label="Show channels">
+                    &#9776;
+                </button>
+                <span class="chat-hash" aria-hidden="true">#</span>
+                <h1 data-channel-title>general</h1>
+                <p class="chat-topic" data-channel-topic>Whatever the current build is doing.</p>
+                <button class="chat-text-button chat-members-toggle" type="button" data-toggle-members
+                        aria-pressed="false">
+                    Members
+                </button>
+            </header>
+
+            <div class="chat-log" id="chat-log" data-chat-log role="log" aria-live="polite"
+                 aria-relevant="additions" aria-label="Messages" tabindex="-1"></div>
+
+            <form class="chat-composer" data-composer>
+                <div class="chat-composer-field">
+                    <textarea rows="1" data-message-input aria-label="Message"
+                              placeholder="Message #general"></textarea>
+                    <button class="button small chat-send" type="submit">Send</button>
+                </div>
+                <p class="chat-hint">Enter sends, Shift+Enter starts a new line.</p>
+            </form>
+        </main>
+
+        <aside class="chat-members" data-member-panel aria-label="Members">
+            <div class="chat-member-groups" data-member-groups></div>
+        </aside>
+
+        <div class="chat-backdrop" data-chat-backdrop hidden></div>
+    </div>
+
+    <script src="/app.js?v=standing-2" defer></script>
+    <script src="/chat.js?v=chat-1" defer></script>
+</body>
+</html>

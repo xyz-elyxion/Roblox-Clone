@@ -666,6 +666,20 @@ under it. A script is capped at 256 KB, both routes are owner-only (anybody else
 private game's existence is not revealed through them), and a game seeded from a starter game keeps
 its own copy of the script, so editing it never touches the bundled original.
 
+### Chat
+
+`/chat` is a Discord-shaped chat view for the site: a server rail down the left, the channel list,
+the message log and the member list, filling the window instead of sitting in the page column. The
+four channels and the conversation in them are seed data that shows the shape of the page; the
+composer works, groups consecutive messages by the same author, and keeps what you send, but it
+keeps it in the tab -- there is no chat API behind this page, and the game's own chat is in the
+client, inside a running instance. It is a preview of the layout, not a second chat network.
+
+The layout folds down with the window: the member list becomes a drawer below 1180px and the
+channel column below 900px, both closed with Escape or a click outside. Every colour comes from the
+existing custom properties, so light and dark both work, and pages carry a **Chat** link in the
+menu once you are signed in.
+
 ### Admin dashboard
 
 `/admin` shows the local install at a glance: account, game, live server, launch and playtime

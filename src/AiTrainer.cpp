@@ -956,6 +956,11 @@ public:
     int playerId() const { return playerId_; }
     bool joined() const { return playerId_ >= 0; }
     bool lost() const { return lost_; }
+    // Steps the server refused to believe since the join.
+    int corrections() const { return corrections_; }
+    // The server drops a dead player's movement, so a run that never moves may
+    // simply be a dead AI rather than a broken packet.
+    bool dead() const { return dead_; }
 
 private:
     uint64_t nowMs() const;
@@ -970,6 +975,8 @@ private:
     std::vector<char> pending_;
     int playerId_ = -1;
     bool lost_ = false;
+    int corrections_ = 0;
+    bool dead_ = false;
     std::chrono::steady_clock::time_point startedAt_;
 };
 
@@ -1050,6 +1057,8 @@ void LiveServer::close() {
     pending_.clear();
     playerId_ = -1;
     lost_ = false;
+    corrections_ = 0;
+    dead_ = false;
     Network::cleanup();
 }
 
@@ -1064,8 +1073,19 @@ void LiveServer::handleFrame(const PacketProtocol::ParsedPacket& frame, glm::vec
     if (frame.type == PacketType::TELEPORT && frame.payloadSize == sizeof(PacketPlayerState)) {
         PacketPlayerState state;
         std::memcpy(&state, frame.payload, sizeof(state));
+        ++corrections_;
         *correction = state.position;
         *corrected = true;
+        return;
+    }
+    if (frame.type == PacketType::PLAYER_HEALTH &&
+        frame.payloadSize == sizeof(PacketPlayerHealth)) {
+        PacketPlayerHealth health;
+        std::memcpy(&health, frame.payload, sizeof(health));
+        if (playerId_ < 0 || health.playerId != playerId_) {
+            return;
+        }
+        dead_ = health.health <= 0.0f;
         return;
     }
     if (frame.type == PacketType::CHAT && frame.payloadSize == sizeof(PacketChat)) {
@@ -1269,6 +1289,34 @@ int runLiveGame(TrainingWorld& world, TrainerWindow& window, bool gui, const Opt
                 options.server.c_str(), options.port, server.playerId());
 
     world.beginLiveRun();
+    // The server chose where its copy of this player stands (the world's
+    // SpawnLocation) and measures every step from there. Sending this one position
+    // before walking turns a world the trainer loaded differently into a mismatch
+    // that is reported once, instead of a correction the guard sends every step.
+    const glm::vec3 courseStart = world.agents().front().position;
+    if (!server.sendState(courseStart, 0.0f, false, false, &error)) {
+        std::fprintf(stderr, "Lost the game server: %s\n", error.c_str());
+        return 1;
+    }
+    const auto syncDeadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(500);
+    while (std::chrono::steady_clock::now() < syncDeadline) {
+        glm::vec3 correction(0.0f);
+        bool corrected = false;
+        std::string notice;
+        server.poll(&correction, &corrected, &notice);
+        std::fputs(notice.c_str(), stdout);
+        if (!corrected) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            continue;
+        }
+        std::printf("The server has the AI at %.1f, %.1f, %.1f, not at this course's start "
+                    "(%.1f, %.1f, %.1f). Following the server.\n",
+                    correction.x, correction.y, correction.z, courseStart.x, courseStart.y,
+                    courseStart.z);
+        world.acceptServerPosition(correction);
+        break;
+    }
+
     TrainingWorld::LiveStep sample;
     int steps = 0;
     for (int step = 0; step < maxSteps; ++step) {
@@ -1283,7 +1331,26 @@ int runLiveGame(TrainingWorld& world, TrainerWindow& window, bool gui, const Opt
             std::fprintf(stderr, "The game server stopped answering; the run ends here.\n");
             return 1;
         }
+        if (server.dead()) {
+            std::fprintf(stderr,
+                         "The server says the AI is dead, and it ignores a dead player's "
+                         "movement, so this run cannot move. Respawn it in the game and run "
+                         "--play again.\n");
+            return 1;
+        }
         if (corrected) {
+            if (server.corrections() >= 60) {
+                std::fprintf(stderr,
+                             "The server has undone 60 steps in a row: it is running a "
+                             "different world, spawn or game from the one this course was "
+                             "built from, so the walk cannot be accepted. Check that "
+                             "Server.exe loaded the same game the trainer trained on.\n");
+                return 1;
+            }
+            if (server.corrections() <= 3) {
+                std::printf("The server moved the AI back to %.1f, %.1f, %.1f (step %d).\n",
+                            correction.x, correction.y, correction.z, step + 1);
+            }
             world.acceptServerPosition(correction);
         }
         const TrainingWorld::Agent& agent = world.agents().front();
@@ -1316,11 +1383,13 @@ int runLiveGame(TrainingWorld& world, TrainerWindow& window, bool gui, const Opt
     }
 
     if (world.doorsCourse()) {
-        std::printf("Live run: doors %d/%d, %d steps, %s\n", sample.targetsPassed, kHotelDoors,
-                    steps, sample.reached ? "reached the elevator"
-                                          : (sample.fell ? "fell" : "ran out of time"));
+        std::printf("Live run: doors %d/%d, %d steps, %d server corrections, %s\n",
+                    sample.targetsPassed, kHotelDoors, steps, server.corrections(),
+                    sample.reached ? "reached the elevator"
+                                   : (sample.fell ? "fell" : "ran out of time"));
     } else {
-        std::printf("Live run: %d steps, %s\n", steps,
+        std::printf("Live run: %d steps, %d server corrections, %s\n", steps,
+                    server.corrections(),
                     sample.reached ? "reached the goal"
                                    : (sample.fell ? "fell" : "ran out of time"));
     }

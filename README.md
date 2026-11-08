@@ -1051,6 +1051,14 @@ like any player's, correcting it if it claims a speed a character cannot reach. 
 `--out`, so train or `--replay` first; the server has to be running the same game and be built
 from the same source, or the handshake refuses the join with a reason in chat.
 
+A live run starts by asking the server where it thinks the player stands, because the server
+places a joining player at the world's `SpawnLocation` and measures every later step from there;
+when that is not the course's own start it says so once and walks from the server's position. The
+summary counts the steps the server refused to believe. A run that is corrected sixty steps in a
+row stops and says the two sides are running different worlds, and a run whose AI the server
+reports dead stops too, because the server drops a dead player's movement rather than arguing
+about it.
+
 ## Repository layout
 
 ```

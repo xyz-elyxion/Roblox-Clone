@@ -38,7 +38,12 @@
 -- survives. A death costs the run, not the progress: the player comes back at the
 -- last door they opened, and doors stay open.
 
-local SEED = 71234
+-- The walk below is allowed to bend back on itself, and a seed whose path
+-- re-enters an earlier corridor puts two rooms in the same place. 71234 did,
+-- twice, which the trainer's top-down view draws as one corridor crossed by
+-- another. This seed's hundred rooms all stand clear of each other; moving the
+-- pitch, the door count or this number means walking the path again.
+local SEED = 71241
 local DOORS = 100
 local PITCH = 30 -- a straight room
 local CORNER_LEN = 26 -- a corner room: square, so its exit wall is a room wide

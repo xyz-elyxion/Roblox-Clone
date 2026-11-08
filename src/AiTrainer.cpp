@@ -115,7 +115,10 @@ constexpr float kHotelCornerLength = 26.0f;
 constexpr float kHotelHalfWidth = 13.0f;
 constexpr float kHotelDoorOneZ = -22.0f;
 constexpr float kHotelLobbyEndZ = 26.5f;
-constexpr double kHotelSeed = 71234.0;
+// The script's seed, and the same hotel on both sides. 71234 walked its path
+// back over itself twice, which this trainer's top-down window drew as a room
+// sitting on another; 71241 keeps all hundred rooms clear of each other.
+constexpr double kHotelSeed = 71241.0;
 // A checkpoint sits at the height the character's own origin has once it stands
 // on a floor, so the distance to it is a distance along the corridor rather than
 // mostly a difference in height.

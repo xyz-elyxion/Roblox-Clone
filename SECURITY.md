@@ -88,6 +88,12 @@ capped at eight per account and 500 per install, and a use records a last-used t
 requests count against the same per-address budget as the rest of `/api/`; there is no
 separate quota, so a program that retries a bad token spends that address's minute.
 
+`AiTrainer --play` is deliberately not a privileged join: it connects to a game server as a
+guest, with the machine's hardware id and nothing else, so the handshake, the hardware ban,
+the movement guard and every other player-facing check apply to the AI exactly as they do to
+a person. A token cannot start or enter an instance on its own; the server it plays on was
+launched by somebody who did have one of those rights.
+
 **Request handling.** A JSON body is capped (`JSON_BODY_LIMIT_BYTES`, 2 MiB by default), a
 published world at 2 MiB, a game script at 256 KiB. Failed authentication is rate-limited
 per address (`AUTH_RATE_LIMIT_MAX` 20 per `AUTH_RATE_LIMIT_WINDOW_MS` 15 minutes) and every

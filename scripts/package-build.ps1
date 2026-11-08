@@ -176,6 +176,8 @@ try {
         '      replays the saved policy; --watch draws the run as a top-down map in the terminal'
         '  AiTrainer.exe --token rblxai_... --game 4 --gui --agents 4'
         '      trains in a window: the course from above with the roof off, one dot per agent'
+        '  AiTrainer.exe --token rblxai_... --game 4 --play --port 7777'
+        '      plays the saved policy on a running Server.exe instead of training here'
         '  --site http://127.0.0.1:3000 points it at a WebApp.exe elsewhere.'
         '  Run it from this folder so web\ and models\ resolve. CPU only, no GPU; --gui needs a'
         '  desktop session, and every other run works headless.'

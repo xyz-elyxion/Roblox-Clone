@@ -995,6 +995,7 @@ AiTrainer --token rblxai_... --game 4 --generations 60
 AiTrainer --token rblxai_... --game 4 --replay
 AiTrainer --token rblxai_... --game 4 --replay --watch
 AiTrainer --token rblxai_... --game 4 --gui --agents 4
+AiTrainer --token rblxai_... --game 4 --play --port 7777
 ```
 
 A game's AI course is one of two, set beside the switch in the portal:
@@ -1039,6 +1040,16 @@ in the same world at once, which also settles four candidates per generation hea
 window ends training and saves the best policy found so far, so it is safe to stop and look. The
 window takes its colours from the shared palette in `include/UiTheme.h`, like every other window
 here.
+
+`--play` puts the trained policy on the game server itself: the trainer joins a running
+`Server.exe` as a guest, walks the same world with the same observations, and sends one position
+packet per simulated step, so the run is the game's rather than this process's copy of it. Other
+players in that game see the AI walk the course, and the server's movement guard checks its steps
+like any player's, correcting it if it claims a speed a character cannot reach. `--server` and
+`--port` name the server (default `127.0.0.1:7777`), `--name` is the name it joins under, and
+`--gui` still opens the window so the same run can be watched from above. It plays the policy in
+`--out`, so train or `--replay` first; the server has to be running the same game and be built
+from the same source, or the handshake refuses the join with a reason in chat.
 
 ## Repository layout
 

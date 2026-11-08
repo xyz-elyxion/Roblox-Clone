@@ -26,10 +26,13 @@
 
 #include "Camera.h"
 #include "Character.h"
+#include "HardwareId.h"
 #include "HttpClient.h"
+#include "Network.h"
 #include "Part.h"
 #include "PhysicsWorld.h"
 #include "TrainerGui.h"
+#include "UdpTransport.h"
 #include "WorldLoader.h"
 #include "WebJson.h"
 
@@ -213,6 +216,65 @@ public:
     // Whether steps keep a trail for the window to draw. Off by default: a
     // console run never shows one, and a long episode would pay for it.
     void recordTrails(bool record) { recordTrails_ = record; }
+
+    // What one live step did, which is what --play sends to a game server.
+    struct LiveStep {
+        glm::vec3 position{0.0f};
+        float yaw = 0.0f;
+        bool walking = false;
+        bool jumping = false;
+        float reward = 0.0f;
+        int targetsPassed = 0;
+        bool reached = false;
+        bool fell = false;
+    };
+
+    // Puts the one agent a live run drives back on the spawn line. Separate from
+    // runBatch because a live step is paced by the network, not by a step loop.
+    void beginLiveRun() {
+        prepareAgents(1);
+        liveStep_ = 0;
+    }
+
+    // One step of the policy and where it ended up: exactly what a trained
+    // episode does, one step at a time. --play sends this to a game server, so
+    // the run watched there is on the course the policy was taught.
+    LiveStep stepLive(const Policy& policy) {
+        Agent& agent = agents_.front();
+        float observation[kObservationCount];
+        observe(agent, observation);
+        agent.lastAction = policy.act(observation);
+        applyAction(agent, agent.lastAction);
+        agent.character->update(kStepSeconds, nullptr, false);
+        physics_.update(kStepSeconds);
+        advance(agent, liveStep_++);
+
+        LiveStep result;
+        result.position = agent.position;
+        result.yaw = agent.character->debugCurrentYaw;
+        result.walking = agent.lastAction >= 0 && agent.lastAction <= 3;
+        // A jump keeps the character in the air for several steps after the
+        // action that started it, so the character is asked rather than the policy.
+        result.jumping = agent.character->isJumping;
+        result.reward = agent.result.reward;
+        result.targetsPassed = agent.result.targetsPassed;
+        result.reached = agent.result.reached;
+        result.fell = agent.result.fell;
+        return result;
+    }
+
+    // The server rejected a step and sent the position it believes in. Follow it:
+    // a character left where the trainer wanted it would be corrected every step.
+    void acceptServerPosition(const glm::vec3& position) {
+        if (agents_.empty() || agents_.front().character == nullptr) {
+            return;
+        }
+        Agent& agent = agents_.front();
+        agent.character->teleportTo(position);
+        agent.character->update(0.0f, nullptr, false);
+        agent.position = agent.character->getPosition();
+        agent.previousDistance = glm::length(agent.target - agent.position);
+    }
 
     // Called once per simulated step, which is how --watch turns an episode into
     // frames without teaching the trainer anything about drawing.
@@ -641,6 +703,7 @@ private:
     std::string goalName_;
     Camera inputCamera_;
     bool recordTrails_ = false;
+    int liveStep_ = 0;
 };
 
 // Top-down view used by --watch. Rotated parts are drawn from their axis-aligned
@@ -869,6 +932,231 @@ EpisodeResult runGuiEpisode(TrainingWorld& world, TrainerWindow& window, const P
     return results.front();
 }
 
+// A live run stops when the server has been silent this long: a server that died
+// must not leave the trainer walking a course only it can see.
+constexpr uint64_t kLiveTimeoutMs = 15000;
+
+// The live game server --play drives: one guest connection, joined the way
+// Client.exe joins, then one state packet per simulated step. The server accepts
+// a client that owns its own character, so a policy in place of a keyboard is a
+// client like any other; the movement guard checks its claims like any player's.
+class LiveServer {
+public:
+    ~LiveServer() { close(); }
+
+    bool join(const std::string& host, int port, const std::string& name, std::string* error);
+    void close();
+
+    // Reads whatever the server sent: the welcome, a chat line (a refused join is
+    // explained there), or the position it moved the character back to.
+    void poll(glm::vec3* correction, bool* corrected, std::string* notice);
+    bool sendState(const glm::vec3& position, float yaw, bool walking, bool jumping,
+                   std::string* error);
+
+    int playerId() const { return playerId_; }
+    bool joined() const { return playerId_ >= 0; }
+    bool lost() const { return lost_; }
+
+private:
+    uint64_t nowMs() const;
+    bool sendDatagram(const char* data, size_t size);
+    void handleFrame(const PacketProtocol::ParsedPacket& frame, glm::vec3* correction,
+                     bool* corrected, std::string* notice);
+
+    SOCKET socket_ = INVALID_SOCKET;
+    rblx::net::UdpSession session_;
+    // Bytes of frames that arrived but have not been parsed yet, because a message
+    // can hold a frame and a half or several at once.
+    std::vector<char> pending_;
+    int playerId_ = -1;
+    bool lost_ = false;
+    std::chrono::steady_clock::time_point startedAt_;
+};
+
+uint64_t LiveServer::nowMs() const {
+    return static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::steady_clock::now() - startedAt_)
+                                     .count());
+}
+
+bool LiveServer::sendDatagram(const char* data, size_t size) {
+    if (socket_ == INVALID_SOCKET) {
+        return false;
+    }
+    return send(socket_, data, static_cast<int>(size), 0) == static_cast<int>(size);
+}
+
+bool LiveServer::join(const std::string& host, int port, const std::string& name,
+                      std::string* error) {
+    close();
+    if (!Network::init()) {
+        *error = "could not start the network stack";
+        return false;
+    }
+
+    sockaddr_in address{};
+    address.sin_family = AF_INET;
+    address.sin_port = htons(static_cast<u_short>(port));
+    if (inet_pton(AF_INET, host.c_str(), &address.sin_addr) != 1) {
+        *error = host + " is not an address this machine can join";
+        close();
+        return false;
+    }
+
+    socket_ = Network::createUdpSocket();
+    if (socket_ == INVALID_SOCKET) {
+        *error = "could not create the game socket";
+        close();
+        return false;
+    }
+    Network::setIoBufferSize(socket_, 4 << 20);
+    Network::setNonBlocking(socket_);
+    if (connect(socket_, reinterpret_cast<sockaddr*>(&address), sizeof(address)) == SOCKET_ERROR) {
+        *error = "could not reach " + host + ":" + std::to_string(port);
+        close();
+        return false;
+    }
+
+    startedAt_ = std::chrono::steady_clock::now();
+    session_.reset(0);
+
+    // A guest join: the trainer holds a developer token, not an account, and the
+    // server's guest path is what a player without one gets. The machine still
+    // goes with the join, so a hardware ban reaches the AI as well.
+    PacketConnect packet;
+    std::memset(&packet, 0, sizeof(packet));
+    std::snprintf(packet.username, sizeof(packet.username), "%s", name.c_str());
+    std::snprintf(packet.hardwareId, sizeof(packet.hardwareId), "%s",
+                  rblx::hwid::machineId().c_str());
+    packet.protocolRevision = PacketProtocol::kProtocolRevision;
+    packet.packetLayout = PacketProtocol::packetLayoutSignature();
+
+    const std::vector<char> frame = PacketProtocol::buildStructPacket(PacketType::CONNECT, packet);
+    if (!session_.sendMessage(frame.data(), frame.size(), true)) {
+        *error = "could not queue the join packet";
+        close();
+        return false;
+    }
+    session_.pump(nowMs(), [this](const char* data, size_t size) { return sendDatagram(data, size); });
+    return true;
+}
+
+void LiveServer::close() {
+    if (socket_ == INVALID_SOCKET) {
+        return;
+    }
+    closesocket(socket_);
+    socket_ = INVALID_SOCKET;
+    pending_.clear();
+    playerId_ = -1;
+    lost_ = false;
+    Network::cleanup();
+}
+
+void LiveServer::handleFrame(const PacketProtocol::ParsedPacket& frame, glm::vec3* correction,
+                             bool* corrected, std::string* notice) {
+    if (frame.type == PacketType::WELCOME && frame.payloadSize == sizeof(PacketWelcome)) {
+        PacketWelcome welcome;
+        std::memcpy(&welcome, frame.payload, sizeof(welcome));
+        playerId_ = welcome.playerId;
+        return;
+    }
+    if (frame.type == PacketType::TELEPORT && frame.payloadSize == sizeof(PacketPlayerState)) {
+        PacketPlayerState state;
+        std::memcpy(&state, frame.payload, sizeof(state));
+        *correction = state.position;
+        *corrected = true;
+        return;
+    }
+    if (frame.type == PacketType::CHAT && frame.payloadSize == sizeof(PacketChat)) {
+        PacketChat chat;
+        std::memcpy(&chat, frame.payload, sizeof(chat));
+        // A refused join arrives here with the reason, before the server drops the
+        // socket, so it is printed instead of retrying into silence.
+        notice->append("server: ");
+        notice->append(PacketProtocol::fixedString(chat.message, sizeof(chat.message)));
+        notice->append("\n");
+    }
+}
+
+void LiveServer::poll(glm::vec3* correction, bool* corrected, std::string* notice) {
+    if (socket_ == INVALID_SOCKET) {
+        return;
+    }
+
+    std::vector<std::vector<char>> messages;
+    char datagram[2048];
+    const uint64_t stamp = nowMs();
+    for (int i = 0; i < 32; ++i) {
+        const int received = recv(socket_, datagram, sizeof(datagram), 0);
+        if (received == SOCKET_ERROR) {
+            const int code = WSAGetLastError();
+            if (code == WSAEWOULDBLOCK) break;
+            // An ICMP port-unreachable arrives as WSAECONNRESET; the server may
+            // simply not be listening yet, and the join is retried by the session.
+            if (code == WSAECONNRESET) continue;
+            break;
+        }
+        if (received <= 0) break;
+        session_.receiveDatagram(datagram, static_cast<size_t>(received), stamp, messages);
+    }
+    session_.pump(stamp, [this](const char* data, size_t size) { return sendDatagram(data, size); });
+
+    if (playerId_ >= 0 && session_.timedOut(stamp, kLiveTimeoutMs)) {
+        lost_ = true;
+    }
+
+    for (const std::vector<char>& message : messages) {
+        pending_.insert(pending_.end(), message.begin(), message.end());
+    }
+
+    PacketProtocol::ParsedPacket frame;
+    for (;;) {
+        const PacketProtocol::ParseStatus status = PacketProtocol::tryReadFrame(pending_, frame);
+        if (status == PacketProtocol::ParseStatus::NeedMoreData) {
+            break;
+        }
+        if (status == PacketProtocol::ParseStatus::Invalid) {
+            // Nothing after a malformed frame can be trusted to be aligned, and a
+            // different build of the server is the usual reason.
+            pending_.clear();
+            break;
+        }
+        handleFrame(frame, correction, corrected, notice);
+        PacketProtocol::consumeFrame(pending_, frame.frameSize);
+    }
+}
+
+bool LiveServer::sendState(const glm::vec3& position, float yaw, bool walking, bool jumping,
+                           std::string* error) {
+    if (socket_ == INVALID_SOCKET || playerId_ < 0) {
+        *error = "the game server never answered the join request";
+        return false;
+    }
+
+    PacketPlayerState state;
+    std::memset(&state, 0, sizeof(state));
+    state.playerId = playerId_;
+    state.position = position;
+    state.rotationY = yaw;
+    state.isWalking = walking;
+    state.isJumping = jumping;
+    // The server replaces health with its own, but a zero would read as a dead
+    // character on the first packet if it ever stopped doing that.
+    state.health = 100.0f;
+    // The movement guard measures speed against the client's own clock, so this
+    // has to be the time the step was taken rather than the time it is sent.
+    state.clientTimeMs = static_cast<uint32_t>(nowMs());
+
+    const std::vector<char> frame = PacketProtocol::buildStructPacket(PacketType::PLAYER_STATE, state);
+    if (!session_.sendMessage(frame.data(), frame.size(), false)) {
+        *error = "could not queue the player state";
+        return false;
+    }
+    session_.pump(nowMs(), [this](const char* data, size_t size) { return sendDatagram(data, size); });
+    return true;
+}
+
 struct Options {
     // Where WebApp.exe answers. The trainer has nothing to train without a token
     // from that site, so the address is part of every run rather than a fallback.
@@ -885,6 +1173,12 @@ struct Options {
     unsigned int seed = 1337;
     bool replay = false;
     bool watch = false;
+    // --play shows the saved policy on a running game server instead of training
+    // here, so the run is the game's own rather than this process's copy of it.
+    bool play = false;
+    std::string server = "127.0.0.1";
+    int port = 7777;
+    std::string playerName = "AiTrainer";
     // The optional window, and how many policies walk the course at once inside
     // it. A batch also trains faster headless, so the count is independent of it.
     bool gui = false;
@@ -915,6 +1209,11 @@ void printUsage() {
         "  --out <file>         where to write the trained policy\n"
         "                       (default models/<world>.policy, or models/doors-hotel.policy)\n"
         "  --replay             load --out and run one episode with it\n"
+        "  --play               join a running Server.exe and walk the course\n"
+        "                       there with the saved policy, instead of training\n"
+        "  --server <host>      game server --play joins (default 127.0.0.1)\n"
+        "  --port <n>           its port (default 7777)\n"
+        "  --name <text>        the name the AI joins under (default AiTrainer)\n"
         "  --watch              draw the episode as a top-down map while it runs\n"
         "  --gui                draw the course in a window while it trains, seen\n"
         "                       from above with the roof left off\n"
@@ -922,6 +1221,110 @@ void printUsage() {
         "  --seed <n>           sampling seed (default 1337)\n",
         "http://127.0.0.1:3000", kDefaultGenerations, kDefaultCandidates,
         kDefaultEpisodesPerCandidate, kDefaultSteps, kDefaultHotelSteps);
+}
+
+// Plays a trained policy on a running game server. Nothing is trained and nothing
+// is decided locally about the course: the trainer joins the server as a guest,
+// walks the same world with the same observations, and sends the position of each
+// step, so the run happens in the game. Paced in real time because the server
+// measures speed between packets, and a burst would be corrected as a speed hack.
+int runLiveGame(TrainingWorld& world, TrainerWindow& window, bool gui, const Options& options,
+                int maxSteps, const Policy& policy) {
+    LiveServer server;
+    std::string error;
+    if (!server.join(options.server, options.port, options.playerName, &error)) {
+        std::fprintf(stderr, "Could not join %s:%d: %s\n", options.server.c_str(), options.port,
+                     error.c_str());
+        return 1;
+    }
+
+    TrainerFrame frame;
+    if (gui) {
+        frame.title = "RBLX AI trainer - live";
+        frame.doorCount = world.doorsCourse() ? kHotelDoors : 0;
+        fillTrainerFrame(world, &frame);
+        window.present(frame);
+    }
+
+    // The welcome carries the player id every state packet needs, and a refused
+    // join is explained in chat before the server drops the socket, so both are
+    // read before the run starts instead of after the first packet vanishes.
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
+    while (!server.joined() && std::chrono::steady_clock::now() < deadline) {
+        glm::vec3 correction(0.0f);
+        bool corrected = false;
+        std::string notice;
+        server.poll(&correction, &corrected, &notice);
+        std::fputs(notice.c_str(), stdout);
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+    if (!server.joined()) {
+        std::fprintf(stderr,
+                     "No welcome from %s:%d. Server.exe has to be running this game on that "
+                     "port, built from the same source as this trainer.\n",
+                     options.server.c_str(), options.port);
+        return 1;
+    }
+    std::printf("Joined %s:%d as player %d; the run happens on that server.\n",
+                options.server.c_str(), options.port, server.playerId());
+
+    world.beginLiveRun();
+    TrainingWorld::LiveStep sample;
+    int steps = 0;
+    for (int step = 0; step < maxSteps; ++step) {
+        sample = world.stepLive(policy);
+
+        glm::vec3 correction(0.0f);
+        bool corrected = false;
+        std::string notice;
+        server.poll(&correction, &corrected, &notice);
+        std::fputs(notice.c_str(), stdout);
+        if (server.lost()) {
+            std::fprintf(stderr, "The game server stopped answering; the run ends here.\n");
+            return 1;
+        }
+        if (corrected) {
+            world.acceptServerPosition(correction);
+        }
+        const TrainingWorld::Agent& agent = world.agents().front();
+        if (!server.sendState(agent.position, sample.yaw, sample.walking, sample.jumping,
+                              &error)) {
+            std::fprintf(stderr, "Lost the game server: %s\n", error.c_str());
+            return 1;
+        }
+
+        steps = step + 1;
+        if (gui) {
+            fillTrainerFrame(world, &frame);
+            char status[512];
+            std::snprintf(status, sizeof(status),
+                          "server player %d   step %d/%d   action %s   doors %d/%d   "
+                          "reward %.1f",
+                          server.playerId(), step + 1, maxSteps, actionName(agent.lastAction),
+                          sample.targetsPassed, world.doorsCourse() ? kHotelDoors : 0,
+                          sample.reward);
+            frame.status = status;
+            if (!window.present(frame)) {
+                break;
+            }
+        }
+
+        if (sample.reached || sample.fell) {
+            break;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(kFrameDelayMilliseconds));
+    }
+
+    if (world.doorsCourse()) {
+        std::printf("Live run: doors %d/%d, %d steps, %s\n", sample.targetsPassed, kHotelDoors,
+                    steps, sample.reached ? "reached the elevator"
+                                          : (sample.fell ? "fell" : "ran out of time"));
+    } else {
+        std::printf("Live run: %d steps, %s\n", steps,
+                    sample.reached ? "reached the goal"
+                                   : (sample.fell ? "fell" : "ran out of time"));
+    }
+    return sample.reached ? 0 : 3;
 }
 
 // What the site said to train on. The trainer never decides on its own that a game
@@ -1111,6 +1514,14 @@ int main(int argc, char** argv) {
             options.seed = static_cast<unsigned int>(std::strtoul(argv[++i], nullptr, 10));
         } else if (arg == "--replay") {
             options.replay = true;
+        } else if (arg == "--play") {
+            options.play = true;
+        } else if (arg == "--server" && hasValue) {
+            options.server = argv[++i];
+        } else if (arg == "--port" && hasValue) {
+            options.port = std::max(1, std::min(65535, std::atoi(argv[++i])));
+        } else if (arg == "--name" && hasValue) {
+            options.playerName = argv[++i];
         } else if (arg == "--watch") {
             options.watch = true;
         } else if (arg == "--gui") {
@@ -1186,6 +1597,17 @@ int main(int argc, char** argv) {
             // something is going to draw them.
             world.recordTrails(true);
         }
+    }
+
+    // --play is a demonstration, not a lesson: the policy is read from disk the
+    // same way --replay reads it, and the server is what runs the course.
+    if (options.play) {
+        Policy policy;
+        if (!loadPolicy(&policy, options.out, &error)) {
+            std::fprintf(stderr, "Could not load %s: %s\n", options.out.c_str(), error.c_str());
+            return 1;
+        }
+        return runLiveGame(world, window, gui, options, steps, policy);
     }
 
     if (options.replay) {

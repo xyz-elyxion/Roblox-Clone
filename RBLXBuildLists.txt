@@ -309,6 +309,8 @@ if(RBLX_BUILD_TRAINER)
         src/WorldLoader.cpp
         src/HttpClient.cpp
         src/WebJson.cpp
+        src/HardwareId.cpp
+        src/WebCrypto.cpp
         ${IMGUI_SOURCES}
     )
     configure_rblx_target(AiTrainer)

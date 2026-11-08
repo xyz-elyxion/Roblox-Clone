@@ -388,6 +388,7 @@ if(RBLX_BUILD_TESTS)
         src/WebCrypto.cpp
         src/WebStore.cpp
         src/WebJson.cpp
+        src/ChatRoom.cpp
     )
     target_include_directories(HardwareIdTests PRIVATE ${RBLXBUILD_CURRENT_SOURCE_DIR}/include)
     add_test(NAME HardwareIdTests COMMAND HardwareIdTests)
@@ -470,6 +471,7 @@ if(RBLX_BUILD_TESTS)
         src/WebJson.cpp
         src/WebCrypto.cpp
         src/HardwareId.cpp
+        src/ChatRoom.cpp
     )
     target_include_directories(StoreCryptoTests PRIVATE ${RBLXBUILD_CURRENT_SOURCE_DIR}/include)
     if(RBLX_ENABLE_WARNINGS)

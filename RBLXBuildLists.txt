@@ -138,6 +138,8 @@ if(RBLX_BUILD_STUDIO)
         ${imguicolortextedit_SOURCE_DIR}/TextEditor.cpp
         src/RblxScript.cpp
         src/WorldScript.cpp
+        # Undo and redo: the world as it stood at the end of each interaction.
+        src/StudioHistory.cpp
         # The script runtime checks a sound name against the bank before it asks
         # the host to play one, so Studio links the bank too.
         src/SoundBank.cpp
@@ -495,5 +497,24 @@ if(RBLX_BUILD_TESTS)
     add_executable(AudioTests tests/audio_tests.cpp src/SoundBank.cpp)
     target_include_directories(AudioTests PRIVATE ${RBLXBUILD_CURRENT_SOURCE_DIR}/include)
     add_test(NAME AudioTests COMMAND AudioTests)
+
+    # Studio's undo history: one step per finished interaction, and the world
+    # coming back exactly as it was.
+    add_executable(StudioHistoryTests tests/studio_history_tests.cpp src/StudioHistory.cpp)
+    target_include_directories(StudioHistoryTests PRIVATE ${RBLXBUILD_CURRENT_SOURCE_DIR}/include)
+    target_link_libraries(StudioHistoryTests PRIVATE glm)
+    add_test(NAME StudioHistoryTests COMMAND StudioHistoryTests)
+
+    # Likes against the real store: one row per account and game, a row that
+    # survives a restart, and a row that goes when its game or account does.
+    add_executable(GameLikesTests
+        tests/game_likes_tests.cpp
+        src/WebStore.cpp
+        src/ChatRoom.cpp
+        src/WebJson.cpp
+        src/WebCrypto.cpp
+    )
+    target_include_directories(GameLikesTests PRIVATE ${RBLXBUILD_CURRENT_SOURCE_DIR}/include)
+    add_test(NAME GameLikesTests COMMAND GameLikesTests)
 
 endif()

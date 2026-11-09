@@ -1720,7 +1720,7 @@ Json WebsiteApp::profileJson(int userId, int viewerId) {
     return profile;
 }
 
-Json WebsiteApp::gameJson(const GameRecord& game, bool canEdit) const {
+Json WebsiteApp::gameJson(const GameRecord& game, bool canEdit, int viewerId) const {
     Json result = Json::makeObject();
     result.set("id", game.id);
     result.set("ownerId", game.ownerId);
@@ -1744,6 +1744,11 @@ Json WebsiteApp::gameJson(const GameRecord& game, bool canEdit) const {
     result.set("updatedAt", game.updatedAt);
     result.set("publishedAt", game.publishedAt);
     result.set("canEdit", canEdit);
+
+    // A score is public, so a signed-out visitor still sees it; whether *you*
+    // liked the game needs the caller, which is what the viewer id is for.
+    result.set("likes", store_.gameLikeCount(game.id));
+    result.set("liked", viewerId > 0 && store_.hasLikedGame(viewerId, game.id));
 
     // What the trainer sees of a game. It is on every game, not only the owner's,
     // because the game page tells a visitor whether an AI run of it is possible.
@@ -1914,6 +1919,10 @@ void WebsiteApp::installRoutes() {
                   }));
     server_.route("GET", "/api/games/:id", guard([this](Request& request, Response& response) {
                       return handleGetGame(request, response);
+                  }));
+    server_.route("POST", "/api/games/:id/like",
+                  guard([this](Request& request, Response& response) {
+                      return handleToggleGameLike(request, response);
                   }));
     server_.route("PUT", "/api/games/:id", guard([this](Request& request, Response& response) {
                       return handleUpdateGame(request, response);
@@ -3365,8 +3374,48 @@ bool WebsiteApp::handleGetGame(Request& request, Response& response) {
 
     Json result = Json::makeObject();
     result.set("success", true);
-    result.set("game", gameJson(*game, authenticated && viewer.id == game->ownerId));
+    result.set("game",
+               gameJson(*game, authenticated && viewer.id == game->ownerId,
+                        authenticated ? viewer.id : 0));
     result.set("servers", servers);
+    sendJson(response, 200, result);
+    return true;
+}
+
+bool WebsiteApp::handleToggleGameLike(Request& request, Response& response) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    AuthUser user;
+    if (!requireAuth(request, response, &user)) {
+        return true;
+    }
+
+    const int gameId = parseUserId(request.param("id"));
+    if (gameId <= 0) {
+        errorJson(response, 400, "Game ID must be a positive number.");
+        return true;
+    }
+
+    const GameRecord* game = store_.findGame(gameId);
+    // A private game that is not yours is not there as far as this route is
+    // concerned, which is the answer its page gives too.
+    if (game == nullptr || (!game->isPublic && game->ownerId != user.id)) {
+        errorJson(response, 404, "Game not found.");
+        return true;
+    }
+
+    bool liked = false;
+    if (!store_.toggleGameLike(user.id, gameId, nowIso(), &liked)) {
+        errorJson(response, 404, "Game not found.");
+        return true;
+    }
+
+    std::string saveError;
+    store_.save(&saveError);
+
+    Json result = Json::makeObject();
+    result.set("success", true);
+    result.set("liked", liked);
+    result.set("likes", store_.gameLikeCount(gameId));
     sendJson(response, 200, result);
     return true;
 }

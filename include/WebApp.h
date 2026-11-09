@@ -199,7 +199,9 @@ private:
     std::string adminDeniedMessage(const AuthUser& user) const;
 
     Json profileJson(int userId, int viewerId);
-    Json gameJson(const GameRecord& game, bool canEdit) const;
+    // `viewerId` is what makes "you liked this" possible; a signed-out caller
+    // passes zero and only the count is filled in.
+    Json gameJson(const GameRecord& game, bool canEdit, int viewerId = 0) const;
     Json instanceJson(const GameInstance& instance) const;
     Json avatarJson(const Avatar& avatar) const;
 
@@ -229,6 +231,9 @@ private:
     bool handleCreateGame(Request& request, Response& response);
     bool handlePublishGame(Request& request, Response& response);
     bool handleGetGame(Request& request, Response& response);
+    // Toggles the caller's like on one game; the count comes back with it so the
+    // page never has to guess what the row now says.
+    bool handleToggleGameLike(Request& request, Response& response);
     // The developer portal: long-lived tokens a program signs in with, and the
     // per-game switch that lets the AI trainer play a map.
     bool handleListDevTokens(Request& request, Response& response);

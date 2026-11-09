@@ -288,6 +288,15 @@ struct DevTokenRecord {
     std::string revokedAt;
 };
 
+// One account's like on one game. A row per account and game rather than a
+// counter, so the same account cannot lift a game twice and a page can still say
+// whether *you* liked it after a restart.
+struct GameLikeRecord {
+    int userId = 0;
+    int gameId = 0;
+    std::string createdAt;
+};
+
 struct GameRecord {
     int id = 0;
     int ownerId = 0;
@@ -529,6 +538,14 @@ public:
     bool removeGame(int id);
     std::size_t gameCount() const { return games_.size(); }
 
+    // likes
+    int gameLikeCount(int gameId) const;
+    bool hasLikedGame(int userId, int gameId) const;
+    // Adds the like the account has not placed, or takes back the one it has;
+    // false when the game or the account does not exist. `liked` receives the
+    // state afterwards, so the caller does not have to ask again.
+    bool toggleGameLike(int userId, int gameId, const std::string& nowIso, bool* liked);
+
 private:
     void resolveOwnerNames();
     // Drops the oldest messages once a channel or the file is over its bound.
@@ -560,6 +577,7 @@ private:
     std::vector<DevTokenRecord> devTokens_;
     std::vector<ChatMessageRecord> chat_;
     std::vector<ChatReadRecord> chatReads_;
+    std::vector<GameLikeRecord> likes_;
     int nextUserId_ = 1;
     int nextFriendshipId_ = 1;
     int nextGameId_ = 1;

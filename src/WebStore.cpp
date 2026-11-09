@@ -175,6 +175,7 @@ void Store::clear() {
     hardwareBans_.clear();
     chat_.clear();
     chatReads_.clear();
+    likes_.clear();
     nextUserId_ = 1;
     nextFriendshipId_ = 1;
     nextGameId_ = 1;
@@ -445,6 +446,25 @@ bool Store::load(std::string* error) {
         chatReads_.push_back(record);
     }
 
+    for (const Json& entry : document.member("gameLikes").elements()) {
+        GameLikeRecord record;
+        record.userId = static_cast<int>(entry.member("userId").asInteger(0));
+        record.gameId = static_cast<int>(entry.member("gameId").asInteger(0));
+        record.createdAt = entry.member("createdAt").asString();
+        // A like without its account or its game counts for nothing, and a second
+        // row for the same pair would count twice.
+        if (record.userId <= 0 || record.gameId <= 0) {
+            continue;
+        }
+        if (findUserById(record.userId) == nullptr || findGame(record.gameId) == nullptr) {
+            continue;
+        }
+        if (hasLikedGame(record.userId, record.gameId)) {
+            continue;
+        }
+        likes_.push_back(record);
+    }
+
     for (const Json& entry : document.member("appeals").elements()) {
         AppealRecord record;
         record.id = static_cast<int>(entry.member("id").asInteger(0));
@@ -670,6 +690,16 @@ bool Store::save(std::string* error) const {
     }
     document.set("chatReads", chatReads);
 
+    Json gameLikes = Json::makeArray();
+    for (const GameLikeRecord& record : likes_) {
+        Json entry = Json::makeObject();
+        entry.set("userId", record.userId);
+        entry.set("gameId", record.gameId);
+        entry.set("createdAt", record.createdAt);
+        gameLikes.push(entry);
+    }
+    document.set("gameLikes", gameLikes);
+
     Json appeals = Json::makeArray();
     for (const AppealRecord& record : appeals_) {
         Json entry = Json::makeObject();
@@ -857,6 +887,11 @@ bool Store::removeUser(int id) {
                                       return isUser(record.userId);
                                   }),
                    appeals_.end());
+    likes_.erase(std::remove_if(likes_.begin(), likes_.end(),
+                                [&](const GameLikeRecord& record) {
+                                    return isUser(record.userId);
+                                }),
+                 likes_.end());
     removeChatMessagesForUser(id);
     return true;
 }
@@ -1836,10 +1871,69 @@ bool Store::removeGame(int id) {
             // Deleting a game deletes its rooms: a message addressed to a game
             // that no longer exists is unreachable text in the data file.
             removeChatMessagesForGame(id);
+            // A like on a game that is gone is a row nobody can ever see.
+            likes_.erase(std::remove_if(likes_.begin(), likes_.end(),
+                                        [id](const GameLikeRecord& record) {
+                                            return record.gameId == id;
+                                        }),
+                         likes_.end());
             return true;
         }
     }
     return false;
+}
+
+int Store::gameLikeCount(int gameId) const {
+    if (gameId <= 0) {
+        return 0;
+    }
+
+    int count = 0;
+    for (const GameLikeRecord& record : likes_) {
+        if (record.gameId == gameId) {
+            ++count;
+        }
+    }
+    return count;
+}
+
+bool Store::hasLikedGame(int userId, int gameId) const {
+    for (const GameLikeRecord& record : likes_) {
+        if (record.userId == userId && record.gameId == gameId) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool Store::toggleGameLike(int userId, int gameId, const std::string& nowIso, bool* liked) {
+    if (userId <= 0 || gameId <= 0) {
+        return false;
+    }
+    if (findGame(gameId) == nullptr || findUserById(userId) == nullptr) {
+        return false;
+    }
+
+    for (auto it = likes_.begin(); it != likes_.end(); ++it) {
+        if (it->userId != userId || it->gameId != gameId) {
+            continue;
+        }
+        likes_.erase(it);
+        if (liked != nullptr) {
+            *liked = false;
+        }
+        return true;
+    }
+
+    GameLikeRecord record;
+    record.userId = userId;
+    record.gameId = gameId;
+    record.createdAt = nowIso;
+    likes_.push_back(record);
+    if (liked != nullptr) {
+        *liked = true;
+    }
+    return true;
 }
 
 void Store::resolveOwnerNames() {

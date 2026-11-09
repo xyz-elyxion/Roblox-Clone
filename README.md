@@ -647,6 +647,20 @@ catalog does not know is dropped rather than drawn.
 Valid avatar `faceId` values are `classic`, `happy`, `surprised`, `smirk` and `wink`. The web
 previews and the native client use the same transparent face PNG assets.
 
+### Games, likes and sorting
+
+`/games` lists the public games with their scores. A **Like** on a card, or on a game's own page, is
+one row per account and game in the data file rather than a counter: the same account cannot lift a
+game twice, and the page can still say whether *you* liked it after a restart. `POST
+/api/games/:id/like` toggles it and answers with the new count, so the button shows what the server
+recorded instead of guessing. A private game answers `404` to anyone but its owner, which is the
+answer its page gives too.
+
+The list sorts by likes (the default), newest or title, and two games on the same score fall back to
+their titles so the order never shuffles between visits. The page fetches the list once and orders
+what it already has, so changing the sort costs no request and cannot show a different set of games
+than the one that was loaded.
+
 ### Script editor
 
 `/editor` is the website's code editor for a game's `.rbx` script — the file the game server loads
@@ -829,6 +843,7 @@ compatibility fallback, but new callers should use the header.
 | `GET /api/games` | Public games for the games page |
 | `GET /api/games/:id` | Details, world stats and active local instances |
 | `GET /api/games/mine` | Your published games |
+| `POST /api/games/:id/like` | Toggles your like on a game; answers with `{ "liked", "likes" }` |
 | `POST /api/games` | `{ "title", "description", "isPublic", "worldText" }` — publishes a world file; `{ "starter": true }` instead of `worldText` publishes a blank baseplate |
 | `POST /api/games/:id/play` | Starts or reuses a local server; returns native launch metadata |
 | `GET /api/games/:id/script` | Owner only: the script text and the 256 KB limit |
@@ -959,12 +974,23 @@ chat and player list toggles, the debug overlay, and a reset to defaults button.
 | `E` / `Q` | Move the camera up / down |
 | `Shift` | Faster camera movement |
 | Left click | Select a part |
+| `Ctrl+Z` | Undo the last edit |
+| `Ctrl+Y` / `Ctrl+Shift+Z` | Redo |
 
 The **Toolbox** adds parts and switches the move/rotate/scale tools and snapping. **Properties**
 edits the selected part, including the surface material (plastic, smooth plastic, neon, metal,
 wood, grass, concrete, brick) and an optional texture image from `textures/`, tiled across the part.
 **Publish** signs in against the web server, saves the current world, and publishes it to the site
 as a public or private game.
+
+**Undo** and **Redo** — the Edit menu, the Toolbox buttons, or `Ctrl+Z` / `Ctrl+Y` — step through
+the world as it stood at the end of each edit. A step is taken when an interaction finishes rather
+than when a value changes, so dragging a part across the map is one step and typing a name is one
+step, not one per frame or one per keystroke. A step keeps the whole world: positions, sizes,
+colours, materials, textures and welds. A weld is held by part index rather than by pointer, so a
+restored world never points at a part that no longer exists. The history keeps the last fifty steps
+and is dropped when a different world is loaded, because a step taken in one world cannot be undone
+into another.
 
 ### RBLXCode, the source editor
 

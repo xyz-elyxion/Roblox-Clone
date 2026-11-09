@@ -971,6 +971,34 @@ input {
     line-height: 1.45;
 }
 
+.games-toolbar {
+    display: flex;
+    align-items: end;
+    gap: var(--space-3);
+    margin-bottom: var(--space-3);
+}
+
+.games-sort {
+    display: grid;
+    gap: 0.25rem;
+}
+
+.like-control {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+.like-button.liked {
+    font-weight: 700;
+    text-decoration: underline;
+}
+
+.like-count {
+    color: var(--muted);
+    font-size: 0.85rem;
+}
+
 .game-card-actions {
     display: flex;
     flex-wrap: wrap;

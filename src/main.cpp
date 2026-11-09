@@ -13,6 +13,7 @@
 #include "WorldLoader.h"
 #include "RblxScript.h"
 #include "WorldScript.h"
+#include "StudioHistory.h"
 #include "Auth.h"
 
 #include <glad/glad.h>
@@ -210,6 +211,52 @@ namespace {
         }
     }
 
+    // Puts a snapshot back into the world. The deque is rebuilt from scratch and
+    // then the physics bodies and the welds, because every Part the old deque held
+    // is gone the moment the first part is pushed into it.
+    void applySnapshot(const rblx::studio::WorldSnapshot& snapshot, std::deque<Part>& parts,
+                       PhysicsWorld& physicsWorld) {
+        parts.clear();
+        physicsWorld.reset();
+
+        for (const rblx::studio::PartSnapshot& saved : snapshot) {
+            Part part(saved.position, saved.size, saved.color, saved.shape, saved.name);
+            part.parentIndex = saved.parentIndex;
+            part.isFolder = saved.isFolder;
+            part.isCamera = saved.isCamera;
+            part.isSpawn = saved.isSpawn;
+            part.deleted = saved.deleted;
+            part.rotation = saved.rotation;
+            part.transparency = saved.transparency;
+            part.reflectance = saved.reflectance;
+            part.anchored = saved.anchored;
+            part.canCollide = saved.canCollide;
+            part.material = saved.material;
+            part.texture = saved.texture;
+            parts.push_back(part);
+        }
+
+        for (Part& part : parts) {
+            if (!part.isFolder) {
+                physicsWorld.addPart(&part);
+            }
+        }
+
+        for (std::size_t index = 0; index < snapshot.size(); ++index) {
+            for (const int target : snapshot[index].weldTargets) {
+                if (target < 0 || target >= static_cast<int>(parts.size())) {
+                    continue;
+                }
+                Weld weld;
+                weld.part1 = &parts[target];
+                parts[index].welds.push_back(weld);
+                if (parts[index].physicsBody != nullptr && parts[target].physicsBody != nullptr) {
+                    physicsWorld.createWeld(&parts[index], parts[target]);
+                }
+            }
+        }
+    }
+
     void processCameraInput(Window& window, Camera& camera, float deltaTime) {
         GLFWwindow* nativeWindow = window.getNativeWindow();
         const bool sprint = glfwGetKey(nativeWindow, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS;
@@ -275,6 +322,7 @@ int main() {
         double lastMouseY = WINDOW_HEIGHT / 2.0;
         bool firstMouse = true;
         bool wasLeftPressed = false;
+        rblx::studio::History history;
 
         while (!window.shouldClose()) {
             float currentFrame = static_cast<float>(glfwGetTime());
@@ -282,6 +330,11 @@ int main() {
             lastFrame = currentFrame;
 
             window.pollEvents();
+
+            // A request from the menu, the toolbar or a shortcut is consumed by the
+            // frame that made it.
+            bool undoRequested = false;
+            bool redoRequested = false;
 
             if (scriptRunning && scriptRuntime) {
                 scriptRuntime->heartbeat(deltaTime);
@@ -295,15 +348,21 @@ int main() {
                     if (ImGui::MenuItem("New")) {
                         addDefaultWorld(parts, physicsWorld);
                         selectedPart = parts.size() > 1 ? 1 : 0;
+                        // A world that was just created has no steps behind it.
+                        history.clear();
                         statusMessage = "Created a new default world";
                     }
                     if (ImGui::MenuItem("Load")) {
                         WorldLoader::loadWorld(worldPath, parts, physicsWorld);
                         if (parts.empty()) {
                             addDefaultWorld(parts, physicsWorld);
+                            history.clear();
                             statusMessage = "Load failed; restored default world";
                         } else {
                             selectedPart = 0;
+                            // A step taken in another world cannot be undone into
+                            // this one, so loading starts the history again.
+                            history.clear();
                             statusMessage = std::string("Loaded ") + worldPath;
                         }
                     }
@@ -315,7 +374,32 @@ int main() {
                     }
                     ImGui::EndMenu();
                 }
+                if (ImGui::BeginMenu("Edit")) {
+                    if (ImGui::MenuItem("Undo", "Ctrl+Z", false, history.canUndo())) {
+                        undoRequested = true;
+                    }
+                    if (ImGui::MenuItem("Redo", "Ctrl+Y", false, history.canRedo())) {
+                        redoRequested = true;
+                    }
+                    ImGui::EndMenu();
+                }
                 ImGui::EndMainMenuBar();
+            }
+
+            // The shortcuts belong to Studio only while nothing else has the
+            // keyboard: Ctrl+Z inside the script editor is the editor's own undo.
+            ImGuiIO& io = ImGui::GetIO();
+            if (!io.WantCaptureKeyboard) {
+                if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_Z)) {
+                    if (io.KeyShift) {
+                        redoRequested = true;
+                    } else {
+                        undoRequested = true;
+                    }
+                }
+                if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_Y)) {
+                    redoRequested = true;
+                }
             }
 
             ImGui::Begin("Toolbox");
@@ -326,6 +410,19 @@ int main() {
                 physicsWorld.addPart(&parts.back());
                 selectedPart = static_cast<int>(parts.size() - 1);
             }
+            ImGui::BeginDisabled(!history.canUndo());
+            if (ImGui::Button("Undo")) {
+                undoRequested = true;
+            }
+            ImGui::EndDisabled();
+            ImGui::SameLine();
+            ImGui::BeginDisabled(!history.canRedo());
+            if (ImGui::Button("Redo")) {
+                redoRequested = true;
+            }
+            ImGui::EndDisabled();
+            ImGui::SameLine();
+            ImGui::TextDisabled("%zu step(s) back", history.undoDepth());
             ImGui::Separator();
             if (ImGui::RadioButton("Move", operation == ImGuizmo::TRANSLATE)) operation = ImGuizmo::TRANSLATE;
             if (ImGui::RadioButton("Rotate", operation == ImGuizmo::ROTATE)) operation = ImGuizmo::ROTATE;
@@ -504,7 +601,24 @@ int main() {
             }
             ImGui::End();
 
-            ImGuiIO& io = ImGui::GetIO();
+            // Undo is applied here, after every panel that can set a request, so a
+            // menu item and a button both take effect in the frame they were used.
+            if (undoRequested || redoRequested) {
+                const rblx::studio::WorldSnapshot current = rblx::studio::captureWorld(parts);
+                rblx::studio::WorldSnapshot restored;
+                const bool stepped = undoRequested ? history.undo(current, &restored)
+                                                   : history.redo(current, &restored);
+                if (stepped) {
+                    applySnapshot(restored, parts, physicsWorld);
+                    selectedPart = parts.empty()
+                        ? -1
+                        : std::clamp(selectedPart, 0, static_cast<int>(parts.size()) - 1);
+                    statusMessage = undoRequested ? "Undo" : "Redo";
+                } else {
+                    statusMessage = undoRequested ? "Nothing to undo" : "Nothing to redo";
+                }
+            }
+
             const bool gizmoInUse = ImGuizmo::IsUsing();
             if (!gizmoInUse && !io.WantCaptureKeyboard) {
                 processCameraInput(window, camera, deltaTime);
@@ -590,6 +704,12 @@ int main() {
                 }
             }
             wasLeftPressed = leftPressed;
+
+            // One step is one finished interaction: IsAnyItemActive covers a slider
+            // being dragged and a name being typed, and the gizmo is not an ImGui
+            // item, so it is asked separately.
+            const bool interacting = ImGui::IsAnyItemActive() || ImGuizmo::IsUsing();
+            history.note(rblx::studio::captureWorld(parts), interacting);
 
             editor.render();
             window.swapBuffers();

@@ -1414,7 +1414,75 @@ function statTile(label, value) {
     return row;
 }
 
-function createGameCard(game) {
+function formatLikes(count) {
+    const likes = Math.max(0, Number(count || 0));
+    return `${likes} like${likes === 1 ? '' : 's'}`;
+}
+
+// One account, one like: the server owns the row, so the button asks it rather
+// than counting up locally and hoping the page and the file agree.
+function createLikeControl(game, status) {
+    const wrap = document.createElement('span');
+    wrap.className = 'like-control';
+
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'button small like-button';
+
+    const count = document.createElement('span');
+    count.className = 'like-count';
+
+    const paint = () => {
+        const liked = Boolean(game.liked);
+        button.textContent = liked ? 'Liked' : 'Like';
+        button.setAttribute('aria-pressed', liked ? 'true' : 'false');
+        button.classList.toggle('liked', liked);
+        count.textContent = formatLikes(game.likes);
+    };
+    paint();
+
+    button.addEventListener('click', async () => {
+        const token = getToken();
+        if (!token) {
+            const next = `${window.location.pathname}${window.location.search}`;
+            window.location.href = `/login?next=${encodeURIComponent(next)}`;
+            return;
+        }
+
+        button.disabled = true;
+        try {
+            const { response, data } = await postJson(`/api/games/${game.id}/like`, {}, token);
+            if (!response.ok || !data.success) throw new Error(data.error || 'Could not save your like.');
+            game.likes = data.likes;
+            game.liked = data.liked;
+            paint();
+        } catch (error) {
+            setStatus(status, error.message || 'Could not save your like.', 'error');
+        } finally {
+            button.disabled = false;
+        }
+    });
+
+    wrap.append(button, count);
+    return wrap;
+}
+
+// Most liked first, with the title as the tie-break so two games on the same
+// score never swap places between visits.
+function sortGames(games, order) {
+    const sorted = [...games];
+    if (order === 'newest') {
+        sorted.sort((first, second) => String(second.createdAt).localeCompare(String(first.createdAt)));
+    } else if (order === 'title') {
+        sorted.sort((first, second) => first.title.localeCompare(second.title));
+    } else {
+        sorted.sort((first, second) => (second.likes || 0) - (first.likes || 0)
+            || first.title.localeCompare(second.title));
+    }
+    return sorted;
+}
+
+function createGameCard(game, status) {
     const card = document.createElement('article');
     card.className = 'game-card';
 
@@ -1461,6 +1529,7 @@ function createGameCard(game) {
     details.href = gameHref(game);
     details.textContent = 'Open';
     actions.appendChild(details);
+    actions.appendChild(createLikeControl(game, status));
 
     text.append(title, meta, description, actions);
     body.append(icon, text);
@@ -1468,14 +1537,14 @@ function createGameCard(game) {
     return card;
 }
 
-function renderGameCards(container, games, emptyText) {
+function renderGameCards(container, games, emptyText, status) {
     if (!container) return;
     container.innerHTML = '';
     if (!games || games.length === 0) {
         container.appendChild(emptyMessage(emptyText));
         return;
     }
-    games.forEach((game) => container.appendChild(createGameCard(game)));
+    games.forEach((game) => container.appendChild(createGameCard(game, status)));
 }
 
 async function initGamesPage() {
@@ -1484,12 +1553,24 @@ async function initGamesPage() {
 
     const list = document.querySelector('[data-games-list]');
     const status = document.querySelector('[data-games-status]');
+    const sort = document.querySelector('[data-games-sort]');
+    let games = [];
+
+    // The page fetches once and orders what it has, so choosing a different sort
+    // costs no request and cannot show a different set of games.
+    const draw = () => {
+        renderGameCards(list, sortGames(games, sort ? sort.value : 'likes'),
+            'No public games have been published yet.', status);
+    };
+
     list.appendChild(emptyMessage('Loading games'));
 
     try {
         const { response, data } = await getJson('/api/games');
         if (!response.ok || !data.success) throw new Error(data.error || 'Could not load games.');
-        renderGameCards(list, data.games, 'No public games have been published yet.');
+        games = data.games || [];
+        draw();
+        if (sort) sort.addEventListener('change', draw);
     } catch (error) {
         list.innerHTML = '';
         setStatus(status, error.message || 'Could not load games.', 'error');
@@ -1895,6 +1976,12 @@ function initGamePage() {
         banner.src = currentGame.bannerUrl || '/assets/games/default-game-banner.png';
         renderGameStats(stats, currentGame);
         renderServerList(servers, data.servers);
+
+        const likeSlot = document.querySelector('[data-game-like]');
+        if (likeSlot) {
+            likeSlot.innerHTML = '';
+            likeSlot.appendChild(createLikeControl(currentGame, status));
+        }
     }
 
     playButton.addEventListener('click', async () => {

@@ -41,6 +41,16 @@
             </div>
 
             <div class="status" data-games-status aria-live="polite"></div>
+            <div class="games-toolbar">
+                <label class="games-sort">
+                    <span class="label">Sort</span>
+                    <select data-games-sort>
+                        <option value="likes">Most liked</option>
+                        <option value="newest">Newest</option>
+                        <option value="title">A to Z</option>
+                    </select>
+                </label>
+            </div>
             <section class="game-grid" data-games-list aria-label="Public games"></section>
         </main>
         <footer class="legal-footer">
@@ -51,6 +61,6 @@
             </nav>
         </footer>
     </div>
-    <script src="/app.js?v=standing-2" defer></script>
+    <script src="/app.js?v=likes-1" defer></script>
 </body>
 </html>

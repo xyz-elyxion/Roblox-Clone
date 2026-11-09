@@ -65,7 +65,7 @@ try {
     $exeDir = Join-Path $BuildDir $Configuration
     $found = @()
     $missing = @()
-    foreach ($name in @('WebApp', 'Server', 'Client', 'Studio', 'RBLXCode', 'AiTrainer', 'RBLXUpdater', 'RBLXSetup', 'RBLXHosts')) {
+    foreach ($name in @('WebApp', 'Server', 'Client', 'Studio', 'RBLXCode', 'AiTrainer', 'RBLXUpdater', 'RBLXSetup', 'RBLXHosts', 'RBLXProxy')) {
         $exePath = Join-Path $exeDir "$name.exe"
         if (Test-Path -LiteralPath $exePath) {
             Copy-Item -LiteralPath $exePath -Destination $Output
@@ -147,6 +147,8 @@ try {
         '                and the Add/Remove Programs entry, and it is what that entry runs'
         '  RBLXHosts.exe   server supervisor: keeps a pool of Server.exe processes alive, one'
         '                per port with its own log, restarting any that exit'
+        '  RBLXProxy.exe   reverse proxy: puts the website on another address - port 80 on the'
+        '                LAN, say - and forwards every request to WebApp.exe'
         '  web/          website assets (public/ pages and API scripts, seed-worlds/)'
         '  web/host/     the RBLXHosts control panel page'
         '  games/        example worlds and their .rbx scripts (Sky Platformer)'
@@ -156,6 +158,8 @@ try {
         'HOW TO RUN'
         '  WebApp.exe          starts the website on http://localhost:3000; press Open site'
         '                      in its window to open it in the browser'
+        '  RBLXProxy.exe       forwards http://127.0.0.1:8080 to WebApp.exe; add'
+        '                      --listen 0.0.0.0:80 to serve other machines'
         '  Studio.exe          opens the Studio editor'
         '  RBLXCode.exe        opens the source editor on this folder'
         '  Client.exe          opens the client directly (the website normally does this)'

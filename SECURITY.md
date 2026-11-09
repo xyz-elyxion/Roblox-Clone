@@ -114,6 +114,15 @@ TLS, so it is a loopback tool: whoever can read that console controls the pool. 
 to leave it alone. The panel reads game-server logs, so it shows whatever a server chose
 to print.
 
+**The reverse proxy.** `RBLXProxy.exe` is optional and listens on `127.0.0.1:8080` unless told
+otherwise. It passes the method, path, query, body and ordinary headers to WebApp, adds
+`X-Forwarded-For`, `-Host` and `-Proto`, and drops hop-by-hop headers in both directions plus the
+framing headers it writes itself, so no answer arrives with two `Content-Length` lines. Two
+consequences follow. WebApp sees the proxy's address as the client, so its per-address rate limits
+count every visitor as one; the original address is in `X-Forwarded-For` for logs, but nothing in the
+site trusts that header. And once `--listen` names a public or LAN address, the site answers whoever
+can reach that port over plain HTTP, with no TLS in front.
+
 **Moderation as security.** A confirmed speed or fly detection — from the server's movement
 guard, not from the client's self-report — is held and applied in a wave, so one burst of
 detections is one step: two warnings, then 1-, 3- and 7-day suspensions, then a ban. Client

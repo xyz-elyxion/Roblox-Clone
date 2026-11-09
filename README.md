@@ -15,6 +15,7 @@ before pointing it at the internet.
 | `Studio.exe` | World editor: build, colour, texture, script and publish |
 | `RBLXCode.exe` | Source editor for this repository, the way VS Code is the editor for its own sources |
 | `WebApp.exe` | The website: accounts, sessions, avatars, friends, games, coins, moderation, launching servers |
+| `RBLXProxy.exe` | Front door for the site: listens on one address and forwards every request to `WebApp.exe` |
 | `AiTrainer.exe` | Signs in with a developer token, learns to play an AI-compatible game, and can draw the run in a window while it trains |
 | `RBLXHosts.exe` | Keeps N game servers running on one machine — ports, logs, restarts, control panel — see [HOSTING.md](HOSTING.md) |
 
@@ -58,6 +59,11 @@ where it can. **Tour** in the site navigation reopens it. `Studio.exe` opens the
 an update before starting it. `RBLXHosts.exe` is in the same folder: `RBLXHosts.exe up` keeps a pool
 of `Server.exe` processes alive on their own ports and prints a loopback address for its control
 panel, where you can watch the pool and start, stop or restart a server ([HOSTING.md](HOSTING.md)).
+`RBLXProxy.exe` is the site's front door: it listens on `127.0.0.1:8080`, forwards each request to
+`WebApp.exe`, and adds the `X-Forwarded-*` headers the site cannot learn from its own socket, so the
+site can be reached through one address of your choosing. `RBLXProxy.exe --listen 0.0.0.0:80
+--upstream 127.0.0.1:3000` puts it on port 80; the listener stays on loopback until you say
+otherwise, and the site then answers whoever can reach that port.
 
 There are no `.bat` files anywhere, in the package or in an install: every program looks for its data
 in the folder it runs from, which is where Explorer starts it, so a console wrapper added nothing.
@@ -1255,7 +1261,7 @@ rblx-windows-release/
   WebApp.exe  Server.exe  Client.exe  Studio.exe  RBLXCode.exe
   web/public/  web/seed-worlds/
   shaders/  ServerWorld.world  face*.png  face_hex.txt
-  RBLXUpdater.exe  RBLXSetup.exe  AiTrainer.exe  RBLXHosts.exe  update.json  manifest.json
+  RBLXUpdater.exe  RBLXSetup.exe  AiTrainer.exe  RBLXHosts.exe  RBLXProxy.exe  update.json  manifest.json
   README.txt
 ```
 

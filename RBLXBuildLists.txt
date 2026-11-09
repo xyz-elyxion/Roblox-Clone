@@ -26,6 +26,7 @@ option(RBLX_BUILD_TRAINER "Build the headless AI trainer target" ON)
 option(RBLX_BUILD_ANTICHEAT "Embed the vendored RBLXAntiCheat library in the game client (Windows only)" ON)
 option(RBLX_BUILD_UPDATER "Build the installer and update launcher targets" ON)
 option(RBLX_BUILD_HOSTS "Build the game server supervisor target" ON)
+option(RBLX_BUILD_PROXY "Build the website reverse proxy target" ON)
 option(RBLX_ENABLE_WARNINGS "Enable stricter compiler warnings" ON)
 
 add_compile_definitions(NOMINMAX GLM_ENABLE_EXPERIMENTAL)
@@ -233,6 +234,21 @@ if(RBLX_BUILD_HOSTS)
     configure_rblx_target(RBLXHosts)
     # ws2_32 for the panel's listener; bcrypt for the token's random bytes.
     target_link_libraries(RBLXHosts PRIVATE ws2_32 bcrypt)
+endif()
+
+if(RBLX_BUILD_PROXY)
+    # The website's front door: it takes a request on one address, sends the same
+    # method, path, query and body to WebApp on another, and hands the answer
+    # back, adding the X-Forwarded-* headers WebApp cannot learn from its own
+    # socket. It owns no files and no state, so it links the site's HTTP server
+    # and nothing else. See src/ReverseProxy.cpp and ReverseProxyTests.
+    add_executable(RBLXProxy
+        src/ProxyMain.cpp
+        src/ReverseProxy.cpp
+        src/WebHttp.cpp
+    )
+    configure_rblx_target(RBLXProxy)
+    target_link_libraries(RBLXProxy PRIVATE ws2_32)
 endif()
 
 # RBLXAntiCheat is compiled straight into the client (see its RBLXBuildLists): the
@@ -523,5 +539,17 @@ if(RBLX_BUILD_TESTS)
     )
     target_include_directories(GameLikesTests PRIVATE ${RBLXBUILD_CURRENT_SOURCE_DIR}/include)
     add_test(NAME GameLikesTests COMMAND GameLikesTests)
+
+    # The reverse proxy against a stub backend on a real socket: what it puts on
+    # the request line, what it refuses to pass on, and what it hands back when
+    # the backend answers, fails or answers in a form it cannot relay.
+    add_executable(ReverseProxyTests
+        tests/reverse_proxy_tests.cpp
+        src/ReverseProxy.cpp
+        src/WebHttp.cpp
+    )
+    target_include_directories(ReverseProxyTests PRIVATE ${RBLXBUILD_CURRENT_SOURCE_DIR}/include)
+    target_link_libraries(ReverseProxyTests PRIVATE ws2_32)
+    add_test(NAME ReverseProxyTests COMMAND ReverseProxyTests)
 
 endif()

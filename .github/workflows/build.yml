@@ -59,20 +59,30 @@ jobs:
       # The tool is vendored and changes rarely, so it is kept between runs: the
       # key is the contents of rblxbuild/ itself, which is what "the compiler code
       # has not changed" means, plus this workflow because its build flags decide
-      # how the tool was compiled. A run whose sources match reuses the executable
-      # from the last one; a real change to rblxbuild/ pays for one bootstrap and
-      # then stays cached. Only an exact key hits - a near match would hand back a
-      # tool built from different sources, which is worse than rebuilding.
+      # how the tool was compiled. A run whose sources match reuses the tool from
+      # the last one; a real change to rblxbuild/ pays for one bootstrap and then
+      # stays cached. Only an exact key hits - a near match would hand back a tool
+      # built from different sources, which is worse than rebuilding.
+      #
+      # bin alone is not a working tool: rblxbuild reads its Modules tree from
+      # share/<name>-<version>/ next to the executable. Caching only bin produced a
+      # restored tool that failed with "Could not find RBLXBUILD_ROOT" before it
+      # could configure anything, so both are kept.
       - name: Restore the build tool
         uses: actions/cache@v4
         with:
-          path: build/rblxbuild-tool/bin
+          path: |
+            build/rblxbuild-tool/bin
+            build/rblxbuild-tool/share
           key: rblxbuild-tool-${{ runner.os }}-${{ hashFiles('rblxbuild/**', '.github/workflows/build.yml') }}
 
       - name: Look for a build tool
         id: tool
         run: |
-          if [ -x build/rblxbuild-tool/bin/rblxbuild.exe ]; then
+          # The Modules tree is what the executable reads at startup, so a
+          # restored bin without it is not usable and must not skip the bootstrap.
+          if [ -x build/rblxbuild-tool/bin/rblxbuild.exe ] &&
+             ls build/rblxbuild-tool/share/*/Modules > /dev/null 2>&1; then
             echo "reused=true" >> "$GITHUB_OUTPUT"
           else
             echo "reused=false" >> "$GITHUB_OUTPUT"

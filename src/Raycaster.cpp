@@ -27,6 +27,9 @@ int Raycaster::GetPartFromMouse(const std::deque<Part>& parts, const Camera& cam
     float minDist = std::numeric_limits<float>::max();
 
     for (int i = 0; i < parts.size(); i++) {
+        // A deleted part is no longer in the world and a folder has no faces, so
+        // neither may take a click from the part behind it.
+        if (parts[i].deleted || parts[i].isFolder) continue;
         float dist;
         if (RayCubeIntersection(camera.Position, ray_wor, parts[i], dist)) {
             if (dist < minDist) {

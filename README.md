@@ -973,7 +973,10 @@ chat and player list toggles, the debug overlay, and a reset to defaults button.
 | `W` `A` `S` `D` | Move the camera |
 | `E` / `Q` | Move the camera up / down |
 | `Shift` | Faster camera movement |
-| Left click | Select a part |
+| Left click | Select a part, or let go of a selection |
+| `Ctrl+click` | Add a part to the selection, or take it out |
+| `Ctrl+D` | Duplicate the selection |
+| `Del` / `Backspace` | Delete the selection |
 | `Ctrl+Z` | Undo the last edit |
 | `Ctrl+Y` / `Ctrl+Shift+Z` | Redo |
 
@@ -982,6 +985,20 @@ edits the selected part, including the surface material (plastic, smooth plastic
 wood, grass, concrete, brick) and an optional texture image from `textures/`, tiled across the part.
 **Publish** signs in against the web server, saves the current world, and publishes it to the site
 as a public or private game.
+
+**Selecting** is not limited to one part. `Ctrl+click` in the world or in the Explorer adds a part
+to the selection and clicking nothing lets the whole of it go; the last part picked is the one the
+Properties panel edits, and the gizmo moves, turns and scales the selection about that part, so a
+wall and its windows keep their arrangement. **Duplicate** (`Ctrl+D`) copies every selected part,
+offset by the width of that part so a copy stands beside its original rather than inside it, keeps
+the copies in the same folder, selects them, and copies a weld only when both of its ends were
+copied. **Delete** (`Del`) raises a part's deleted flag rather than removing it from the list — the
+world file, the game server and the script runtime all read that flag already — and takes whatever is
+nested inside the part with it, so nothing is left parented to something that is gone. A deleted
+part is skipped by drawing, by picking and by the server — and by the world file, which lists only
+what is still there, so parents and welds are renumbered for the list that is written and a part
+that was deleted does not come back on Load or Publish. Both edits are ordinary steps in the undo
+history.
 
 **Undo** and **Redo** — the Edit menu, the Toolbox buttons, or `Ctrl+Z` / `Ctrl+Y` — step through
 the world as it stood at the end of each edit. A step is taken when an interaction finishes rather

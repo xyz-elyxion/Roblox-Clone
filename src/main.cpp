@@ -14,6 +14,7 @@
 #include "RblxScript.h"
 #include "WorldScript.h"
 #include "StudioHistory.h"
+#include "StudioSelection.h"
 #include "Auth.h"
 
 #include <glad/glad.h>
@@ -34,6 +35,7 @@
 #include <memory>
 #include <sstream>
 #include <string>
+#include <vector>
 
 namespace {
     constexpr int WINDOW_WIDTH = 1280;
@@ -60,11 +62,48 @@ namespace {
             return false;
         }
 
-        out << parts.size() << '\n';
-        for (const Part& part : parts) {
+        // A deleted part is not part of the world, so it is not written. The file
+        // therefore lists only what is still there, which means a parent or a weld
+        // naming a deleted part has to be renumbered for the list being written,
+        // or left out when the part it named is gone.
+        std::vector<int> written(parts.size(), -1);
+        int liveCount = 0;
+        for (std::size_t index = 0; index < parts.size(); ++index) {
+            if (parts[index].deleted) {
+                continue;
+            }
+            written[index] = liveCount++;
+        }
+
+        out << liveCount << '\n';
+        for (std::size_t index = 0; index < parts.size(); ++index) {
+            const Part& part = parts[index];
+            if (part.deleted) {
+                continue;
+            }
+
+            std::vector<int> weldTargets;
+            for (const Weld& weld : part.welds) {
+                int target = -1;
+                for (std::size_t candidate = 0; candidate < parts.size(); ++candidate) {
+                    if (&parts[candidate] == weld.part1) {
+                        target = written[candidate];
+                        break;
+                    }
+                }
+                if (target >= 0) {
+                    weldTargets.push_back(target);
+                }
+            }
+
+            const int parent = part.parentIndex >= 0 &&
+                    part.parentIndex < static_cast<int>(parts.size())
+                ? written[static_cast<std::size_t>(part.parentIndex)]
+                : -1;
+
             out << static_cast<int>(part.shape) << ' '
                 << std::quoted(part.name) << ' '
-                << part.parentIndex << ' '
+                << parent << ' '
                 << part.isFolder << ' '
                 << part.isCamera << ' '
                 << part.isSpawn << ' '
@@ -76,17 +115,10 @@ namespace {
                 << part.reflectance << ' '
                 << part.anchored << ' '
                 << part.canCollide << ' '
-                << part.welds.size();
+                << weldTargets.size();
 
-            for (const Weld& weld : part.welds) {
-                int targetIndex = -1;
-                for (size_t i = 0; i < parts.size(); ++i) {
-                    if (&parts[i] == weld.part1) {
-                        targetIndex = static_cast<int>(i);
-                        break;
-                    }
-                }
-                out << ' ' << targetIndex;
+            for (const int target : weldTargets) {
+                out << ' ' << target;
             }
 
             // Material and texture are optional trailing fields: a world that
@@ -251,9 +283,144 @@ namespace {
                 weld.part1 = &parts[target];
                 parts[index].welds.push_back(weld);
                 if (parts[index].physicsBody != nullptr && parts[target].physicsBody != nullptr) {
-                    physicsWorld.createWeld(&parts[index], parts[target]);
+                    physicsWorld.createWeld(&parts[index], &parts[target]);
                 }
             }
+        }
+    }
+
+    // Where a part sits in the world, or -1. A weld names a part by pointer while
+    // the rest of Studio names parts by index, so this is where the two meet.
+    int partIndex(const std::deque<Part>& parts, const Part* part) {
+        for (std::size_t index = 0; index < parts.size(); ++index) {
+            if (&parts[index] == part) {
+                return static_cast<int>(index);
+            }
+        }
+        return -1;
+    }
+
+    // Deletes the selection. A part is flagged rather than erased, which is what
+    // the world file, the game server and the script runtime already expect, and
+    // what keeps every other index - and every weld naming one - valid.
+    void deleteSelection(std::vector<int>& selection, std::deque<Part>& parts,
+                         PhysicsWorld& physicsWorld) {
+        const std::vector<int> doomed = rblx::studio::withFolderContents(parts, selection);
+
+        for (const int index : doomed) {
+            if (index < 0 || index >= static_cast<int>(parts.size())) {
+                continue;
+            }
+            Part& part = parts[static_cast<std::size_t>(index)];
+            if (part.deleted) {
+                continue;
+            }
+            part.deleted = true;
+            if (part.physicsBody != nullptr) {
+                physicsWorld.removePart(&part);
+            }
+            part.welds.clear();
+        }
+
+        // A weld into a part that is gone would hold two bodies to something that
+        // is no longer in the world.
+        for (Part& part : parts) {
+            part.welds.erase(
+                std::remove_if(part.welds.begin(), part.welds.end(),
+                               [&parts, &doomed](const Weld& weld) {
+                                   return rblx::studio::isSelected(doomed, partIndex(parts, weld.part1));
+                               }),
+                part.welds.end());
+        }
+
+        selection.clear();
+    }
+
+    // Copies the selection and selects the copies. The offset is the primary
+    // part's own width, so a copy stands beside its original instead of inside
+    // it. A copy keeps its place in a folder, and a weld is copied only when both
+    // ends were copied, because the other end still names the original.
+    void duplicateSelection(std::vector<int>& selection, std::deque<Part>& parts,
+                            PhysicsWorld& physicsWorld) {
+        std::vector<int> sources;
+        for (const int index : selection) {
+            if (index < 0 || index >= static_cast<int>(parts.size())) {
+                continue;
+            }
+            if (parts[static_cast<std::size_t>(index)].deleted) {
+                continue;
+            }
+            sources.push_back(index);
+        }
+        if (sources.empty()) {
+            return;
+        }
+
+        const int primary = rblx::studio::primarySelection(selection);
+        const float offsetX = primary >= 0 && primary < static_cast<int>(parts.size())
+            ? parts[static_cast<std::size_t>(primary)].size.x + 0.5f
+            : 1.0f;
+
+        std::vector<Part> copies;
+        copies.reserve(sources.size());
+        for (const int index : sources) {
+            Part copy = parts[static_cast<std::size_t>(index)];
+            copy.physicsBody = nullptr;
+            copy.welds.clear();
+            copy.position.x += offsetX;
+            copies.push_back(copy);
+        }
+
+        const int firstCopy = static_cast<int>(parts.size());
+        for (const Part& copy : copies) {
+            parts.push_back(copy);
+        }
+
+        // The copies now have places, so a parent that was copied too can be
+        // pointed at its own copy rather than at the original.
+        for (std::size_t offset = 0; offset < sources.size(); ++offset) {
+            Part& copy = parts[static_cast<std::size_t>(firstCopy) + offset];
+            const int parent = parts[static_cast<std::size_t>(sources[offset])].parentIndex;
+            const auto found = std::find(sources.begin(), sources.end(), parent);
+            if (found != sources.end()) {
+                copy.parentIndex = firstCopy + static_cast<int>(found - sources.begin());
+            }
+        }
+
+        for (std::size_t offset = 0; offset < sources.size(); ++offset) {
+            Part& copy = parts[static_cast<std::size_t>(firstCopy) + offset];
+            for (const Weld& weld : parts[static_cast<std::size_t>(sources[offset])].welds) {
+                const int target = partIndex(parts, weld.part1);
+                const auto found = std::find(sources.begin(), sources.end(), target);
+                if (found == sources.end()) {
+                    continue;
+                }
+                Weld copiedWeld;
+                copiedWeld.part1 = &parts[static_cast<std::size_t>(firstCopy) +
+                                          static_cast<std::size_t>(found - sources.begin())];
+                copy.welds.push_back(copiedWeld);
+            }
+        }
+
+        for (std::size_t offset = 0; offset < sources.size(); ++offset) {
+            Part& copy = parts[static_cast<std::size_t>(firstCopy) + offset];
+            if (!copy.isFolder) {
+                physicsWorld.addPart(&copy);
+            }
+        }
+        for (std::size_t offset = 0; offset < sources.size(); ++offset) {
+            Part& copy = parts[static_cast<std::size_t>(firstCopy) + offset];
+            for (const Weld& weld : copy.welds) {
+                if (copy.physicsBody != nullptr && weld.part1 != nullptr &&
+                    weld.part1->physicsBody != nullptr) {
+                    physicsWorld.createWeld(&copy, weld.part1);
+                }
+            }
+        }
+
+        selection.clear();
+        for (std::size_t offset = 0; offset < sources.size(); ++offset) {
+            selection.push_back(firstCopy + static_cast<int>(offset));
         }
     }
 
@@ -296,7 +463,8 @@ int main() {
         Editor editor(window.getNativeWindow());
         editor.init();
 
-        int selectedPart = parts.size() > 1 ? 1 : 0;
+        std::vector<int> selection;
+        rblx::studio::selectOnly(selection, parts.size() > 1 ? 1 : 0);
         ImGuizmo::OPERATION operation = ImGuizmo::TRANSLATE;
         ImGuizmo::MODE mode = ImGuizmo::LOCAL;
         bool snapEnabled = false;
@@ -335,6 +503,8 @@ int main() {
             // frame that made it.
             bool undoRequested = false;
             bool redoRequested = false;
+            bool deleteRequested = false;
+            bool duplicateRequested = false;
 
             if (scriptRunning && scriptRuntime) {
                 scriptRuntime->heartbeat(deltaTime);
@@ -347,7 +517,7 @@ int main() {
                 if (ImGui::BeginMenu("File")) {
                     if (ImGui::MenuItem("New")) {
                         addDefaultWorld(parts, physicsWorld);
-                        selectedPart = parts.size() > 1 ? 1 : 0;
+                        rblx::studio::selectOnly(selection, parts.size() > 1 ? 1 : 0);
                         // A world that was just created has no steps behind it.
                         history.clear();
                         statusMessage = "Created a new default world";
@@ -356,10 +526,11 @@ int main() {
                         WorldLoader::loadWorld(worldPath, parts, physicsWorld);
                         if (parts.empty()) {
                             addDefaultWorld(parts, physicsWorld);
+                            rblx::studio::selectOnly(selection, parts.size() > 1 ? 1 : 0);
                             history.clear();
                             statusMessage = "Load failed; restored default world";
                         } else {
-                            selectedPart = 0;
+                            rblx::studio::selectOnly(selection, 0);
                             // A step taken in another world cannot be undone into
                             // this one, so loading starts the history again.
                             history.clear();
@@ -381,6 +552,13 @@ int main() {
                     if (ImGui::MenuItem("Redo", "Ctrl+Y", false, history.canRedo())) {
                         redoRequested = true;
                     }
+                    ImGui::Separator();
+                    if (ImGui::MenuItem("Duplicate", "Ctrl+D", false, !selection.empty())) {
+                        duplicateRequested = true;
+                    }
+                    if (ImGui::MenuItem("Delete", "Del", false, !selection.empty())) {
+                        deleteRequested = true;
+                    }
                     ImGui::EndMenu();
                 }
                 ImGui::EndMainMenuBar();
@@ -400,6 +578,12 @@ int main() {
                 if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_Y)) {
                     redoRequested = true;
                 }
+                if (ImGui::IsKeyPressed(ImGuiKey_Delete) || ImGui::IsKeyPressed(ImGuiKey_Backspace)) {
+                    deleteRequested = true;
+                }
+                if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_D)) {
+                    duplicateRequested = true;
+                }
             }
 
             ImGui::Begin("Toolbox");
@@ -408,8 +592,20 @@ int main() {
                 parts.emplace_back(glm::vec3(0.0f, 3.0f, 0.0f), glm::vec3(2.0f), glm::vec3(0.7f, 0.7f, 0.9f), ShapeType::Cube, "Part");
                 parts.back().anchored = true;
                 physicsWorld.addPart(&parts.back());
-                selectedPart = static_cast<int>(parts.size() - 1);
+                rblx::studio::selectOnly(selection, static_cast<int>(parts.size() - 1));
             }
+            ImGui::SameLine();
+            ImGui::BeginDisabled(selection.empty());
+            if (ImGui::Button("Duplicate")) {
+                duplicateRequested = true;
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Delete")) {
+                deleteRequested = true;
+            }
+            ImGui::EndDisabled();
+            ImGui::SameLine();
+            ImGui::TextDisabled("%zu selected", selection.size());
             ImGui::BeginDisabled(!history.canUndo());
             if (ImGui::Button("Undo")) {
                 undoRequested = true;
@@ -550,15 +746,27 @@ int main() {
             ImGui::Begin("Explorer");
             for (size_t i = 0; i < parts.size(); ++i) {
                 if (parts[i].deleted) continue;
-                if (ImGui::Selectable(parts[i].name.c_str(), selectedPart == static_cast<int>(i))) {
-                    selectedPart = static_cast<int>(i);
+                if (ImGui::Selectable(parts[i].name.c_str(),
+                                      rblx::studio::isSelected(selection, static_cast<int>(i)))) {
+                    if (io.KeyCtrl) {
+                        rblx::studio::toggleSelected(selection, static_cast<int>(i));
+                    } else {
+                        rblx::studio::selectOnly(selection, static_cast<int>(i));
+                    }
                 }
             }
+            ImGui::TextDisabled("Ctrl+click adds or removes a part");
             ImGui::End();
 
             ImGui::Begin("Properties");
-            if (selectedPart >= 0 && selectedPart < static_cast<int>(parts.size())) {
-                Part& part = parts[selectedPart];
+            const int primaryPart = rblx::studio::primarySelection(selection);
+            if (selection.size() > 1 && primaryPart >= 0 &&
+                primaryPart < static_cast<int>(parts.size())) {
+                ImGui::TextDisabled("%zu parts selected; editing %s. The gizmo moves all of them.",
+                                    selection.size(), parts[static_cast<std::size_t>(primaryPart)].name.c_str());
+            }
+            if (primaryPart >= 0 && primaryPart < static_cast<int>(parts.size())) {
+                Part& part = parts[static_cast<std::size_t>(primaryPart)];
                 char name[64] = {};
                 std::snprintf(name, sizeof(name), "%s", part.name.c_str());
                 if (ImGui::InputText("Name", name, sizeof(name))) {
@@ -601,6 +809,22 @@ int main() {
             }
             ImGui::End();
 
+            // Edits that add or remove parts land after the panels and before the
+            // undo block, so the world the history settles on at the end of the
+            // frame is the finished edit rather than half of one.
+            if (deleteRequested && !selection.empty()) {
+                const std::size_t removed = selection.size();
+                deleteSelection(selection, parts, physicsWorld);
+                statusMessage = "Deleted " + std::to_string(removed) +
+                    (removed == 1 ? " part" : " parts");
+            }
+            if (duplicateRequested && !selection.empty()) {
+                const std::size_t copied = selection.size();
+                duplicateSelection(selection, parts, physicsWorld);
+                statusMessage = "Duplicated " + std::to_string(copied) +
+                    (copied == 1 ? " part" : " parts");
+            }
+
             // Undo is applied here, after every panel that can set a request, so a
             // menu item and a button both take effect in the frame they were used.
             if (undoRequested || redoRequested) {
@@ -610,9 +834,9 @@ int main() {
                                                    : history.redo(current, &restored);
                 if (stepped) {
                     applySnapshot(restored, parts, physicsWorld);
-                    selectedPart = parts.empty()
-                        ? -1
-                        : std::clamp(selectedPart, 0, static_cast<int>(parts.size()) - 1);
+                    // A step can add or remove parts, so what was selected may no
+                    // longer be there.
+                    rblx::studio::pruneSelection(selection, parts);
                     statusMessage = undoRequested ? "Undo" : "Redo";
                 } else {
                     statusMessage = undoRequested ? "Nothing to undo" : "Nothing to redo";
@@ -671,9 +895,12 @@ int main() {
                 }
             }
 
-            if (selectedPart >= 0 && selectedPart < static_cast<int>(parts.size()) && !parts[selectedPart].isFolder) {
-                Part& part = parts[selectedPart];
+            const int gizmoPart = rblx::studio::primarySelection(selection);
+            if (gizmoPart >= 0 && gizmoPart < static_cast<int>(parts.size()) &&
+                !parts[static_cast<std::size_t>(gizmoPart)].isFolder) {
+                Part& part = parts[static_cast<std::size_t>(gizmoPart)];
                 glm::mat4 model = partToMatrix(part);
+                const glm::mat4 before = model;
 
                 ImGuizmo::SetOrthographic(false);
                 const ImGuiViewport* mainViewport = ImGui::GetMainViewport();
@@ -690,7 +917,27 @@ int main() {
                         snapValues)) {
                     // ImGuizmo returns the full model matrix. Assign the decomposed size directly;
                     // multiplying by the returned scale each frame causes runaway scale growth.
-                    applyMatrixToPart(model, part, physicsWorld, operation == ImGuizmo::SCALE);
+                    //
+                    // The rest of the selection moves by what the gizmo did to the
+                    // part it drew: the step is that matrix against the one it
+                    // started from, applied to each of them, so a group turns about
+                    // the primary and keeps its shape.
+                    const glm::mat4 delta = model * glm::inverse(before);
+                    for (const int index : selection) {
+                        if (index < 0 || index >= static_cast<int>(parts.size())) {
+                            continue;
+                        }
+                        Part& target = parts[static_cast<std::size_t>(index)];
+                        if (target.deleted) {
+                            continue;
+                        }
+                        if (index == gizmoPart) {
+                            applyMatrixToPart(model, target, physicsWorld, operation == ImGuizmo::SCALE);
+                        } else {
+                            applyMatrixToPart(delta * partToMatrix(target), target, physicsWorld,
+                                              operation == ImGuizmo::SCALE);
+                        }
+                    }
                 }
             }
 
@@ -700,7 +947,15 @@ int main() {
                 glfwGetCursorPos(nativeWindow, &mouseX, &mouseY);
                 int picked = Raycaster::GetPartFromMouse(parts, camera, static_cast<float>(mouseX), static_cast<float>(mouseY), static_cast<float>(window.getWidth()), static_cast<float>(window.getHeight()));
                 if (picked >= 0 && picked < static_cast<int>(parts.size())) {
-                    selectedPart = picked;
+                    if (io.KeyCtrl) {
+                        rblx::studio::toggleSelected(selection, picked);
+                    } else {
+                        rblx::studio::selectOnly(selection, picked);
+                    }
+                } else if (!io.KeyCtrl) {
+                    // A click on nothing lets go of the whole selection, which is
+                    // the only way to pick a single part again after a group.
+                    selection.clear();
                 }
             }
             wasLeftPressed = leftPressed;

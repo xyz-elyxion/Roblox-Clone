@@ -505,6 +505,13 @@ if(RBLX_BUILD_TESTS)
     target_link_libraries(StudioHistoryTests PRIVATE glm)
     add_test(NAME StudioHistoryTests COMMAND StudioHistoryTests)
 
+    # Studio's selection: what counts as picked, and what a folder takes with it
+    # when it is deleted.
+    add_executable(StudioSelectionTests tests/studio_selection_tests.cpp)
+    target_include_directories(StudioSelectionTests PRIVATE ${RBLXBUILD_CURRENT_SOURCE_DIR}/include)
+    target_link_libraries(StudioSelectionTests PRIVATE glm)
+    add_test(NAME StudioSelectionTests COMMAND StudioSelectionTests)
+
     # Likes against the real store: one row per account and game, a row that
     # survives a restart, and a row that goes when its game or account does.
     add_executable(GameLikesTests

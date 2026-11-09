@@ -50,6 +50,16 @@ void testVersionOrder() {
     check(compareVersions("1.3.0-beta", "1.2.9") > 0, "a channel suffix does not change the order");
     check(compareVersions("", "0.0.1") < 0, "an empty version is the oldest");
     check(compareVersions("v1.1.0", "1.0.0") > 0, "a leading v is not part of the number");
+
+    // A package built without -Version carries its build time after the minor,
+    // so ordering inside 1.0.* follows the clock and a deliberate release still
+    // outranks every automatic one.
+    check(compareVersions("1.0.20261109.143205", "1.0.20261109.143204") > 0,
+          "an automatic build version follows its timestamp");
+    check(compareVersions("1.0.20261109.143205", "1.0.0") > 0,
+          "an automatic build version is newer than a plain 1.0.0");
+    check(compareVersions("1.1.0", "1.0.20261109.143205") > 0,
+          "a deliberate minor release outranks every automatic build");
 }
 
 void testPathSafety() {

@@ -125,6 +125,11 @@ The release side is one command on the machine that produced the package:
 RBLXUpdater.exe manifest --dir dist\rblx-windows-release --version 1.2.0
 ```
 
+Leave `-Version` off and the package is stamped with its build time instead —
+`1.0.20261109.143205` — so no two packages share a number and each sorts after the one before
+it. A deliberate `-Version 1.1.0` still outranks every automatic build, because only the
+components after the minor carry the stamp.
+
 `RBLXUpdater.exe install --manifest <url> --dir <folder>` fills a folder from scratch, and `check`
 (exit 10 when an update exists, 0 when current) is there for a scheduled task or a monitor. The rules the updater applies are covered by
 `UpdaterTests`: version order, manifest parsing, paths that try to leave the install folder, which

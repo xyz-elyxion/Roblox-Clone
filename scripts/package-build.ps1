@@ -20,14 +20,27 @@ param(
 
     # What this build calls itself, and where the copy it installs should look
     # for the next one. Both go into the package: manifest.json describes it,
-    # update.json tells RBLXUpdater.exe where to ask.
-    [string]$Version = '1.0.0',
+    # update.json tells RBLXUpdater.exe where to ask. Leave it empty and this
+    # build's own date and time become the version; see below.
+    [string]$Version = '',
 
     [string]$UpdateUrl = 'http://127.0.0.1:3000/updates/manifest.json'
 )
 
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
+
+# A package with no -Version is stamped with the moment it was built, such as
+# 1.0.20261109.143205: two packages never share a number, and each sorts above
+# the one before it because the updater compares numeric components. UTC is used
+# so the clock cannot go backwards when daylight saving does, which would look
+# like a downgrade and be refused. A deliberate -Version 1.1.0 still outranks
+# every automatic build, since only the components after the minor carry the
+# stamp.
+if ([string]::IsNullOrWhiteSpace($Version)) {
+    $stamp = (Get-Date).ToUniversalTime().ToString('yyyyMMdd.HHmmss')
+    $Version = "1.0.$stamp"
+}
 
 if ([string]::IsNullOrWhiteSpace($BuildDir)) {
     $BuildDir = "build/windows-$($Configuration.ToLowerInvariant())"
@@ -255,8 +268,8 @@ try {
 
     $files = Get-ChildItem -LiteralPath $Output -Recurse -File
     $totalBytes = ($files | Measure-Object -Property Length -Sum).Sum
-    Write-Host ("Packaged {0} with {1} files into {2} ({3:N1} MB)" -f `
-        ($found -join ', '), $files.Count, $Output, ($totalBytes / 1MB))
+    Write-Host ("Packaged {0} version {1} with {2} files into {3} ({4:N1} MB)" -f `
+        ($found -join ', '), $Version, $files.Count, $Output, ($totalBytes / 1MB))
 }
 finally {
     Pop-Location

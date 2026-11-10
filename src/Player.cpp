@@ -13,23 +13,23 @@
 #include <sstream>
 #include <deque>
 #include <vector>
-#include <glm/gtc/type_ptr.hpp>
+#include <rblxmath/gtc/type_ptr.hpp>
 #include <iostream>
 #include <iomanip>
 
-#define GLFW_EXPOSE_NATIVE_WIN32
-#include <GLFW/glfw3native.h>
+#define RBLXWIN_EXPOSE_NATIVE_WIN32
+#include <RBLXWIN/rblxwinnative.h>
 
-#include "imgui.h"
-#include "imgui_impl_glfw.h"
-#include "imgui_impl_opengl3.h"
+#include "rblxui.h"
+#include "rblxui_impl_rblxwin.h"
+#include "rblxui_impl_opengl3.h"
 
 // Settings
 const unsigned int SCR_WIDTH = 1280;
 const unsigned int SCR_HEIGHT = 720;
 
 // Camera
-Camera camera(glm::vec3(0.0f, 5.0f, 10.0f));
+Camera camera(rblxmath::vec3(0.0f, 5.0f, 10.0f));
 float lastX = SCR_WIDTH / 2.0f;
 float lastY = SCR_HEIGHT / 2.0f;
 bool firstMouse = true;
@@ -117,12 +117,12 @@ void loadWorld(const std::string& filename, std::deque<Part>& parts, PhysicsWorl
 #include <windows.h>
 #include <commdlg.h>
 
-std::string openFileDialog(GLFWwindow* window) {
+std::string openFileDialog(RBLXWINwindow* window) {
     OPENFILENAMEA ofn;
     char szFile[260] = {0};
     ZeroMemory(&ofn, sizeof(ofn));
     ofn.lStructSize = sizeof(ofn);
-    ofn.hwndOwner = glfwGetWin32Window(window);
+    ofn.hwndOwner = rblxwinGetWin32Window(window);
     ofn.lpstrFile = szFile;
     ofn.nMaxFile = sizeof(szFile);
     ofn.lpstrFilter = "World Files\0*.world\0All Files\0*.*\0";
@@ -138,8 +138,8 @@ std::string openFileDialog(GLFWwindow* window) {
     return "";
 }
 
-void mouse_callback(GLFWwindow* window, double xposIn, double yposIn) {
-    if (ImGui::GetIO().WantCaptureMouse) return;
+void mouse_callback(RBLXWINwindow* window, double xposIn, double yposIn) {
+    if (RblxUI::GetIO().WantCaptureMouse) return;
     if (!isCursorLocked) return;
 
     float xpos = static_cast<float>(xposIn);
@@ -167,19 +167,19 @@ Character* myCharacter = nullptr;
 
 int main() {
     Window window(SCR_WIDTH, SCR_HEIGHT, "RBLX Clone Player");
-    glfwSetCursorPosCallback(window.getNativeWindow(), mouse_callback);
+    rblxwinSetCursorPosCallback(window.getNativeWindow(), mouse_callback);
     
     // Lock cursor by default
-    glfwSetInputMode(window.getNativeWindow(), GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+    rblxwinSetInputMode(window.getNativeWindow(), RBLXWIN_CURSOR, RBLXWIN_CURSOR_DISABLED);
 
-    // Setup ImGui
-    IMGUI_CHECKVERSION();
-    ImGui::CreateContext();
-    ImGuiIO& io = ImGui::GetIO(); (void)io;
+    // Setup RblxUI
+    RBLXUI_CHECKVERSION();
+    RblxUI::CreateContext();
+    RblxUIIO& io = RblxUI::GetIO(); (void)io;
     rblx::ui::theme::apply();
     const float uiScale = UiScale::Apply(window.getNativeWindow());
-    ImGui_ImplGlfw_InitForOpenGL(window.getNativeWindow(), true);
-    ImGui_ImplOpenGL3_Init("#version 330");
+    RblxUI_ImplRblxWin_InitForOpenGL(window.getNativeWindow(), true);
+    RblxUI_ImplOpenGL3_Init("#version 330");
 
     Renderer renderer;
     renderer.init();
@@ -199,12 +199,12 @@ int main() {
     // Load World on Start
     currentWorldFile = openFileDialog(window.getNativeWindow());
     // Reset lastFrame after waiting for file dialog to avoid huge deltaTime
-    lastFrame = static_cast<float>(glfwGetTime());
+    lastFrame = static_cast<float>(rblxwinGetTime());
     
     if (!currentWorldFile.empty()) {
         loadWorld(currentWorldFile, parts, physicsWorld);
     } else {
-        Part baseplate(glm::vec3(0.0f, -2.0f, 0.0f), glm::vec3(100.0f, 1.0f, 100.0f), glm::vec3(0.3f, 0.5f, 0.3f));
+        Part baseplate(rblxmath::vec3(0.0f, -2.0f, 0.0f), rblxmath::vec3(100.0f, 1.0f, 100.0f), rblxmath::vec3(0.3f, 0.5f, 0.3f));
         baseplate.name = "Baseplate";
         parts.push_back(baseplate);
         physicsWorld.addPart(&parts.back());
@@ -234,7 +234,7 @@ int main() {
         }
         
         if (spawnPart) {
-             glm::vec3 spawnPos = spawnPart->position + glm::vec3(0, 2, 0);
+             rblxmath::vec3 spawnPos = spawnPart->position + rblxmath::vec3(0, 2, 0);
              myCharacter = new Character(spawnPos, &physicsWorld, &parts);
              return (Part*)nullptr; // Character controls camera
         } else if (cameraPart) {
@@ -253,27 +253,27 @@ int main() {
     glEnable(GL_CULL_FACE);
 
     while (!window.shouldClose()) {
-        float currentFrame = static_cast<float>(glfwGetTime());
+        float currentFrame = static_cast<float>(rblxwinGetTime());
         deltaTime = currentFrame - lastFrame;
         lastFrame = currentFrame;
 
-        if (glfwGetKey(window.getNativeWindow(), GLFW_KEY_ESCAPE) == GLFW_PRESS) {
+        if (rblxwinGetKey(window.getNativeWindow(), RBLXWIN_KEY_ESCAPE) == RBLXWIN_PRESS) {
             isCursorLocked = false;
-            glfwSetInputMode(window.getNativeWindow(), GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+            rblxwinSetInputMode(window.getNativeWindow(), RBLXWIN_CURSOR, RBLXWIN_CURSOR_NORMAL);
         }
         
-        // ImGui Frame
-        ImGui_ImplOpenGL3_NewFrame();
-        ImGui_ImplGlfw_NewFrame();
-        ImGui::NewFrame();
+        // RblxUI Frame
+        RblxUI_ImplOpenGL3_NewFrame();
+        RblxUI_ImplRblxWin_NewFrame();
+        RblxUI::NewFrame();
         
         // Overlay UI
-        ImGui::SetNextWindowPos(ImVec2(UiScale::Px(10.0f, uiScale), UiScale::Px(10.0f, uiScale)));
-        if (ImGui::Begin("Player Controls", NULL, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav)) {
-            if (ImGui::Button("Load (Test)")) {
+        RblxUI::SetNextWindowPos(RblxVec2(UiScale::Px(10.0f, uiScale), UiScale::Px(10.0f, uiScale)));
+        if (RblxUI::Begin("Player Controls", NULL, RblxUIWindowFlags_NoDecoration | RblxUIWindowFlags_AlwaysAutoResize | RblxUIWindowFlags_NoSavedSettings | RblxUIWindowFlags_NoFocusOnAppearing | RblxUIWindowFlags_NoNav)) {
+            if (RblxUI::Button("Load (Test)")) {
                 std::string newFile = openFileDialog(window.getNativeWindow());
                 // Reset timer after dialog
-                lastFrame = static_cast<float>(glfwGetTime());
+                lastFrame = static_cast<float>(rblxwinGetTime());
                 
                 if (!newFile.empty()) {
                     currentWorldFile = newFile;
@@ -281,8 +281,8 @@ int main() {
                     activeCameraPart = setupPhysics();
                 }
             }
-            ImGui::SameLine();
-            if (ImGui::Button("Restart")) {
+            RblxUI::SameLine();
+            if (RblxUI::Button("Restart")) {
                 if (!currentWorldFile.empty()) {
                     loadWorld(currentWorldFile, parts, physicsWorld);
                     activeCameraPart = setupPhysics();
@@ -290,50 +290,50 @@ int main() {
                     activeCameraPart = setupPhysics();
                 }
             }
-            ImGui::SameLine();
-            if (ImGui::Button("Stop")) {
-                glfwSetWindowShouldClose(window.getNativeWindow(), true);
+            RblxUI::SameLine();
+            if (RblxUI::Button("Stop")) {
+                rblxwinSetWindowShouldClose(window.getNativeWindow(), true);
             }
-            ImGui::SameLine();
-            if (ImGui::Button(isCursorLocked ? "Unlock Cursor (ESC)" : "Lock Cursor")) {
+            RblxUI::SameLine();
+            if (RblxUI::Button(isCursorLocked ? "Unlock Cursor (ESC)" : "Lock Cursor")) {
                 isCursorLocked = !isCursorLocked;
-                glfwSetInputMode(window.getNativeWindow(), GLFW_CURSOR, isCursorLocked ? GLFW_CURSOR_DISABLED : GLFW_CURSOR_NORMAL);
+                rblxwinSetInputMode(window.getNativeWindow(), RBLXWIN_CURSOR, isCursorLocked ? RBLXWIN_CURSOR_DISABLED : RBLXWIN_CURSOR_NORMAL);
             }
         }
-        ImGui::End();
+        RblxUI::End();
 
         // Health Bar (Copied from main.cpp logic)
         if (myCharacter) {
-            ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav;
-            window_flags |= ImGuiWindowFlags_NoMove;
+            RblxUIWindowFlags window_flags = RblxUIWindowFlags_NoDecoration | RblxUIWindowFlags_AlwaysAutoResize | RblxUIWindowFlags_NoSavedSettings | RblxUIWindowFlags_NoFocusOnAppearing | RblxUIWindowFlags_NoNav;
+            window_flags |= RblxUIWindowFlags_NoMove;
             
             float PAD = UiScale::Px(10.0f, uiScale);
-            const ImGuiViewport* viewport = ImGui::GetMainViewport();
-            ImVec2 work_pos = viewport->WorkPos; 
-            ImVec2 work_size = viewport->WorkSize;
-            ImVec2 window_pos, window_pos_pivot;
+            const RblxUIViewport* viewport = RblxUI::GetMainViewport();
+            RblxVec2 work_pos = viewport->WorkPos; 
+            RblxVec2 work_size = viewport->WorkSize;
+            RblxVec2 window_pos, window_pos_pivot;
             window_pos.x = work_pos.x + work_size.x - PAD;
             window_pos.y = work_pos.y + work_size.y - PAD;
             window_pos_pivot.x = 1.0f;
             window_pos_pivot.y = 1.0f;
-            ImGui::SetNextWindowPos(window_pos, ImGuiCond_Always, window_pos_pivot);
-            ImGui::SetNextWindowBgAlpha(0.35f);
+            RblxUI::SetNextWindowPos(window_pos, RblxUICond_Always, window_pos_pivot);
+            RblxUI::SetNextWindowBgAlpha(0.35f);
             
-            if (ImGui::Begin("HealthOverlay", NULL, window_flags)) {
-                ImGui::Text("Health");
+            if (RblxUI::Begin("HealthOverlay", NULL, window_flags)) {
+                RblxUI::Text("Health");
                 float health = myCharacter->health;
                 float maxHealth = myCharacter->maxHealth;
                 
-                ImVec4 color = ImVec4(0.2f, 0.8f, 0.2f, 1.0f);
-                if (health < 30) color = ImVec4(0.8f, 0.2f, 0.2f, 1.0f);
+                RblxVec4 color = RblxVec4(0.2f, 0.8f, 0.2f, 1.0f);
+                if (health < 30) color = RblxVec4(0.8f, 0.2f, 0.2f, 1.0f);
                 
-                ImGui::PushStyleColor(ImGuiCol_PlotHistogram, color);
+                RblxUI::PushStyleColor(RblxUICol_PlotHistogram, color);
                 char buf[32];
                 sprintf(buf, "%.0f / %.0f", health, maxHealth);
-                ImGui::ProgressBar(health / maxHealth, UiScale::Size(200.0f, 20.0f, uiScale), buf);
-                ImGui::PopStyleColor();
+                RblxUI::ProgressBar(health / maxHealth, UiScale::Size(200.0f, 20.0f, uiScale), buf);
+                RblxUI::PopStyleColor();
             }
-            ImGui::End();
+            RblxUI::End();
         }
 
         // Health Bar
@@ -344,38 +344,38 @@ int main() {
         // Player List (Leaderboard)
         {
             float PAD = UiScale::Px(10.0f, uiScale);
-            const ImGuiViewport* viewport = ImGui::GetMainViewport();
-            ImVec2 work_pos = viewport->WorkPos; 
-            ImVec2 work_size = viewport->WorkSize;
-            ImVec2 window_pos, window_pos_pivot;
+            const RblxUIViewport* viewport = RblxUI::GetMainViewport();
+            RblxVec2 work_pos = viewport->WorkPos; 
+            RblxVec2 work_size = viewport->WorkSize;
+            RblxVec2 window_pos, window_pos_pivot;
             window_pos.x = work_pos.x + work_size.x - PAD;
             window_pos.y = work_pos.y + PAD; // Top Right
             window_pos_pivot.x = 1.0f;
             window_pos_pivot.y = 0.0f;
-            ImGui::SetNextWindowPos(window_pos, ImGuiCond_Always, window_pos_pivot);
-            ImGui::SetNextWindowBgAlpha(0.5f); // Dark translucent
+            RblxUI::SetNextWindowPos(window_pos, RblxUICond_Always, window_pos_pivot);
+            RblxUI::SetNextWindowBgAlpha(0.5f); // Dark translucent
             
-            ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoMove;
+            RblxUIWindowFlags window_flags = RblxUIWindowFlags_NoDecoration | RblxUIWindowFlags_AlwaysAutoResize | RblxUIWindowFlags_NoSavedSettings | RblxUIWindowFlags_NoFocusOnAppearing | RblxUIWindowFlags_NoNav | RblxUIWindowFlags_NoMove;
             
-            if (ImGui::Begin("Leaderboard", NULL, window_flags)) {
-                ImGui::Text("Players");
-                ImGui::Separator();
-                ImGui::Text("Player1"); // Placeholder
+            if (RblxUI::Begin("Leaderboard", NULL, window_flags)) {
+                RblxUI::Text("Players");
+                RblxUI::Separator();
+                RblxUI::Text("Player1"); // Placeholder
             }
-            ImGui::End();
+            RblxUI::End();
         }
 
         if (isCursorLocked) {
             if (myCharacter) {
-                 bool fwd = glfwGetKey(window.getNativeWindow(), GLFW_KEY_W) == GLFW_PRESS;
-                 bool bwd = glfwGetKey(window.getNativeWindow(), GLFW_KEY_S) == GLFW_PRESS;
-                 bool l = glfwGetKey(window.getNativeWindow(), GLFW_KEY_A) == GLFW_PRESS;
-                 bool r = glfwGetKey(window.getNativeWindow(), GLFW_KEY_D) == GLFW_PRESS;
-                 bool j = glfwGetKey(window.getNativeWindow(), GLFW_KEY_SPACE) == GLFW_PRESS;
+                 bool fwd = rblxwinGetKey(window.getNativeWindow(), RBLXWIN_KEY_W) == RBLXWIN_PRESS;
+                 bool bwd = rblxwinGetKey(window.getNativeWindow(), RBLXWIN_KEY_S) == RBLXWIN_PRESS;
+                 bool l = rblxwinGetKey(window.getNativeWindow(), RBLXWIN_KEY_A) == RBLXWIN_PRESS;
+                 bool r = rblxwinGetKey(window.getNativeWindow(), RBLXWIN_KEY_D) == RBLXWIN_PRESS;
+                 bool j = rblxwinGetKey(window.getNativeWindow(), RBLXWIN_KEY_SPACE) == RBLXWIN_PRESS;
                  
                  float zoom = 0.0f;
-                 if (glfwGetKey(window.getNativeWindow(), GLFW_KEY_UP) == GLFW_PRESS) zoom = 1.0f;
-                 if (glfwGetKey(window.getNativeWindow(), GLFW_KEY_DOWN) == GLFW_PRESS) zoom = -1.0f;
+                 if (rblxwinGetKey(window.getNativeWindow(), RBLXWIN_KEY_UP) == RBLXWIN_PRESS) zoom = 1.0f;
+                 if (rblxwinGetKey(window.getNativeWindow(), RBLXWIN_KEY_DOWN) == RBLXWIN_PRESS) zoom = -1.0f;
                  
                  myCharacter->processInput(fwd, bwd, l, r, j, camera, zoom, deltaTime);
                  
@@ -386,17 +386,17 @@ int main() {
                 camera.Position = activeCameraPart->position;
             } else {
                 // Free cam
-                bool isSprinting = glfwGetKey(window.getNativeWindow(), GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS;
-                if (glfwGetKey(window.getNativeWindow(), GLFW_KEY_W) == GLFW_PRESS) camera.ProcessKeyboard(FORWARD, deltaTime, isSprinting);
-                if (glfwGetKey(window.getNativeWindow(), GLFW_KEY_S) == GLFW_PRESS) camera.ProcessKeyboard(BACKWARD, deltaTime, isSprinting);
-                if (glfwGetKey(window.getNativeWindow(), GLFW_KEY_A) == GLFW_PRESS) camera.ProcessKeyboard(LEFT, deltaTime, isSprinting);
-                if (glfwGetKey(window.getNativeWindow(), GLFW_KEY_D) == GLFW_PRESS) camera.ProcessKeyboard(RIGHT, deltaTime, isSprinting);
+                bool isSprinting = rblxwinGetKey(window.getNativeWindow(), RBLXWIN_KEY_LEFT_SHIFT) == RBLXWIN_PRESS;
+                if (rblxwinGetKey(window.getNativeWindow(), RBLXWIN_KEY_W) == RBLXWIN_PRESS) camera.ProcessKeyboard(FORWARD, deltaTime, isSprinting);
+                if (rblxwinGetKey(window.getNativeWindow(), RBLXWIN_KEY_S) == RBLXWIN_PRESS) camera.ProcessKeyboard(BACKWARD, deltaTime, isSprinting);
+                if (rblxwinGetKey(window.getNativeWindow(), RBLXWIN_KEY_A) == RBLXWIN_PRESS) camera.ProcessKeyboard(LEFT, deltaTime, isSprinting);
+                if (rblxwinGetKey(window.getNativeWindow(), RBLXWIN_KEY_D) == RBLXWIN_PRESS) camera.ProcessKeyboard(RIGHT, deltaTime, isSprinting);
             }
         }
 
         // Update Character
         if (myCharacter) {
-             bool isSprinting = glfwGetKey(window.getNativeWindow(), GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS;
+             bool isSprinting = rblxwinGetKey(window.getNativeWindow(), RBLXWIN_KEY_LEFT_SHIFT) == RBLXWIN_PRESS;
              myCharacter->update(deltaTime, &camera, isSprinting);
         }
 
@@ -404,8 +404,8 @@ int main() {
         physicsWorld.update(deltaTime);
         
         // --- Render ---
-        glm::vec3 lightPos(20.0f, 50.0f, 20.0f);
-        glm::mat4 lightSpaceMatrix = shadowMap.getLightSpaceMatrix(lightPos);
+        rblxmath::vec3 lightPos(20.0f, 50.0f, 20.0f);
+        rblxmath::mat4 lightSpaceMatrix = shadowMap.getLightSpaceMatrix(lightPos);
         
         shadowMap.bindForWriting();
         for (const auto& part : parts) {
@@ -420,8 +420,8 @@ int main() {
         glClearColor(0.53f, 0.81f, 0.92f, 1.0f); 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        glm::mat4 view = camera.GetViewMatrix();
-        glm::mat4 projection = camera.GetProjectionMatrix((float)window.getWidth(), (float)window.getHeight());
+        rblxmath::mat4 view = camera.GetViewMatrix();
+        rblxmath::mat4 projection = camera.GetProjectionMatrix((float)window.getWidth(), (float)window.getHeight());
 
         renderer.shader->use();
         renderer.shader->setVec3("lightPos", lightPos);
@@ -436,16 +436,16 @@ int main() {
             renderer.drawPart(part, view, projection, lightSpaceMatrix, shadowMap.depthMap);
         }
 
-        ImGui::Render();
-        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+        RblxUI::Render();
+        RblxUI_ImplOpenGL3_RenderDrawData(RblxUI::GetDrawData());
 
         window.swapBuffers();
         window.pollEvents();
     }
     
-    ImGui_ImplOpenGL3_Shutdown();
-    ImGui_ImplGlfw_Shutdown();
-    ImGui::DestroyContext();
+    RblxUI_ImplOpenGL3_Shutdown();
+    RblxUI_ImplRblxWin_Shutdown();
+    RblxUI::DestroyContext();
 
     return 0;
 }

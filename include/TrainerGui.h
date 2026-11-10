@@ -4,7 +4,7 @@
 #include <string>
 #include <vector>
 
-#include <glm/glm.hpp>
+#include <rblxmath/rblxmath.hpp>
 
 #include "Part.h"
 
@@ -13,20 +13,20 @@
 // keeps the simulation at arm's length - it is handed copies of the positions it
 // draws - so training behaves the same whether or not anyone is watching.
 //
-// GLFW and ImGui are deliberately not named here: only the implementation needs
+// RBLXWIN and RblxUI are deliberately not named here: only the implementation needs
 // them, and the trainer's other translation units stay free of both.
 namespace rblx {
 namespace trainer {
 
 // One agent as the window draws it.
 struct AgentMarker {
-    glm::vec3 position{0.0f};
-    glm::vec3 target{0.0f};
+    rblxmath::vec3 position{0.0f};
+    rblxmath::vec3 target{0.0f};
     int targetsPassed = 0;
     float reward = 0.0f;
     bool reached = false;
     bool fell = false;
-    std::vector<glm::vec3> trail;
+    std::vector<rblxmath::vec3> trail;
 };
 
 // Everything one frame needs: the world's parts, where the agents are on it, the
@@ -34,9 +34,9 @@ struct AgentMarker {
 struct Frame {
     const std::deque<Part>* parts = nullptr;
     std::vector<AgentMarker> agents;
-    std::vector<glm::vec3> targets;
-    glm::vec3 spawn{0.0f};
-    glm::vec3 goal{0.0f};
+    std::vector<rblxmath::vec3> targets;
+    rblxmath::vec3 spawn{0.0f};
+    rblxmath::vec3 goal{0.0f};
     std::string title;
     std::string status;
     int doorCount = 0;
@@ -60,7 +60,7 @@ public:
     bool present(const Frame& frame);
 
 private:
-    void* window_ = nullptr;  // GLFWwindow*, kept opaque so GLFW stays in the .cpp
+    void* window_ = nullptr;  // RBLXWINwindow*, kept opaque so RBLXWIN stays in the .cpp
     bool closeRequested_ = false;
     // Both are options rather than constants: taking the roof off hides ceilings
     // but also anything a map has built above the course.

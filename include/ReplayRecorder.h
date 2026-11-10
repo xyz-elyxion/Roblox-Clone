@@ -9,7 +9,7 @@
 // half of packets lets a report carry the run-up, and lets the dashboard draw the
 // path an admin needs to judge an appeal.
 //
-// Deliberately free of glm: the game server has vectors to spare, but the website
+// Deliberately free of rblxmath: the game server has vectors to spare, but the website
 // reads these clips too and has no business linking a renderer to do it.
 
 #include <cstddef>

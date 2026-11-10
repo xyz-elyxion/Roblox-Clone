@@ -1,6 +1,6 @@
 #include "ShadowMap.h"
 #include <iostream>
-#include <glm/gtc/matrix_transform.hpp>
+#include <rblxmath/gtc/matrix_transform.hpp>
 
 ShadowMap::ShadowMap() : depthMapFBO(0), depthMap(0) {}
 
@@ -49,10 +49,10 @@ void ShadowMap::bindForReading(unsigned int textureUnit) {
     glBindTexture(GL_TEXTURE_2D, depthMap);
 }
 
-glm::mat4 ShadowMap::getLightSpaceMatrix(glm::vec3 lightPos) {
+rblxmath::mat4 ShadowMap::getLightSpaceMatrix(rblxmath::vec3 lightPos) {
     float near_plane = 1.0f, far_plane = 200.0f; // Increased far plane
     // Increase ortho size to cover larger world area
-    glm::mat4 lightProjection = glm::ortho(-100.0f, 100.0f, -100.0f, 100.0f, near_plane, far_plane);
-    glm::mat4 lightView = glm::lookAt(lightPos, glm::vec3(0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+    rblxmath::mat4 lightProjection = rblxmath::ortho(-100.0f, 100.0f, -100.0f, 100.0f, near_plane, far_plane);
+    rblxmath::mat4 lightView = rblxmath::lookAt(lightPos, rblxmath::vec3(0.0f), rblxmath::vec3(0.0f, 1.0f, 0.0f));
     return lightProjection * lightView;
 }

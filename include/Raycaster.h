@@ -1,6 +1,6 @@
 #pragma once
 
-#include <glm/glm.hpp>
+#include <rblxmath/rblxmath.hpp>
 #include <deque>
 #include "Part.h"
 #include "Camera.h"
@@ -11,6 +11,6 @@ public:
     static int GetPartFromMouse(const std::deque<Part>& parts, const Camera& camera, float mouseX, float mouseY, float screenWidth, float screenHeight);
 
 private:
-    static bool RayCubeIntersection(const glm::vec3& rayOrigin, const glm::vec3& rayDir, const Part& part, float& distance);
+    static bool RayCubeIntersection(const rblxmath::vec3& rayOrigin, const rblxmath::vec3& rayDir, const Part& part, float& distance);
 };
 

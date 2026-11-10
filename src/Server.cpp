@@ -33,12 +33,12 @@
 #include <sstream>
 #include <thread>
 
-// GLM Includes
-#define GLM_ENABLE_EXPERIMENTAL
-#include <glm/glm.hpp>
-#include <glm/gtc/quaternion.hpp>
-#include <glm/gtx/quaternion.hpp>
-#include <glm/gtx/euler_angles.hpp>
+// RBLXMATH Includes
+#define RBLXMATH_ENABLE_EXPERIMENTAL
+#include <rblxmath/rblxmath.hpp>
+#include <rblxmath/gtc/quaternion.hpp>
+#include <rblxmath/gtx/quaternion.hpp>
+#include <rblxmath/gtx/euler_angles.hpp>
 
 const char* DEFAULT_FACE_ID = "classic";
 
@@ -56,13 +56,13 @@ struct ConnectedPlayer {
     // website can be told which machine a detection happened on.
     std::string hardwareId;
     std::chrono::steady_clock::time_point lastPlaytimeReportedAt;
-    rp3d::RigidBody* shadowBody; // Server-side physics body for player
-    glm::vec3 headColor = glm::vec3(0.8f, 0.6f, 0.4f);
-    glm::vec3 torsoColor = glm::vec3(0.2f, 0.4f, 0.8f);
-    glm::vec3 leftArmColor = glm::vec3(0.8f, 0.6f, 0.4f);
-    glm::vec3 rightArmColor = glm::vec3(0.8f, 0.6f, 0.4f);
-    glm::vec3 leftLegColor = glm::vec3(0.2f, 0.6f, 0.2f);
-    glm::vec3 rightLegColor = glm::vec3(0.2f, 0.6f, 0.2f);
+    rblxphysics::RigidBody* shadowBody; // Server-side physics body for player
+    rblxmath::vec3 headColor = rblxmath::vec3(0.8f, 0.6f, 0.4f);
+    rblxmath::vec3 torsoColor = rblxmath::vec3(0.2f, 0.4f, 0.8f);
+    rblxmath::vec3 leftArmColor = rblxmath::vec3(0.8f, 0.6f, 0.4f);
+    rblxmath::vec3 rightArmColor = rblxmath::vec3(0.8f, 0.6f, 0.4f);
+    rblxmath::vec3 leftLegColor = rblxmath::vec3(0.2f, 0.6f, 0.2f);
+    rblxmath::vec3 rightLegColor = rblxmath::vec3(0.2f, 0.6f, 0.2f);
     std::string faceId = DEFAULT_FACE_ID;
     // Equipped hat id from the account, or empty. The catalog lives in
     // AvatarItems.h, so an id this build does not know is dropped rather than
@@ -79,7 +79,7 @@ struct ConnectedPlayer {
     // Health, death and the respawn timer are the server's, not the client's.
     rblx::health::State health;
     // Where a death puts this player back: the world's SpawnLocation.
-    glm::vec3 spawnPosition = glm::vec3(0.0f, 10.0f, 0.0f);
+    rblxmath::vec3 spawnPosition = rblxmath::vec3(0.0f, 10.0f, 0.0f);
 };
 
 std::map<int, ConnectedPlayer> players;
@@ -150,7 +150,7 @@ std::vector<PacketSound> pendingSounds;
 // a flood, so a tick carries a few and drops the rest: the player already heard
 // the first ones, and the mixer has eight voices anyway.
 constexpr std::size_t kMaxSoundsPerTick = 8;
-std::map<int, glm::vec3> lastBroadcastPositions;
+std::map<int, rblxmath::vec3> lastBroadcastPositions;
 
 // What the clients already know about the world: every part that was in the join
 // snapshot, then each part a script built, then each one it destroyed. A script
@@ -350,7 +350,7 @@ void parseServerArguments(int argc, char** argv, int& serverPort, std::string& w
     }
 }
 
-bool isFiniteVec3(const glm::vec3& value) {
+bool isFiniteVec3(const rblxmath::vec3& value) {
     return std::isfinite(value.x) && std::isfinite(value.y) && std::isfinite(value.z);
 }
 
@@ -381,7 +381,7 @@ float clamp01(float value) {
     return std::max(0.0f, std::min(1.0f, value));
 }
 
-bool parseAvatarColor(const std::string& avatarJson, const std::string& name, glm::vec3& color) {
+bool parseAvatarColor(const std::string& avatarJson, const std::string& name, rblxmath::vec3& color) {
     size_t pos = avatarJson.find("\"" + name + "\":[");
     if (pos == std::string::npos) return false;
 
@@ -480,7 +480,7 @@ const int kFlightCorrectionsPerReport = 30;
 
 // The recorder keeps plain numbers, so the server's vectors are handed over here
 // rather than inside a header the website also reads.
-rblx::replay::Point replayPoint(const glm::vec3& value) {
+rblx::replay::Point replayPoint(const rblxmath::vec3& value) {
     return rblx::replay::Point{value.x, value.y, value.z};
 }
 
@@ -648,17 +648,17 @@ void updatePlayerShadowBody(ConnectedPlayer& player) {
 
     if (!player.shadowBody) {
         // Create shadow body if not exists
-        rp3d::Vector3 pos(player.state.position.x, player.state.position.y, player.state.position.z);
-        rp3d::Quaternion rot = rp3d::Quaternion::identity();
-        rp3d::Transform transform(pos, rot);
+        rblxphysics::Vector3 pos(player.state.position.x, player.state.position.y, player.state.position.z);
+        rblxphysics::Quaternion rot = rblxphysics::Quaternion::identity();
+        rblxphysics::Transform transform(pos, rot);
 
         player.shadowBody = serverPhysicsWorld.world->createRigidBody(transform);
-        player.shadowBody->setType(rp3d::BodyType::KINEMATIC); // Moved by code (player input)
+        player.shadowBody->setType(rblxphysics::BodyType::KINEMATIC); // Moved by code (player input)
 
         // Add a capsule or box shape for collision
-        rp3d::Vector3 halfExtents(1.0f, 2.5f, 1.0f); // Roughly character size
-        rp3d::BoxShape* shape = serverPhysicsWorld.physicsCommon.createBoxShape(halfExtents);
-        player.shadowBody->addCollider(shape, rp3d::Transform::identity());
+        rblxphysics::Vector3 halfExtents(1.0f, 2.5f, 1.0f); // Roughly character size
+        rblxphysics::BoxShape* shape = serverPhysicsWorld.physicsCommon.createBoxShape(halfExtents);
+        player.shadowBody->addCollider(shape, rblxphysics::Transform::identity());
 
         // Set friction to 0 like character
         if (player.shadowBody->getNbColliders() > 0) {
@@ -667,39 +667,39 @@ void updatePlayerShadowBody(ConnectedPlayer& player) {
     }
 
     // Move shadow body smoothly using velocity (KINEMATIC bodies can push DYNAMIC parts when moving)
-    rp3d::Transform currentTransform = player.shadowBody->getTransform();
-    rp3d::Vector3 currentPos = currentTransform.getPosition();
-    rp3d::Vector3 targetPos(player.state.position.x, player.state.position.y, player.state.position.z);
+    rblxphysics::Transform currentTransform = player.shadowBody->getTransform();
+    rblxphysics::Vector3 currentPos = currentTransform.getPosition();
+    rblxphysics::Vector3 targetPos(player.state.position.x, player.state.position.y, player.state.position.z);
 
-    rp3d::Vector3 diff = targetPos - currentPos;
+    rblxphysics::Vector3 diff = targetPos - currentPos;
     float distance = diff.length();
 
     // Set velocity to move towards target (KINEMATIC bodies with velocity can push parts)
     if (distance > 0.01f) {
         // Calculate velocity needed to reach target in one physics step (1/60s)
         float speed = distance * 60.0f; // Move distance in one frame
-        rp3d::Vector3 direction = diff.getUnit();
-        rp3d::Vector3 velocity = direction * speed;
+        rblxphysics::Vector3 direction = diff.getUnit();
+        rblxphysics::Vector3 velocity = direction * speed;
         player.shadowBody->setLinearVelocity(velocity);
     } else {
         // Close enough, just set position directly
-        player.shadowBody->setLinearVelocity(rp3d::Vector3(0, 0, 0));
-        rp3d::Transform newTransform(targetPos, currentTransform.getOrientation());
+        player.shadowBody->setLinearVelocity(rblxphysics::Vector3(0, 0, 0));
+        rblxphysics::Transform newTransform(targetPos, currentTransform.getOrientation());
         player.shadowBody->setTransform(newTransform);
     }
 
     // Update rotation smoothly
-    rp3d::Quaternion currentRot = currentTransform.getOrientation();
-    rp3d::Quaternion targetRot = rp3d::Quaternion::fromEulerAngles(0, glm::radians(player.state.rotationY), 0);
-    rp3d::Quaternion newRot = rp3d::Quaternion::slerp(currentRot, targetRot, 0.3f);
-    rp3d::Transform newTransform(currentPos, newRot);
+    rblxphysics::Quaternion currentRot = currentTransform.getOrientation();
+    rblxphysics::Quaternion targetRot = rblxphysics::Quaternion::fromEulerAngles(0, rblxmath::radians(player.state.rotationY), 0);
+    rblxphysics::Quaternion newRot = rblxphysics::Quaternion::slerp(currentRot, targetRot, 0.3f);
+    rblxphysics::Transform newTransform(currentPos, newRot);
     player.shadowBody->setTransform(newTransform);
 
     // Zero angular velocity (we control rotation directly)
-    player.shadowBody->setAngularVelocity(rp3d::Vector3(0, 0, 0));
+    player.shadowBody->setAngularVelocity(rblxphysics::Vector3(0, 0, 0));
 }
 
-void teleportPlayer(const std::string& username, const glm::vec3& position) {
+void teleportPlayer(const std::string& username, const rblxmath::vec3& position) {
     for (auto& entry : players) {
         ConnectedPlayer& player = entry.second;
         if (!player.active) continue;
@@ -709,11 +709,11 @@ void teleportPlayer(const std::string& username, const glm::vec3& position) {
 
         player.state.position = position;
         if (player.shadowBody) {
-            rp3d::Transform transform = player.shadowBody->getTransform();
-            transform.setPosition(rp3d::Vector3(position.x, position.y, position.z));
+            rblxphysics::Transform transform = player.shadowBody->getTransform();
+            transform.setPosition(rblxphysics::Vector3(position.x, position.y, position.z));
             player.shadowBody->setTransform(transform);
-            player.shadowBody->setLinearVelocity(rp3d::Vector3(0.0f, 0.0f, 0.0f));
-            player.shadowBody->setAngularVelocity(rp3d::Vector3(0.0f, 0.0f, 0.0f));
+            player.shadowBody->setLinearVelocity(rblxphysics::Vector3(0.0f, 0.0f, 0.0f));
+            player.shadowBody->setAngularVelocity(rblxphysics::Vector3(0.0f, 0.0f, 0.0f));
         }
         // A script moved this player: that position is the server's own, so it
         // becomes the baseline the next packet is measured against.
@@ -740,14 +740,14 @@ PartData makePartData(const Part& part) {
     if (part.deleted) data.flags |= 8;
 
     if (part.physicsBody) {
-        rp3d::RigidBody* body = static_cast<rp3d::RigidBody*>(part.physicsBody);
-        const rp3d::Transform t = body->getTransform();
-        const rp3d::Vector3 pos = t.getPosition();
-        const rp3d::Quaternion rot = t.getOrientation();
-        data.position = glm::vec3(pos.x, pos.y, pos.z);
+        rblxphysics::RigidBody* body = static_cast<rblxphysics::RigidBody*>(part.physicsBody);
+        const rblxphysics::Transform t = body->getTransform();
+        const rblxphysics::Vector3 pos = t.getPosition();
+        const rblxphysics::Quaternion rot = t.getOrientation();
+        data.position = rblxmath::vec3(pos.x, pos.y, pos.z);
 
-        const glm::quat q(rot.w, rot.x, rot.y, rot.z);
-        data.rotation = glm::degrees(glm::eulerAngles(q));
+        const rblxmath::quat q(rot.w, rot.x, rot.y, rot.z);
+        data.rotation = rblxmath::degrees(rblxmath::eulerAngles(q));
     } else {
         data.position = part.position;
         data.rotation = part.rotation;
@@ -780,10 +780,10 @@ PartData makePartData(const Part& part) {
 bool samePartLook(const PartData& a, const PartData& b) {
     PartData left = a;
     PartData right = b;
-    left.position = glm::vec3(0.0f);
-    right.position = glm::vec3(0.0f);
-    left.rotation = glm::vec3(0.0f);
-    right.rotation = glm::vec3(0.0f);
+    left.position = rblxmath::vec3(0.0f);
+    right.position = rblxmath::vec3(0.0f);
+    left.rotation = rblxmath::vec3(0.0f);
+    right.rotation = rblxmath::vec3(0.0f);
     return std::memcmp(&left, &right, sizeof(PartData)) == 0;
 }
 
@@ -841,17 +841,17 @@ void broadcastWorldUpdate() {
         Part& p = serverParts[i];
         if (p.deleted || p.isFolder || !p.physicsBody) continue;
 
-        rp3d::RigidBody* body = static_cast<rp3d::RigidBody*>(p.physicsBody);
-        const bool dynamic = body->getType() == rp3d::BodyType::DYNAMIC;
+        rblxphysics::RigidBody* body = static_cast<rblxphysics::RigidBody*>(p.physicsBody);
+        const bool dynamic = body->getType() == rblxphysics::BodyType::DYNAMIC;
 
-        rp3d::Transform t = body->getTransform();
-        const rp3d::Vector3 pos = t.getPosition();
-        const rp3d::Quaternion rot = t.getOrientation();
-        const glm::vec3 newPosition(pos.x, pos.y, pos.z);
+        rblxphysics::Transform t = body->getTransform();
+        const rblxphysics::Vector3 pos = t.getPosition();
+        const rblxphysics::Quaternion rot = t.getOrientation();
+        const rblxmath::vec3 newPosition(pos.x, pos.y, pos.z);
 
         const auto previous = lastBroadcastPositions.find(i);
         const bool moved = previous == lastBroadcastPositions.end() ||
-                           glm::length(previous->second - newPosition) > 0.001f;
+                           rblxmath::length(previous->second - newPosition) > 0.001f;
         if (!dynamic && !moved) continue;
 
         p.position = newPosition;
@@ -861,8 +861,8 @@ void broadcastWorldUpdate() {
         up.position = newPosition;
 
         // Convert quaternion to euler for network transmission
-        glm::quat q(rot.w, rot.x, rot.y, rot.z);
-        up.rotation = glm::degrees(glm::eulerAngles(q));
+        rblxmath::quat q(rot.w, rot.x, rot.y, rot.z);
+        up.rotation = rblxmath::degrees(rblxmath::eulerAngles(q));
 
         updates.push_back(up);
         lastBroadcastPositions[i] = newPosition;
@@ -881,12 +881,12 @@ void broadcastWorldUpdate() {
 // The world's first SpawnLocation, lifted by the same offset the client uses when
 // it creates a character. A world without one keeps the old default so an empty
 // test world still starts.
-glm::vec3 findSpawnPosition() {
+rblxmath::vec3 findSpawnPosition() {
     for (const Part& part : serverParts) {
         if (part.deleted || !part.isSpawn) continue;
-        return part.position + glm::vec3(0.0f, 5.0f, 0.0f);
+        return part.position + rblxmath::vec3(0.0f, 5.0f, 0.0f);
     }
-    return glm::vec3(0.0f, 10.0f, 0.0f);
+    return rblxmath::vec3(0.0f, 10.0f, 0.0f);
 }
 
 // The name scripts and chat use for a player, matching what setPlayerSource
@@ -946,12 +946,12 @@ void respawnPlayer(ConnectedPlayer& player, int id, uint64_t nowMs) {
     player.state.health = player.health.health;
 
     if (player.shadowBody) {
-        rp3d::Transform transform = player.shadowBody->getTransform();
-        transform.setPosition(rp3d::Vector3(player.spawnPosition.x, player.spawnPosition.y,
+        rblxphysics::Transform transform = player.shadowBody->getTransform();
+        transform.setPosition(rblxphysics::Vector3(player.spawnPosition.x, player.spawnPosition.y,
                                             player.spawnPosition.z));
         player.shadowBody->setTransform(transform);
-        player.shadowBody->setLinearVelocity(rp3d::Vector3(0.0f, 0.0f, 0.0f));
-        player.shadowBody->setAngularVelocity(rp3d::Vector3(0.0f, 0.0f, 0.0f));
+        player.shadowBody->setLinearVelocity(rblxphysics::Vector3(0.0f, 0.0f, 0.0f));
+        player.shadowBody->setAngularVelocity(rblxphysics::Vector3(0.0f, 0.0f, 0.0f));
     }
 
     player.movement.teleport(player.spawnPosition, nowMs);
@@ -1002,7 +1002,7 @@ void prepareVehicle() {
         // The server moves the body itself along the driving model, so it must
         // not be a dynamic body falling or being shoved while someone drives.
         if (part.physicsBody) {
-            static_cast<rp3d::RigidBody*>(part.physicsBody)->setType(rp3d::BodyType::KINEMATIC);
+            static_cast<rblxphysics::RigidBody*>(part.physicsBody)->setType(rblxphysics::BodyType::KINEMATIC);
         }
 
         std::cout << "Driving: car is part " << i << " at " << part.position.x << ", "
@@ -1035,9 +1035,9 @@ void unseatPlayer(ConnectedPlayer& player, int id, uint64_t nowMs, bool placeBes
     vehicle.input.set(0.0f, 0.0f);
 
     if (placeBeside) {
-        const float yaw = glm::radians(vehicle.state.yawDegrees);
-        const glm::vec3 right(-std::sin(yaw), 0.0f, std::cos(yaw));
-        player.state.position = vehicle.state.position + right * 3.0f + glm::vec3(0.0f, 2.0f, 0.0f);
+        const float yaw = rblxmath::radians(vehicle.state.yawDegrees);
+        const rblxmath::vec3 right(-std::sin(yaw), 0.0f, std::cos(yaw));
+        player.state.position = vehicle.state.position + right * 3.0f + rblxmath::vec3(0.0f, 2.0f, 0.0f);
         player.movement.teleport(player.state.position, nowMs);
         player.replay.reset();
         sendToPlayer(player, PacketProtocol::buildStructPacket(PacketType::TELEPORT, player.state), true);
@@ -1059,10 +1059,10 @@ std::vector<rblx::vehicle::Obstacle> vehicleObstacles() {
         // A yaw-rotated box covers more ground than its own footprint, so the
         // obstacle is the axis-aligned box around it: generous at the corners of
         // a diagonal wall, and never small enough to let the car clip through.
-        const float yaw = glm::radians(part.rotation.y);
+        const float yaw = rblxmath::radians(part.rotation.y);
         const float cosine = std::abs(std::cos(yaw));
         const float sine = std::abs(std::sin(yaw));
-        const glm::vec3 half(0.5f * (cosine * part.size.x + sine * part.size.z),
+        const rblxmath::vec3 half(0.5f * (cosine * part.size.x + sine * part.size.z),
                              0.5f * part.size.y,
                              0.5f * (sine * part.size.x + cosine * part.size.z));
         rblx::vehicle::Obstacle obstacle;
@@ -1074,12 +1074,12 @@ std::vector<rblx::vehicle::Obstacle> vehicleObstacles() {
 }
 
 // Half the car part's size, so the box that collides is the car the player sees.
-glm::vec3 vehicleHalfExtents() {
+rblxmath::vec3 vehicleHalfExtents() {
     const Part* part = vehiclePart();
     if (part == nullptr) {
-        return glm::vec3(5.0f, 1.0f, 3.0f);
+        return rblxmath::vec3(5.0f, 1.0f, 3.0f);
     }
-    return glm::vec3(std::max(0.5f, part->size.x) * 0.5f,
+    return rblxmath::vec3(std::max(0.5f, part->size.x) * 0.5f,
                      std::max(0.5f, part->size.y) * 0.5f,
                      std::max(0.5f, part->size.z) * 0.5f);
 }
@@ -1114,12 +1114,12 @@ void updateVehicle(float dt, uint64_t nowMs) {
     part->position = vehicle.state.position;
     part->rotation.y = vehicle.state.yawDegrees;
     if (part->physicsBody) {
-        auto* body = static_cast<rp3d::RigidBody*>(part->physicsBody);
-        body->setTransform(rp3d::Transform(
-            rp3d::Vector3(vehicle.state.position.x, vehicle.state.position.y, vehicle.state.position.z),
-            rp3d::Quaternion::fromEulerAngles(0.0f, glm::radians(vehicle.state.yawDegrees), 0.0f)));
-        body->setLinearVelocity(rp3d::Vector3(0.0f, 0.0f, 0.0f));
-        body->setAngularVelocity(rp3d::Vector3(0.0f, 0.0f, 0.0f));
+        auto* body = static_cast<rblxphysics::RigidBody*>(part->physicsBody);
+        body->setTransform(rblxphysics::Transform(
+            rblxphysics::Vector3(vehicle.state.position.x, vehicle.state.position.y, vehicle.state.position.z),
+            rblxphysics::Quaternion::fromEulerAngles(0.0f, rblxmath::radians(vehicle.state.yawDegrees), 0.0f)));
+        body->setLinearVelocity(rblxphysics::Vector3(0.0f, 0.0f, 0.0f));
+        body->setAngularVelocity(rblxphysics::Vector3(0.0f, 0.0f, 0.0f));
     }
 
     ConnectedPlayer& driver = players[vehicle.driverId];
@@ -1229,7 +1229,7 @@ static int runServer(int argc, char** argv) {
                 return snapshot;
             });
             gameScriptRuntime->setTeleportHandler([](const std::string& name,
-                                                     const glm::vec3& position) {
+                                                     const rblxmath::vec3& position) {
                 teleportPlayer(name, position);
             });
             gameScriptRuntime->setDamageHandler([](const std::string& name, float amount) {
@@ -1243,7 +1243,7 @@ static int runServer(int argc, char** argv) {
                 }
             });
             gameScriptRuntime->setSoundHandler([](const std::string& sound,
-                                                  const glm::vec3& position, float volume,
+                                                  const rblxmath::vec3& position, float volume,
                                                   bool spatial) {
                 if (pendingSounds.size() >= kMaxSoundsPerTick) {
                     return;
@@ -1565,12 +1565,12 @@ static int runServer(int argc, char** argv) {
                             PacketProtocol::fixedString(pkt.hardwareId, sizeof(pkt.hardwareId));
                         const bool isGuest = token.empty();
 
-                        player.headColor = glm::vec3(0.8f, 0.6f, 0.4f);
-                        player.torsoColor = glm::vec3(0.2f, 0.4f, 0.8f);
-                        player.leftArmColor = glm::vec3(0.8f, 0.6f, 0.4f);
-                        player.rightArmColor = glm::vec3(0.8f, 0.6f, 0.4f);
-                        player.leftLegColor = glm::vec3(0.2f, 0.6f, 0.2f);
-                        player.rightLegColor = glm::vec3(0.2f, 0.6f, 0.2f);
+                        player.headColor = rblxmath::vec3(0.8f, 0.6f, 0.4f);
+                        player.torsoColor = rblxmath::vec3(0.2f, 0.4f, 0.8f);
+                        player.leftArmColor = rblxmath::vec3(0.8f, 0.6f, 0.4f);
+                        player.rightArmColor = rblxmath::vec3(0.8f, 0.6f, 0.4f);
+                        player.leftLegColor = rblxmath::vec3(0.2f, 0.6f, 0.2f);
+                        player.rightLegColor = rblxmath::vec3(0.2f, 0.6f, 0.2f);
                         player.faceId = DEFAULT_FACE_ID;
                         player.hatId.clear();
 
@@ -1703,15 +1703,15 @@ static int runServer(int argc, char** argv) {
                             if (p.deleted) data.flags |= 8;
 
                             if (p.physicsBody) {
-                                rp3d::RigidBody* body = (rp3d::RigidBody*)p.physicsBody;
-                                rp3d::Transform t = body->getTransform();
-                                rp3d::Vector3 pos = t.getPosition();
-                                rp3d::Quaternion rot = t.getOrientation();
+                                rblxphysics::RigidBody* body = (rblxphysics::RigidBody*)p.physicsBody;
+                                rblxphysics::Transform t = body->getTransform();
+                                rblxphysics::Vector3 pos = t.getPosition();
+                                rblxphysics::Quaternion rot = t.getOrientation();
 
-                                data.position = glm::vec3(pos.x, pos.y, pos.z);
+                                data.position = rblxmath::vec3(pos.x, pos.y, pos.z);
 
-                                glm::quat q(rot.w, rot.x, rot.y, rot.z);
-                                data.rotation = glm::degrees(glm::eulerAngles(q));
+                                rblxmath::quat q(rot.w, rot.x, rot.y, rot.z);
+                                data.rotation = rblxmath::degrees(rblxmath::eulerAngles(q));
                             } else {
                                 data.position = p.position;
                                 data.rotation = p.rotation;
@@ -1808,7 +1808,7 @@ static int runServer(int argc, char** argv) {
                         // Where the client said it was, before the guard touches
                         // it: a replay is only worth watching if it shows the claim
                         // rather than the correction.
-                        const glm::vec3 claimedState = player.state.position;
+                        const rblxmath::vec3 claimedState = player.state.position;
                         // Measured against the client's own clock: a packet that
                         // spent 200 ms in flight still describes movement that
                         // happened over the time the client says it did.

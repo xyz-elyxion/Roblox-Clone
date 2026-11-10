@@ -9,7 +9,7 @@
 #include <chrono>
 #include <vector>
 
-#include <glm/glm.hpp>
+#include <rblxmath/rblxmath.hpp>
 
 // Packet Types
 enum class PacketType : uint8_t {
@@ -65,7 +65,7 @@ struct PacketWelcome {
 // 3. Player State (Client <-> Server)
 struct PacketPlayerState {
     int playerId;
-    glm::vec3 position;
+    rblxmath::vec3 position;
     float rotationY;
     bool isWalking;
     bool isJumping;
@@ -96,7 +96,7 @@ struct PacketPlayerHealth {
 struct PacketVehicleState {
     int partIndex;  // index in the world's part list, -1 when the world has no car
     int driverId;   // -1 when nobody is driving
-    glm::vec3 position;
+    rblxmath::vec3 position;
     float yaw;      // degrees
     float speed;    // units per second along the heading
 };
@@ -143,8 +143,8 @@ struct PlayerInfo {
 // 6. World Update (Server -> Client)
 struct PartUpdate {
     int partIndex;
-    glm::vec3 position;
-    glm::vec3 rotation;
+    rblxmath::vec3 position;
+    rblxmath::vec3 rotation;
 };
 
 // 7. World State (Server -> Client)
@@ -153,10 +153,10 @@ struct PartData {
     char name[64];
     int parentIndex;
     uint8_t flags; // isFolder (bit 0), isCamera (bit 1), isSpawn (bit 2), deleted (bit 3)
-    glm::vec3 position;
-    glm::vec3 size;
-    glm::vec3 color;
-    glm::vec3 rotation;
+    rblxmath::vec3 position;
+    rblxmath::vec3 size;
+    rblxmath::vec3 color;
+    rblxmath::vec3 rotation;
     float transparency;
     float reflectance;
     uint8_t physicsFlags; // anchored (bit 0), canCollide (bit 1)
@@ -186,7 +186,7 @@ struct PacketPartRemove {
 // The colour is sRGB like a part colour, and the density is per stud: the haze
 // thickens until it is 1 - exp(-(distance * density)^2), so 0 is no fog at all.
 struct PacketWorldEnvironment {
-    glm::vec3 fogColor;
+    rblxmath::vec3 fogColor;
     float fogDensity;
 };
 
@@ -200,7 +200,7 @@ struct PacketWorldEnvironment {
 // is simply not heard.
 struct PacketSound {
     char name[24];      // one of the bank's names, see SoundBank.h
-    glm::vec3 position; // where it happened, when spatial is set
+    rblxmath::vec3 position; // where it happened, when spatial is set
     float volume;       // 0..1, the level the script asked for
     uint8_t spatial;    // 1 when position is a place in the world
     uint8_t reserved[3];

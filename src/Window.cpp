@@ -7,48 +7,48 @@ Window::Window(int width, int height, const std::string& title)
 }
 
 Window::~Window() {
-    glfwDestroyWindow(window);
-    glfwTerminate();
+    rblxwinDestroyWindow(window);
+    rblxwinTerminate();
 }
 
 void Window::init() {
-    if (!glfwInit()) {
-        throw std::runtime_error("Failed to initialize GLFW");
+    if (!rblxwinInit()) {
+        throw std::runtime_error("Failed to initialize RBLXWIN");
     }
 
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
-    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+    rblxwinWindowHint(RBLXWIN_CONTEXT_VERSION_MAJOR, 3);
+    rblxwinWindowHint(RBLXWIN_CONTEXT_VERSION_MINOR, 3);
+    rblxwinWindowHint(RBLXWIN_OPENGL_PROFILE, RBLXWIN_OPENGL_CORE_PROFILE);
 
-    window = glfwCreateWindow(width, height, title.c_str(), nullptr, nullptr);
+    window = rblxwinCreateWindow(width, height, title.c_str(), nullptr, nullptr);
     if (!window) {
-        glfwTerminate();
-        throw std::runtime_error("Failed to create GLFW window");
+        rblxwinTerminate();
+        throw std::runtime_error("Failed to create RBLXWIN window");
     }
 
-    glfwMakeContextCurrent(window);
+    rblxwinMakeContextCurrent(window);
 
-    if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
-        throw std::runtime_error("Failed to initialize GLAD");
+    if (!rblxglLoadGLLoader((RBLXGLloadproc)rblxwinGetProcAddress)) {
+        throw std::runtime_error("Failed to initialize RBLXGL");
     }
 
     glViewport(0, 0, width, height);
     
-    glfwSetFramebufferSizeCallback(window, [](GLFWwindow* window, int w, int h) {
+    rblxwinSetFramebufferSizeCallback(window, [](RBLXWINwindow* window, int w, int h) {
         glViewport(0, 0, w, h);
     });
 }
 
 bool Window::shouldClose() const {
-    return glfwWindowShouldClose(window);
+    return rblxwinWindowShouldClose(window);
 }
 
 void Window::swapBuffers() {
-    glfwSwapBuffers(window);
+    rblxwinSwapBuffers(window);
 }
 
 void Window::pollEvents() {
-    glfwPollEvents();
+    rblxwinPollEvents();
 }
 
 

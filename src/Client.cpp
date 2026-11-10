@@ -1,5 +1,5 @@
 #define _CRT_SECURE_NO_WARNINGS
-#define GLM_ENABLE_EXPERIMENTAL
+#define RBLXMATH_ENABLE_EXPERIMENTAL
 #include "Window.h"
 #include "Renderer.h"
 #include "Camera.h"
@@ -20,7 +20,7 @@
 #include "SoundBank.h"
 #include "Obfuscated.h"
 #include "WebJson.h"
-#include <glm/gtx/euler_angles.hpp>
+#include <rblxmath/gtx/euler_angles.hpp>
 #include <fstream>
 #include <sstream>
 
@@ -44,13 +44,13 @@
 
 // The file picker is the only part of the client that needs a native window
 // handle, so the Win32 headers stay behind this guard.
-#define GLFW_EXPOSE_NATIVE_WIN32
-#include <GLFW/glfw3native.h>
+#define RBLXWIN_EXPOSE_NATIVE_WIN32
+#include <RBLXWIN/rblxwinnative.h>
 #include <commdlg.h>
 
-#include "imgui.h"
-#include "imgui_impl_glfw.h"
-#include "imgui_impl_opengl3.h"
+#include "rblxui.h"
+#include "rblxui_impl_rblxwin.h"
+#include "rblxui_impl_opengl3.h"
 
 #if defined(RBLX_ANTICHEAT)
 // Vendored from UltimateAntiCheat and renamed to RBLXAntiCheat (AGPL-3.0, see
@@ -135,12 +135,12 @@ const unsigned int SCR_WIDTH = 1280;
 const unsigned int SCR_HEIGHT = 720;
 
 // Camera
-Camera camera(glm::vec3(0.0f, 5.0f, 10.0f));
+Camera camera(rblxmath::vec3(0.0f, 5.0f, 10.0f));
 float lastX = SCR_WIDTH / 2.0f;
 float lastY = SCR_HEIGHT / 2.0f;
 bool firstMouse = true;
 
-#include "stb_image.h"
+#include "rblxstb_image.h"
 
 // Texture Loader
 unsigned int loadTexture(const char* path) {
@@ -154,15 +154,15 @@ unsigned int loadTexture(const char* path) {
     fclose(f);
 
     int width, height, nrComponents;
-    unsigned char *data = stbi_load(path, &width, &height, &nrComponents, 0);
+    unsigned char *data = rblxstbi_load(path, &width, &height, &nrComponents, 0);
     if (!data) {
-        std::cout << "Texture failed to load at path: " << path << " - stbi_load returned NULL" << std::endl;
+        std::cout << "Texture failed to load at path: " << path << " - rblxstbi_load returned NULL" << std::endl;
         return 0;
     }
     
     if (width == 0 || height == 0) {
         std::cout << "Texture has invalid size: " << width << "x" << height << std::endl;
-        stbi_image_free(data);
+        rblxstbi_image_free(data);
         return 0;
     }
     
@@ -197,7 +197,7 @@ unsigned int loadTexture(const char* path) {
         format = GL_RGBA;
     else {
         std::cout << "Unsupported texture format: " << nrComponents << " components" << std::endl;
-        stbi_image_free(data);
+        rblxstbi_image_free(data);
         glDeleteTextures(1, &textureID);
         return 0;
     }
@@ -214,7 +214,7 @@ unsigned int loadTexture(const char* path) {
     glError = glGetError();
     if (glError != GL_NO_ERROR) {
         std::cout << "OpenGL error creating texture: " << glError << std::endl;
-        stbi_image_free(data);
+        rblxstbi_image_free(data);
         if (converted) {
             delete[] finalData;
         }
@@ -230,7 +230,7 @@ unsigned int loadTexture(const char* path) {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
     // Free original data
-    stbi_image_free(data);
+    rblxstbi_image_free(data);
     // Free converted data if we created it
     if (converted) {
         delete[] finalData;
@@ -626,7 +626,7 @@ std::string queryParam(const std::string& request, const std::string& name) {
     return {};
 }
 
-bool parseJsonColorArray(const std::string& json, const std::string& name, glm::vec3& color) {
+bool parseJsonColorArray(const std::string& json, const std::string& name, rblxmath::vec3& color) {
     size_t pos = json.find("\"" + name + "\":[");
     if (pos == std::string::npos) return false;
 
@@ -840,7 +840,7 @@ std::map<int, NetworkTransform> targetTransforms;
 std::map<int, NetworkTransform> startTransforms;
 float interpolationTime = 0.1f; // 100ms buffer
 
-std::string openFileDialog(GLFWwindow* window);
+std::string openFileDialog(RBLXWINwindow* window);
 
 
 
@@ -858,52 +858,52 @@ std::string openFileDialog(GLFWwindow* window);
 
 
 
-void renderDebugWindow(const ImGuiIO& io) {
+void renderDebugWindow(const RblxUIIO& io) {
     if (!showDebugGui) return;
 
-    ImGui::Begin("Debug Info", &showDebugGui);
-    ImGui::Text("FPS: %.1f", io.Framerate);
-    ImGui::Separator();
+    RblxUI::Begin("Debug Info", &showDebugGui);
+    RblxUI::Text("FPS: %.1f", io.Framerate);
+    RblxUI::Separator();
 
     if (currentState == ONLINE || currentState == OFFLINE) {
-        ImGui::Text("=== CAMERA ===");
-        ImGui::Text("Position: (%.2f, %.2f, %.2f)", camera.Position.x, camera.Position.y, camera.Position.z);
-        ImGui::Text("Yaw: %.2f", camera.Yaw);
-        ImGui::Text("Pitch: %.2f", camera.Pitch);
-        ImGui::Separator();
+        RblxUI::Text("=== CAMERA ===");
+        RblxUI::Text("Position: (%.2f, %.2f, %.2f)", camera.Position.x, camera.Position.y, camera.Position.z);
+        RblxUI::Text("Yaw: %.2f", camera.Yaw);
+        RblxUI::Text("Pitch: %.2f", camera.Pitch);
+        RblxUI::Separator();
 
         if (myCharacter) {
-            ImGui::Text("=== PLAYER (Local) ===");
-            glm::vec3 pos = myCharacter->getPosition();
-            ImGui::Text("Position: (%.2f, %.2f, %.2f)", pos.x, pos.y, pos.z);
-            ImGui::Text("Internal Yaw: %.2f", myCharacter->debugCurrentYaw);
-            ImGui::Text("Target Yaw: %.2f", myCharacter->debugTargetYaw);
-            ImGui::Text("Move Dir: (%.2f, %.2f, %.2f)",
+            RblxUI::Text("=== PLAYER (Local) ===");
+            rblxmath::vec3 pos = myCharacter->getPosition();
+            RblxUI::Text("Position: (%.2f, %.2f, %.2f)", pos.x, pos.y, pos.z);
+            RblxUI::Text("Internal Yaw: %.2f", myCharacter->debugCurrentYaw);
+            RblxUI::Text("Target Yaw: %.2f", myCharacter->debugTargetYaw);
+            RblxUI::Text("Move Dir: (%.2f, %.2f, %.2f)",
                 myCharacter->debugMoveDir.x,
                 myCharacter->debugMoveDir.y,
                 myCharacter->debugMoveDir.z);
 
             if (currentState == ONLINE && isConnected) {
-                ImGui::Separator();
-                ImGui::Text("=== NETWORK ===");
-                ImGui::Text("Sending RotationY: %.2f", myCharacter->debugCurrentYaw);
-                ImGui::Text("Player ID: %d", myPlayerId);
+                RblxUI::Separator();
+                RblxUI::Text("=== NETWORK ===");
+                RblxUI::Text("Sending RotationY: %.2f", myCharacter->debugCurrentYaw);
+                RblxUI::Text("Player ID: %d", myPlayerId);
             }
 
             if (!remotePlayers.empty()) {
-                ImGui::Separator();
-                ImGui::Text("=== REMOTE PLAYERS ===");
+                RblxUI::Separator();
+                RblxUI::Text("=== REMOTE PLAYERS ===");
                 for (auto& [id, remoteChar] : remotePlayers) {
-                    ImGui::Text("Player %d:", id);
-                    glm::vec3 remotePos = remoteChar->getPosition();
-                    ImGui::Text("  Pos: (%.2f, %.2f, %.2f)", remotePos.x, remotePos.y, remotePos.z);
-                    ImGui::Text("  Yaw: %.2f", remoteChar->debugCurrentYaw);
-                    ImGui::Text("  Target: %.2f", remoteChar->debugTargetYaw);
+                    RblxUI::Text("Player %d:", id);
+                    rblxmath::vec3 remotePos = remoteChar->getPosition();
+                    RblxUI::Text("  Pos: (%.2f, %.2f, %.2f)", remotePos.x, remotePos.y, remotePos.z);
+                    RblxUI::Text("  Yaw: %.2f", remoteChar->debugCurrentYaw);
+                    RblxUI::Text("  Target: %.2f", remoteChar->debugTargetYaw);
                 }
             }
         }
     }
-    ImGui::End();
+    RblxUI::End();
 }
 
 
@@ -929,12 +929,12 @@ void renderDebugWindow(const ImGuiIO& io) {
 // Only Windows has a native dialog here. Elsewhere the caller keeps whatever
 // path was passed on the command line and the menu reports that there is no
 // picker, which beats a silently empty result.
-std::string openFileDialog(GLFWwindow* window) {
+std::string openFileDialog(RBLXWINwindow* window) {
     OPENFILENAMEA ofn;
     char szFile[260] = {0};
     ZeroMemory(&ofn, sizeof(ofn));
     ofn.lStructSize = sizeof(ofn);
-    ofn.hwndOwner = glfwGetWin32Window(window);
+    ofn.hwndOwner = rblxwinGetWin32Window(window);
     ofn.lpstrFile = szFile;
     ofn.nMaxFile = sizeof(szFile);
     ofn.lpstrFilter = "World Files\0*.world\0All Files\0*.*\0";
@@ -953,7 +953,7 @@ std::string openFileDialog(GLFWwindow* window) {
 // The air of the world this client is in. The server sends it on join, because a
 // client is only ever given parts and never the .world file they were read from.
 // A density of 0 means the world has no fog.
-glm::vec3 fogColor(0.0f);
+rblxmath::vec3 fogColor(0.0f);
 float fogDensity = 0.0f;
 
 void copyArgument(char* destination, size_t destinationSize, const char* value) {
@@ -1055,8 +1055,8 @@ bool connectToConfiguredServer() {
     return true;
 }
 
-void mouse_callback(GLFWwindow* window, double xposIn, double yposIn) {
-    if (escapeMenuOpen || ImGui::GetIO().WantCaptureMouse) return;
+void mouse_callback(RBLXWINwindow* window, double xposIn, double yposIn) {
+    if (escapeMenuOpen || RblxUI::GetIO().WantCaptureMouse) return;
 
     const bool shiftLockActive = shiftLockEnabled &&
                                  (currentState == ONLINE || currentState == OFFLINE);
@@ -1065,23 +1065,23 @@ void mouse_callback(GLFWwindow* window, double xposIn, double yposIn) {
         // Shift lock keeps the cursor captured without needing right mouse held.
         if (!isCursorLocked) {
             isCursorLocked = true;
-            glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+            rblxwinSetInputMode(window, RBLXWIN_CURSOR, RBLXWIN_CURSOR_DISABLED);
             firstMouse = true;
         }
     } else {
         // Right Click to Look
-        bool isRightClickHeld = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS;
+        bool isRightClickHeld = rblxwinGetMouseButton(window, RBLXWIN_MOUSE_BUTTON_RIGHT) == RBLXWIN_PRESS;
 
         if (isRightClickHeld) {
             if (!isCursorLocked) {
                 isCursorLocked = true;
-                glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+                rblxwinSetInputMode(window, RBLXWIN_CURSOR, RBLXWIN_CURSOR_DISABLED);
                 firstMouse = true; // Reset on re-engage
             }
         } else {
             if (isCursorLocked) {
                 isCursorLocked = false;
-                glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+                rblxwinSetInputMode(window, RBLXWIN_CURSOR, RBLXWIN_CURSOR_NORMAL);
             }
             return; // Don't process mouse move for camera if not locked
         }
@@ -1145,17 +1145,17 @@ int main(int argc, char** argv) {
         } else {
             std::cout << "Audio unavailable: " << audioError << std::endl;
         }
-        glfwSetCursorPosCallback(window.getNativeWindow(), mouse_callback);
+        rblxwinSetCursorPosCallback(window.getNativeWindow(), mouse_callback);
         
-        // Setup ImGui Standard Init
-        IMGUI_CHECKVERSION();
-        ImGui::CreateContext();
-        ImGuiIO& io = ImGui::GetIO(); (void)io;
+        // Setup RblxUI Standard Init
+        RBLXUI_CHECKVERSION();
+        RblxUI::CreateContext();
+        RblxUIIO& io = RblxUI::GetIO(); (void)io;
         applyModernPlayerStyle();
         const float uiScale = UiScale::Apply(window.getNativeWindow());
-        ImGui_ImplGlfw_InitForOpenGL(window.getNativeWindow(), true);
-        ImGui_ImplOpenGL3_Init("#version 330");
-        std::cout << "ImGui Initialized." << std::endl;
+        RblxUI_ImplRblxWin_InitForOpenGL(window.getNativeWindow(), true);
+        RblxUI_ImplOpenGL3_Init("#version 330");
+        std::cout << "RblxUI Initialized." << std::endl;
 
         Renderer renderer;
         renderer.init();
@@ -1271,12 +1271,12 @@ int main(int argc, char** argv) {
             // 1. Poll Events
             window.pollEvents();
 
-            float currentFrame = static_cast<float>(glfwGetTime());
+            float currentFrame = static_cast<float>(rblxwinGetTime());
             deltaTime = currentFrame - lastFrame;
             lastFrame = currentFrame;
 
             static bool escapeWasDown = false;
-            const bool escapeDown = glfwGetKey(window.getNativeWindow(), GLFW_KEY_ESCAPE) == GLFW_PRESS;
+            const bool escapeDown = rblxwinGetKey(window.getNativeWindow(), RBLXWIN_KEY_ESCAPE) == RBLXWIN_PRESS;
             if (escapeDown && !escapeWasDown) {
                 const bool inGame = currentState == ONLINE || currentState == OFFLINE;
                 if (inGame && escapeMenuOpen) {
@@ -1285,20 +1285,20 @@ int main(int argc, char** argv) {
                     escapeMenuOpen = true;
                     escapeMenuShowSettings = false;
                     isCursorLocked = false;
-                    glfwSetInputMode(window.getNativeWindow(), GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+                    rblxwinSetInputMode(window.getNativeWindow(), RBLXWIN_CURSOR, RBLXWIN_CURSOR_NORMAL);
                 } else if (isCursorLocked) {
                     isCursorLocked = false;
-                    glfwSetInputMode(window.getNativeWindow(), GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+                    rblxwinSetInputMode(window.getNativeWindow(), RBLXWIN_CURSOR, RBLXWIN_CURSOR_NORMAL);
                 }
             }
             escapeWasDown = escapeDown;
 
-            // 2. ImGui NewFrame
-            ImGui_ImplOpenGL3_NewFrame();
-            ImGui_ImplGlfw_NewFrame();
-            ImGui::NewFrame();
+            // 2. RblxUI NewFrame
+            RblxUI_ImplOpenGL3_NewFrame();
+            RblxUI_ImplRblxWin_NewFrame();
+            RblxUI::NewFrame();
 
-            if (frameCount < 5) std::cout << "Frame " << frameCount << " ImGui NewFrame" << std::endl;
+            if (frameCount < 5) std::cout << "Frame " << frameCount << " RblxUI NewFrame" << std::endl;
 
             // 3. Logic / UI
             pollAuthCallback();
@@ -1325,15 +1325,15 @@ int main(int argc, char** argv) {
 #endif
 
             static bool wasDebugToggleDown = false;
-            const bool debugToggleDown = glfwGetKey(window.getNativeWindow(), GLFW_KEY_F3) == GLFW_PRESS;
+            const bool debugToggleDown = rblxwinGetKey(window.getNativeWindow(), RBLXWIN_KEY_F3) == RBLXWIN_PRESS;
             if (debugToggleDown && !wasDebugToggleDown) {
                 showDebugGui = !showDebugGui;
             }
             wasDebugToggleDown = debugToggleDown;
 
             static bool shiftWasDown = false;
-            const bool shiftDown = glfwGetKey(window.getNativeWindow(), GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS ||
-                                   glfwGetKey(window.getNativeWindow(), GLFW_KEY_RIGHT_SHIFT) == GLFW_PRESS;
+            const bool shiftDown = rblxwinGetKey(window.getNativeWindow(), RBLXWIN_KEY_LEFT_SHIFT) == RBLXWIN_PRESS ||
+                                   rblxwinGetKey(window.getNativeWindow(), RBLXWIN_KEY_RIGHT_SHIFT) == RBLXWIN_PRESS;
             if (shiftDown && !shiftWasDown && !escapeMenuOpen && !io.WantCaptureKeyboard &&
                 (currentState == ONLINE || currentState == OFFLINE)) {
                 setShiftLockEnabled(!shiftLockEnabled);
@@ -1353,7 +1353,7 @@ int main(int argc, char** argv) {
                 escapeMenuShowSettings = false;
                 if (isCursorLocked) {
                     isCursorLocked = false;
-                    glfwSetInputMode(window.getNativeWindow(), GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+                    rblxwinSetInputMode(window.getNativeWindow(), RBLXWIN_CURSOR, RBLXWIN_CURSOR_NORMAL);
                 }
             }
             renderGameHud(parts, physicsWorld, uiScale);
@@ -1367,10 +1367,10 @@ int main(int argc, char** argv) {
                 glClearColor(0.53f, 0.81f, 0.92f, 1.0f);
                 glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-                ImGui::Render();
-                ImDrawData* drawData = ImGui::GetDrawData();
+                RblxUI::Render();
+                RblxDrawData* drawData = RblxUI::GetDrawData();
                 if (drawData) {
-                    ImGui_ImplOpenGL3_RenderDrawData(drawData);
+                    RblxUI_ImplOpenGL3_RenderDrawData(drawData);
                 }
                 window.swapBuffers();
                 frameCount++;
@@ -1394,9 +1394,9 @@ int main(int argc, char** argv) {
                 wasJumping = myCharacter->isJumping;
             }
             if (myCharacter != nullptr && !myCharacter->isJumping &&
-                glm::length(myCharacter->debugMoveDir) > 0.1f) {
+                rblxmath::length(myCharacter->debugMoveDir) > 0.1f) {
                 static double lastFootstep = 0.0;
-                const double nowSeconds = glfwGetTime();
+                const double nowSeconds = rblxwinGetTime();
                 if (nowSeconds - lastFootstep >= 0.42) {
                     lastFootstep = nowSeconds;
                     if (const rblx::audio::Clip* step =
@@ -1512,7 +1512,7 @@ int main(int argc, char** argv) {
                              
                              // Don't lock cursor on join, let user right click
                              isCursorLocked = false;
-                             glfwSetInputMode(window.getNativeWindow(), GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+                             rblxwinSetInputMode(window.getNativeWindow(), RBLXWIN_CURSOR, RBLXWIN_CURSOR_NORMAL);
                         }
                         else if (header->type == PacketType::SOUND) {
                             if (header->size < sizeof(PacketSound)) {
@@ -1537,7 +1537,7 @@ int main(int argc, char** argv) {
                             float volume = pkt->volume;
                             if (pkt->spatial != 0 && myCharacter != nullptr) {
                                 volume *= rblx::audio::attenuation(
-                                    glm::length(pkt->position - myCharacter->getPosition()));
+                                    rblxmath::length(pkt->position - myCharacter->getPosition()));
                             }
                             rblx::audio::play(*clip, volume, false);
                         }
@@ -1551,7 +1551,7 @@ int main(int argc, char** argv) {
                             if (pkt->playerId == myPlayerId && myCharacter) {
                                 myCharacter->teleportTo(pkt->position);
                                 isCursorLocked = false;
-                                glfwSetInputMode(window.getNativeWindow(), GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+                                rblxwinSetInputMode(window.getNativeWindow(), RBLXWIN_CURSOR, RBLXWIN_CURSOR_NORMAL);
                             }
                         }
                         // ... (rest of packet handlers)
@@ -1577,10 +1577,10 @@ int main(int argc, char** argv) {
                                 // Only create if doesn't exist (prevent duplicate/crash)
                                 if (remotePlayers.count(pkt->playerId) == 0) {
                                     // Create Remote Character with error handling
-                                    glm::vec3 spawnPos(0, 10, 0);
+                                    rblxmath::vec3 spawnPos(0, 10, 0);
                                     for(const auto& p : parts) { 
                                         if(p.isSpawn) {
-                                            spawnPos = p.position + glm::vec3(0, 5, 0);
+                                            spawnPos = p.position + rblxmath::vec3(0, 5, 0);
                                             break;
                                         }
                                     }
@@ -1595,12 +1595,12 @@ int main(int argc, char** argv) {
                                     }
                                     
                                     // Default avatar colors
-                                    glm::vec3 headColor(0.8f, 0.6f, 0.4f);
-                                    glm::vec3 torsoColor(0.2f, 0.4f, 0.8f);
-                                    glm::vec3 leftArmColor(0.8f, 0.6f, 0.4f);
-                                    glm::vec3 rightArmColor(0.8f, 0.6f, 0.4f);
-                                    glm::vec3 leftLegColor(0.2f, 0.6f, 0.2f);
-                                    glm::vec3 rightLegColor(0.2f, 0.6f, 0.2f);
+                                    rblxmath::vec3 headColor(0.8f, 0.6f, 0.4f);
+                                    rblxmath::vec3 torsoColor(0.2f, 0.4f, 0.8f);
+                                    rblxmath::vec3 leftArmColor(0.8f, 0.6f, 0.4f);
+                                    rblxmath::vec3 rightArmColor(0.8f, 0.6f, 0.4f);
+                                    rblxmath::vec3 leftLegColor(0.2f, 0.6f, 0.2f);
+                                    rblxmath::vec3 rightLegColor(0.2f, 0.6f, 0.2f);
                                     std::string faceId = DEFAULT_FACE_ID;
                                     std::string hatId;
                                     
@@ -1608,12 +1608,12 @@ int main(int argc, char** argv) {
                                     bool foundAvatar = false;
                                     for (const auto& playerInfo : playerList) {
                                         if (playerInfo.playerId == pkt->playerId) {
-                                            headColor = glm::vec3(playerInfo.headColor[0], playerInfo.headColor[1], playerInfo.headColor[2]);
-                                            torsoColor = glm::vec3(playerInfo.torsoColor[0], playerInfo.torsoColor[1], playerInfo.torsoColor[2]);
-                                            leftArmColor = glm::vec3(playerInfo.leftArmColor[0], playerInfo.leftArmColor[1], playerInfo.leftArmColor[2]);
-                                            rightArmColor = glm::vec3(playerInfo.rightArmColor[0], playerInfo.rightArmColor[1], playerInfo.rightArmColor[2]);
-                                            leftLegColor = glm::vec3(playerInfo.leftLegColor[0], playerInfo.leftLegColor[1], playerInfo.leftLegColor[2]);
-                                            rightLegColor = glm::vec3(playerInfo.rightLegColor[0], playerInfo.rightLegColor[1], playerInfo.rightLegColor[2]);
+                                            headColor = rblxmath::vec3(playerInfo.headColor[0], playerInfo.headColor[1], playerInfo.headColor[2]);
+                                            torsoColor = rblxmath::vec3(playerInfo.torsoColor[0], playerInfo.torsoColor[1], playerInfo.torsoColor[2]);
+                                            leftArmColor = rblxmath::vec3(playerInfo.leftArmColor[0], playerInfo.leftArmColor[1], playerInfo.leftArmColor[2]);
+                                            rightArmColor = rblxmath::vec3(playerInfo.rightArmColor[0], playerInfo.rightArmColor[1], playerInfo.rightArmColor[2]);
+                                            leftLegColor = rblxmath::vec3(playerInfo.leftLegColor[0], playerInfo.leftLegColor[1], playerInfo.leftLegColor[2]);
+                                            rightLegColor = rblxmath::vec3(playerInfo.rightLegColor[0], playerInfo.rightLegColor[1], playerInfo.rightLegColor[2]);
                                             faceId = normalizeFaceId(PacketProtocol::fixedString(playerInfo.faceId, sizeof(playerInfo.faceId)));
                                             hatId = PacketProtocol::fixedString(playerInfo.hatId, sizeof(playerInfo.hatId));
                                             foundAvatar = true;
@@ -1768,13 +1768,13 @@ int main(int argc, char** argv) {
                                 car.position = pkt->position;
                                 car.rotation.y = pkt->yaw;
                                 if (car.physicsBody) {
-                                    auto* body = (rp3d::RigidBody*)car.physicsBody;
-                                    body->setType(rp3d::BodyType::KINEMATIC);
-                                    body->setTransform(rp3d::Transform(
-                                        rp3d::Vector3(pkt->position.x, pkt->position.y, pkt->position.z),
-                                        rp3d::Quaternion::fromEulerAngles(0.0f, glm::radians(pkt->yaw), 0.0f)));
-                                    body->setLinearVelocity(rp3d::Vector3(0, 0, 0));
-                                    body->setAngularVelocity(rp3d::Vector3(0, 0, 0));
+                                    auto* body = (rblxphysics::RigidBody*)car.physicsBody;
+                                    body->setType(rblxphysics::BodyType::KINEMATIC);
+                                    body->setTransform(rblxphysics::Transform(
+                                        rblxphysics::Vector3(pkt->position.x, pkt->position.y, pkt->position.z),
+                                        rblxphysics::Quaternion::fromEulerAngles(0.0f, rblxmath::radians(pkt->yaw), 0.0f)));
+                                    body->setLinearVelocity(rblxphysics::Vector3(0, 0, 0));
+                                    body->setAngularVelocity(rblxphysics::Vector3(0, 0, 0));
                                 }
                             }
 
@@ -1804,7 +1804,7 @@ int main(int argc, char** argv) {
                                     // leaving the player looking around while the
                                     // countdown runs.
                                     isCursorLocked = false;
-                                    glfwSetInputMode(window.getNativeWindow(), GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+                                    rblxwinSetInputMode(window.getNativeWindow(), RBLXWIN_CURSOR, RBLXWIN_CURSOR_NORMAL);
                                 }
                             } else if (remotePlayers.count(pkt->playerId) != 0) {
                                 Character* remoteChar = remotePlayers[pkt->playerId];
@@ -1872,18 +1872,18 @@ int main(int argc, char** argv) {
                                                         Part& p = parts[j];
                                                         if (p.parentIndex == folderIndex && !p.deleted) {
                                                             if (p.name == "Head") {
-                                                                p.color = glm::vec3(players[i].headColor[0], players[i].headColor[1], players[i].headColor[2]);
+                                                                p.color = rblxmath::vec3(players[i].headColor[0], players[i].headColor[1], players[i].headColor[2]);
                                                                 p.textureId = textureForFace(faceId);
                                                             } else if (p.name == "Torso") {
-                                                                p.color = glm::vec3(players[i].torsoColor[0], players[i].torsoColor[1], players[i].torsoColor[2]);
+                                                                p.color = rblxmath::vec3(players[i].torsoColor[0], players[i].torsoColor[1], players[i].torsoColor[2]);
                                                             } else if (p.name == "LeftArm") {
-                                                                p.color = glm::vec3(players[i].leftArmColor[0], players[i].leftArmColor[1], players[i].leftArmColor[2]);
+                                                                p.color = rblxmath::vec3(players[i].leftArmColor[0], players[i].leftArmColor[1], players[i].leftArmColor[2]);
                                                             } else if (p.name == "RightArm") {
-                                                                p.color = glm::vec3(players[i].rightArmColor[0], players[i].rightArmColor[1], players[i].rightArmColor[2]);
+                                                                p.color = rblxmath::vec3(players[i].rightArmColor[0], players[i].rightArmColor[1], players[i].rightArmColor[2]);
                                                             } else if (p.name == "LeftLeg") {
-                                                                p.color = glm::vec3(players[i].leftLegColor[0], players[i].leftLegColor[1], players[i].leftLegColor[2]);
+                                                                p.color = rblxmath::vec3(players[i].leftLegColor[0], players[i].leftLegColor[1], players[i].leftLegColor[2]);
                                                             } else if (p.name == "RightLeg") {
-                                                                p.color = glm::vec3(players[i].rightLegColor[0], players[i].rightLegColor[1], players[i].rightLegColor[2]);
+                                                                p.color = rblxmath::vec3(players[i].rightLegColor[0], players[i].rightLegColor[1], players[i].rightLegColor[2]);
                                                             }
                                                         }
                                                     }
@@ -2010,10 +2010,10 @@ int main(int argc, char** argv) {
                             // Now that world is loaded, create the character
                             if (myPlayerId != -1 && !myCharacter) {
                                 // Find spawn
-                                glm::vec3 spawnPos(0, 10, 0);
+                                rblxmath::vec3 spawnPos(0, 10, 0);
                                 for(const auto& p : parts) { 
                                     if(p.isSpawn) {
-                                        spawnPos = p.position + glm::vec3(0, 5, 0);
+                                        spawnPos = p.position + rblxmath::vec3(0, 5, 0);
                                         break;
                                     }
                                 }
@@ -2042,7 +2042,7 @@ int main(int argc, char** argv) {
                             }
                             int numUpdates = header->size / sizeof(PartUpdate);
                             PartUpdate* updates = (PartUpdate*)(packetBuffer + offset + sizeof(PacketHeader));
-                            float now = (float)glfwGetTime();
+                            float now = (float)rblxwinGetTime();
                             for(int i=0; i<numUpdates; ++i) {
                                 PartUpdate& up = updates[i];
                                 // The server numbers its own parts; a character's
@@ -2073,24 +2073,24 @@ int main(int argc, char** argv) {
                                     
                                     // Server is fully authoritative for world parts
                                     if (!isPlayerPart && p.physicsBody) {
-                                        rp3d::RigidBody* body = (rp3d::RigidBody*)p.physicsBody;
+                                        rblxphysics::RigidBody* body = (rblxphysics::RigidBody*)p.physicsBody;
                                         
                                         // CRITICAL: Make world parts KINEMATIC immediately
                                         // This prevents ANY local physics simulation
-                                        body->setType(rp3d::BodyType::KINEMATIC);
+                                        body->setType(rblxphysics::BodyType::KINEMATIC);
                                         
                                         // Apply server position IMMEDIATELY - server is source of truth
-                                        rp3d::Vector3 serverPos(up.position.x, up.position.y, up.position.z);
-                                        rp3d::Quaternion serverRot = rp3d::Quaternion::fromEulerAngles(
-                                            glm::radians(up.rotation.x),
-                                            glm::radians(up.rotation.y),
-                                            glm::radians(up.rotation.z)
+                                        rblxphysics::Vector3 serverPos(up.position.x, up.position.y, up.position.z);
+                                        rblxphysics::Quaternion serverRot = rblxphysics::Quaternion::fromEulerAngles(
+                                            rblxmath::radians(up.rotation.x),
+                                            rblxmath::radians(up.rotation.y),
+                                            rblxmath::radians(up.rotation.z)
                                         );
                                         
-                                        rp3d::Transform serverTransform(serverPos, serverRot);
+                                        rblxphysics::Transform serverTransform(serverPos, serverRot);
                                         body->setTransform(serverTransform);
-                                        body->setLinearVelocity(rp3d::Vector3(0, 0, 0));
-                                        body->setAngularVelocity(rp3d::Vector3(0, 0, 0));
+                                        body->setLinearVelocity(rblxphysics::Vector3(0, 0, 0));
+                                        body->setAngularVelocity(rblxphysics::Vector3(0, 0, 0));
                                         
                                         // Update part position for rendering - server is truth
                                         p.position = up.position;
@@ -2115,7 +2115,7 @@ int main(int argc, char** argv) {
                             } else {
                                 const PacketWorldEnvironment* environment =
                                     (const PacketWorldEnvironment*)(packetBuffer + offset + sizeof(PacketHeader));
-                                fogColor = glm::vec3(glm::clamp(environment->fogColor, glm::vec3(0.0f), glm::vec3(1.0f)));
+                                fogColor = rblxmath::vec3(rblxmath::clamp(environment->fogColor, rblxmath::vec3(0.0f), rblxmath::vec3(1.0f)));
                                 fogDensity = std::clamp(environment->fogDensity, 0.0f, 0.2f);
                             }
                         }
@@ -2210,7 +2210,7 @@ int main(int argc, char** argv) {
                         // Send the actual current yaw (internalYaw) which smoothly interpolates to target
                         // This ensures smooth rotation even during diagonal movement
                         state.rotationY = myCharacter->debugCurrentYaw;
-                        state.isWalking = (glm::length(myCharacter->debugMoveDir) > 0.1f);
+                        state.isWalking = (rblxmath::length(myCharacter->debugMoveDir) > 0.1f);
                         // Remote players need this to play the airborne pose;
                         // it used to be hard-coded false, so everyone else only
                         // ever saw the walk cycle.
@@ -2257,7 +2257,7 @@ int main(int argc, char** argv) {
                 vehiclePartIndex < static_cast<int>(parts.size()) && myCharacter != nullptr;
 
             static bool vehicleKeyDown = false;
-            const bool vehicleKey = glfwGetKey(window.getNativeWindow(), GLFW_KEY_E) == GLFW_PRESS;
+            const bool vehicleKey = rblxwinGetKey(window.getNativeWindow(), RBLXWIN_KEY_E) == RBLXWIN_PRESS;
             if (vehicleKey && !vehicleKeyDown && isConnected && !io.WantCaptureKeyboard &&
                 !escapeMenuOpen) {
                 toggleVehicle();
@@ -2270,38 +2270,38 @@ int main(int argc, char** argv) {
                 if (vehicleInputTimer >= 1.0f / 20.0f) {
                     vehicleInputTimer = 0.0f;
                     const auto pressed = [&](int key) {
-                        return glfwGetKey(window.getNativeWindow(), key) == GLFW_PRESS;
+                        return rblxwinGetKey(window.getNativeWindow(), key) == RBLXWIN_PRESS;
                     };
-                    const float throttle = (pressed(GLFW_KEY_W) ? 1.0f : 0.0f) -
-                                           (pressed(GLFW_KEY_S) ? 1.0f : 0.0f);
-                    const float steer = (pressed(GLFW_KEY_D) ? 1.0f : 0.0f) -
-                                        (pressed(GLFW_KEY_A) ? 1.0f : 0.0f);
+                    const float throttle = (pressed(RBLXWIN_KEY_W) ? 1.0f : 0.0f) -
+                                           (pressed(RBLXWIN_KEY_S) ? 1.0f : 0.0f);
+                    const float steer = (pressed(RBLXWIN_KEY_D) ? 1.0f : 0.0f) -
+                                        (pressed(RBLXWIN_KEY_A) ? 1.0f : 0.0f);
                     sendVehicleInput(throttle, steer);
                 }
 
                 Part& car = parts[vehiclePartIndex];
-                myCharacter->teleportTo(car.position + glm::vec3(0.0f, 1.8f, 0.0f));
+                myCharacter->teleportTo(car.position + rblxmath::vec3(0.0f, 1.8f, 0.0f));
                 myCharacter->update(deltaTime, nullptr, false);
 
                 // Chase camera: behind the car along its heading, looking at it.
                 // The car's yaw uses the same convention as Camera::Yaw.
-                const float yawRad = glm::radians(car.rotation.y);
-                const glm::vec3 forward(std::cos(yawRad), 0.0f, std::sin(yawRad));
-                camera.Position = car.position - forward * 13.0f + glm::vec3(0.0f, 6.5f, 0.0f);
-                camera.LookAt(car.position + glm::vec3(0.0f, 1.5f, 0.0f));
+                const float yawRad = rblxmath::radians(car.rotation.y);
+                const rblxmath::vec3 forward(std::cos(yawRad), 0.0f, std::sin(yawRad));
+                camera.Position = car.position - forward * 13.0f + rblxmath::vec3(0.0f, 6.5f, 0.0f);
+                camera.LookAt(car.position + rblxmath::vec3(0.0f, 1.5f, 0.0f));
             }
 
             if (!drivingVehicle && (isConnected || currentState == OFFLINE) && myCharacter &&
                 !io.WantCaptureKeyboard && !escapeMenuOpen && !playerIsDead) {
                  try {
-                     bool fwd = glfwGetKey(window.getNativeWindow(), GLFW_KEY_W) == GLFW_PRESS;
-                     bool bwd = glfwGetKey(window.getNativeWindow(), GLFW_KEY_S) == GLFW_PRESS;
-                     bool l = glfwGetKey(window.getNativeWindow(), GLFW_KEY_A) == GLFW_PRESS;
-                     bool r = glfwGetKey(window.getNativeWindow(), GLFW_KEY_D) == GLFW_PRESS;
-                     bool j = glfwGetKey(window.getNativeWindow(), GLFW_KEY_SPACE) == GLFW_PRESS;
+                     bool fwd = rblxwinGetKey(window.getNativeWindow(), RBLXWIN_KEY_W) == RBLXWIN_PRESS;
+                     bool bwd = rblxwinGetKey(window.getNativeWindow(), RBLXWIN_KEY_S) == RBLXWIN_PRESS;
+                     bool l = rblxwinGetKey(window.getNativeWindow(), RBLXWIN_KEY_A) == RBLXWIN_PRESS;
+                     bool r = rblxwinGetKey(window.getNativeWindow(), RBLXWIN_KEY_D) == RBLXWIN_PRESS;
+                     bool j = rblxwinGetKey(window.getNativeWindow(), RBLXWIN_KEY_SPACE) == RBLXWIN_PRESS;
                      float zoom = 0.0f;
-                     if (glfwGetKey(window.getNativeWindow(), GLFW_KEY_UP) == GLFW_PRESS) zoom = 1.0f;
-                     if (glfwGetKey(window.getNativeWindow(), GLFW_KEY_DOWN) == GLFW_PRESS) zoom = -1.0f;
+                     if (rblxwinGetKey(window.getNativeWindow(), RBLXWIN_KEY_UP) == RBLXWIN_PRESS) zoom = 1.0f;
+                     if (rblxwinGetKey(window.getNativeWindow(), RBLXWIN_KEY_DOWN) == RBLXWIN_PRESS) zoom = -1.0f;
                      myCharacter->processInput(fwd, bwd, l, r, j, camera, zoom, deltaTime);
                  } catch (...) {
                      std::cerr << "ERROR: Exception processing character input" << std::endl;
@@ -2355,15 +2355,15 @@ int main(int argc, char** argv) {
                     
                     // Force world parts to KINEMATIC - server controls them
                     if (!isPlayerPart && p.physicsBody) {
-                        rp3d::RigidBody* body = (rp3d::RigidBody*)p.physicsBody;
-                        if (body->getType() != rp3d::BodyType::KINEMATIC) {
-                            body->setType(rp3d::BodyType::KINEMATIC);
+                        rblxphysics::RigidBody* body = (rblxphysics::RigidBody*)p.physicsBody;
+                        if (body->getType() != rblxphysics::BodyType::KINEMATIC) {
+                            body->setType(rblxphysics::BodyType::KINEMATIC);
                         }
                     }
                 }
                 
                 // SECOND: Apply server updates EVERY FRAME - keep parts in sync
-                float currentTime = (float)glfwGetTime();
+                float currentTime = (float)rblxwinGetTime();
                 for (auto it = targetTransforms.begin(); it != targetTransforms.end();) {
                     int index = it->first;
                     NetworkTransform& target = it->second;
@@ -2388,23 +2388,23 @@ int main(int argc, char** argv) {
                         
                         // Server is fully authoritative for world parts
                         if (!isPlayerPart && p.physicsBody) {
-                            rp3d::RigidBody* body = (rp3d::RigidBody*)p.physicsBody;
+                            rblxphysics::RigidBody* body = (rblxphysics::RigidBody*)p.physicsBody;
                             
                             // FORCE KINEMATIC - server controls this completely
-                            body->setType(rp3d::BodyType::KINEMATIC);
+                            body->setType(rblxphysics::BodyType::KINEMATIC);
                             
                             // Apply server position DIRECTLY every frame
-                            rp3d::Vector3 serverPos(target.position.x, target.position.y, target.position.z);
-                            rp3d::Quaternion serverRot = rp3d::Quaternion::fromEulerAngles(
-                                glm::radians(target.rotation.x),
-                                glm::radians(target.rotation.y),
-                                glm::radians(target.rotation.z)
+                            rblxphysics::Vector3 serverPos(target.position.x, target.position.y, target.position.z);
+                            rblxphysics::Quaternion serverRot = rblxphysics::Quaternion::fromEulerAngles(
+                                rblxmath::radians(target.rotation.x),
+                                rblxmath::radians(target.rotation.y),
+                                rblxmath::radians(target.rotation.z)
                             );
                             
-                            rp3d::Transform serverTransform(serverPos, serverRot);
+                            rblxphysics::Transform serverTransform(serverPos, serverRot);
                             body->setTransform(serverTransform);
-                            body->setLinearVelocity(rp3d::Vector3(0, 0, 0));
-                            body->setAngularVelocity(rp3d::Vector3(0, 0, 0));
+                            body->setLinearVelocity(rblxphysics::Vector3(0, 0, 0));
+                            body->setAngularVelocity(rblxphysics::Vector3(0, 0, 0));
                             
                             // Update part position for rendering - server is source of truth
                             p.position = target.position;
@@ -2423,8 +2423,8 @@ int main(int argc, char** argv) {
 
             // 4. Render Scene
             // Shadow Pass
-            glm::vec3 lightPos(20.0f, 50.0f, 20.0f);
-            glm::mat4 lightSpaceMatrix = shadowMap.getLightSpaceMatrix(lightPos);
+            rblxmath::vec3 lightPos(20.0f, 50.0f, 20.0f);
+            rblxmath::mat4 lightSpaceMatrix = shadowMap.getLightSpaceMatrix(lightPos);
 
             if (!parts.empty()) {
                 shadowMap.bindForWriting();
@@ -2443,8 +2443,8 @@ int main(int argc, char** argv) {
             glClearColor(0.53f, 0.81f, 0.92f, 1.0f); // Sky Blue
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-            glm::mat4 view = camera.GetViewMatrix();
-            glm::mat4 projection = camera.GetProjectionMatrix((float)window.getWidth(), (float)window.getHeight());
+            rblxmath::mat4 view = camera.GetViewMatrix();
+            rblxmath::mat4 projection = camera.GetProjectionMatrix((float)window.getWidth(), (float)window.getHeight());
 
             // Draw Skybox
             glDepthMask(GL_FALSE);
@@ -2474,7 +2474,7 @@ int main(int argc, char** argv) {
                 for (const auto& p : parts) {
                     if (!p.deleted) ++liveParts;
                 }
-                const glm::vec3 playerPos = myCharacter->getPosition();
+                const rblxmath::vec3 playerPos = myCharacter->getPosition();
                 addChatLine("System",
                             "View: camera (" + std::to_string((int)camera.Position.x) + ", " +
                                 std::to_string((int)camera.Position.y) + ", " +
@@ -2508,19 +2508,19 @@ int main(int argc, char** argv) {
                 }
             }
             
-            // Cleanup texture state for ImGui
+            // Cleanup texture state for RblxUI
             glActiveTexture(GL_TEXTURE0);
             glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
 
-            // 5. ImGui Render
-            ImGui::Render();
+            // 5. RblxUI Render
+            RblxUI::Render();
             
             // 6. Render Draw Data
-            ImDrawData* drawData = ImGui::GetDrawData();
+            RblxDrawData* drawData = RblxUI::GetDrawData();
             if (drawData) {
-                ImGui_ImplOpenGL3_RenderDrawData(drawData);
+                RblxUI_ImplOpenGL3_RenderDrawData(drawData);
             } else {
-                if (frameCount < 5) std::cout << "ImGui DrawData is NULL" << std::endl;
+                if (frameCount < 5) std::cout << "RblxUI DrawData is NULL" << std::endl;
             }
 
             // 7. Swap Buffers
@@ -2542,8 +2542,8 @@ int main(int argc, char** argv) {
                        std::chrono::steady_clock::now() - shutdownStart)
                 .count();
         };
-        glfwHideWindow(window.getNativeWindow());
-        glfwPollEvents();
+        rblxwinHideWindow(window.getNativeWindow());
+        rblxwinPollEvents();
         std::cout << "Shutting down." << std::endl;
 
         // Sockets must not outlive the Winsock session that owns them, and the

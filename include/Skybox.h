@@ -1,18 +1,18 @@
 #pragma once
 
-#include <glad/glad.h>
+#include <rblxgl/rblxgl.h>
 #include <vector>
 #include <string>
 #include <iostream>
 #include "Shader.h"
-#include <stb_image.h> // We need stb_image for loading textures
+#include <rblxstb_image.h> // We need rblxstb_image for loading textures
 
 class Skybox {
 public:
     Skybox();
     ~Skybox();
     void init();
-    void draw(const glm::mat4& view, const glm::mat4& projection);
+    void draw(const rblxmath::mat4& view, const rblxmath::mat4& projection);
     unsigned int getTextureID() const { return cubemapTexture; }
 
 private:

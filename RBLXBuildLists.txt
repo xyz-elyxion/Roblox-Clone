@@ -29,56 +29,56 @@ option(RBLX_BUILD_HOSTS "Build the game server supervisor target" ON)
 option(RBLX_BUILD_PROXY "Build the website reverse proxy target" ON)
 option(RBLX_ENABLE_WARNINGS "Enable stricter compiler warnings" ON)
 
-add_compile_definitions(NOMINMAX GLM_ENABLE_EXPERIMENTAL)
+add_compile_definitions(NOMINMAX RBLXMATH_ENABLE_EXPERIMENTAL)
 
 # Third-party code is vendored under third_party/ at pinned commits and written in
 # this dialect, so configuring needs no network and no compatibility mode. The four
-# trees that ship a build system are added as subdirectories; imgui, ImGuizmo,
-# ImGuiColorTextEdit and stb have no build file upstream, so their sources are
+# trees that ship a build system are added as subdirectories; rblxui, RblxGizmo,
+# RblxTextEdit and rblxstb have no build file upstream, so their sources are
 # compiled straight into our targets from these locations.
 set(RBLX_THIRD_PARTY ${RBLXBUILD_CURRENT_SOURCE_DIR}/third_party)
 
-set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "Build GLFW examples" FORCE)
-set(GLFW_BUILD_TESTS OFF CACHE BOOL "Build GLFW tests" FORCE)
-set(GLFW_BUILD_DOCS OFF CACHE BOOL "Build GLFW documentation" FORCE)
-set(GLFW_INSTALL OFF CACHE BOOL "Generate GLFW installation target" FORCE)
-add_subdirectory(${RBLX_THIRD_PARTY}/glfw)
+set(RBLXWIN_BUILD_EXAMPLES OFF CACHE BOOL "Build RBLXWIN examples" FORCE)
+set(RBLXWIN_BUILD_TESTS OFF CACHE BOOL "Build RBLXWIN tests" FORCE)
+set(RBLXWIN_BUILD_DOCS OFF CACHE BOOL "Build RBLXWIN documentation" FORCE)
+set(RBLXWIN_INSTALL OFF CACHE BOOL "Generate RBLXWIN installation target" FORCE)
+add_subdirectory(${RBLX_THIRD_PARTY}/rblxwin)
 
-# glm is header-only for us: building the library target would produce a shared
+# rblxmath is header-only for us: building the library target would produce a shared
 # object nobody loads, and its tests and install rules are upstream's business.
-set(GLM_BUILD_LIBRARY OFF CACHE BOOL "Build dynamic/static GLM library" FORCE)
-set(GLM_BUILD_TESTS OFF CACHE BOOL "Build GLM test programs" FORCE)
-set(GLM_BUILD_INSTALL OFF CACHE BOOL "Generate GLM install target" FORCE)
-add_subdirectory(${RBLX_THIRD_PARTY}/glm)
+set(RBLXMATH_BUILD_LIBRARY OFF CACHE BOOL "Build dynamic/static RBLXMATH library" FORCE)
+set(RBLXMATH_BUILD_TESTS OFF CACHE BOOL "Build RBLXMATH test programs" FORCE)
+set(RBLXMATH_BUILD_INSTALL OFF CACHE BOOL "Generate RBLXMATH install target" FORCE)
+add_subdirectory(${RBLX_THIRD_PARTY}/rblxmath)
 
-# rp3d's testbed, unit tests and install rules are off by default, so this adds
-# only the reactphysics3d library.
-add_subdirectory(${RBLX_THIRD_PARTY}/rp3d)
+# rblxphysics's testbed, unit tests and install rules are off by default, so this adds
+# only the rblxphysics library.
+add_subdirectory(${RBLX_THIRD_PARTY}/rblxphysics)
 
-# rp3d 0.9.0 depends on headers it does not include itself: DefaultLogger.h uses
+# rblxphysics 0.9.0 depends on headers it does not include itself: DefaultLogger.h uses
 # std::chrono::system_clock without <chrono>, and the public headers use the
 # fixed-width integer types without <cstdint>. Older toolchains saw both through
 # other standard headers, current ones do not, so force them in for everything
 # compiled against the library.
-if(TARGET reactphysics3d)
+if(TARGET rblxphysics)
     if(MSVC)
-        target_compile_options(reactphysics3d PUBLIC
+        target_compile_options(rblxphysics PUBLIC
             $<$<COMPILE_LANGUAGE:CXX>:/FIchrono>
         )
     else()
-        target_compile_options(reactphysics3d PUBLIC
+        target_compile_options(rblxphysics PUBLIC
             $<$<COMPILE_LANGUAGE:CXX>:-include>
             $<$<COMPILE_LANGUAGE:CXX>:cstdint>
         )
     endif()
 endif()
 
-add_subdirectory(${RBLX_THIRD_PARTY}/glad)
+add_subdirectory(${RBLX_THIRD_PARTY}/rblxgl)
 
-set(imgui_SOURCE_DIR ${RBLX_THIRD_PARTY}/imgui)
-set(imguizmo_SOURCE_DIR ${RBLX_THIRD_PARTY}/imguizmo)
-set(imguicolortextedit_SOURCE_DIR ${RBLX_THIRD_PARTY}/imguicolortextedit)
-set(stb_SOURCE_DIR ${RBLX_THIRD_PARTY}/stb)
+set(rblxui_SOURCE_DIR ${RBLX_THIRD_PARTY}/rblxui)
+set(rblxgizmo_SOURCE_DIR ${RBLX_THIRD_PARTY}/rblxgizmo)
+set(rblxtextedit_SOURCE_DIR ${RBLX_THIRD_PARTY}/rblxtextedit)
+set(rblxstb_SOURCE_DIR ${RBLX_THIRD_PARTY}/rblxstb)
 
 set(SHARED_SOURCES
     src/Renderer.cpp
@@ -94,29 +94,29 @@ set(SHARED_SOURCES
     src/Avatar.cpp
 )
 
-set(IMGUI_SOURCES
-    ${imgui_SOURCE_DIR}/imgui.cpp
-    ${imgui_SOURCE_DIR}/imgui_draw.cpp
-    ${imgui_SOURCE_DIR}/imgui_tables.cpp
-    ${imgui_SOURCE_DIR}/imgui_widgets.cpp
-    ${imgui_SOURCE_DIR}/imgui_demo.cpp
-    ${imgui_SOURCE_DIR}/backends/imgui_impl_glfw.cpp
-    ${imgui_SOURCE_DIR}/backends/imgui_impl_opengl3.cpp
+set(RBLXUI_SOURCES
+    ${rblxui_SOURCE_DIR}/rblxui.cpp
+    ${rblxui_SOURCE_DIR}/rblxui_draw.cpp
+    ${rblxui_SOURCE_DIR}/rblxui_tables.cpp
+    ${rblxui_SOURCE_DIR}/rblxui_widgets.cpp
+    ${rblxui_SOURCE_DIR}/rblxui_demo.cpp
+    ${rblxui_SOURCE_DIR}/backends/rblxui_impl_rblxwin.cpp
+    ${rblxui_SOURCE_DIR}/backends/rblxui_impl_opengl3.cpp
 )
 
-set(IMGUIZMO_SOURCES
-    ${imguizmo_SOURCE_DIR}/src/ImGuizmo.cpp
+set(RBLXGIZMO_SOURCES
+    ${rblxgizmo_SOURCE_DIR}/src/RblxGizmo.cpp
 )
 
 function(configure_rblx_target target_name)
     target_include_directories(${target_name} PRIVATE
         ${RBLXBUILD_CURRENT_SOURCE_DIR}/include
-        ${stb_SOURCE_DIR}
-        ${imgui_SOURCE_DIR}
-        ${imgui_SOURCE_DIR}/backends
-        ${imguizmo_SOURCE_DIR}
-        ${imguizmo_SOURCE_DIR}/src
-        ${glad_SOURCE_DIR}/include
+        ${rblxstb_SOURCE_DIR}
+        ${rblxui_SOURCE_DIR}
+        ${rblxui_SOURCE_DIR}/backends
+        ${rblxgizmo_SOURCE_DIR}
+        ${rblxgizmo_SOURCE_DIR}/src
+        ${rblxgl_SOURCE_DIR}/include
     )
 
     if(RBLX_ENABLE_WARNINGS)
@@ -136,7 +136,7 @@ if(RBLX_BUILD_STUDIO)
         src/WebJson.cpp
         src/WebCrypto.cpp
         src/Editor.cpp
-        ${imguicolortextedit_SOURCE_DIR}/TextEditor.cpp
+        ${rblxtextedit_SOURCE_DIR}/RblxTextEditor.cpp
         src/RblxScript.cpp
         src/WorldScript.cpp
         # Undo and redo: the world as it stood at the end of each interaction.
@@ -145,12 +145,12 @@ if(RBLX_BUILD_STUDIO)
         # the host to play one, so Studio links the bank too.
         src/SoundBank.cpp
         ${SHARED_SOURCES}
-        ${IMGUI_SOURCES}
-        ${IMGUIZMO_SOURCES}
+        ${RBLXUI_SOURCES}
+        ${RBLXGIZMO_SOURCES}
     )
     configure_rblx_target(Studio)
-    target_include_directories(Studio PRIVATE ${imguicolortextedit_SOURCE_DIR})
-    target_link_libraries(Studio PRIVATE glfw glm reactphysics3d glad)
+    target_include_directories(Studio PRIVATE ${rblxtextedit_SOURCE_DIR})
+    target_link_libraries(Studio PRIVATE rblxwin rblxmath rblxphysics rblxgl)
     # HttpClient is the only transport left (the website calls used to go
     # through WinHTTP), and it is plain sockets, hence ws2_32.
     target_link_libraries(Studio PRIVATE ws2_32 shell32)
@@ -166,12 +166,12 @@ if(RBLX_BUILD_CODEEDITOR)
         src/CodeMain.cpp
         src/CodeProject.cpp
         src/Window.cpp
-        ${imguicolortextedit_SOURCE_DIR}/TextEditor.cpp
-        ${IMGUI_SOURCES}
+        ${rblxtextedit_SOURCE_DIR}/RblxTextEditor.cpp
+        ${RBLXUI_SOURCES}
     )
     configure_rblx_target(RBLXCode)
-    target_include_directories(RBLXCode PRIVATE ${imguicolortextedit_SOURCE_DIR})
-    target_link_libraries(RBLXCode PRIVATE glfw glad)
+    target_include_directories(RBLXCode PRIVATE ${rblxtextedit_SOURCE_DIR})
+    target_link_libraries(RBLXCode PRIVATE rblxwin rblxgl)
 endif()
 
 if(RBLX_BUILD_UPDATER)
@@ -182,7 +182,7 @@ if(RBLX_BUILD_UPDATER)
     # machine in the first place.
     #
     # Both show their work in a window (InstallUi), which is why they carry the
-    # same window and ImGui sources the editors do. The console commands are not a
+    # same window and RblxUI sources the editors do. The console commands are not a
     # fallback for a missing window: they are how a script and the packaging step
     # drive these tools, and they keep working exactly as before.
     add_executable(RBLXUpdater
@@ -192,10 +192,10 @@ if(RBLX_BUILD_UPDATER)
         src/WebCrypto.cpp
         src/HttpClient.cpp
         src/InstallUi.cpp
-        ${IMGUI_SOURCES}
+        ${RBLXUI_SOURCES}
     )
     configure_rblx_target(RBLXUpdater)
-    target_link_libraries(RBLXUpdater PRIVATE glfw glad)
+    target_link_libraries(RBLXUpdater PRIVATE rblxwin rblxgl)
     target_link_libraries(RBLXUpdater PRIVATE ws2_32)
 
     # The setup is the installer: it copies the packaged folder into a per-user
@@ -209,10 +209,10 @@ if(RBLX_BUILD_UPDATER)
         src/WebJson.cpp
         src/WebCrypto.cpp
         src/InstallUi.cpp
-        ${IMGUI_SOURCES}
+        ${RBLXUI_SOURCES}
     )
     configure_rblx_target(RBLXSetup)
-    target_link_libraries(RBLXSetup PRIVATE glfw glad)
+    target_link_libraries(RBLXSetup PRIVATE rblxwin rblxgl)
     # IShellLink and IPersistFile are COM, the folder lookups are shell32, and
     # the uninstall entry is written with the registry API.
     target_link_libraries(RBLXSetup PRIVATE ole32 shell32 advapi32 uuid)
@@ -273,10 +273,10 @@ if(RBLX_BUILD_CLIENT)
         src/Audio.cpp
         src/SoundBank.cpp
         ${SHARED_SOURCES}
-        ${IMGUI_SOURCES}
+        ${RBLXUI_SOURCES}
     )
     configure_rblx_target(Client)
-    target_link_libraries(Client PRIVATE glfw glm reactphysics3d glad)
+    target_link_libraries(Client PRIVATE rblxwin rblxmath rblxphysics rblxgl)
     # winmm is the OS mixer waveOut lives in; no other audio dependency exists.
     target_link_libraries(Client PRIVATE ws2_32 shell32 comdlg32 winmm)
     if(TARGET RBLXAntiCheat)
@@ -319,7 +319,7 @@ if(RBLX_BUILD_SERVER)
         src/SoundBank.cpp
     )
     configure_rblx_target(Server)
-    target_link_libraries(Server PRIVATE glm reactphysics3d)
+    target_link_libraries(Server PRIVATE rblxmath rblxphysics)
     target_link_libraries(Server PRIVATE ws2_32)
 endif()
 
@@ -339,10 +339,10 @@ if(RBLX_BUILD_TRAINER)
         src/WebJson.cpp
         src/HardwareId.cpp
         src/WebCrypto.cpp
-        ${IMGUI_SOURCES}
+        ${RBLXUI_SOURCES}
     )
     configure_rblx_target(AiTrainer)
-    target_link_libraries(AiTrainer PRIVATE reactphysics3d glm glfw glad ws2_32)
+    target_link_libraries(AiTrainer PRIVATE rblxphysics rblxmath rblxwin rblxgl ws2_32)
 endif()
 
 set(WEB_SOURCES
@@ -364,10 +364,10 @@ if(RBLX_BUILD_WEBAPP)
         src/WebMain.cpp
         src/ConsoleGui.cpp
         ${WEB_SOURCES}
-        ${IMGUI_SOURCES}
+        ${RBLXUI_SOURCES}
     )
     configure_rblx_target(WebApp)
-    target_link_libraries(WebApp PRIVATE glfw glad)
+    target_link_libraries(WebApp PRIVATE rblxwin rblxgl)
     target_link_libraries(WebApp PRIVATE ws2_32 shell32)
 endif()
 
@@ -385,12 +385,12 @@ if(RBLX_BUILD_TESTS)
 
     add_executable(NetworkProtocolTests tests/network_protocol_tests.cpp)
     target_include_directories(NetworkProtocolTests PRIVATE ${RBLXBUILD_CURRENT_SOURCE_DIR}/include)
-    target_link_libraries(NetworkProtocolTests PRIVATE glm)
+    target_link_libraries(NetworkProtocolTests PRIVATE rblxmath)
     add_test(NAME NetworkProtocolTests COMMAND NetworkProtocolTests)
 
     add_executable(MovementGuardTests tests/movement_guard_tests.cpp)
     target_include_directories(MovementGuardTests PRIVATE ${RBLXBUILD_CURRENT_SOURCE_DIR}/include)
-    target_link_libraries(MovementGuardTests PRIVATE glm)
+    target_link_libraries(MovementGuardTests PRIVATE rblxmath)
     add_test(NAME MovementGuardTests COMMAND MovementGuardTests)
 
     add_executable(ModerationTests tests/moderation_tests.cpp)
@@ -445,7 +445,7 @@ if(RBLX_BUILD_TESTS)
 
     add_executable(VehicleTests tests/vehicle_tests.cpp)
     target_include_directories(VehicleTests PRIVATE ${RBLXBUILD_CURRENT_SOURCE_DIR}/include)
-    target_link_libraries(VehicleTests PRIVATE glm)
+    target_link_libraries(VehicleTests PRIVATE rblxmath)
     add_test(NAME VehicleTests COMMAND VehicleTests)
 
     add_executable(HttpClientTests tests/http_client_tests.cpp src/HttpClient.cpp)
@@ -518,14 +518,14 @@ if(RBLX_BUILD_TESTS)
     # coming back exactly as it was.
     add_executable(StudioHistoryTests tests/studio_history_tests.cpp src/StudioHistory.cpp)
     target_include_directories(StudioHistoryTests PRIVATE ${RBLXBUILD_CURRENT_SOURCE_DIR}/include)
-    target_link_libraries(StudioHistoryTests PRIVATE glm)
+    target_link_libraries(StudioHistoryTests PRIVATE rblxmath)
     add_test(NAME StudioHistoryTests COMMAND StudioHistoryTests)
 
     # Studio's selection: what counts as picked, and what a folder takes with it
     # when it is deleted.
     add_executable(StudioSelectionTests tests/studio_selection_tests.cpp)
     target_include_directories(StudioSelectionTests PRIVATE ${RBLXBUILD_CURRENT_SOURCE_DIR}/include)
-    target_link_libraries(StudioSelectionTests PRIVATE glm)
+    target_link_libraries(StudioSelectionTests PRIVATE rblxmath)
     add_test(NAME StudioSelectionTests COMMAND StudioSelectionTests)
 
     # Likes against the real store: one row per account and game, a row that

@@ -17,10 +17,10 @@ namespace {
     }
 }
 
-Character::Character(glm::vec3 startPos, PhysicsWorld* physicsWorld, std::deque<Part>* partsList,
-                     const glm::vec3& headColor, const glm::vec3& torsoColor,
-                     const glm::vec3& leftArmColor, const glm::vec3& rightArmColor,
-                     const glm::vec3& leftLegColor, const glm::vec3& rightLegColor)
+Character::Character(rblxmath::vec3 startPos, PhysicsWorld* physicsWorld, std::deque<Part>* partsList,
+                     const rblxmath::vec3& headColor, const rblxmath::vec3& torsoColor,
+                     const rblxmath::vec3& leftArmColor, const rblxmath::vec3& rightArmColor,
+                     const rblxmath::vec3& leftLegColor, const rblxmath::vec3& rightLegColor)
     : isRemote(false), isJumping(false), debugTargetYaw(0.0f), debugCurrentYaw(0.0f),
       debugMoveDir(0.0f), health(100.0f), maxHealth(100.0f),
       physicsWorld(physicsWorld), partsList(partsList), spawnPoint(startPos),
@@ -41,8 +41,8 @@ Character::Character(glm::vec3 startPos, PhysicsWorld* physicsWorld, std::deque<
     int folderIndex = partsList->size() - 1;
 
     // 1. RootPart / Torso (Main Physics Body)
-    glm::vec3 rootSize(2.0f, 5.0f, 1.0f);
-    Part rootPart(startPos + glm::vec3(0, 2.5f, 0), rootSize, glm::vec3(1,0,0)); 
+    rblxmath::vec3 rootSize(2.0f, 5.0f, 1.0f);
+    Part rootPart(startPos + rblxmath::vec3(0, 2.5f, 0), rootSize, rblxmath::vec3(1,0,0)); 
     rootPart.name = "HumanoidRootPart";
     rootPart.parentIndex = folderIndex; 
     rootPart.anchored = false;
@@ -56,15 +56,15 @@ Character::Character(glm::vec3 startPos, PhysicsWorld* physicsWorld, std::deque<
     physicsWorld->addPart(&partsList->back());
     
     if (partsList->back().physicsBody) {
-        rp3d::RigidBody* body = (rp3d::RigidBody*)partsList->back().physicsBody;
-        body->setAngularLockAxisFactor(rp3d::Vector3(0, 1, 0));
+        rblxphysics::RigidBody* body = (rblxphysics::RigidBody*)partsList->back().physicsBody;
+        body->setAngularLockAxisFactor(rblxphysics::Vector3(0, 1, 0));
         if (body->getNbColliders() > 0) {
             body->getCollider(0)->getMaterial().setFrictionCoefficient(0.0f);
         }
     }
     
     // Torso (Visual)
-    Part torso(startPos, glm::vec3(2.0f, 2.0f, 1.0f), torsoColor);
+    Part torso(startPos, rblxmath::vec3(2.0f, 2.0f, 1.0f), torsoColor);
     torso.name = "Torso";
     torso.parentIndex = folderIndex; 
     torso.anchored = true;
@@ -75,7 +75,7 @@ Character::Character(glm::vec3 startPos, PhysicsWorld* physicsWorld, std::deque<
     partsList->push_back(torso);
     torsoIndex = partsList->size() - 1;
 
-    auto createLimb = [&](std::string name, glm::vec3 size, glm::vec3 col) -> int {
+    auto createLimb = [&](std::string name, rblxmath::vec3 size, rblxmath::vec3 col) -> int {
         Part p(startPos, size, col); 
         p.name = name;
         p.parentIndex = folderIndex; 
@@ -86,11 +86,11 @@ Character::Character(glm::vec3 startPos, PhysicsWorld* physicsWorld, std::deque<
         return partsList->size() - 1;
     };
 
-    headIndex = createLimb("Head", glm::vec3(1.2f, 1.2f, 1.2f), headColor);
-    leftArmIndex = createLimb("LeftArm", glm::vec3(1.0f, 2.0f, 1.0f), leftArmColor);
-    rightArmIndex = createLimb("RightArm", glm::vec3(1.0f, 2.0f, 1.0f), rightArmColor);
-    leftLegIndex = createLimb("LeftLeg", glm::vec3(1.0f, 2.0f, 1.0f), leftLegColor);
-    rightLegIndex = createLimb("RightLeg", glm::vec3(1.0f, 2.0f, 1.0f), rightLegColor);
+    headIndex = createLimb("Head", rblxmath::vec3(1.2f, 1.2f, 1.2f), headColor);
+    leftArmIndex = createLimb("LeftArm", rblxmath::vec3(1.0f, 2.0f, 1.0f), leftArmColor);
+    rightArmIndex = createLimb("RightArm", rblxmath::vec3(1.0f, 2.0f, 1.0f), rightArmColor);
+    leftLegIndex = createLimb("LeftLeg", rblxmath::vec3(1.0f, 2.0f, 1.0f), leftLegColor);
+    rightLegIndex = createLimb("RightLeg", rblxmath::vec3(1.0f, 2.0f, 1.0f), rightLegColor);
 }
 
 Character::~Character() {
@@ -104,7 +104,7 @@ int Character::getFolderIndex() const {
     return root.parentIndex; // The folder is the parent of the root part
 }
 
-void Character::teleportTo(const glm::vec3& position) {
+void Character::teleportTo(const rblxmath::vec3& position) {
     if (!partsList || rootPartIndex < 0 || rootPartIndex >= static_cast<int>(partsList->size())) {
         return;
     }
@@ -114,12 +114,12 @@ void Character::teleportTo(const glm::vec3& position) {
     root.position = position;
 
     if (root.physicsBody == nullptr) return;
-    auto* body = static_cast<rp3d::RigidBody*>(root.physicsBody);
-    rp3d::Transform transform = body->getTransform();
-    transform.setPosition(rp3d::Vector3(position.x, position.y, position.z));
+    auto* body = static_cast<rblxphysics::RigidBody*>(root.physicsBody);
+    rblxphysics::Transform transform = body->getTransform();
+    transform.setPosition(rblxphysics::Vector3(position.x, position.y, position.z));
     body->setTransform(transform);
-    body->setLinearVelocity(rp3d::Vector3(0.0f, 0.0f, 0.0f));
-    body->setAngularVelocity(rp3d::Vector3(0.0f, 0.0f, 0.0f));
+    body->setLinearVelocity(rblxphysics::Vector3(0.0f, 0.0f, 0.0f));
+    body->setAngularVelocity(rblxphysics::Vector3(0.0f, 0.0f, 0.0f));
 }
 
 void Character::setFaceTexture(unsigned int textureId) {
@@ -144,8 +144,8 @@ void Character::setHat(const std::string& id) {
     const bool reusable = hatIndex >= 0 && hatIndex < static_cast<int>(partsList->size()) &&
                           !(*partsList)[hatIndex].deleted;
     if (!reusable) {
-        Part hat(spawnPoint, glm::vec3(item->size[0], item->size[1], item->size[2]),
-                 glm::vec3(item->color[0], item->color[1], item->color[2]));
+        Part hat(spawnPoint, rblxmath::vec3(item->size[0], item->size[1], item->size[2]),
+                 rblxmath::vec3(item->color[0], item->color[1], item->color[2]));
         hat.name = "Hat";
         hat.parentIndex = getFolderIndex();
         hat.anchored = true;
@@ -155,8 +155,8 @@ void Character::setHat(const std::string& id) {
         hatIndex = static_cast<int>(partsList->size()) - 1;
     }
     Part& part = (*partsList)[hatIndex];
-    part.size = glm::vec3(item->size[0], item->size[1], item->size[2]);
-    part.color = glm::vec3(item->color[0], item->color[1], item->color[2]);
+    part.size = rblxmath::vec3(item->size[0], item->size[1], item->size[2]);
+    part.color = rblxmath::vec3(item->color[0], item->color[1], item->color[2]);
     part.transparency = 0.0f;
 }
 
@@ -171,12 +171,12 @@ void Character::setRemoteControlled(bool remote) {
         return;
     }
 
-    rp3d::RigidBody* body = static_cast<rp3d::RigidBody*>(root.physicsBody);
+    rblxphysics::RigidBody* body = static_cast<rblxphysics::RigidBody*>(root.physicsBody);
     if (remote) {
         root.canCollide = false;
-        body->setType(rp3d::BodyType::KINEMATIC);
-        body->setLinearVelocity(rp3d::Vector3(0, 0, 0));
-        body->setAngularVelocity(rp3d::Vector3(0, 0, 0));
+        body->setType(rblxphysics::BodyType::KINEMATIC);
+        body->setLinearVelocity(rblxphysics::Vector3(0, 0, 0));
+        body->setAngularVelocity(rblxphysics::Vector3(0, 0, 0));
         if (body->getNbColliders() > 0) {
             body->getCollider(0)->setCollideWithMaskBits(0);
         }
@@ -184,13 +184,13 @@ void Character::setRemoteControlled(bool remote) {
     }
 
     root.canCollide = true;
-    body->setType(root.anchored ? rp3d::BodyType::STATIC : rp3d::BodyType::DYNAMIC);
+    body->setType(root.anchored ? rblxphysics::BodyType::STATIC : rblxphysics::BodyType::DYNAMIC);
     if (body->getNbColliders() > 0) {
         body->getCollider(0)->setCollideWithMaskBits(0xFFFF);
     }
 }
 
-void Character::setRemoteState(glm::vec3 pos, float yaw, bool walking, bool jumping) {
+void Character::setRemoteState(rblxmath::vec3 pos, float yaw, bool walking, bool jumping) {
     if (!isRemote) return;
     if (partsList && rootPartIndex >= 0 && rootPartIndex < partsList->size()) {
         Part& root = (*partsList)[rootPartIndex];
@@ -198,7 +198,7 @@ void Character::setRemoteState(glm::vec3 pos, float yaw, bool walking, bool jump
         
         // Very fast interpolation for local testing (low latency)
         float lerpFactor = 0.8f; // 80% per update for smooth, responsive movement
-        root.position = glm::mix(root.position, pos, lerpFactor);
+        root.position = rblxmath::mix(root.position, pos, lerpFactor);
         
         float targetYaw = normalizeDegrees(yaw);
         
@@ -222,29 +222,29 @@ void Character::setRemoteState(glm::vec3 pos, float yaw, bool walking, bool jump
         // Update debug values for remote characters
         debugCurrentYaw = internalYaw;
         debugTargetYaw = targetYaw;
-        debugMoveDir = glm::vec3(0); // Remote characters don't have move dir
+        debugMoveDir = rblxmath::vec3(0); // Remote characters don't have move dir
         
         isWalking = walking;
         isJumping = jumping;
         
         // Update Physics Body Transform smoothly
-        rp3d::RigidBody* body = (rp3d::RigidBody*)root.physicsBody;
+        rblxphysics::RigidBody* body = (rblxphysics::RigidBody*)root.physicsBody;
         if (body) {
-            rp3d::Transform t = body->getTransform();
-            rp3d::Vector3 currentPos = t.getPosition();
-            rp3d::Vector3 targetPos(pos.x, pos.y, pos.z);
-            rp3d::Vector3 lerpedPos = currentPos + (targetPos - currentPos) * lerpFactor;
+            rblxphysics::Transform t = body->getTransform();
+            rblxphysics::Vector3 currentPos = t.getPosition();
+            rblxphysics::Vector3 targetPos(pos.x, pos.y, pos.z);
+            rblxphysics::Vector3 lerpedPos = currentPos + (targetPos - currentPos) * lerpFactor;
             t.setPosition(lerpedPos);
             
             // Smooth rotation with quaternion slerp
-            rp3d::Quaternion currentQ = t.getOrientation();
-            rp3d::Quaternion targetQ = rp3d::Quaternion::fromEulerAngles(0, glm::radians(root.rotation.y), 0);
-            rp3d::Quaternion lerpedQ = rp3d::Quaternion::slerp(currentQ, targetQ, lerpFactor);
+            rblxphysics::Quaternion currentQ = t.getOrientation();
+            rblxphysics::Quaternion targetQ = rblxphysics::Quaternion::fromEulerAngles(0, rblxmath::radians(root.rotation.y), 0);
+            rblxphysics::Quaternion lerpedQ = rblxphysics::Quaternion::slerp(currentQ, targetQ, lerpFactor);
             t.setOrientation(lerpedQ);
             
             body->setTransform(t);
             // Lightly dampen velocity to allow some physics feel
-            rp3d::Vector3 vel = body->getLinearVelocity();
+            rblxphysics::Vector3 vel = body->getLinearVelocity();
             body->setLinearVelocity(vel * 0.5f);
             body->setAngularVelocity(body->getAngularVelocity() * 0.5f);
         }
@@ -255,7 +255,7 @@ void Character::update(float deltaTime, Camera* camera, bool isSprinting) {
     if (!partsList || rootPartIndex < 0 || rootPartIndex >= partsList->size()) return;
     Part& root = (*partsList)[rootPartIndex];
     if (root.deleted) return; // Character is deleted
-    rp3d::RigidBody* body = (rp3d::RigidBody*)root.physicsBody;
+    rblxphysics::RigidBody* body = (rblxphysics::RigidBody*)root.physicsBody;
     if (!body) return; // Safety check: body might be invalid
 
     // For remote characters, ensure root.rotation.y matches internalYaw (like local characters)
@@ -265,9 +265,9 @@ void Character::update(float deltaTime, Camera* camera, bool isSprinting) {
 
     // 1. Local Physics Logic
     if (!isRemote && body) {
-        rp3d::Vector3 vel = body->getLinearVelocity();
+        rblxphysics::Vector3 vel = body->getLinearVelocity();
         if (vel.y < -0.1f) {
-            body->applyWorldForceAtCenterOfMass(rp3d::Vector3(0, -2000.0f * deltaTime, 0)); 
+            body->applyWorldForceAtCenterOfMass(rblxphysics::Vector3(0, -2000.0f * deltaTime, 0)); 
         }
         
         if (root.position.y < -185.0f) {
@@ -281,7 +281,7 @@ void Character::update(float deltaTime, Camera* camera, bool isSprinting) {
         }
         
         // Determine Animation State from Physics
-        float speed = glm::length(glm::vec2(vel.x, vel.z));
+        float speed = rblxmath::length(rblxmath::vec2(vel.x, vel.z));
         isWalking = speed > 0.1f;
         isJumping = std::abs(vel.y) > 0.5f;
     }
@@ -292,13 +292,13 @@ void Character::update(float deltaTime, Camera* camera, bool isSprinting) {
     // weights ease the walk and the airborne pose in and out. Snapping the swing
     // to zero the moment a key was released is what made movement look like a
     // sliding toy.
-    glm::vec3 rootPos = root.position;
-    glm::vec3 rootRot = root.rotation;
+    rblxmath::vec3 rootPos = root.position;
+    rblxmath::vec3 rootRot = root.rotation;
 
     float horizontalSpeed = 0.0f;
     if (body) {
-        rp3d::Vector3 velocity = body->getLinearVelocity();
-        horizontalSpeed = glm::length(glm::vec2(velocity.x, velocity.z));
+        rblxphysics::Vector3 velocity = body->getLinearVelocity();
+        horizontalSpeed = rblxmath::length(rblxmath::vec2(velocity.x, velocity.z));
     }
 
     const float walkTarget = isWalking ? 1.0f : 0.0f;
@@ -328,45 +328,45 @@ void Character::update(float deltaTime, Camera* camera, bool isSprinting) {
     float rightArmPitch = -swing * 34.0f;
     float leftLegPitch = -swing * 40.0f;
     float rightLegPitch = swing * 40.0f;
-    leftArmPitch = glm::mix(leftArmPitch, airArmPitch, airBlend);
-    rightArmPitch = glm::mix(rightArmPitch, airArmPitch, airBlend);
-    leftLegPitch = glm::mix(leftLegPitch, airLegPitch, airBlend);
-    rightLegPitch = glm::mix(rightLegPitch, airLegPitch, airBlend);
+    leftArmPitch = rblxmath::mix(leftArmPitch, airArmPitch, airBlend);
+    rightArmPitch = rblxmath::mix(rightArmPitch, airArmPitch, airBlend);
+    leftLegPitch = rblxmath::mix(leftLegPitch, airLegPitch, airBlend);
+    rightLegPitch = rblxmath::mix(rightLegPitch, airLegPitch, airBlend);
 
     // A slow sway at rest, small enough that it never fights the walk cycle.
     const float idleArm = idleSway * 2.2f * (1.0f - walkBlend) * (1.0f - airBlend);
     leftArmPitch += idleArm;
     rightArmPitch -= idleArm;
 
-    auto yawed = [&](const glm::vec3& local) {
-        const float yaw = glm::radians(rootRot.y);
+    auto yawed = [&](const rblxmath::vec3& local) {
+        const float yaw = rblxmath::radians(rootRot.y);
         const float c = std::cos(yaw);
         const float s = std::sin(yaw);
-        return glm::vec3(local.x * c + local.z * s, local.y, -local.x * s + local.z * c);
+        return rblxmath::vec3(local.x * c + local.z * s, local.y, -local.x * s + local.z * c);
     };
 
-    auto placeDirect = [&](int index, const glm::vec3& localCenter, float pitchDeg,
+    auto placeDirect = [&](int index, const rblxmath::vec3& localCenter, float pitchDeg,
                            float twistDeg, float rollDeg) {
         if (index < 0 || index >= static_cast<int>(partsList->size())) return;
         Part& p = (*partsList)[index];
         if (p.deleted) return;
         p.position = rootPos + yawed(localCenter);
-        p.rotation = glm::vec3(pitchDeg, rootRot.y + twistDeg, rollDeg);
+        p.rotation = rblxmath::vec3(pitchDeg, rootRot.y + twistDeg, rollDeg);
     };
 
     // Swings a limb about its shoulder or hip rather than its centre, so the far
     // end travels like an arm and the top stays joined to the torso.
-    auto placeSwinging = [&](int index, const glm::vec3& pivot, const glm::vec3& limbSize,
+    auto placeSwinging = [&](int index, const rblxmath::vec3& pivot, const rblxmath::vec3& limbSize,
                              float pitchDeg, float rollDeg) {
-        const float pitch = glm::radians(pitchDeg);
-        const float roll = glm::radians(rollDeg);
-        const glm::vec3 offset(0.0f, -limbSize.y * 0.5f, 0.0f);
+        const float pitch = rblxmath::radians(pitchDeg);
+        const float roll = rblxmath::radians(rollDeg);
+        const rblxmath::vec3 offset(0.0f, -limbSize.y * 0.5f, 0.0f);
 
         // Roll first (splay), then pitch (forward and back), both about the pivot.
-        const glm::vec3 rolled(offset.x * std::cos(roll) - offset.y * std::sin(roll),
+        const rblxmath::vec3 rolled(offset.x * std::cos(roll) - offset.y * std::sin(roll),
                                offset.x * std::sin(roll) + offset.y * std::cos(roll),
                                offset.z);
-        const glm::vec3 swung(rolled.x,
+        const rblxmath::vec3 swung(rolled.x,
                               rolled.y * std::cos(pitch) - rolled.z * std::sin(pitch),
                               rolled.y * std::sin(pitch) + rolled.z * std::cos(pitch));
         placeDirect(index, pivot + swung, pitchDeg, 0.0f, rollDeg);
@@ -374,24 +374,24 @@ void Character::update(float deltaTime, Camera* camera, bool isSprinting) {
 
     // Torso and head: a small counter-twist to the arm swing, plus breathing.
     const float counterTwist = -swing * 5.0f;
-    placeDirect(torsoIndex, glm::vec3(0.0f, 0.5f + breathe, 0.0f), 0.0f, counterTwist, 0.0f);
-    placeDirect(headIndex, glm::vec3(0.0f, 2.1f + breathe * 0.6f, 0.0f),
+    placeDirect(torsoIndex, rblxmath::vec3(0.0f, 0.5f + breathe, 0.0f), 0.0f, counterTwist, 0.0f);
+    placeDirect(headIndex, rblxmath::vec3(0.0f, 2.1f + breathe * 0.6f, 0.0f),
                 airBlend * -6.0f + swing * 2.5f, counterTwist * 0.4f, 0.0f);
     // The hat follows the same pose as the head, so it does not slide off
     // while the avatar breathes or leans.
     if (const rblx::items::AvatarItem* hat = rblx::items::findAvatarItem(hatId)) {
         placeDirect(hatIndex,
-                    glm::vec3(0.0f, 2.1f + breathe * 0.6f + hat->offsetY, hat->offsetZ),
+                    rblxmath::vec3(0.0f, 2.1f + breathe * 0.6f + hat->offsetY, hat->offsetZ),
                     airBlend * -6.0f + swing * 2.5f, counterTwist * 0.4f, 0.0f);
     }
 
-    placeSwinging(leftArmIndex, glm::vec3(-1.5f, 1.5f, 0.0f), glm::vec3(1.0f, 2.0f, 1.0f),
+    placeSwinging(leftArmIndex, rblxmath::vec3(-1.5f, 1.5f, 0.0f), rblxmath::vec3(1.0f, 2.0f, 1.0f),
                   leftArmPitch, -airBlend * 12.0f);
-    placeSwinging(rightArmIndex, glm::vec3(1.5f, 1.5f, 0.0f), glm::vec3(1.0f, 2.0f, 1.0f),
+    placeSwinging(rightArmIndex, rblxmath::vec3(1.5f, 1.5f, 0.0f), rblxmath::vec3(1.0f, 2.0f, 1.0f),
                   rightArmPitch, airBlend * 12.0f);
-    placeSwinging(leftLegIndex, glm::vec3(-0.5f, -0.5f, 0.0f), glm::vec3(1.0f, 2.0f, 1.0f),
+    placeSwinging(leftLegIndex, rblxmath::vec3(-0.5f, -0.5f, 0.0f), rblxmath::vec3(1.0f, 2.0f, 1.0f),
                   leftLegPitch, -airBlend * 6.0f);
-    placeSwinging(rightLegIndex, glm::vec3(0.5f, -0.5f, 0.0f), glm::vec3(1.0f, 2.0f, 1.0f),
+    placeSwinging(rightLegIndex, rblxmath::vec3(0.5f, -0.5f, 0.0f), rblxmath::vec3(1.0f, 2.0f, 1.0f),
                   rightLegPitch, airBlend * 6.0f);
     
     // Update Camera (Local only)
@@ -399,14 +399,14 @@ void Character::update(float deltaTime, Camera* camera, bool isSprinting) {
         float distance = zoomDistance;
         float height = 3.0f; 
         // Calculate camera position behind character
-        float yawRad = glm::radians(camera->Yaw);
-        float pitchRad = glm::radians(camera->Pitch);
+        float yawRad = rblxmath::radians(camera->Yaw);
+        float pitchRad = rblxmath::radians(camera->Pitch);
         
-        glm::vec3 offset;
+        rblxmath::vec3 offset;
         offset.x = cos(yawRad) * cos(pitchRad);
         offset.y = sin(pitchRad);
         offset.z = sin(yawRad) * cos(pitchRad);
-        offset = glm::normalize(offset) * distance; // Direction from character to camera if reversed, or camera to character?
+        offset = rblxmath::normalize(offset) * distance; // Direction from character to camera if reversed, or camera to character?
         // Camera Front points TO character usually? No, Front points AWAY from viewer.
         // Let's stick to standard orbital logic:
         // Position = Target - (Front * dist)
@@ -430,7 +430,7 @@ void Character::processInput(bool forward, bool backward, bool left, bool right,
     if (!partsList || rootPartIndex < 0 || rootPartIndex >= partsList->size()) return;
     Part& root = (*partsList)[rootPartIndex];
     if (root.deleted) return; // Character is deleted
-    rp3d::RigidBody* body = (rp3d::RigidBody*)root.physicsBody;
+    rblxphysics::RigidBody* body = (rblxphysics::RigidBody*)root.physicsBody;
     if (!body) return;
     
     zoomDistance -= zoomInput * 2.0f;
@@ -439,33 +439,33 @@ void Character::processInput(bool forward, bool backward, bool left, bool right,
 
     float moveSpeed = 20.0f;
     
-    float yawRad = glm::radians(camera.Yaw);
-    glm::vec3 camFront;
-    camFront.x = cos(yawRad) * cos(glm::radians(0.0f)); 
+    float yawRad = rblxmath::radians(camera.Yaw);
+    rblxmath::vec3 camFront;
+    camFront.x = cos(yawRad) * cos(rblxmath::radians(0.0f)); 
     camFront.y = 0.0f;
-    camFront.z = sin(yawRad) * cos(glm::radians(0.0f));
-    camFront = glm::normalize(camFront);
+    camFront.z = sin(yawRad) * cos(rblxmath::radians(0.0f));
+    camFront = rblxmath::normalize(camFront);
     
-    glm::vec3 camRight = glm::normalize(glm::cross(camFront, glm::vec3(0, 1, 0)));
+    rblxmath::vec3 camRight = rblxmath::normalize(rblxmath::cross(camFront, rblxmath::vec3(0, 1, 0)));
 
-    glm::vec3 moveDir(0.0f);
+    rblxmath::vec3 moveDir(0.0f);
     if (forward) moveDir += camFront;
     if (backward) moveDir -= camFront;
     if (right) moveDir += camRight;
     if (left) moveDir -= camRight;
     
-    if (glm::length(moveDir) > 0.1f) {
-        moveDir = glm::normalize(moveDir);
+    if (rblxmath::length(moveDir) > 0.1f) {
+        moveDir = rblxmath::normalize(moveDir);
         body->setIsActive(true);
 
-        rp3d::Vector3 currentVel = body->getLinearVelocity();
-        rp3d::Vector3 targetVel(moveDir.x * moveSpeed, currentVel.y, moveDir.z * moveSpeed);
+        rblxphysics::Vector3 currentVel = body->getLinearVelocity();
+        rblxphysics::Vector3 targetVel(moveDir.x * moveSpeed, currentVel.y, moveDir.z * moveSpeed);
         body->setLinearVelocity(targetVel);
         
         // Calculate target yaw from movement direction
         // atan2(x, z) gives angle in XZ plane, convert to degrees
         float angleRad = atan2(moveDir.x, moveDir.z);
-        float targetYaw = normalizeDegrees(glm::degrees(angleRad));
+        float targetYaw = normalizeDegrees(rblxmath::degrees(angleRad));
         float currentYaw = normalizeDegrees(internalYaw);
         
         debugTargetYaw = targetYaw;
@@ -481,21 +481,21 @@ void Character::processInput(bool forward, bool backward, bool left, bool right,
         
         internalYaw = normalizeDegrees(internalYaw + step);
 
-        body->setAngularVelocity(rp3d::Vector3(0, 0, 0));
+        body->setAngularVelocity(rblxphysics::Vector3(0, 0, 0));
 
     } else {
-        rp3d::Vector3 currentVel = body->getLinearVelocity();
-        body->setLinearVelocity(rp3d::Vector3(0, currentVel.y, 0));
-        body->setAngularVelocity(rp3d::Vector3(0, 0, 0));
+        rblxphysics::Vector3 currentVel = body->getLinearVelocity();
+        body->setLinearVelocity(rblxphysics::Vector3(0, currentVel.y, 0));
+        body->setAngularVelocity(rblxphysics::Vector3(0, 0, 0));
         debugCurrentYaw = internalYaw;
         debugTargetYaw = internalYaw;
-        debugMoveDir = glm::vec3(0.0f); // Clear move dir to stop animation state
+        debugMoveDir = rblxmath::vec3(0.0f); // Clear move dir to stop animation state
     }
     
     // Shift lock keeps the character facing where the camera looks, even while
     // strafing, instead of turning towards the movement direction.
     if (faceCameraYaw) {
-        const float cameraYaw = normalizeDegrees(glm::degrees(atan2(camFront.x, camFront.z)));
+        const float cameraYaw = normalizeDegrees(rblxmath::degrees(atan2(camFront.x, camFront.z)));
         const float currentYaw = normalizeDegrees(internalYaw);
         const float diff = normalizeDegrees(cameraYaw - currentYaw);
         internalYaw = normalizeDegrees(internalYaw + diff * 15.0f * deltaTime);
@@ -506,28 +506,28 @@ void Character::processInput(bool forward, bool backward, bool left, bool right,
     // Always use internalYaw (which smoothly interpolates to target when moving)
     root.rotation.y = internalYaw;
     
-    rp3d::Transform t = body->getTransform();
-    rp3d::Quaternion q = rp3d::Quaternion::fromEulerAngles(0, glm::radians(internalYaw), 0); 
+    rblxphysics::Transform t = body->getTransform();
+    rblxphysics::Quaternion q = rblxphysics::Quaternion::fromEulerAngles(0, rblxmath::radians(internalYaw), 0); 
     t.setOrientation(q);
     body->setTransform(t);
     
     if (jump) {
-        rp3d::Vector3 vel = body->getLinearVelocity();
+        rblxphysics::Vector3 vel = body->getLinearVelocity();
         if (std::abs(vel.y) < 0.1f) {
             body->setIsActive(true);
-            body->setLinearVelocity(rp3d::Vector3(vel.x, 12.0f, vel.z)); 
+            body->setLinearVelocity(rblxphysics::Vector3(vel.x, 12.0f, vel.z)); 
         }
     }
 }
 
-glm::vec3 Character::getPosition() const {
+rblxmath::vec3 Character::getPosition() const {
     if (partsList && rootPartIndex >= 0 && rootPartIndex < partsList->size()) {
         const Part& root = (*partsList)[rootPartIndex];
         if (!root.deleted) {
             return root.position;
         }
     }
-    return glm::vec3(0);
+    return rblxmath::vec3(0);
 }
 
 void Character::takeDamage(float amount) {
@@ -549,13 +549,13 @@ void Character::respawn() {
             return;
         }
         
-        rp3d::RigidBody* body = (rp3d::RigidBody*)root.physicsBody;
+        rblxphysics::RigidBody* body = (rblxphysics::RigidBody*)root.physicsBody;
         if (body) {
-            rp3d::Transform t = body->getTransform();
-            t.setPosition(rp3d::Vector3(spawnPoint.x, spawnPoint.y + 2.5f, spawnPoint.z)); 
+            rblxphysics::Transform t = body->getTransform();
+            t.setPosition(rblxphysics::Vector3(spawnPoint.x, spawnPoint.y + 2.5f, spawnPoint.z)); 
             body->setTransform(t);
-            body->setLinearVelocity(rp3d::Vector3(0, 0, 0));
-            body->setAngularVelocity(rp3d::Vector3(0, 0, 0));
+            body->setLinearVelocity(rblxphysics::Vector3(0, 0, 0));
+            body->setAngularVelocity(rblxphysics::Vector3(0, 0, 0));
         }
     }
 }

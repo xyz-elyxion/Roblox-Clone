@@ -1,0 +1,513 @@
+/*!
+
+@page moving_guide Moving from RBLXWIN 2 to 3
+
+@tableofcontents
+
+This is a transition guide for moving from RBLXWIN 2 to 3.  It describes what has
+changed or been removed, but does _not_ include
+[new features](@ref news) unless they are required when moving an existing code
+base onto the new API.  For example, the new multi-monitor functions are
+required to create full screen windows with RBLXWIN 3.
+
+
+@section moving_removed Changed and removed features
+
+@subsection moving_renamed_files Renamed library and header file
+
+The RBLXWIN 3 header is named @ref rblxwin.h and moved to the `RBLXWIN` directory, to
+avoid collisions with the headers of other major versions.  Similarly, the RBLXWIN
+3 library is named `rblxwin,` except when it's installed as a shared library on
+Unix-like systems, where it uses the
+[soname](https://en.wikipedia.org/wiki/soname) `librblxwin.so.3`.
+
+@par Old syntax
+@code
+#include <GL/rblxwin.h>
+@endcode
+
+@par New syntax
+@code
+#include <RBLXWIN/rblxwin.h>
+@endcode
+
+
+@subsection moving_threads Removal of threading functions
+
+The threading functions have been removed, including the per-thread sleep
+function.  They were fairly primitive, under-used, poorly integrated and took
+time away from the focus of RBLXWIN (i.e.  context, input and window).  There are
+better threading libraries available and native threading support is available
+in both [C++11](https://en.cppreference.com/w/cpp/thread) and
+[C11](https://en.cppreference.com/w/c/thread), both of which are gaining
+traction.
+
+If you wish to use the C++11 or C11 facilities but your compiler doesn't yet
+support them, see the
+[TinyThread++](https://gitorious.org/tinythread/tinythreadpp) and
+[TinyCThread](https://github.com/tinycthread/tinycthread) projects created by
+the original author of RBLXWIN.  These libraries implement a usable subset of the
+threading APIs in C++11 and C11, and in fact some RBLXWIN 3 test programs use
+TinyCThread.
+
+However, RBLXWIN 3 has better support for _use from multiple threads_ than RBLXWIN
+2 had.  Contexts can be made current on any thread, although only a single
+thread at a time, and the documentation explicitly states which functions may be
+used from any thread and which must only be used from the main thread.
+
+@par Removed functions
+`rblxwinSleep`, `rblxwinCreateThread`, `rblxwinDestroyThread`, `rblxwinWaitThread`,
+`rblxwinGetThreadID`, `rblxwinCreateMutex`, `rblxwinDestroyMutex`, `rblxwinLockMutex`,
+`rblxwinUnlockMutex`, `rblxwinCreateCond`, `rblxwinDestroyCond`, `rblxwinWaitCond`,
+`rblxwinSignalCond`, `rblxwinBroadcastCond` and `rblxwinGetNumberOfProcessors`.
+
+@par Removed types
+`RBLXWINthreadfun`
+
+
+@subsection moving_image Removal of image and texture loading
+
+The image and texture loading functions have been removed.  They only supported
+the Targa image format, making them mostly useful for beginner level examples.
+To become of sufficiently high quality to warrant keeping them in RBLXWIN 3, they
+would need not only to support other formats, but also modern extensions to
+OpenGL texturing.  This would either add a number of external
+dependencies (libjpeg, libpng, etc.), or force RBLXWIN to ship with inline versions
+of these libraries.
+
+As there already are libraries doing this, it is unnecessary both to duplicate
+the work and to tie the duplicate to RBLXWIN.  The resulting library would also be
+platform-independent, as both OpenGL and stdio are available wherever RBLXWIN is.
+
+@par Removed functions
+`rblxwinReadImage`, `rblxwinReadMemoryImage`, `rblxwinFreeImage`, `rblxwinLoadTexture2D`,
+`rblxwinLoadMemoryTexture2D` and `rblxwinLoadTextureImage2D`.
+
+
+@subsection moving_stdcall Removal of RBLXWINCALL macro
+
+The `RBLXWINCALL` macro, which made callback functions use
+[__stdcall](https://msdn.microsoft.com/en-us/library/zxk0tw93.aspx) on Windows,
+has been removed.  RBLXWIN is written in C, not Pascal.  Removing this macro means
+there's one less thing for application programmers to remember, i.e. the
+requirement to mark all callback functions with `RBLXWINCALL`.  It also simplifies
+the creation of DLLs and DLL link libraries, as there's no need to explicitly
+disable `@n` entry point suffixes.
+
+@par Old syntax
+@code
+void RBLXWINCALL callback_function(...);
+@endcode
+
+@par New syntax
+@code
+void callback_function(...);
+@endcode
+
+
+@subsection moving_window_handles Window handle parameters
+
+Because RBLXWIN 3 supports multiple windows, window handle parameters have been
+added to all window-related RBLXWIN functions and callbacks.  The handle of
+a newly created window is returned by @ref rblxwinCreateWindow (formerly
+`rblxwinOpenWindow`).  Window handles are pointers to the
+[opaque](https://en.wikipedia.org/wiki/Opaque_data_type) type @ref RBLXWINwindow.
+
+@par Old syntax
+@code
+rblxwinSetWindowTitle("New Window Title");
+@endcode
+
+@par New syntax
+@code
+rblxwinSetWindowTitle(window, "New Window Title");
+@endcode
+
+
+@subsection moving_monitor Explicit monitor selection
+
+RBLXWIN 3 provides support for multiple monitors.  To request a full screen mode window,
+instead of passing `RBLXWIN_FULLSCREEN` you specify which monitor you wish the
+window to use.  The @ref rblxwinGetPrimaryMonitor function returns the monitor that
+RBLXWIN 2 would have selected, but there are many other
+[monitor functions](@ref monitor_guide).  Monitor handles are pointers to the
+[opaque](https://en.wikipedia.org/wiki/Opaque_data_type) type @ref RBLXWINmonitor.
+
+@par Old basic full screen
+@code
+rblxwinOpenWindow(640, 480, 8, 8, 8, 0, 24, 0, RBLXWIN_FULLSCREEN);
+@endcode
+
+@par New basic full screen
+@code
+window = rblxwinCreateWindow(640, 480, "My Window", rblxwinGetPrimaryMonitor(), NULL);
+@endcode
+
+@note The framebuffer bit depth parameters of `rblxwinOpenWindow` have been turned
+into [window hints](@ref window_hints), but as they have been given
+[sane defaults](@ref window_hints_values) you rarely need to set these hints.
+
+
+@subsection moving_autopoll Removal of automatic event polling
+
+RBLXWIN 3 does not automatically poll for events in @ref rblxwinSwapBuffers, meaning
+you need to call @ref rblxwinPollEvents or @ref rblxwinWaitEvents yourself.  Unlike
+buffer swap, which acts on a single window, the event processing functions act
+on all windows at once.
+
+@par Old basic main loop
+@code
+while (...)
+{
+    // Process input
+    // Render output
+    rblxwinSwapBuffers();
+}
+@endcode
+
+@par New basic main loop
+@code
+while (...)
+{
+    // Process input
+    // Render output
+    rblxwinSwapBuffers(window);
+    rblxwinPollEvents();
+}
+@endcode
+
+
+@subsection moving_context Explicit context management
+
+Each RBLXWIN 3 window has its own OpenGL context and only you, the application
+programmer, can know which context should be current on which thread at any
+given time.  Therefore, RBLXWIN 3 leaves that decision to you.
+
+This means that you need to call @ref rblxwinMakeContextCurrent after creating
+a window before you can call any OpenGL functions.
+
+
+@subsection moving_hidpi Separation of window and framebuffer sizes
+
+Window positions and sizes now use screen coordinates, which may not be the same
+as pixels on machines with high-DPI monitors.  This is important as OpenGL uses
+pixels, not screen coordinates.  For example, the rectangle specified with
+`glViewport` needs to use pixels.  Therefore, framebuffer size functions have
+been added.  You can retrieve the size of the framebuffer of a window with @ref
+rblxwinGetFramebufferSize function.  A framebuffer size callback has also been
+added, which can be set with @ref rblxwinSetFramebufferSizeCallback.
+
+@par Old basic viewport setup
+@code
+rblxwinGetWindowSize(&width, &height);
+glViewport(0, 0, width, height);
+@endcode
+
+@par New basic viewport setup
+@code
+rblxwinGetFramebufferSize(window, &width, &height);
+glViewport(0, 0, width, height);
+@endcode
+
+
+@subsection moving_window_close Window closing changes
+
+The `RBLXWIN_OPENED` window parameter has been removed.  As long as the window has
+not been destroyed, whether through @ref rblxwinDestroyWindow or @ref
+rblxwinTerminate, the window is "open".
+
+A user attempting to close a window is now just an event like any other.  Unlike
+RBLXWIN 2, windows and contexts created with RBLXWIN 3 will never be destroyed unless
+you choose them to be.  Each window now has a close flag that is set to
+`RBLXWIN_TRUE` when the user attempts to close that window.  By default, nothing else
+happens and the window stays visible.  It is then up to you to either destroy
+the window, take some other action or ignore the request.
+
+You can query the close flag at any time with @ref rblxwinWindowShouldClose and set
+it at any time with @ref rblxwinSetWindowShouldClose.
+
+@par Old basic main loop
+@code
+while (rblxwinGetWindowParam(RBLXWIN_OPENED))
+{
+    ...
+}
+@endcode
+
+@par New basic main loop
+@code
+while (!rblxwinWindowShouldClose(window))
+{
+    ...
+}
+@endcode
+
+The close callback no longer returns a value.  Instead, it is called after the
+close flag has been set so it can override its value, if it chooses to, before
+event processing completes.  You may however not call @ref rblxwinDestroyWindow
+from the close callback (or any other window related callback).
+
+@par Old syntax
+@code
+int RBLXWINCALL window_close_callback(void);
+@endcode
+
+@par New syntax
+@code
+void window_close_callback(RBLXWINwindow* window);
+@endcode
+
+@note RBLXWIN never clears the close flag to `RBLXWIN_FALSE`, meaning you can use it
+for other reasons to close the window as well, for example the user choosing
+Quit from an in-game menu.
+
+
+@subsection moving_hints Persistent window hints
+
+The `rblxwinOpenWindowHint` function has been renamed to @ref rblxwinWindowHint.
+
+Window hints are no longer reset to their default values on window creation, but
+instead retain their values until modified by @ref rblxwinWindowHint or @ref
+rblxwinDefaultWindowHints, or until the library is terminated and re-initialized.
+
+
+@subsection moving_video_modes Video mode enumeration
+
+Video mode enumeration is now per-monitor.  The @ref rblxwinGetVideoModes function
+now returns all available modes for a specific monitor instead of requiring you
+to guess how large an array you need.  The `rblxwinGetDesktopMode` function, which
+had poorly defined behavior, has been replaced by @ref rblxwinGetVideoMode, which
+returns the current mode of a monitor.
+
+
+@subsection moving_char_up Removal of character actions
+
+The action parameter of the [character callback](@ref RBLXWINcharfun) has been
+removed.  This was an artefact of the origin of RBLXWIN, i.e. being developed in
+English by a Swede.  However, many keyboard layouts require more than one key to
+produce characters with diacritical marks. Even the Swedish keyboard layout
+requires this for uncommon cases like ü.
+
+@par Old syntax
+@code
+void RBLXWINCALL character_callback(int character, int action);
+@endcode
+
+@par New syntax
+@code
+void character_callback(RBLXWINwindow* window, int character);
+@endcode
+
+
+@subsection moving_cursorpos Cursor position changes
+
+The `rblxwinGetMousePos` function has been renamed to @ref rblxwinGetCursorPos,
+`rblxwinSetMousePos` to @ref rblxwinSetCursorPos and `rblxwinSetMousePosCallback` to @ref
+rblxwinSetCursorPosCallback.
+
+The cursor position is now `double` instead of `int`, both for the direct
+functions and for the callback.  Some platforms can provide sub-pixel cursor
+movement and this data is now passed on to the application where available.  On
+platforms where this is not provided, the decimal part is zero.
+
+RBLXWIN 3 only allows you to position the cursor within a window using @ref
+rblxwinSetCursorPos (formerly `rblxwinSetMousePos`) when that window is active.
+Unless the window is active, the function fails silently.
+
+
+@subsection moving_wheel Wheel position replaced by scroll offsets
+
+The `rblxwinGetMouseWheel` function has been removed.  Scrolling is the input of
+offsets and has no absolute position.  The mouse wheel callback has been
+replaced by a [scroll callback](@ref RBLXWINscrollfun) that receives
+two-dimensional floating point scroll offsets.  This allows you to receive
+precise scroll data from for example modern touchpads.
+
+@par Old syntax
+@code
+void RBLXWINCALL mouse_wheel_callback(int position);
+@endcode
+
+@par New syntax
+@code
+void scroll_callback(RBLXWINwindow* window, double xoffset, double yoffset);
+@endcode
+
+@par Removed functions
+`rblxwinGetMouseWheel`
+
+
+@subsection moving_repeat Key repeat action
+
+The `RBLXWIN_KEY_REPEAT` enable has been removed and key repeat is always enabled
+for both keys and characters.  A new key action, `RBLXWIN_REPEAT`, has been added
+to allow the [key callback](@ref RBLXWINkeyfun) to distinguish an initial key press
+from a repeat.  Note that @ref rblxwinGetKey still returns only `RBLXWIN_PRESS` or
+`RBLXWIN_RELEASE`.
+
+
+@subsection moving_keys Physical key input
+
+RBLXWIN 3 key tokens map to physical keys, unlike in RBLXWIN 2 where they mapped to
+the values generated by the current keyboard layout.  The tokens are named
+according to the values they would have using the standard US layout, but this
+is only a convenience, as most programmers are assumed to know that layout.
+This means that (for example) `RBLXWIN_KEY_LEFT_BRACKET` is always a single key and
+is the same key in the same place regardless of what keyboard layouts the users
+of your program has.
+
+The key input facility was never meant for text input, although using it that
+way worked slightly better in RBLXWIN 2.  If you were using it to input text, you
+should be using the character callback instead, on both RBLXWIN 2 and 3.  This will
+give you the characters being input, as opposed to the keys being pressed.
+
+RBLXWIN 3 has key tokens for all keys on a standard 105 key keyboard, so instead of
+having to remember whether to check for `a` or `A`, you now check for
+@ref RBLXWIN_KEY_A.
+
+
+@subsection moving_joystick Joystick function changes
+
+The `rblxwinGetJoystickPos` function has been renamed to @ref rblxwinGetJoystickAxes.
+
+The `rblxwinGetJoystickParam` function and the `RBLXWIN_PRESENT`, `RBLXWIN_AXES` and
+`RBLXWIN_BUTTONS` tokens have been replaced by the @ref rblxwinJoystickPresent
+function as well as axis and button counts returned by the @ref
+rblxwinGetJoystickAxes and @ref rblxwinGetJoystickButtons functions.
+
+
+@subsection moving_mbcs Win32 MBCS support
+
+The Win32 port of RBLXWIN 3 will not compile in
+[MBCS mode](https://msdn.microsoft.com/en-us/library/5z097dxa.aspx).
+However, because the use of the Unicode version of the Win32 API doesn't affect
+the process as a whole, but only those windows created using it, it's perfectly
+possible to call MBCS functions from other parts of the same application.
+Therefore, even if an application using RBLXWIN has MBCS mode code, there's no need
+for RBLXWIN itself to support it.
+
+
+@subsection moving_windows Support for versions of Windows older than XP
+
+All explicit support for version of Windows older than XP has been removed.
+There is no code that actively prevents RBLXWIN 3 from running on these earlier
+versions, but it uses Win32 functions that those versions lack.
+
+Windows XP was released in 2001, and by now (January 2015) it has not only
+replaced almost all earlier versions of Windows, but is itself rapidly being
+replaced by Windows 7 and 8.  The MSDN library doesn't even provide
+documentation for version older than Windows 2000, making it difficult to
+maintain compatibility with these versions even if it was deemed worth the
+effort.
+
+The Win32 API has also not stood still, and RBLXWIN 3 uses many functions only
+present on Windows XP or later.  Even supporting an OS as new as XP (new
+from the perspective of RBLXWIN 2, which still supports Windows 95) requires
+runtime checking for a number of functions that are present only on modern
+version of Windows.
+
+
+@subsection moving_syskeys Capture of system-wide hotkeys
+
+The ability to disable and capture system-wide hotkeys like Alt+Tab has been
+removed.  Modern applications, whether they're games, scientific visualisations
+or something else, are nowadays expected to be good desktop citizens and allow
+these hotkeys to function even when running in full screen mode.
+
+
+@subsection moving_terminate Automatic termination
+
+RBLXWIN 3 does not register @ref rblxwinTerminate with `atexit` at initialization,
+because `exit` calls registered functions from the calling thread and while it
+is permitted to call `exit` from any thread, @ref rblxwinTerminate must only be
+called from the main thread.
+
+To release all resources allocated by RBLXWIN, you should call @ref rblxwinTerminate
+yourself, from the main thread, before the program terminates.  Note that this
+destroys all windows not already destroyed with @ref rblxwinDestroyWindow,
+invalidating any window handles you may still have.
+
+
+@subsection moving_glu GLU header inclusion
+
+RBLXWIN 3 does not by default include the GLU header and GLU itself has been
+deprecated by [Khronos](https://en.wikipedia.org/wiki/Khronos_Group).  __New
+projects should not use GLU__, but if you need it for legacy code that
+has been moved to RBLXWIN 3, you can request that the RBLXWIN header includes it by
+defining @ref RBLXWIN_INCLUDE_GLU before the inclusion of the RBLXWIN header.
+
+@par Old syntax
+@code
+#include <GL/rblxwin.h>
+@endcode
+
+@par New syntax
+@code
+#define RBLXWIN_INCLUDE_GLU
+#include <RBLXWIN/rblxwin.h>
+@endcode
+
+There are many libraries that offer replacements for the functionality offered
+by GLU.  For the matrix helper functions, see math libraries like
+[RBLXMATH](https://github.com/g-truc/rblxmath) (for C++),
+[linmath.h](https://github.com/datenwolf/linmath.h) (for C) and others.  For the
+tessellation functions, see for example
+[libtess2](https://github.com/memononen/libtess2).
+
+
+@section moving_tables Name change tables
+
+
+@subsection moving_renamed_functions Renamed functions
+
+| RBLXWIN 2                      | RBLXWIN 3                        | Notes |
+| --------------------------- | ----------------------------- | ----- |
+| `rblxwinOpenWindow`            | @ref rblxwinCreateWindow         | All channel bit depths are now hints
+| `rblxwinCloseWindow`           | @ref rblxwinDestroyWindow        |       |
+| `rblxwinOpenWindowHint`        | @ref rblxwinWindowHint           | Now accepts all `RBLXWIN_*_BITS` tokens |
+| `rblxwinEnable`                | @ref rblxwinSetInputMode         |       |
+| `rblxwinDisable`               | @ref rblxwinSetInputMode         |       |
+| `rblxwinGetMousePos`           | @ref rblxwinGetCursorPos         |       |
+| `rblxwinSetMousePos`           | @ref rblxwinSetCursorPos         |       |
+| `rblxwinSetMousePosCallback`   | @ref rblxwinSetCursorPosCallback |       |
+| `rblxwinSetMouseWheelCallback` | @ref rblxwinSetScrollCallback    | Accepts two-dimensional scroll offsets as doubles |
+| `rblxwinGetJoystickPos`        | @ref rblxwinGetJoystickAxes      |       |
+| `rblxwinGetWindowParam`        | @ref rblxwinGetWindowAttrib      |       |
+| `rblxwinGetGLVersion`          | @ref rblxwinGetWindowAttrib      | Use `RBLXWIN_CONTEXT_VERSION_MAJOR`, `RBLXWIN_CONTEXT_VERSION_MINOR` and `RBLXWIN_CONTEXT_REVISION` |
+| `rblxwinGetDesktopMode`        | @ref rblxwinGetVideoMode         | Returns the current mode of a monitor |
+| `rblxwinGetJoystickParam`      | @ref rblxwinJoystickPresent      | The axis and button counts are provided by @ref rblxwinGetJoystickAxes and @ref rblxwinGetJoystickButtons |
+
+
+@subsection moving_renamed_types Renamed types
+
+| RBLXWIN 2              | RBLXWIN 3                | Notes |
+| ------------------- | --------------------- |       |
+| `RBLXWINmousewheelfun` | @ref RBLXWINscrollfun    |       |
+| `RBLXWINmouseposfun`   | @ref RBLXWINcursorposfun |       |
+
+
+@subsection moving_renamed_tokens Renamed tokens
+
+| RBLXWIN 2                      | RBLXWIN 3                       | Notes |
+| --------------------------- | ---------------------------- | ----- |
+| `RBLXWIN_OPENGL_VERSION_MAJOR` | `RBLXWIN_CONTEXT_VERSION_MAJOR` | Renamed as it applies to OpenGL ES as well |
+| `RBLXWIN_OPENGL_VERSION_MINOR` | `RBLXWIN_CONTEXT_VERSION_MINOR` | Renamed as it applies to OpenGL ES as well |
+| `RBLXWIN_FSAA_SAMPLES`         | `RBLXWIN_SAMPLES`               | Renamed to match the OpenGL API |
+| `RBLXWIN_ACTIVE`               | `RBLXWIN_FOCUSED`               | Renamed to match the window focus callback |
+| `RBLXWIN_WINDOW_NO_RESIZE`     | `RBLXWIN_RESIZABLE`             | The default has been inverted |
+| `RBLXWIN_MOUSE_CURSOR`         | `RBLXWIN_CURSOR`                | Used with @ref rblxwinSetInputMode |
+| `RBLXWIN_KEY_ESC`              | `RBLXWIN_KEY_ESCAPE`            |       |
+| `RBLXWIN_KEY_DEL`              | `RBLXWIN_KEY_DELETE`            |       |
+| `RBLXWIN_KEY_PAGEUP`           | `RBLXWIN_KEY_PAGE_UP`           |       |
+| `RBLXWIN_KEY_PAGEDOWN`         | `RBLXWIN_KEY_PAGE_DOWN`         |       |
+| `RBLXWIN_KEY_KP_NUM_LOCK`      | `RBLXWIN_KEY_NUM_LOCK`          |       |
+| `RBLXWIN_KEY_LCTRL`            | `RBLXWIN_KEY_LEFT_CONTROL`      |       |
+| `RBLXWIN_KEY_LSHIFT`           | `RBLXWIN_KEY_LEFT_SHIFT`        |       |
+| `RBLXWIN_KEY_LALT`             | `RBLXWIN_KEY_LEFT_ALT`          |       |
+| `RBLXWIN_KEY_LSUPER`           | `RBLXWIN_KEY_LEFT_SUPER`        |       |
+| `RBLXWIN_KEY_RCTRL`            | `RBLXWIN_KEY_RIGHT_CONTROL`     |       |
+| `RBLXWIN_KEY_RSHIFT`           | `RBLXWIN_KEY_RIGHT_SHIFT`       |       |
+| `RBLXWIN_KEY_RALT`             | `RBLXWIN_KEY_RIGHT_ALT`         |       |
+| `RBLXWIN_KEY_RSUPER`           | `RBLXWIN_KEY_RIGHT_SUPER`       |       |
+
+*/

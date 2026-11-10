@@ -1,8 +1,8 @@
 #include "PhysicsWorld.h"
 #include <algorithm>
 #include <iostream>
-#include <glm/gtc/quaternion.hpp>
-#include <glm/gtx/quaternion.hpp>
+#include <rblxmath/gtc/quaternion.hpp>
+#include <rblxmath/gtx/quaternion.hpp>
 
 PhysicsWorld::PhysicsWorld() : world(nullptr) {}
 
@@ -13,8 +13,8 @@ PhysicsWorld::~PhysicsWorld() {
 }
 
 void PhysicsWorld::init() {
-    rp3d::PhysicsWorld::WorldSettings settings;
-    settings.gravity = rp3d::Vector3(0, -9.81f * 2.0f, 0); 
+    rblxphysics::PhysicsWorld::WorldSettings settings;
+    settings.gravity = rblxphysics::Vector3(0, -9.81f * 2.0f, 0); 
     settings.defaultVelocitySolverNbIterations = 10;
     settings.defaultPositionSolverNbIterations = 5;
     
@@ -26,25 +26,25 @@ void PhysicsWorld::addPart(Part* part) {
 
     if (bodyMap.find(part) != bodyMap.end()) return;
 
-    rp3d::Vector3 pos(part->position.x, part->position.y, part->position.z);
+    rblxphysics::Vector3 pos(part->position.x, part->position.y, part->position.z);
     
-    glm::quat q = glm::quat(glm::radians(part->rotation)); 
-    rp3d::Quaternion orientation(q.x, q.y, q.z, q.w);
+    rblxmath::quat q = rblxmath::quat(rblxmath::radians(part->rotation)); 
+    rblxphysics::Quaternion orientation(q.x, q.y, q.z, q.w);
     
-    rp3d::Transform transform(pos, orientation);
+    rblxphysics::Transform transform(pos, orientation);
     
-    rp3d::RigidBody* body = world->createRigidBody(transform);
+    rblxphysics::RigidBody* body = world->createRigidBody(transform);
     
     if (part->anchored) {
-        body->setType(rp3d::BodyType::STATIC);
+        body->setType(rblxphysics::BodyType::STATIC);
     } else {
-        body->setType(rp3d::BodyType::DYNAMIC);
+        body->setType(rblxphysics::BodyType::DYNAMIC);
     }
     
-    rp3d::CollisionShape* shape = nullptr;
+    rblxphysics::CollisionShape* shape = nullptr;
 
     if (part->shape == ShapeType::Cube) {
-        rp3d::Vector3 halfExtents(part->size.x * 0.5f, part->size.y * 0.5f, part->size.z * 0.5f);
+        rblxphysics::Vector3 halfExtents(part->size.x * 0.5f, part->size.y * 0.5f, part->size.z * 0.5f);
         shape = physicsCommon.createBoxShape(halfExtents);
     } 
     else if (part->shape == ShapeType::Sphere) {
@@ -77,7 +77,7 @@ void PhysicsWorld::addPart(Part* part) {
         
         // Polygon Faces
         int nbFaces = 5;
-        rp3d::PolygonVertexArray::PolygonFace* polygonFaces = new rp3d::PolygonVertexArray::PolygonFace[nbFaces];
+        rblxphysics::PolygonVertexArray::PolygonFace* polygonFaces = new rblxphysics::PolygonVertexArray::PolygonFace[nbFaces];
         
         // Face 0: Bottom
         polygonFaces[0].nbVertices = 4;
@@ -99,17 +99,17 @@ void PhysicsWorld::addPart(Part* part) {
         polygonFaces[4].nbVertices = 4;
         polygonFaces[4].indexBase = 14;
 
-        rp3d::PolygonVertexArray::VertexDataType vertexType = rp3d::PolygonVertexArray::VertexDataType::VERTEX_FLOAT_TYPE;
-        rp3d::PolygonVertexArray::IndexDataType indexType = rp3d::PolygonVertexArray::IndexDataType::INDEX_INTEGER_TYPE;
+        rblxphysics::PolygonVertexArray::VertexDataType vertexType = rblxphysics::PolygonVertexArray::VertexDataType::VERTEX_FLOAT_TYPE;
+        rblxphysics::PolygonVertexArray::IndexDataType indexType = rblxphysics::PolygonVertexArray::IndexDataType::INDEX_INTEGER_TYPE;
         
-        rp3d::PolygonVertexArray* vertexArray = new rp3d::PolygonVertexArray(
+        rblxphysics::PolygonVertexArray* vertexArray = new rblxphysics::PolygonVertexArray(
             (uint32_t)nbVertices, (const void*)vertices, (uint32_t)(3 * sizeof(float)), 
             (const void*)indices, (uint32_t)sizeof(int), 
             (uint32_t)nbFaces, polygonFaces, 
             vertexType, indexType
         );
         
-        rp3d::PolyhedronMesh* mesh = physicsCommon.createPolyhedronMesh(vertexArray);
+        rblxphysics::PolyhedronMesh* mesh = physicsCommon.createPolyhedronMesh(vertexArray);
         
         if (mesh) {
              shape = physicsCommon.createConvexMeshShape(mesh);
@@ -122,9 +122,9 @@ void PhysicsWorld::addPart(Part* part) {
     }
     
     if (shape) {
-        rp3d::Collider* collider = body->addCollider(shape, rp3d::Transform::identity());
+        rblxphysics::Collider* collider = body->addCollider(shape, rblxphysics::Transform::identity());
         
-        rp3d::Material& material = collider->getMaterial();
+        rblxphysics::Material& material = collider->getMaterial();
         material.setBounciness(0.1f); 
         material.setFrictionCoefficient(0.5f); 
         
@@ -148,15 +148,15 @@ void PhysicsWorld::removePart(Part* part) {
         part->physicsBody = nullptr; // Clear Part's pointer
         world->destroyRigidBody(bodyMap[part]);
         
-        rp3d::CollisionShape* shape = shapeMap[part];
+        rblxphysics::CollisionShape* shape = shapeMap[part];
         if (part->shape == ShapeType::Cube) {
-             physicsCommon.destroyBoxShape(dynamic_cast<rp3d::BoxShape*>(shape));
+             physicsCommon.destroyBoxShape(dynamic_cast<rblxphysics::BoxShape*>(shape));
         }
         else if (part->shape == ShapeType::Sphere) {
-             physicsCommon.destroySphereShape(dynamic_cast<rp3d::SphereShape*>(shape));
+             physicsCommon.destroySphereShape(dynamic_cast<rblxphysics::SphereShape*>(shape));
         }
         else if (part->shape == ShapeType::Wedge) {
-             physicsCommon.destroyConvexMeshShape(dynamic_cast<rp3d::ConvexMeshShape*>(shape));
+             physicsCommon.destroyConvexMeshShape(dynamic_cast<rblxphysics::ConvexMeshShape*>(shape));
              physicsCommon.destroyPolyhedronMesh(meshMap[part]);
              delete vertexArrayMap[part]; 
              delete[] vertexDataMap[part]; 
@@ -177,35 +177,35 @@ void PhysicsWorld::removePart(Part* part) {
 
 void PhysicsWorld::updatePartBody(Part* part) {
     if (bodyMap.find(part) != bodyMap.end()) {
-        rp3d::RigidBody* body = bodyMap[part];
+        rblxphysics::RigidBody* body = bodyMap[part];
         
         // CRITICAL: Don't change KINEMATIC bodies - they're controlled by server
-        if (body->getType() == rp3d::BodyType::KINEMATIC) {
+        if (body->getType() == rblxphysics::BodyType::KINEMATIC) {
             return; // Server controls this, don't touch it
         }
         
-        rp3d::Vector3 pos(part->position.x, part->position.y, part->position.z);
-        glm::quat q = glm::quat(glm::radians(part->rotation));
-        rp3d::Quaternion orientation(q.x, q.y, q.z, q.w);
+        rblxphysics::Vector3 pos(part->position.x, part->position.y, part->position.z);
+        rblxmath::quat q = rblxmath::quat(rblxmath::radians(part->rotation));
+        rblxphysics::Quaternion orientation(q.x, q.y, q.z, q.w);
         
-        rp3d::Transform transform(pos, orientation);
+        rblxphysics::Transform transform(pos, orientation);
         
         body->setTransform(transform);
         
         if (part->anchored) {
-            if (body->getType() != rp3d::BodyType::STATIC) {
-                body->setType(rp3d::BodyType::STATIC);
-                body->setLinearVelocity(rp3d::Vector3(0,0,0));
-                body->setAngularVelocity(rp3d::Vector3(0,0,0));
+            if (body->getType() != rblxphysics::BodyType::STATIC) {
+                body->setType(rblxphysics::BodyType::STATIC);
+                body->setLinearVelocity(rblxphysics::Vector3(0,0,0));
+                body->setAngularVelocity(rblxphysics::Vector3(0,0,0));
             }
         } else {
-            if (body->getType() != rp3d::BodyType::DYNAMIC) body->setType(rp3d::BodyType::DYNAMIC);
+            if (body->getType() != rblxphysics::BodyType::DYNAMIC) body->setType(rblxphysics::BodyType::DYNAMIC);
         }
         
         // Update collision filtering based on canCollide
         // Get the first (and only) collider from the body
         if (body->getNbColliders() > 0) {
-            rp3d::Collider* collider = body->getCollider(0);
+            rblxphysics::Collider* collider = body->getCollider(0);
             if (!part->canCollide) {
                 // Disable all collisions
                 collider->setCollideWithMaskBits(0);
@@ -239,21 +239,21 @@ void PhysicsWorld::update(float deltaTime) {
         if (part->anchored) continue;
         
         // Skip KINEMATIC bodies - they are controlled by server, don't overwrite their positions
-        if (body->getType() == rp3d::BodyType::KINEMATIC) {
+        if (body->getType() == rblxphysics::BodyType::KINEMATIC) {
             continue; // Server controls these, don't update from physics
         }
         
-        const rp3d::Transform& transform = body->getTransform();
-        rp3d::Vector3 pos = transform.getPosition();
-        rp3d::Quaternion rot = transform.getOrientation();
-        rp3d::Vector3 vel = body->getLinearVelocity(); // Read Velocity
+        const rblxphysics::Transform& transform = body->getTransform();
+        rblxphysics::Vector3 pos = transform.getPosition();
+        rblxphysics::Quaternion rot = transform.getOrientation();
+        rblxphysics::Vector3 vel = body->getLinearVelocity(); // Read Velocity
         
-        part->position = glm::vec3(pos.x, pos.y, pos.z);
+        part->position = rblxmath::vec3(pos.x, pos.y, pos.z);
         
-        glm::quat q(rot.w, rot.x, rot.y, rot.z);
-        part->rotation = glm::degrees(glm::eulerAngles(q));
+        rblxmath::quat q(rot.w, rot.x, rot.y, rot.z);
+        part->rotation = rblxmath::degrees(rblxmath::eulerAngles(q));
         
-        part->velocity = glm::vec3(vel.x, vel.y, vel.z); // Update Part Velocity
+        part->velocity = rblxmath::vec3(vel.x, vel.y, vel.z); // Update Part Velocity
     }
 }
 
@@ -262,15 +262,15 @@ void PhysicsWorld::reset() {
         part->physicsBody = nullptr; // Clear pointer
         world->destroyRigidBody(body);
         
-        rp3d::CollisionShape* shape = shapeMap[part];
+        rblxphysics::CollisionShape* shape = shapeMap[part];
         if (part->shape == ShapeType::Cube) {
-             physicsCommon.destroyBoxShape(dynamic_cast<rp3d::BoxShape*>(shape));
+             physicsCommon.destroyBoxShape(dynamic_cast<rblxphysics::BoxShape*>(shape));
         }
         else if (part->shape == ShapeType::Sphere) {
-             physicsCommon.destroySphereShape(dynamic_cast<rp3d::SphereShape*>(shape));
+             physicsCommon.destroySphereShape(dynamic_cast<rblxphysics::SphereShape*>(shape));
         }
         else if (part->shape == ShapeType::Wedge) {
-             physicsCommon.destroyConvexMeshShape(dynamic_cast<rp3d::ConvexMeshShape*>(shape));
+             physicsCommon.destroyConvexMeshShape(dynamic_cast<rblxphysics::ConvexMeshShape*>(shape));
              physicsCommon.destroyPolyhedronMesh(meshMap[part]);
              delete vertexArrayMap[part];
              delete[] vertexDataMap[part];
@@ -288,17 +288,17 @@ void PhysicsWorld::reset() {
 }
 
 // --- Raycast Callback ---
-class RaycastCallback : public rp3d::RaycastCallback {
+class RaycastCallback : public rblxphysics::RaycastCallback {
 public:
     PhysicsWorld::RaycastResult* result;
-    std::map<Part*, rp3d::RigidBody*>& bodyMap;
+    std::map<Part*, rblxphysics::RigidBody*>& bodyMap;
     Part* ignorePart;
     bool hitFound;
 
-    RaycastCallback(PhysicsWorld::RaycastResult* res, std::map<Part*, rp3d::RigidBody*>& map, Part* ignore)
+    RaycastCallback(PhysicsWorld::RaycastResult* res, std::map<Part*, rblxphysics::RigidBody*>& map, Part* ignore)
         : result(res), bodyMap(map), ignorePart(ignore), hitFound(false) {}
 
-    virtual rp3d::decimal notifyRaycastHit(const rp3d::RaycastInfo& info) override {
+    virtual rblxphysics::decimal notifyRaycastHit(const rblxphysics::RaycastInfo& info) override {
         // Check if we hit the ignored part
         for (auto const& [part, body] : bodyMap) {
             if (body == info.body) {
@@ -306,8 +306,8 @@ public:
                 
                 // Valid hit
                 result->part = part;
-                result->hitPoint = glm::vec3(info.worldPoint.x, info.worldPoint.y, info.worldPoint.z);
-                result->hitNormal = glm::vec3(info.worldNormal.x, info.worldNormal.y, info.worldNormal.z);
+                result->hitPoint = rblxmath::vec3(info.worldPoint.x, info.worldPoint.y, info.worldPoint.z);
+                result->hitNormal = rblxmath::vec3(info.worldNormal.x, info.worldNormal.y, info.worldNormal.z);
                 result->hitFraction = info.hitFraction;
                 hitFound = true;
                 
@@ -318,12 +318,12 @@ public:
     }
 };
 
-bool PhysicsWorld::raycast(const glm::vec3& start, const glm::vec3& end, RaycastResult& result, Part* ignorePart) {
+bool PhysicsWorld::raycast(const rblxmath::vec3& start, const rblxmath::vec3& end, RaycastResult& result, Part* ignorePart) {
     if (!world) return false;
 
-    rp3d::Vector3 startPoint(start.x, start.y, start.z);
-    rp3d::Vector3 endPoint(end.x, end.y, end.z);
-    rp3d::Ray ray(startPoint, endPoint);
+    rblxphysics::Vector3 startPoint(start.x, start.y, start.z);
+    rblxphysics::Vector3 endPoint(end.x, end.y, end.z);
+    rblxphysics::Ray ray(startPoint, endPoint);
     
     RaycastCallback callback(&result, bodyMap, ignorePart);
     world->raycast(ray, &callback);
@@ -336,10 +336,10 @@ void PhysicsWorld::createWeld(Part* partA, Part* partB) {
     
     if (bodyMap.find(partA) == bodyMap.end() || bodyMap.find(partB) == bodyMap.end()) return;
     
-    rp3d::RigidBody* bodyA = bodyMap[partA];
-    rp3d::RigidBody* bodyB = bodyMap[partB];
+    rblxphysics::RigidBody* bodyA = bodyMap[partA];
+    rblxphysics::RigidBody* bodyB = bodyMap[partB];
     
     // Create Fixed Joint
-    rp3d::FixedJointInfo jointInfo(bodyA, bodyB, (bodyA->getTransform().getPosition() + bodyB->getTransform().getPosition()) * 0.5f);
+    rblxphysics::FixedJointInfo jointInfo(bodyA, bodyB, (bodyA->getTransform().getPosition() + bodyB->getTransform().getPosition()) * 0.5f);
     world->createJoint(jointInfo);
 }

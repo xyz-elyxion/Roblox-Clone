@@ -17,7 +17,7 @@
 #include <string>
 #include <vector>
 
-#include <glm/glm.hpp>
+#include <rblxmath/rblxmath.hpp>
 
 #include "Avatar.h"
 #include "Camera.h"
@@ -39,8 +39,8 @@ enum GameState {
 
 // Where a remote player was and where it is heading, for position smoothing.
 struct NetworkTransform {
-    glm::vec3 position;
-    glm::vec3 rotation;  // Euler
+    rblxmath::vec3 position;
+    rblxmath::vec3 rotation;  // Euler
     float timestamp;
 };
 
@@ -163,10 +163,10 @@ void toggleVehicle();
 void sendVehicleInput(float throttle, float steer);
 
 // Defined in Client.cpp, called from ClientNet.cpp and ClientUi.cpp.
-struct GLFWwindow;
+struct RBLXWINwindow;
 std::string automaticWebServerUrl();
 bool startAuthCallback(std::string& loginUrl, std::string& error);
-std::string openFileDialog(GLFWwindow* window);
+std::string openFileDialog(RBLXWINwindow* window);
 void addChatLine(const std::string& username, const std::string& message, bool system = false);
 void reportClientProblem(const std::string& stage, const std::string& reason);
 const char* automaticGameServerIp();

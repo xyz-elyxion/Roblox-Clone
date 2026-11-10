@@ -5,7 +5,7 @@
 #include <map>
 #include <string>
 #include <vector>
-#include <glm/glm.hpp>
+#include <rblxmath/rblxmath.hpp>
 
 class Renderer {
 public:
@@ -13,8 +13,8 @@ public:
     ~Renderer();
 
     void init();
-    void drawPart(const Part& part, const glm::mat4& view, const glm::mat4& projection, const glm::mat4& lightSpaceMatrix, unsigned int shadowMap, unsigned int faceTexture = 0);
-    void drawPartShadow(const Part& part, const glm::mat4& lightSpaceMatrix);
+    void drawPart(const Part& part, const rblxmath::mat4& view, const rblxmath::mat4& projection, const rblxmath::mat4& lightSpaceMatrix, unsigned int shadowMap, unsigned int faceTexture = 0);
+    void drawPartShadow(const Part& part, const rblxmath::mat4& lightSpaceMatrix);
     
     Shader* shader; // Make public for main access to set lightPos
     Shader* depthShader;

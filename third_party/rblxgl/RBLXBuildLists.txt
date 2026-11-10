@@ -1,0 +1,14 @@
+rblxbuild_minimum_required(VERSION 3.5)
+project(rblxgl)
+
+add_library(rblxgl src/rblxgl.c)
+target_include_directories(rblxgl PUBLIC
+    $<BUILD_INTERFACE:${RBLXBUILD_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:${RBLXBUILD_INSTALL_INCLUDEDIR}/include>)
+
+if(NOT WIN32)
+  target_link_libraries(rblxgl PUBLIC ${RBLXBUILD_DL_LIBS})
+endif()
+
+# Generate position independent code
+set_target_properties(rblxgl PROPERTIES POSITION_INDEPENDENT_CODE ON)

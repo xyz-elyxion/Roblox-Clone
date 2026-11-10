@@ -1,0 +1,25 @@
+# This is the RBLXBuildLists.txt file of the "hello world" project
+# in order to show a simple executable that uses the RblxPhysics library
+
+# Minimum cmake version required
+rblxbuild_minimum_required(VERSION 3.8)
+
+# Help CMake to find the installed library on Windows
+if(WIN32)
+  list(APPEND RBLXBUILD_PREFIX_PATH "C:\\Program Files (x86)\\RblxPhysics")
+elseif(APPLE)
+  list(APPEND RBLXBUILD_PREFIX_PATH "/usr/local/lib/cmake/RblxPhysics")
+endif()
+
+# Import the RblxPhysics library that you have installed on your computer using
+# the "make install" command
+find_package(RblxPhysics REQUIRED)
+
+# Project
+project(HelloWorld)
+
+# Create the executable
+add_executable(helloworld Main.cpp)
+
+# Link with the RblxPhysics library
+target_link_libraries(helloworld RblxPhysics::RblxPhysics)

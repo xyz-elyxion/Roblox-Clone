@@ -21,19 +21,19 @@ void check(bool condition, const std::string& name) {
 // A folder holding a wall, the wall holding a chair, and a loose part beside them.
 std::deque<Part> makeWorld() {
     std::deque<Part> parts;
-    parts.emplace_back(glm::vec3(0.0f), glm::vec3(1.0f), glm::vec3(1.0f), ShapeType::Cube,
+    parts.emplace_back(rblxmath::vec3(0.0f), rblxmath::vec3(1.0f), rblxmath::vec3(1.0f), ShapeType::Cube,
                        "Buildings");
     parts.back().isFolder = true;
 
-    parts.emplace_back(glm::vec3(1.0f, 0.0f, 0.0f), glm::vec3(1.0f), glm::vec3(1.0f),
+    parts.emplace_back(rblxmath::vec3(1.0f, 0.0f, 0.0f), rblxmath::vec3(1.0f), rblxmath::vec3(1.0f),
                        ShapeType::Cube, "Wall");
     parts.back().parentIndex = 0;
 
-    parts.emplace_back(glm::vec3(2.0f, 0.0f, 0.0f), glm::vec3(1.0f), glm::vec3(1.0f),
+    parts.emplace_back(rblxmath::vec3(2.0f, 0.0f, 0.0f), rblxmath::vec3(1.0f), rblxmath::vec3(1.0f),
                        ShapeType::Cube, "Chair");
     parts.back().parentIndex = 1;
 
-    parts.emplace_back(glm::vec3(4.0f, 0.0f, 0.0f), glm::vec3(1.0f), glm::vec3(1.0f),
+    parts.emplace_back(rblxmath::vec3(4.0f, 0.0f, 0.0f), rblxmath::vec3(1.0f), rblxmath::vec3(1.0f),
                        ShapeType::Cube, "Loose");
     return parts;
 }
@@ -109,10 +109,10 @@ void testFolderTakesItsContents() {
 
 void testParentLoopTerminates() {
     std::deque<Part> parts;
-    parts.emplace_back(glm::vec3(0.0f), glm::vec3(1.0f), glm::vec3(1.0f), ShapeType::Cube, "A");
+    parts.emplace_back(rblxmath::vec3(0.0f), rblxmath::vec3(1.0f), rblxmath::vec3(1.0f), ShapeType::Cube, "A");
     parts.back().isFolder = true;
     parts.back().parentIndex = 1;
-    parts.emplace_back(glm::vec3(0.0f), glm::vec3(1.0f), glm::vec3(1.0f), ShapeType::Cube, "B");
+    parts.emplace_back(rblxmath::vec3(0.0f), rblxmath::vec3(1.0f), rblxmath::vec3(1.0f), ShapeType::Cube, "B");
     parts.back().isFolder = true;
     parts.back().parentIndex = 0;
 

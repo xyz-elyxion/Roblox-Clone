@@ -6,21 +6,21 @@ int Raycaster::GetPartFromMouse(const std::deque<Part>& parts, const Camera& cam
     float x = (2.0f * mouseX) / screenWidth - 1.0f;
     float y = 1.0f - (2.0f * mouseY) / screenHeight;
     float z = 1.0f;
-    glm::vec3 ray_nds = glm::vec3(x, y, z);
+    rblxmath::vec3 ray_nds = rblxmath::vec3(x, y, z);
 
     // 2. NDC -> Homogeneous Clip
-    glm::vec4 ray_clip = glm::vec4(ray_nds.x, ray_nds.y, -1.0, 1.0);
+    rblxmath::vec4 ray_clip = rblxmath::vec4(ray_nds.x, ray_nds.y, -1.0, 1.0);
 
     // 3. Clip -> Camera (Eye)
     // Need projection matrix to inverse
-    glm::mat4 projection = ((Camera&)camera).GetProjectionMatrix(screenWidth, screenHeight); // Hack: cast const away or make GetProjection const
-    glm::vec4 ray_eye = glm::inverse(projection) * ray_clip;
-    ray_eye = glm::vec4(ray_eye.x, ray_eye.y, -1.0, 0.0);
+    rblxmath::mat4 projection = ((Camera&)camera).GetProjectionMatrix(screenWidth, screenHeight); // Hack: cast const away or make GetProjection const
+    rblxmath::vec4 ray_eye = rblxmath::inverse(projection) * ray_clip;
+    ray_eye = rblxmath::vec4(ray_eye.x, ray_eye.y, -1.0, 0.0);
 
     // 4. Eye -> World
-    glm::mat4 view = ((Camera&)camera).GetViewMatrix();
-    glm::vec3 ray_wor = glm::vec3(glm::inverse(view) * ray_eye);
-    ray_wor = glm::normalize(ray_wor);
+    rblxmath::mat4 view = ((Camera&)camera).GetViewMatrix();
+    rblxmath::vec3 ray_wor = rblxmath::vec3(rblxmath::inverse(view) * ray_eye);
+    ray_wor = rblxmath::normalize(ray_wor);
 
     // 5. Raycast against all parts
     int closestPart = -1;
@@ -42,10 +42,10 @@ int Raycaster::GetPartFromMouse(const std::deque<Part>& parts, const Camera& cam
     return closestPart;
 }
 
-bool Raycaster::RayCubeIntersection(const glm::vec3& rayOrigin, const glm::vec3& rayDir, const Part& part, float& distance) {
+bool Raycaster::RayCubeIntersection(const rblxmath::vec3& rayOrigin, const rblxmath::vec3& rayDir, const Part& part, float& distance) {
     // Simple AABB slab method
-    glm::vec3 minBound = part.position - (part.size * 0.5f);
-    glm::vec3 maxBound = part.position + (part.size * 0.5f);
+    rblxmath::vec3 minBound = part.position - (part.size * 0.5f);
+    rblxmath::vec3 maxBound = part.position + (part.size * 0.5f);
 
     float t1 = (minBound.x - rayOrigin.x) / rayDir.x;
     float t2 = (maxBound.x - rayOrigin.x) / rayDir.x;

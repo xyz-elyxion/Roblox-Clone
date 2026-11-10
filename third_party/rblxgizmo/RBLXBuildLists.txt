@@ -1,0 +1,53 @@
+rblxbuild_minimum_required(VERSION 3.16)
+project(RblxGizmo LANGUAGES CXX)
+
+set(RBLXBUILD_CXX_STANDARD 17)
+set(RBLXBUILD_CXX_STANDARD_REQUIRED ON)
+
+if(RBLXBUILD_SOURCE_DIR STREQUAL RBLXBUILD_CURRENT_SOURCE_DIR)
+    set(RBLXGIZMO_STANDALONE TRUE)
+else()
+    set(RBLXGIZMO_STANDALONE FALSE)
+endif()
+
+option(RBLXGIZMO_BUILD_EXAMPLE "Build the example application" ${RBLXGIZMO_STANDALONE})
+
+add_library(rblxgizmo STATIC
+    src/RblxGizmo.cpp
+    src/GraphEditor.cpp
+    src/RblxCurveEdit.cpp
+    src/RblxGradient.cpp
+    src/RblxSequencer.cpp
+    src/RblxVectorEditor.cpp
+)
+
+add_library(rblxgizmo::rblxgizmo ALIAS rblxgizmo)
+
+target_include_directories(rblxgizmo PUBLIC
+    $<BUILD_INTERFACE:${RBLXBUILD_CURRENT_SOURCE_DIR}/src>
+    $<INSTALL_INTERFACE:include>
+)
+
+if(RBLXGIZMO_BUILD_EXAMPLE)
+    include(FetchContent)
+    FetchContent_Declare(
+        rblxui
+        GIT_REPOSITORY https://github.com/ocornut/rblxui.git
+        GIT_TAG master
+        GIT_SHALLOW TRUE
+    )
+    FetchContent_MakeAvailable(rblxui)
+    add_library(rblxui STATIC
+        ${rblxui_SOURCE_DIR}/rblxui.cpp
+        ${rblxui_SOURCE_DIR}/rblxui_draw.cpp
+        ${rblxui_SOURCE_DIR}/rblxui_tables.cpp
+        ${rblxui_SOURCE_DIR}/rblxui_widgets.cpp
+        ${rblxui_SOURCE_DIR}/rblxui_demo.cpp
+    )
+    target_include_directories(rblxui PUBLIC ${rblxui_SOURCE_DIR})
+    target_link_libraries(rblxgizmo PUBLIC rblxui)
+endif()
+
+if(RBLXGIZMO_BUILD_EXAMPLE)
+    add_subdirectory(example)
+endif()

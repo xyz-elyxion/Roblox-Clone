@@ -1,0 +1,290 @@
+rblxbuild_minimum_required(VERSION 3.6 FATAL_ERROR)
+rblxbuild_policy(VERSION 3.6)
+
+file(READ "rblxmath/detail/setup.hpp" RBLXMATH_SETUP_FILE)
+string(REGEX MATCH "#define[ ]+RBLXMATH_VERSION_MAJOR[ ]+([0-9]+)" _ ${RBLXMATH_SETUP_FILE})
+set(RBLXMATH_VERSION_MAJOR "${RBLXBUILD_MATCH_1}")
+string(REGEX MATCH "#define[ ]+RBLXMATH_VERSION_MINOR[ ]+([0-9]+)" _ ${RBLXMATH_SETUP_FILE})
+set(RBLXMATH_VERSION_MINOR "${RBLXBUILD_MATCH_1}")
+string(REGEX MATCH "#define[ ]+RBLXMATH_VERSION_PATCH[ ]+([0-9]+)" _ ${RBLXMATH_SETUP_FILE})
+set(RBLXMATH_VERSION_PATCH "${RBLXBUILD_MATCH_1}")
+string(REGEX MATCH "#define[ ]+RBLXMATH_VERSION_REVISION[ ]+([0-9]+)" _ ${RBLXMATH_SETUP_FILE})
+set(RBLXMATH_VERSION_REVISION "${RBLXBUILD_MATCH_1}")
+
+set(RBLXMATH_VERSION ${RBLXMATH_VERSION_MAJOR}.${RBLXMATH_VERSION_MINOR}.${RBLXMATH_VERSION_PATCH})
+project(rblxmath VERSION ${RBLXMATH_VERSION} LANGUAGES CXX)
+message(STATUS "RBLXMATH: Version " ${RBLXMATH_VERSION})
+
+set(RBLXMATH_IS_MASTER_PROJECT OFF)
+if (${RBLXBUILD_SOURCE_DIR} STREQUAL ${RBLXBUILD_CURRENT_SOURCE_DIR})
+	set(RBLXMATH_IS_MASTER_PROJECT ON)
+endif()
+
+option(RBLXMATH_BUILD_LIBRARY "Build dynamic/static library" ON)
+option(RBLXMATH_BUILD_TESTS "Build the test programs" ${RBLXMATH_IS_MASTER_PROJECT})
+option(RBLXMATH_BUILD_INSTALL "Generate the install target" ${RBLXMATH_IS_MASTER_PROJECT})
+
+include(GNUInstallDirs)
+
+option(RBLXMATH_ENABLE_CXX_98 "Enable C++ 98" OFF)
+option(RBLXMATH_ENABLE_CXX_11 "Enable C++ 11" OFF)
+option(RBLXMATH_ENABLE_CXX_14 "Enable C++ 14" OFF)
+option(RBLXMATH_ENABLE_CXX_17 "Enable C++ 17" OFF)
+option(RBLXMATH_ENABLE_CXX_20 "Enable C++ 20" OFF)
+
+set(RBLXBUILD_CXX_STANDARD_REQUIRED ON)
+
+if(RBLXMATH_ENABLE_CXX_20)
+	set(RBLXBUILD_CXX_STANDARD 20)
+	add_definitions(-DGLM_FORCE_CXX20)
+	if(RBLXBUILD_CXX_COMPILER_ID MATCHES "Clang")
+		message(STATUS "RBLXMATH: Disable -Wc++98-compat warnings")
+		add_compile_options(-Wno-c++98-compat)
+		add_compile_options(-Wno-c++98-compat-pedantic)
+	endif()
+	if(NOT RBLXMATH_QUIET)
+		message(STATUS "RBLXMATH: Build with C++20 features")
+	endif()
+
+elseif(RBLXMATH_ENABLE_CXX_17)
+	set(RBLXBUILD_CXX_STANDARD 17)
+	add_definitions(-DGLM_FORCE_CXX17)
+	if(RBLXBUILD_CXX_COMPILER_ID MATCHES "Clang")
+		message(STATUS "RBLXMATH: Disable -Wc++98-compat warnings")
+		add_compile_options(-Wno-c++98-compat)
+		add_compile_options(-Wno-c++98-compat-pedantic)
+	endif()
+	if(NOT RBLXMATH_QUIET)
+		message(STATUS "RBLXMATH: Build with C++17 features")
+	endif()
+
+elseif(RBLXMATH_ENABLE_CXX_14)
+	set(RBLXBUILD_CXX_STANDARD 14)
+	add_definitions(-DGLM_FORCE_CXX14)
+	if(RBLXBUILD_CXX_COMPILER_ID MATCHES "Clang")
+		message(STATUS "RBLXMATH: Disable -Wc++98-compat warnings")
+		add_compile_options(-Wno-c++98-compat)
+		add_compile_options(-Wno-c++98-compat-pedantic)
+	endif()
+	if(NOT RBLXMATH_QUIET)
+		message(STATUS "RBLXMATH: Build with C++14 features")
+	endif()
+
+elseif(RBLXMATH_ENABLE_CXX_11)
+	set(RBLXBUILD_CXX_STANDARD 11)
+	add_definitions(-DGLM_FORCE_CXX11)
+	if(RBLXBUILD_CXX_COMPILER_ID MATCHES "Clang")
+		message(STATUS "RBLXMATH: Disable -Wc++98-compat warnings")
+		add_compile_options(-Wno-c++98-compat)
+		add_compile_options(-Wno-c++98-compat-pedantic)
+	endif()
+	if(NOT RBLXMATH_QUIET)
+		message(STATUS "RBLXMATH: Build with C++11 features")
+	endif()
+
+elseif(RBLXMATH_ENABLE_CXX_98)
+	set(RBLXBUILD_CXX_STANDARD 98)
+	add_definitions(-DGLM_FORCE_CXX98)
+	if(NOT RBLXMATH_QUIET)
+		message(STATUS "RBLXMATH: Build with C++98 features")
+	endif()
+
+else()
+	if(RBLXBUILD_CXX_COMPILER_ID MATCHES "Clang")
+		message(STATUS "RBLXMATH: Disable -Wc++98-compat warnings")
+		add_compile_options(-Wno-c++98-compat)
+		add_compile_options(-Wno-c++98-compat-pedantic)
+	endif()
+	if(NOT RBLXMATH_QUIET)
+		message(STATUS "RBLXMATH: Build with C++ features auto detection")
+	endif()
+
+endif()
+
+option(RBLXMATH_ENABLE_LANG_EXTENSIONS "Enable language extensions" OFF)
+option(RBLXMATH_DISABLE_AUTO_DETECTION "Disable platform, compiler, arch and C++ language detection" OFF)
+
+if(RBLXMATH_DISABLE_AUTO_DETECTION)
+	add_definitions(-DGLM_FORCE_PLATFORM_UNKNOWN -DGLM_FORCE_COMPILER_UNKNOWN -DGLM_FORCE_ARCH_UNKNOWN -DGLM_FORCE_CXX_UNKNOWN)
+endif()
+
+if(RBLXMATH_ENABLE_LANG_EXTENSIONS)
+	set(RBLXBUILD_CXX_EXTENSIONS ON)
+	if((RBLXBUILD_CXX_COMPILER_ID MATCHES "Clang") OR (RBLXBUILD_CXX_COMPILER_ID MATCHES "GNU"))
+		add_compile_options(-fms-extensions)
+	endif()
+	message(STATUS "RBLXMATH: Build with C++ language extensions")
+else()
+	set(RBLXBUILD_CXX_EXTENSIONS OFF)
+	if(RBLXBUILD_CXX_COMPILER_ID MATCHES "MSVC")
+		add_compile_options(/Za)
+		if(MSVC15)
+			add_compile_options(/permissive-)
+		endif()
+	endif()
+endif()
+
+option(RBLXMATH_ENABLE_FAST_MATH "Enable fast math optimizations" OFF)
+if(RBLXMATH_ENABLE_FAST_MATH)
+	if(NOT RBLXMATH_QUIET)
+		message(STATUS "RBLXMATH: Build with fast math optimizations")
+	endif()
+
+	if((RBLXBUILD_CXX_COMPILER_ID MATCHES "Clang") OR (RBLXBUILD_CXX_COMPILER_ID MATCHES "GNU"))
+		add_compile_options(-ffast-math)
+
+	elseif(RBLXBUILD_CXX_COMPILER_ID MATCHES "MSVC")
+		add_compile_options(/fp:fast)
+	endif()
+else()
+	if(RBLXBUILD_CXX_COMPILER_ID MATCHES "MSVC")
+		add_compile_options(/fp:precise)
+	endif()
+endif()
+
+option(RBLXMATH_ENABLE_SIMD_SSE2 "Enable SSE2 optimizations" OFF)
+option(RBLXMATH_ENABLE_SIMD_SSE3 "Enable SSE3 optimizations" OFF)
+option(RBLXMATH_ENABLE_SIMD_SSSE3 "Enable SSSE3 optimizations" OFF)
+option(RBLXMATH_ENABLE_SIMD_SSE4_1 "Enable SSE 4.1 optimizations" OFF)
+option(RBLXMATH_ENABLE_SIMD_SSE4_2 "Enable SSE 4.2 optimizations" OFF)
+option(RBLXMATH_ENABLE_SIMD_AVX "Enable AVX optimizations" OFF)
+option(RBLXMATH_ENABLE_SIMD_AVX2 "Enable AVX2 optimizations" OFF)
+option(RBLXMATH_FORCE_PURE "Force 'pure' instructions" OFF)
+
+if(RBLXMATH_FORCE_PURE)
+	add_definitions(-DGLM_FORCE_PURE)
+
+	if(RBLXBUILD_CXX_COMPILER_ID MATCHES "GNU")
+		add_compile_options(-mfpmath=387)
+	endif()
+	message(STATUS "RBLXMATH: No SIMD instruction set")
+
+elseif(RBLXMATH_ENABLE_SIMD_AVX2)
+	add_definitions(-DGLM_FORCE_INTRINSICS)
+
+	if((RBLXBUILD_CXX_COMPILER_ID MATCHES "GNU") OR (RBLXBUILD_CXX_COMPILER_ID MATCHES "Clang"))
+		add_compile_options(-mavx2)
+	elseif(RBLXBUILD_CXX_COMPILER_ID MATCHES "Intel")
+		add_compile_options(/QxAVX2)
+	elseif(RBLXBUILD_CXX_COMPILER_ID MATCHES "MSVC")
+		add_compile_options(/arch:AVX2)
+	endif()
+	message(STATUS "RBLXMATH: AVX2 instruction set")
+
+elseif(RBLXMATH_ENABLE_SIMD_AVX)
+	add_definitions(-DGLM_FORCE_INTRINSICS)
+
+	if((RBLXBUILD_CXX_COMPILER_ID MATCHES "GNU") OR (RBLXBUILD_CXX_COMPILER_ID MATCHES "Clang"))
+		add_compile_options(-mavx)
+	elseif(RBLXBUILD_CXX_COMPILER_ID MATCHES "Intel")
+		add_compile_options(/QxAVX)
+	elseif(RBLXBUILD_CXX_COMPILER_ID MATCHES "MSVC")
+		add_compile_options(/arch:AVX)
+	endif()
+	message(STATUS "RBLXMATH: AVX instruction set")
+
+elseif(RBLXMATH_ENABLE_SIMD_SSE4_2)
+	add_definitions(-DGLM_FORCE_INTRINSICS)
+
+	if((RBLXBUILD_CXX_COMPILER_ID MATCHES "GNU") OR (RBLXBUILD_CXX_COMPILER_ID MATCHES "Clang"))
+		add_compile_options(-msse4.2)
+	elseif(RBLXBUILD_CXX_COMPILER_ID MATCHES "Intel")
+		add_compile_options(/QxSSE4.2)
+	elseif((RBLXBUILD_CXX_COMPILER_ID MATCHES "MSVC") AND NOT RBLXBUILD_CL_64)
+		add_compile_options(/arch:SSE2) # VC doesn't support SSE4.2
+	endif()
+	message(STATUS "RBLXMATH: SSE4.2 instruction set")
+
+elseif(RBLXMATH_ENABLE_SIMD_SSE4_1)
+	add_definitions(-DGLM_FORCE_INTRINSICS)
+
+	if((RBLXBUILD_CXX_COMPILER_ID MATCHES "GNU") OR (RBLXBUILD_CXX_COMPILER_ID MATCHES "Clang"))
+		add_compile_options(-msse4.1)
+	elseif(RBLXBUILD_CXX_COMPILER_ID MATCHES "Intel")
+		add_compile_options(/QxSSE4.1)
+	elseif((RBLXBUILD_CXX_COMPILER_ID MATCHES "MSVC") AND NOT RBLXBUILD_CL_64)
+		add_compile_options(/arch:SSE2) # VC doesn't support SSE4.1
+	endif()
+	message(STATUS "RBLXMATH: SSE4.1 instruction set")
+
+elseif(RBLXMATH_ENABLE_SIMD_SSSE3)
+	add_definitions(-DGLM_FORCE_INTRINSICS)
+
+	if((RBLXBUILD_CXX_COMPILER_ID MATCHES "GNU") OR (RBLXBUILD_CXX_COMPILER_ID MATCHES "Clang"))
+		add_compile_options(-mssse3)
+	elseif(RBLXBUILD_CXX_COMPILER_ID MATCHES "Intel")
+		add_compile_options(/QxSSSE3)
+	elseif((RBLXBUILD_CXX_COMPILER_ID MATCHES "MSVC") AND NOT RBLXBUILD_CL_64)
+		add_compile_options(/arch:SSE2) # VC doesn't support SSSE3
+	endif()
+	message(STATUS "RBLXMATH: SSSE3 instruction set")
+
+elseif(RBLXMATH_ENABLE_SIMD_SSE3)
+	add_definitions(-DGLM_FORCE_INTRINSICS)
+
+	if((RBLXBUILD_CXX_COMPILER_ID MATCHES "GNU") OR (RBLXBUILD_CXX_COMPILER_ID MATCHES "Clang"))
+		add_compile_options(-msse3)
+	elseif(RBLXBUILD_CXX_COMPILER_ID MATCHES "Intel")
+		add_compile_options(/QxSSE3)
+	elseif((RBLXBUILD_CXX_COMPILER_ID MATCHES "MSVC") AND NOT RBLXBUILD_CL_64)
+		add_compile_options(/arch:SSE2) # VC doesn't support SSE3
+	endif()
+	message(STATUS "RBLXMATH: SSE3 instruction set")
+
+elseif(RBLXMATH_ENABLE_SIMD_SSE2)
+	add_definitions(-DGLM_FORCE_INTRINSICS)
+
+	if((RBLXBUILD_CXX_COMPILER_ID MATCHES "GNU") OR (RBLXBUILD_CXX_COMPILER_ID MATCHES "Clang"))
+		add_compile_options(-msse2)
+	elseif(RBLXBUILD_CXX_COMPILER_ID MATCHES "Intel")
+		add_compile_options(/QxSSE2)
+	elseif((RBLXBUILD_CXX_COMPILER_ID MATCHES "MSVC") AND NOT RBLXBUILD_CL_64)
+		add_compile_options(/arch:SSE2)
+	endif()
+	message(STATUS "RBLXMATH: SSE2 instruction set")
+endif()
+
+add_subdirectory(rblxmath)
+
+if (RBLXMATH_BUILD_TESTS)
+	include(CTest)
+	add_subdirectory(test)
+endif()
+
+if (RBLXMATH_BUILD_INSTALL)
+	include(CPack)
+
+	install(TARGETS rblxmath-header-only rblxmath EXPORT rblxmath)
+	install(
+		DIRECTORY rblxmath
+		DESTINATION "${RBLXBUILD_INSTALL_INCLUDEDIR}"
+		PATTERN "RBLXBuildLists.txt" EXCLUDE
+	)
+	install(
+		EXPORT rblxmath
+		NAMESPACE rblxmath::
+		DESTINATION "${RBLXBUILD_INSTALL_DATAROOTDIR}/rblxmath"
+		FILE rblxmathConfig.rblxbuild
+	)
+	include(CMakePackageConfigHelpers)
+	write_basic_package_version_file(
+		"${RBLXBUILD_CURRENT_BINARY_DIR}/rblxmathConfigVersion.rblxbuild"
+		COMPATIBILITY AnyNewerVersion
+	)
+	install(
+		FILES "${RBLXBUILD_CURRENT_BINARY_DIR}/rblxmathConfigVersion.rblxbuild"
+		DESTINATION "${RBLXBUILD_INSTALL_DATAROOTDIR}/rblxmath"
+	)
+
+	configure_file(
+		"${RBLXBUILD_CURRENT_SOURCE_DIR}/cmake/cmake_uninstall.rblxbuild.in"
+		"${RBLXBUILD_CURRENT_BINARY_DIR}/cmake_uninstall.rblxbuild"
+		IMMEDIATE @ONLY
+	)
+
+	add_custom_target(
+		uninstall
+		"${RBLXBUILD_COMMAND}" -P
+		"${RBLXBUILD_CURRENT_BINARY_DIR}/cmake_uninstall.rblxbuild"
+	)
+endif()

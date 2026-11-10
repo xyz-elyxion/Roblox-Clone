@@ -1,11 +1,11 @@
 
-#define GLM_ENABLE_EXPERIMENTAL
+#define RBLXMATH_ENABLE_EXPERIMENTAL
 
 #include "Window.h"
 #include "Renderer.h"
 #include "Camera.h"
 #include "Editor.h"
-#include "TextEditor.h"
+#include "RblxTextEditor.h"
 #include "Part.h"
 #include "PhysicsWorld.h"
 #include "Raycaster.h"
@@ -17,12 +17,12 @@
 #include "StudioSelection.h"
 #include "Auth.h"
 
-#include <glad/glad.h>
-#include <GLFW/glfw3.h>
-#include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtc/type_ptr.hpp>
-#include <glm/gtx/euler_angles.hpp>
-#include <glm/gtx/quaternion.hpp>
+#include <rblxgl/rblxgl.h>
+#include <RBLXWIN/rblxwin.h>
+#include <rblxmath/gtc/matrix_transform.hpp>
+#include <rblxmath/gtc/type_ptr.hpp>
+#include <rblxmath/gtx/euler_angles.hpp>
+#include <rblxmath/gtx/quaternion.hpp>
 
 #include <algorithm>
 #include <cstdio>
@@ -47,11 +47,11 @@ namespace {
         parts.clear();
         physicsWorld.reset();
 
-        parts.emplace_back(glm::vec3(0.0f, -1.0f, 0.0f), glm::vec3(40.0f, 1.0f, 40.0f), glm::vec3(0.35f, 0.8f, 0.35f), ShapeType::Cube, "Baseplate");
+        parts.emplace_back(rblxmath::vec3(0.0f, -1.0f, 0.0f), rblxmath::vec3(40.0f, 1.0f, 40.0f), rblxmath::vec3(0.35f, 0.8f, 0.35f), ShapeType::Cube, "Baseplate");
         parts.back().anchored = true;
         physicsWorld.addPart(&parts.back());
 
-        parts.emplace_back(glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(4.0f, 4.0f, 4.0f), glm::vec3(0.8f, 0.25f, 0.2f), ShapeType::Cube, "Part");
+        parts.emplace_back(rblxmath::vec3(0.0f, 1.0f, 0.0f), rblxmath::vec3(4.0f, 4.0f, 4.0f), rblxmath::vec3(0.8f, 0.25f, 0.2f), ShapeType::Cube, "Part");
         parts.back().anchored = true;
         physicsWorld.addPart(&parts.back());
     }
@@ -207,33 +207,33 @@ namespace {
         return !response.empty() && response.find("\"success\":true") != std::string::npos;
     }
 
-    glm::mat4 partToMatrix(const Part& part) {
-        glm::mat4 model(1.0f);
-        model = glm::translate(model, part.position);
-        model *= glm::toMat4(glm::quat(glm::radians(part.rotation)));
-        model = glm::scale(model, part.size);
+    rblxmath::mat4 partToMatrix(const Part& part) {
+        rblxmath::mat4 model(1.0f);
+        model = rblxmath::translate(model, part.position);
+        model *= rblxmath::toMat4(rblxmath::quat(rblxmath::radians(part.rotation)));
+        model = rblxmath::scale(model, part.size);
         return model;
     }
 
-    glm::vec3 clampScale(const glm::vec3& value) {
-        return glm::vec3(
+    rblxmath::vec3 clampScale(const rblxmath::vec3& value) {
+        return rblxmath::vec3(
             std::clamp(value.x, MIN_PART_SCALE, MAX_PART_SCALE),
             std::clamp(value.y, MIN_PART_SCALE, MAX_PART_SCALE),
             std::clamp(value.z, MIN_PART_SCALE, MAX_PART_SCALE)
         );
     }
 
-    void applyMatrixToPart(const glm::mat4& model, Part& part, PhysicsWorld& physicsWorld, bool rebuildShape) {
+    void applyMatrixToPart(const rblxmath::mat4& model, Part& part, PhysicsWorld& physicsWorld, bool rebuildShape) {
         float translation[3];
         float rotation[3];
         float scale[3];
-        ImGuizmo::DecomposeMatrixToComponents(glm::value_ptr(model), translation, rotation, scale);
+        RblxGizmo::DecomposeMatrixToComponents(rblxmath::value_ptr(model), translation, rotation, scale);
 
-        part.position = glm::vec3(translation[0], translation[1], translation[2]);
-        part.rotation = glm::vec3(rotation[0], rotation[1], rotation[2]);
+        part.position = rblxmath::vec3(translation[0], translation[1], translation[2]);
+        part.rotation = rblxmath::vec3(rotation[0], rotation[1], rotation[2]);
 
         if (rebuildShape) {
-            part.size = clampScale(glm::vec3(scale[0], scale[1], scale[2]));
+            part.size = clampScale(rblxmath::vec3(scale[0], scale[1], scale[2]));
             if (part.physicsBody) {
                 physicsWorld.removePart(&part);
                 physicsWorld.addPart(&part);
@@ -425,14 +425,14 @@ namespace {
     }
 
     void processCameraInput(Window& window, Camera& camera, float deltaTime) {
-        GLFWwindow* nativeWindow = window.getNativeWindow();
-        const bool sprint = glfwGetKey(nativeWindow, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS;
-        if (glfwGetKey(nativeWindow, GLFW_KEY_W) == GLFW_PRESS) camera.ProcessKeyboard(FORWARD, deltaTime, sprint);
-        if (glfwGetKey(nativeWindow, GLFW_KEY_S) == GLFW_PRESS) camera.ProcessKeyboard(BACKWARD, deltaTime, sprint);
-        if (glfwGetKey(nativeWindow, GLFW_KEY_A) == GLFW_PRESS) camera.ProcessKeyboard(LEFT, deltaTime, sprint);
-        if (glfwGetKey(nativeWindow, GLFW_KEY_D) == GLFW_PRESS) camera.ProcessKeyboard(RIGHT, deltaTime, sprint);
-        if (glfwGetKey(nativeWindow, GLFW_KEY_E) == GLFW_PRESS) camera.ProcessKeyboard(UP, deltaTime, sprint);
-        if (glfwGetKey(nativeWindow, GLFW_KEY_Q) == GLFW_PRESS) camera.ProcessKeyboard(DOWN, deltaTime, sprint);
+        RBLXWINwindow* nativeWindow = window.getNativeWindow();
+        const bool sprint = rblxwinGetKey(nativeWindow, RBLXWIN_KEY_LEFT_SHIFT) == RBLXWIN_PRESS;
+        if (rblxwinGetKey(nativeWindow, RBLXWIN_KEY_W) == RBLXWIN_PRESS) camera.ProcessKeyboard(FORWARD, deltaTime, sprint);
+        if (rblxwinGetKey(nativeWindow, RBLXWIN_KEY_S) == RBLXWIN_PRESS) camera.ProcessKeyboard(BACKWARD, deltaTime, sprint);
+        if (rblxwinGetKey(nativeWindow, RBLXWIN_KEY_A) == RBLXWIN_PRESS) camera.ProcessKeyboard(LEFT, deltaTime, sprint);
+        if (rblxwinGetKey(nativeWindow, RBLXWIN_KEY_D) == RBLXWIN_PRESS) camera.ProcessKeyboard(RIGHT, deltaTime, sprint);
+        if (rblxwinGetKey(nativeWindow, RBLXWIN_KEY_E) == RBLXWIN_PRESS) camera.ProcessKeyboard(UP, deltaTime, sprint);
+        if (rblxwinGetKey(nativeWindow, RBLXWIN_KEY_Q) == RBLXWIN_PRESS) camera.ProcessKeyboard(DOWN, deltaTime, sprint);
     }
 }
 
@@ -442,8 +442,8 @@ int main() {
         glEnable(GL_DEPTH_TEST);
         glEnable(GL_CULL_FACE);
 
-        Camera camera(glm::vec3(8.0f, 8.0f, 12.0f));
-        camera.LookAt(glm::vec3(0.0f, 0.0f, 0.0f));
+        Camera camera(rblxmath::vec3(8.0f, 8.0f, 12.0f));
+        camera.LookAt(rblxmath::vec3(0.0f, 0.0f, 0.0f));
 
         PhysicsWorld physicsWorld;
         physicsWorld.init();
@@ -465,8 +465,8 @@ int main() {
 
         std::vector<int> selection;
         rblx::studio::selectOnly(selection, parts.size() > 1 ? 1 : 0);
-        ImGuizmo::OPERATION operation = ImGuizmo::TRANSLATE;
-        ImGuizmo::MODE mode = ImGuizmo::LOCAL;
+        RblxGizmo::OPERATION operation = RblxGizmo::TRANSLATE;
+        RblxGizmo::MODE mode = RblxGizmo::LOCAL;
         bool snapEnabled = false;
         float snap[3] = { 1.0f, 1.0f, 1.0f };
         char worldPath[260] = "ServerWorld.world";
@@ -485,7 +485,7 @@ int main() {
         std::unique_ptr<rblx::worldscript::WorldRuntime> scriptRuntime;
         bool scriptRunning = false;
 
-        float lastFrame = static_cast<float>(glfwGetTime());
+        float lastFrame = static_cast<float>(rblxwinGetTime());
         double lastMouseX = WINDOW_WIDTH / 2.0;
         double lastMouseY = WINDOW_HEIGHT / 2.0;
         bool firstMouse = true;
@@ -493,7 +493,7 @@ int main() {
         rblx::studio::History history;
 
         while (!window.shouldClose()) {
-            float currentFrame = static_cast<float>(glfwGetTime());
+            float currentFrame = static_cast<float>(rblxwinGetTime());
             float deltaTime = currentFrame - lastFrame;
             lastFrame = currentFrame;
 
@@ -511,18 +511,18 @@ int main() {
             }
 
             editor.newFrame();
-            GLFWwindow* nativeWindow = window.getNativeWindow();
+            RBLXWINwindow* nativeWindow = window.getNativeWindow();
 
-            if (ImGui::BeginMainMenuBar()) {
-                if (ImGui::BeginMenu("File")) {
-                    if (ImGui::MenuItem("New")) {
+            if (RblxUI::BeginMainMenuBar()) {
+                if (RblxUI::BeginMenu("File")) {
+                    if (RblxUI::MenuItem("New")) {
                         addDefaultWorld(parts, physicsWorld);
                         rblx::studio::selectOnly(selection, parts.size() > 1 ? 1 : 0);
                         // A world that was just created has no steps behind it.
                         history.clear();
                         statusMessage = "Created a new default world";
                     }
-                    if (ImGui::MenuItem("Load")) {
+                    if (RblxUI::MenuItem("Load")) {
                         WorldLoader::loadWorld(worldPath, parts, physicsWorld);
                         if (parts.empty()) {
                             addDefaultWorld(parts, physicsWorld);
@@ -537,102 +537,102 @@ int main() {
                             statusMessage = std::string("Loaded ") + worldPath;
                         }
                     }
-                    if (ImGui::MenuItem("Save")) {
+                    if (RblxUI::MenuItem("Save")) {
                         statusMessage = saveWorld(worldPath, parts) ? std::string("Saved ") + worldPath : std::string("Failed to save ") + worldPath;
                     }
-                    if (ImGui::MenuItem("Exit")) {
-                        glfwSetWindowShouldClose(nativeWindow, true);
+                    if (RblxUI::MenuItem("Exit")) {
+                        rblxwinSetWindowShouldClose(nativeWindow, true);
                     }
-                    ImGui::EndMenu();
+                    RblxUI::EndMenu();
                 }
-                if (ImGui::BeginMenu("Edit")) {
-                    if (ImGui::MenuItem("Undo", "Ctrl+Z", false, history.canUndo())) {
+                if (RblxUI::BeginMenu("Edit")) {
+                    if (RblxUI::MenuItem("Undo", "Ctrl+Z", false, history.canUndo())) {
                         undoRequested = true;
                     }
-                    if (ImGui::MenuItem("Redo", "Ctrl+Y", false, history.canRedo())) {
+                    if (RblxUI::MenuItem("Redo", "Ctrl+Y", false, history.canRedo())) {
                         redoRequested = true;
                     }
-                    ImGui::Separator();
-                    if (ImGui::MenuItem("Duplicate", "Ctrl+D", false, !selection.empty())) {
+                    RblxUI::Separator();
+                    if (RblxUI::MenuItem("Duplicate", "Ctrl+D", false, !selection.empty())) {
                         duplicateRequested = true;
                     }
-                    if (ImGui::MenuItem("Delete", "Del", false, !selection.empty())) {
+                    if (RblxUI::MenuItem("Delete", "Del", false, !selection.empty())) {
                         deleteRequested = true;
                     }
-                    ImGui::EndMenu();
+                    RblxUI::EndMenu();
                 }
-                ImGui::EndMainMenuBar();
+                RblxUI::EndMainMenuBar();
             }
 
             // The shortcuts belong to Studio only while nothing else has the
             // keyboard: Ctrl+Z inside the script editor is the editor's own undo.
-            ImGuiIO& io = ImGui::GetIO();
+            RblxUIIO& io = RblxUI::GetIO();
             if (!io.WantCaptureKeyboard) {
-                if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_Z)) {
+                if (io.KeyCtrl && RblxUI::IsKeyPressed(RblxUIKey_Z)) {
                     if (io.KeyShift) {
                         redoRequested = true;
                     } else {
                         undoRequested = true;
                     }
                 }
-                if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_Y)) {
+                if (io.KeyCtrl && RblxUI::IsKeyPressed(RblxUIKey_Y)) {
                     redoRequested = true;
                 }
-                if (ImGui::IsKeyPressed(ImGuiKey_Delete) || ImGui::IsKeyPressed(ImGuiKey_Backspace)) {
+                if (RblxUI::IsKeyPressed(RblxUIKey_Delete) || RblxUI::IsKeyPressed(RblxUIKey_Backspace)) {
                     deleteRequested = true;
                 }
-                if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_D)) {
+                if (io.KeyCtrl && RblxUI::IsKeyPressed(RblxUIKey_D)) {
                     duplicateRequested = true;
                 }
             }
 
-            ImGui::Begin("Toolbox");
-            ImGui::InputText("World file", worldPath, sizeof(worldPath));
-            if (ImGui::Button("Add Part")) {
-                parts.emplace_back(glm::vec3(0.0f, 3.0f, 0.0f), glm::vec3(2.0f), glm::vec3(0.7f, 0.7f, 0.9f), ShapeType::Cube, "Part");
+            RblxUI::Begin("Toolbox");
+            RblxUI::InputText("World file", worldPath, sizeof(worldPath));
+            if (RblxUI::Button("Add Part")) {
+                parts.emplace_back(rblxmath::vec3(0.0f, 3.0f, 0.0f), rblxmath::vec3(2.0f), rblxmath::vec3(0.7f, 0.7f, 0.9f), ShapeType::Cube, "Part");
                 parts.back().anchored = true;
                 physicsWorld.addPart(&parts.back());
                 rblx::studio::selectOnly(selection, static_cast<int>(parts.size() - 1));
             }
-            ImGui::SameLine();
-            ImGui::BeginDisabled(selection.empty());
-            if (ImGui::Button("Duplicate")) {
+            RblxUI::SameLine();
+            RblxUI::BeginDisabled(selection.empty());
+            if (RblxUI::Button("Duplicate")) {
                 duplicateRequested = true;
             }
-            ImGui::SameLine();
-            if (ImGui::Button("Delete")) {
+            RblxUI::SameLine();
+            if (RblxUI::Button("Delete")) {
                 deleteRequested = true;
             }
-            ImGui::EndDisabled();
-            ImGui::SameLine();
-            ImGui::TextDisabled("%zu selected", selection.size());
-            ImGui::BeginDisabled(!history.canUndo());
-            if (ImGui::Button("Undo")) {
+            RblxUI::EndDisabled();
+            RblxUI::SameLine();
+            RblxUI::TextDisabled("%zu selected", selection.size());
+            RblxUI::BeginDisabled(!history.canUndo());
+            if (RblxUI::Button("Undo")) {
                 undoRequested = true;
             }
-            ImGui::EndDisabled();
-            ImGui::SameLine();
-            ImGui::BeginDisabled(!history.canRedo());
-            if (ImGui::Button("Redo")) {
+            RblxUI::EndDisabled();
+            RblxUI::SameLine();
+            RblxUI::BeginDisabled(!history.canRedo());
+            if (RblxUI::Button("Redo")) {
                 redoRequested = true;
             }
-            ImGui::EndDisabled();
-            ImGui::SameLine();
-            ImGui::TextDisabled("%zu step(s) back", history.undoDepth());
-            ImGui::Separator();
-            if (ImGui::RadioButton("Move", operation == ImGuizmo::TRANSLATE)) operation = ImGuizmo::TRANSLATE;
-            if (ImGui::RadioButton("Rotate", operation == ImGuizmo::ROTATE)) operation = ImGuizmo::ROTATE;
-            if (ImGui::RadioButton("Scale", operation == ImGuizmo::SCALE)) operation = ImGuizmo::SCALE;
-            ImGui::Checkbox("Snap", &snapEnabled);
-            ImGui::InputFloat3("Snap values", snap);
-            ImGui::TextWrapped("%s", statusMessage.c_str());
-            ImGui::End();
+            RblxUI::EndDisabled();
+            RblxUI::SameLine();
+            RblxUI::TextDisabled("%zu step(s) back", history.undoDepth());
+            RblxUI::Separator();
+            if (RblxUI::RadioButton("Move", operation == RblxGizmo::TRANSLATE)) operation = RblxGizmo::TRANSLATE;
+            if (RblxUI::RadioButton("Rotate", operation == RblxGizmo::ROTATE)) operation = RblxGizmo::ROTATE;
+            if (RblxUI::RadioButton("Scale", operation == RblxGizmo::SCALE)) operation = RblxGizmo::SCALE;
+            RblxUI::Checkbox("Snap", &snapEnabled);
+            RblxUI::InputFloat3("Snap values", snap);
+            RblxUI::TextWrapped("%s", statusMessage.c_str());
+            RblxUI::End();
 
-            ImGui::Begin("Publish");
-            ImGui::InputText("Web URL", publishWebUrl, sizeof(publishWebUrl));
-            ImGui::InputText("Username", publishUsername, sizeof(publishUsername));
-            ImGui::InputText("Password", publishPassword, sizeof(publishPassword), ImGuiInputTextFlags_Password);
-            if (ImGui::Button("Login")) {
+            RblxUI::Begin("Publish");
+            RblxUI::InputText("Web URL", publishWebUrl, sizeof(publishWebUrl));
+            RblxUI::InputText("Username", publishUsername, sizeof(publishUsername));
+            RblxUI::InputText("Password", publishPassword, sizeof(publishPassword), RblxUIInputTextFlags_Password);
+            if (RblxUI::Button("Login")) {
                 const std::string token = loginForPublish(publishWebUrl, publishUsername, publishPassword);
                 if (token.empty()) {
                     publishStatus = "Login failed";
@@ -641,11 +641,11 @@ int main() {
                     publishStatus = "Logged in for publishing";
                 }
             }
-            ImGui::Separator();
-            ImGui::InputText("Game title", publishTitle, sizeof(publishTitle));
-            ImGui::InputTextMultiline("Description", publishDescription, sizeof(publishDescription), ImVec2(0.0f, 72.0f));
-            ImGui::Checkbox("Public", &publishPublic);
-            if (ImGui::Button("Publish current world")) {
+            RblxUI::Separator();
+            RblxUI::InputText("Game title", publishTitle, sizeof(publishTitle));
+            RblxUI::InputTextMultiline("Description", publishDescription, sizeof(publishDescription), RblxVec2(0.0f, 72.0f));
+            RblxUI::Checkbox("Public", &publishPublic);
+            if (RblxUI::Button("Publish current world")) {
                 if (!saveWorld(worldPath, parts)) {
                     publishStatus = std::string("Could not save ") + worldPath;
                 } else {
@@ -661,39 +661,39 @@ int main() {
                     }
                 }
             }
-            ImGui::SameLine();
-            if (ImGui::Button("Open site")) {
+            RblxUI::SameLine();
+            if (RblxUI::Button("Open site")) {
                 Auth::openBrowser(std::string(publishWebUrl) + "/create");
             }
-            ImGui::TextWrapped("%s", publishStatus.c_str());
-            ImGui::End();
+            RblxUI::TextWrapped("%s", publishStatus.c_str());
+            RblxUI::End();
 
-            ImGui::Begin("Script");
+            RblxUI::Begin("Script");
 
             // Studio's script panel is a code editor rather than a text box: line
             // numbers, syntax highlighting, selection, undo and the dark palette
             // VS Code uses. RBLX Script is Lua-shaped, so the Lua definition is
             // the one that colours it correctly. It is created on first use, once
-            // the ImGui context exists, and it holds the script itself - Save and
+            // the RblxUI context exists, and it holds the script itself - Save and
             // Run read it back instead of a fixed buffer that would cut a long
             // script short.
-            static std::unique_ptr<TextEditor> codeEditor;
+            static std::unique_ptr<RblxTextEditor> codeEditor;
             if (!codeEditor) {
-                codeEditor = std::make_unique<TextEditor>();
-                codeEditor->SetLanguageDefinition(TextEditor::LanguageDefinition::Lua());
-                codeEditor->SetPalette(TextEditor::GetDarkPalette());
+                codeEditor = std::make_unique<RblxTextEditor>();
+                codeEditor->SetLanguageDefinition(RblxTextEditor::LanguageDefinition::Lua());
+                codeEditor->SetPalette(RblxTextEditor::GetDarkPalette());
                 codeEditor->SetTabSize(4);
                 codeEditor->SetShowWhitespaces(false);
                 codeEditor->SetText("-- Press Load to open a .rbx script, or write one here.\n");
             }
 
-            ImGui::InputText("Script file", scriptPath, sizeof(scriptPath));
+            RblxUI::InputText("Script file", scriptPath, sizeof(scriptPath));
 
             // Everything the panel has, apart from the button row and the status
             // bar under it, belongs to the code.
-            const float footerHeight = ImGui::GetFrameHeightWithSpacing() * 2.0f;
-            codeEditor->Render("##scriptEditor", ImVec2(0.0f, -footerHeight), true);
-            if (ImGui::Button("Load")) {
+            const float footerHeight = RblxUI::GetFrameHeightWithSpacing() * 2.0f;
+            codeEditor->Render("##scriptEditor", RblxVec2(0.0f, -footerHeight), true);
+            if (RblxUI::Button("Load")) {
                 const std::string text = readTextFile(scriptPath);
                 if (text.empty()) {
                     scriptStatus = std::string("Could not read ") + scriptPath;
@@ -702,8 +702,8 @@ int main() {
                     scriptStatus = std::string("Loaded ") + scriptPath;
                 }
             }
-            ImGui::SameLine();
-            if (ImGui::Button("Save")) {
+            RblxUI::SameLine();
+            if (RblxUI::Button("Save")) {
                 std::ofstream out(scriptPath, std::ios::binary);
                 if (out.is_open()) {
                     out << codeEditor->GetText();
@@ -712,8 +712,8 @@ int main() {
                     scriptStatus = std::string("Could not save ") + scriptPath;
                 }
             }
-            ImGui::SameLine();
-            if (ImGui::Button("Run")) {
+            RblxUI::SameLine();
+            if (RblxUI::Button("Run")) {
                 scriptRunning = false;
                 scriptRuntime.reset();
                 scriptInterpreter.reset();
@@ -732,21 +732,21 @@ int main() {
                     scriptStatus = scriptError;
                 }
             }
-            ImGui::SameLine();
-            if (ImGui::Button("Stop")) {
+            RblxUI::SameLine();
+            if (RblxUI::Button("Stop")) {
                 scriptRunning = false;
                 if (scriptRuntime) scriptRuntime->stop();
                 scriptStatus = "Stopped";
             }
-            const TextEditor::Coordinates cursor = codeEditor->GetCursorPosition();
-            ImGui::TextDisabled("%s   Ln %d, Col %d   Lua   |   %s", scriptPath,
+            const RblxTextEditor::Coordinates cursor = codeEditor->GetCursorPosition();
+            RblxUI::TextDisabled("%s   Ln %d, Col %d   Lua   |   %s", scriptPath,
                                 cursor.mLine + 1, cursor.mColumn + 1, scriptStatus.c_str());
-            ImGui::End();
+            RblxUI::End();
 
-            ImGui::Begin("Explorer");
+            RblxUI::Begin("Explorer");
             for (size_t i = 0; i < parts.size(); ++i) {
                 if (parts[i].deleted) continue;
-                if (ImGui::Selectable(parts[i].name.c_str(),
+                if (RblxUI::Selectable(parts[i].name.c_str(),
                                       rblx::studio::isSelected(selection, static_cast<int>(i)))) {
                     if (io.KeyCtrl) {
                         rblx::studio::toggleSelected(selection, static_cast<int>(i));
@@ -755,27 +755,27 @@ int main() {
                     }
                 }
             }
-            ImGui::TextDisabled("Ctrl+click adds or removes a part");
-            ImGui::End();
+            RblxUI::TextDisabled("Ctrl+click adds or removes a part");
+            RblxUI::End();
 
-            ImGui::Begin("Properties");
+            RblxUI::Begin("Properties");
             const int primaryPart = rblx::studio::primarySelection(selection);
             if (selection.size() > 1 && primaryPart >= 0 &&
                 primaryPart < static_cast<int>(parts.size())) {
-                ImGui::TextDisabled("%zu parts selected; editing %s. The gizmo moves all of them.",
+                RblxUI::TextDisabled("%zu parts selected; editing %s. The gizmo moves all of them.",
                                     selection.size(), parts[static_cast<std::size_t>(primaryPart)].name.c_str());
             }
             if (primaryPart >= 0 && primaryPart < static_cast<int>(parts.size())) {
                 Part& part = parts[static_cast<std::size_t>(primaryPart)];
                 char name[64] = {};
                 std::snprintf(name, sizeof(name), "%s", part.name.c_str());
-                if (ImGui::InputText("Name", name, sizeof(name))) {
+                if (RblxUI::InputText("Name", name, sizeof(name))) {
                     part.name = name;
                 }
                 bool transformChanged = false;
-                transformChanged |= ImGui::DragFloat3("Position", glm::value_ptr(part.position), 0.1f);
-                transformChanged |= ImGui::DragFloat3("Rotation", glm::value_ptr(part.rotation), 0.5f);
-                if (ImGui::DragFloat3("Size", glm::value_ptr(part.size), 0.1f, MIN_PART_SCALE, MAX_PART_SCALE)) {
+                transformChanged |= RblxUI::DragFloat3("Position", rblxmath::value_ptr(part.position), 0.1f);
+                transformChanged |= RblxUI::DragFloat3("Rotation", rblxmath::value_ptr(part.rotation), 0.5f);
+                if (RblxUI::DragFloat3("Size", rblxmath::value_ptr(part.size), 0.1f, MIN_PART_SCALE, MAX_PART_SCALE)) {
                     part.size = clampScale(part.size);
                     if (part.physicsBody) {
                         physicsWorld.removePart(&part);
@@ -784,30 +784,30 @@ int main() {
                 } else if (transformChanged) {
                     physicsWorld.updatePartBody(&part);
                 }
-                ImGui::ColorEdit3("Color", glm::value_ptr(part.color));
+                RblxUI::ColorEdit3("Color", rblxmath::value_ptr(part.color));
 
                 static const char* materialLabels[kMaterialCount] = {
                     "Plastic", "Smooth plastic", "Neon", "Metal",
                     "Wood", "Grass", "Concrete", "Brick"
                 };
                 int materialIndex = static_cast<int>(part.material);
-                if (ImGui::Combo("Material", &materialIndex, materialLabels, kMaterialCount)) {
+                if (RblxUI::Combo("Material", &materialIndex, materialLabels, kMaterialCount)) {
                     part.material = static_cast<Material>(materialIndex);
                 }
 
                 char texturePath[128] = {};
                 std::snprintf(texturePath, sizeof(texturePath), "%s", part.texture.c_str());
-                if (ImGui::InputText("Texture", texturePath, sizeof(texturePath))) {
+                if (RblxUI::InputText("Texture", texturePath, sizeof(texturePath))) {
                     part.texture = texturePath;
                 }
-                ImGui::TextDisabled("Tiles over the part; image goes in textures/.");
+                RblxUI::TextDisabled("Tiles over the part; image goes in textures/.");
 
-                ImGui::Checkbox("Anchored", &part.anchored);
-                ImGui::Checkbox("Can collide", &part.canCollide);
+                RblxUI::Checkbox("Anchored", &part.anchored);
+                RblxUI::Checkbox("Can collide", &part.canCollide);
             } else {
-                ImGui::Text("No part selected");
+                RblxUI::Text("No part selected");
             }
-            ImGui::End();
+            RblxUI::End();
 
             // Edits that add or remove parts land after the panels and before the
             // undo block, so the world the history settles on at the end of the
@@ -843,15 +843,15 @@ int main() {
                 }
             }
 
-            const bool gizmoInUse = ImGuizmo::IsUsing();
+            const bool gizmoInUse = RblxGizmo::IsUsing();
             if (!gizmoInUse && !io.WantCaptureKeyboard) {
                 processCameraInput(window, camera, deltaTime);
             }
 
-            if (!gizmoInUse && !io.WantCaptureMouse && glfwGetMouseButton(nativeWindow, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS) {
+            if (!gizmoInUse && !io.WantCaptureMouse && rblxwinGetMouseButton(nativeWindow, RBLXWIN_MOUSE_BUTTON_RIGHT) == RBLXWIN_PRESS) {
                 double mouseX = 0.0;
                 double mouseY = 0.0;
-                glfwGetCursorPos(nativeWindow, &mouseX, &mouseY);
+                rblxwinGetCursorPos(nativeWindow, &mouseX, &mouseY);
                 if (firstMouse) {
                     lastMouseX = mouseX;
                     lastMouseY = mouseY;
@@ -864,10 +864,10 @@ int main() {
                 firstMouse = true;
             }
 
-            bool leftPressed = glfwGetMouseButton(nativeWindow, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS;
+            bool leftPressed = rblxwinGetMouseButton(nativeWindow, RBLXWIN_MOUSE_BUTTON_LEFT) == RBLXWIN_PRESS;
 
-            glm::vec3 lightPos(20.0f, 50.0f, 20.0f);
-            glm::mat4 lightSpaceMatrix = shadowMap.getLightSpaceMatrix(lightPos);
+            rblxmath::vec3 lightPos(20.0f, 50.0f, 20.0f);
+            rblxmath::mat4 lightSpaceMatrix = shadowMap.getLightSpaceMatrix(lightPos);
 
             shadowMap.bindForWriting();
             for (const Part& part : parts) {
@@ -881,8 +881,8 @@ int main() {
             glClearColor(0.53f, 0.81f, 0.92f, 1.0f);
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-            glm::mat4 view = camera.GetViewMatrix();
-            glm::mat4 projection = camera.GetProjectionMatrix(static_cast<float>(window.getWidth()), static_cast<float>(window.getHeight()));
+            rblxmath::mat4 view = camera.GetViewMatrix();
+            rblxmath::mat4 projection = camera.GetProjectionMatrix(static_cast<float>(window.getWidth()), static_cast<float>(window.getHeight()));
 
             if (renderer.shader) {
                 renderer.shader->use();
@@ -899,30 +899,30 @@ int main() {
             if (gizmoPart >= 0 && gizmoPart < static_cast<int>(parts.size()) &&
                 !parts[static_cast<std::size_t>(gizmoPart)].isFolder) {
                 Part& part = parts[static_cast<std::size_t>(gizmoPart)];
-                glm::mat4 model = partToMatrix(part);
-                const glm::mat4 before = model;
+                rblxmath::mat4 model = partToMatrix(part);
+                const rblxmath::mat4 before = model;
 
-                ImGuizmo::SetOrthographic(false);
-                const ImGuiViewport* mainViewport = ImGui::GetMainViewport();
-                ImGuizmo::SetRect(mainViewport->Pos.x, mainViewport->Pos.y, mainViewport->Size.x, mainViewport->Size.y);
+                RblxGizmo::SetOrthographic(false);
+                const RblxUIViewport* mainViewport = RblxUI::GetMainViewport();
+                RblxGizmo::SetRect(mainViewport->Pos.x, mainViewport->Pos.y, mainViewport->Size.x, mainViewport->Size.y);
 
                 const float* snapValues = snapEnabled ? snap : nullptr;
-                if (ImGuizmo::Manipulate(
-                        glm::value_ptr(view),
-                        glm::value_ptr(projection),
+                if (RblxGizmo::Manipulate(
+                        rblxmath::value_ptr(view),
+                        rblxmath::value_ptr(projection),
                         operation,
                         mode,
-                        glm::value_ptr(model),
+                        rblxmath::value_ptr(model),
                         nullptr,
                         snapValues)) {
-                    // ImGuizmo returns the full model matrix. Assign the decomposed size directly;
+                    // RblxGizmo returns the full model matrix. Assign the decomposed size directly;
                     // multiplying by the returned scale each frame causes runaway scale growth.
                     //
                     // The rest of the selection moves by what the gizmo did to the
                     // part it drew: the step is that matrix against the one it
                     // started from, applied to each of them, so a group turns about
                     // the primary and keeps its shape.
-                    const glm::mat4 delta = model * glm::inverse(before);
+                    const rblxmath::mat4 delta = model * rblxmath::inverse(before);
                     for (const int index : selection) {
                         if (index < 0 || index >= static_cast<int>(parts.size())) {
                             continue;
@@ -932,19 +932,19 @@ int main() {
                             continue;
                         }
                         if (index == gizmoPart) {
-                            applyMatrixToPart(model, target, physicsWorld, operation == ImGuizmo::SCALE);
+                            applyMatrixToPart(model, target, physicsWorld, operation == RblxGizmo::SCALE);
                         } else {
                             applyMatrixToPart(delta * partToMatrix(target), target, physicsWorld,
-                                              operation == ImGuizmo::SCALE);
+                                              operation == RblxGizmo::SCALE);
                         }
                     }
                 }
             }
 
-            if (leftPressed && !wasLeftPressed && !io.WantCaptureMouse && !ImGuizmo::IsUsing() && !ImGuizmo::IsOver()) {
+            if (leftPressed && !wasLeftPressed && !io.WantCaptureMouse && !RblxGizmo::IsUsing() && !RblxGizmo::IsOver()) {
                 double mouseX = 0.0;
                 double mouseY = 0.0;
-                glfwGetCursorPos(nativeWindow, &mouseX, &mouseY);
+                rblxwinGetCursorPos(nativeWindow, &mouseX, &mouseY);
                 int picked = Raycaster::GetPartFromMouse(parts, camera, static_cast<float>(mouseX), static_cast<float>(mouseY), static_cast<float>(window.getWidth()), static_cast<float>(window.getHeight()));
                 if (picked >= 0 && picked < static_cast<int>(parts.size())) {
                     if (io.KeyCtrl) {
@@ -961,9 +961,9 @@ int main() {
             wasLeftPressed = leftPressed;
 
             // One step is one finished interaction: IsAnyItemActive covers a slider
-            // being dragged and a name being typed, and the gizmo is not an ImGui
+            // being dragged and a name being typed, and the gizmo is not an RblxUI
             // item, so it is asked separately.
-            const bool interacting = ImGui::IsAnyItemActive() || ImGuizmo::IsUsing();
+            const bool interacting = RblxUI::IsAnyItemActive() || RblxGizmo::IsUsing();
             history.note(rblx::studio::captureWorld(parts), interacting);
 
             editor.render();

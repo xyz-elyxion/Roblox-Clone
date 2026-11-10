@@ -52,9 +52,12 @@ them, and writes `README.txt`, `update.json` and `manifest.json` into `dist/rblx
    forks or a "portable" path; the project was deliberately cut down to one platform.
 2. **No third-party code outside `third_party/`.** Do not add a dependency, a package
    manager, a submodule or a generated blob. `third_party/`, `rblxbuild/` and
-   `RBLXAntiCheat/` are vendored snapshots at pinned versions: do not reformat, patch or
-   "clean up" them, and keep their licences (`RBLXAntiCheat/LICENSE`,
-   `rblxbuild/Licenses/`) intact.
+   `RBLXAntiCheat/` are vendored snapshots at pinned versions, renamed into this project's
+   scheme (`rblxwin`, `rblxmath`, `rblxui`, `rblxgizmo`, `rblxtextedit`, `rblxphysics`,
+   `rblxstb`, `rblxgl`). Do not reformat or "clean up" them, keep their licences
+   (`RBLXAntiCheat/LICENSE`, `rblxbuild/Licenses/` and the `LICENSE`/`copying.txt` in each
+   tree) intact, and do not rename identifiers piecemeal: a change there is a fork-wide
+   rename or nothing, because the trees must stay internally consistent.
 3. **One palette, in `include/UiTheme.h`.** Every window — client, Studio, RBLXCode, the
    server console, the installer, the updater — reads its colours from there. There are
    two palettes, dark and light, and which one is used is the `theme` key in

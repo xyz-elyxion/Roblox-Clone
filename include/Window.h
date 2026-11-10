@@ -1,7 +1,7 @@
 #pragma once
 
-#include <glad/glad.h>
-#include <GLFW/glfw3.h>
+#include <rblxgl/rblxgl.h>
+#include <RBLXWIN/rblxwin.h>
 #include <string>
 
 class Window {
@@ -16,7 +16,7 @@ public:
     int getWidth() const { 
         if (window) {
             int w, h;
-            glfwGetFramebufferSize(window, &w, &h);
+            rblxwinGetFramebufferSize(window, &w, &h);
             return w;
         }
         return width; 
@@ -24,15 +24,15 @@ public:
     int getHeight() const { 
         if (window) {
             int w, h;
-            glfwGetFramebufferSize(window, &w, &h);
+            rblxwinGetFramebufferSize(window, &w, &h);
             return h;
         }
         return height; 
     }
-    GLFWwindow* getNativeWindow() const { return window; }
+    RBLXWINwindow* getNativeWindow() const { return window; }
 
 private:
-    GLFWwindow* window;
+    RBLXWINwindow* window;
     int width;
     int height;
     std::string title;

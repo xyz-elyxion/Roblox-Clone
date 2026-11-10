@@ -1,15 +1,15 @@
 #pragma once
 
-#include <glad/glad.h>
-#include <GLFW/glfw3.h>
-#include "imgui.h"
-#include "imgui_impl_glfw.h"
-#include "imgui_impl_opengl3.h"
-#include "ImGuizmo.h"
+#include <rblxgl/rblxgl.h>
+#include <RBLXWIN/rblxwin.h>
+#include "rblxui.h"
+#include "rblxui_impl_rblxwin.h"
+#include "rblxui_impl_opengl3.h"
+#include "RblxGizmo.h"
 
 class Editor {
 public:
-    Editor(GLFWwindow* window);
+    Editor(RBLXWINwindow* window);
     ~Editor();
 
     void init();
@@ -20,6 +20,6 @@ public:
     void setupDockSpace();
 
 private:
-    GLFWwindow* window;
+    RBLXWINwindow* window;
 };
 

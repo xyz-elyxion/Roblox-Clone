@@ -1,0 +1,47 @@
+# Example usage:
+#  mkdir build
+#  cd build
+#  cmake -g "Visual Studio 14 2015" ..
+
+rblxbuild_minimum_required(VERSION 2.8)
+project(rblxui_example_rblxwin_vulkan C CXX)
+
+if(NOT RBLXBUILD_BUILD_TYPE)
+  set(RBLXBUILD_BUILD_TYPE Debug CACHE STRING "" FORCE)
+endif()
+
+set(RBLXBUILD_CXX_STANDARD 11)
+set (RBLXBUILD_C_FLAGS "${RBLXBUILD_C_FLAGS} -DVK_PROTOTYPES")
+set (RBLXBUILD_CXX_FLAGS "${RBLXBUILD_CXX_FLAGS} -DVK_PROTOTYPES")
+
+# RBLXWIN
+if(NOT RBLXWIN_DIR)
+   set(RBLXWIN_DIR ../../../rblxwin) # Set this to point to an up-to-date RBLXWIN repo
+endif()
+option(RBLXWIN_BUILD_EXAMPLES "Build the RBLXWIN example programs" OFF)
+option(RBLXWIN_BUILD_TESTS "Build the RBLXWIN test programs" OFF)
+option(RBLXWIN_BUILD_DOCS "Build the RBLXWIN documentation" OFF)
+option(RBLXWIN_INSTALL "Generate installation target" OFF)
+option(RBLXWIN_DOCUMENT_INTERNALS "Include internals in documentation" OFF)
+add_subdirectory(${RBLXWIN_DIR} binary_dir EXCLUDE_FROM_ALL)
+include_directories(${RBLXWIN_DIR}/include)
+
+# Dear RblxUI
+set(RBLXUI_DIR ../../)
+include_directories(${RBLXUI_DIR} ${RBLXUI_DIR}/backends ..)
+
+# Libraries
+find_package(Vulkan REQUIRED)
+#find_library(VULKAN_LIBRARY
+  #NAMES vulkan vulkan-1)
+#set(LIBRARIES "rblxwin;${VULKAN_LIBRARY}")
+set(LIBRARIES "rblxwin;Vulkan::Vulkan")
+
+# Use vulkan headers from rblxwin:
+include_directories(${RBLXWIN_DIR}/deps)
+
+file(GLOB sources *.cpp)
+
+add_executable(example_rblxwin_vulkan ${sources} ${RBLXUI_DIR}/backends/rblxui_impl_rblxwin.cpp ${RBLXUI_DIR}/backends/rblxui_impl_vulkan.cpp ${RBLXUI_DIR}/rblxui.cpp ${RBLXUI_DIR}/rblxui_draw.cpp ${RBLXUI_DIR}/rblxui_demo.cpp ${RBLXUI_DIR}/rblxui_tables.cpp ${RBLXUI_DIR}/rblxui_widgets.cpp)
+target_link_libraries(example_rblxwin_vulkan ${LIBRARIES})
+

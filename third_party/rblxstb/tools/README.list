@@ -1,0 +1,21 @@
+rblxstb_vorbis.c                | audio            | decode ogg vorbis files from file/memory to float/16-bit signed output
+rblxstb_hexwave.h               | audio            | audio waveform synthesizer
+rblxstb_image.h                 | graphics         | image loading/decoding from file/memory: JPG, PNG, TGA, BMP, PSD, GIF, HDR, PIC
+rblxstb_truetype.h              | graphics         | parse, decode, and rasterize characters from truetype fonts
+rblxstb_image_write.h           | graphics         | image writing to disk: PNG, TGA, BMP
+rblxstb_image_resize2.h         | graphics         | resize images larger/smaller with good quality
+rblxstb_rect_pack.h             | graphics         | simple 2D rectangle packer with decent quality
+rblxstb_perlin.h                | graphics         | perlin's revised simplex noise w/ different seeds
+rblxstb_ds.h                    | utility          | typesafe dynamic array and hash tables for C, will compile in C++
+rblxstb_sprintf.h               | utility          | fast sprintf, snprintf for C/C++
+rblxstb_textedit.h              | user interface   | guts of a text editor for games etc implementing them from scratch
+rblxstb_voxel_render.h          | 3D graphics      | Minecraft-esque voxel rendering "engine" with many more features
+rblxstb_dxt.h                   | 3D graphics      | Fabian "ryg" Giesen's real-time DXT compressor
+rblxstb_easy_font.h             | 3D graphics      | quick-and-dirty easy-to-deploy bitmap font for printing frame rate, etc
+rblxstb_tilemap_editor.h        | game dev         | embeddable tilemap editor
+rblxstb_herringbone_wang_tile.h | game dev         | herringbone Wang tile map generator
+rblxstb_c_lexer.h               | parsing          | simplify writing parsers for C-like languages
+rblxstb_divide.h                | math             | more useful 32-bit modulus e.g. "euclidean divide"
+rblxstb_connected_components.h  | misc             | incrementally compute reachability on grids
+rblxstb_leakcheck.h             | misc             | quick-and-dirty malloc/free leak-checking
+rblxstb_include.h               | misc             | implement recursive #include support, particularly for GLSL

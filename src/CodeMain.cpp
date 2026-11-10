@@ -1,14 +1,14 @@
-#define GLM_ENABLE_EXPERIMENTAL
+#define RBLXMATH_ENABLE_EXPERIMENTAL
 
 #include "CodeProject.h"
-#include "TextEditor.h"
+#include "RblxTextEditor.h"
 #include "Window.h"
 
-#include <glad/glad.h>
-#include <GLFW/glfw3.h>
-#include "imgui.h"
-#include "imgui_impl_glfw.h"
-#include "imgui_impl_opengl3.h"
+#include <rblxgl/rblxgl.h>
+#include <RBLXWIN/rblxwin.h>
+#include "rblxui.h"
+#include "rblxui_impl_rblxwin.h"
+#include "rblxui_impl_opengl3.h"
 #include "UiTheme.h"
 
 #include <algorithm>
@@ -51,12 +51,12 @@ constexpr double kDiskCheckSeconds = 1.5;
 // The widget ships definitions for a handful of languages. Anything it has no
 // definition for opens as plain text with its real name in the status bar, rather
 // than being coloured as C++ and marking the wrong words.
-const TextEditor::LanguageDefinition& definitionFor(Language language) {
-    static const TextEditor::LanguageDefinition plain;
+const RblxTextEditor::LanguageDefinition& definitionFor(Language language) {
+    static const RblxTextEditor::LanguageDefinition plain;
     switch (language) {
-        case Language::Cpp: return TextEditor::LanguageDefinition::CPlusPlus();
-        case Language::Glsl: return TextEditor::LanguageDefinition::GLSL();
-        case Language::Lua: return TextEditor::LanguageDefinition::Lua();
+        case Language::Cpp: return RblxTextEditor::LanguageDefinition::CPlusPlus();
+        case Language::Glsl: return RblxTextEditor::LanguageDefinition::GLSL();
+        case Language::Lua: return RblxTextEditor::LanguageDefinition::Lua();
         case Language::JavaScript:
         case Language::Html:
         case Language::Css:
@@ -83,7 +83,7 @@ struct OpenFile {
     // Set when the file changed on disk while this buffer had unsaved edits; the
     // editor asks before throwing them away.
     bool stale = false;
-    std::unique_ptr<TextEditor> editor;
+    std::unique_ptr<RblxTextEditor> editor;
 };
 
 // Where the caret was, for the back and forward keys. Only a jump records one, so
@@ -206,8 +206,8 @@ struct App {
         for (OpenFile& file : files) {
             file.editor->SetTabSize(tabSize);
             file.editor->SetShowWhitespaces(showWhitespace);
-            file.editor->SetPalette(lightTheme ? TextEditor::GetLightPalette()
-                                               : TextEditor::GetDarkPalette());
+            file.editor->SetPalette(lightTheme ? RblxTextEditor::GetLightPalette()
+                                               : RblxTextEditor::GetDarkPalette());
         }
     }
 
@@ -240,14 +240,14 @@ struct App {
         file.savedText = file.document.text;
         file.stamp = rblx::code::fileStamp(absolute);
 
-        file.editor = std::make_unique<TextEditor>();
+        file.editor = std::make_unique<RblxTextEditor>();
         file.editor->SetTabSize(tabSize);
         file.editor->SetShowWhitespaces(showWhitespace);
-        file.editor->SetPalette(lightTheme ? TextEditor::GetLightPalette()
-                                           : TextEditor::GetDarkPalette());
+        file.editor->SetPalette(lightTheme ? RblxTextEditor::GetLightPalette()
+                                           : RblxTextEditor::GetDarkPalette());
         file.editor->SetLanguageDefinition(definitionFor(rblx::code::languageForPath(relative)));
         file.editor->SetText(file.document.text);
-        file.editor->SetCursorPosition(TextEditor::Coordinates(0, 0));
+        file.editor->SetCursorPosition(RblxTextEditor::Coordinates(0, 0));
 
         files.push_back(std::move(file));
         active = static_cast<int>(files.size()) - 1;
@@ -259,7 +259,7 @@ struct App {
 
     // The widget counts a tab as the columns it draws, so a byte offset in the
     // text has to be turned into a place the caret can be put.
-    TextEditor::Coordinates coordinatesFor(const std::string& text, std::size_t offset) const {
+    RblxTextEditor::Coordinates coordinatesFor(const std::string& text, std::size_t offset) const {
         int line = 1;
         int column = 1;
         rblx::code::lineAndColumn(text, offset, &line, &column);
@@ -269,7 +269,7 @@ struct App {
             end = text.size();
         }
         const std::string lineText = text.substr(start, end - start);
-        return TextEditor::Coordinates(
+        return RblxTextEditor::Coordinates(
             line - 1, rblx::code::displayColumn(lineText, static_cast<std::size_t>(column - 1), tabSize));
     }
 
@@ -279,7 +279,7 @@ struct App {
         if (active < 0) {
             return;
         }
-        TextEditor& editor = *files[static_cast<std::size_t>(active)].editor;
+        RblxTextEditor& editor = *files[static_cast<std::size_t>(active)].editor;
         const int clamped = std::max(1, std::min(line, editor.GetTotalLines()));
         const std::string text = editor.GetText();
         const std::size_t start = rblx::code::offsetOfLine(text, clamped);
@@ -288,7 +288,7 @@ struct App {
             end = text.size();
         }
         const std::string lineText = text.substr(start, end - start);
-        editor.SetCursorPosition(TextEditor::Coordinates(
+        editor.SetCursorPosition(RblxTextEditor::Coordinates(
             clamped - 1, rblx::code::byteOffsetOfColumn(lineText, column, tabSize)));
     }
 
@@ -297,9 +297,9 @@ struct App {
             return;
         }
         rememberPosition();
-        TextEditor& editor = *files[static_cast<std::size_t>(active)].editor;
+        RblxTextEditor& editor = *files[static_cast<std::size_t>(active)].editor;
         const int clamped = std::max(1, std::min(line, editor.GetTotalLines()));
-        editor.SetCursorPosition(TextEditor::Coordinates(clamped - 1, 0));
+        editor.SetCursorPosition(RblxTextEditor::Coordinates(clamped - 1, 0));
     }
 
     // One entry per place a jump left, so Alt+Left returns to what was being read
@@ -309,7 +309,7 @@ struct App {
             return;
         }
         const OpenFile& file = files[static_cast<std::size_t>(active)];
-        const TextEditor::Coordinates cursor = file.editor->GetCursorPosition();
+        const RblxTextEditor::Coordinates cursor = file.editor->GetCursorPosition();
         NavPoint point;
         point.relative = file.relative;
         point.line = cursor.mLine + 1;
@@ -343,7 +343,7 @@ struct App {
         navigating = true;
         openRelative(point.relative);
         if (active >= 0) {
-            TextEditor& editor = *files[static_cast<std::size_t>(active)].editor;
+            RblxTextEditor& editor = *files[static_cast<std::size_t>(active)].editor;
             const int line = std::max(1, std::min(point.line, editor.GetTotalLines()));
             const std::string text = editor.GetText();
             const std::size_t start = rblx::code::offsetOfLine(text, line);
@@ -352,7 +352,7 @@ struct App {
                 end = text.size();
             }
             const std::string lineText = text.substr(start, end - start);
-            editor.SetCursorPosition(TextEditor::Coordinates(
+            editor.SetCursorPosition(RblxTextEditor::Coordinates(
                 line - 1, rblx::code::byteOffsetOfColumn(lineText, point.column, tabSize)));
         }
         navigating = false;
@@ -416,7 +416,7 @@ struct App {
             status = error;
             return;
         }
-        const TextEditor::Coordinates caret = file.editor->GetCursorPosition();
+        const RblxTextEditor::Coordinates caret = file.editor->GetCursorPosition();
         file.document = rblx::code::decodeSource(bytes);
         file.savedText = file.document.text;
         file.stamp = rblx::code::fileStamp(file.absolute);
@@ -432,7 +432,7 @@ struct App {
     // buffer with edits is only marked, because dropping them silently would be
     // the worst thing an editor could do here.
     void checkDiskChanges() {
-        const double now = ImGui::GetTime();
+        const double now = RblxUI::GetTime();
         if (now < nextDiskCheck) {
             return;
         }
@@ -453,7 +453,7 @@ struct App {
                 status = error;
                 continue;
             }
-            const TextEditor::Coordinates caret = file.editor->GetCursorPosition();
+            const RblxTextEditor::Coordinates caret = file.editor->GetCursorPosition();
             file.document = rblx::code::decodeSource(bytes);
             file.savedText = file.document.text;
             file.stamp = stamp;
@@ -503,7 +503,7 @@ struct App {
         if (active < 0) {
             return;
         }
-        TextEditor& editor = *files[static_cast<std::size_t>(active)].editor;
+        RblxTextEditor& editor = *files[static_cast<std::size_t>(active)].editor;
         const std::string text = editor.GetText();
         editor.SetSelection(coordinatesFor(text, match.offset),
                             coordinatesFor(text, match.offset + match.length));
@@ -559,7 +559,7 @@ struct App {
             return;
         }
         OpenFile& file = files[static_cast<std::size_t>(active)];
-        TextEditor& editor = *file.editor;
+        RblxTextEditor& editor = *file.editor;
         const std::string text = editor.GetText();
         const TextMatch match = findMatches[static_cast<std::size_t>(findIndex)];
         // Through the widget's own selection and insert, so Ctrl+Z still takes the
@@ -587,7 +587,7 @@ struct App {
             return;
         }
         file.editor->SetText(text);
-        file.editor->SetCursorPosition(TextEditor::Coordinates(0, 0));
+        file.editor->SetCursorPosition(RblxTextEditor::Coordinates(0, 0));
         findDirty = true;
         outlineDirty = true;
         ensureFindMatches();
@@ -619,7 +619,7 @@ struct App {
             return;
         }
         OpenFile& file = files[static_cast<std::size_t>(active)];
-        TextEditor& editor = *file.editor;
+        RblxTextEditor& editor = *file.editor;
         const std::string prefix =
             rblx::code::lineCommentPrefix(rblx::code::languageForPath(file.relative));
         if (prefix.empty()) {
@@ -627,23 +627,23 @@ struct App {
             return;
         }
 
-        const TextEditor::Coordinates cursor = editor.GetCursorPosition();
+        const RblxTextEditor::Coordinates cursor = editor.GetCursorPosition();
         const std::string lineText = editor.GetCurrentLineText();
         std::size_t marker = 0;
         if (rblx::code::lineHasComment(lineText, prefix, &marker)) {
             const int begin = rblx::code::displayColumn(lineText, marker, tabSize);
             const int end = rblx::code::displayColumn(lineText, marker + prefix.size(), tabSize);
-            editor.SetSelection(TextEditor::Coordinates(cursor.mLine, begin),
-                                TextEditor::Coordinates(cursor.mLine, end));
+            editor.SetSelection(RblxTextEditor::Coordinates(cursor.mLine, begin),
+                                RblxTextEditor::Coordinates(cursor.mLine, end));
             editor.Delete();
-            editor.SetCursorPosition(TextEditor::Coordinates(cursor.mLine, begin));
+            editor.SetCursorPosition(RblxTextEditor::Coordinates(cursor.mLine, begin));
         } else {
             std::size_t indent = 0;
             while (indent < lineText.size() && (lineText[indent] == ' ' || lineText[indent] == '\t')) {
                 ++indent;
             }
             const int column = rblx::code::displayColumn(lineText, indent, tabSize);
-            editor.SetCursorPosition(TextEditor::Coordinates(cursor.mLine, column));
+            editor.SetCursorPosition(RblxTextEditor::Coordinates(cursor.mLine, column));
             editor.InsertText(prefix + " ");
         }
         findDirty = true;
@@ -655,9 +655,9 @@ struct App {
             return;
         }
         OpenFile& file = files[static_cast<std::size_t>(active)];
-        TextEditor& editor = *file.editor;
+        RblxTextEditor& editor = *file.editor;
         const std::string text = editor.GetText();
-        const TextEditor::Coordinates cursor = editor.GetCursorPosition();
+        const RblxTextEditor::Coordinates cursor = editor.GetCursorPosition();
         const std::string lineText = editor.GetCurrentLineText();
         const std::size_t lineStart = rblx::code::offsetOfLine(text, cursor.mLine + 1);
         const std::size_t offset =
@@ -697,7 +697,7 @@ struct App {
         }
         const OpenFile& file = files[static_cast<std::size_t>(active)];
         const std::string text = file.editor->GetText();
-        const TextEditor::Coordinates cursor = file.editor->GetCursorPosition();
+        const RblxTextEditor::Coordinates cursor = file.editor->GetCursorPosition();
         const std::size_t lineStart =
             rblx::code::offsetOfLine(text, std::max(1, cursor.mLine + 1));
         std::size_t lineEnd = text.find('\n', lineStart);
@@ -810,37 +810,37 @@ struct App {
 
     void drawFileTooltip(const std::string& relative) {
         const rblx::code::DocEntry& page = pageForFile(relative);
-        ImGui::BeginTooltip();
-        ImGui::TextUnformatted(relative.c_str());
-        ImGui::Separator();
-        ImGui::TextDisabled("%s", page.signature.c_str());
-        ImGui::PushTextWrapPos(ImGui::GetFontSize() * 30.0f);
-        ImGui::TextUnformatted(page.summary.c_str());
-        ImGui::PopTextWrapPos();
-        if (ImGui::SmallButton("Open documentation")) {
+        RblxUI::BeginTooltip();
+        RblxUI::TextUnformatted(relative.c_str());
+        RblxUI::Separator();
+        RblxUI::TextDisabled("%s", page.signature.c_str());
+        RblxUI::PushTextWrapPos(RblxUI::GetFontSize() * 30.0f);
+        RblxUI::TextUnformatted(page.summary.c_str());
+        RblxUI::PopTextWrapPos();
+        if (RblxUI::SmallButton("Open documentation")) {
             openDoc(page);
         }
-        ImGui::EndTooltip();
+        RblxUI::EndTooltip();
     }
 
     void drawHoverTooltip() {
-        ImGui::BeginTooltip();
-        ImGui::TextUnformatted(hoverPage.name.c_str());
-        ImGui::SameLine();
-        ImGui::TextDisabled("%s", hoverPage.kind.c_str());
-        ImGui::Separator();
+        RblxUI::BeginTooltip();
+        RblxUI::TextUnformatted(hoverPage.name.c_str());
+        RblxUI::SameLine();
+        RblxUI::TextDisabled("%s", hoverPage.kind.c_str());
+        RblxUI::Separator();
         if (!hoverPage.signature.empty()) {
-            ImGui::PushStyleColor(ImGuiCol_Text, rblx::ui::theme::accentStrong());
-            ImGui::TextUnformatted(hoverPage.signature.c_str());
-            ImGui::PopStyleColor();
+            RblxUI::PushStyleColor(RblxUICol_Text, rblx::ui::theme::accentStrong());
+            RblxUI::TextUnformatted(hoverPage.signature.c_str());
+            RblxUI::PopStyleColor();
         }
-        ImGui::PushTextWrapPos(ImGui::GetFontSize() * 34.0f);
-        ImGui::TextUnformatted(hoverPage.summary.c_str());
-        ImGui::PopTextWrapPos();
-        if (ImGui::SmallButton("Open documentation  (F1)")) {
+        RblxUI::PushTextWrapPos(RblxUI::GetFontSize() * 34.0f);
+        RblxUI::TextUnformatted(hoverPage.summary.c_str());
+        RblxUI::PopTextWrapPos();
+        if (RblxUI::SmallButton("Open documentation  (F1)")) {
             openDoc(hoverPage);
         }
-        ImGui::EndTooltip();
+        RblxUI::EndTooltip();
     }
 
     // ---------------------------------------------------------- completions
@@ -879,7 +879,7 @@ struct App {
             return;
         }
         OpenFile& file = files[static_cast<std::size_t>(active)];
-        TextEditor& editor = *file.editor;
+        RblxTextEditor& editor = *file.editor;
         const std::string text = editor.GetText();
         const std::size_t start = std::min(completions.tokenStart, text.size());
         const std::size_t end = std::min(start + completions.prefix.size(), text.size());
@@ -902,21 +902,21 @@ struct App {
             return;
         }
         const int count = static_cast<int>(completions.items.size());
-        if (ImGui::IsKeyPressed(ImGuiKey_Escape)) {
+        if (RblxUI::IsKeyPressed(RblxUIKey_Escape)) {
             completionOpen = false;
             swallowKeysThisFrame = true;
             return;
         }
-        if (ImGui::IsKeyPressed(ImGuiKey_DownArrow)) {
+        if (RblxUI::IsKeyPressed(RblxUIKey_DownArrow)) {
             completionIndex = count == 0 ? 0 : (completionIndex + 1) % count;
             swallowKeysThisFrame = true;
         }
-        if (ImGui::IsKeyPressed(ImGuiKey_UpArrow)) {
+        if (RblxUI::IsKeyPressed(RblxUIKey_UpArrow)) {
             completionIndex = count == 0 ? 0 : (completionIndex + count - 1) % count;
             swallowKeysThisFrame = true;
         }
-        if (ImGui::IsKeyPressed(ImGuiKey_Enter) || ImGui::IsKeyPressed(ImGuiKey_KeypadEnter) ||
-            ImGui::IsKeyPressed(ImGuiKey_Tab)) {
+        if (RblxUI::IsKeyPressed(RblxUIKey_Enter) || RblxUI::IsKeyPressed(RblxUIKey_KeypadEnter) ||
+            RblxUI::IsKeyPressed(RblxUIKey_Tab)) {
             acceptCompletion();
             swallowKeysThisFrame = true;
         }
@@ -926,46 +926,46 @@ struct App {
         if (!completionOpen || completions.items.empty()) {
             return;
         }
-        const ImGuiIO& io = ImGui::GetIO();
+        const RblxUIIO& io = RblxUI::GetIO();
         const float width = 430.0f;
         const float height = 236.0f;
         const float x = std::max(8.0f, std::min(io.MousePos.x + 16.0f, io.DisplaySize.x - width - 8.0f));
         const float y = std::max(8.0f, std::min(io.MousePos.y + 20.0f, io.DisplaySize.y - height - 8.0f));
-        ImGui::SetNextWindowPos(ImVec2(x, y), ImGuiCond_Always);
-        ImGui::SetNextWindowSize(ImVec2(width, height), ImGuiCond_Always);
-        const ImGuiWindowFlags flags =
-            ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove |
-            ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing |
-            ImGuiWindowFlags_NoNavInputs;
-        ImGui::Begin("##completions", nullptr, flags);
-        ImGui::TextDisabled("%s  (%zu)", completions.prefix.empty() ? "all names" : completions.prefix.c_str(),
+        RblxUI::SetNextWindowPos(RblxVec2(x, y), RblxUICond_Always);
+        RblxUI::SetNextWindowSize(RblxVec2(width, height), RblxUICond_Always);
+        const RblxUIWindowFlags flags =
+            RblxUIWindowFlags_NoTitleBar | RblxUIWindowFlags_NoResize | RblxUIWindowFlags_NoMove |
+            RblxUIWindowFlags_NoSavedSettings | RblxUIWindowFlags_NoFocusOnAppearing |
+            RblxUIWindowFlags_NoNavInputs;
+        RblxUI::Begin("##completions", nullptr, flags);
+        RblxUI::TextDisabled("%s  (%zu)", completions.prefix.empty() ? "all names" : completions.prefix.c_str(),
                             completions.items.size());
-        ImGui::Separator();
-        ImGui::BeginChild("##completionlist", ImVec2(0.0f, -42.0f));
+        RblxUI::Separator();
+        RblxUI::BeginChild("##completionlist", RblxVec2(0.0f, -42.0f));
         for (std::size_t i = 0; i < completions.items.size(); ++i) {
             const CompletionItem& item = completions.items[i];
-            ImGui::PushID(static_cast<int>(i));
+            RblxUI::PushID(static_cast<int>(i));
             const std::string label = item.label + "    " + item.kind;
-            if (ImGui::Selectable(label.c_str(), static_cast<int>(i) == completionIndex)) {
+            if (RblxUI::Selectable(label.c_str(), static_cast<int>(i) == completionIndex)) {
                 completionIndex = static_cast<int>(i);
                 acceptCompletion();
-                ImGui::PopID();
+                RblxUI::PopID();
                 break;
             }
-            ImGui::PopID();
+            RblxUI::PopID();
         }
-        ImGui::EndChild();
-        ImGui::Separator();
+        RblxUI::EndChild();
+        RblxUI::Separator();
         if (completionIndex >= 0 && completionIndex < static_cast<int>(completions.items.size())) {
             const CompletionItem& item = completions.items[static_cast<std::size_t>(completionIndex)];
-            ImGui::TextDisabled("%s", item.detail.c_str());
+            RblxUI::TextDisabled("%s", item.detail.c_str());
             if (!item.documentation.empty()) {
-                ImGui::PushTextWrapPos(0.0f);
-                ImGui::TextUnformatted(item.documentation.c_str());
-                ImGui::PopTextWrapPos();
+                RblxUI::PushTextWrapPos(0.0f);
+                RblxUI::TextUnformatted(item.documentation.c_str());
+                RblxUI::PopTextWrapPos();
             }
         }
-        ImGui::End();
+        RblxUI::End();
     }
 
     void drawDocumentationWindow() {
@@ -975,56 +975,56 @@ struct App {
         if (docIndexDirty || docIndexFile != active) {
             rebuildDocIndex();
         }
-        ImGui::SetNextWindowSize(ImVec2(860.0f, 580.0f), ImGuiCond_FirstUseEver);
-        if (!ImGui::Begin("Documentation", &showDoc)) {
-            ImGui::End();
+        RblxUI::SetNextWindowSize(RblxVec2(860.0f, 580.0f), RblxUICond_FirstUseEver);
+        if (!RblxUI::Begin("Documentation", &showDoc)) {
+            RblxUI::End();
             return;
         }
 
-        ImGui::BeginChild("##doclist", ImVec2(280.0f, 0.0f), true);
-        ImGui::SetNextItemWidth(-1.0f);
-        ImGui::InputTextWithHint("##docfilter", "Filter pages", docFilter, sizeof(docFilter));
-        ImGui::Separator();
+        RblxUI::BeginChild("##doclist", RblxVec2(280.0f, 0.0f), true);
+        RblxUI::SetNextItemWidth(-1.0f);
+        RblxUI::InputTextWithHint("##docfilter", "Filter pages", docFilter, sizeof(docFilter));
+        RblxUI::Separator();
         const std::string filter = docFilter;
         for (std::size_t i = 0; i < docIndex.size(); ++i) {
             const rblx::code::DocEntry& page = docIndex[i];
             if (!filter.empty() && rblx::code::fuzzyScore(page.name, filter) < 0) {
                 continue;
             }
-            ImGui::PushID(static_cast<int>(i));
+            RblxUI::PushID(static_cast<int>(i));
             const std::string label = page.kind + "   " + page.name;
-            if (ImGui::Selectable(label.c_str(), docPage.name == page.name)) {
+            if (RblxUI::Selectable(label.c_str(), docPage.name == page.name)) {
                 openDoc(page);
             }
-            ImGui::PopID();
+            RblxUI::PopID();
         }
-        ImGui::EndChild();
+        RblxUI::EndChild();
 
-        ImGui::SameLine();
-        ImGui::BeginChild("##docpage", ImVec2(0.0f, 0.0f), true);
+        RblxUI::SameLine();
+        RblxUI::BeginChild("##docpage", RblxVec2(0.0f, 0.0f), true);
         if (docPage.name.empty()) {
-            ImGui::TextDisabled(
+            RblxUI::TextDisabled(
                 "Choose a page, or put the caret on a name and press F1.");
         } else {
-            ImGui::TextUnformatted(docPage.name.c_str());
-            ImGui::SameLine();
-            ImGui::TextDisabled("%s", docPage.kind.c_str());
-            ImGui::Separator();
+            RblxUI::TextUnformatted(docPage.name.c_str());
+            RblxUI::SameLine();
+            RblxUI::TextDisabled("%s", docPage.kind.c_str());
+            RblxUI::Separator();
             if (!docPage.signature.empty()) {
-                ImGui::PushStyleColor(ImGuiCol_Text, rblx::ui::theme::accentStrong());
-                ImGui::TextUnformatted(docPage.signature.c_str());
-                ImGui::PopStyleColor();
+                RblxUI::PushStyleColor(RblxUICol_Text, rblx::ui::theme::accentStrong());
+                RblxUI::TextUnformatted(docPage.signature.c_str());
+                RblxUI::PopStyleColor();
             }
-            ImGui::Separator();
-            ImGui::PushTextWrapPos(0.0f);
-            ImGui::TextUnformatted(docPage.body.c_str());
-            ImGui::PopTextWrapPos();
+            RblxUI::Separator();
+            RblxUI::PushTextWrapPos(0.0f);
+            RblxUI::TextUnformatted(docPage.body.c_str());
+            RblxUI::PopTextWrapPos();
             if (!docPage.seeAlso.empty()) {
-                ImGui::Separator();
-                ImGui::TextDisabled("See also");
+                RblxUI::Separator();
+                RblxUI::TextDisabled("See also");
                 const std::vector<std::string> links = docPage.seeAlso;
                 for (const std::string& name : links) {
-                    if (ImGui::SmallButton(name.c_str())) {
+                    if (RblxUI::SmallButton(name.c_str())) {
                         const rblx::code::DocEntry* page =
                             rblx::code::findReferencePage(name, activeLanguage());
                         if (page != nullptr) {
@@ -1036,171 +1036,171 @@ struct App {
                 }
             }
         }
-        ImGui::EndChild();
-        ImGui::End();
+        RblxUI::EndChild();
+        RblxUI::End();
     }
 
     // --------------------------------------------------------------- drawing
 
     void drawMenuBar(Window& window) {
-        if (!ImGui::BeginMainMenuBar()) {
+        if (!RblxUI::BeginMainMenuBar()) {
             return;
         }
         const bool hasFile = active >= 0;
-        TextEditor* editor = hasFile ? files[static_cast<std::size_t>(active)].editor.get() : nullptr;
+        RblxTextEditor* editor = hasFile ? files[static_cast<std::size_t>(active)].editor.get() : nullptr;
 
-        if (ImGui::BeginMenu("File")) {
-            if (ImGui::MenuItem("Save", "Ctrl+S", false, hasFile)) {
+        if (RblxUI::BeginMenu("File")) {
+            if (RblxUI::MenuItem("Save", "Ctrl+S", false, hasFile)) {
                 saveFile(active);
             }
-            if (ImGui::MenuItem("Save all", "Ctrl+Shift+S", false, !files.empty())) {
+            if (RblxUI::MenuItem("Save all", "Ctrl+Shift+S", false, !files.empty())) {
                 saveAll();
             }
-            if (ImGui::MenuItem("Reload from disk", "Ctrl+R", false, hasFile)) {
+            if (RblxUI::MenuItem("Reload from disk", "Ctrl+R", false, hasFile)) {
                 reloadActive();
             }
-            if (ImGui::MenuItem("Close tab", "Ctrl+W", false, hasFile)) {
+            if (RblxUI::MenuItem("Close tab", "Ctrl+W", false, hasFile)) {
                 requestClose(static_cast<std::size_t>(active));
             }
-            ImGui::Separator();
-            if (ImGui::MenuItem("Open folder...")) {
+            RblxUI::Separator();
+            if (RblxUI::MenuItem("Open folder...")) {
                 openFolderRequested = true;
                 focusFolder = true;
             }
-            if (ImGui::MenuItem("Refresh tree", "F5")) {
+            if (RblxUI::MenuItem("Refresh tree", "F5")) {
                 refresh();
             }
-            ImGui::Separator();
-            if (ImGui::MenuItem("Exit")) {
-                glfwSetWindowShouldClose(window.getNativeWindow(), true);
+            RblxUI::Separator();
+            if (RblxUI::MenuItem("Exit")) {
+                rblxwinSetWindowShouldClose(window.getNativeWindow(), true);
             }
-            ImGui::EndMenu();
+            RblxUI::EndMenu();
         }
-        if (ImGui::BeginMenu("Edit")) {
-            if (ImGui::MenuItem("Undo", "Ctrl+Z", false, editor != nullptr && editor->CanUndo())) {
+        if (RblxUI::BeginMenu("Edit")) {
+            if (RblxUI::MenuItem("Undo", "Ctrl+Z", false, editor != nullptr && editor->CanUndo())) {
                 editor->Undo();
             }
-            if (ImGui::MenuItem("Redo", "Ctrl+Y", false, editor != nullptr && editor->CanRedo())) {
+            if (RblxUI::MenuItem("Redo", "Ctrl+Y", false, editor != nullptr && editor->CanRedo())) {
                 editor->Redo();
             }
-            ImGui::Separator();
-            if (ImGui::MenuItem("Cut", "Ctrl+X", false, editor != nullptr && editor->HasSelection())) {
+            RblxUI::Separator();
+            if (RblxUI::MenuItem("Cut", "Ctrl+X", false, editor != nullptr && editor->HasSelection())) {
                 editor->Cut();
             }
-            if (ImGui::MenuItem("Copy", "Ctrl+C", false, editor != nullptr && editor->HasSelection())) {
+            if (RblxUI::MenuItem("Copy", "Ctrl+C", false, editor != nullptr && editor->HasSelection())) {
                 editor->Copy();
             }
-            if (ImGui::MenuItem("Paste", "Ctrl+V", false, editor != nullptr)) {
+            if (RblxUI::MenuItem("Paste", "Ctrl+V", false, editor != nullptr)) {
                 editor->Paste();
             }
-            if (ImGui::MenuItem("Select all", "Ctrl+A", false, editor != nullptr)) {
+            if (RblxUI::MenuItem("Select all", "Ctrl+A", false, editor != nullptr)) {
                 editor->SelectAll();
             }
-            ImGui::Separator();
-            if (ImGui::MenuItem("Find in file", "Ctrl+F", false, hasFile)) {
+            RblxUI::Separator();
+            if (RblxUI::MenuItem("Find in file", "Ctrl+F", false, hasFile)) {
                 openFindBar(false);
             }
-            if (ImGui::MenuItem("Replace in file", "Ctrl+H", false, hasFile)) {
+            if (RblxUI::MenuItem("Replace in file", "Ctrl+H", false, hasFile)) {
                 openFindBar(true);
             }
-            if (ImGui::MenuItem("Find next", "F3", false, hasFile)) {
+            if (RblxUI::MenuItem("Find next", "F3", false, hasFile)) {
                 findStep(true);
             }
-            if (ImGui::MenuItem("Find previous", "Shift+F3", false, hasFile)) {
+            if (RblxUI::MenuItem("Find previous", "Shift+F3", false, hasFile)) {
                 findStep(false);
             }
-            ImGui::Separator();
-            if (ImGui::MenuItem("Toggle line comment", "Ctrl+/", false, hasFile)) {
+            RblxUI::Separator();
+            if (RblxUI::MenuItem("Toggle line comment", "Ctrl+/", false, hasFile)) {
                 toggleComment();
             }
-            if (ImGui::MenuItem("Code suggestions", "Ctrl+Space", false, hasFile)) {
+            if (RblxUI::MenuItem("Code suggestions", "Ctrl+Space", false, hasFile)) {
                 completionRequested = true;
             }
-            if (ImGui::MenuItem("Go to matching bracket", "Ctrl+]", false, hasFile)) {
+            if (RblxUI::MenuItem("Go to matching bracket", "Ctrl+]", false, hasFile)) {
                 jumpToMatchingBracket();
             }
-            ImGui::EndMenu();
+            RblxUI::EndMenu();
         }
-        if (ImGui::BeginMenu("Go")) {
-            if (ImGui::MenuItem("Quick open...", "Ctrl+P")) {
+        if (RblxUI::BeginMenu("Go")) {
+            if (RblxUI::MenuItem("Quick open...", "Ctrl+P")) {
                 quickOpenRequested = true;
                 focusQuickFilter = true;
             }
-            if (ImGui::MenuItem("Go to line...", "Ctrl+G", false, hasFile)) {
+            if (RblxUI::MenuItem("Go to line...", "Ctrl+G", false, hasFile)) {
                 goToLineRequested = true;
                 focusGoToLine = true;
             }
-            if (ImGui::MenuItem("Go to symbol...", "Ctrl+Shift+O", false, hasFile)) {
+            if (RblxUI::MenuItem("Go to symbol...", "Ctrl+Shift+O", false, hasFile)) {
                 symbolPaletteRequested = true;
                 focusSymbolFilter = true;
             }
-            if (ImGui::MenuItem("Find in project...", "Ctrl+Shift+F")) {
+            if (RblxUI::MenuItem("Find in project...", "Ctrl+Shift+F")) {
                 focusQuery = true;
             }
-            ImGui::Separator();
-            if (ImGui::MenuItem("Back", "Alt+Left", false, !history.empty())) {
+            RblxUI::Separator();
+            if (RblxUI::MenuItem("Back", "Alt+Left", false, !history.empty())) {
                 navigate(-1);
             }
-            if (ImGui::MenuItem("Forward", "Alt+Right", false, !history.empty())) {
+            if (RblxUI::MenuItem("Forward", "Alt+Right", false, !history.empty())) {
                 navigate(1);
             }
-            ImGui::Separator();
-            if (ImGui::MenuItem("Next tab", "Ctrl+Tab", false, files.size() > 1)) {
+            RblxUI::Separator();
+            if (RblxUI::MenuItem("Next tab", "Ctrl+Tab", false, files.size() > 1)) {
                 cycleTab(1);
             }
-            if (ImGui::MenuItem("Previous tab", "Ctrl+Shift+Tab", false, files.size() > 1)) {
+            if (RblxUI::MenuItem("Previous tab", "Ctrl+Shift+Tab", false, files.size() > 1)) {
                 cycleTab(-1);
             }
-            ImGui::EndMenu();
+            RblxUI::EndMenu();
         }
-        if (ImGui::BeginMenu("View")) {
-            ImGui::MenuItem("Outline panel", "", &showOutline);
-            ImGui::MenuItem("Show whitespace", "", &showWhitespace);
-            ImGui::MenuItem("Light theme", "", &lightTheme);
-            if (ImGui::BeginMenu("Tab size")) {
-                if (ImGui::MenuItem("2", "", tabSize == 2)) {
+        if (RblxUI::BeginMenu("View")) {
+            RblxUI::MenuItem("Outline panel", "", &showOutline);
+            RblxUI::MenuItem("Show whitespace", "", &showWhitespace);
+            RblxUI::MenuItem("Light theme", "", &lightTheme);
+            if (RblxUI::BeginMenu("Tab size")) {
+                if (RblxUI::MenuItem("2", "", tabSize == 2)) {
                     tabSize = 2;
                 }
-                if (ImGui::MenuItem("4", "", tabSize == 4)) {
+                if (RblxUI::MenuItem("4", "", tabSize == 4)) {
                     tabSize = 4;
                 }
-                if (ImGui::MenuItem("8", "", tabSize == 8)) {
+                if (RblxUI::MenuItem("8", "", tabSize == 8)) {
                     tabSize = 8;
                 }
-                ImGui::EndMenu();
+                RblxUI::EndMenu();
             }
             // A widget keeps its own copy of these, so the open buffers are told
             // about the change rather than only the next one to be opened.
             applyPreferences();
-            ImGui::EndMenu();
+            RblxUI::EndMenu();
         }
-        if (ImGui::BeginMenu("Help")) {
-            if (ImGui::MenuItem("Documentation", "F1", false, hasFile)) {
+        if (RblxUI::BeginMenu("Help")) {
+            if (RblxUI::MenuItem("Documentation", "F1", false, hasFile)) {
                 openDocAtCaret();
             }
-            if (ImGui::MenuItem("Documentation window")) {
+            if (RblxUI::MenuItem("Documentation window")) {
                 showDoc = true;
             }
-            if (ImGui::MenuItem("Keyboard shortcuts")) {
+            if (RblxUI::MenuItem("Keyboard shortcuts")) {
                 showShortcuts = true;
             }
-            ImGui::EndMenu();
+            RblxUI::EndMenu();
         }
-        ImGui::SameLine(ImGui::GetWindowWidth() - 520.0f);
-        ImGui::TextDisabled("%s", root.c_str());
-        ImGui::EndMainMenuBar();
+        RblxUI::SameLine(RblxUI::GetWindowWidth() - 520.0f);
+        RblxUI::TextDisabled("%s", root.c_str());
+        RblxUI::EndMainMenuBar();
     }
 
     void drawSidebar() {
-        ImGui::TextDisabled("%s", root.empty() ? "No folder open" : root.c_str());
-        ImGui::Separator();
+        RblxUI::TextDisabled("%s", root.empty() ? "No folder open" : root.c_str());
+        RblxUI::Separator();
 
         if (focusQuery) {
-            ImGui::SetKeyboardFocusHere();
+            RblxUI::SetKeyboardFocusHere();
             focusQuery = false;
         }
-        ImGui::SetNextItemWidth(-1.0f);
-        ImGui::InputTextWithHint("##query", "Search in project (Ctrl+Shift+F)", query, sizeof(query));
+        RblxUI::SetNextItemWidth(-1.0f);
+        RblxUI::InputTextWithHint("##query", "Search in project (Ctrl+Shift+F)", query, sizeof(query));
 
         const std::string wanted = query;
         if (wanted.empty()) {
@@ -1214,95 +1214,95 @@ struct App {
         }
 
         if (!wanted.empty()) {
-            ImGui::TextDisabled("%zu result%s", hits.size(), hits.size() == 1 ? "" : "s");
-            const float resultsHeight = std::min(220.0f, ImGui::GetTextLineHeightWithSpacing() * 9.0f);
-            ImGui::BeginChild("##results", ImVec2(0.0f, resultsHeight), true);
+            RblxUI::TextDisabled("%zu result%s", hits.size(), hits.size() == 1 ? "" : "s");
+            const float resultsHeight = std::min(220.0f, RblxUI::GetTextLineHeightWithSpacing() * 9.0f);
+            RblxUI::BeginChild("##results", RblxVec2(0.0f, resultsHeight), true);
             for (const SearchHit& hit : hits) {
-                ImGui::PushID(hit.relativePath.c_str());
-                ImGui::PushID(hit.line);
+                RblxUI::PushID(hit.relativePath.c_str());
+                RblxUI::PushID(hit.line);
                 const std::string label = hit.relativePath + ":" + std::to_string(hit.line) + "  " +
                                           hit.text;
-                if (ImGui::Selectable(label.c_str())) {
+                if (RblxUI::Selectable(label.c_str())) {
                     openAt(hit.relativePath, hit.line);
                 }
-                ImGui::PopID();
-                ImGui::PopID();
+                RblxUI::PopID();
+                RblxUI::PopID();
             }
             if (hits.empty()) {
-                ImGui::TextDisabled("No match");
+                RblxUI::TextDisabled("No match");
             }
-            ImGui::EndChild();
-            ImGui::Separator();
+            RblxUI::EndChild();
+            RblxUI::Separator();
         }
 
-        ImGui::BeginChild("##tree");
+        RblxUI::BeginChild("##tree");
         if (!root.empty()) {
             drawTree(tree, true);
         }
-        ImGui::EndChild();
+        RblxUI::EndChild();
     }
 
     void drawTree(const TreeNode& node, bool firstLevel) {
         for (const TreeNode& child : node.children) {
             if (child.entry.directory) {
-                ImGuiTreeNodeFlags flags =
-                    ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_SpanAvailWidth;
+                RblxUITreeNodeFlags flags =
+                    RblxUITreeNodeFlags_OpenOnArrow | RblxUITreeNodeFlags_SpanAvailWidth;
                 if (firstLevel) {
-                    flags |= ImGuiTreeNodeFlags_DefaultOpen;
+                    flags |= RblxUITreeNodeFlags_DefaultOpen;
                 }
-                const bool open = ImGui::TreeNodeEx(child.entry.relativePath.c_str(), flags,
+                const bool open = RblxUI::TreeNodeEx(child.entry.relativePath.c_str(), flags,
                                                     "%s", child.entry.name.c_str());
                 if (open) {
                     drawTree(child, false);
-                    ImGui::TreePop();
+                    RblxUI::TreePop();
                 }
                 continue;
             }
-            ImGui::PushID(child.entry.relativePath.c_str());
+            RblxUI::PushID(child.entry.relativePath.c_str());
             const bool selected =
                 active >= 0 && files[static_cast<std::size_t>(active)].relative ==
                                     child.entry.relativePath;
-            if (ImGui::Selectable(child.entry.name.c_str(), selected)) {
+            if (RblxUI::Selectable(child.entry.name.c_str(), selected)) {
                 openRelative(child.entry.relativePath);
             }
-            if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayNormal)) {
+            if (RblxUI::IsItemHovered(RblxUIHoveredFlags_DelayNormal)) {
                 drawFileTooltip(child.entry.relativePath);
             }
-            ImGui::PopID();
+            RblxUI::PopID();
         }
     }
 
     void drawTabs() {
         std::vector<std::size_t> closing;
-        if (ImGui::BeginTabBar("##tabs", ImGuiTabBarFlags_AutoSelectNewTabs |
-                                             ImGuiTabBarFlags_Reorderable |
-                                             ImGuiTabBarFlags_FittingPolicyScroll)) {
+        if (RblxUI::BeginTabBar("##tabs", RblxUITabBarFlags_AutoSelectNewTabs |
+                                             RblxUITabBarFlags_Reorderable |
+                                             RblxUITabBarFlags_FittingPolicyScroll)) {
             for (std::size_t i = 0; i < files.size(); ++i) {
                 OpenFile& file = files[i];
                 const bool dirty = isDirty(file);
                 const std::string label =
                     (dirty ? "* " : "") + file.name + "###" + file.relative;
                 bool open = true;
-                ImGuiTabItemFlags flags = 0;
+                RblxUITabItemFlags flags = 0;
                 if (selectOnOpen && static_cast<int>(i) == active) {
-                    flags |= ImGuiTabItemFlags_SetSelected;
+                    flags |= RblxUITabItemFlags_SetSelected;
                 }
-                if (ImGui::BeginTabItem(label.c_str(), &open, flags)) {
+                if (RblxUI::BeginTabItem(label.c_str(), &open, flags)) {
                     if (active != static_cast<int>(i)) {
                         active = static_cast<int>(i);
                         findDirty = true;
                         outlineDirty = true;
                     }
-                    ImGui::EndTabItem();
+                    RblxUI::EndTabItem();
                 }
-                if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayNormal)) {
+                if (RblxUI::IsItemHovered(RblxUIHoveredFlags_DelayNormal)) {
                     drawFileTooltip(file.relative);
                 }
                 if (!open) {
                     closing.push_back(i);
                 }
             }
-            ImGui::EndTabBar();
+            RblxUI::EndTabBar();
         }
         selectOnOpen = false;
         // Closed from the end so the indices of the tabs still to close stay valid.
@@ -1312,158 +1312,158 @@ struct App {
     }
 
     float findBarHeight() const {
-        float height = ImGui::GetFrameHeightWithSpacing();
+        float height = RblxUI::GetFrameHeightWithSpacing();
         if (showReplaceField) {
-            height += ImGui::GetFrameHeightWithSpacing();
+            height += RblxUI::GetFrameHeightWithSpacing();
         }
-        return height + ImGui::GetStyle().ItemSpacing.y;
+        return height + RblxUI::GetStyle().ItemSpacing.y;
     }
 
     void drawFindBar() {
-        ImGui::BeginChild("##findbar", ImVec2(0.0f, findBarHeight()), true);
+        RblxUI::BeginChild("##findbar", RblxVec2(0.0f, findBarHeight()), true);
 
         if (focusFind) {
-            ImGui::SetKeyboardFocusHere();
+            RblxUI::SetKeyboardFocusHere();
             focusFind = false;
         }
-        ImGui::SetNextItemWidth(260.0f);
-        const bool submitted = ImGui::InputTextWithHint(
+        RblxUI::SetNextItemWidth(260.0f);
+        const bool submitted = RblxUI::InputTextWithHint(
             "##find", "Find in file (Ctrl+F)", findText, sizeof(findText),
-            ImGuiInputTextFlags_EnterReturnsTrue);
+            RblxUIInputTextFlags_EnterReturnsTrue);
         if (submitted) {
-            findStep(!ImGui::GetIO().KeyShift);
+            findStep(!RblxUI::GetIO().KeyShift);
         }
-        if (ImGui::IsItemEdited()) {
+        if (RblxUI::IsItemEdited()) {
             findDirty = true;
             findNote.clear();
         }
 
-        ImGui::SameLine();
-        if (ImGui::SmallButton("Prev")) {
+        RblxUI::SameLine();
+        if (RblxUI::SmallButton("Prev")) {
             findStep(false);
         }
-        ImGui::SameLine();
-        if (ImGui::SmallButton("Next")) {
+        RblxUI::SameLine();
+        if (RblxUI::SmallButton("Next")) {
             findStep(true);
         }
-        ImGui::SameLine();
-        if (ImGui::Checkbox("Match case", &findOptions.caseSensitive)) {
+        RblxUI::SameLine();
+        if (RblxUI::Checkbox("Match case", &findOptions.caseSensitive)) {
             findDirty = true;
         }
-        ImGui::SameLine();
-        if (ImGui::Checkbox("Whole word", &findOptions.wholeWord)) {
+        RblxUI::SameLine();
+        if (RblxUI::Checkbox("Whole word", &findOptions.wholeWord)) {
             findDirty = true;
         }
         ensureFindMatches();
-        ImGui::SameLine();
+        RblxUI::SameLine();
         if (!findMatches.empty()) {
-            ImGui::TextDisabled("%d of %zu", findIndex + 1, findMatches.size());
+            RblxUI::TextDisabled("%d of %zu", findIndex + 1, findMatches.size());
         } else if (findText[0] != '\0') {
-            ImGui::TextDisabled("No match");
+            RblxUI::TextDisabled("No match");
         }
 
-        ImGui::SameLine();
-        if (ImGui::SmallButton(showReplaceField ? "Hide replace" : "Replace")) {
+        RblxUI::SameLine();
+        if (RblxUI::SmallButton(showReplaceField ? "Hide replace" : "Replace")) {
             showReplaceField = !showReplaceField;
             if (showReplaceField) {
                 focusReplace = true;
             }
         }
-        ImGui::SameLine();
-        if (ImGui::SmallButton("Close")) {
+        RblxUI::SameLine();
+        if (RblxUI::SmallButton("Close")) {
             showFind = false;
             showReplaceField = false;
         }
 
         if (showReplaceField) {
             if (focusReplace) {
-                ImGui::SetKeyboardFocusHere();
+                RblxUI::SetKeyboardFocusHere();
                 focusReplace = false;
             }
-            ImGui::SetNextItemWidth(260.0f);
-            ImGui::InputTextWithHint("##replace", "Replace with", replaceText,
+            RblxUI::SetNextItemWidth(260.0f);
+            RblxUI::InputTextWithHint("##replace", "Replace with", replaceText,
                                      sizeof(replaceText));
-            ImGui::SameLine();
-            if (ImGui::SmallButton("Replace")) {
+            RblxUI::SameLine();
+            if (RblxUI::SmallButton("Replace")) {
                 replaceCurrent();
             }
-            ImGui::SameLine();
-            if (ImGui::SmallButton("Replace all")) {
+            RblxUI::SameLine();
+            if (RblxUI::SmallButton("Replace all")) {
                 replaceAllMatches();
             }
         }
         if (!findNote.empty()) {
-            ImGui::SameLine();
-            ImGui::TextDisabled("%s", findNote.c_str());
+            RblxUI::SameLine();
+            RblxUI::TextDisabled("%s", findNote.c_str());
         }
-        ImGui::EndChild();
+        RblxUI::EndChild();
     }
 
     void drawOutlinePanel() {
-        ImGui::TextDisabled("Outline");
-        ImGui::SameLine();
-        if (ImGui::SmallButton("Symbols...")) {
+        RblxUI::TextDisabled("Outline");
+        RblxUI::SameLine();
+        if (RblxUI::SmallButton("Symbols...")) {
             symbolPaletteRequested = true;
             focusSymbolFilter = true;
         }
-        ImGui::Separator();
+        RblxUI::Separator();
         if (active < 0) {
-            ImGui::TextDisabled("No file open");
+            RblxUI::TextDisabled("No file open");
             return;
         }
 
         const std::vector<OutlineSymbol>& symbols = activeOutline();
-        ImGui::TextDisabled("%zu symbol%s", symbols.size(), symbols.size() == 1 ? "" : "s");
-        ImGui::BeginChild("##outlinelist");
+        RblxUI::TextDisabled("%zu symbol%s", symbols.size(), symbols.size() == 1 ? "" : "s");
+        RblxUI::BeginChild("##outlinelist");
         for (std::size_t i = 0; i < symbols.size(); ++i) {
             const OutlineSymbol& symbol = symbols[i];
-            ImGui::PushID(static_cast<int>(i));
+            RblxUI::PushID(static_cast<int>(i));
             std::string label;
             for (int depth = 0; depth < symbol.depth && depth < 6; ++depth) {
                 label += "    ";
             }
             label += symbol.name;
-            if (ImGui::Selectable(label.c_str())) {
+            if (RblxUI::Selectable(label.c_str())) {
                 jumpToLine(symbol.line);
             }
-            if (ImGui::IsItemHovered()) {
-                ImGui::SetTooltip("%s  (line %d)", symbol.detail.c_str(), symbol.line);
+            if (RblxUI::IsItemHovered()) {
+                RblxUI::SetTooltip("%s  (line %d)", symbol.detail.c_str(), symbol.line);
             }
-            ImGui::PopID();
+            RblxUI::PopID();
         }
         if (symbols.empty()) {
-            ImGui::TextDisabled("No symbols in this file");
+            RblxUI::TextDisabled("No symbols in this file");
         }
-        ImGui::EndChild();
+        RblxUI::EndChild();
     }
 
     void drawEditorArea() {
         drawTabs();
         if (active < 0 || active >= static_cast<int>(files.size())) {
-            ImGui::TextDisabled("Choose a file in the tree, or press Ctrl+P to open one by name.");
+            RblxUI::TextDisabled("Choose a file in the tree, or press Ctrl+P to open one by name.");
             return;
         }
 
         OpenFile& file = files[static_cast<std::size_t>(active)];
-        float footer = ImGui::GetTextLineHeightWithSpacing() + ImGui::GetStyle().ItemSpacing.y * 2.0f;
+        float footer = RblxUI::GetTextLineHeightWithSpacing() + RblxUI::GetStyle().ItemSpacing.y * 2.0f;
         if (showFind) {
             footer += findBarHeight();
         }
         if (file.stale) {
-            footer += ImGui::GetFrameHeightWithSpacing();
+            footer += RblxUI::GetFrameHeightWithSpacing();
         }
         // A key the completion list has just used belongs to the list, not to the
         // text: the widget is told not to look at the keyboard for this frame.
         if (swallowKeysThisFrame) {
             file.editor->SetHandleKeyboardInputs(false);
         }
-        file.editor->Render("##code", ImVec2(0.0f, -footer), true);
+        file.editor->Render("##code", RblxVec2(0.0f, -footer), true);
         if (swallowKeysThisFrame) {
             file.editor->SetHandleKeyboardInputs(true);
             swallowKeysThisFrame = false;
         }
-        const ImVec2 editorOrigin = ImGui::GetItemRectMin();
-        const bool editorHovered = ImGui::IsItemHovered();
+        const RblxVec2 editorOrigin = RblxUI::GetItemRectMin();
+        const bool editorHovered = RblxUI::IsItemHovered();
         const bool textChanged = file.editor->IsTextChanged();
         const bool caretMoved = file.editor->IsCursorPositionChanged();
         if (textChanged) {
@@ -1479,8 +1479,8 @@ struct App {
         hoverPage = rblx::code::DocEntry();
         const Language languageUnderMouse = rblx::code::languageForPath(file.relative);
         if (editorHovered && !completionOpen) {
-            const TextEditor::Coordinates under =
-                file.editor->ScreenPosToCoordinates(ImGui::GetMousePos(), editorOrigin);
+            const RblxTextEditor::Coordinates under =
+                file.editor->ScreenPosToCoordinates(RblxUI::GetMousePos(), editorOrigin);
             const std::string hoverText = file.editor->GetText();
             if (under.mLine >= 0 && under.mLine < file.editor->GetTotalLines()) {
                 const std::size_t lineStart = rblx::code::offsetOfLine(hoverText, under.mLine + 1);
@@ -1509,15 +1509,15 @@ struct App {
         }
 
         if (file.stale) {
-            ImGui::PushStyleColor(ImGuiCol_Text, rblx::ui::theme::warning());
-            ImGui::TextUnformatted("This file changed on disk while you had edits in it.");
-            ImGui::PopStyleColor();
-            ImGui::SameLine();
-            if (ImGui::SmallButton("Reload and lose my edits")) {
+            RblxUI::PushStyleColor(RblxUICol_Text, rblx::ui::theme::warning());
+            RblxUI::TextUnformatted("This file changed on disk while you had edits in it.");
+            RblxUI::PopStyleColor();
+            RblxUI::SameLine();
+            if (RblxUI::SmallButton("Reload and lose my edits")) {
                 reloadActive();
             }
-            ImGui::SameLine();
-            if (ImGui::SmallButton("Keep editing")) {
+            RblxUI::SameLine();
+            if (RblxUI::SmallButton("Keep editing")) {
                 file.stale = false;
                 status = "Kept the buffer for " + file.relative;
             }
@@ -1527,7 +1527,7 @@ struct App {
             drawFindBar();
         }
 
-        const TextEditor::Coordinates cursor = file.editor->GetCursorPosition();
+        const RblxTextEditor::Coordinates cursor = file.editor->GetCursorPosition();
         const Language language = rblx::code::languageForPath(file.relative);
         std::string line = file.relative + "  |  Ln " + std::to_string(cursor.mLine + 1) +
                            ", Col " + std::to_string(cursor.mColumn + 1) + "  |  " +
@@ -1540,83 +1540,83 @@ struct App {
         if (file.editor->HasSelection()) {
             line += "  |  " + std::to_string(file.editor->GetSelectedText().size()) + " selected";
         }
-        ImGui::TextDisabled("%s", line.c_str());
-        ImGui::SameLine();
-        ImGui::TextDisabled("%s", status.c_str());
+        RblxUI::TextDisabled("%s", line.c_str());
+        RblxUI::SameLine();
+        RblxUI::TextDisabled("%s", status.c_str());
     }
 
     void handleKeys() {
-        ImGuiIO& io = ImGui::GetIO();
+        RblxUIIO& io = RblxUI::GetIO();
         const bool ctrl = io.KeyCtrl;
         const bool shift = io.KeyShift;
 
         handleCompletionKeys();
-        if (ImGui::IsKeyPressed(ImGuiKey_F1)) {
+        if (RblxUI::IsKeyPressed(RblxUIKey_F1)) {
             openDocAtCaret();
         }
-        if (ctrl && ImGui::IsKeyPressed(ImGuiKey_Space)) {
+        if (ctrl && RblxUI::IsKeyPressed(RblxUIKey_Space)) {
             completionRequested = true;
         }
 
-        if (ctrl && ImGui::IsKeyPressed(ImGuiKey_S)) {
+        if (ctrl && RblxUI::IsKeyPressed(RblxUIKey_S)) {
             if (shift) {
                 saveAll();
             } else {
                 saveFile(active);
             }
         }
-        if (ctrl && ImGui::IsKeyPressed(ImGuiKey_R)) {
+        if (ctrl && RblxUI::IsKeyPressed(RblxUIKey_R)) {
             reloadActive();
         }
-        if (ctrl && ImGui::IsKeyPressed(ImGuiKey_W) && active >= 0) {
+        if (ctrl && RblxUI::IsKeyPressed(RblxUIKey_W) && active >= 0) {
             requestClose(static_cast<std::size_t>(active));
         }
-        if (ctrl && ImGui::IsKeyPressed(ImGuiKey_P)) {
+        if (ctrl && RblxUI::IsKeyPressed(RblxUIKey_P)) {
             quickOpenRequested = true;
             focusQuickFilter = true;
         }
-        if (ctrl && ImGui::IsKeyPressed(ImGuiKey_G)) {
+        if (ctrl && RblxUI::IsKeyPressed(RblxUIKey_G)) {
             goToLineRequested = true;
             focusGoToLine = true;
         }
-        if (ctrl && shift && ImGui::IsKeyPressed(ImGuiKey_O)) {
+        if (ctrl && shift && RblxUI::IsKeyPressed(RblxUIKey_O)) {
             symbolPaletteRequested = true;
             focusSymbolFilter = true;
         }
-        if (ctrl && ImGui::IsKeyPressed(ImGuiKey_F)) {
+        if (ctrl && RblxUI::IsKeyPressed(RblxUIKey_F)) {
             if (shift) {
                 focusQuery = true;
             } else {
                 openFindBar(false);
             }
         }
-        if (ctrl && ImGui::IsKeyPressed(ImGuiKey_H)) {
+        if (ctrl && RblxUI::IsKeyPressed(RblxUIKey_H)) {
             openFindBar(true);
         }
-        if (ImGui::IsKeyPressed(ImGuiKey_F3)) {
+        if (RblxUI::IsKeyPressed(RblxUIKey_F3)) {
             findStep(!shift);
         }
-        if (showFind && ImGui::IsKeyPressed(ImGuiKey_Escape) &&
-            !ImGui::IsPopupOpen("", ImGuiPopupFlags_AnyPopup)) {
+        if (showFind && RblxUI::IsKeyPressed(RblxUIKey_Escape) &&
+            !RblxUI::IsPopupOpen("", RblxUIPopupFlags_AnyPopup)) {
             showFind = false;
             showReplaceField = false;
         }
-        if (ctrl && ImGui::IsKeyPressed(ImGuiKey_Slash)) {
+        if (ctrl && RblxUI::IsKeyPressed(RblxUIKey_Slash)) {
             toggleComment();
         }
-        if (ctrl && ImGui::IsKeyPressed(ImGuiKey_RightBracket)) {
+        if (ctrl && RblxUI::IsKeyPressed(RblxUIKey_RightBracket)) {
             jumpToMatchingBracket();
         }
-        if (io.KeyAlt && ImGui::IsKeyPressed(ImGuiKey_LeftArrow)) {
+        if (io.KeyAlt && RblxUI::IsKeyPressed(RblxUIKey_LeftArrow)) {
             navigate(-1);
         }
-        if (io.KeyAlt && ImGui::IsKeyPressed(ImGuiKey_RightArrow)) {
+        if (io.KeyAlt && RblxUI::IsKeyPressed(RblxUIKey_RightArrow)) {
             navigate(1);
         }
-        if (ctrl && ImGui::IsKeyPressed(ImGuiKey_Tab)) {
+        if (ctrl && RblxUI::IsKeyPressed(RblxUIKey_Tab)) {
             cycleTab(shift ? -1 : 1);
         }
-        if (ImGui::IsKeyPressed(ImGuiKey_F5)) {
+        if (RblxUI::IsKeyPressed(RblxUIKey_F5)) {
             refresh();
         }
     }
@@ -1624,17 +1624,17 @@ struct App {
     // A ranked list over the scanned files: the query only has to be an
     // in-order abbreviation of the path, so "cmain" finds src/CodeMain.cpp.
     void drawQuickOpen() {
-        if (!ImGui::BeginPopupModal("Quick open", nullptr, ImGuiWindowFlags_NoSavedSettings)) {
+        if (!RblxUI::BeginPopupModal("Quick open", nullptr, RblxUIWindowFlags_NoSavedSettings)) {
             return;
         }
-        ImGui::SetNextWindowSize(ImVec2(620.0f, 440.0f), ImGuiCond_Appearing);
+        RblxUI::SetNextWindowSize(RblxVec2(620.0f, 440.0f), RblxUICond_Appearing);
         if (focusQuickFilter) {
-            ImGui::SetKeyboardFocusHere();
+            RblxUI::SetKeyboardFocusHere();
             focusQuickFilter = false;
         }
-        ImGui::SetNextItemWidth(-1.0f);
-        const bool submitted = ImGui::InputText("##quick", quickFilter, sizeof(quickFilter),
-                                                ImGuiInputTextFlags_EnterReturnsTrue);
+        RblxUI::SetNextItemWidth(-1.0f);
+        const bool submitted = RblxUI::InputText("##quick", quickFilter, sizeof(quickFilter),
+                                                RblxUIInputTextFlags_EnterReturnsTrue);
 
         std::vector<std::pair<int, const FileEntry*>> ranked;
         for (const FileEntry& entry : entries) {
@@ -1659,40 +1659,40 @@ struct App {
             ranked.resize(kQuickOpenLimit);
         }
 
-        ImGui::BeginChild("##matches", ImVec2(0.0f, 330.0f), true);
+        RblxUI::BeginChild("##matches", RblxVec2(0.0f, 330.0f), true);
         for (const std::pair<int, const FileEntry*>& match : ranked) {
-            if (ImGui::Selectable(match.second->relativePath.c_str())) {
+            if (RblxUI::Selectable(match.second->relativePath.c_str())) {
                 openRelative(match.second->relativePath);
-                ImGui::CloseCurrentPopup();
+                RblxUI::CloseCurrentPopup();
             }
         }
         if (ranked.empty()) {
-            ImGui::TextDisabled("No file matches");
+            RblxUI::TextDisabled("No file matches");
         }
-        ImGui::EndChild();
+        RblxUI::EndChild();
         if (submitted && !ranked.empty()) {
             openRelative(ranked.front().second->relativePath);
-            ImGui::CloseCurrentPopup();
+            RblxUI::CloseCurrentPopup();
         }
-        if (ImGui::Button("Cancel")) {
-            ImGui::CloseCurrentPopup();
+        if (RblxUI::Button("Cancel")) {
+            RblxUI::CloseCurrentPopup();
         }
-        ImGui::EndPopup();
+        RblxUI::EndPopup();
     }
 
     void drawSymbolPalette() {
-        if (!ImGui::BeginPopupModal("Go to symbol", nullptr, ImGuiWindowFlags_NoSavedSettings)) {
+        if (!RblxUI::BeginPopupModal("Go to symbol", nullptr, RblxUIWindowFlags_NoSavedSettings)) {
             return;
         }
-        ImGui::SetNextWindowSize(ImVec2(560.0f, 420.0f), ImGuiCond_Appearing);
+        RblxUI::SetNextWindowSize(RblxVec2(560.0f, 420.0f), RblxUICond_Appearing);
         if (focusSymbolFilter) {
-            ImGui::SetKeyboardFocusHere();
+            RblxUI::SetKeyboardFocusHere();
             focusSymbolFilter = false;
         }
-        ImGui::SetNextItemWidth(-1.0f);
-        const bool submitted = ImGui::InputTextWithHint("##symbol", "Symbol name",
+        RblxUI::SetNextItemWidth(-1.0f);
+        const bool submitted = RblxUI::InputTextWithHint("##symbol", "Symbol name",
                                                         symbolFilter, sizeof(symbolFilter),
-                                                        ImGuiInputTextFlags_EnterReturnsTrue);
+                                                        RblxUIInputTextFlags_EnterReturnsTrue);
 
         const std::vector<OutlineSymbol> symbols = activeOutline();
         std::vector<const OutlineSymbol*> shown;
@@ -1706,65 +1706,65 @@ struct App {
             }
         }
 
-        ImGui::BeginChild("##symbols", ImVec2(0.0f, 310.0f), true);
+        RblxUI::BeginChild("##symbols", RblxVec2(0.0f, 310.0f), true);
         for (const OutlineSymbol* symbol : shown) {
             const std::string label = symbol->kind + "  " + symbol->name + "    (line " +
                                       std::to_string(symbol->line) + ")";
-            if (ImGui::Selectable(label.c_str())) {
+            if (RblxUI::Selectable(label.c_str())) {
                 jumpToLine(symbol->line);
-                ImGui::CloseCurrentPopup();
+                RblxUI::CloseCurrentPopup();
             }
         }
         if (shown.empty()) {
-            ImGui::TextDisabled("No symbol matches");
+            RblxUI::TextDisabled("No symbol matches");
         }
-        ImGui::EndChild();
+        RblxUI::EndChild();
         if (submitted && !shown.empty()) {
             jumpToLine(shown.front()->line);
-            ImGui::CloseCurrentPopup();
+            RblxUI::CloseCurrentPopup();
         }
-        if (ImGui::Button("Cancel")) {
-            ImGui::CloseCurrentPopup();
+        if (RblxUI::Button("Cancel")) {
+            RblxUI::CloseCurrentPopup();
         }
-        ImGui::EndPopup();
+        RblxUI::EndPopup();
     }
 
     void drawGoToLine() {
-        if (!ImGui::BeginPopupModal("Go to line", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+        if (!RblxUI::BeginPopupModal("Go to line", nullptr, RblxUIWindowFlags_AlwaysAutoResize)) {
             return;
         }
         if (focusGoToLine) {
-            ImGui::SetKeyboardFocusHere();
+            RblxUI::SetKeyboardFocusHere();
             focusGoToLine = false;
         }
-        ImGui::SetNextItemWidth(140.0f);
-        const bool submitted = ImGui::InputText("Line", goToLine, sizeof(goToLine),
-                                                ImGuiInputTextFlags_EnterReturnsTrue);
+        RblxUI::SetNextItemWidth(140.0f);
+        const bool submitted = RblxUI::InputText("Line", goToLine, sizeof(goToLine),
+                                                RblxUIInputTextFlags_EnterReturnsTrue);
         if (submitted && active >= 0) {
             const int line = std::atoi(goToLine);
             if (line > 0) {
                 openAt(files[static_cast<std::size_t>(active)].relative, line);
             }
-            ImGui::CloseCurrentPopup();
+            RblxUI::CloseCurrentPopup();
         }
-        if (ImGui::Button("Cancel")) {
-            ImGui::CloseCurrentPopup();
+        if (RblxUI::Button("Cancel")) {
+            RblxUI::CloseCurrentPopup();
         }
-        ImGui::EndPopup();
+        RblxUI::EndPopup();
     }
 
     void drawOpenFolder() {
-        if (!ImGui::BeginPopupModal("Open folder", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+        if (!RblxUI::BeginPopupModal("Open folder", nullptr, RblxUIWindowFlags_AlwaysAutoResize)) {
             return;
         }
         if (focusFolder) {
-            ImGui::SetKeyboardFocusHere();
+            RblxUI::SetKeyboardFocusHere();
             focusFolder = false;
         }
-        ImGui::SetNextItemWidth(520.0f);
-        const bool submitted = ImGui::InputText("Folder", folderPath, sizeof(folderPath),
-                                                ImGuiInputTextFlags_EnterReturnsTrue);
-        if (submitted || ImGui::Button("Open")) {
+        RblxUI::SetNextItemWidth(520.0f);
+        const bool submitted = RblxUI::InputText("Folder", folderPath, sizeof(folderPath),
+                                                RblxUIInputTextFlags_EnterReturnsTrue);
+        if (submitted || RblxUI::Button("Open")) {
             std::error_code error;
             if (std::filesystem::is_directory(folderPath, error)) {
                 const std::string opened = folderPath;
@@ -1774,107 +1774,107 @@ struct App {
             } else {
                 status = std::string("No folder at ") + folderPath;
             }
-            ImGui::CloseCurrentPopup();
+            RblxUI::CloseCurrentPopup();
         }
-        ImGui::SameLine();
-        if (ImGui::Button("Cancel")) {
-            ImGui::CloseCurrentPopup();
+        RblxUI::SameLine();
+        if (RblxUI::Button("Cancel")) {
+            RblxUI::CloseCurrentPopup();
         }
-        ImGui::EndPopup();
+        RblxUI::EndPopup();
     }
 
     void drawUnsavedPopup() {
-        if (!ImGui::BeginPopupModal("Unsaved changes", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+        if (!RblxUI::BeginPopupModal("Unsaved changes", nullptr, RblxUIWindowFlags_AlwaysAutoResize)) {
             return;
         }
         if (pendingClose >= files.size()) {
-            ImGui::CloseCurrentPopup();
-            ImGui::EndPopup();
+            RblxUI::CloseCurrentPopup();
+            RblxUI::EndPopup();
             return;
         }
         OpenFile& file = files[pendingClose];
         const bool changedOnDisk = !file.stamp.empty() &&
                                    rblx::code::fileStamp(file.absolute) != file.stamp;
-        ImGui::Text("Save %s before closing it?", file.name.c_str());
+        RblxUI::Text("Save %s before closing it?", file.name.c_str());
         if (changedOnDisk) {
-            ImGui::TextDisabled("It also changed on disk since it was opened.");
+            RblxUI::TextDisabled("It also changed on disk since it was opened.");
         }
-        if (ImGui::Button("Save and close")) {
+        if (RblxUI::Button("Save and close")) {
             saveFile(static_cast<int>(pendingClose));
             const std::size_t index = pendingClose;
             pendingClose = kNoFile;
             closeTab(index);
-            ImGui::CloseCurrentPopup();
+            RblxUI::CloseCurrentPopup();
         }
-        ImGui::SameLine();
-        if (ImGui::Button("Close without saving")) {
+        RblxUI::SameLine();
+        if (RblxUI::Button("Close without saving")) {
             const std::size_t index = pendingClose;
             pendingClose = kNoFile;
             closeTab(index);
-            ImGui::CloseCurrentPopup();
+            RblxUI::CloseCurrentPopup();
         }
-        ImGui::SameLine();
-        if (ImGui::Button("Cancel")) {
+        RblxUI::SameLine();
+        if (RblxUI::Button("Cancel")) {
             pendingClose = kNoFile;
-            ImGui::CloseCurrentPopup();
+            RblxUI::CloseCurrentPopup();
         }
-        ImGui::EndPopup();
+        RblxUI::EndPopup();
     }
 
     void drawShortcuts() {
         if (!showShortcuts) {
             return;
         }
-        ImGui::SetNextWindowSize(ImVec2(560.0f, 430.0f), ImGuiCond_FirstUseEver);
-        if (ImGui::Begin("Keyboard shortcuts", &showShortcuts)) {
-            ImGui::TextUnformatted("Ctrl+Space   suggest what fits here");
-            ImGui::TextUnformatted("F1   documentation for the name under the caret");
-            ImGui::TextUnformatted("Ctrl+P   open a file by name");
-            ImGui::TextUnformatted("Ctrl+Shift+O   go to a symbol in this file");
-            ImGui::TextUnformatted("Ctrl+G   go to a line");
-            ImGui::TextUnformatted("Ctrl+Shift+F   search the whole project");
-            ImGui::Separator();
-            ImGui::TextUnformatted("Ctrl+F   find in this file");
-            ImGui::TextUnformatted("Ctrl+H   find and replace in this file");
-            ImGui::TextUnformatted("F3 / Shift+F3   next / previous match");
-            ImGui::TextUnformatted("Ctrl+/   comment or uncomment the line");
-            ImGui::Separator();
-            ImGui::TextUnformatted("Ctrl+S   save the file in front");
-            ImGui::TextUnformatted("Ctrl+Shift+S   save every open file");
-            ImGui::TextUnformatted("Ctrl+R   reload the file from disk");
-            ImGui::TextUnformatted("Ctrl+W   close the file in front");
-            ImGui::TextUnformatted("Ctrl+Tab   next tab, Ctrl+Shift+Tab   previous tab");
-            ImGui::Separator();
-            ImGui::TextUnformatted("Alt+Left / Alt+Right   back and forward between jumps");
-            ImGui::TextUnformatted("Ctrl+]   jump to the matching bracket");
-            ImGui::Separator();
-            ImGui::TextWrapped(
+        RblxUI::SetNextWindowSize(RblxVec2(560.0f, 430.0f), RblxUICond_FirstUseEver);
+        if (RblxUI::Begin("Keyboard shortcuts", &showShortcuts)) {
+            RblxUI::TextUnformatted("Ctrl+Space   suggest what fits here");
+            RblxUI::TextUnformatted("F1   documentation for the name under the caret");
+            RblxUI::TextUnformatted("Ctrl+P   open a file by name");
+            RblxUI::TextUnformatted("Ctrl+Shift+O   go to a symbol in this file");
+            RblxUI::TextUnformatted("Ctrl+G   go to a line");
+            RblxUI::TextUnformatted("Ctrl+Shift+F   search the whole project");
+            RblxUI::Separator();
+            RblxUI::TextUnformatted("Ctrl+F   find in this file");
+            RblxUI::TextUnformatted("Ctrl+H   find and replace in this file");
+            RblxUI::TextUnformatted("F3 / Shift+F3   next / previous match");
+            RblxUI::TextUnformatted("Ctrl+/   comment or uncomment the line");
+            RblxUI::Separator();
+            RblxUI::TextUnformatted("Ctrl+S   save the file in front");
+            RblxUI::TextUnformatted("Ctrl+Shift+S   save every open file");
+            RblxUI::TextUnformatted("Ctrl+R   reload the file from disk");
+            RblxUI::TextUnformatted("Ctrl+W   close the file in front");
+            RblxUI::TextUnformatted("Ctrl+Tab   next tab, Ctrl+Shift+Tab   previous tab");
+            RblxUI::Separator();
+            RblxUI::TextUnformatted("Alt+Left / Alt+Right   back and forward between jumps");
+            RblxUI::TextUnformatted("Ctrl+]   jump to the matching bracket");
+            RblxUI::Separator();
+            RblxUI::TextWrapped(
                 "The text widget keeps the editing keys: Ctrl+Z and Ctrl+Y undo and redo, Ctrl+C, "
                 "Ctrl+X and Ctrl+V copy, cut and paste, and Ctrl+A selects everything.");
         }
-        ImGui::End();
+        RblxUI::End();
     }
 
     void drawPopups() {
         if (quickOpenRequested) {
-            ImGui::OpenPopup("Quick open");
+            RblxUI::OpenPopup("Quick open");
             quickOpenRequested = false;
         }
         if (goToLineRequested) {
-            ImGui::OpenPopup("Go to line");
+            RblxUI::OpenPopup("Go to line");
             goToLineRequested = false;
         }
         if (symbolPaletteRequested) {
-            ImGui::OpenPopup("Go to symbol");
+            RblxUI::OpenPopup("Go to symbol");
             symbolPaletteRequested = false;
         }
         if (openFolderRequested) {
-            ImGui::OpenPopup("Open folder");
+            RblxUI::OpenPopup("Open folder");
             openFolderRequested = false;
         }
         if (pendingClose != kNoFile && pendingClose < files.size() &&
             isDirty(files[pendingClose])) {
-            ImGui::OpenPopup("Unsaved changes");
+            RblxUI::OpenPopup("Unsaved changes");
         } else if (pendingClose != kNoFile) {
             const std::size_t index = pendingClose;
             pendingClose = kNoFile;
@@ -1916,54 +1916,54 @@ struct App {
         handleKeys();
         drawMenuBar(window);
 
-        const ImGuiViewport* viewport = ImGui::GetMainViewport();
-        ImGui::SetNextWindowPos(viewport->WorkPos);
-        ImGui::SetNextWindowSize(viewport->WorkSize);
-        const ImGuiWindowFlags workspaceFlags =
-            ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove |
-            ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoBringToFrontOnFocus |
-            ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse |
-            ImGuiWindowFlags_NoSavedSettings;
-        ImGui::Begin("##workspace", nullptr, workspaceFlags);
+        const RblxUIViewport* viewport = RblxUI::GetMainViewport();
+        RblxUI::SetNextWindowPos(viewport->WorkPos);
+        RblxUI::SetNextWindowSize(viewport->WorkSize);
+        const RblxUIWindowFlags workspaceFlags =
+            RblxUIWindowFlags_NoTitleBar | RblxUIWindowFlags_NoResize | RblxUIWindowFlags_NoMove |
+            RblxUIWindowFlags_NoCollapse | RblxUIWindowFlags_NoBringToFrontOnFocus |
+            RblxUIWindowFlags_NoScrollbar | RblxUIWindowFlags_NoScrollWithMouse |
+            RblxUIWindowFlags_NoSavedSettings;
+        RblxUI::Begin("##workspace", nullptr, workspaceFlags);
 
-        ImGui::BeginChild("##sidebar", ImVec2(kSidebarWidth, 0.0f), true);
+        RblxUI::BeginChild("##sidebar", RblxVec2(kSidebarWidth, 0.0f), true);
         drawSidebar();
-        ImGui::EndChild();
+        RblxUI::EndChild();
 
-        ImGui::SameLine();
+        RblxUI::SameLine();
         if (showOutline) {
-            ImGui::BeginChild("##outline", ImVec2(kOutlineWidth, 0.0f), true);
+            RblxUI::BeginChild("##outline", RblxVec2(kOutlineWidth, 0.0f), true);
             drawOutlinePanel();
-            ImGui::EndChild();
-            ImGui::SameLine();
+            RblxUI::EndChild();
+            RblxUI::SameLine();
         }
 
-        ImGui::BeginChild("##editor", ImVec2(0.0f, 0.0f), false,
-                          ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+        RblxUI::BeginChild("##editor", RblxVec2(0.0f, 0.0f), false,
+                          RblxUIWindowFlags_NoScrollbar | RblxUIWindowFlags_NoScrollWithMouse);
         drawEditorArea();
-        ImGui::EndChild();
+        RblxUI::EndChild();
 
         drawCompletionPopup();
         drawDocumentationWindow();
-        ImGui::End();
+        RblxUI::End();
         drawPopups();
-        ImGui::End();
+        RblxUI::End();
         drawPopups();
     }
 };
 
-void beginImGui(Window& window) {
-    IMGUI_CHECKVERSION();
-    ImGui::CreateContext();
-    ImGuiIO& io = ImGui::GetIO();
-    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
-    // The layout is fixed in code, so no imgui.ini is written beside the
+void beginRblxUI(Window& window) {
+    RBLXUI_CHECKVERSION();
+    RblxUI::CreateContext();
+    RblxUIIO& io = RblxUI::GetIO();
+    io.ConfigFlags |= RblxUIConfigFlags_NavEnableKeyboard;
+    // The layout is fixed in code, so no rblxui.ini is written beside the
     // executable and every checkout opens the same way.
     io.IniFilename = nullptr;
     // One palette for every window in the project, from UiTheme.h.
     rblx::ui::theme::apply();
-    ImGui_ImplGlfw_InitForOpenGL(window.getNativeWindow(), true);
-    ImGui_ImplOpenGL3_Init("#version 330");
+    RblxUI_ImplRblxWin_InitForOpenGL(window.getNativeWindow(), true);
+    RblxUI_ImplOpenGL3_Init("#version 330");
 }
 
 }  // namespace
@@ -1971,7 +1971,7 @@ void beginImGui(Window& window) {
 int main(int argc, char** argv) {
     try {
         Window window(kWindowWidth, kWindowHeight, "RBLX Clone Code");
-        beginImGui(window);
+        beginRblxUI(window);
 
         App app;
         std::string start = argc > 1 ? argv[1] : std::filesystem::current_path().string();
@@ -1983,26 +1983,26 @@ int main(int argc, char** argv) {
         while (!window.shouldClose()) {
             window.pollEvents();
 
-            ImGui_ImplOpenGL3_NewFrame();
-            ImGui_ImplGlfw_NewFrame();
-            ImGui::NewFrame();
+            RblxUI_ImplOpenGL3_NewFrame();
+            RblxUI_ImplRblxWin_NewFrame();
+            RblxUI::NewFrame();
 
             app.draw(window);
 
-            ImGui::Render();
+            RblxUI::Render();
             int displayWidth = 0;
             int displayHeight = 0;
-            glfwGetFramebufferSize(window.getNativeWindow(), &displayWidth, &displayHeight);
+            rblxwinGetFramebufferSize(window.getNativeWindow(), &displayWidth, &displayHeight);
             glViewport(0, 0, displayWidth, displayHeight);
             glClearColor(0.07f, 0.08f, 0.10f, 1.0f);
             glClear(GL_COLOR_BUFFER_BIT);
-            ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+            RblxUI_ImplOpenGL3_RenderDrawData(RblxUI::GetDrawData());
             window.swapBuffers();
         }
 
-        ImGui_ImplOpenGL3_Shutdown();
-        ImGui_ImplGlfw_Shutdown();
-        ImGui::DestroyContext();
+        RblxUI_ImplOpenGL3_Shutdown();
+        RblxUI_ImplRblxWin_Shutdown();
+        RblxUI::DestroyContext();
     } catch (const std::exception& error) {
         std::fprintf(stderr, "RBLXCode could not start: %s\n", error.what());
         return 1;

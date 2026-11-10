@@ -6,7 +6,7 @@ namespace rblx {
 namespace studio {
 namespace {
 
-bool sameVec3(const glm::vec3& first, const glm::vec3& second) {
+bool sameVec3(const rblxmath::vec3& first, const rblxmath::vec3& second) {
     return first.x == second.x && first.y == second.y && first.z == second.z;
 }
 

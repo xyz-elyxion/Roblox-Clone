@@ -169,10 +169,10 @@ collisions, scripts, damage, spawns — and is the only side whose word counts. 
 file plus an optional `.rbx` script, runs the script's `Heartbeat`, streams part changes to
 clients, and reports detections to the website.
 
-**Studio** uses GLFW/OpenGL/ImGui/ImGuizmo and has a basic world editing path: a toolbox of parts,
+**Studio** uses RBLXWindow/OpenGL/RBLXUI/RblxGizmo and has a basic world editing path: a toolbox of parts,
 move/rotate/scale tools with snapping, a properties panel (surface material, optional tiled
 texture), a script panel with a VS Code-style editor, and publish. Scale operations assign the
-decomposed absolute scale from ImGuizmo and clamp it to a positive range; they do not multiply
+decomposed absolute scale from the gizmo and clamp it to a positive range; they do not multiply
 scale every frame.
 
 **Three games ship with the build**, each a `.world` and a `.rbx`:
@@ -227,7 +227,7 @@ is compiled into the client.
 - Visual Studio 2022 with "Desktop development with C++", or MinGW + Ninja.
 - No CMake install: the build tool is vendored in `rblxbuild/` and bootstrapped from source.
 - An OpenGL-capable GPU and drivers.
-- GLFW, GLM, ImGui, ImGuizmo, ImGuiColorTextEdit, ReactPhysics3D, stb and glad are vendored under
+- RBLXWindow, RBLXMath, RBLXUI, RblxGizmo, RBLXTextEdit, RBLXPhysics, RBLXStb and RBLXGL are vendored under
   `third_party/`, so configuring needs no network.
 
 **The website** is built from the same tree and needs nothing beyond it: no Node.js, npm or SQLite.
@@ -1029,7 +1029,7 @@ the checkout (`RBLXCode.exe` on Windows, `./RBLXCode .` elsewhere), or name the 
 it walks that folder for source files.
 
 It has a project tree on the left, an outline of the file in front on the right, tabs across the top
-(a `*` marks unsaved work), the ImGui colour text editor Studio's Script panel uses in the middle,
+(a `*` marks unsaved work), the RBLXUI colour text editor Studio's Script panel uses in the middle,
 and a status bar under it with the line and column, the language, the line count, whether the file
 is saved and the branch of the checkout. C++ and headers are coloured as C++, `.glsl`, `.vert` and
 `.frag` as GLSL, `.rbx` as RBLX Script (a Lua-shaped language, so the Lua definition is the right
@@ -1202,7 +1202,7 @@ web/host/               The RBLXHosts control panel page (served by RBLXHosts.ex
 ServerWorld.world       Default world file
 scripts/                package-build.ps1 and other tooling
 GameRelease/            Existing release asset folders (do not commit generated binaries here)
-third_party/            Pinned dependencies, converted to this build dialect
+third_party/            Renamed copies of the pinned dependencies (see Credits)
 RBLXAntiCheat/          The vendored anti-cheat library (Windows only, AGPL v3)
 AGENTS.md               How to work in this repository: build, rules, conventions
 SECURITY.md             Security model, known limitations, how to report a problem
@@ -1242,8 +1242,10 @@ subdirectory. See [RBLXBUILD.md](RBLXBUILD.md) for what it is for, what was prun
 commands. Commit `62b91b06` still has the complete tree if any of it has to come back.
 
 The libraries the game links are vendored the same way under `third_party/`: cloned at the pinned
-commits, `.git` removed, and every build file converted to this dialect (glfw, glm, imgui,
-ImGuizmo, ImGuiColorTextEdit, reactphysics3d, stb, glad). Configuring therefore downloads nothing
+commits, `.git` removed, every build file converted to this dialect, and every identifier renamed
+into this project's scheme — one tree each for `rblxwin`, `rblxmath`, `rblxui`, `rblxgizmo`,
+`rblxtextedit`, `rblxphysics`, `rblxstb` and `rblxgl`. Which upstream project each one came from,
+and its licence file, is in [Credits](#credits). Configuring therefore downloads nothing
 and needs no compatibility mode; `rblxbuild/Source/cmRBLXBuildCompat.h` remains only as a fallback
 for code that has not been converted.
 
@@ -1336,4 +1338,14 @@ and the log path instead of a bare connection error.
   travel in `RBLXAntiCheat/LICENSE`.
 - **RBLXBuild** is a renamed, pruned snapshot of [CMake](https://github.com/Kitware/CMake), BSD
   3-clause, with attribution kept in `rblxbuild/Licenses/`.
-- The libraries under `third_party/` keep their own licences and pinned commits.
+- The libraries under `third_party/` are renamed copies of open-source projects, one tree each,
+  vendored at the pinned upstream commit and renamed into this project's scheme. The code is
+  upstream's, the names are this project's, and the licences travel with it:
+  - `rblxwin` — GLFW (zlib), `third_party/rblxwin/LICENSE.md`
+  - `rblxmath` — OpenGL Mathematics (Happy Bunny or MIT), `third_party/rblxmath/copying.txt`
+  - `rblxui` — Dear ImGui (MIT), `third_party/rblxui/LICENSE.txt`
+  - `rblxgizmo` — ImGuizmo (MIT), `third_party/rblxgizmo/LICENSE`
+  - `rblxtextedit` — ImGuiColorTextEdit (MIT), `third_party/rblxtextedit/LICENSE`
+  - `rblxphysics` — ReactPhysics3D (zlib), `third_party/rblxphysics/LICENSE`
+  - `rblxstb` — stb (MIT or public domain), `third_party/rblxstb/LICENSE`
+  - `rblxgl` — the generated glad OpenGL loader; that tree carries no separate licence file

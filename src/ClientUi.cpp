@@ -1,7 +1,7 @@
 #include "ClientShared.h"
 
-#include <GLFW/glfw3.h>
-#include "imgui.h"
+#include <RBLXWIN/rblxwin.h>
+#include "rblxui.h"
 #include "Auth.h"
 #include "UiScale.h"
 #include "UiTheme.h"
@@ -9,7 +9,7 @@
 #include "Vehicle.h"
 
 void applyModernPlayerStyle() {
-    ImGuiStyle& style = ImGui::GetStyle();
+    RblxUIStyle& style = RblxUI::GetStyle();
     style.WindowRounding = 18.0f;
     style.ChildRounding = 14.0f;
     style.FrameRounding = 10.0f;
@@ -18,75 +18,75 @@ void applyModernPlayerStyle() {
     style.GrabRounding = 10.0f;
     style.WindowBorderSize = 0.0f;
     style.FrameBorderSize = 0.0f;
-    style.WindowPadding = ImVec2(18.0f, 18.0f);
-    style.FramePadding = ImVec2(12.0f, 10.0f);
-    style.ItemSpacing = ImVec2(12.0f, 12.0f);
+    style.WindowPadding = RblxVec2(18.0f, 18.0f);
+    style.FramePadding = RblxVec2(12.0f, 10.0f);
+    style.ItemSpacing = RblxVec2(12.0f, 12.0f);
 
     // The palette is the project's own, from UiTheme.h. Only the translucency
     // stays local: these panels float over the world and must let it show
     // through, which the tool windows have no reason to do.
     rblx::ui::theme::applyColors(style);
-    style.Colors[ImGuiCol_WindowBg].w = 0.92f;
-    style.Colors[ImGuiCol_ChildBg].w = 0.88f;
-    style.Colors[ImGuiCol_PopupBg].w = 0.96f;
-    style.Colors[ImGuiCol_Border].w = 0.30f;
+    style.Colors[RblxUICol_WindowBg].w = 0.92f;
+    style.Colors[RblxUICol_ChildBg].w = 0.88f;
+    style.Colors[RblxUICol_PopupBg].w = 0.96f;
+    style.Colors[RblxUICol_Border].w = 0.30f;
 }
 
-ImGuiWindowFlags overlayFlags() {
-    return ImGuiWindowFlags_NoDecoration |
-           ImGuiWindowFlags_NoSavedSettings |
-           ImGuiWindowFlags_NoFocusOnAppearing |
-           ImGuiWindowFlags_NoNav |
-           ImGuiWindowFlags_NoMove;
+RblxUIWindowFlags overlayFlags() {
+    return RblxUIWindowFlags_NoDecoration |
+           RblxUIWindowFlags_NoSavedSettings |
+           RblxUIWindowFlags_NoFocusOnAppearing |
+           RblxUIWindowFlags_NoNav |
+           RblxUIWindowFlags_NoMove;
 }
 
 void drawLabel(const char* text) {
-    ImGui::PushStyleColor(ImGuiCol_Text, rblx::ui::theme::muted());
-    ImGui::TextUnformatted(text);
-    ImGui::PopStyleColor();
+    RblxUI::PushStyleColor(RblxUICol_Text, rblx::ui::theme::muted());
+    RblxUI::TextUnformatted(text);
+    RblxUI::PopStyleColor();
 }
 
 // A dark button lights up when the pointer arrives and a pale one has to go the
 // other way, or the hover reads as disabled on the light palette.
-ImVec4 shiftColor(const ImVec4& color, float step) {
-    return ImVec4(std::min(std::max(color.x + step, 0.0f), 1.0f),
+RblxVec4 shiftColor(const RblxVec4& color, float step) {
+    return RblxVec4(std::min(std::max(color.x + step, 0.0f), 1.0f),
                   std::min(std::max(color.y + step, 0.0f), 1.0f),
                   std::min(std::max(color.z + step, 0.0f), 1.0f), color.w);
 }
 
-bool modernButton(const char* label, const ImVec2& size, const ImVec4& color) {
+bool modernButton(const char* label, const RblxVec2& size, const RblxVec4& color) {
     const bool light = rblx::ui::theme::isLight();
-    ImGui::PushStyleColor(ImGuiCol_Button, color);
-    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, shiftColor(color, light ? -0.07f : 0.08f));
-    ImGui::PushStyleColor(ImGuiCol_ButtonActive, shiftColor(color, light ? -0.14f : -0.06f));
-    bool pressed = ImGui::Button(label, size);
-    ImGui::PopStyleColor(3);
+    RblxUI::PushStyleColor(RblxUICol_Button, color);
+    RblxUI::PushStyleColor(RblxUICol_ButtonHovered, shiftColor(color, light ? -0.07f : 0.08f));
+    RblxUI::PushStyleColor(RblxUICol_ButtonActive, shiftColor(color, light ? -0.14f : -0.06f));
+    bool pressed = RblxUI::Button(label, size);
+    RblxUI::PopStyleColor(3);
     return pressed;
 }
 
 void renderAuthMenu(float uiScale) {
-    const ImVec2 display = ImGui::GetIO().DisplaySize;
+    const RblxVec2 display = RblxUI::GetIO().DisplaySize;
     const float panelWidth = std::min(display.x - UiScale::Px(40.0f, uiScale), UiScale::Px(520.0f, uiScale));
     const float panelHeight = UiScale::Px(360.0f, uiScale);
-    ImGui::SetNextWindowPos(ImVec2((display.x - panelWidth) * 0.5f, (display.y - panelHeight) * 0.5f), ImGuiCond_Always);
-    ImGui::SetNextWindowSize(ImVec2(panelWidth, panelHeight), ImGuiCond_Always);
+    RblxUI::SetNextWindowPos(RblxVec2((display.x - panelWidth) * 0.5f, (display.y - panelHeight) * 0.5f), RblxUICond_Always);
+    RblxUI::SetNextWindowSize(RblxVec2(panelWidth, panelHeight), RblxUICond_Always);
 
-    if (ImGui::Begin("PlayerAuth", nullptr, overlayFlags())) {
+    if (RblxUI::Begin("PlayerAuth", nullptr, overlayFlags())) {
         drawLabel("RBLX CLONE PLAYER");
-        ImGui::TextUnformatted("Sign in through the website");
-        ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + panelWidth - UiScale::Px(48.0f, uiScale));
-        ImGui::TextWrapped("Sign in to continue with your account.");
-        ImGui::PopTextWrapPos();
-        ImGui::Spacing();
+        RblxUI::TextUnformatted("Sign in through the website");
+        RblxUI::PushTextWrapPos(RblxUI::GetCursorPosX() + panelWidth - UiScale::Px(48.0f, uiScale));
+        RblxUI::TextWrapped("Sign in to continue with your account.");
+        RblxUI::PopTextWrapPos();
+        RblxUI::Spacing();
 
         if (std::strlen(authToken) > 0) {
-            ImGui::Text("Signed in as %s", myUsername);
-            if (modernButton("Continue", ImVec2(-1, UiScale::Px(46.0f, uiScale)), rblx::ui::theme::primaryButton())) {
+            RblxUI::Text("Signed in as %s", myUsername);
+            if (modernButton("Continue", RblxVec2(-1, UiScale::Px(46.0f, uiScale)), rblx::ui::theme::primaryButton())) {
                 currentState = MENU_PLAY_CHOICE;
             }
         }
 
-        if (modernButton(waitingForWebLogin ? "Waiting for login" : "Login with website", ImVec2(-1, UiScale::Px(50.0f, uiScale)), rblx::ui::theme::primaryButton())) {
+        if (modernButton(waitingForWebLogin ? "Waiting for login" : "Login with website", RblxVec2(-1, UiScale::Px(50.0f, uiScale)), rblx::ui::theme::primaryButton())) {
             std::string loginUrl;
             std::string error;
             if (startAuthCallback(loginUrl, error)) {
@@ -98,11 +98,11 @@ void renderAuthMenu(float uiScale) {
             }
         }
 
-        if (modernButton("Create account", ImVec2(-1, UiScale::Px(42.0f, uiScale)), rblx::ui::theme::secondaryButton())) {
+        if (modernButton("Create account", RblxVec2(-1, UiScale::Px(42.0f, uiScale)), rblx::ui::theme::secondaryButton())) {
             Auth::openBrowser(automaticWebServerUrl() + "/signup");
         }
 
-        if (modernButton("Play as guest", ImVec2(-1, UiScale::Px(42.0f, uiScale)), rblx::ui::theme::secondaryButton())) {
+        if (modernButton("Play as guest", RblxVec2(-1, UiScale::Px(42.0f, uiScale)), rblx::ui::theme::secondaryButton())) {
             authToken[0] = '\0';
             accountCoins = 0;
             copyToBuffer(myUsername, sizeof(myUsername), "Guest");
@@ -111,12 +111,12 @@ void renderAuthMenu(float uiScale) {
         }
 
         if (showLoginError) {
-            ImGui::PushStyleColor(ImGuiCol_Text, rblx::ui::theme::error());
-            ImGui::TextWrapped("%s", loginErrorMsg);
-            ImGui::PopStyleColor();
+            RblxUI::PushStyleColor(RblxUICol_Text, rblx::ui::theme::error());
+            RblxUI::TextWrapped("%s", loginErrorMsg);
+            RblxUI::PopStyleColor();
         }
     }
-    ImGui::End();
+    RblxUI::End();
 }
 
 void loadDiscoverGames() {
@@ -196,275 +196,275 @@ bool joinDiscoveredGame(const DiscoverGame& game, std::string& error) {
 }
 
 void renderPlayMenu(float uiScale) {
-    const ImVec2 display = ImGui::GetIO().DisplaySize;
+    const RblxVec2 display = RblxUI::GetIO().DisplaySize;
     const float panelWidth = std::min(display.x - UiScale::Px(40.0f, uiScale), UiScale::Px(620.0f, uiScale));
     const float panelHeight = UiScale::Px(330.0f, uiScale);
-    ImGui::SetNextWindowPos(ImVec2((display.x - panelWidth) * 0.5f, (display.y - panelHeight) * 0.5f), ImGuiCond_Always);
-    ImGui::SetNextWindowSize(ImVec2(panelWidth, panelHeight), ImGuiCond_Always);
+    RblxUI::SetNextWindowPos(RblxVec2((display.x - panelWidth) * 0.5f, (display.y - panelHeight) * 0.5f), RblxUICond_Always);
+    RblxUI::SetNextWindowSize(RblxVec2(panelWidth, panelHeight), RblxUICond_Always);
 
-    if (ImGui::Begin("PlayMenu", nullptr, overlayFlags())) {
+    if (RblxUI::Begin("PlayMenu", nullptr, overlayFlags())) {
         drawLabel(std::strlen(authToken) > 0 ? "SIGNED IN" : "GUEST SESSION");
-        ImGui::Text("Welcome, %s", myUsername);
+        RblxUI::Text("Welcome, %s", myUsername);
         if (std::strlen(authToken) > 0) {
-            ImGui::Text("%d coins", accountCoins);
+            RblxUI::Text("%d coins", accountCoins);
         }
-        ImGui::TextWrapped("Browse public games and join without leaving the player.");
-        ImGui::Spacing();
+        RblxUI::TextWrapped("Browse public games and join without leaving the player.");
+        RblxUI::Spacing();
 
-        if (modernButton("Browse games", ImVec2(-1, UiScale::Px(52.0f, uiScale)), rblx::ui::theme::primaryButton())) {
+        if (modernButton("Browse games", RblxVec2(-1, UiScale::Px(52.0f, uiScale)), rblx::ui::theme::primaryButton())) {
             currentState = MENU_GAMES;
             if (!discoverLoaded) {
                 loadDiscoverGames();
             }
         }
 
-        if (modernButton("Open website", ImVec2(-1, UiScale::Px(42.0f, uiScale)), rblx::ui::theme::secondaryButton())) {
+        if (modernButton("Open website", RblxVec2(-1, UiScale::Px(42.0f, uiScale)), rblx::ui::theme::secondaryButton())) {
             Auth::openBrowser(automaticWebServerUrl() + "/games");
             showLoginError = false;
         }
 
-        if (modernButton("Switch account", ImVec2(-1, UiScale::Px(42.0f, uiScale)), rblx::ui::theme::secondaryButton())) {
+        if (modernButton("Switch account", RblxVec2(-1, UiScale::Px(42.0f, uiScale)), rblx::ui::theme::secondaryButton())) {
             currentState = MENU_AUTH_CHOICE;
             showLoginError = false;
         }
 
         if (showLoginError) {
-            ImGui::PushStyleColor(ImGuiCol_Text, rblx::ui::theme::error());
-            ImGui::TextWrapped("%s", loginErrorMsg);
-            ImGui::PopStyleColor();
+            RblxUI::PushStyleColor(RblxUICol_Text, rblx::ui::theme::error());
+            RblxUI::TextWrapped("%s", loginErrorMsg);
+            RblxUI::PopStyleColor();
         }
     }
-    ImGui::End();
+    RblxUI::End();
 }
 
 void renderGamesMenu(float uiScale) {
-    const ImVec2 display = ImGui::GetIO().DisplaySize;
+    const RblxVec2 display = RblxUI::GetIO().DisplaySize;
     const float panelWidth = std::min(display.x - UiScale::Px(40.0f, uiScale), UiScale::Px(760.0f, uiScale));
     const float panelHeight = std::min(display.y - UiScale::Px(40.0f, uiScale), UiScale::Px(620.0f, uiScale));
-    ImGui::SetNextWindowPos(ImVec2((display.x - panelWidth) * 0.5f, (display.y - panelHeight) * 0.5f), ImGuiCond_Always);
-    ImGui::SetNextWindowSize(ImVec2(panelWidth, panelHeight), ImGuiCond_Always);
+    RblxUI::SetNextWindowPos(RblxVec2((display.x - panelWidth) * 0.5f, (display.y - panelHeight) * 0.5f), RblxUICond_Always);
+    RblxUI::SetNextWindowSize(RblxVec2(panelWidth, panelHeight), RblxUICond_Always);
 
-    if (ImGui::Begin("GamesMenu", nullptr, overlayFlags())) {
+    if (RblxUI::Begin("GamesMenu", nullptr, overlayFlags())) {
         drawLabel("DISCOVER");
-        ImGui::Text("Games");
-        ImGui::PushStyleColor(ImGuiCol_Text, rblx::ui::theme::muted());
-        ImGui::TextWrapped("%s", discoverLoaded
+        RblxUI::Text("Games");
+        RblxUI::PushStyleColor(RblxUICol_Text, rblx::ui::theme::muted());
+        RblxUI::TextWrapped("%s", discoverLoaded
                                     ? "Public games from the website. Press Play to join one."
                                     : "Loading public games from the website...");
-        ImGui::PopStyleColor();
-        ImGui::Spacing();
+        RblxUI::PopStyleColor();
+        RblxUI::Spacing();
 
-        if (modernButton("Refresh", ImVec2(UiScale::Px(110.0f, uiScale), UiScale::Px(34.0f, uiScale)), rblx::ui::theme::secondaryButton())) {
+        if (modernButton("Refresh", RblxVec2(UiScale::Px(110.0f, uiScale), UiScale::Px(34.0f, uiScale)), rblx::ui::theme::secondaryButton())) {
             loadDiscoverGames();
         }
-        ImGui::SameLine();
-        if (modernButton("Back", ImVec2(UiScale::Px(90.0f, uiScale), UiScale::Px(34.0f, uiScale)), rblx::ui::theme::secondaryButton())) {
+        RblxUI::SameLine();
+        if (modernButton("Back", RblxVec2(UiScale::Px(90.0f, uiScale), UiScale::Px(34.0f, uiScale)), rblx::ui::theme::secondaryButton())) {
             currentState = MENU_PLAY_CHOICE;
         }
-        ImGui::Separator();
+        RblxUI::Separator();
 
         const bool signedIn = std::strlen(authToken) > 0;
         if (!signedIn) {
-            ImGui::PushStyleColor(ImGuiCol_Text, rblx::ui::theme::warning());
-            ImGui::TextWrapped("Browsing as a guest. Sign in to join a game.");
-            ImGui::PopStyleColor();
-            if (modernButton("Sign in", ImVec2(-1, UiScale::Px(40.0f, uiScale)), rblx::ui::theme::primaryButton())) {
+            RblxUI::PushStyleColor(RblxUICol_Text, rblx::ui::theme::warning());
+            RblxUI::TextWrapped("Browsing as a guest. Sign in to join a game.");
+            RblxUI::PopStyleColor();
+            if (modernButton("Sign in", RblxVec2(-1, UiScale::Px(40.0f, uiScale)), rblx::ui::theme::primaryButton())) {
                 currentState = MENU_AUTH_CHOICE;
             }
-            ImGui::Separator();
+            RblxUI::Separator();
         }
 
         if (!discoverError.empty()) {
-            ImGui::PushStyleColor(ImGuiCol_Text, rblx::ui::theme::error());
-            ImGui::TextWrapped("%s", discoverError.c_str());
-            ImGui::PopStyleColor();
+            RblxUI::PushStyleColor(RblxUICol_Text, rblx::ui::theme::error());
+            RblxUI::TextWrapped("%s", discoverError.c_str());
+            RblxUI::PopStyleColor();
         }
 
-        ImGui::BeginChild("GameList", ImVec2(0, 0), false);
+        RblxUI::BeginChild("GameList", RblxVec2(0, 0), false);
         if (discoverGames.empty()) {
-            ImGui::TextWrapped("%s", discoverLoaded ? "No public games have been published yet."
+            RblxUI::TextWrapped("%s", discoverLoaded ? "No public games have been published yet."
                                                     : "No games loaded yet. Press Refresh to try again.");
         }
 
         for (const DiscoverGame& game : discoverGames) {
-            ImGui::PushID(game.id);
+            RblxUI::PushID(game.id);
             const float playWidth = UiScale::Px(84.0f, uiScale);
 
-            ImGui::Text("%s", game.title.c_str());
-            ImGui::SameLine();
-            const float remaining = ImGui::GetContentRegionAvail().x;
+            RblxUI::Text("%s", game.title.c_str());
+            RblxUI::SameLine();
+            const float remaining = RblxUI::GetContentRegionAvail().x;
             if (remaining > playWidth + UiScale::Px(12.0f, uiScale)) {
-                ImGui::SetCursorPosX(ImGui::GetCursorPosX() + remaining - playWidth);
+                RblxUI::SetCursorPosX(RblxUI::GetCursorPosX() + remaining - playWidth);
             }
-            if (!signedIn) ImGui::BeginDisabled();
-            if (modernButton("Play", ImVec2(playWidth, UiScale::Px(30.0f, uiScale)), rblx::ui::theme::primaryButton())) {
+            if (!signedIn) RblxUI::BeginDisabled();
+            if (modernButton("Play", RblxVec2(playWidth, UiScale::Px(30.0f, uiScale)), rblx::ui::theme::primaryButton())) {
                 std::string joinError;
                 if (!joinDiscoveredGame(game, joinError)) {
                     discoverError = joinError;
                 }
             }
-            if (!signedIn) ImGui::EndDisabled();
+            if (!signedIn) RblxUI::EndDisabled();
 
-            ImGui::PushStyleColor(ImGuiCol_Text, rblx::ui::theme::muted());
-            ImGui::Text("by %s - %d parts - %d launches",
+            RblxUI::PushStyleColor(RblxUICol_Text, rblx::ui::theme::muted());
+            RblxUI::Text("by %s - %d parts - %d launches",
                         game.owner.empty() ? "unknown" : game.owner.c_str(),
                         game.partsCount,
                         game.launchCount);
-            ImGui::PopStyleColor();
+            RblxUI::PopStyleColor();
             if (!game.description.empty()) {
-                ImGui::TextWrapped("%s", game.description.c_str());
+                RblxUI::TextWrapped("%s", game.description.c_str());
             }
-            ImGui::Separator();
-            ImGui::PopID();
+            RblxUI::Separator();
+            RblxUI::PopID();
         }
-        ImGui::EndChild();
+        RblxUI::EndChild();
     }
-    ImGui::End();
+    RblxUI::End();
 }
 
 void renderTopBar(std::deque<Part>& parts, PhysicsWorld& physicsWorld, float uiScale) {
-    const ImVec2 display = ImGui::GetIO().DisplaySize;
+    const RblxVec2 display = RblxUI::GetIO().DisplaySize;
     const float width = std::min(UiScale::Px(420.0f, uiScale), display.x - UiScale::Px(32.0f, uiScale));
-    ImGui::SetNextWindowPos(ImVec2((display.x - width) * 0.5f, UiScale::Px(14.0f, uiScale)), ImGuiCond_Always);
-    ImGui::SetNextWindowSize(ImVec2(width, UiScale::Px(58.0f, uiScale)), ImGuiCond_Always);
-    if (ImGui::Begin("TopBarHud", nullptr, overlayFlags())) {
-        ImGui::Text("%s", currentState == ONLINE ? "Online" : "Offline");
-        ImGui::SameLine();
-        if (modernButton("Leave game", ImVec2(UiScale::Px(130.0f, uiScale), UiScale::Px(34.0f, uiScale)), rblx::ui::theme::dangerButton())) {
+    RblxUI::SetNextWindowPos(RblxVec2((display.x - width) * 0.5f, UiScale::Px(14.0f, uiScale)), RblxUICond_Always);
+    RblxUI::SetNextWindowSize(RblxVec2(width, UiScale::Px(58.0f, uiScale)), RblxUICond_Always);
+    if (RblxUI::Begin("TopBarHud", nullptr, overlayFlags())) {
+        RblxUI::Text("%s", currentState == ONLINE ? "Online" : "Offline");
+        RblxUI::SameLine();
+        if (modernButton("Leave game", RblxVec2(UiScale::Px(130.0f, uiScale), UiScale::Px(34.0f, uiScale)), rblx::ui::theme::dangerButton())) {
             leaveCurrentGame(parts, physicsWorld);
         }
-        ImGui::SameLine();
-        if (modernButton(showDebugGui ? "Hide debug" : "Debug", ImVec2(UiScale::Px(100.0f, uiScale), UiScale::Px(34.0f, uiScale)), rblx::ui::theme::secondaryButton())) {
+        RblxUI::SameLine();
+        if (modernButton(showDebugGui ? "Hide debug" : "Debug", RblxVec2(UiScale::Px(100.0f, uiScale), UiScale::Px(34.0f, uiScale)), rblx::ui::theme::secondaryButton())) {
             showDebugGui = !showDebugGui;
         }
     }
-    ImGui::End();
+    RblxUI::End();
 }
 
 void renderPlayerList(float uiScale) {
-    const ImVec2 display = ImGui::GetIO().DisplaySize;
+    const RblxVec2 display = RblxUI::GetIO().DisplaySize;
     const float margin = UiScale::Px(18.0f, uiScale);
     const float width = std::clamp(display.x * 0.24f, UiScale::Px(230.0f, uiScale), UiScale::Px(340.0f, uiScale));
     const float height = std::clamp(UiScale::Px(92.0f + playerList.size() * 30.0f, uiScale), UiScale::Px(128.0f, uiScale), display.y * 0.46f);
 
-    ImGui::SetNextWindowPos(ImVec2(display.x - width - margin, margin), ImGuiCond_Always);
-    ImGui::SetNextWindowSize(ImVec2(width, height), ImGuiCond_Always);
-    if (ImGui::Begin("PlayerListHud", nullptr, overlayFlags())) {
+    RblxUI::SetNextWindowPos(RblxVec2(display.x - width - margin, margin), RblxUICond_Always);
+    RblxUI::SetNextWindowSize(RblxVec2(width, height), RblxUICond_Always);
+    if (RblxUI::Begin("PlayerListHud", nullptr, overlayFlags())) {
         drawLabel("PLAYERS");
         int count = 1;
         for (const auto& player : playerList) {
             if (player.playerId != myPlayerId) ++count;
         }
-        ImGui::Text("%d online", count);
-        ImGui::Separator();
-        ImGui::Text("%s  (You)", myUsername);
+        RblxUI::Text("%d online", count);
+        RblxUI::Separator();
+        RblxUI::Text("%s  (You)", myUsername);
         for (const auto& player : playerList) {
             if (player.playerId == myPlayerId) continue;
             const std::string username = PacketProtocol::fixedString(player.username, sizeof(player.username));
-            ImGui::Text("%s", username.empty() ? "Player" : username.c_str());
+            RblxUI::Text("%s", username.empty() ? "Player" : username.c_str());
         }
     }
-    ImGui::End();
+    RblxUI::End();
 }
 
 void renderChat(float uiScale) {
-    const ImVec2 display = ImGui::GetIO().DisplaySize;
+    const RblxVec2 display = RblxUI::GetIO().DisplaySize;
     const float margin = UiScale::Px(18.0f, uiScale);
     const float width = std::clamp(display.x * 0.34f, UiScale::Px(300.0f, uiScale), UiScale::Px(460.0f, uiScale));
     const float height = std::clamp(display.y * 0.30f, UiScale::Px(210.0f, uiScale), UiScale::Px(320.0f, uiScale));
 
-    ImGui::SetNextWindowPos(ImVec2(margin, margin), ImGuiCond_Always);
-    ImGui::SetNextWindowSize(ImVec2(width, height), ImGuiCond_Always);
-    if (ImGui::Begin("ChatHud", nullptr, overlayFlags())) {
+    RblxUI::SetNextWindowPos(RblxVec2(margin, margin), RblxUICond_Always);
+    RblxUI::SetNextWindowSize(RblxVec2(width, height), RblxUICond_Always);
+    if (RblxUI::Begin("ChatHud", nullptr, overlayFlags())) {
         drawLabel("CHAT");
-        ImGui::BeginChild("ChatMessages", ImVec2(0, -UiScale::Px(44.0f, uiScale)), false);
+        RblxUI::BeginChild("ChatMessages", RblxVec2(0, -UiScale::Px(44.0f, uiScale)), false);
         for (const auto& line : chatLines) {
             if (line.system) {
-                ImGui::PushStyleColor(ImGuiCol_Text, rblx::ui::theme::text());
-                ImGui::TextWrapped("%s", line.message.c_str());
-                ImGui::PopStyleColor();
+                RblxUI::PushStyleColor(RblxUICol_Text, rblx::ui::theme::text());
+                RblxUI::TextWrapped("%s", line.message.c_str());
+                RblxUI::PopStyleColor();
             } else {
-                ImGui::TextWrapped("%s: %s", line.username.c_str(), line.message.c_str());
+                RblxUI::TextWrapped("%s: %s", line.username.c_str(), line.message.c_str());
             }
         }
-        if (ImGui::GetScrollY() >= ImGui::GetScrollMaxY() - 4.0f) {
-            ImGui::SetScrollHereY(1.0f);
+        if (RblxUI::GetScrollY() >= RblxUI::GetScrollMaxY() - 4.0f) {
+            RblxUI::SetScrollHereY(1.0f);
         }
-        ImGui::EndChild();
+        RblxUI::EndChild();
 
-        ImGui::SetNextItemWidth(-UiScale::Px(72.0f, uiScale));
-        bool enterPressed = ImGui::InputText("##chatInput", chatInput, sizeof(chatInput), ImGuiInputTextFlags_EnterReturnsTrue);
-        ImGui::SameLine();
-        if (modernButton("Send", ImVec2(UiScale::Px(62.0f, uiScale), 0), rblx::ui::theme::primaryButton()) || enterPressed) {
+        RblxUI::SetNextItemWidth(-UiScale::Px(72.0f, uiScale));
+        bool enterPressed = RblxUI::InputText("##chatInput", chatInput, sizeof(chatInput), RblxUIInputTextFlags_EnterReturnsTrue);
+        RblxUI::SameLine();
+        if (modernButton("Send", RblxVec2(UiScale::Px(62.0f, uiScale), 0), rblx::ui::theme::primaryButton()) || enterPressed) {
             sendChatMessage();
         }
     }
-    ImGui::End();
+    RblxUI::End();
 }
 
 void renderBottomHud(float uiScale) {
-    const ImVec2 display = ImGui::GetIO().DisplaySize;
+    const RblxVec2 display = RblxUI::GetIO().DisplaySize;
     const float width = std::min(display.x - UiScale::Px(32.0f, uiScale), UiScale::Px(560.0f, uiScale));
     const float height = UiScale::Px(138.0f, uiScale);
-    ImGui::SetNextWindowPos(ImVec2((display.x - width) * 0.5f, display.y - height - UiScale::Px(18.0f, uiScale)), ImGuiCond_Always);
-    ImGui::SetNextWindowSize(ImVec2(width, height), ImGuiCond_Always);
-    if (ImGui::Begin("BottomHud", nullptr, overlayFlags())) {
+    RblxUI::SetNextWindowPos(RblxVec2((display.x - width) * 0.5f, display.y - height - UiScale::Px(18.0f, uiScale)), RblxUICond_Always);
+    RblxUI::SetNextWindowSize(RblxVec2(width, height), RblxUICond_Always);
+    if (RblxUI::Begin("BottomHud", nullptr, overlayFlags())) {
         const float slotSize = std::min(UiScale::Px(62.0f, uiScale), (width - UiScale::Px(72.0f, uiScale)) / 5.0f);
         const float startX = (width - (slotSize * 5.0f + UiScale::Px(8.0f, uiScale) * 4.0f)) * 0.5f;
-        ImGui::SetCursorPosX(startX);
+        RblxUI::SetCursorPosX(startX);
         for (int i = 0; i < 5; ++i) {
-            ImGui::PushID(i);
-            modernButton(std::to_string(i + 1).c_str(), ImVec2(slotSize, slotSize), rblx::ui::theme::secondaryButton());
-            ImGui::PopID();
-            if (i < 4) ImGui::SameLine();
+            RblxUI::PushID(i);
+            modernButton(std::to_string(i + 1).c_str(), RblxVec2(slotSize, slotSize), rblx::ui::theme::secondaryButton());
+            RblxUI::PopID();
+            if (i < 4) RblxUI::SameLine();
         }
 
-        ImGui::Spacing();
+        RblxUI::Spacing();
         float health = myCharacter ? myCharacter->health : 100.0f;
         float maxHealth = myCharacter ? myCharacter->maxHealth : 100.0f;
         const float fraction = maxHealth > 0.0f ? std::clamp(health / maxHealth, 0.0f, 1.0f) : 0.0f;
-        ImGui::PushStyleColor(ImGuiCol_PlotHistogram, fraction > 0.35f ? rblx::ui::theme::accent() : rblx::ui::theme::error());
+        RblxUI::PushStyleColor(RblxUICol_PlotHistogram, fraction > 0.35f ? rblx::ui::theme::accent() : rblx::ui::theme::error());
         char label[64];
         std::snprintf(label, sizeof(label), "Health %.0f / %.0f", health, maxHealth);
-        ImGui::ProgressBar(fraction, ImVec2(-1, UiScale::Px(24.0f, uiScale)), label);
-        ImGui::PopStyleColor();
+        RblxUI::ProgressBar(fraction, RblxVec2(-1, UiScale::Px(24.0f, uiScale)), label);
+        RblxUI::PopStyleColor();
 
         if (vehicleDriverId == myPlayerId) {
-            ImGui::Text("%d km/h", rblx::vehicle::speedKmh(vehicleSpeed));
+            RblxUI::Text("%d km/h", rblx::vehicle::speedKmh(vehicleSpeed));
         }
     }
-    ImGui::End();
+    RblxUI::End();
 }
 
 void renderDeathOverlay(float uiScale) {
     if (!playerIsDead) return;
 
-    const ImVec2 display = ImGui::GetIO().DisplaySize;
-    ImGui::SetNextWindowPos(ImVec2(0.0f, 0.0f), ImGuiCond_Always);
-    ImGui::SetNextWindowSize(display, ImGuiCond_Always);
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
-    ImGui::PushStyleColor(ImGuiCol_WindowBg, rblx::ui::theme::overlay(0.55f));
-    ImGui::Begin("DeathBackdrop", nullptr,
-                 ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoSavedSettings |
-                 ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoNav |
-                 ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoBringToFrontOnFocus);
-    ImGui::End();
-    ImGui::PopStyleColor();
-    ImGui::PopStyleVar();
+    const RblxVec2 display = RblxUI::GetIO().DisplaySize;
+    RblxUI::SetNextWindowPos(RblxVec2(0.0f, 0.0f), RblxUICond_Always);
+    RblxUI::SetNextWindowSize(display, RblxUICond_Always);
+    RblxUI::PushStyleVar(RblxUIStyleVar_WindowPadding, RblxVec2(0.0f, 0.0f));
+    RblxUI::PushStyleColor(RblxUICol_WindowBg, rblx::ui::theme::overlay(0.55f));
+    RblxUI::Begin("DeathBackdrop", nullptr,
+                 RblxUIWindowFlags_NoDecoration | RblxUIWindowFlags_NoSavedSettings |
+                 RblxUIWindowFlags_NoMove | RblxUIWindowFlags_NoNav |
+                 RblxUIWindowFlags_NoFocusOnAppearing | RblxUIWindowFlags_NoBringToFrontOnFocus);
+    RblxUI::End();
+    RblxUI::PopStyleColor();
+    RblxUI::PopStyleVar();
 
     const float width = std::min(UiScale::Px(380.0f, uiScale), display.x - UiScale::Px(40.0f, uiScale));
-    ImGui::SetNextWindowPos(ImVec2((display.x - width) * 0.5f,
+    RblxUI::SetNextWindowPos(RblxVec2((display.x - width) * 0.5f,
                                   display.y * 0.5f - UiScale::Px(48.0f, uiScale)),
-                            ImGuiCond_Always);
-    ImGui::SetNextWindowSize(ImVec2(width, UiScale::Px(104.0f, uiScale)), ImGuiCond_Always);
-    if (ImGui::Begin("DeathNotice", nullptr, overlayFlags())) {
-        ImGui::PushStyleColor(ImGuiCol_Text, rblx::ui::theme::error());
-        ImGui::TextUnformatted("You died");
-        ImGui::PopStyleColor();
+                            RblxUICond_Always);
+    RblxUI::SetNextWindowSize(RblxVec2(width, UiScale::Px(104.0f, uiScale)), RblxUICond_Always);
+    if (RblxUI::Begin("DeathNotice", nullptr, overlayFlags())) {
+        RblxUI::PushStyleColor(RblxUICol_Text, rblx::ui::theme::error());
+        RblxUI::TextUnformatted("You died");
+        RblxUI::PopStyleColor();
         const int seconds = std::max(1, static_cast<int>(respawnCountdown + 0.999f));
-        ImGui::Text("Respawning at the spawn point in %d...", seconds);
+        RblxUI::Text("Respawning at the spawn point in %d...", seconds);
     }
-    ImGui::End();
+    RblxUI::End();
 }
 
 void renderGameHud(std::deque<Part>& parts, PhysicsWorld& physicsWorld, float uiScale) {
@@ -482,16 +482,16 @@ void renderGameHud(std::deque<Part>& parts, PhysicsWorld& physicsWorld, float ui
     if (currentState == ONLINE && isConnected && myCharacter && vehicleDriverId != myPlayerId &&
         vehiclePartIndex >= 0 && vehiclePartIndex < static_cast<int>(parts.size()) &&
         rblx::vehicle::canEnter(parts[vehiclePartIndex].position, myCharacter->getPosition())) {
-        const ImVec2 display = ImGui::GetIO().DisplaySize;
+        const RblxVec2 display = RblxUI::GetIO().DisplaySize;
         const float width = UiScale::Px(240.0f, uiScale);
-        ImGui::SetNextWindowPos(ImVec2((display.x - width) * 0.5f,
+        RblxUI::SetNextWindowPos(RblxVec2((display.x - width) * 0.5f,
                                       display.y - UiScale::Px(188.0f, uiScale)),
-                                ImGuiCond_Always);
-        ImGui::SetNextWindowSize(ImVec2(width, UiScale::Px(50.0f, uiScale)), ImGuiCond_Always);
-        if (ImGui::Begin("VehiclePrompt", nullptr, overlayFlags())) {
-            ImGui::TextUnformatted("Press E to drive");
+                                RblxUICond_Always);
+        RblxUI::SetNextWindowSize(RblxVec2(width, UiScale::Px(50.0f, uiScale)), RblxUICond_Always);
+        if (RblxUI::Begin("VehiclePrompt", nullptr, overlayFlags())) {
+            RblxUI::TextUnformatted("Press E to drive");
         }
-        ImGui::End();
+        RblxUI::End();
     }
     // Drawn last: while dead the server holds the character still, so the player
     // needs to know why the controls stopped responding.
@@ -501,14 +501,14 @@ void renderGameHud(std::deque<Part>& parts, PhysicsWorld& physicsWorld, float ui
 void setShiftLockEnabled(bool enabled) {
     shiftLockEnabled = enabled;
 
-    GLFWwindow* window = glfwGetCurrentContext();
+    RBLXWINwindow* window = rblxwinGetCurrentContext();
     if (!window) return;
 
     if (enabled) {
         const bool inGame = currentState == ONLINE || currentState == OFFLINE;
         if (inGame && !escapeMenuOpen) {
             isCursorLocked = true;
-            glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+            rblxwinSetInputMode(window, RBLXWIN_CURSOR, RBLXWIN_CURSOR_DISABLED);
             firstMouse = true;
         }
         return;
@@ -516,7 +516,7 @@ void setShiftLockEnabled(bool enabled) {
 
     if (isCursorLocked) {
         isCursorLocked = false;
-        glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+        rblxwinSetInputMode(window, RBLXWIN_CURSOR, RBLXWIN_CURSOR_NORMAL);
     }
 }
 
@@ -527,10 +527,10 @@ void closeEscapeMenu() {
     if (!shiftLockEnabled) return;
     if (currentState != ONLINE && currentState != OFFLINE) return;
 
-    GLFWwindow* window = glfwGetCurrentContext();
+    RBLXWINwindow* window = rblxwinGetCurrentContext();
     if (!window) return;
     isCursorLocked = true;
-    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+    rblxwinSetInputMode(window, RBLXWIN_CURSOR, RBLXWIN_CURSOR_DISABLED);
     firstMouse = true;
 }
 
@@ -547,47 +547,47 @@ void resetClientSettings() {
 void renderEscapeMenu(std::deque<Part>& parts, PhysicsWorld& physicsWorld, float uiScale) {
     if (!escapeMenuOpen) return;
 
-    const ImVec2 display = ImGui::GetIO().DisplaySize;
+    const RblxVec2 display = RblxUI::GetIO().DisplaySize;
 
-    ImGui::SetNextWindowPos(ImVec2(0.0f, 0.0f), ImGuiCond_Always);
-    ImGui::SetNextWindowSize(display, ImGuiCond_Always);
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
-    ImGui::PushStyleColor(ImGuiCol_WindowBg, rblx::ui::theme::overlay(0.72f));
-    ImGui::Begin("EscapeMenuBackdrop", nullptr,
-                 ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoSavedSettings |
-                 ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoNav |
-                 ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoBringToFrontOnFocus);
-    ImGui::End();
-    ImGui::PopStyleColor();
-    ImGui::PopStyleVar();
+    RblxUI::SetNextWindowPos(RblxVec2(0.0f, 0.0f), RblxUICond_Always);
+    RblxUI::SetNextWindowSize(display, RblxUICond_Always);
+    RblxUI::PushStyleVar(RblxUIStyleVar_WindowPadding, RblxVec2(0.0f, 0.0f));
+    RblxUI::PushStyleColor(RblxUICol_WindowBg, rblx::ui::theme::overlay(0.72f));
+    RblxUI::Begin("EscapeMenuBackdrop", nullptr,
+                 RblxUIWindowFlags_NoDecoration | RblxUIWindowFlags_NoSavedSettings |
+                 RblxUIWindowFlags_NoMove | RblxUIWindowFlags_NoNav |
+                 RblxUIWindowFlags_NoFocusOnAppearing | RblxUIWindowFlags_NoBringToFrontOnFocus);
+    RblxUI::End();
+    RblxUI::PopStyleColor();
+    RblxUI::PopStyleVar();
 
     const float panelWidth = std::min(display.x - UiScale::Px(40.0f, uiScale), UiScale::Px(430.0f, uiScale));
     const float panelHeight = std::min(display.y - UiScale::Px(40.0f, uiScale),
                                        UiScale::Px(escapeMenuShowSettings ? 540.0f : 424.0f, uiScale));
-    ImGui::SetNextWindowPos(ImVec2((display.x - panelWidth) * 0.5f, (display.y - panelHeight) * 0.5f), ImGuiCond_Always);
-    ImGui::SetNextWindowSize(ImVec2(panelWidth, panelHeight), ImGuiCond_Always);
+    RblxUI::SetNextWindowPos(RblxVec2((display.x - panelWidth) * 0.5f, (display.y - panelHeight) * 0.5f), RblxUICond_Always);
+    RblxUI::SetNextWindowSize(RblxVec2(panelWidth, panelHeight), RblxUICond_Always);
 
-    if (!ImGui::Begin("EscapeMenu", nullptr, overlayFlags())) {
-        ImGui::End();
+    if (!RblxUI::Begin("EscapeMenu", nullptr, overlayFlags())) {
+        RblxUI::End();
         return;
     }
 
     drawLabel("NOW PLAYING");
-    ImGui::Text("RBLX Clone");
-    ImGui::PushStyleColor(ImGuiCol_Text, rblx::ui::theme::muted());
+    RblxUI::Text("RBLX Clone");
+    RblxUI::PushStyleColor(RblxUICol_Text, rblx::ui::theme::muted());
     if (launchGameId > 0) {
-        ImGui::Text("Game %d - %s", launchGameId, currentState == ONLINE ? "online session" : "offline session");
+        RblxUI::Text("Game %d - %s", launchGameId, currentState == ONLINE ? "online session" : "offline session");
     } else {
-        ImGui::Text("%s", currentState == ONLINE ? "online session" : "offline session");
+        RblxUI::Text("%s", currentState == ONLINE ? "online session" : "offline session");
     }
-    ImGui::PopStyleColor();
-    ImGui::Separator();
+    RblxUI::PopStyleColor();
+    RblxUI::Separator();
 
     if (!escapeMenuShowSettings) {
-        if (modernButton("Resume", ImVec2(-1, UiScale::Px(52.0f, uiScale)), rblx::ui::theme::primaryButton())) {
+        if (modernButton("Resume", RblxVec2(-1, UiScale::Px(52.0f, uiScale)), rblx::ui::theme::primaryButton())) {
             closeEscapeMenu();
         }
-        if (modernButton("Reset Character", ImVec2(-1, UiScale::Px(42.0f, uiScale)), rblx::ui::theme::secondaryButton())) {
+        if (modernButton("Reset Character", RblxVec2(-1, UiScale::Px(42.0f, uiScale)), rblx::ui::theme::secondaryButton())) {
             // Online, a reset is a death the server performs, so it obeys the
             // same respawn delay as falling out of the world.
             if (currentState == ONLINE) {
@@ -597,49 +597,49 @@ void renderEscapeMenu(std::deque<Part>& parts, PhysicsWorld& physicsWorld, float
             }
             closeEscapeMenu();
         }
-        if (modernButton("Settings", ImVec2(-1, UiScale::Px(42.0f, uiScale)), rblx::ui::theme::secondaryButton())) {
+        if (modernButton("Settings", RblxVec2(-1, UiScale::Px(42.0f, uiScale)), rblx::ui::theme::secondaryButton())) {
             escapeMenuShowSettings = true;
         }
-        if (modernButton("Leave Game", ImVec2(-1, UiScale::Px(46.0f, uiScale)), rblx::ui::theme::dangerButton())) {
+        if (modernButton("Leave Game", RblxVec2(-1, UiScale::Px(46.0f, uiScale)), rblx::ui::theme::dangerButton())) {
             leaveCurrentGame(parts, physicsWorld);
         }
     } else {
         drawLabel("CONTROLS");
-        ImGui::BeginChild("SettingsList", ImVec2(0, -UiScale::Px(52.0f, uiScale)), false);
+        RblxUI::BeginChild("SettingsList", RblxVec2(0, -UiScale::Px(52.0f, uiScale)), false);
 
         bool shiftLockValue = shiftLockEnabled;
-        if (ImGui::Checkbox("Shift lock", &shiftLockValue)) {
+        if (RblxUI::Checkbox("Shift lock", &shiftLockValue)) {
             setShiftLockEnabled(shiftLockValue);
         }
-        ImGui::TextWrapped("Locks the mouse to the centre and keeps the character facing the camera.");
+        RblxUI::TextWrapped("Locks the mouse to the centre and keeps the character facing the camera.");
 
         drawLabel("MOUSE SENSITIVITY");
-        ImGui::SetNextItemWidth(-1.0f);
-        ImGui::SliderFloat("##mouseSensitivity", &camera.MouseSensitivity, 0.02f, 0.50f, "%.2f");
-        ImGui::Checkbox("Invert mouse Y", &invertMouseY);
+        RblxUI::SetNextItemWidth(-1.0f);
+        RblxUI::SliderFloat("##mouseSensitivity", &camera.MouseSensitivity, 0.02f, 0.50f, "%.2f");
+        RblxUI::Checkbox("Invert mouse Y", &invertMouseY);
 
         drawLabel("FIELD OF VIEW");
-        ImGui::SetNextItemWidth(-1.0f);
-        ImGui::SliderFloat("##fieldOfView", &camera.Zoom, 30.0f, 90.0f, "%.0f");
+        RblxUI::SetNextItemWidth(-1.0f);
+        RblxUI::SliderFloat("##fieldOfView", &camera.Zoom, 30.0f, 90.0f, "%.0f");
 
-        ImGui::Separator();
+        RblxUI::Separator();
         drawLabel("INTERFACE");
-        ImGui::Checkbox("Show chat", &showChatHud);
-        ImGui::Checkbox("Show player list", &showPlayerListHud);
-        ImGui::Checkbox("Debug overlay", &showDebugGui);
+        RblxUI::Checkbox("Show chat", &showChatHud);
+        RblxUI::Checkbox("Show player list", &showPlayerListHud);
+        RblxUI::Checkbox("Debug overlay", &showDebugGui);
 
-        ImGui::Separator();
-        if (modernButton("Reset to defaults", ImVec2(-1, UiScale::Px(38.0f, uiScale)), rblx::ui::theme::secondaryButton())) {
+        RblxUI::Separator();
+        if (modernButton("Reset to defaults", RblxVec2(-1, UiScale::Px(38.0f, uiScale)), rblx::ui::theme::secondaryButton())) {
             resetClientSettings();
         }
-        ImGui::EndChild();
+        RblxUI::EndChild();
 
-        if (modernButton("Back", ImVec2(-1, UiScale::Px(42.0f, uiScale)), rblx::ui::theme::secondaryButton())) {
+        if (modernButton("Back", RblxVec2(-1, UiScale::Px(42.0f, uiScale)), rblx::ui::theme::secondaryButton())) {
             escapeMenuShowSettings = false;
         }
     }
 
-    ImGui::Separator();
+    RblxUI::Separator();
     drawLabel("Press Esc to resume");
-    ImGui::End();
+    RblxUI::End();
 }

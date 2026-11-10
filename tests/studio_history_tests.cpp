@@ -20,10 +20,10 @@ void check(bool condition, const std::string& name) {
 
 std::deque<Part> makeWorld() {
     std::deque<Part> parts;
-    parts.emplace_back(glm::vec3(0.0f, -1.0f, 0.0f), glm::vec3(40.0f, 1.0f, 40.0f),
-                       glm::vec3(0.3f, 0.4f, 0.3f), ShapeType::Cube, "Baseplate");
-    parts.emplace_back(glm::vec3(0.0f, 3.0f, 0.0f), glm::vec3(2.0f),
-                       glm::vec3(0.8f, 0.2f, 0.2f), ShapeType::Cube, "Part");
+    parts.emplace_back(rblxmath::vec3(0.0f, -1.0f, 0.0f), rblxmath::vec3(40.0f, 1.0f, 40.0f),
+                       rblxmath::vec3(0.3f, 0.4f, 0.3f), ShapeType::Cube, "Baseplate");
+    parts.emplace_back(rblxmath::vec3(0.0f, 3.0f, 0.0f), rblxmath::vec3(2.0f),
+                       rblxmath::vec3(0.8f, 0.2f, 0.2f), ShapeType::Cube, "Part");
     return parts;
 }
 
@@ -34,7 +34,7 @@ void testOneChangeIsOneStep() {
     check(history.undoDepth() == 0, "a fresh history holds no steps");
     check(!history.canUndo(), "there is nothing to undo yet");
 
-    parts[1].position = glm::vec3(4.0f, 3.0f, 0.0f);
+    parts[1].position = rblxmath::vec3(4.0f, 3.0f, 0.0f);
     history.note(rblx::studio::captureWorld(parts), false);
     check(history.undoDepth() == 1, "one change is one step");
 
@@ -64,21 +64,21 @@ void testUndoAndRedo() {
     rblx::studio::History history;
     history.note(rblx::studio::captureWorld(parts), false);
 
-    parts[1].position = glm::vec3(4.0f, 3.0f, 0.0f);
+    parts[1].position = rblxmath::vec3(4.0f, 3.0f, 0.0f);
     parts[1].name = "Moved";
     history.note(rblx::studio::captureWorld(parts), false);
 
     rblx::studio::WorldSnapshot restored;
     check(history.undo(rblx::studio::captureWorld(parts), &restored), "undo hands back a world");
     check(restored.size() == 2, "the snapshot keeps every part");
-    check(restored[1].position == glm::vec3(0.0f, 3.0f, 0.0f), "undo brings the position back");
+    check(restored[1].position == rblxmath::vec3(0.0f, 3.0f, 0.0f), "undo brings the position back");
     check(restored[1].name == "Part", "undo brings the name back");
     check(history.undoDepth() == 0, "the step was spent");
     check(history.canRedo(), "the change can be put back");
 
     rblx::studio::WorldSnapshot forward;
     check(history.redo(restored, &forward), "redo hands back the world it left");
-    check(forward[1].position == glm::vec3(4.0f, 3.0f, 0.0f), "redo restores the move");
+    check(forward[1].position == rblxmath::vec3(4.0f, 3.0f, 0.0f), "redo restores the move");
     check(forward[1].name == "Moved", "redo restores the rename");
     check(!history.canRedo(), "the redo was spent");
 }
@@ -88,14 +88,14 @@ void testNewChangeDropsRedo() {
     rblx::studio::History history;
     history.note(rblx::studio::captureWorld(parts), false);
 
-    parts[0].color = glm::vec3(1.0f, 0.0f, 0.0f);
+    parts[0].color = rblxmath::vec3(1.0f, 0.0f, 0.0f);
     history.note(rblx::studio::captureWorld(parts), false);
 
     rblx::studio::WorldSnapshot restored;
     check(history.undo(rblx::studio::captureWorld(parts), &restored), "the repaint can be undone");
     check(history.canRedo(), "it can be redone until something else changes");
 
-    parts[1].size = glm::vec3(6.0f);
+    parts[1].size = rblxmath::vec3(6.0f);
     history.note(restored, false);  // the world the undo produced
     history.note(rblx::studio::captureWorld(parts), false);
     check(!history.canRedo(), "a new change drops the redo branch");

@@ -17,7 +17,7 @@
 #include <cstdint>
 #include <vector>
 
-#include <glm/glm.hpp>
+#include <rblxmath/rblxmath.hpp>
 
 namespace rblx::vehicle {
 
@@ -45,21 +45,21 @@ struct Input {
 };
 
 struct State {
-    glm::vec3 position{0.0f};
+    rblxmath::vec3 position{0.0f};
     float yawDegrees = 0.0f;
     float speed = 0.0f;  // signed, along the heading
 
     // Matches the engine's camera yaw convention (x = cos, z = sin), so yaw 0
     // points along +X and a positive yaw turns right.
-    glm::vec3 forward() const {
-        const float yaw = glm::radians(yawDegrees);
-        return glm::vec3(std::cos(yaw), 0.0f, std::sin(yaw));
+    rblxmath::vec3 forward() const {
+        const float yaw = rblxmath::radians(yawDegrees);
+        return rblxmath::vec3(std::cos(yaw), 0.0f, std::sin(yaw));
     }
 
     // Where the driver sits in world space, so the server can keep the
     // character in the car and every client sees it in the same place.
-    glm::vec3 seatPosition(float seatHeight) const {
-        return position + glm::vec3(0.0f, seatHeight, 0.0f);
+    rblxmath::vec3 seatPosition(float seatHeight) const {
+        return position + rblxmath::vec3(0.0f, seatHeight, 0.0f);
     }
 };
 
@@ -112,15 +112,15 @@ inline void step(State& state, const Input& input, float dt, const Limits& limit
 
 // Whether a player is close enough to get into a car at `carPosition`.
 // Non-finite positions are never in range.
-inline bool canEnter(const glm::vec3& carPosition, const glm::vec3& playerPosition,
+inline bool canEnter(const rblxmath::vec3& carPosition, const rblxmath::vec3& playerPosition,
                      float range = Limits{}.enterRange) {
     if (!std::isfinite(carPosition.x) || !std::isfinite(carPosition.y) ||
         !std::isfinite(carPosition.z) || !std::isfinite(playerPosition.x) ||
         !std::isfinite(playerPosition.y) || !std::isfinite(playerPosition.z)) {
         return false;
     }
-    const glm::vec3 offset = carPosition - playerPosition;
-    return glm::dot(offset, offset) <= range * range;
+    const rblxmath::vec3 offset = carPosition - playerPosition;
+    return rblxmath::dot(offset, offset) <= range * range;
 }
 
 // Whole km/h for the HUD. One world unit is treated as one metre.
@@ -137,10 +137,10 @@ inline int speedKmh(float unitsPerSecond) {
 // part is teleported to the result. That is cheap and cannot be destabilised by
 // a physics step, but it also means the world has to be consulted explicitly or
 // the car drives straight through a wall. The server hands in the collidable
-// parts as boxes; nothing here knows about parts, glm-free of the engine.
+// parts as boxes; nothing here knows about parts, rblxmath-free of the engine.
 struct Obstacle {
-    glm::vec3 min{0.0f};
-    glm::vec3 max{0.0f};
+    rblxmath::vec3 min{0.0f};
+    rblxmath::vec3 max{0.0f};
 };
 
 // How far a part has to reach into the car's body before it counts as a wall. A
@@ -151,14 +151,14 @@ inline constexpr float kWallOverlap = 0.25f;
 // True when the car's box at `position` would be inside `obstacles`. A
 // non-finite position counts as blocked, so a broken state cannot slip through
 // the check and end up outside the world.
-inline bool blockedAt(const glm::vec3& position, const glm::vec3& halfExtents,
+inline bool blockedAt(const rblxmath::vec3& position, const rblxmath::vec3& halfExtents,
                       const std::vector<Obstacle>& obstacles) {
     if (!std::isfinite(position.x) || !std::isfinite(position.y) ||
         !std::isfinite(position.z)) {
         return true;
     }
-    const glm::vec3 min = position - halfExtents;
-    const glm::vec3 max = position + halfExtents;
+    const rblxmath::vec3 min = position - halfExtents;
+    const rblxmath::vec3 max = position + halfExtents;
     for (const Obstacle& obstacle : obstacles) {
         const float overlapX = std::min(max.x, obstacle.max.x) - std::max(min.x, obstacle.min.x);
         const float overlapY = std::min(max.y, obstacle.max.y) - std::max(min.y, obstacle.min.y);
@@ -178,13 +178,13 @@ inline bool blockedAt(const glm::vec3& position, const glm::vec3& halfExtents,
 // slide along it; hit one square on and nothing is free, so it stops.
 inline void stepColliding(State& state, const Input& input, float dt,
                           const std::vector<Obstacle>& obstacles,
-                          const glm::vec3& halfExtents, const Limits& limits = Limits{}) {
+                          const rblxmath::vec3& halfExtents, const Limits& limits = Limits{}) {
     State candidate = state;
     step(candidate, input, dt, limits);
     state.yawDegrees = candidate.yawDegrees;
 
-    const glm::vec3 delta = candidate.position - state.position;
-    const float distance = glm::length(delta);
+    const rblxmath::vec3 delta = candidate.position - state.position;
+    const float distance = rblxmath::length(delta);
     // Already overlapping a part, for example because the world moved onto the
     // car: let it drive out instead of freezing it there for good.
     if (!(distance > 0.0f) || blockedAt(state.position, halfExtents, obstacles)) {
@@ -195,25 +195,25 @@ inline void stepColliding(State& state, const Input& input, float dt,
 
     const float maxSlice = 0.5f;
     const int slices = std::clamp(static_cast<int>(std::ceil(distance / maxSlice)), 1, 64);
-    const glm::vec3 slice = delta / static_cast<float>(slices);
+    const rblxmath::vec3 slice = delta / static_cast<float>(slices);
 
-    glm::vec3 position = state.position;
+    rblxmath::vec3 position = state.position;
     for (int i = 0; i < slices; ++i) {
-        const glm::vec3 next = position + slice;
+        const rblxmath::vec3 next = position + slice;
         if (!blockedAt(next, halfExtents, obstacles)) {
             position = next;
             continue;
         }
         bool slid = false;
         if (slice.x != 0.0f) {
-            const glm::vec3 sideways(position.x + slice.x, position.y, position.z);
+            const rblxmath::vec3 sideways(position.x + slice.x, position.y, position.z);
             if (!blockedAt(sideways, halfExtents, obstacles)) {
                 position = sideways;
                 slid = true;
             }
         }
         if (slice.z != 0.0f) {
-            const glm::vec3 sideways(position.x, position.y, position.z + slice.z);
+            const rblxmath::vec3 sideways(position.x, position.y, position.z + slice.z);
             if (!blockedAt(sideways, halfExtents, obstacles)) {
                 position = sideways;
                 slid = true;

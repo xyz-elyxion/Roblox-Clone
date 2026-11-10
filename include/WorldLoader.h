@@ -3,7 +3,7 @@
 #include <string>
 #include <deque>
 
-#include <glm/glm.hpp>
+#include <rblxmath/rblxmath.hpp>
 
 #include "Part.h"
 #include "PhysicsWorld.h"
@@ -12,7 +12,7 @@
 // header line. A world file written before fog existed has none of them, and
 // then the world simply has no fog.
 struct WorldEnvironment {
-    glm::vec3 fogColor{0.0f};
+    rblxmath::vec3 fogColor{0.0f};
     float fogDensity = 0.0f;
 };
 

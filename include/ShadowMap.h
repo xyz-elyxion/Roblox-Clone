@@ -1,7 +1,7 @@
 #pragma once
 
-#include <glad/glad.h>
-#include <glm/glm.hpp>
+#include <rblxgl/rblxgl.h>
+#include <rblxmath/rblxmath.hpp>
 
 class ShadowMap {
 public:
@@ -16,5 +16,5 @@ public:
     void unbind();
     void bindForReading(unsigned int textureUnit);
     
-    glm::mat4 getLightSpaceMatrix(glm::vec3 lightPos);
+    rblxmath::mat4 getLightSpaceMatrix(rblxmath::vec3 lightPos);
 };

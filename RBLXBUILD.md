@@ -43,8 +43,8 @@ The rename is textual and complete, not a port:
   names a directory this tree does not carry.
 - **Everything this repository builds is in the dialect, including what it
   vendors.** The root file, the anti-cheat library and the dependencies under
-  `third_party/` (glfw, glm, imgui, ImGuizmo, ImGuiColorTextEdit,
-  reactphysics3d, stb, glad) all use `RBLXBuildLists.txt` and `RBLXBUILD_*`
+  `third_party/` (rblxwin, rblxmath, rblxui, rblxgizmo, rblxtextedit,
+  rblxphysics, rblxstb, rblxgl) all use `RBLXBuildLists.txt` and `RBLXBUILD_*`
   variables, so configuring downloads nothing and reads no upstream file.
   `.github/workflows/build.yml` builds the tool, then uses that tool to configure,
   build, test and package the project, so the game is built by RBLXBuild rather

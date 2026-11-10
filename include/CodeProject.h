@@ -12,7 +12,7 @@
 namespace rblx {
 namespace code {
 
-// What the editor colours a file as. The pinned TextEditor widget carries a
+// What the editor colours a file as. The pinned RblxTextEditor widget carries a
 // definition per language family, so this is the choice of which one to hand it.
 enum class Language {
     Plain,

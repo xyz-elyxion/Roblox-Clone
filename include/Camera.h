@@ -1,8 +1,8 @@
 #pragma once
 
-#include <glad/glad.h>
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
+#include <rblxgl/rblxgl.h>
+#include <rblxmath/rblxmath.hpp>
+#include <rblxmath/gtc/matrix_transform.hpp>
 
 #include <vector>
 
@@ -24,11 +24,11 @@ enum Camera_Movement {
 
 class Camera {
 public:
-    glm::vec3 Position;
-    glm::vec3 Front;
-    glm::vec3 Up;
-    glm::vec3 Right;
-    glm::vec3 WorldUp;
+    rblxmath::vec3 Position;
+    rblxmath::vec3 Front;
+    rblxmath::vec3 Up;
+    rblxmath::vec3 Right;
+    rblxmath::vec3 WorldUp;
 
     float Yaw;
     float Pitch;
@@ -36,15 +36,15 @@ public:
     float MouseSensitivity;
     float Zoom;
 
-    Camera(glm::vec3 position = glm::vec3(0.0f, 5.0f, 10.0f), glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f), float yaw = YAW, float pitch = PITCH);
+    Camera(rblxmath::vec3 position = rblxmath::vec3(0.0f, 5.0f, 10.0f), rblxmath::vec3 up = rblxmath::vec3(0.0f, 1.0f, 0.0f), float yaw = YAW, float pitch = PITCH);
 
-    glm::mat4 GetViewMatrix() const;
-    glm::mat4 GetProjectionMatrix(float width, float height) const;
+    rblxmath::mat4 GetViewMatrix() const;
+    rblxmath::mat4 GetProjectionMatrix(float width, float height) const;
 
     void ProcessKeyboard(Camera_Movement direction, float deltaTime, bool isSprinting = false);
     void ProcessMouseMovement(float xoffset, float yoffset, bool constrainPitch = true);
     void ProcessMouseScroll(float yoffset);
-    void LookAt(glm::vec3 target);
+    void LookAt(rblxmath::vec3 target);
 
 private:
     void updateCameraVectors();

@@ -1,6 +1,6 @@
 #pragma once
 
-#include <glm/glm.hpp>
+#include <rblxmath/rblxmath.hpp>
 #include <string>
 #include <vector>
 #include <deque>
@@ -10,19 +10,19 @@
 
 class Character {
 public:
-    Character(glm::vec3 startPos, PhysicsWorld* physicsWorld, std::deque<Part>* partsList, 
-              const glm::vec3& headColor = glm::vec3(0.8f, 0.6f, 0.4f),
-              const glm::vec3& torsoColor = glm::vec3(0.2f, 0.4f, 0.8f),
-              const glm::vec3& leftArmColor = glm::vec3(0.8f, 0.6f, 0.4f),
-              const glm::vec3& rightArmColor = glm::vec3(0.8f, 0.6f, 0.4f),
-              const glm::vec3& leftLegColor = glm::vec3(0.2f, 0.6f, 0.2f),
-              const glm::vec3& rightLegColor = glm::vec3(0.2f, 0.6f, 0.2f));
+    Character(rblxmath::vec3 startPos, PhysicsWorld* physicsWorld, std::deque<Part>* partsList, 
+              const rblxmath::vec3& headColor = rblxmath::vec3(0.8f, 0.6f, 0.4f),
+              const rblxmath::vec3& torsoColor = rblxmath::vec3(0.2f, 0.4f, 0.8f),
+              const rblxmath::vec3& leftArmColor = rblxmath::vec3(0.8f, 0.6f, 0.4f),
+              const rblxmath::vec3& rightArmColor = rblxmath::vec3(0.8f, 0.6f, 0.4f),
+              const rblxmath::vec3& leftLegColor = rblxmath::vec3(0.2f, 0.6f, 0.2f),
+              const rblxmath::vec3& rightLegColor = rblxmath::vec3(0.2f, 0.6f, 0.2f));
     ~Character();
 
     void update(float deltaTime, Camera* camera, bool isSprinting); // Camera pointer, optional
     
     // Remote Control
-    void setRemoteState(glm::vec3 pos, float yaw, bool walking, bool jumping);
+    void setRemoteState(rblxmath::vec3 pos, float yaw, bool walking, bool jumping);
     void setRemoteControlled(bool remote);
     bool isRemote;
     bool isJumping; // Added member
@@ -34,12 +34,12 @@ public:
 
     void processInput(bool forward, bool backward, bool left, bool right, bool jump, const Camera& camera, float zoomInput, float deltaTime);
 
-    glm::vec3 getPosition() const;
+    rblxmath::vec3 getPosition() const;
 
     // Debug
     float debugTargetYaw;
     float debugCurrentYaw;
-    glm::vec3 debugMoveDir;
+    rblxmath::vec3 debugMoveDir;
 
     // Health
     float health;
@@ -56,7 +56,7 @@ public:
 
     // Moves the character to a world position and clears its velocity. Used by
     // the server when a script teleports a player (hazards, checkpoints).
-    void teleportTo(const glm::vec3& position);
+    void teleportTo(const rblxmath::vec3& position);
     
     // Get the folder index for this character (for cleanup)
     int getFolderIndex() const;
@@ -64,7 +64,7 @@ public:
 private:
     PhysicsWorld* physicsWorld;
     std::deque<Part>* partsList;
-    glm::vec3 spawnPoint; 
+    rblxmath::vec3 spawnPoint; 
 
     int headIndex;
     int torsoIndex;

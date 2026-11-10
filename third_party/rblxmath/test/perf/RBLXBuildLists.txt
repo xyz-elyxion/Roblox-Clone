@@ -1,0 +1,6 @@
+rblxmathCreateTestGTC(perf_matrix_div)
+rblxmathCreateTestGTC(perf_matrix_inverse)
+rblxmathCreateTestGTC(perf_matrix_mul)
+rblxmathCreateTestGTC(perf_matrix_mul_vector)
+rblxmathCreateTestGTC(perf_matrix_transpose)
+rblxmathCreateTestGTC(perf_vector_mul_matrix)

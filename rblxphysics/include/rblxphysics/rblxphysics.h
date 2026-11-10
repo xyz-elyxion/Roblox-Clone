@@ -66,7 +66,10 @@
 #include <rblxphysics/constraint/FixedJoint.h>
 #include <rblxphysics/containers/Array.h>
 
-/// Alias to the RblxPhysics namespace
-namespace rblxphysics = rblxphysics;
+// Altered source: upstream declared a short alias for this namespace on these two lines. The
+// rename rewrote the alias target as well, which left `namespace rblxphysics = rblxphysics` — a
+// namespace that aliases itself. MSVC rejects that outright (C2386) while GCC accepts it silently,
+// so it only ever failed on Windows. Nothing in the tree used the short name, so the alias is
+// dropped rather than given a fresh name that nothing references.
 
 #endif

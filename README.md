@@ -280,6 +280,8 @@ build\rblxbuild-tool\bin\rblxtest --test-dir build/ninja --output-on-failure
 | `RBLX_BUILD_TESTS` | Build the C++ test suite (`rblxtest` runs it) |
 | `RBLX_BUILD_ANTICHEAT` | Compile RBLXAntiCheat into the client |
 | `RBLX_BUILD_HOSTS` | Build the game server supervisor (`RBLXHosts`) |
+| `RBLX_BUILD_GIT` | Build the git command line (`RBLXGit`) |
+| `RBLX_BUILD_HUB` | Build the repository browser (`RBLXHub`) |
 | `RBLX_ENABLE_WARNINGS` | Turn on the warning set |
 
 Windows builds compile the vendored RBLXAntiCheat into the client (see `RBLXAntiCheat/`); on other
@@ -1199,6 +1201,7 @@ textures/               Tileable part textures a world can name
 games/                  The bundled worlds and their .rbx scripts
 web/                    Public pages, starter worlds, published worlds, game-server logs
 web/host/               The RBLXHosts control panel page (served by RBLXHosts.exe)
+web/hub/                The RBLXHub repository browser's stylesheet (served by RBLXHub.exe)
 ServerWorld.world       Default world file
 scripts/                package-build.ps1 and other tooling
 GameRelease/            Existing release asset folders (do not commit generated binaries here)
@@ -1265,7 +1268,8 @@ rblx-windows-release/
   WebApp.exe  Server.exe  Client.exe  Studio.exe  RBLXCode.exe
   web/public/  web/seed-worlds/
   shaders/  ServerWorld.world  face*.png  face_hex.txt
-  RBLXUpdater.exe  RBLXSetup.exe  AiTrainer.exe  RBLXHosts.exe  RBLXProxy.exe  update.json  manifest.json
+  RBLXUpdater.exe  RBLXSetup.exe  AiTrainer.exe  RBLXHosts.exe  RBLXProxy.exe
+  RBLXGit.exe  RBLXHub.exe  update.json  manifest.json
   README.txt
 ```
 
@@ -1286,6 +1290,52 @@ Play waits for the server to own its port before launching the client, and each 
 its output to `web/game-server-logs/game-server-<port>.log`. When a server dies during startup — for
 example because its port is still held by a leftover `Server.exe` — the game page shows that output
 and the log path instead of a bare connection error.
+
+## Git: RBLXGit and RBLXHub
+
+The tree carries its own git implementation and a browser over it, both C++ and both with no
+git library underneath: `RBLXGit.exe` and `RBLXHub.exe`.
+
+`RBLXGit` writes the format git defines — loose objects as zlib streams with a
+`<type> <size>\0<payload>` header, the version 2 index with its trailing digest, nested trees
+sorted the way git sorts them, refs, `HEAD` and the reflog — so `git fsck`, `git log`,
+`git status` and `git ls-files` read a repository it wrote, and it reads one git wrote.
+`GitTests` pins that down with the object names git computes for a fixed pair of files, so a
+change that breaks interoperability fails the build rather than producing a repository only
+this program can read. The compression is its own inflater over stored deflate streams:
+there is no zlib dependency, and a real deflate stream written by Python's zlib is in the
+test as proof the reader handles input it did not produce.
+
+```powershell
+RBLXGit.exe init .
+RBLXGit.exe add .
+RBLXGit.exe commit -m "first import"
+RBLXGit.exe status
+RBLXGit.exe log -n 5
+RBLXGit.exe branch feature
+RBLXGit.exe show HEAD:README.md
+```
+
+The author on a commit comes from `RBLX_GIT_NAME` and `RBLX_GIT_EMAIL` (defaults `RBLX Git`
+and `git@rblx.local`). The commands are init, status, add, commit, log, branch and show.
+There is no merge, rebase, remote, pack file or `.gitignore` support, so `add .` stages what
+is on disk and a repository that `git gc` has packed has to be unpacked with
+`git unpack-objects` before this reads it.
+
+`RBLXHub.exe` serves the repository on <http://127.0.0.1:3100>: the files at `HEAD` folder by
+folder, a file page with line numbers, the commit history, a page per commit with the paths
+it changed, and an issues list that a plain HTML form adds to. The pages are built as strings
+in `HubViews`, which is why the escaping and the links are tested without a browser, and they
+carry no JavaScript at all — the browser is sent
+`Content-Security-Policy: default-src 'none'; style-src 'self'; form-action 'self'`. Issues
+are kept in `hub-issues.json` in the `.git` folder: they belong to the hub, not to the
+repository, so they are never part of a commit.
+
+```powershell
+RBLXGit.exe init .          # once, in the folder to browse
+RBLXHub.exe                 # then open http://127.0.0.1:3100
+RBLXHub.exe --repo .. --port 8080 --host 0.0.0.0
+```
 
 ## Known limitations
 

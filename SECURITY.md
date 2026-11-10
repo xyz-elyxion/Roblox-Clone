@@ -38,6 +38,10 @@ lie" or "there is no TLS" is answered by the relevant paragraph below.
   value. Neither is a boundary. The boundary is the server: the movement guard in
   `include/MovementGuard.h`, the ban ladder in `include/Moderation.h`, and the login check a
   server makes before letting a player in.
+- **The repository browser has no accounts.** `RBLXHub.exe` listens on `127.0.0.1:3100`
+  unless it is started with `--host`, and it has no login: whoever can reach the port can read
+  the repository and open issues. It is a local view of a local repository, not a forge — do
+  not expose it with `--host 0.0.0.0` and expect access control.
 - **Data is a JSON file.** Accounts, worlds, moderation records and sessions live in
   `web/users.json` and `web/game-worlds/`. There is no database, no migration tool and no
   concurrency story beyond one `WebApp.exe` process owning the file.
@@ -145,6 +149,15 @@ memory for five minutes and is never written to disk.
 Read marks are one row per account, room and channel, kept beside the messages; an unread count
 is computed from the account's own mark and the room's messages, never from another account's
 data.
+
+**Repository browser.** `RBLXHub.exe` escapes repository content in one place
+(`HubViews.cpp`) instead of at each call site, so a file name, a commit message or an issue
+title that contains markup is shown as text; every link built from a path percent-encodes
+what is not `[A-Za-z0-9-._~/]`. Its responses carry
+`Content-Security-Policy: default-src 'none'; style-src 'self'; form-action 'self'`,
+`X-Content-Type-Options: nosniff` and `Referrer-Policy: no-referrer`, and the pages contain
+no scripts, so the policy cannot be loosened by a page that renders repository text. A form
+post is capped at 64 KiB, an issue title at 200 characters and its body at 4000.
 
 ## Changing security-relevant code
 

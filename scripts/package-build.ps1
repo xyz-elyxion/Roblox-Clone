@@ -65,7 +65,7 @@ try {
     $exeDir = Join-Path $BuildDir $Configuration
     $found = @()
     $missing = @()
-    foreach ($name in @('WebApp', 'Server', 'Client', 'Studio', 'RBLXCode', 'AiTrainer', 'RBLXUpdater', 'RBLXSetup', 'RBLXHosts', 'RBLXProxy')) {
+    foreach ($name in @('WebApp', 'Server', 'Client', 'Studio', 'RBLXCode', 'AiTrainer', 'RBLXUpdater', 'RBLXSetup', 'RBLXHosts', 'RBLXProxy', 'RBLXGit', 'RBLXHub')) {
         $exePath = Join-Path $exeDir "$name.exe"
         if (Test-Path -LiteralPath $exePath) {
             Copy-Item -LiteralPath $exePath -Destination $Output
@@ -114,6 +114,8 @@ try {
     # The RBLXHosts control panel. RBLXHosts.exe looks for web/host next to
     # itself, and shows a plain page that says so if the folder is missing.
     Copy-Item -LiteralPath 'web/host' -Destination $webTarget -Recurse
+    # The RBLXHub stylesheet, found the same way.
+    Copy-Item -LiteralPath 'web/hub' -Destination $webTarget -Recurse
 
     # Scripted example games: the .world files and the .rbx scripts WebApp.exe
     # publishes as starter games on first start.
@@ -149,8 +151,13 @@ try {
         '                per port with its own log, restarting any that exit'
         '  RBLXProxy.exe   reverse proxy: puts the website on another address - port 80 on the'
         '                LAN, say - and forwards every request to WebApp.exe'
+        '  RBLXGit.exe     git command line: init, add, commit, log, branch and show, over a'
+        '                repository that git itself can read (loose objects, refs, index)'
+        '  RBLXHub.exe     repository browser: files at HEAD, history, a commit page and'
+        '                issues on http://127.0.0.1:3100, rendered from the repository'
         '  web/          website assets (public/ pages and API scripts, seed-worlds/)'
         '  web/host/     the RBLXHosts control panel page'
+        '  web/hub/      the RBLXHub browser stylesheet'
         '  games/        example worlds and their .rbx scripts (Sky Platformer)'
         '  shaders/      OpenGL shaders used by Client and Studio'
         '  ServerWorld.world, face*.png, face_hex.txt  data loaded from the working directory'
@@ -167,6 +174,9 @@ try {
         '  RBLXSetup.exe       installs this folder for the current user (no unzip needed after)'
         '  AiTrainer.exe       headless trainer, run it from this folder with the flags below'
         '  RBLXHosts.exe up    keeps a pool of servers running on their own ports (HOSTING below)'
+        '  RBLXGit.exe init .  makes a repository in this folder; add .,'
+        '                      commit -m "first" and log are the rest of it'
+        '  RBLXHub.exe         browses the repository this folder is inside on port 3100'
         ''
         'FIRST RUN: THE GUIDED TOUR'
         '  A fresh unzip has no account data yet. Start WebApp.exe, press Open site, and'

@@ -27,6 +27,8 @@ option(RBLX_BUILD_ANTICHEAT "Embed the vendored RBLXAntiCheat library in the gam
 option(RBLX_BUILD_UPDATER "Build the installer and update launcher targets" ON)
 option(RBLX_BUILD_HOSTS "Build the game server supervisor target" ON)
 option(RBLX_BUILD_PROXY "Build the website reverse proxy target" ON)
+option(RBLX_BUILD_GIT "Build the RBLXGit command line target" ON)
+option(RBLX_BUILD_HUB "Build the RBLXHub repository browser target" ON)
 option(RBLX_ENABLE_WARNINGS "Enable stricter compiler warnings" ON)
 
 add_compile_definitions(NOMINMAX RBLXMATH_ENABLE_EXPERIMENTAL)
@@ -247,6 +249,40 @@ if(RBLX_BUILD_PROXY)
     )
     configure_rblx_target(RBLXProxy)
     target_link_libraries(RBLXProxy PRIVATE ws2_32)
+endif()
+
+if(RBLX_BUILD_GIT)
+    # A git implementation and the command line over it. It talks to no server and
+    # needs no other program: a repository is loose objects, refs, an index and the
+    # same zlib streams git writes, which is what lets GitTests check the result
+    # against the values git itself produces.
+    add_executable(RBLXGit
+        src/GitMain.cpp
+        src/GitRepo.cpp
+        src/GitIndex.cpp
+        src/GitSha1.cpp
+        src/GitZlib.cpp
+    )
+    configure_rblx_target(RBLXGit)
+endif()
+
+if(RBLX_BUILD_HUB)
+    # The repository browser: pages rendered as strings from the same repository
+    # code RBLXGit writes, served on loopback by the website's HTTP server. The
+    # issues page writes one JSON file beside the reflog; the pages themselves are
+    # static HTML, so the browser needs no scripting.
+    add_executable(RBLXHub
+        src/HubMain.cpp
+        src/HubViews.cpp
+        src/GitRepo.cpp
+        src/GitIndex.cpp
+        src/GitSha1.cpp
+        src/GitZlib.cpp
+        src/WebHttp.cpp
+        src/WebJson.cpp
+    )
+    configure_rblx_target(RBLXHub)
+    target_link_libraries(RBLXHub PRIVATE ws2_32)
 endif()
 
 # RBLXAntiCheat is compiled straight into the client (see its RBLXBuildLists): the
@@ -549,5 +585,24 @@ if(RBLX_BUILD_TESTS)
     target_include_directories(ReverseProxyTests PRIVATE ${RBLXBUILD_CURRENT_SOURCE_DIR}/include)
     target_link_libraries(ReverseProxyTests PRIVATE ws2_32)
     add_test(NAME ReverseProxyTests COMMAND ReverseProxyTests)
+
+    # The git implementation: the digest, the compressed streams, the index
+    # format, and a full init/add/commit/log/status round trip whose tree names are
+    # the ones git computes for the same files.
+    add_executable(GitTests
+        tests/git_tests.cpp
+        src/GitRepo.cpp
+        src/GitIndex.cpp
+        src/GitSha1.cpp
+        src/GitZlib.cpp
+    )
+    target_include_directories(GitTests PRIVATE ${RBLXBUILD_CURRENT_SOURCE_DIR}/include)
+    add_test(NAME GitTests COMMAND GitTests)
+
+    # The hub renders every page as a string, so the escaping, the line numbering
+    # and the links are checked without a socket or a browser.
+    add_executable(HubViewsTests tests/hub_views_tests.cpp src/HubViews.cpp)
+    target_include_directories(HubViewsTests PRIVATE ${RBLXBUILD_CURRENT_SOURCE_DIR}/include)
+    add_test(NAME HubViewsTests COMMAND HubViewsTests)
 
 endif()

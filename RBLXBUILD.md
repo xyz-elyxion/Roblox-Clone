@@ -42,8 +42,8 @@ The rename is textual and complete, not a port:
   `Tests/` was pruned. Installation is still broken: `install(DIRECTORY Help ...)`
   names a directory this tree does not carry.
 - **Everything this repository builds is in the dialect, including what it
-  vendors.** The root file, the anti-cheat library and the dependencies under
-  `third_party/` (rblxwin, rblxmath, rblxui, rblxgizmo, rblxtextedit,
+  vendors.** The root file, the anti-cheat library and the library trees beside them
+  (rblxwin, rblxmath, rblxui, rblxgizmo, rblxtextedit,
   rblxphysics, rblxstb, rblxgl) all use `RBLXBuildLists.txt` and `RBLXBUILD_*`
   variables, so configuring downloads nothing and reads no upstream file.
   `.github/workflows/build.yml` builds the tool, then uses that tool to configure,

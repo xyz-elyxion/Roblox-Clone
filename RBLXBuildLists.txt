@@ -31,29 +31,27 @@ option(RBLX_ENABLE_WARNINGS "Enable stricter compiler warnings" ON)
 
 add_compile_definitions(NOMINMAX RBLXMATH_ENABLE_EXPERIMENTAL)
 
-# Third-party code is vendored under third_party/ at pinned commits and written in
-# this dialect, so configuring needs no network and no compatibility mode. The four
-# trees that ship a build system are added as subdirectories; rblxui, RblxGizmo,
-# RblxTextEdit and rblxstb have no build file upstream, so their sources are
-# compiled straight into our targets from these locations.
-set(RBLX_THIRD_PARTY ${RBLXBUILD_CURRENT_SOURCE_DIR}/third_party)
-
+# The vendored libraries sit in their own trees beside this file: pinned commits,
+# written in this dialect, renamed into this project's scheme. Configuring therefore
+# needs no network and no compatibility mode. The four that ship a build system are
+# added as subdirectories; rblxui, RblxGizmo, RblxTextEdit and rblxstb have no build
+# file upstream, so their sources are compiled straight into our targets from here.
 set(RBLXWIN_BUILD_EXAMPLES OFF CACHE BOOL "Build RBLXWIN examples" FORCE)
 set(RBLXWIN_BUILD_TESTS OFF CACHE BOOL "Build RBLXWIN tests" FORCE)
 set(RBLXWIN_BUILD_DOCS OFF CACHE BOOL "Build RBLXWIN documentation" FORCE)
 set(RBLXWIN_INSTALL OFF CACHE BOOL "Generate RBLXWIN installation target" FORCE)
-add_subdirectory(${RBLX_THIRD_PARTY}/rblxwin)
+add_subdirectory(${RBLXBUILD_CURRENT_SOURCE_DIR}/rblxwin)
 
 # rblxmath is header-only for us: building the library target would produce a shared
 # object nobody loads, and its tests and install rules are upstream's business.
 set(RBLXMATH_BUILD_LIBRARY OFF CACHE BOOL "Build dynamic/static RBLXMATH library" FORCE)
 set(RBLXMATH_BUILD_TESTS OFF CACHE BOOL "Build RBLXMATH test programs" FORCE)
 set(RBLXMATH_BUILD_INSTALL OFF CACHE BOOL "Generate RBLXMATH install target" FORCE)
-add_subdirectory(${RBLX_THIRD_PARTY}/rblxmath)
+add_subdirectory(${RBLXBUILD_CURRENT_SOURCE_DIR}/rblxmath)
 
 # rblxphysics's testbed, unit tests and install rules are off by default, so this adds
 # only the rblxphysics library.
-add_subdirectory(${RBLX_THIRD_PARTY}/rblxphysics)
+add_subdirectory(${RBLXBUILD_CURRENT_SOURCE_DIR}/rblxphysics)
 
 # rblxphysics 0.9.0 depends on headers it does not include itself: DefaultLogger.h uses
 # std::chrono::system_clock without <chrono>, and the public headers use the
@@ -73,12 +71,12 @@ if(TARGET rblxphysics)
     endif()
 endif()
 
-add_subdirectory(${RBLX_THIRD_PARTY}/rblxgl)
+add_subdirectory(${RBLXBUILD_CURRENT_SOURCE_DIR}/rblxgl)
 
-set(rblxui_SOURCE_DIR ${RBLX_THIRD_PARTY}/rblxui)
-set(rblxgizmo_SOURCE_DIR ${RBLX_THIRD_PARTY}/rblxgizmo)
-set(rblxtextedit_SOURCE_DIR ${RBLX_THIRD_PARTY}/rblxtextedit)
-set(rblxstb_SOURCE_DIR ${RBLX_THIRD_PARTY}/rblxstb)
+set(rblxui_SOURCE_DIR ${RBLXBUILD_CURRENT_SOURCE_DIR}/rblxui)
+set(rblxgizmo_SOURCE_DIR ${RBLXBUILD_CURRENT_SOURCE_DIR}/rblxgizmo)
+set(rblxtextedit_SOURCE_DIR ${RBLXBUILD_CURRENT_SOURCE_DIR}/rblxtextedit)
+set(rblxstb_SOURCE_DIR ${RBLXBUILD_CURRENT_SOURCE_DIR}/rblxstb)
 
 set(SHARED_SOURCES
     src/Renderer.cpp

@@ -50,11 +50,11 @@ them, and writes `README.txt`, `update.json` and `manifest.json` into `dist/rblx
 1. **Windows only.** There is no POSIX branch: sockets go through `include/Network.h`
    (WinSock), HTTP through `include/HttpClient.h`. Do not reintroduce `#ifdef _WIN32`
    forks or a "portable" path; the project was deliberately cut down to one platform.
-2. **No third-party code outside `third_party/`.** Do not add a dependency, a package
-   manager, a submodule or a generated blob. `third_party/`, `rblxbuild/` and
-   `RBLXAntiCheat/` are vendored snapshots at pinned versions, renamed into this project's
-   scheme (`rblxwin`, `rblxmath`, `rblxui`, `rblxgizmo`, `rblxtextedit`, `rblxphysics`,
-   `rblxstb`, `rblxgl`). Do not reformat or "clean up" them, keep their licences
+2. **No new dependencies.** Do not add a dependency, a package manager, a submodule or a
+   generated blob. The eight library trees at the top of the repository (`rblxwin`,
+   `rblxmath`, `rblxui`, `rblxgizmo`, `rblxtextedit`, `rblxphysics`, `rblxstb`, `rblxgl`),
+   `rblxbuild/` and `RBLXAntiCheat/` are vendored snapshots at pinned versions, renamed into
+   this project's scheme. Do not reformat or "clean up" them, keep their licences
    (`RBLXAntiCheat/LICENSE`, `rblxbuild/Licenses/` and the `LICENSE`/`copying.txt` in each
    tree) intact, and do not rename identifiers piecemeal: a change there is a fork-wide
    rename or nothing, because the trees must stay internally consistent.
@@ -91,6 +91,7 @@ them, and writes `README.txt`, `update.json` and `manifest.json` into `dist/rblx
 | Scripting | `src/RblxScript.cpp`, `include/RblxScript.h` |
 | Anti-cheat integration | `include/ClientCheatReport.h`, `include/Obfuscated.h`, `RBLXAntiCheat/` |
 | Build | `RBLXBuildLists.txt`, `RBLXBuildPresets.json`, `scripts/package-build.ps1` |
+| Vendored libraries | `rblxwin/`, `rblxmath/`, `rblxui/`, `rblxgizmo/`, `rblxtextedit/`, `rblxphysics/`, `rblxstb/`, `rblxgl/` |
 | Tests | `tests/<area>_tests.cpp` |
 
 `include/` mirrors `src/`: a unit lives in a header there so Studio, the client, the

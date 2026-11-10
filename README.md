@@ -227,8 +227,8 @@ is compiled into the client.
 - Visual Studio 2022 with "Desktop development with C++", or MinGW + Ninja.
 - No CMake install: the build tool is vendored in `rblxbuild/` and bootstrapped from source.
 - An OpenGL-capable GPU and drivers.
-- RBLXWindow, RBLXMath, RBLXUI, RblxGizmo, RBLXTextEdit, RBLXPhysics, RBLXStb and RBLXGL are vendored under
-  `third_party/`, so configuring needs no network.
+- RBLXWindow, RBLXMath, RBLXUI, RblxGizmo, RBLXTextEdit, RBLXPhysics, RBLXStb and RBLXGL are
+  vendored in their own trees at the top of the repository, so configuring needs no network.
 
 **The website** is built from the same tree and needs nothing beyond it: no Node.js, npm or SQLite.
 
@@ -1202,7 +1202,7 @@ web/host/               The RBLXHosts control panel page (served by RBLXHosts.ex
 ServerWorld.world       Default world file
 scripts/                package-build.ps1 and other tooling
 GameRelease/            Existing release asset folders (do not commit generated binaries here)
-third_party/            Renamed copies of the pinned dependencies (see Credits)
+rblxwin/ … rblxgl/      The eight renamed vendored libraries (see Credits)
 RBLXAntiCheat/          The vendored anti-cheat library (Windows only, AGPL v3)
 AGENTS.md               How to work in this repository: build, rules, conventions
 SECURITY.md             Security model, known limitations, how to report a problem
@@ -1241,7 +1241,8 @@ instructions here use `rblxbuild/bootstrap`, and the root build file does not ad
 subdirectory. See [RBLXBUILD.md](RBLXBUILD.md) for what it is for, what was pruned and the renamed
 commands. Commit `62b91b06` still has the complete tree if any of it has to come back.
 
-The libraries the game links are vendored the same way under `third_party/`: cloned at the pinned
+The libraries the game links are vendored the same way, each in its own tree beside `rblxbuild/`
+rather than in a third-party folder: cloned at the pinned
 commits, `.git` removed, every build file converted to this dialect, and every identifier renamed
 into this project's scheme — one tree each for `rblxwin`, `rblxmath`, `rblxui`, `rblxgizmo`,
 `rblxtextedit`, `rblxphysics`, `rblxstb` and `rblxgl`. Which upstream project each one came from,
@@ -1338,14 +1339,14 @@ and the log path instead of a bare connection error.
   travel in `RBLXAntiCheat/LICENSE`.
 - **RBLXBuild** is a renamed, pruned snapshot of [CMake](https://github.com/Kitware/CMake), BSD
   3-clause, with attribution kept in `rblxbuild/Licenses/`.
-- The libraries under `third_party/` are renamed copies of open-source projects, one tree each,
+- The eight library trees at the top of the repository are renamed copies of open-source projects,
   vendored at the pinned upstream commit and renamed into this project's scheme. The code is
   upstream's, the names are this project's, and the licences travel with it:
-  - `rblxwin` — GLFW (zlib), `third_party/rblxwin/LICENSE.md`
-  - `rblxmath` — OpenGL Mathematics (Happy Bunny or MIT), `third_party/rblxmath/copying.txt`
-  - `rblxui` — Dear ImGui (MIT), `third_party/rblxui/LICENSE.txt`
-  - `rblxgizmo` — ImGuizmo (MIT), `third_party/rblxgizmo/LICENSE`
-  - `rblxtextedit` — ImGuiColorTextEdit (MIT), `third_party/rblxtextedit/LICENSE`
-  - `rblxphysics` — ReactPhysics3D (zlib), `third_party/rblxphysics/LICENSE`
-  - `rblxstb` — stb (MIT or public domain), `third_party/rblxstb/LICENSE`
+  - `rblxwin` — GLFW (zlib), `rblxwin/LICENSE.md`
+  - `rblxmath` — OpenGL Mathematics (Happy Bunny or MIT), `rblxmath/copying.txt`
+  - `rblxui` — Dear ImGui (MIT), `rblxui/LICENSE.txt`
+  - `rblxgizmo` — ImGuizmo (MIT), `rblxgizmo/LICENSE`
+  - `rblxtextedit` — ImGuiColorTextEdit (MIT), `rblxtextedit/LICENSE`
+  - `rblxphysics` — ReactPhysics3D (zlib), `rblxphysics/LICENSE`
+  - `rblxstb` — stb (MIT or public domain), `rblxstb/LICENSE`
   - `rblxgl` — the generated glad OpenGL loader; that tree carries no separate licence file

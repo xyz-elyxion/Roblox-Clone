@@ -60,11 +60,18 @@ accepted in avatar URLs, and `/api/verify` keeps a body-token fallback only for 
 clients.
 
 **Secrets.** `JWT_SECRET` must be set to a strong, non-default value when
-`NODE_ENV=production`; the backend refuses to start otherwise. `DATA_KEY` is the key the
-data file is sealed with; when it is unset the key is derived from `JWT_SECRET` and the
-backend says so on start, because rotating `JWT_SECRET` then makes the existing file
-unreadable. `ADMIN_USERNAMES` adds accounts to the administrator list on top of the install
-owner, which is always one. The seeded owner starts with the documented development password, so
+`NODE_ENV=production`; the backend refuses to start otherwise. Outside production an unset
+secret is not replaced by a constant: it is generated from `BCryptGenRandom` on the first
+start and kept in `jwt-secret` beside the data file. A constant would be a published signing
+key, because this source is public and the listener binds `0.0.0.0`; and a fresh value on
+every start would change the data-file key. `DATA_KEY` is the key the data file is sealed
+with; when it is unset the key is derived from `JWT_SECRET` and the backend says so on start,
+because rotating `JWT_SECRET` then makes the existing file unreadable. `ADMIN_USERNAMES` adds
+accounts to the administrator list on top of the install owner, which is always one. Each
+configured name is resolved to an account id when the backend starts, and admin checks use
+that id, so a name that is later given up does not carry the rights to whoever claims it; the
+account has to exist before its name is configured, and signup and rename refuse a configured
+name. The seeded owner starts with the documented development password, so
 a production start requires `STARTER_PASSWORD` (12+ characters, not the documented default) and
 refuses to run otherwise; the account owns the starter games and cannot be deleted or restricted.
 
@@ -79,7 +86,24 @@ would be the clock. The call fails closed: an empty result is never used as a to
 its command line. It comes from the system generator and is compared in constant time, and the
 command string shown in the console and the dashboard prints it as `***`. A process that can read
 another process's command line already belongs to the same user (or an administrator), which is
-more access than the token itself gives.
+more access than the token itself gives. The process id of an instance is only included in the
+answer for an administrator, never in the server list a player of a public game can read.
+
+**HTTP framing.** A request that repeats `Content-Length`, `Transfer-Encoding` or `Host`, or that
+carries both a length and a chunked encoding, is refused and its connection is closed. Two values
+for a header that decides framing is how one request comes to mean different things on either side
+of a proxy, which is how a request gets smuggled.
+
+**Answers and console output.** Every `/api/` answer carries `Cache-Control: no-store`, because a
+login reply holds a token and a profile holds account data. A client report arrives without
+authentication and is printed to the operator's console, so control characters in its fields are
+replaced before it is stored or shown; a newline or an escape sequence would otherwise forge a log
+line or repaint the terminal.
+
+**Play URLs.** The URL handed to the client comes from `PUBLIC_BASE_URL` when that is set.
+Otherwise the request's `Host` is used, but only when it is a plain `host:port`; anything else
+falls back to the local default. A proxy that forwards a caller-supplied `Host` must not be able to
+aim a player's client, and the session token it carries, at another origin.
 
 The hardware id a client reports at `/api/verify` is an assertion about itself, not an
 attestation: it is recorded so a ban can follow the machine, but a determined cheater can report a

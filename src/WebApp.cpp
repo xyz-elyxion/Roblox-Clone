@@ -723,10 +723,14 @@ std::string firstExistingPath(const std::vector<std::string>& candidates) {
 void errorJson(Response& response, int status, const std::string& message) {
     Json body = Json::makeObject();
     body.set("error", message);
+    // An API answer can carry a fresh token or an account's data, so no shared
+    // cache may keep a copy of it.
+    response.headers["Cache-Control"] = "no-store";
     response.json(status, body.dump());
 }
 
 void sendJson(Response& response, int status, const Json& body) {
+    response.headers["Cache-Control"] = "no-store";
     response.json(status, body.dump());
 }
 
@@ -969,6 +973,98 @@ bool analyzeWorldSource(const std::string& worldText, WorldAnalysis* analysis,
     return true;
 }
 
+// The development signing secret is kept, not re-made. The data-file key is
+// derived from it when DATA_KEY is unset, so a new value every start would
+// leave the store unreadable; and a constant would be a published signing key,
+// because this source is public and the port is reachable from the network.
+bool loadOrCreateJwtSecret(const std::string& path, std::string* secret, std::string* error) {
+    std::string existing;
+    if (readWholeFile(path, &existing)) {
+        existing = trimCopy(existing);
+        if (existing.size() >= 32) {
+            *secret = existing;
+            return true;
+        }
+    }
+    makeDirectories(directoryOf(path));
+    const std::string created = randomHex(32);
+    if (!writeWholeFile(path, created + "\n")) {
+        if (error) {
+            *error = "Could not write the development signing secret to " + path +
+                     ". Set JWT_SECRET to a strong random value instead.";
+        }
+        return false;
+    }
+    *secret = created;
+    std::cout << "Generated a development signing secret at " << path << std::endl;
+    return true;
+}
+
+// A URL the client is told to talk to. Only a plain http(s) host:port is
+// accepted, because anything else could name another origin - and the client
+// sends its session token to whatever origin it is given.
+bool isSafeBaseUrl(const std::string& value, std::string* normalized) {
+    std::string rest;
+    const std::string lowered = lowerCopy(value);
+    bool secure = false;
+    if (lowered.compare(0, 7, "http://") == 0) {
+        rest = value.substr(7);
+    } else if (lowered.compare(0, 8, "https://") == 0) {
+        rest = value.substr(8);
+        secure = true;
+    } else {
+        return false;
+    }
+    while (!rest.empty() && rest.back() == '/') {
+        rest.pop_back();
+    }
+    if (rest.empty() || rest.size() > 200) {
+        return false;
+    }
+    for (const char c : rest) {
+        const bool allowed = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
+                             (c >= '0' && c <= '9') || c == '.' || c == '-' || c == ':' ||
+                             c == '[' || c == ']';
+        if (!allowed) {
+            return false;
+        }
+    }
+    if (normalized != nullptr) {
+        *normalized = (secure ? "https://" : "http://") + rest;
+    }
+    return true;
+}
+
+// PUBLIC_BASE_URL wins when it was set. Otherwise the Host header is used,
+// because it names the site the player actually reached, but only after the
+// same check: a proxy that forwards a caller-supplied Host must not be able to
+// aim the client, and its token, somewhere else.
+std::string launchBaseUrl(const std::string& configured, bool configuredSet,
+                          const std::string& hostHeader, int port) {
+    if (configuredSet && !configured.empty()) {
+        return configured;
+    }
+    std::string normalized;
+    if (!hostHeader.empty() && isSafeBaseUrl("http://" + hostHeader, &normalized)) {
+        return normalized;
+    }
+    return "http://localhost:" + std::to_string(port);
+}
+
+// Client reports arrive without authentication and end up on the operator's
+// console, so control characters are replaced: a newline or an ANSI escape
+// could otherwise forge a log line or repaint the terminal.
+std::string singleLineCopy(const std::string& input) {
+    std::string out = input;
+    for (char& c : out) {
+        const unsigned char value = static_cast<unsigned char>(c);
+        if (value < 0x20 || value == 0x7f) {
+            c = ' ';
+        }
+    }
+    return out;
+}
+
 bool loadConfigFromEnvironment(Config* config, std::string* error) {
     if (config == nullptr) {
         return false;
@@ -982,10 +1078,7 @@ bool loadConfigFromEnvironment(Config* config, std::string* error) {
     loaded.isProduction = loaded.nodeEnv == "production";
 
     loaded.port = parsePositiveInt(envString("PORT"), 3000);
-    loaded.jwtSecret = envString("JWT_SECRET");
-    if (loaded.jwtSecret.empty() && !loaded.isProduction) {
-        loaded.jwtSecret = "local-dev-secret-change-me";
-    }
+    loaded.jwtSecret = trimCopy(envString("JWT_SECRET"));
     if (loaded.isProduction &&
         (isUnsafeDevSecret(loaded.jwtSecret) || loaded.jwtSecret.size() < 32)) {
         if (error) {
@@ -1066,6 +1159,16 @@ bool loadConfigFromEnvironment(Config* config, std::string* error) {
         loaded.gameWorldsDir = joinPath(webRoot, "game-worlds");
     }
 
+    // An unset secret is only allowed outside production, which the check above
+    // has already enforced. Generate one and keep it, rather than shipping a
+    // constant that anyone who can reach the port could sign tokens with.
+    if (loaded.jwtSecret.empty()) {
+        if (!loadOrCreateJwtSecret(joinPath(directoryOf(loaded.dataPath), "jwt-secret"),
+                                   &loaded.jwtSecret, error)) {
+            return false;
+        }
+    }
+
     const std::string cors = envString("CORS_ORIGIN");
     if (!cors.empty()) {
         loaded.corsOrigins = splitCsv(cors);
@@ -1121,8 +1224,19 @@ bool loadConfigFromEnvironment(Config* config, std::string* error) {
         }
     }
 
-    loaded.publicBaseUrl = envString("PUBLIC_BASE_URL");
-    if (loaded.publicBaseUrl.empty()) {
+    const std::string configuredBaseUrl = trimCopy(envString("PUBLIC_BASE_URL"));
+    loaded.publicBaseUrlSet = !configuredBaseUrl.empty();
+    if (loaded.publicBaseUrlSet) {
+        std::string normalized;
+        if (!isSafeBaseUrl(configuredBaseUrl, &normalized)) {
+            if (error) {
+                *error = "PUBLIC_BASE_URL must be an http:// or https:// URL with a plain "
+                         "host, such as https://play.example.com.";
+            }
+            return false;
+        }
+        loaded.publicBaseUrl = normalized;
+    } else {
         loaded.publicBaseUrl = "http://localhost:" + std::to_string(loaded.port);
     }
 
@@ -1217,6 +1331,10 @@ bool WebsiteApp::initialize(std::string* error) {
             }
         }
     }
+
+    // Admin rights are remembered as account ids, not as the configured names:
+    // a name can be given up, and whoever claims it next must not inherit them.
+    resolveAdminIds();
 
     if (!seedStarterGames(error)) {
         return false;
@@ -1646,12 +1764,30 @@ bool WebsiteApp::parseJsonBody(const Request& request, Json* body, Response& res
     return true;
 }
 
+void WebsiteApp::resolveAdminIds() {
+    adminUserIds_.clear();
+    for (const std::string& name : config_.adminUsernames) {
+        if (const UserRecord* record = store_.findUserByName(name)) {
+            adminUserIds_.push_back(record->id);
+        }
+    }
+}
+
+bool WebsiteApp::isReservedAdminName(const std::string& username) const {
+    const std::string lowered = lowerCopy(username);
+    for (const std::string& name : config_.adminUsernames) {
+        if (lowerCopy(name) == lowered) {
+            return true;
+        }
+    }
+    return false;
+}
+
 bool WebsiteApp::isAdminUser(const AuthUser& user) const {
     if (user.id <= 0) {
         return false;
     }
-    if (std::find(config_.adminUsernames.begin(), config_.adminUsernames.end(), user.username) !=
-        config_.adminUsernames.end()) {
+    if (std::find(adminUserIds_.begin(), adminUserIds_.end(), user.id) != adminUserIds_.end()) {
         return true;
     }
     // The account that owns the install is always an admin, whether or not
@@ -1832,16 +1968,20 @@ Json WebsiteApp::gameJson(const GameRecord& game, bool canEdit, int viewerId) co
     return result;
 }
 
-Json WebsiteApp::instanceJson(const GameInstance& instance) const {
+Json WebsiteApp::instanceJson(const GameInstance& instance, bool includeProcess) const {
     Json result = Json::makeObject();
     result.set("id", instance.id);
     result.set("host", instance.host);
     result.set("port", instance.port);
     result.set("status", instance.status);
-    if (instance.processId > 0) {
-        result.set("processId", static_cast<long long>(instance.processId));
-    } else {
-        result.setNull("processId");
+    // The process id is only for an operator: players of a public game get the
+    // address they need to join and nothing that fingerprints the host.
+    if (includeProcess) {
+        if (instance.processId > 0) {
+            result.set("processId", static_cast<long long>(instance.processId));
+        } else {
+            result.setNull("processId");
+        }
     }
     result.set("startedAt", instance.startedAt);
     result.set("playerCount", instance.playerCount);
@@ -2328,6 +2468,12 @@ bool WebsiteApp::handleSignup(Request& request, Response& response) {
         errorJson(response, 409, "Username already exists.");
         return true;
     }
+    // A configured administrator name is not available to whoever asks first:
+    // otherwise registering it before its owner does is a way into the panel.
+    if (isReservedAdminName(username)) {
+        errorJson(response, 403, "That username is reserved for an administrator.");
+        return true;
+    }
 
     const std::string passwordHash = hashPassword(password, config_.passwordIterations);
     const int userId = store_.createUser(username, passwordHash, nowIso());
@@ -2707,6 +2853,10 @@ bool WebsiteApp::handleChangeUsername(Request& request, Response& response) {
     }
     if (username == record->username) {
         errorJson(response, 400, "That is already your username.");
+        return true;
+    }
+    if (isReservedAdminName(username)) {
+        errorJson(response, 403, "That username is reserved for an administrator.");
         return true;
     }
     if (!store_.renameUser(user.id, username)) {
@@ -3130,7 +3280,7 @@ bool WebsiteApp::handleHeartbeat(Request& request, Response& response) {
 
     Json result = Json::makeObject();
     result.set("success", true);
-    result.set("server", instanceJson(instance));
+    result.set("server", instanceJson(instance, false));
     sendJson(response, 200, result);
     return true;
 }
@@ -3450,7 +3600,7 @@ bool WebsiteApp::handleGetGame(Request& request, Response& response) {
     for (const std::string& instanceId : activeInstanceIds(gameId)) {
         const auto found = instances_.find(instanceId);
         if (found != instances_.end()) {
-            servers.push(instanceJson(found->second));
+            servers.push(instanceJson(found->second, false));
         }
     }
 
@@ -3641,7 +3791,7 @@ bool WebsiteApp::handleGameServers(Request& request, Response& response) {
     for (const std::string& instanceId : activeInstanceIds(gameId)) {
         const auto found = instances_.find(instanceId);
         if (found != instances_.end()) {
-            servers.push(instanceJson(found->second));
+            servers.push(instanceJson(found->second, false));
         }
     }
     Json result = Json::makeObject();
@@ -3720,10 +3870,12 @@ bool WebsiteApp::handlePlayGame(Request& request, Response& response) {
     const GameRecord* refreshed = store_.findGame(gameId);
     const GameInstance snapshot = *instance;
 
-    std::string webServerUrl = "http://" + request.header("host");
-    if (request.header("host").empty()) {
-        webServerUrl = "http://localhost:" + std::to_string(server_.port());
-    }
+    // A proxy that forwards the caller's Host must not be able to point the
+    // client, and the token it carries, at another origin, so configuration
+    // wins and a Host that is not a plain host:port is ignored.
+    const std::string webServerUrl = launchBaseUrl(config_.publicBaseUrl,
+                                                   config_.publicBaseUrlSet,
+                                                   request.header("host"), server_.port());
     const std::string clientPath =
         config_.clientExecutablePath.empty() ? std::string("Client.exe")
                                              : config_.clientExecutablePath;
@@ -3818,7 +3970,7 @@ bool WebsiteApp::handlePlayGame(Request& request, Response& response) {
     Json result = Json::makeObject();
     result.set("success", true);
     result.set("game", gameJson(refreshed != nullptr ? *refreshed : *game, false));
-    result.set("server", instanceJson(snapshot));
+    result.set("server", instanceJson(snapshot, false));
     result.set("launch", launch);
     result.set("player", player);
     sendJson(response, 200, result);
@@ -3832,7 +3984,7 @@ bool WebsiteApp::handleClientReport(Request& request, Response& response) {
         return true;
     }
 
-    std::string reason = body.member("reason").asString();
+    std::string reason = singleLineCopy(body.member("reason").asString());
     if (reason.empty()) {
         errorJson(response, 400, "A reason is required.");
         return true;
@@ -3843,7 +3995,7 @@ bool WebsiteApp::handleClientReport(Request& request, Response& response) {
 
     ClientReport report;
     report.createdAt = nowIso();
-    report.stage = trimCopy(body.member("stage").asString());
+    report.stage = singleLineCopy(trimCopy(body.member("stage").asString()));
     if (report.stage.size() > 40) {
         report.stage.resize(40);
     }
@@ -3853,7 +4005,8 @@ bool WebsiteApp::handleClientReport(Request& request, Response& response) {
     report.reason = reason;
     // Whoever can reach the route writes this row, so every field is bounded;
     // an unbounded one would grow the data file and the console for free.
-    report.serverAddress = trimCopy(body.member("serverAddress").asString());
+    report.serverAddress =
+        singleLineCopy(trimCopy(body.member("serverAddress").asString()));
     if (report.serverAddress.size() > 120) {
         report.serverAddress.resize(120);
     }
@@ -4800,7 +4953,7 @@ bool WebsiteApp::handleAdminOverview(Request& request, Response& response) {
 
     Json instanceList = Json::makeArray();
     for (const auto& entry : instances_) {
-        instanceList.push(instanceJson(entry.second));
+        instanceList.push(instanceJson(entry.second, true));
     }
 
     Json reportList = Json::makeArray();

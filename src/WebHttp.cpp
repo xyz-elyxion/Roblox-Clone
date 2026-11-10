@@ -394,12 +394,31 @@ bool HttpServer::readRequest(std::intptr_t socketHandle, Request* request, bool*
         if (colon == std::string::npos) {
             continue;
         }
-        request->headers[lowerCopy(trimCopy(line.substr(0, colon)))] =
-            trimCopy(line.substr(colon + 1));
+        const std::string key = lowerCopy(trimCopy(line.substr(0, colon)));
+        const std::string value = trimCopy(line.substr(colon + 1));
+        // Two values for a header that decides framing or the target host is how
+        // one request comes to mean two different things on either side of a
+        // proxy. Refuse it instead of silently keeping the last one.
+        const bool framing = key == "content-length" || key == "transfer-encoding" ||
+                             key == "host";
+        if (framing && request->headers.count(key) != 0) {
+            return false;
+        }
+        request->headers[key] = value;
     }
 
     const std::string transferEncoding = lowerCopy(request->header("transfer-encoding"));
-    if (transferEncoding.find("chunked") != std::string::npos) {
+    if (!transferEncoding.empty() && transferEncoding != "chunked") {
+        // Anything else is a coding this parser cannot read, and a proxy in
+        // front would already have decoded it.
+        return false;
+    }
+    if (!transferEncoding.empty() && !request->header("content-length").empty()) {
+        // Framing by Content-Length on one side and by chunks on the other is
+        // how a smuggled second request gets through a proxy.
+        return false;
+    }
+    if (transferEncoding == "chunked") {
         // A client, or a proxy sitting in front of the site, may send the body
         // chunked instead of declaring a length. Reading only Content-Length
         // would then hand the handler an empty body, which is indistinguishable

@@ -504,9 +504,25 @@ void testHttp() {
     config.gameInstanceEmptyGraceMs = 0;
     config.publicBaseUrl = "http://127.0.0.1:3000";
     config.adminUsernames.push_back("TestPilot");
+    config.adminUsernames.push_back("AdminPilot");
+
+    // ADMIN_USERNAMES names an account that already exists, so the documented
+    // order is to create it and then configure the name.
+    std::string error;
+    {
+        rblx::web::Store store(config.dataPath);
+        openSealed(store, config);
+        check(store.load(&error), "app: the data file loads: " + error);
+        if (store.findUserByName("TestPilot") == nullptr) {
+            store.createUser("TestPilot",
+                             rblx::web::hashPassword("long-enough-password",
+                                                     config.passwordIterations),
+                             "2026-01-01T00:00:00Z");
+            check(store.save(&error), "app: the admin account is written: " + error);
+        }
+    }
 
     rblx::web::WebsiteApp app(config);
-    std::string error;
     check(app.initialize(&error), "app initialises: " + error);
     app.installRoutes();
     check(app.start(&error), "app listens: " + error);
@@ -536,20 +552,25 @@ void testHttp() {
 
     // Kept so the reuse check below can spend the same challenge twice.
     const std::string signupCaptcha = machineCaptcha(app);
-    const std::string signupBody =
-        "{\"username\":\"TestPilot\",\"password\":\"long-enough-password\"," + signupCaptcha +
-        "}";
-    checkStatus(app, "POST", "/api/signup", signupBody, std::string(), 201, "signup creates a user",
-                &body);
+    checkStatus(app, "POST", "/api/login",
+                "{\"username\":\"TestPilot\",\"password\":\"long-enough-password\"," +
+                    signupCaptcha + "}",
+                std::string(), 200, "an existing admin signs in", &body);
     rblx::web::Json signup = rblx::web::Json::parse(body, &error);
     const std::string token = signup.member("token").asString();
-    check(!token.empty(), "signup returns a token");
-    check(signup.member("userId").asInteger(0) > 0, "signup returns the user id");
+    check(!token.empty(), "the session carries a token");
+    check(signup.member("userId").asInteger(0) > 0, "the session names the account");
 
     checkStatus(app, "POST", "/api/signup",
                 "{\"username\":\"TestPilot\",\"password\":\"long-enough-password\"," +
                     machineCaptcha(app) + "}",
                 std::string(), 409, "signup rejects a duplicate username");
+
+    checkStatus(app, "POST", "/api/signup",
+                "{\"username\":\"AdminPilot\",\"password\":\"long-enough-password\"," +
+                    machineCaptcha(app) + "}",
+                std::string(), 403,
+                "signup refuses an administrator name nobody holds yet");
 
     checkStatus(app, "POST", "/api/login",
                 "{\"username\":\"TestPilot\",\"password\":\"wrong-password\"," +
@@ -1136,8 +1157,23 @@ void testBanWaves() {
     config.banWaveWindowMs = 2000;
     config.adminUsernames = {"WavePilot"};
 
-    rblx::web::WebsiteApp app(config);
+    // ADMIN_USERNAMES names an account that already exists: the documented order
+    // is to create it, then configure the name, so the start below resolves it.
     std::string error;
+    {
+        rblx::web::Store store(config.dataPath);
+        openSealed(store, config);
+        check(store.load(&error), "ban wave: the data file loads: " + error);
+        if (store.findUserByName("WavePilot") == nullptr) {
+            store.createUser("WavePilot",
+                             rblx::web::hashPassword("long-enough-password",
+                                                     config.passwordIterations),
+                             "2026-01-01T00:00:00Z");
+            check(store.save(&error), "ban wave: the admin account is written: " + error);
+        }
+    }
+
+    rblx::web::WebsiteApp app(config);
     check(app.initialize(&error), "ban wave: app initialises: " + error);
     app.installRoutes();
     check(app.start(&error), "ban wave: app listens: " + error);
@@ -1146,10 +1182,10 @@ void testBanWaves() {
     }
 
     std::string body;
-    checkStatus(app, "POST", "/api/signup",
+    checkStatus(app, "POST", "/api/login",
                 "{\"username\":\"WavePilot\",\"password\":\"long-enough-password\"," +
                     machineCaptcha(app) + "}",
-                std::string(), 201, "ban wave: the account signs up", &body);
+                std::string(), 200, "ban wave: the admin signs in", &body);
     const std::string token = rblx::web::Json::parse(body, &error).member("token").asString();
 
     checkStatus(app, "POST", "/api/client-detections",
@@ -1204,21 +1240,10 @@ void testAdminReplay() {
     config.banWaveWindowMs = 0;
     config.adminUsernames = {"ReplayPilot"};
 
-    rblx::web::WebsiteApp app(config);
+    // The account exists before its name is configured, which is the order
+    // ADMIN_USERNAMES documents; the restart below resolves the name to its id.
     std::string error;
-    check(app.initialize(&error), "replay: app initialises: " + error);
-    app.installRoutes();
-    check(app.start(&error), "replay: app listens: " + error);
-    if (app.server().port() <= 0) {
-        return;
-    }
-
     std::string body;
-    checkStatus(app, "POST", "/api/signup",
-                "{\"username\":\"ReplayPilot\",\"password\":\"long-enough-password\"," +
-                    machineCaptcha(app) + "}",
-                std::string(), 201, "replay: the admin signs up", &body);
-    app.stop();
 
     // The clip is filed by the game server, which has no account here, so the
     // action is written the way a wave writes one: into the data file.
@@ -1230,6 +1255,12 @@ void testAdminReplay() {
         openSealed(store, config);
         check(store.load(&error), "replay: the data file loads: " + error);
         const rblx::web::UserRecord* pilot = store.findUserByName("ReplayPilot");
+        if (pilot == nullptr) {
+            store.createUser("ReplayPilot",
+                             rblx::web::hashPassword("long-enough-password", 800),
+                             "2026-01-01T00:00:00Z");
+            pilot = store.findUserByName("ReplayPilot");
+        }
         check(pilot != nullptr, "replay: the admin is in the data file");
         if (pilot != nullptr) {
             store.addInfraction(pilot->id, "warning", "flying", true, 1, std::string(),

@@ -21,7 +21,9 @@ struct Config {
     std::string nodeEnv = "development";
     bool isProduction = false;
     int port = 3000;
-    std::string jwtSecret = "local-dev-secret-change-me";
+    // Empty means nothing was configured: loadConfigFromEnvironment() refuses
+    // that in production and otherwise generates and keeps a random secret.
+    std::string jwtSecret;
     long long jwtExpiresSeconds = 7 * 24 * 60 * 60;
     int passwordIterations = 120000;
     // The password the seeded owner account is created with. Production has to
@@ -67,6 +69,9 @@ struct Config {
     // grace before the empty server reaper is allowed to touch it.
     long long gameInstanceLaunchGraceMs = 120 * 1000;
     std::string publicBaseUrl;
+    // Whether PUBLIC_BASE_URL was actually set, as opposed to the local default:
+    // only an explicit value outranks the Host header when Play builds a URL.
+    bool publicBaseUrlSet = false;
     std::string serverExecutablePath;
     std::string clientExecutablePath;
     // Extra usernames that may open the admin dashboard, matched case-sensitively.
@@ -206,7 +211,14 @@ private:
     bool parseJsonBody(const Request& request, Json* body, Response& response) const;
     bool requireAuth(const Request& request, Response& response, AuthUser* user);
     bool optionalAuth(const Request& request, AuthUser* user, bool* authenticated);
+    // Filled by resolveAdminIds() from Config::adminUsernames, at start-up only:
+    // a name that is given up later must not carry rights to whoever claims it.
+    std::vector<int> adminUserIds_;
     bool isAdminUser(const AuthUser& user) const;
+    // Names are resolved to ids once, at start-up, so a name that is given up
+    // later cannot carry admin rights to whoever claims it next.
+    void resolveAdminIds();
+    bool isReservedAdminName(const std::string& username) const;
     // 403 body for a signed-in account that is not allowed into the dashboard.
     std::string adminDeniedMessage(const AuthUser& user) const;
 
@@ -214,7 +226,7 @@ private:
     // `viewerId` is what makes "you liked this" possible; a signed-out caller
     // passes zero and only the count is filled in.
     Json gameJson(const GameRecord& game, bool canEdit, int viewerId = 0) const;
-    Json instanceJson(const GameInstance& instance) const;
+    Json instanceJson(const GameInstance& instance, bool includeProcess) const;
     Json avatarJson(const Avatar& avatar) const;
 
     // Hands out a single-use challenge: an image for people, a proof-of-work

@@ -518,7 +518,7 @@ Configuration comes from the environment:
 | `WEB_DIR` | `web` | Directory containing `public/index.html` |
 | `DATABASE_PATH` | `web/users.json` | JSON data file |
 | `DATA_KEY` | — | Key the data file is sealed with: 64 hex characters, or any text hashed into 32 bytes. Without it the key is derived from `JWT_SECRET` |
-| `JWT_SECRET` | — | Token signing secret; required, 32+ characters in production |
+| `JWT_SECRET` | — | Token signing secret; required, 32+ characters in production. Outside production an unset value is generated once and kept in `jwt-secret` beside the data file |
 | `STARTER_PASSWORD` | — | Password for the seeded `defaultuser0` owner; required, 12+ characters, in production |
 | `TRUSTED_PROXIES` | — | Comma-separated proxy addresses whose `X-Forwarded-For` may name the client for rate limiting |
 | `JWT_EXPIRES_IN` | `7d` | Token lifetime |
@@ -532,8 +532,8 @@ Configuration comes from the environment:
 | `GAME_SERVER_HOST` / `GAME_SERVER_BASE_PORT` | `127.0.0.1` / `7777` | Local game-server address |
 | `GAME_INSTANCE_EMPTY_GRACE_MS` | `30000` | How long an empty game instance stays up |
 | `SERVER_EXECUTABLE_PATH` / `CLIENT_EXECUTABLE_PATH` | — | Binaries launched when a game is played |
-| `PUBLIC_BASE_URL` | `http://localhost:3000` | URL handed to the native server and client for web auth |
-| `ADMIN_USERNAMES` | — | Comma-separated extra accounts allowed into `/admin` |
+| `PUBLIC_BASE_URL` | `http://localhost:3000` | URL handed to the native server and client for web auth. When unset, Play uses the request's `Host` if it is a plain `host:port`, and the local default otherwise |
+| `ADMIN_USERNAMES` | `defaultuser0` | Comma-separated extra accounts allowed into `/admin`. Each name is resolved to its account at start-up, so the account must exist first, and signup and rename refuse a configured name |
 
 Every `/api/` request is counted per client address in a fixed window with a budget of
 `RATE_LIMIT_MAX` calls. Over budget the site answers `429` with `Retry-After` in seconds, and the
@@ -767,7 +767,11 @@ Admin access is by account, and the account that owns the install is always an a
 seeded `defaultuser0` account, and it stays the admin after a rename or a differently-spelled seed,
 because the owner is matched by id rather than by name. `ADMIN_USERNAMES` adds other accounts to the
 list; it never replaces the owner, so naming someone else there cannot lock the install's own owner
-out of `/admin`. Usernames are compared case-sensitively, so the flag follows the account rather
+out of `/admin`. A configured name is resolved to its account id when the backend starts, and the
+admin check uses that id, so giving a name up and letting someone else claim it does not hand them
+the panel. That also means the account has to exist before its name goes into `ADMIN_USERNAMES`:
+signup and rename refuse a name on the list, so create the account first, then add the name and
+restart. Usernames are compared case-sensitively, so the flag follows the account rather
 than the browser. Non-admins get `403` from `GET /api/admin/overview` and
 `DELETE /api/admin/games/:id`, the Admin link on the dashboard stays hidden for them, and the
 refusal names the account that is signed in and the names that are allowed, so a mismatch is

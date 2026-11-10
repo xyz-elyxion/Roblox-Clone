@@ -101,3 +101,6 @@ imgui.ini
 
 # Policies produced by AiTrainer
 models/
+
+# Runtime signing secret written by a development start
+web/jwt-secret

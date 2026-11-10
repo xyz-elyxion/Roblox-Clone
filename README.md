@@ -1296,7 +1296,10 @@ backend finds an open local port, starts
 `Server.exe --port <port> --world <published-world> --script <published-script> --web <site-url>`,
 and can launch
 `Client.exe --server <host> --port <port> --web <site-url> --token <jwt> --connect` when
-`CLIENT_EXECUTABLE_PATH` points to a built Player.
+`CLIENT_EXECUTABLE_PATH` points to a built Player. That launch only happens when the request comes
+from the machine running the site: a player browsing from anywhere else gets the same server, port
+and command in the answer and opens the client on their own computer, because starting windows on
+the host is not something a remote caller should be able to ask for.
 
 Play waits for the server to own its port before launching the client, and each game server writes
 its output to `web/game-server-logs/game-server-<port>.log`. When a server dies during startup — for

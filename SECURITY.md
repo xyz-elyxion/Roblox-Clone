@@ -68,6 +68,23 @@ owner, which is always one. The seeded owner starts with the documented developm
 a production start requires `STARTER_PASSWORD` (12+ characters, not the documented default) and
 refuses to run otherwise; the account owns the starter games and cannot be deleted or restricted.
 
+**Randomness.** Every credential the backend mints itself - the salt in a password hash, a
+recovery code, a developer token, a game instance's launch token and an AES-GCM nonce - is drawn
+from `BCryptGenRandom`. Not `std::rand`, and not a seeded engine: a generator whose state can be
+recovered from its own output would give away the tokens it produced, and on a toolchain whose
+`std::random_device` is not a device (libstdc++ on MinGW has no `/dev/urandom`) the whole seed
+would be the clock. The call fails closed: an empty result is never used as a token.
+
+**Game instances.** A game server talks to the site with a launch token, and that token is also on
+its command line. It comes from the system generator and is compared in constant time, and the
+command string shown in the console and the dashboard prints it as `***`. A process that can read
+another process's command line already belongs to the same user (or an administrator), which is
+more access than the token itself gives.
+
+The hardware id a client reports at `/api/verify` is an assertion about itself, not an
+attestation: it is recorded so a ban can follow the machine, but a determined cheater can report a
+different value. Hardware bans raise the cost of ban evasion rather than guaranteeing it.
+
 **Data at rest.** The store seals account secrets — password hashes, recovery codes and
 the rest of the sensitive fields — with AES-256-GCM, per-user associated data, and records
 `"cipher": "aes-256-gcm"` in the file. A wrong `DATA_KEY` is reported as such instead of
@@ -105,7 +122,14 @@ per client address (`AUTH_RATE_LIMIT_MAX` 20 per `AUTH_RATE_LIMIT_WINDOW_MS` 15 
 route shares a second budget (`RATE_LIMIT_MAX` 600 per minute). The client address is the socket
 peer unless that peer is listed in `TRUSTED_PROXIES`; then the right-most `X-Forwarded-For` hop
 that is not itself a trusted proxy is used, so a proxy in front of the site does not merge every
-visitor into one budget and a client cannot choose its own key. Signup, login and recovery
+visitor into one budget and a client cannot choose its own key. At most 64 connections are served
+at once; past that the socket is closed without a worker, because one thread per connection with
+no ceiling lets slow clients exhaust the process.
+
+`POST /api/games/:id/play` answers a remote player with the server, port and command to join, but
+only starts the client process when the request came from loopback - the desktop window is for the
+person at the machine, not for anyone who can reach the site. A game may run eight servers and the
+install thirty-two. Signup, login and recovery
 sit behind a captcha: a proof-of-work challenge plus a human-readable image, both expiring
 after five minutes. Every response carries `X-Content-Type-Options: nosniff`,
 `X-Frame-Options: DENY`, `Referrer-Policy: same-origin` and a strict

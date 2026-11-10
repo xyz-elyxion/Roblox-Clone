@@ -150,7 +150,7 @@ if(RBLX_BUILD_STUDIO)
     )
     configure_rblx_target(Studio)
     target_include_directories(Studio PRIVATE ${rblxtextedit_SOURCE_DIR})
-    target_link_libraries(Studio PRIVATE rblxwin rblxmath rblxphysics rblxgl)
+    target_link_libraries(Studio PRIVATE rblxwin rblxmath rblxphysics rblxgl bcrypt)
     # HttpClient is the only transport left (the website calls used to go
     # through WinHTTP), and it is plain sockets, hence ws2_32.
     target_link_libraries(Studio PRIVATE ws2_32 shell32)
@@ -196,7 +196,7 @@ if(RBLX_BUILD_UPDATER)
         ${RBLXUI_SOURCES}
     )
     configure_rblx_target(RBLXUpdater)
-    target_link_libraries(RBLXUpdater PRIVATE rblxwin rblxgl)
+    target_link_libraries(RBLXUpdater PRIVATE rblxwin rblxgl bcrypt)
     target_link_libraries(RBLXUpdater PRIVATE ws2_32)
 
     # The setup is the installer: it copies the packaged folder into a per-user
@@ -213,7 +213,7 @@ if(RBLX_BUILD_UPDATER)
         ${RBLXUI_SOURCES}
     )
     configure_rblx_target(RBLXSetup)
-    target_link_libraries(RBLXSetup PRIVATE rblxwin rblxgl)
+    target_link_libraries(RBLXSetup PRIVATE rblxwin rblxgl bcrypt)
     # IShellLink and IPersistFile are COM, the folder lookups are shell32, and
     # the uninstall entry is written with the registry API.
     target_link_libraries(RBLXSetup PRIVATE ole32 shell32 advapi32 uuid)
@@ -311,7 +311,7 @@ if(RBLX_BUILD_CLIENT)
         ${RBLXUI_SOURCES}
     )
     configure_rblx_target(Client)
-    target_link_libraries(Client PRIVATE rblxwin rblxmath rblxphysics rblxgl)
+    target_link_libraries(Client PRIVATE rblxwin rblxmath rblxphysics rblxgl bcrypt)
     # winmm is the OS mixer waveOut lives in; no other audio dependency exists.
     target_link_libraries(Client PRIVATE ws2_32 shell32 comdlg32 winmm)
     if(TARGET RBLXAntiCheat)
@@ -377,7 +377,7 @@ if(RBLX_BUILD_TRAINER)
         ${RBLXUI_SOURCES}
     )
     configure_rblx_target(AiTrainer)
-    target_link_libraries(AiTrainer PRIVATE rblxphysics rblxmath rblxwin rblxgl ws2_32)
+    target_link_libraries(AiTrainer PRIVATE rblxphysics rblxmath rblxwin rblxgl ws2_32 bcrypt)
 endif()
 
 set(WEB_SOURCES
@@ -443,6 +443,7 @@ if(RBLX_BUILD_TESTS)
         src/WebJson.cpp
         src/ChatRoom.cpp
     )
+    target_link_libraries(HardwareIdTests PRIVATE bcrypt)
     target_include_directories(HardwareIdTests PRIVATE ${RBLXBUILD_CURRENT_SOURCE_DIR}/include)
     add_test(NAME HardwareIdTests COMMAND HardwareIdTests)
 
@@ -463,6 +464,7 @@ if(RBLX_BUILD_TESTS)
         src/WebJson.cpp
         src/WebCrypto.cpp
     )
+    target_link_libraries(WebCaptchaTests PRIVATE bcrypt)
     target_include_directories(WebCaptchaTests PRIVATE ${RBLXBUILD_CURRENT_SOURCE_DIR}/include)
     add_test(NAME WebCaptchaTests COMMAND WebCaptchaTests)
 
@@ -476,6 +478,7 @@ if(RBLX_BUILD_TESTS)
         src/WebJson.cpp
         src/WebCrypto.cpp
     )
+    target_link_libraries(UpdaterTests PRIVATE bcrypt)
     target_include_directories(UpdaterTests PRIVATE ${RBLXBUILD_CURRENT_SOURCE_DIR}/include)
     add_test(NAME UpdaterTests COMMAND UpdaterTests)
 
@@ -499,6 +502,7 @@ if(RBLX_BUILD_TESTS)
         src/WebJson.cpp
         src/WebCrypto.cpp
     )
+    target_link_libraries(ChatTests PRIVATE bcrypt)
     target_include_directories(ChatTests PRIVATE ${RBLXBUILD_CURRENT_SOURCE_DIR}/include)
     add_test(NAME ChatTests COMMAND ChatTests)
 
@@ -527,6 +531,7 @@ if(RBLX_BUILD_TESTS)
         src/HardwareId.cpp
         src/ChatRoom.cpp
     )
+    target_link_libraries(StoreCryptoTests PRIVATE bcrypt)
     target_include_directories(StoreCryptoTests PRIVATE ${RBLXBUILD_CURRENT_SOURCE_DIR}/include)
     if(RBLX_ENABLE_WARNINGS)
         if(MSVC)
@@ -573,6 +578,7 @@ if(RBLX_BUILD_TESTS)
         src/WebJson.cpp
         src/WebCrypto.cpp
     )
+    target_link_libraries(GameLikesTests PRIVATE bcrypt)
     target_include_directories(GameLikesTests PRIVATE ${RBLXBUILD_CURRENT_SOURCE_DIR}/include)
     add_test(NAME GameLikesTests COMMAND GameLikesTests)
 

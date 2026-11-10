@@ -1,11 +1,15 @@
 #include "WebCrypto.h"
 
+#define NOMINMAX
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+
+#include <bcrypt.h>
+
 #include <algorithm>
-#include <chrono>
 #include <cstdio>
 #include <cstring>
 #include <ctime>
-#include <random>
 
 namespace rblx {
 namespace web {
@@ -107,16 +111,6 @@ int base64UrlValue(char c) {
         return 63;
     }
     return -1;
-}
-
-std::string randomDeviceSeed() {
-    std::random_device device;
-    std::string seed;
-    seed.reserve(64);
-    for (int i = 0; i < 8; ++i) {
-        seed += std::to_string(static_cast<unsigned long long>(device()));
-    }
-    return seed;
 }
 
 }  // namespace
@@ -310,21 +304,22 @@ std::string hexEncode(const Digest& digest) {
 }
 
 std::vector<std::uint8_t> randomBytes(std::size_t length) {
-    static std::mt19937_64 generator([]() {
-        std::uint64_t seed = static_cast<std::uint64_t>(
-            std::chrono::high_resolution_clock::now().time_since_epoch().count());
-        const std::string deviceSeed = randomDeviceSeed();
-        for (const char c : deviceSeed) {
-            seed = seed * 1099511628211ull + static_cast<unsigned char>(c);
-        }
-        std::random_device device;
-        seed ^= static_cast<std::uint64_t>(device()) << 17;
-        return seed;
-    }());
-
     std::vector<std::uint8_t> bytes(length);
-    for (std::size_t i = 0; i < length; ++i) {
-        bytes[i] = static_cast<std::uint8_t>(generator() & 0xFFu);
+    if (bytes.empty()) {
+        return bytes;
+    }
+    // The system generator, because these bytes become recovery codes, developer
+    // tokens, game-instance tokens and AES-GCM nonces. A seeded engine is wrong
+    // here twice over: its state can be recovered from its own output, and on a
+    // toolchain whose std::random_device is not a device at all (libstdc++ on
+    // MinGW has no /dev/urandom) the seed collapses to the clock.
+    const NTSTATUS status =
+        ::BCryptGenRandom(nullptr, bytes.data(), static_cast<ULONG>(bytes.size()),
+                          BCRYPT_USE_SYSTEM_PREFERRED_RNG);
+    if (!BCRYPT_SUCCESS(status)) {
+        // Fail closed: an empty result cannot be mistaken for a valid token, and
+        // falling back to a predictable stream would be worse than refusing.
+        bytes.clear();
     }
     return bytes;
 }

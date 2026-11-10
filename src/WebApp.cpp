@@ -90,6 +90,10 @@ const std::size_t kMaxGameScriptBytes = 256 * 1024;
 const char* kDefaultGameBanner = "/assets/games/default-game-banner.png";
 const long long kMaxWorldBytes = 2 * 1024 * 1024;
 
+// How many game servers one game, and the install as a whole, may run at once.
+constexpr std::size_t kMaxInstancesPerGame = 8;
+constexpr std::size_t kMaxInstancesTotal = 32;
+
 const char* kAvatarSlots[kAvatarSlotCount] = {
     "headColor", "torsoColor", "leftArmColor",
     "rightArmColor", "leftLegColor", "rightLegColor"
@@ -1480,6 +1484,19 @@ void trimQuietWindows(Table* table, long long windowMs, long long now) {
     }
 }
 
+// The machine this site runs on. The game servers it starts, and the client it
+// opens for the person at the keyboard, are local; anything else is a player.
+bool isLoopbackAddress(const std::string& address) {
+    return address == "127.0.0.1" || address == "::1" || address == "::ffff:127.0.0.1";
+}
+
+// A hash to compare against when there is no account, so a missing username costs
+// the same time as a wrong password and the reply is not a directory.
+const std::string& dummyPasswordHash(const Config& config) {
+    static const std::string hash = hashPassword(randomHex(32), config.passwordIterations);
+    return hash;
+}
+
 }  // namespace
 
 std::string WebsiteApp::clientAddress(const Request& request) const {
@@ -2365,7 +2382,12 @@ bool WebsiteApp::handleLogin(Request& request, Response& response) {
     }
 
     const UserRecord* user = store_.findUserByName(username);
-    if (user == nullptr || !verifyPassword(password, user->passwordHash)) {
+    // Hash even when there is no such account: otherwise a missing username
+    // answers in microseconds and a real one costs a PBKDF2 round, which is a
+    // free directory of who has an account here.
+    const bool passwordOk = verifyPassword(
+        password, user != nullptr ? user->passwordHash : dummyPasswordHash(config_));
+    if (user == nullptr || !passwordOk) {
         errorJson(response, 401, "Invalid username or password.");
         return true;
     }
@@ -2607,10 +2629,13 @@ bool WebsiteApp::handleRecovery(Request& request, Response& response) {
     const std::string newPassword = body.member("newPassword").asString();
 
     const UserRecord* record = store_.findUserByName(username);
-    // One message for "no such account" and "wrong code", so the form cannot be
-    // used to find out which usernames exist.
-    if (record == nullptr || record->recoveryHash.empty() || recoveryCode.empty() ||
-        !verifyPassword(recoveryCode, record->recoveryHash)) {
+    // One message for "no such account" and "wrong code", and the hash runs on
+    // both paths, so neither the reply nor its timing says which usernames exist.
+    const bool hasRecovery = record != nullptr && !record->recoveryHash.empty();
+    const bool codeOk =
+        verifyPassword(recoveryCode.empty() ? std::string("-") : recoveryCode,
+                       hasRecovery ? record->recoveryHash : dummyPasswordHash(config_));
+    if (!hasRecovery || recoveryCode.empty() || !codeOk) {
         errorJson(response, 401, "That username and recovery code do not match.");
         return true;
     }
@@ -3056,7 +3081,9 @@ bool WebsiteApp::handleHeartbeat(Request& request, Response& response) {
 
     GameInstance& instance = found->second;
     const std::string managerToken = bearerToken(request.header("authorization"));
-    if (managerToken.empty() || managerToken != instance.managerToken) {
+    // A secret, so it is compared in constant time: a comparison that stops at
+    // the first wrong character leaks how much of a guess was right.
+    if (managerToken.empty() || !constantTimeEquals(managerToken, instance.managerToken)) {
         errorJson(response, 403, "Game instance token is invalid.");
         return true;
     }
@@ -3734,11 +3761,18 @@ bool WebsiteApp::handlePlayGame(Request& request, Response& response) {
     const bool launchClientValue = body.has("launchClient")
                                        ? boolValue(body.member("launchClient"), true)
                                        : true;
+    // Only the local caller gets a process started for them: the answer already
+    // carries the command and the protocol URL a player elsewhere needs, and
+    // opening windows for anyone who can reach the site would spend the host.
+    const bool localCaller = isLoopbackAddress(clientAddress(request));
     const bool clientSkipped =
-        body.has("launchClient") && body.member("launchClient").isBool() && !launchClientValue;
+        !localCaller ||
+        (body.has("launchClient") && body.member("launchClient").isBool() && !launchClientValue);
     if (clientSkipped) {
         player.set("launched", false);
-        player.set("reason", "Client launch was skipped.");
+        player.set("reason", localCaller ? "Client launch was skipped."
+                                         : "The client only opens on the machine running the "
+                                           "website.");
     } else if (clientPath.empty() || !fileExists(clientPath)) {
         player.set("launched", false);
         player.set("reason", "Client executable was not found.");
@@ -3810,11 +3844,19 @@ bool WebsiteApp::handleClientReport(Request& request, Response& response) {
     ClientReport report;
     report.createdAt = nowIso();
     report.stage = trimCopy(body.member("stage").asString());
+    if (report.stage.size() > 40) {
+        report.stage.resize(40);
+    }
     if (report.stage.empty()) {
         report.stage = "unknown";
     }
     report.reason = reason;
+    // Whoever can reach the route writes this row, so every field is bounded;
+    // an unbounded one would grow the data file and the console for free.
     report.serverAddress = trimCopy(body.member("serverAddress").asString());
+    if (report.serverAddress.size() > 120) {
+        report.serverAddress.resize(120);
+    }
     const long long gameId = body.member("gameId").asInteger();
     report.gameId = gameId > 0 && gameId <= 1000000 ? static_cast<int>(gameId) : 0;
 
@@ -4013,7 +4055,7 @@ bool WebsiteApp::handleInstanceModeration(Request& request, Response& response) 
     // The same launch token the heartbeat uses. A player cannot report
     // themselves, and another client cannot report them either.
     const std::string managerToken = bearerToken(request.header("authorization"));
-    if (managerToken.empty() || managerToken != found->second.managerToken) {
+    if (managerToken.empty() || !constantTimeEquals(managerToken, found->second.managerToken)) {
         errorJson(response, 403, "Game instance token is invalid.");
         return true;
     }
@@ -5754,6 +5796,22 @@ WebsiteApp::GameInstance* WebsiteApp::ensureInstance(const GameRecord& game, boo
         }
     }
 
+    // Starting a server is the most expensive thing this site can be asked to
+    // do, so a game may hold a handful and the install a few more than that.
+    // Without a cap a signed-in caller can keep asking for new servers and ports.
+    if (forceNew && activeInstanceIds(game.id).size() >= kMaxInstancesPerGame) {
+        if (error) {
+            *error = "This game already runs the maximum number of servers.";
+        }
+        return nullptr;
+    }
+    if (instances_.size() >= kMaxInstancesTotal) {
+        if (error) {
+            *error = "This install already runs the maximum number of game servers.";
+        }
+        return nullptr;
+    }
+
     const int port = findAvailablePort(config_.gameServerBasePort);
     if (port <= 0) {
         if (error) {
@@ -5809,8 +5867,15 @@ WebsiteApp::GameInstance* WebsiteApp::ensureInstance(const GameRecord& game, boo
             std::fprintf(stderr, "Could not start a game server: %s\n", spawnError.c_str());
         }
         std::string command = "\"" + config_.serverExecutablePath + "\"";
-        for (const std::string& arg : args) {
-            command += " \"" + arg + "\"";
+        // What the console and dashboard show: the launch token is left out,
+        // because this string is printed and must not be a copy of it.
+        for (std::size_t i = 0; i < args.size(); ++i) {
+            if (args[i] == "--instance-token") {
+                command += " \"--instance-token ***\"";
+                ++i;
+                continue;
+            }
+            command += " \"" + args[i] + "\"";
         }
         instance.command = command;
     } else {

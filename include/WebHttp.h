@@ -1,5 +1,6 @@
 #pragma once
 
+#include <atomic>
 #include <cstddef>
 #include <cstdint>
 #include <functional>
@@ -51,6 +52,9 @@ public:
     void route(const std::string& method, const std::string& pattern, Handler handler);
     void setFallback(Handler handler);
     void setBodyLimitBytes(std::size_t limit) { bodyLimitBytes_ = limit; }
+    // Connections served at the same time; a peer past the ceiling is closed
+    // rather than given a worker thread.
+    void setMaxConnections(int limit) { maxConnections_ = limit > 0 ? limit : 1; }
 
     bool listen(const std::string& host, int port, std::string* error);
     int port() const { return port_; }
@@ -80,6 +84,8 @@ private:
     std::vector<RouteEntry> routes_;
     Handler fallback_;
     std::size_t bodyLimitBytes_ = 8 * 1024 * 1024;
+    std::atomic<int> activeConnections_{0};
+    int maxConnections_ = 64;
     std::intptr_t listenSocket_ = -1;
     int port_ = 0;
     bool running_ = false;

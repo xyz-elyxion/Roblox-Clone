@@ -621,8 +621,20 @@ void HttpServer::serveForever() {
             continue;
         }
 
-        std::thread worker(&HttpServer::handleConnection, this,
-                           static_cast<std::intptr_t>(handle));
+        // One thread per connection is simple, but it was unbounded: a few
+        // thousand sockets that each trickle a byte would hold that many threads
+        // and up to 8 MiB of body apiece, which takes the site down without any
+        // exploit. Past the ceiling the socket is closed instead of answered,
+        // because writing an error still costs a thread.
+        if (activeConnections_.fetch_add(1) >= maxConnections_) {
+            activeConnections_.fetch_sub(1);
+            closeSocket(handle);
+            continue;
+        }
+        std::thread worker([this, handle]() {
+            handleConnection(static_cast<std::intptr_t>(handle));
+            activeConnections_.fetch_sub(1);
+        });
         worker.detach();
     }
 }

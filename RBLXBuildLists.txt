@@ -188,6 +188,7 @@ if(RBLX_BUILD_UPDATER)
     add_executable(RBLXUpdater
         src/UpdaterMain.cpp
         src/Updater.cpp
+        src/ReleaseSignature.cpp
         src/WebJson.cpp
         src/WebCrypto.cpp
         src/HttpClient.cpp
@@ -471,6 +472,7 @@ if(RBLX_BUILD_TESTS)
     add_executable(UpdaterTests
         tests/updater_tests.cpp
         src/Updater.cpp
+        src/ReleaseSignature.cpp
         src/WebJson.cpp
         src/WebCrypto.cpp
     )

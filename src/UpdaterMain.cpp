@@ -23,7 +23,9 @@
 
 #include "HttpClient.h"
 #include "InstallUi.h"
+#include "ReleaseSignature.h"
 #include "Updater.h"
+#include "WebJson.h"
 
 #include <algorithm>
 #include <cstdio>
@@ -52,6 +54,8 @@ struct Options {
     std::string manifestUrl;
     std::string version;
     std::string channel = "stable";
+    // The signing key file for `sign-manifest`; never part of a release.
+    std::string signingKey;
     bool launch = false;
     bool quiet = false;
     // A window instead of the console; --no-ui forces the console.
@@ -92,12 +96,14 @@ void usage() {
                  "  RBLXUpdater update            apply any update and exit\n"
                  "  RBLXUpdater install --manifest <url> [--dir <folder>]\n"
                  "  RBLXUpdater manifest --dir <folder> --version <version> [--channel stable]\n"
+                 "  RBLXUpdater sign-manifest --dir <folder> --key <keyfile>\n"
                  "  RBLXUpdater uninstall [--dir <folder>]\n\n"
                  "Options:\n"
                  "  --dir <folder>        the install folder, default: the one this exe is in\n"
                  "  --manifest <url>      manifest.json to use instead of update.json\n"
                  "  --version <version>   version to record when writing a manifest\n"
                  "  --channel <name>      channel to record when writing a manifest\n"
+                 "  --key <file>          release signing key (modulus, exponent, privateExponent)\n"
                  "  --launch              start the program named in update.json afterwards\n"
                  "  --ui                  show the work in a window (default for --launch)\n"
                  "  --no-ui               never show a window, even if --ui is implied\n"
@@ -140,6 +146,8 @@ bool parseOptions(int argc, char** argv, Options* options) {
             if (!readValue(argc, argv, ++i, "--version", &options->version)) return false;
         } else if (argument == "--channel") {
             if (!readValue(argc, argv, ++i, "--channel", &options->channel)) return false;
+        } else if (argument == "--key") {
+            if (!readValue(argc, argv, ++i, "--key", &options->signingKey)) return false;
         } else if (argument == "--launch") {
             options->launch = true;
         } else if (argument == "--ui") {
@@ -190,7 +198,37 @@ bool fetch(const std::string& url, std::string* body, std::string* error,
 // keeps the copy it has and the game still starts.
 enum class ManifestFetch { Ok, NotPublished, Failed };
 
-ManifestFetch fetchManifest(const std::string& url, Manifest* manifest, std::string* error) {
+// A copy with a pinned key installs only a manifest that key signed. A copy with
+// no key is a development install reading a release folder on this machine, so
+// it may only use a loopback URL: that is the one case where nobody on the
+// network can rewrite the answer, and it keeps a fresh checkout working.
+bool manifestIsTrusted(const std::string& url, const Config& config, const Manifest& manifest,
+                       std::string* error) {
+    if (!config.signatureModulus.empty()) {
+        return rblx::update::verifyManifestSignature(manifest, config.signatureModulus,
+                                                     config.signatureExponent, error);
+    }
+
+    const std::size_t scheme = url.find("://");
+    std::string host = url.substr(scheme == std::string::npos ? 0 : scheme + 3);
+    const std::size_t slash = host.find('/');
+    if (slash != std::string::npos) host = host.substr(0, slash);
+    const std::size_t colon = host.find(':');
+    if (colon != std::string::npos) host = host.substr(0, colon);
+    if (host == "127.0.0.1" || host == "localhost" || host == "[::1]" || host == "::1") {
+        return true;
+    }
+
+    if (error) {
+        *error = "this copy has no release signing key, so " + url +
+                 " is not trusted. Sign the release and put the key it prints into "
+                 "update.json as signatureKey, or point this copy at a loopback release folder.";
+    }
+    return false;
+}
+
+ManifestFetch fetchManifest(const std::string& url, const Config& config, Manifest* manifest,
+                            std::string* error) {
     std::string body;
     int status = 0;
     if (!fetch(url, &body, error, rblx::http::ProgressCallback(), &status)) {
@@ -198,6 +236,7 @@ ManifestFetch fetchManifest(const std::string& url, Manifest* manifest, std::str
         return ManifestFetch::Failed;
     }
     if (!rblx::update::parseManifest(body, manifest, error)) return ManifestFetch::Failed;
+    if (!manifestIsTrusted(url, config, *manifest, error)) return ManifestFetch::Failed;
     return ManifestFetch::Ok;
 }
 
@@ -254,13 +293,14 @@ void removeEmptyDirectories(const std::string& directory) {
 
 // Brings `directory` to the release the manifest describes. `install` means
 // there is no local record to diff against, so every file is fetched.
-bool sync(const Options& options, const std::string& manifestUrl, bool install,
+bool sync(const Options& options, const Config& config, bool install,
           Manifest* applied, std::string* error) {
+    const std::string& manifestUrl = config.manifestUrl;
     Manifest target;
     // Say what is being contacted before the request: a slow or unreachable
     // server otherwise leaves the window showing nothing at all.
     print(options, "checking " + manifestUrl + " for a newer release");
-    const ManifestFetch fetched = fetchManifest(manifestUrl, &target, error);
+    const ManifestFetch fetched = fetchManifest(manifestUrl, config, &target, error);
     if (fetched == ManifestFetch::NotPublished) {
         // Installing from scratch has nothing to copy, so a missing release is
         // still an error there; an existing copy simply stays as it is.
@@ -367,10 +407,11 @@ bool sync(const Options& options, const std::string& manifestUrl, bool install,
     return true;
 }
 
-int checkCommand(const Options& options, const std::string& manifestUrl) {
+int checkCommand(const Options& options, const Config& config) {
+    const std::string& manifestUrl = config.manifestUrl;
     Manifest target;
     std::string error;
-    const ManifestFetch fetched = fetchManifest(manifestUrl, &target, &error);
+    const ManifestFetch fetched = fetchManifest(manifestUrl, config, &target, &error);
     if (fetched == ManifestFetch::NotPublished) {
         // Exit 0 is "nothing to install": a monitor that polls this must not be
         // woken up by a release server that has not published anything.
@@ -432,6 +473,60 @@ int manifestCommand(const Options& options) {
     return 0;
 }
 
+// Signs the manifest this folder already has. The private exponent stays in the
+// key file named by --key and never enters the release; the public half is
+// printed so the packaging step can pin it in update.json.
+int signManifestCommand(const Options& options) {
+    if (options.signingKey.empty()) {
+        printError("sign-manifest needs --key <file>");
+        return 1;
+    }
+
+    const std::string manifestPath = (fs::path(options.directory) / "manifest.json").string();
+    Manifest manifest;
+    std::string error;
+    if (!rblx::update::readManifestFile(manifestPath, &manifest, &error)) {
+        printError(error);
+        return 1;
+    }
+
+    std::string keyText;
+    if (!rblx::update::readTextFile(options.signingKey, &keyText)) {
+        printError("could not read the signing key at " + options.signingKey);
+        return 1;
+    }
+    const rblx::web::Json key = rblx::web::Json::parse(keyText, &error);
+    if (!key.isObject()) {
+        printError("the signing key must be JSON with modulus, exponent and privateExponent");
+        return 1;
+    }
+    const std::string modulus = key.member("modulus").asString();
+    const std::string exponent = key.member("exponent").asString("10001");
+    if (!rblx::update::isValidRsaKey(modulus, exponent, &error)) {
+        printError("the signing key: " + error);
+        return 1;
+    }
+
+    const std::string payload = rblx::update::manifestSigningPayload(manifest);
+    std::string signature;
+    if (!rblx::update::signRsaSha256(payload.data(), payload.size(), modulus,
+                                     key.member("privateExponent").asString(), &signature,
+                                     &error)) {
+        printError("could not sign the manifest: " + error);
+        return 1;
+    }
+
+    manifest.signature = signature;
+    if (!rblx::update::writeManifestFile(manifestPath, manifest, &error)) {
+        printError(error);
+        return 1;
+    }
+    std::cout << "signed " << manifestPath << " (version " << manifest.version << ")\n"
+              << "modulus=" << modulus << '\n'
+              << "exponent=" << exponent << std::endl;
+    return 0;
+}
+
 int uninstallCommand(const Options& options) {
     const fs::path root(options.directory);
     Manifest installed;
@@ -480,7 +575,7 @@ bool launchProgram(const std::string& directory, const std::string& program, std
 int applyRelease(Options& options, const Config& config, const std::string& configPath,
                  bool installing, std::string* error) {
     Manifest applied;
-    const bool updated = sync(options, config.manifestUrl, installing, &applied, error);
+    const bool updated = sync(options, config, installing, &applied, error);
     if (!updated) {
         // Being unable to update is not a reason to refuse to play: say what
         // happened and start the game anyway.
@@ -581,6 +676,7 @@ int main(int argc, char** argv) {
 
     const std::string command = options.command;
     if (command == "manifest") return manifestCommand(options);
+    if (command == "sign-manifest") return signManifestCommand(options);
     if (command == "uninstall") return uninstallCommand(options);
 
     const bool installing = command == "install";
@@ -614,7 +710,7 @@ int main(int argc, char** argv) {
         config.manifestUrl = options.manifestUrl;
     }
 
-    if (command == "check") return checkCommand(options, config.manifestUrl);
+    if (command == "check") return checkCommand(options, config);
 
     return applyRelease(options, config, configPath, installing, &error);
 }

@@ -474,7 +474,15 @@ int install(const Options& options, const std::string& source) {
     // existing install keeps the one it has.
     const fs::path targetConfig = fs::path(target) / "update.json";
     if (!options.updateUrl.empty()) {
+        // Keep whatever release key this copy already trusts. Writing a fresh
+        // update.json from just the URL would silently unpin the signature and
+        // leave the install accepting any manifest the network hands it.
         rblx::update::Config config;
+        std::string ignored;
+        if (!rblx::update::readConfigFile(targetConfig.string(), &config, &ignored)) {
+            rblx::update::readConfigFile((fs::path(source) / "update.json").string(), &config,
+                                         &ignored);
+        }
         config.manifestUrl = options.updateUrl;
         if (!rblx::update::writeConfigFile(targetConfig.string(), config, &error)) {
             printError(error);

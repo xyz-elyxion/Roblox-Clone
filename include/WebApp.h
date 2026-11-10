@@ -24,12 +24,20 @@ struct Config {
     std::string jwtSecret = "local-dev-secret-change-me";
     long long jwtExpiresSeconds = 7 * 24 * 60 * 60;
     int passwordIterations = 120000;
+    // The password the seeded owner account is created with. Production has to
+    // supply one, because the documented development password is public and the
+    // account it opens is an administrator.
+    std::string starterPassword;
     // What the data file is sealed with, as whoever runs the install wrote it: 64
     // hex characters, or any text that is hashed into a key. Empty means the
     // install has not chosen one and the key is derived from JWT_SECRET instead.
     std::string dataKeyText;
     std::string dataPath;
     std::vector<std::string> corsOrigins;
+    // Addresses allowed to describe a client through X-Forwarded-For. Empty
+    // means nothing sits in front of the backend, so the socket peer is the
+    // client and a forwarded header is just something a caller made up.
+    std::vector<std::string> trustedProxies;
     long long authRateLimitWindowMs = 15 * 60 * 1000;
     int authRateLimitMax = 20;
     // Every /api/ request counts against this window. The budget is loose on
@@ -190,6 +198,10 @@ private:
     // Counts one request from `remoteAddress` against the site-wide budget.
     // Returns true when it is spent, handing back how long to wait.
     bool isRequestRateLimited(const std::string& remoteAddress, int* retryAfterSeconds);
+    // The address a request is budgeted against: the socket peer, or, when that
+    // peer is one of TRUSTED_PROXIES, the right-most forwarded hop this install
+    // does not operate itself.
+    std::string clientAddress(const Request& request) const;
 
     bool parseJsonBody(const Request& request, Json* body, Response& response) const;
     bool requireAuth(const Request& request, Response& response, AuthUser* user);

@@ -29,7 +29,21 @@ struct Manifest {
     std::string version;
     std::string channel = "stable";
     std::vector<FileEntry> files;
+    // Base64 RSA-2048 signature over manifestSigningPayload(), produced by the
+    // packaging machine with the key whose public half update.json pins. Empty
+    // means the document was never signed, and an updater with a key refuses it.
+    std::string signature;
 };
+
+// The exact bytes a release signs. A line-oriented document rather than the
+// JSON: these bytes must not depend on how a JSON writer ordered keys or spaced
+// them, or the manifest the server serves and the one that was signed could
+// differ while describing the same release.
+std::string manifestSigningPayload(const Manifest& manifest);
+
+// True when `manifest.signature` verifies against the pinned key.
+bool verifyManifestSignature(const Manifest& manifest, const std::string& modulusHex,
+                             const std::string& exponentHex, std::string* error);
 
 // Returns false with a reason the caller can print when the document is not a
 // manifest: bad JSON, no version, an entry without a usable path or hash.
@@ -81,6 +95,11 @@ bool applyStagedFile(const std::string& staged, const std::string& target, std::
 struct Config {
     std::string manifestUrl;
     std::string launch = "Client.exe";
+    // The release key this copy trusts, as hex. It lives here because update.json
+    // belongs to the machine: an update never rewrites it, so a network attacker
+    // cannot replace the key along with the manifest it wants signed.
+    std::string signatureModulus;
+    std::string signatureExponent = "10001";
 
     bool read(const std::string& text, std::string* error);
     std::string toJson() const;

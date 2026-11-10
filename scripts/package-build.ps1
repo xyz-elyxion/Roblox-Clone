@@ -24,7 +24,13 @@ param(
     # build's own date and time become the version; see below.
     [string]$Version = '',
 
-    [string]$UpdateUrl = 'http://127.0.0.1:3000/updates/manifest.json'
+    [string]$UpdateUrl = 'http://127.0.0.1:3000/updates/manifest.json',
+
+    # The release signing key: a JSON file with modulus, exponent and
+    # privateExponent, all hex. Pass it to sign this release, which is what lets
+    # a copy with a pinned key install it over a plain-HTTP channel. Keep that
+    # file off this repository; only its public half belongs in update.json.
+    [string]$SigningKey = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -244,10 +250,17 @@ try {
         '    Windows firewall on, and read SECURITY.md in the repository before exposing'
         '    it to anything else.'
         ''
+        '  - A published release should be signed: pass -SigningKey <file> to'
+        '    scripts/package-build.ps1, which signs manifest.json and writes the public'
+        '    half into update.json. An updater with a pinned key refuses an unsigned or'
+        '    altered release, and only a loopback URL is trusted without one.'
+        ''
         'ENVIRONMENT VARIABLES (all optional)'
         '  PORT                        website port, default 3000'
         '  NODE_ENV                    set to "production" to require a real JWT_SECRET'
         '  JWT_SECRET                  token signing secret, 32+ characters in production'
+        '  STARTER_PASSWORD            password for the seeded defaultuser0 owner; required in production'
+        '  TRUSTED_PROXIES             proxy addresses whose X-Forwarded-For is believed'
         '  WEB_DIR                     folder containing public/index.html'
         '  DATABASE_PATH               account database, default web/users.json'
         '  GAME_WORLDS_DIR             published world files, default web/game-worlds'
@@ -278,6 +291,38 @@ try {
     & (Join-Path $Output 'RBLXUpdater.exe') manifest --dir $Output --version $Version
     if ($LASTEXITCODE -ne 0) {
         throw "Could not write manifest.json for $Output (RBLXUpdater exit $LASTEXITCODE)."
+    }
+
+    # Signing is what makes the update channel trustworthy: the updater speaks
+    # plain HTTP, so the manifest it downloads is only as good as the key that
+    # signed it. The public half is written into this copy's update.json, which an
+    # update never rewrites, and the private half stays in the key file.
+    if (-not [string]::IsNullOrWhiteSpace($SigningKey)) {
+        $keyPath = (Resolve-Path -LiteralPath $SigningKey).Path
+        $signOutput = & (Join-Path $Output 'RBLXUpdater.exe') sign-manifest --dir $Output --key $keyPath
+        if ($LASTEXITCODE -ne 0) {
+            throw "Could not sign manifest.json (RBLXUpdater exit $LASTEXITCODE)."
+        }
+        $modulus = ($signOutput | Select-String -Pattern '^modulus=(.+)$').Matches.Groups[1].Value
+        $exponent = ($signOutput | Select-String -Pattern '^exponent=(.+)$').Matches.Groups[1].Value
+        if ([string]::IsNullOrWhiteSpace($modulus)) {
+            throw 'sign-manifest did not print a public key; update.json was not written.'
+        }
+        $updateConfig = @(
+            '{'
+            '  "manifestUrl": "' + $UpdateUrl + '",'
+            '  "launch": "Client.exe",'
+            '  "signatureKey": {'
+            '    "modulus": "' + $modulus + '",'
+            '    "exponent": "' + $exponent + '"'
+            '  }'
+            '}'
+        ) -join $crlf
+        [System.IO.File]::WriteAllText((Join-Path $Output 'update.json'), $updateConfig + $crlf, $encoding)
+    }
+    else {
+        Write-Warning ('Packaged an unsigned release. RBLXUpdater only accepts it from a loopback ' +
+            'URL; pass -SigningKey <file> to sign it before publishing.')
     }
 
     $files = Get-ChildItem -LiteralPath $Output -Recurse -File

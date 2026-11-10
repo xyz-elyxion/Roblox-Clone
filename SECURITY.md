@@ -63,9 +63,10 @@ clients.
 `NODE_ENV=production`; the backend refuses to start otherwise. `DATA_KEY` is the key the
 data file is sealed with; when it is unset the key is derived from `JWT_SECRET` and the
 backend says so on start, because rotating `JWT_SECRET` then makes the existing file
-unreadable. `ADMIN_USERNAMES` decides which accounts are administrators; a seeded starter
-account owns the starter games, so give it a real password before anyone else can reach
-the install.
+unreadable. `ADMIN_USERNAMES` adds accounts to the administrator list on top of the install
+owner, which is always one. The seeded owner starts with the documented development password, so
+a production start requires `STARTER_PASSWORD` (12+ characters, not the documented default) and
+refuses to run otherwise; the account owns the starter games and cannot be deleted or restricted.
 
 **Data at rest.** The store seals account secrets — password hashes, recovery codes and
 the rest of the sensitive fields — with AES-256-GCM, per-user associated data, and records
@@ -100,8 +101,11 @@ launched by somebody who did have one of those rights.
 
 **Request handling.** A JSON body is capped (`JSON_BODY_LIMIT_BYTES`, 2 MiB by default), a
 published world at 2 MiB, a game script at 256 KiB. Failed authentication is rate-limited
-per address (`AUTH_RATE_LIMIT_MAX` 20 per `AUTH_RATE_LIMIT_WINDOW_MS` 15 minutes) and every
-route shares a second budget (`RATE_LIMIT_MAX` 600 per minute). Signup, login and recovery
+per client address (`AUTH_RATE_LIMIT_MAX` 20 per `AUTH_RATE_LIMIT_WINDOW_MS` 15 minutes) and every
+route shares a second budget (`RATE_LIMIT_MAX` 600 per minute). The client address is the socket
+peer unless that peer is listed in `TRUSTED_PROXIES`; then the right-most `X-Forwarded-For` hop
+that is not itself a trusted proxy is used, so a proxy in front of the site does not merge every
+visitor into one budget and a client cannot choose its own key. Signup, login and recovery
 sit behind a captcha: a proof-of-work challenge plus a human-readable image, both expiring
 after five minutes. Every response carries `X-Content-Type-Options: nosniff`,
 `X-Frame-Options: DENY`, `Referrer-Policy: same-origin` and a strict
@@ -122,10 +126,21 @@ to print.
 otherwise. It passes the method, path, query, body and ordinary headers to WebApp, adds
 `X-Forwarded-For`, `-Host` and `-Proto`, and drops hop-by-hop headers in both directions plus the
 framing headers it writes itself, so no answer arrives with two `Content-Length` lines. Two
-consequences follow. WebApp sees the proxy's address as the client, so its per-address rate limits
-count every visitor as one; the original address is in `X-Forwarded-For` for logs, but nothing in the
-site trusts that header. And once `--listen` names a public or LAN address, the site answers whoever
-can reach that port over plain HTTP, with no TLS in front.
+consequences follow. WebApp sees the proxy's socket address as the peer, so an install behind it
+must list that address in `TRUSTED_PROXIES`; the site then budgets requests against the last
+`X-Forwarded-For` hop it did not write itself. Without that, every visitor shares one budget. And
+once `--listen` names a public or LAN address, the site answers whoever can reach that port over
+plain HTTP, with no TLS in front.
+
+**Release updates.** The updater has no TLS stack, so it authenticates the release instead of the
+connection: `manifest.json` carries an RSA-2048 PKCS#1 v1.5 SHA-256 signature over a fixed
+line-oriented description of the version, channel and every file path, hash and size. The public
+key is pinned in `update.json`, which belongs to the machine and is excluded from releases, so a
+network attacker cannot replace the key along with the manifest. `src/ReleaseSignature.cpp`
+verifies the signature before any file is planned or downloaded and fails closed on a missing key,
+a malformed signature or a digest mismatch; a copy with no key is restricted to a loopback release
+URL. Signing is `RBLXUpdater sign-manifest --key <file>`, and the private exponent never enters the
+package. The plain-HTTP channel still exposes which release is installed and when it is fetched.
 
 **Moderation as security.** A confirmed speed or fly detection — from the server's movement
 guard, not from the client's self-report — is held and applied in a wave, so one burst of

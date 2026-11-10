@@ -407,6 +407,11 @@ bool HttpServer::readRequest(std::intptr_t socketHandle, Request* request, bool*
         std::string raw = buffer.substr(headerEnd + 4);
         const auto fill = [&](std::size_t wanted) {
             while (raw.size() < wanted) {
+                // A peer that keeps sending without ever finishing a chunk line
+                // would otherwise grow this buffer for as long as it likes.
+                if (raw.size() > bodyLimitBytes_ + 64 * 1024) {
+                    return false;
+                }
                 const int received = ::recv(handle, chunk, static_cast<int>(sizeof(chunk)), 0);
                 if (received <= 0) {
                     return false;
@@ -444,11 +449,18 @@ bool HttpServer::readRequest(std::intptr_t socketHandle, Request* request, bool*
                 // the site uses one.
                 break;
             }
-            if (decoded.size() + size > bodyLimitBytes_) {
+            // Compare by subtraction. `decoded.size() + size` wraps for a chunk
+            // size near SIZE_MAX, and a wrapped sum is below the limit, so an
+            // oversized chunk would be accepted and `cursor` would then move
+            // backwards over bytes that were already decoded.
+            if (decoded.size() > bodyLimitBytes_ ||
+                size > bodyLimitBytes_ - decoded.size()) {
                 request->body.clear();
                 request->headers["x-body-too-large"] = "1";
                 return true;
             }
+            // `size` is at most the body limit here, so this sum cannot overflow
+            // even when the buffer already holds that much.
             if (!fill(cursor + size + 2)) {
                 return false;
             }

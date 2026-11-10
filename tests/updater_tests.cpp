@@ -2,6 +2,7 @@
 // versions order, what a manifest may name, which files a plan touches, and that
 // a replaced file is only gone once its replacement is in position.
 
+#include "ReleaseSignature.h"
 #include "Updater.h"
 
 #include <algorithm>
@@ -311,6 +312,97 @@ void testHashing() {
           "a missing file has no hash and says why");
 }
 
+const char* kFixtureModulus =
+    "C9745B309BAEFFCB574932FAB4CD4E9D16B0DBE7EC1A8F6FF6BA0CC6FC8E3652"
+    "6EE184164B89F7BCE2A5436F6C0F8F5260D19478B98B03B27CA9457313E753AE"
+    "A359591A4004E71D712BE7CCD86130F385B0E0DA410F5E9BB0716C37DAF4DA0C"
+    "BE5D3640AAB58792B469EA972578CC2B7FED1A2791D0A3BE93E55EBD190B06CA"
+    "CA3C93FC3501B1D5A013DC01D75AA912AB362CA3FE5C357DDD1C36A9ACDA86FE"
+    "722719945145F51B323026DC2898F9274339C9C424A3B3DD65B0CA88992E0A08"
+    "C308CBDDE4555B1A0DB0322811128183CE4A9598D08246817D522FD326C7B86A"
+    "EDAE18D07A97D876C9F51E990ACC85E104730F5D13025996691C9E1048585AF3";
+
+// Throwaway key, generated for this test only: it signs nothing that ships.
+const char* kFixturePrivateExponent =
+    "19b7c37e7899862940dae4e9b194363182b8905252c76f4155679a02fb31f288"
+    "628462b6efeccc962dfef8156cdfada5d01b614f6a2c6f8be5333cdcfc90ff13"
+    "5fe223a860bcdf7e5838c92e52ff515efd55bfd6cd1077bcfb70f766480b131d"
+    "265e42f34d77c0377fd5b7af95068f560c4e4a14fc1dfd1172d308ddae2944b3"
+    "fbcf7d0db8536d9fb6aa82e20c95e72e287066f1e8d9045bedaa364947b5ab9e"
+    "a06e0e6f3b01c5958808eae6763f5829f5b5cefae7ab6d4b4bf6c65f81383ad0"
+    "19ac698e708b9d592498817f92d56c726bb3395e7a1c14c2ed6d49f010b69fac"
+    "81616be4a37d1c58380cd693167bc9ae9fbf5b0ad93c0ed8af7eda3d8c458c71";
+
+const char* kFixtureSignature =
+    "ViCkXi0IK2o//qt9v8BWMPqZrf7YLGH3DAxUBHBW8Jv7PKa8oNQEtD5jNuTNBnNofpKNLCvU"
+    "nthNdKiulgIrB8kQaIIWyw6kyMiqf4m6inanI2RB+ocNSgN8tlCSNthDs4rDJSzfoy8/uWkq"
+    "NgD5IACdrTIKkR0tf5uLHoWgvIVcF58Fv+PPAd6K+1XcQW2Cy+eY8xEoAWp3bZfyRQm0rYmH"
+    "6f3sq3ol9YQBh1GUmAJyJgfyIDE6jgP11Iusnx6w0he6kzjlbNw+NS6OjRphaBR282I+THmx"
+    "drlIW60TcocXWDlLjHyCIg/hmKfoaCyMlL7AFQ+kCdQvFZLE9xbS5A==";
+
+void testReleaseSignature() {
+    using namespace rblx::update;
+
+    Manifest manifest;
+    manifest.version = "1.2.3";
+    manifest.channel = "stable";
+    FileEntry entry;
+    entry.path = "Client.exe";
+    entry.sha256 = std::string(64, 'a');
+    entry.size = 12345;
+    manifest.files.push_back(entry);
+
+    const std::string expected = "rblx-manifest-v1\n1.2.3\nstable\nClient.exe\n" +
+                                 std::string(64, 'a') + "\n12345\n";
+    check(manifestSigningPayload(manifest) == expected,
+          "the signed bytes are a fixed line document, not the JSON text");
+
+    std::string error;
+    manifest.signature = kFixtureSignature;
+    check(verifyManifestSignature(manifest, kFixtureModulus, "10001", &error),
+          "a manifest signed by the release key verifies");
+
+    error.clear();
+    check(!verifyManifestSignature(manifest, kFixtureModulus, "10003", &error),
+          "a different exponent does not verify");
+
+    Manifest changed = manifest;
+    changed.files[0].size = 12346;
+    error.clear();
+    check(!verifyManifestSignature(changed, kFixtureModulus, "10001", &error),
+          "changing a size after signing is refused");
+
+    Manifest renamed = manifest;
+    renamed.files[0].path = "Server.exe";
+    error.clear();
+    check(!verifyManifestSignature(renamed, kFixtureModulus, "10001", &error),
+          "changing a path after signing is refused");
+
+    Manifest unsignedManifest = manifest;
+    unsignedManifest.signature.clear();
+    error.clear();
+    check(!verifyManifestSignature(unsignedManifest, kFixtureModulus, "10001", &error),
+          "an unsigned manifest is refused even when a key is pinned");
+
+    std::string produced;
+    error.clear();
+    check(signRsaSha256(expected.data(), expected.size(), kFixtureModulus,
+                        kFixturePrivateExponent, &produced, &error) &&
+              produced == kFixtureSignature,
+          "signing reproduces the OpenSSL signature byte for byte");
+
+    Manifest parsed;
+    error.clear();
+    check(parseManifest(buildManifestJson(manifest), &parsed, &error) &&
+              parsed.signature == kFixtureSignature,
+          "the signature survives a trip through manifest.json");
+
+    error.clear();
+    check(!isValidRsaKey("1234", "10001", &error), "a short modulus is not a release key");
+    error.clear();
+    check(!isValidRsaKey(kFixtureModulus, "2", &error), "an even exponent is not a release key");
+}
+
 }  // namespace
 
 int main() {
@@ -322,6 +414,7 @@ int main() {
     testApplying();
     testPayloadWalk();
     testHashing();
+    testReleaseSignature();
 
     if (failures == 0) {
         std::printf("UpdaterTests: all checks passed\n");

@@ -1,5 +1,6 @@
 #include "Updater.h"
 
+#include "ReleaseSignature.h"
 #include "WebCrypto.h"
 #include "WebJson.h"
 
@@ -292,6 +293,8 @@ bool parseManifest(const std::string& text, Manifest* out, std::string* error) {
     manifest.version = version.asString();
     const web::Json& channel = root.member("channel");
     if (channel.isString() && !channel.asString().empty()) manifest.channel = channel.asString();
+    const web::Json& signature = root.member("signature");
+    if (signature.isString()) manifest.signature = signature.asString();
 
     const web::Json& files = root.member("files");
     if (!files.isArray()) {
@@ -348,7 +351,37 @@ std::string buildManifestJson(const Manifest& manifest) {
         files.push(entry);
     }
     root.set("files", files);
+    if (!manifest.signature.empty()) root.set("signature", manifest.signature);
     return root.dump();
+}
+
+std::string manifestSigningPayload(const Manifest& manifest) {
+    // One field per line, in a fixed order. Signing the JSON text instead would
+    // tie the signature to a writer's key order and spacing, so the same release
+    // packaged twice would need signing twice and a hand-edited manifest could
+    // keep a signature that no longer describes it.
+    std::string out = "rblx-manifest-v1\n";
+    out += manifest.version + "\n";
+    out += manifest.channel + "\n";
+    for (const FileEntry& file : manifest.files) {
+        out += file.path + "\n";
+        out += file.sha256 + "\n";
+        out += std::to_string(file.size) + "\n";
+    }
+    return out;
+}
+
+bool verifyManifestSignature(const Manifest& manifest, const std::string& modulusHex,
+                             const std::string& exponentHex, std::string* error) {
+    if (manifest.signature.empty()) {
+        if (error) {
+            *error = "the release manifest is not signed, so this copy will not install it";
+        }
+        return false;
+    }
+    const std::string payload = manifestSigningPayload(manifest);
+    return verifyRsaSha256(payload.data(), payload.size(), manifest.signature, modulusHex,
+                           exponentHex, error);
 }
 
 Plan planUpdate(const Manifest& target, const Manifest& installed, const std::string& directory) {
@@ -505,6 +538,24 @@ bool Config::read(const std::string& text, std::string* error) {
     const std::string program = root.member("launch").asString();
     if (!program.empty()) launch = program;
 
+    // The trusted release key. It is read here rather than compiled in because
+    // this file belongs to the machine and an update never rewrites it, so a
+    // network attacker cannot swap the key and the manifest together.
+    const web::Json& key = root.member("signatureKey");
+    if (key.isObject()) {
+        const std::string modulus = key.member("modulus").asString();
+        const std::string exponent = key.member("exponent").asString();
+        if (!exponent.empty()) signatureExponent = exponent;
+        if (!modulus.empty()) {
+            std::string keyError;
+            if (!isValidRsaKey(modulus, signatureExponent, &keyError)) {
+                if (error) *error = "update.json's signatureKey: " + keyError;
+                return false;
+            }
+            signatureModulus = modulus;
+        }
+    }
+
     const std::string lower = lowercase(url);
     if (lower.rfind("https://", 0) == 0) {
         if (error) {
@@ -520,6 +571,12 @@ std::string Config::toJson() const {
     web::Json root = web::Json::makeObject();
     root.set("manifestUrl", manifestUrl);
     root.set("launch", launch);
+    if (!signatureModulus.empty()) {
+        web::Json key = web::Json::makeObject();
+        key.set("modulus", signatureModulus);
+        key.set("exponent", signatureExponent);
+        root.set("signatureKey", key);
+    }
     return root.dump() + "\n";
 }
 

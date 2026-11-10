@@ -646,6 +646,7 @@ bool isUnsafeDevSecret(const std::string& secret) {
     static const char* kUnsafe[] = {
         "", "your-secret-key-change-this-in-production",
         "replace-this-with-a-long-random-secret-before-production", "change-me", "dev-secret",
+        "local-starter-account",
         "local-dev-secret", "local-dev-secret-change-me"
     };
     for (const char* entry : kUnsafe) {
@@ -992,6 +993,20 @@ bool loadConfigFromEnvironment(Config* config, std::string* error) {
     loaded.passwordIterations = parsePositiveInt(envString("PASSWORD_ITERATIONS"), 120000);
     loaded.dataKeyText = envString("DATA_KEY");
 
+    // The seeded owner is an administrator and its development password is in
+    // the README, so production has to choose one. Refusing to start is the only
+    // safe answer: a warning would still leave a published admin login open.
+    loaded.starterPassword = envString("STARTER_PASSWORD");
+    if (loaded.isProduction &&
+        (loaded.starterPassword.empty() || isUnsafeDevSecret(loaded.starterPassword) ||
+         loaded.starterPassword.size() < 12)) {
+        if (error) {
+            *error = "STARTER_PASSWORD must be set to a strong value of at least 12 characters "
+                     "in production; it is the password of the seeded owner account.";
+        }
+        return false;
+    }
+
     const std::string requestedWebRoot = envString("WEB_DIR");
     std::vector<std::string> roots;
     if (!requestedWebRoot.empty()) {
@@ -1053,6 +1068,15 @@ bool loadConfigFromEnvironment(Config* config, std::string* error) {
     } else if (!loaded.isProduction) {
         loaded.corsOrigins.push_back("http://localhost:" + std::to_string(loaded.port));
         loaded.corsOrigins.push_back("http://127.0.0.1:" + std::to_string(loaded.port));
+    }
+
+    // Naming a proxy is the only way a forwarded address is believed. Left
+    // empty, X-Forwarded-For is just another header the caller made up.
+    for (const std::string& proxy : splitCsv(envString("TRUSTED_PROXIES"))) {
+        const std::string trimmed = trimCopy(proxy);
+        if (!trimmed.empty()) {
+            loaded.trustedProxies.push_back(trimmed);
+        }
     }
 
     loaded.authRateLimitWindowMs =
@@ -1285,8 +1309,12 @@ bool WebsiteApp::seedStarterGames(std::string* error) {
     if (const UserRecord* owner = store_.firstUser()) {
         ownerId = owner->id;
     } else {
-        const std::string passwordHash =
-            hashPassword("local-starter-account", config_.passwordIterations);
+        // Development keeps the documented password so a fresh checkout works
+        // out of the box. Production only gets here with STARTER_PASSWORD set,
+        // which is what keeps a public install from shipping a known admin login.
+        const std::string password =
+            config_.starterPassword.empty() ? "local-starter-account" : config_.starterPassword;
+        const std::string passwordHash = hashPassword(password, config_.passwordIterations);
         ownerId = store_.createUser("defaultuser0", passwordHash, nowIso());
         if (ownerId <= 0) {
             if (error) {
@@ -1454,6 +1482,33 @@ void trimQuietWindows(Table* table, long long windowMs, long long now) {
 
 }  // namespace
 
+std::string WebsiteApp::clientAddress(const Request& request) const {
+    const std::string& peer = request.remoteAddress;
+    if (config_.trustedProxies.empty() ||
+        std::find(config_.trustedProxies.begin(), config_.trustedProxies.end(), peer) ==
+            config_.trustedProxies.end()) {
+        return peer;
+    }
+
+    // The chain is appended to, so the right-most hop this install does not run
+    // itself is the closest address the caller could not choose. Taking the
+    // left-most would let any client set its own rate-limit key, and ignoring
+    // the header (the old behaviour) made every visitor share the proxy's one.
+    const std::vector<std::string> hops = splitCsv(request.header("x-forwarded-for"));
+    for (auto hop = hops.rbegin(); hop != hops.rend(); ++hop) {
+        const std::string address = trimCopy(*hop);
+        if (address.empty()) {
+            continue;
+        }
+        if (std::find(config_.trustedProxies.begin(), config_.trustedProxies.end(), address) !=
+            config_.trustedProxies.end()) {
+            continue;
+        }
+        return address;
+    }
+    return peer;
+}
+
 bool WebsiteApp::isRateLimited(const std::string& remoteAddress) {
     const long long now = nowMilliseconds();
     std::vector<long long>& attempts = authAttempts_[remoteAddress];
@@ -1526,7 +1581,7 @@ HttpServer::Handler WebsiteApp::guard(HttpServer::Handler handler) {
                 // every call is the chance for the accounts caught since the last
                 // one to be answered together.
                 applyBanWaves();
-                limited = isRequestRateLimited(request.remoteAddress, &retryAfterSeconds);
+                limited = isRequestRateLimited(clientAddress(request), &retryAfterSeconds);
             }
             if (limited) {
                 response.headers["Retry-After"] = std::to_string(retryAfterSeconds);
@@ -2231,7 +2286,7 @@ static Json appealJson(const AppealRecord& entry) {
 
 bool WebsiteApp::handleSignup(Request& request, Response& response) {
     std::lock_guard<std::mutex> lock(mutex_);
-    if (isRateLimited(request.remoteAddress)) {
+    if (isRateLimited(clientAddress(request))) {
         errorJson(response, 429, "Too many authentication attempts. Try again later.");
         return true;
     }
@@ -2287,7 +2342,7 @@ bool WebsiteApp::handleSignup(Request& request, Response& response) {
 
 bool WebsiteApp::handleLogin(Request& request, Response& response) {
     std::lock_guard<std::mutex> lock(mutex_);
-    if (isRateLimited(request.remoteAddress)) {
+    if (isRateLimited(clientAddress(request))) {
         errorJson(response, 429, "Too many authentication attempts. Try again later.");
         return true;
     }
@@ -2434,7 +2489,7 @@ bool WebsiteApp::handleVerify(Request& request, Response& response) {
 
 bool WebsiteApp::handleChangePassword(Request& request, Response& response) {
     std::lock_guard<std::mutex> lock(mutex_);
-    if (isRateLimited(request.remoteAddress)) {
+    if (isRateLimited(clientAddress(request))) {
         errorJson(response, 429, "Too many authentication attempts. Try again later.");
         return true;
     }
@@ -2491,7 +2546,7 @@ bool WebsiteApp::handleChangePassword(Request& request, Response& response) {
 
 bool WebsiteApp::handleRotateRecovery(Request& request, Response& response) {
     std::lock_guard<std::mutex> lock(mutex_);
-    if (isRateLimited(request.remoteAddress)) {
+    if (isRateLimited(clientAddress(request))) {
         errorJson(response, 429, "Too many attempts. Try again later.");
         return true;
     }
@@ -2531,7 +2586,7 @@ bool WebsiteApp::handleRotateRecovery(Request& request, Response& response) {
 
 bool WebsiteApp::handleRecovery(Request& request, Response& response) {
     std::lock_guard<std::mutex> lock(mutex_);
-    if (isRateLimited(request.remoteAddress)) {
+    if (isRateLimited(clientAddress(request))) {
         errorJson(response, 429, "Too many attempts. Try again later.");
         return true;
     }
@@ -2594,7 +2649,7 @@ bool WebsiteApp::handleRecovery(Request& request, Response& response) {
 
 bool WebsiteApp::handleChangeUsername(Request& request, Response& response) {
     std::lock_guard<std::mutex> lock(mutex_);
-    if (isRateLimited(request.remoteAddress)) {
+    if (isRateLimited(clientAddress(request))) {
         errorJson(response, 429, "Too many attempts. Try again later.");
         return true;
     }
@@ -4444,7 +4499,7 @@ bool WebsiteApp::handleAccountStanding(Request& request, Response& response) {
 
 bool WebsiteApp::handleAccountAppeal(Request& request, Response& response) {
     std::lock_guard<std::mutex> lock(mutex_);
-    if (isRateLimited(request.remoteAddress)) {
+    if (isRateLimited(clientAddress(request))) {
         errorJson(response, 429, "Too many attempts. Try again later.");
         return true;
     }

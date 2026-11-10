@@ -107,6 +107,14 @@ of a fresh copy, and of every build that has never been put on a server), or who
 than the published one, still starts the game; a 404 for `manifest.json` is reported as "nothing is
 published yet" rather than as a failure.
 
+The update channel is plain HTTP, so the manifest is signed rather than trusted: a release is signed
+with an RSA-2048 key and the public half is pinned in `update.json`, a file that belongs to the
+machine and that an update never rewrites. `RBLXUpdater` verifies the signature over the exact
+bytes of the manifest before it plans a single download and refuses an unsigned or altered
+release, so intercepting the request no longer buys the ability to write into the install folder.
+A copy with no key pinned is only allowed to use a loopback release URL, which is what keeps a
+fresh checkout and the packaging step working without one.
+
 Every window this project opens — the installer and updater, the server console, Studio, RBLXCode and
 the client's menus — takes its palette and spacing from `include/UiTheme.h`, so they read as one
 program rather than five. There are two palettes, a dark one and a light one built on the same mint
@@ -511,6 +519,8 @@ Configuration comes from the environment:
 | `DATABASE_PATH` | `web/users.json` | JSON data file |
 | `DATA_KEY` | — | Key the data file is sealed with: 64 hex characters, or any text hashed into 32 bytes. Without it the key is derived from `JWT_SECRET` |
 | `JWT_SECRET` | — | Token signing secret; required, 32+ characters in production |
+| `STARTER_PASSWORD` | — | Password for the seeded `defaultuser0` owner; required, 12+ characters, in production |
+| `TRUSTED_PROXIES` | — | Comma-separated proxy addresses whose `X-Forwarded-For` may name the client for rate limiting |
 | `JWT_EXPIRES_IN` | `7d` | Token lifetime |
 | `PASSWORD_ITERATIONS` | `120000` | PBKDF2-SHA256 rounds |
 | `CORS_ORIGIN` | — | Comma-separated allowed origins; same-origin is always allowed |
@@ -538,7 +548,9 @@ A fresh install seeds one account, `defaultuser0`, with the password `local-star
 owns the starter games and is the default admin, so `POST /api/login` with
 `{"username":"defaultuser0","password":"local-starter-account"}` signs into it. Installs from
 earlier builds seeded the same account as `RBLXCreator`; it is renamed to `defaultuser0` on startup
-with its id, password and games unchanged.
+with its id, password and games unchanged. That published password is a development convenience:
+with `NODE_ENV=production` the backend refuses to start until `STARTER_PASSWORD` names a different
+one of at least 12 characters, so a public install cannot come up with a known administrator login.
 
 ### The data file
 

@@ -132,6 +132,10 @@ async function chatJson(url, options) {
 }
 
 function chatSetHint(text, kind, signIn) {
+    // Posting refusals are the one thing a reader has to hear straight away; the
+    // ordinary reminder of how Enter works waits for a pause.
+    chatHint.setAttribute('role', kind === 'error' ? 'alert' : 'status');
+    chatHint.setAttribute('aria-live', kind === 'error' ? 'assertive' : 'polite');
     chatHint.classList.toggle('is-error', kind === 'error');
     chatHint.replaceChildren();
     chatHint.append(document.createTextNode(text));

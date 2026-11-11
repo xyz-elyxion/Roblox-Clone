@@ -57,16 +57,17 @@
                         <select class="input" data-editor-game aria-label="Game to edit"></select>
                     </label>
                     <span class="editor-meta" data-editor-cursor>Ln 1, Col 1</span>
-                    <span class="editor-meta" data-editor-state data-dirty="false">Saved</span>
+                    <span class="editor-meta" data-editor-state data-dirty="false" aria-live="polite">Saved</span>
                     <span class="editor-meta" data-editor-limit></span>
                 </div>
                 <div class="status" data-editor-status aria-live="polite"></div>
                 <div class="code-editor">
                     <pre class="code-gutter" data-editor-gutter aria-hidden="true">1</pre>
                     <textarea class="code-input" data-editor-text wrap="off" spellcheck="false"
-                        autocapitalize="off" autocomplete="off" aria-label="Game script"></textarea>
+                        autocapitalize="off" autocomplete="off" aria-label="Game script"
+                        aria-describedby="editor-hint"></textarea>
                 </div>
-                <p class="editor-hint">
+                <p class="editor-hint" id="editor-hint">
                     Tab indents two spaces, Enter keeps the line's indentation, Ctrl+S (or Cmd+S) saves.
                     256 KB limit.
                 </p>

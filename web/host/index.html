@@ -23,7 +23,7 @@
 
         <main id="main">
             <p class="summary" data-summary aria-live="polite">Loading the pool...</p>
-            <p class="notice" data-notice hidden></p>
+            <p class="notice" data-notice role="alert" hidden></p>
 
             <section class="grid" data-instances aria-label="Servers"></section>
 
@@ -35,7 +35,7 @@
                         <button class="button quiet" type="button" data-log-close>Close</button>
                     </div>
                 </div>
-                <pre class="log" data-log></pre>
+                <pre class="log" data-log tabindex="0" role="region" aria-label="Game server log"></pre>
             </section>
 
             <section class="panel">

@@ -24,6 +24,10 @@ function getToken() {
 
 function setStatus(element, message, type) {
     if (!element) return;
+    // The role is set before the text so the change is what a live region reports:
+    // an error interrupts, a confirmation waits for a pause in speech.
+    element.setAttribute('role', type === 'error' ? 'alert' : 'status');
+    element.setAttribute('aria-live', type === 'error' ? 'assertive' : 'polite');
     element.textContent = message || '';
     element.className = `status ${type || ''}`.trim();
 }
@@ -382,6 +386,18 @@ function initNavAuth() {
     }
 }
 
+// The page being read is marked in the menu, so the link is announced as the
+// current one before it is followed. Links that carry a hash point at a section
+// of a page rather than the page itself, and are left out of the comparison.
+function initNavCurrent() {
+    const here = (window.location.pathname.replace(/\/+$/, '') || '/');
+    for (const link of document.querySelectorAll('.nav a[href^="/"]')) {
+        if (link.hash) continue;
+        const target = new URL(link.href, window.location.href).pathname.replace(/\/+$/, '') || '/';
+        if (target === here) link.setAttribute('aria-current', 'page');
+    }
+}
+
 // The site keeps a restricted account signed in: it has to be able to read its
 // own record and appeal it. The restriction is therefore a notice on every page
 // rather than a login that refuses, drawn from the same session answer the nav
@@ -628,6 +644,7 @@ function initDashboard() {
             const active = button.dataset.dashboardTab === nextTab;
             button.classList.toggle('active', active);
             button.setAttribute('aria-selected', active ? 'true' : 'false');
+            button.setAttribute('tabindex', active ? '0' : '-1');
         }
 
         for (const panel of tabPanels) {
@@ -648,6 +665,29 @@ function initDashboard() {
                 setStatus(searchStatus, error.message || 'Search failed.', 'error');
             });
         }
+    }
+
+    // The tab strip is one tab stop: arrows, Home and End move between the tabs and
+    // select them, which is the keyboard half of the pattern the markup declares.
+    if (tabButtons.length > 0) {
+        tabButtons[0].parentElement.addEventListener('keydown', (event) => {
+            const activeIndex = tabButtons.findIndex(
+                (button) => button.getAttribute('aria-selected') === 'true');
+            let next = -1;
+            if (event.key === 'Home') {
+                next = 0;
+            } else if (event.key === 'End') {
+                next = tabButtons.length - 1;
+            } else if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
+                next = (activeIndex + 1) % tabButtons.length;
+            } else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
+                next = (activeIndex - 1 + tabButtons.length) % tabButtons.length;
+            }
+            if (next < 0) return;
+            event.preventDefault();
+            setTab(tabButtons[next].dataset.dashboardTab);
+            tabButtons[next].focus();
+        });
     }
 
     async function loadDashboardSearch(query) {
@@ -971,8 +1011,9 @@ async function createAvatarPreview(container, onSelect) {
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     renderer.shadowMap.enabled = false;
     renderer.domElement.className = 'avatar-canvas';
-    renderer.domElement.setAttribute('aria-label', 'Drag to rotate avatar preview');
-    renderer.domElement.setAttribute('role', 'img');
+    // The figure around the canvas carries the description; the canvas itself is
+    // the drawing of it, and repeating it would make a screen reader say it twice.
+    renderer.domElement.setAttribute('aria-hidden', 'true');
     renderer.domElement.dataset.faceTexture = faceTextures.size > 0 ? 'loaded' : 'missing';
 
     scene.background = new THREE.Color(0xffffff);
@@ -3213,6 +3254,7 @@ async function initDevelopersPage() {
 document.addEventListener('DOMContentLoaded', () => {
     applyDisplayPreferences();
     initNavAuth();
+    initNavCurrent();
     initStandingNotice();
     initLogoutButtons();
     initLogin();

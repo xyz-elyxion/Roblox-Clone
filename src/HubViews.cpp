@@ -40,8 +40,8 @@ std::string sidebar(const RepoSummary& repo) {
 }
 
 std::string fileRows(const RepoSummary& repo, const std::string& at, const std::vector<TreeRow>& rows) {
-    std::string out = "<table class=\"files\">\n<thead><tr><th>Name</th><th>Kind</th>"
-                      "<th>Object</th></tr></thead>\n<tbody>\n";
+    std::string out = "<table class=\"files\">\n<thead><tr><th scope=\"col\">Name</th><th scope=\"col\">Kind</th>"
+                      "<th scope=\"col\">Object</th></tr></thead>\n<tbody>\n";
     if (!at.empty()) {
         std::string parent;
         const std::size_t slash = at.rfind('/');
@@ -65,8 +65,8 @@ std::string fileRows(const RepoSummary& repo, const std::string& at, const std::
 }
 
 std::string commitTable(const std::vector<CommitRow>& commits, bool link) {
-    std::string out = "<table class=\"commits\">\n<thead><tr><th>Commit</th><th>Summary</th>"
-                      "<th>Author</th><th>When</th></tr></thead>\n<tbody>\n";
+    std::string out = "<table class=\"commits\">\n<thead><tr><th scope=\"col\">Commit</th><th scope=\"col\">Summary</th>"
+                      "<th scope=\"col\">Author</th><th scope=\"col\">When</th></tr></thead>\n<tbody>\n";
     for (const CommitRow& commit : commits) {
         const std::string id = link ? "<a class=\"mono\" href=\"/commit/" + urlPath(commit.id) + "\">" +
                                           escapeHtml(shortId(commit.id)) + "</a>"
@@ -164,9 +164,10 @@ std::string page(const std::string& title, const std::string& body) {
     out += "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n";
     out += "<title>" + escapeHtml(title) + " - RBLXHub</title>\n";
     out += "<link rel=\"stylesheet\" href=\"/hub.css\">\n</head>\n<body>\n";
+    out += "<a class=\"skip-link\" href=\"#main\">Skip to content</a>\n";
     out += "<header class=\"top\"><a class=\"brand\" href=\"/\">RBLX<span>Hub</span></a>";
     out += "<span class=\"tagline\">git, served from this machine</span></header>\n";
-    out += "<main>\n";
+    out += "<main id=\"main\">\n";
     out += body;
     out += "</main>\n<footer class=\"foot\">Served by RBLXHub. Every page is rendered from the "
            "repository; nothing is stored anywhere else.</footer>\n";

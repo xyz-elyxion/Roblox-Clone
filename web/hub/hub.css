@@ -59,6 +59,30 @@ a {
     text-decoration: none;
 }
 
+/* The skip link is off-screen until it is focused, so a keyboard visitor can jump
+   past the header without seeing it sitting there the rest of the time. */
+.skip-link {
+    position: absolute;
+    left: 1rem;
+    top: 1rem;
+    transform: translateY(-200%);
+    background: var(--fg);
+    color: var(--bg);
+    padding: 0.5rem 0.75rem;
+    z-index: 10;
+}
+
+.skip-link:focus {
+    transform: translateY(0);
+}
+
+/* Keyboard focus is always drawn, and it is drawn outside the element so the
+   inverted fills used on hover cannot swallow it. */
+:focus-visible {
+    outline: 3px solid var(--fg);
+    outline-offset: 2px;
+}
+
 a:hover {
     text-decoration: underline;
 }

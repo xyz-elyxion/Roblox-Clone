@@ -52,9 +52,11 @@
                             <img class="captcha-image" data-captcha-image alt="Captcha image: type the four digits shown" width="212" height="64">
                             <button class="button secondary" type="button" data-captcha-refresh>New image</button>
                         </div>
-                        <input class="input" id="captcha-answer" name="captchaAnswer" type="text" inputmode="numeric" autocomplete="off" maxlength="4" pattern="[0-9]*" required>
+                        <input class="input" id="captcha-answer" name="captchaAnswer" type="text" inputmode="numeric"
+                            autocomplete="off" maxlength="4" pattern="[0-9]*"
+                            aria-describedby="login-captcha-hint" required>
                         <input type="hidden" name="captchaId" data-captcha-id>
-                        <small>Type the four digits in the image. Scripts solve the machine challenge instead.</small>
+                        <small id="login-captcha-hint">Type the four digits in the image. Scripts solve the machine challenge instead.</small>
                     </div>
                     <div class="status" data-status aria-live="polite"></div>
                     <button class="button full" type="submit">Sign in</button>

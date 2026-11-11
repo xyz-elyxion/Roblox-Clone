@@ -22,6 +22,7 @@ const elements = {
 const view = {
     status: null,
     logIndex: null,
+    logOpener: null,
     logTimer: null,
     busy: false,
 };
@@ -193,13 +194,18 @@ async function loadLog() {
 }
 
 function openLog(instance) {
+    view.logOpener = document.activeElement;
     view.logIndex = instance.index;
     elements.logTitle.textContent = 'Log - port ' + instance.port;
     elements.logPanel.hidden = false;
     loadLog();
     if (view.logTimer) clearInterval(view.logTimer);
     view.logTimer = setInterval(loadLog, LOG_POLL_MS);
-    elements.logPanel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    // The log is readable with the keyboard, so focus follows it into view; the
+    // smooth scroll is skipped when the reader asked for less motion.
+    elements.log.focus();
+    const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    elements.logPanel.scrollIntoView({ behavior: still ? 'auto' : 'smooth', block: 'nearest' });
 }
 
 function closeLog() {
@@ -209,6 +215,12 @@ function closeLog() {
         clearInterval(view.logTimer);
         view.logTimer = null;
     }
+    // Closing hides the panel the focus was in; without this the next Tab would
+    // start from the top of the page instead of the button that opened it.
+    if (view.logOpener && document.contains(view.logOpener)) {
+        view.logOpener.focus();
+    }
+    view.logOpener = null;
 }
 
 document.querySelector('[data-pool="start"]')

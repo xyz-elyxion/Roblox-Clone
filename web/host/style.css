@@ -72,6 +72,13 @@ code {
     transform: translateY(0);
 }
 
+/* Keyboard focus is always drawn, and it is drawn outside the element so the
+   inverted fills used on hover cannot swallow it. */
+:focus-visible {
+    outline: 3px solid var(--fg);
+    outline-offset: 2px;
+}
+
 .page {
     width: min(1120px, calc(100% - 32px));
     margin: 0 auto;

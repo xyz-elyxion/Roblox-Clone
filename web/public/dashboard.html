@@ -49,18 +49,25 @@
 
                 <article class="panel social-tabs-panel">
                     <div class="dashboard-tabs" role="tablist" aria-label="Dashboard sections">
-                        <button class="dashboard-tab active" type="button" role="tab" aria-selected="true" data-dashboard-tab="friends">
+                        <button class="dashboard-tab active" type="button" role="tab" id="dashboard-tab-friends"
+                            aria-selected="true" aria-controls="dashboard-panel-friends" tabindex="0"
+                            data-dashboard-tab="friends">
                             Friends <span data-friends-count>0</span>
                         </button>
-                        <button class="dashboard-tab" type="button" role="tab" aria-selected="false" data-dashboard-tab="requests">
+                        <button class="dashboard-tab" type="button" role="tab" id="dashboard-tab-requests"
+                            aria-selected="false" aria-controls="dashboard-panel-requests" tabindex="-1"
+                            data-dashboard-tab="requests">
                             Requests <span data-requests-count>0</span>
                         </button>
-                        <button class="dashboard-tab" type="button" role="tab" aria-selected="false" data-dashboard-tab="search">
+                        <button class="dashboard-tab" type="button" role="tab" id="dashboard-tab-search"
+                            aria-selected="false" aria-controls="dashboard-panel-search" tabindex="-1"
+                            data-dashboard-tab="search">
                             Search
                         </button>
                     </div>
 
-                    <section class="dashboard-panel active" role="tabpanel" data-dashboard-panel="friends">
+                    <section class="dashboard-panel active" role="tabpanel" id="dashboard-panel-friends"
+                        aria-labelledby="dashboard-tab-friends" data-dashboard-panel="friends">
                         <div class="panel-heading">
                             <div>
                                 <p class="label">Friends</p>
@@ -70,7 +77,8 @@
                         <div class="user-grid" data-friends-list></div>
                     </section>
 
-                    <section class="dashboard-panel" role="tabpanel" hidden data-dashboard-panel="requests">
+                    <section class="dashboard-panel" role="tabpanel" id="dashboard-panel-requests"
+                        aria-labelledby="dashboard-tab-requests" hidden data-dashboard-panel="requests">
                         <div class="panel-heading">
                             <div>
                                 <p class="label">Requests</p>
@@ -83,7 +91,8 @@
                         <div class="stack-list" data-outgoing-requests></div>
                     </section>
 
-                    <section class="dashboard-panel" role="tabpanel" hidden data-dashboard-panel="search">
+                    <section class="dashboard-panel" role="tabpanel" id="dashboard-panel-search"
+                        aria-labelledby="dashboard-tab-search" hidden data-dashboard-panel="search">
                         <div class="panel-heading">
                             <div>
                                 <p class="label">People</p>

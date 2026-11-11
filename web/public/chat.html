@@ -68,10 +68,10 @@
             <form class="chat-composer" data-composer>
                 <div class="chat-composer-field">
                     <textarea rows="1" maxlength="500" data-message-input aria-label="Message"
-                              placeholder="Message #general"></textarea>
+                              aria-describedby="chat-hint" placeholder="Message #general"></textarea>
                     <button class="button small chat-send" type="submit">Send</button>
                 </div>
-                <p class="chat-hint" data-chat-hint>Enter sends, Shift+Enter starts a new line.</p>
+                <p class="chat-hint" id="chat-hint" data-chat-hint aria-live="polite">Enter sends, Shift+Enter starts a new line.</p>
             </form>
         </main>
 

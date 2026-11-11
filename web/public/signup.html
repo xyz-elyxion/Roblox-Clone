@@ -40,13 +40,15 @@
                 <form class="form" data-signup-form>
                     <div class="field">
                         <label for="username">Username</label>
-                        <input class="input" id="username" name="username" type="text" autocomplete="username" minlength="3" maxlength="20" required>
-                        <small>3 to 20 characters.</small>
+                        <input class="input" id="username" name="username" type="text" autocomplete="username"
+                            minlength="3" maxlength="20" aria-describedby="signup-username-hint" required>
+                        <small id="signup-username-hint">3 to 20 characters.</small>
                     </div>
                     <div class="field">
                         <label for="password">Password</label>
-                        <input class="input" id="password" name="password" type="password" autocomplete="new-password" minlength="6" required>
-                        <small>At least 6 characters.</small>
+                        <input class="input" id="password" name="password" type="password" autocomplete="new-password"
+                            minlength="6" aria-describedby="signup-password-hint" required>
+                        <small id="signup-password-hint">At least 6 characters.</small>
                     </div>
                     <div class="field">
                         <label for="confirmPassword">Confirm password</label>
@@ -58,9 +60,11 @@
                             <img class="captcha-image" data-captcha-image alt="Captcha image: type the four digits shown" width="212" height="64">
                             <button class="button secondary" type="button" data-captcha-refresh>New image</button>
                         </div>
-                        <input class="input" id="captcha-answer" name="captchaAnswer" type="text" inputmode="numeric" autocomplete="off" maxlength="4" pattern="[0-9]*" required>
+                        <input class="input" id="captcha-answer" name="captchaAnswer" type="text" inputmode="numeric"
+                            autocomplete="off" maxlength="4" pattern="[0-9]*"
+                            aria-describedby="signup-captcha-hint" required>
                         <input type="hidden" name="captchaId" data-captcha-id>
-                        <small>Type the four digits in the image. Scripts solve the machine challenge instead.</small>
+                        <small id="signup-captcha-hint">Type the four digits in the image. Scripts solve the machine challenge instead.</small>
                     </div>
                     <div class="status" data-status aria-live="polite"></div>
                     <button class="button full" type="submit">Create account</button>

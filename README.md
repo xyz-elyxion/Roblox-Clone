@@ -790,6 +790,33 @@ Settings offers **Follow the system**, **Light** and **Dark**. The choice is sto
 `prefers-color-scheme` decides. Every colour is a CSS custom property, so the theme is one variable
 block rather than a second stylesheet.
 
+### Accessibility
+
+The pages are meant to be usable from the keyboard and from a screen reader, and the control
+panel is held to the same rules:
+
+- Every page opens with a **Skip to content** link and puts its body in `<main id="main">`, with
+  one `<h1>` and headings that step down from there. The menu marks the page you are on with
+  `aria-current="page"`.
+- Keyboard focus is always drawn: a 3px ring in the text colour, offset outside the element, on
+  every link, button, field, tab and summary. The hover styles invert their colours, so the ring
+  sits outside the fill instead of disappearing into it.
+- Each field has a real `<label>`, the hint under it is joined to it with `aria-describedby`
+  (signup, login, settings and the script editor), and the status line turns into `role="alert"`
+  while a message is an error, so a refusal is announced instead of being missed.
+- The dashboard's tab strip is the whole ARIA tab pattern: each tab names its panel with
+  `aria-controls`, panels name their tab with `aria-labelledby`, and only the selected tab is in
+  the tab order — arrows, Home and End move between them.
+- Chat is a `role="log"` live region, so arriving messages are read without replaying the page;
+  Escape closes the channel and member drawers, and the composer's hint says what Enter and
+  Shift+Enter do.
+- The avatar preview renders through WebGL, so it is exposed as a labelled image and the canvas
+  behind it is hidden from assistive technology; the script editor's textarea is described by
+  its shortcut hint and saving is announced from the editor bar.
+- Reduce motion is honoured from `prefers-reduced-motion` and can be turned on in Settings; both
+  remove transitions and animated scrolling. Every colour is a custom property, and the text,
+  muted text and status accents meet WCAG AA contrast on their backgrounds in both themes.
+
 ### Privacy and terms
 
 `/privacy` and `/terms` are the policy pages (`web/public/privacy.html` and `terms.html`), both

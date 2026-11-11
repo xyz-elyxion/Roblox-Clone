@@ -1,11 +1,15 @@
 #include "ClientShared.h"
 
-#include <cmath>
-#include "ClientMenu.h"
-
 #include <RBLXWIN/rblxwin.h>
+#include <algorithm>
+#include <cmath>
+#include <cstring>
+#include <map>
+#include <string>
+
 #include "rblxui.h"
 #include "Auth.h"
+#include "ClientMenu.h"
 #include "UiScale.h"
 #include "UiTheme.h"
 #include "WebJson.h"
@@ -214,11 +218,11 @@ bool menuIconButton(MenuIcon icon, const char* tooltip, float size, float uiScal
     RblxUI::PopID();
 
     RblxDrawList* draw = RblxUI::GetWindowDrawList();
-    const RblxVec2 far(origin.x + size, origin.y + size);
-    draw->AddRectFilled(origin, far,
+    const RblxVec2 maxCorner(origin.x + size, origin.y + size);
+    draw->AddRectFilled(origin, maxCorner,
                         packedColor(hovered ? palette.frameHovered : palette.frame), rounding);
-    draw->AddRect(origin, far, packedColor(hovered ? palette.muted : palette.border), rounding, 0,
-                  1.0f);
+    draw->AddRect(origin, maxCorner, packedColor(hovered ? palette.muted : palette.border),
+                  rounding, 0, 1.0f);
     drawMenuIcon(draw, icon, RblxVec2(origin.x + size * 0.5f, origin.y + size * 0.5f),
                  size * 0.62f, packedColor(hovered ? palette.text : palette.muted));
     return pressed;
@@ -237,12 +241,13 @@ bool outlineButton(const char* label, const RblxVec2& size, float uiScale) {
     RblxUI::PopID();
 
     RblxDrawList* draw = RblxUI::GetWindowDrawList();
-    const RblxVec2 far(origin.x + size.x, origin.y + size.y);
+    const RblxVec2 maxCorner(origin.x + size.x, origin.y + size.y);
     if (hovered) {
-        draw->AddRectFilled(origin, far, packedColor(fadedColor(palette.text, 0.07f)), rounding);
+        draw->AddRectFilled(origin, maxCorner, packedColor(fadedColor(palette.text, 0.07f)),
+                            rounding);
     }
-    draw->AddRect(origin, far, packedColor(hovered ? palette.text : palette.border), rounding, 0,
-                  1.0f);
+    draw->AddRect(origin, maxCorner, packedColor(hovered ? palette.text : palette.border), rounding,
+                  0, 1.0f);
     const RblxVec2 textSize = RblxUI::CalcTextSize(label);
     draw->AddText(RblxVec2(origin.x + (size.x - textSize.x) * 0.5f,
                            origin.y + (size.y - textSize.y) * 0.5f),
@@ -256,15 +261,15 @@ void drawMenuAvatar(RblxDrawList* draw, const RblxVec2& origin, float size,
                     const rblxmath::vec3& head, const rblxmath::vec3& torso, float uiScale) {
     const rblx::ui::theme::Colors& palette = rblx::ui::theme::colors();
     const float rounding = UiScale::Px(9.0f, uiScale);
-    const RblxVec2 far(origin.x + size, origin.y + size);
-    draw->AddRectFilled(origin, far, packedColor(palette.panel), rounding);
+    const RblxVec2 maxCorner(origin.x + size, origin.y + size);
+    draw->AddRectFilled(origin, maxCorner, packedColor(palette.panel), rounding);
     draw->AddRectFilled(RblxVec2(origin.x + size * 0.20f, origin.y + size * 0.54f),
                         RblxVec2(origin.x + size * 0.80f, origin.y + size * 0.99f),
                         packedColor(RblxVec4(torso.x, torso.y, torso.z, 1.0f)), rounding * 0.7f);
     draw->AddCircleFilled(RblxVec2(origin.x + size * 0.5f, origin.y + size * 0.38f),
                           size * 0.21f, packedColor(RblxVec4(head.x, head.y, head.z, 1.0f)),
                           18);
-    draw->AddRect(origin, far, packedColor(palette.border), rounding, 0, 1.0f);
+    draw->AddRect(origin, maxCorner, packedColor(palette.border), rounding, 0, 1.0f);
 }
 
 // A name resolved to an account id costs one request, and a session asks about
@@ -417,15 +422,15 @@ void drawPeopleRows(float uiScale) {
         const RblxVec2 origin = RblxUI::GetCursorScreenPos();
         const float width =
             std::max(UiScale::Px(300.0f, uiScale), RblxUI::GetContentRegionAvail().x);
-        const RblxVec2 far(origin.x + width, origin.y + rowHeight);
+        const RblxVec2 maxCorner(origin.x + width, origin.y + rowHeight);
 
         // The row is a target for the eye before it is a target for the mouse, so
         // the whole strip lights up together.
         const RblxVec2 mouse = RblxUI::GetIO().MousePos;
-        const bool hovered = mouse.x >= origin.x && mouse.x <= far.x && mouse.y >= origin.y &&
-                             mouse.y <= far.y;
+        const bool hovered = mouse.x >= origin.x && mouse.x <= maxCorner.x && mouse.y >= origin.y &&
+                             mouse.y <= maxCorner.y;
         RblxDrawList* draw = RblxUI::GetWindowDrawList();
-        draw->AddRectFilled(origin, far, packedColor(hovered ? palette.frame : palette.panel),
+        draw->AddRectFilled(origin, maxCorner, packedColor(hovered ? palette.frame : palette.panel),
                             UiScale::Px(10.0f, uiScale));
         drawMenuAvatar(draw, RblxVec2(origin.x + edge, origin.y + (rowHeight - tile) * 0.5f), tile,
                        person.head, person.torso, uiScale);
@@ -444,7 +449,7 @@ void drawPeopleRows(float uiScale) {
 
         // Laid out from the right edge inwards, so a row that has no block or
         // report mark never shifts the things that come before it.
-        float right = far.x - edge;
+        float right = maxCorner.x - edge;
         if (!person.isMe) {
             right -= friendWidth;
             RblxUI::SetCursorScreenPos(
@@ -485,7 +490,7 @@ void drawPeopleRows(float uiScale) {
             }
         }
 
-        RblxUI::SetCursorScreenPos(RblxVec2(origin.x, far.y + UiScale::Px(6.0f, uiScale)));
+        RblxUI::SetCursorScreenPos(RblxVec2(origin.x, maxCorner.y + UiScale::Px(6.0f, uiScale)));
         RblxUI::PopID();
     }
 }

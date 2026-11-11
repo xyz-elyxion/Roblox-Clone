@@ -483,14 +483,22 @@ void drawPeopleRows(float uiScale) {
         right -= mark;
         RblxUI::SetCursorScreenPos(RblxVec2(right, markY));
         if (menuIconButton(MENU_ICON_SEARCH, "Open profile on the site", mark, uiScale)) {
-            const std::string url = rblx::client_menu::profileUrl(automaticWebServerUrl(),
-                                                                 resolveUserId(person.name));
+            // The account's own row has no id to look up: the search this would
+            // ask leaves the caller out, and /profile is the signed-in account.
+            const std::string url =
+                person.isMe ? automaticWebServerUrl() + "/profile"
+                            : rblx::client_menu::profileUrl(automaticWebServerUrl(),
+                                                            resolveUserId(person.name));
             if (!url.empty()) {
                 Auth::openBrowser(url);
             }
         }
 
         RblxUI::SetCursorScreenPos(RblxVec2(origin.x, maxCorner.y + UiScale::Px(6.0f, uiScale)));
+        // Moving the cursor below the row has to be followed by an item: a window
+        // whose last call is a cursor move that grew it fails rblxui's assert, and
+        // the empty item is what tells the list how tall the row was.
+        RblxUI::Dummy(RblxVec2(0.0f, 0.0f));
         RblxUI::PopID();
     }
 }

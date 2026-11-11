@@ -31,7 +31,7 @@
             </nav>
         </header>
 
-        <main id="main">
+        <main id="main" tabindex="-1">
             <div class="dashboard-head">
                 <div>
                     <p class="label">Admin</p>
@@ -97,11 +97,12 @@
                     </div>
                 </article>
 
-                <article class="panel" data-admin-replay-panel hidden>
+                <article class="panel" data-admin-replay-panel tabindex="-1"
+                    aria-labelledby="admin-replay-title" hidden>
                     <div class="panel-heading">
                         <div>
                             <p class="label">Moderation</p>
-                            <h2 data-admin-replay-title>Replay</h2>
+                            <h2 id="admin-replay-title" data-admin-replay-title>Replay</h2>
                         </div>
                         <div>
                             <button type="button" class="button secondary small" data-admin-replay-play>Play</button>

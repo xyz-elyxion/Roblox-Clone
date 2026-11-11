@@ -167,7 +167,7 @@ std::string page(const std::string& title, const std::string& body) {
     out += "<a class=\"skip-link\" href=\"#main\">Skip to content</a>\n";
     out += "<header class=\"top\"><a class=\"brand\" href=\"/\">RBLX<span>Hub</span></a>";
     out += "<span class=\"tagline\">git, served from this machine</span></header>\n";
-    out += "<main id=\"main\">\n";
+    out += "<main id=\"main\" tabindex=\"-1\">\n";
     out += body;
     out += "</main>\n<footer class=\"foot\">Served by RBLXHub. Every page is rendered from the "
            "repository; nothing is stored anywhere else.</footer>\n";

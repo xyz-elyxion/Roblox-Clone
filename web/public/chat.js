@@ -331,6 +331,10 @@ function chatRenderLog(messages, reset) {
 }
 
 function chatRenderGuilds() {
+    // The list is rebuilt whenever a room's counts change, so the button a reader
+    // is on is remembered by its room and focused again afterwards.
+    const focused = document.activeElement;
+    const keepFocus = focused && focused.dataset ? focused.dataset.server : null;
     chatGuilds.replaceChildren();
     for (const server of chatState.servers) {
         const button = document.createElement('button');
@@ -338,9 +342,11 @@ function chatRenderGuilds() {
         button.className = 'chat-guild';
         button.dataset.server = String(server.id);
         button.textContent = chatInitials(server.title);
-        button.title = server.online > 0
+        // The initials are a visual tab; the room's name is what a reader needs.
+        button.setAttribute('aria-label', server.online > 0
             ? `${server.title} — ${server.online} online`
-            : server.title;
+            : server.title);
+        button.title = server.title;
         if (server.id === chatState.gameId) {
             button.classList.add('is-active');
             button.setAttribute('aria-current', 'true');
@@ -352,10 +358,20 @@ function chatRenderGuilds() {
         });
         chatGuilds.append(button);
     }
+    for (const button of chatGuilds.querySelectorAll('[data-server]')) {
+        if (keepFocus !== null && button.dataset.server === keepFocus) {
+            button.focus();
+            break;
+        }
+    }
     chatRefreshBadges();
 }
 
 function chatRenderChannels() {
+    // Every poll rebuilds this list; without this the channel the keyboard is on
+    // would disappear under it.
+    const focused = document.activeElement;
+    const keepFocus = focused && focused.dataset ? focused.dataset.channel : null;
     channelList.replaceChildren();
     for (const channel of chatState.channels) {
         const button = document.createElement('button');
@@ -386,6 +402,12 @@ function chatRenderChannels() {
             }
         });
         channelList.append(button);
+    }
+    for (const button of channelList.querySelectorAll('[data-channel]')) {
+        if (keepFocus !== null && button.dataset.channel === keepFocus) {
+            button.focus();
+            break;
+        }
     }
 }
 

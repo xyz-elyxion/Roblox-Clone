@@ -2095,6 +2095,7 @@ function initAdminPage() {
     const replayClose = document.querySelector('[data-admin-replay-close]');
     const status = document.querySelector('[data-admin-status]');
     const refreshButton = document.querySelector('[data-admin-refresh]');
+    let replayOpener = null;
 
     function adminRow(cells) {
         const row = document.createElement('tr');
@@ -2476,11 +2477,16 @@ function initAdminPage() {
             replayMarker = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
             replayMarker.setAttribute('class', 'replay-marker');
             canvas.append(accepted, claimed, replayMarker);
+            // The paths are a drawing; the note above the stage says what happened.
+            canvas.setAttribute('role', 'img');
+            canvas.setAttribute('aria-label', 'Recorded movement: claimed and accepted path');
             replayStage.appendChild(canvas);
 
             replayTitle.textContent = `Replay: ${data.username} - ${data.kind}`;
             replayNote.textContent = [data.proof, data.expected].filter(Boolean).join(' | ');
+            replayOpener = document.activeElement;
             replayPanel.hidden = false;
+            replayPanel.focus();
             moveReplayMarker(0);
             playReplay();
         } catch (error) {
@@ -2492,6 +2498,8 @@ function initAdminPage() {
         replayClose.addEventListener('click', () => {
             cancelAnimationFrame(replayTimer);
             replayPanel.hidden = true;
+            if (replayOpener && document.contains(replayOpener)) replayOpener.focus();
+            replayOpener = null;
         });
     }
     if (replayPlay) {

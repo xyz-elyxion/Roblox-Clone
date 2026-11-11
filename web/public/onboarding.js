@@ -301,6 +301,7 @@ function updateOnboardingProgress() {
     if (progress) {
         progress.setAttribute('aria-valuenow', String(finished));
         progress.setAttribute('aria-valuemax', String(steps.length));
+        progress.setAttribute('aria-valuetext', `${finished} of ${steps.length} steps done`);
     }
 
     const summary = document.querySelector('[data-onboarding-summary]');

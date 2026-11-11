@@ -70,6 +70,10 @@ async function command(path) {
 function instanceCard(instance) {
     const card = make('article', 'card');
     card.dataset.index = instance.index;
+    // Four identical-looking cards of Start/Stop buttons are told apart by the
+    // port they belong to.
+    card.setAttribute('role', 'group');
+    card.setAttribute('aria-label', 'Server on port ' + instance.port);
 
     const head = make('div', 'card-head');
     head.appendChild(make('span', 'card-port', ':' + instance.port));
@@ -96,21 +100,29 @@ function instanceCard(instance) {
     const running = instance.state === 'running';
     const start = make('button', 'button', 'Start');
     start.type = 'button';
+    start.dataset.action = 'start';
+    start.setAttribute('aria-label', 'Start server on port ' + instance.port);
     start.disabled = running;
     start.addEventListener('click', () => command('/api/instances/' + instance.index + '/start'));
 
     const stop = make('button', 'button danger', 'Stop');
     stop.type = 'button';
+    stop.dataset.action = 'stop';
+    stop.setAttribute('aria-label', 'Stop server on port ' + instance.port);
     stop.disabled = instance.state === 'stopped';
     stop.addEventListener('click', () => command('/api/instances/' + instance.index + '/stop'));
 
     const restart = make('button', 'button', 'Restart');
     restart.type = 'button';
+    restart.dataset.action = 'restart';
+    restart.setAttribute('aria-label', 'Restart server on port ' + instance.port);
     restart.addEventListener('click',
                             () => command('/api/instances/' + instance.index + '/restart'));
 
     const log = make('button', 'button quiet', 'Open log');
     log.type = 'button';
+    log.dataset.action = 'log';
+    log.setAttribute('aria-label', 'Open the log for the server on port ' + instance.port);
     log.addEventListener('click', () => openLog(instance));
 
     actions.appendChild(start);
@@ -151,9 +163,27 @@ function render() {
     elements.summary.textContent = status.running + ' of ' + status.total +
                                    ' server(s) running.';
 
+    // The poll rebuilds every card, which would drop the caret of whoever is
+    // tabbing through them. Remember which control was focused and put it back
+    // once the new card exists; a button that became disabled is left alone.
+    const focused = document.activeElement;
+    const focusedAction = focused && focused.dataset ? focused.dataset.action : null;
+    const focusedCard = focused && focused.closest ? focused.closest('[data-index]') : null;
+    const focusedIndex = focusedCard ? focusedCard.dataset.index : null;
+
     elements.instances.textContent = '';
     for (const instance of status.instances) {
         elements.instances.appendChild(instanceCard(instance));
+    }
+    if (focusedAction && focusedIndex !== null) {
+        for (const button of elements.instances.querySelectorAll('[data-action]')) {
+            const card = button.closest('[data-index]');
+            if (button.dataset.action === focusedAction && card &&
+                card.dataset.index === focusedIndex && !button.disabled) {
+                button.focus();
+                break;
+            }
+        }
     }
     renderConfig(status.config);
 

@@ -305,7 +305,7 @@ bool autoConnectOnStart = false;
 int launchGameId = 0;
 bool showDebugGui = false;
 bool escapeMenuOpen = false;
-bool escapeMenuShowSettings = false;
+EscapeMenuTab escapeMenuTab = ESCAPE_TAB_PEOPLE;
 bool shiftLockEnabled = false;
 bool invertMouseY = false;
 bool showChatHud = true;
@@ -1283,7 +1283,7 @@ int main(int argc, char** argv) {
                     closeEscapeMenu();
                 } else if (inGame) {
                     escapeMenuOpen = true;
-                    escapeMenuShowSettings = false;
+                    escapeMenuTab = ESCAPE_TAB_PEOPLE;
                     isCursorLocked = false;
                     rblxwinSetInputMode(window.getNativeWindow(), RBLXWIN_CURSOR, RBLXWIN_CURSOR_NORMAL);
                 } else if (isCursorLocked) {
@@ -1350,7 +1350,7 @@ int main(int argc, char** argv) {
             }
             if (currentState != ONLINE && currentState != OFFLINE) {
                 escapeMenuOpen = false;
-                escapeMenuShowSettings = false;
+                escapeMenuTab = ESCAPE_TAB_PEOPLE;
                 if (isCursorLocked) {
                     isCursorLocked = false;
                     rblxwinSetInputMode(window.getNativeWindow(), RBLXWIN_CURSOR, RBLXWIN_CURSOR_NORMAL);

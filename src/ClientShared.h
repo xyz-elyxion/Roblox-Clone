@@ -91,7 +91,16 @@ extern bool showConnectionUI;
 
 // World and UI state the networking layer also reads or resets.
 extern bool escapeMenuOpen;
-extern bool escapeMenuShowSettings;
+
+// Which page the escape menu shows. The menu opens on People, because the people
+// in the session are what it is opened for.
+enum EscapeMenuTab {
+    ESCAPE_TAB_PEOPLE,
+    ESCAPE_TAB_SETTINGS,
+    ESCAPE_TAB_REPORT,
+    ESCAPE_TAB_HELP
+};
+extern EscapeMenuTab escapeMenuTab;
 extern std::map<int, Character*> remotePlayers;
 extern std::map<int, std::string> playerNames;
 extern std::vector<PlayerInfo> playerList;

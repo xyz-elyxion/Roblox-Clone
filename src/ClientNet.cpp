@@ -121,7 +121,7 @@ void leaveCurrentGame(std::deque<Part>& parts, PhysicsWorld& physicsWorld) {
     parts.clear();
     currentState = MENU_PLAY_CHOICE;
     escapeMenuOpen = false;
-    escapeMenuShowSettings = false;
+    escapeMenuTab = ESCAPE_TAB_PEOPLE;
     addChatLine("System", "Left the game.", true);
 }
 

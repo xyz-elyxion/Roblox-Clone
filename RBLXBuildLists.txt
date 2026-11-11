@@ -492,6 +492,15 @@ if(RBLX_BUILD_TESTS)
     target_link_libraries(VehicleTests PRIVATE rblxmath)
     add_test(NAME VehicleTests COMMAND VehicleTests)
 
+    # The escape menu's pure rules: the URL a row opens and the account a search
+    # answer names. They are reachable without a window, which the client is not.
+    add_executable(ClientMenuTests
+        tests/client_menu_tests.cpp
+        src/WebJson.cpp
+    )
+    target_include_directories(ClientMenuTests PRIVATE ${RBLXBUILD_CURRENT_SOURCE_DIR}/include)
+    add_test(NAME ClientMenuTests COMMAND ClientMenuTests)
+
     add_executable(HttpClientTests tests/http_client_tests.cpp src/HttpClient.cpp)
     target_include_directories(HttpClientTests PRIVATE ${RBLXBUILD_CURRENT_SOURCE_DIR}/include)
     target_link_libraries(HttpClientTests PRIVATE ws2_32)

@@ -1034,8 +1034,16 @@ to the world file and passed to the server with `--script`.
 | `Space` | Jump |
 | `Shift` | Toggle shift lock: captures the mouse, keeps the character facing the camera, moves the view over the shoulder |
 | `E` | Get into or out of the car when standing next to it. While driving, `W`/`S` are throttle and brake/reverse, `A`/`D` steer |
-| `Esc` | In-game menu: Resume, Reset Character, Settings, Leave Game; `Esc` again resumes |
+| `Esc` | In-game menu: the People, Settings, Report and Help tabs, plus Resume and Leave game; `Esc` again resumes |
 | `F3` | Toggle the debug overlay |
+
+The in-game menu is a tabbed panel. **People** lists everyone in the session with their avatar
+colours, the handle the account is found by, and a mark each to open that profile on the site,
+report them or block them, with **Add Friend** asking the website for the friendship the same
+way its own pages do. Its first row copies a link to the game's page, which is how a friend
+joins. **Settings** holds the controls and the interface switches, **Report** sends the reason a
+player or the game was reported, and **Help** lists the keys. The bar under the strip marks the
+open page, and Resume and Leave game stay at the bottom of every page.
 
 **Browse games** in the player list shows public games straight from the website and joins them
 without a browser. Settings holds shift lock, mouse sensitivity, invert mouse Y, field of view,

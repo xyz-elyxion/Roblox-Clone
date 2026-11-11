@@ -1411,6 +1411,33 @@ void testDevTokens() {
     checkStatus(app, "POST", "/api/ai/login", gameBody, secret, 401,
                 "developer tokens: a revoked token cannot sign in");
 
+    // A game's images are files this install ships. A field that could name another
+    // host would make every visitor fetch from a server the game's owner picked, so
+    // the write path refuses one.
+    checkStatus(app, "POST", "/api/games",
+                "{\"title\":\"Off Site Icon\",\"worldText\":\"1\\n" + validWorldLine() +
+                    "\\n\",\"iconUrl\":\"https://example.org/icon.png\"}",
+                token, 400, "creating a game refuses an icon on another host");
+    checkStatus(app, "POST", "/api/games",
+                "{\"title\":\"Off Site Banner\",\"worldText\":\"1\\n" + validWorldLine() +
+                    "\\n\",\"bannerUrl\":\"//example.org/banner.png\"}",
+                token, 400, "creating a game refuses a protocol-relative banner");
+    checkStatus(app, "POST", "/api/games",
+                "{\"title\":\"Bad Icon\",\"worldText\":\"1\\n" + validWorldLine() +
+                    "\\n\",\"iconUrl\":\"data:image/png;base64,AAAA\"}",
+                token, 400, "creating a game refuses a data image");
+
+    // Control bytes are stripped from text before it is stored or printed, so a
+    // title cannot repaint the operator's console.
+    checkStatus(app, "POST", "/api/games",
+                "{\"title\":\"Esc \\u001b[31mTitle\",\"worldText\":\"1\\n" + validWorldLine() +
+                    "\\n\"}",
+                token, 201, "a title with a control byte is accepted", &body);
+    checkContains(body, "\"title\":\"Esc [31mTitle\"",
+                  "a control byte is folded out of a stored title");
+    checkContains(body, "\"iconUrl\":\"/assets/games/default-game-icon.png\"",
+                  "an absent icon is answered as the built-in one");
+
     // A page or asset is revalidated rather than re-sent: it carries an ETag, and
     // the same file asked for again with that tag answers 304 with no body.
     std::string staticHead;

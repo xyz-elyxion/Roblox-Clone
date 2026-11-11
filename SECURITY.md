@@ -98,12 +98,26 @@ of a proxy, which is how a request gets smuggled.
 login reply holds a token and a profile holds account data. A client report arrives without
 authentication and is printed to the operator's console, so control characters in its fields are
 replaced before it is stored or shown; a newline or an escape sequence would otherwise forge a log
-line or repaint the terminal.
+line or repaint the terminal. A game's title and description are text too: control bytes are folded
+into spaces before they are stored, so a title cannot repaint that console or forge a line in it, and
+a title written by an older build is cleaned again on the line that prints it.
 
 **Play URLs.** The URL handed to the client comes from `PUBLIC_BASE_URL` when that is set.
 Otherwise the request's `Host` is used, but only when it is a plain `host:port`; anything else
 falls back to the local default. A proxy that forwards a caller-supplied `Host` must not be able to
 aim a player's client, and the session token it carries, at another origin.
+
+The play answer names the server but never the player's session token: the command shown on the
+page leaves `--token` out and there is no `rblxclone://` URL, because a token in a rendered string
+travels into screenshots, shell history and whichever program registered the scheme. The client this
+backend starts for a local player still receives the token on its own command line, the same
+trade-off as a game instance's launch token, and a client started by hand signs in through the site.
+
+**Game images.** A game's icon and banner are paths on this site (`/assets/...`), at most 512 bytes.
+The fields are not a way to point the site at another host: a public game whose image lived
+elsewhere would make every visitor's browser fetch it, which tells that game's owner who is reading
+the site. Absolute URLs, protocol-relative URLs, `data:` payloads and backslashes are refused when a
+game is created or edited, and a value an older build stored is answered as the built-in image.
 
 The hardware id a client reports at `/api/verify` is an assertion about itself, not an
 attestation: it is recorded so a ban can follow the machine, but a determined cheater can report a

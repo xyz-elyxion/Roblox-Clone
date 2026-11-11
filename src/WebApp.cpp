@@ -321,26 +321,6 @@ bool writeWholeFile(const std::string& path, const std::string& contents) {
     return stream.good();
 }
 
-std::string percentEncode(const std::string& value) {
-    static const char kDigits[] = "0123456789ABCDEF";
-    std::string out;
-    out.reserve(value.size() * 3);
-    for (const char rawChar : value) {
-        const unsigned char c = static_cast<unsigned char>(rawChar);
-        const bool unreserved = (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') ||
-                                (c >= '0' && c <= '9') || c == '-' || c == '_' ||
-                                c == '.' || c == '~';
-        if (unreserved) {
-            out.push_back(static_cast<char>(c));
-        } else {
-            out.push_back('%');
-            out.push_back(kDigits[(c >> 4) & 0x0F]);
-            out.push_back(kDigits[c & 0x0F]);
-        }
-    }
-    return out;
-}
-
 // parseInt semantics: leading integer, trailing characters ignored.
 bool parseIntegerPrefix(const std::string& token, int* out) {
     if (token.empty()) {
@@ -489,8 +469,12 @@ std::string normalizeWhitespace(const std::string& value) {
     std::string out;
     bool previousWasSpace = false;
     for (const char rawChar : trimCopy(value)) {
-        const bool isSpace = rawChar == ' ' || rawChar == '\t' || rawChar == '\r' ||
-                             rawChar == '\n';
+        const unsigned char byte = static_cast<unsigned char>(rawChar);
+        // A title or a description is text, and both are printed on the operator's
+        // console, where an escape sequence would repaint the lines around it. Every
+        // control byte folds into the space the ordinary whitespace already folds
+        // into, so nothing below a printable character is stored or printed.
+        const bool isSpace = byte == ' ' || byte < 0x20 || byte == 0x7f;
         if (isSpace) {
             if (!previousWasSpace) {
                 out.push_back(' ');
@@ -515,6 +499,33 @@ std::string normalizeGameTitle(const std::string& value) {
 std::string normalizeGameDescription(const std::string& value) {
     const std::string description = normalizeWhitespace(value);
     return description.size() > 240 ? description.substr(0, 240) : description;
+}
+
+// A game's icon and banner name a file the site already ships, so the value is a
+// path under web/public and nothing else. A stored absolute URL would make every
+// visitor's browser fetch an image from a host the game's owner chose, which tells
+// that owner who is reading the site. The cap is small because this is a path and
+// the whole data file is rewritten on every save: a field that can hold megabytes
+// would make every request slower for everyone.
+bool normalizeGameImagePath(const std::string& value, const std::string& fallback,
+                            std::string* out) {
+    const std::string trimmed = trimCopy(value);
+    if (trimmed.empty()) {
+        *out = fallback;
+        return true;
+    }
+    if (trimmed.size() > 512 || trimmed[0] != '/' || trimmed.compare(0, 2, "//") == 0) {
+        return false;
+    }
+    for (const char rawChar : trimmed) {
+        const unsigned char byte = static_cast<unsigned char>(rawChar);
+        if (byte < 0x20 || byte == 0x7f || byte == '\\') {
+            return false;
+        }
+    }
+
+    *out = trimmed;
+    return true;
 }
 
 std::string slugify(const std::string& value) {
@@ -1937,9 +1948,19 @@ Json WebsiteApp::gameJson(const GameRecord& game, bool canEdit, int viewerId) co
     result.set("slug", game.slug);
     result.set("description", game.description);
     result.set("isPublic", game.isPublic);
-    result.set("iconUrl", game.iconPath.empty() ? std::string(kDefaultGameIcon) : game.iconPath);
-    result.set("bannerUrl",
-               game.bannerPath.empty() ? std::string(kDefaultGameBanner) : game.bannerPath);
+    // A value stored before the write path checked this can be any string, so the
+    // rule is applied on the way out too: a stored off-site URL never reaches a
+    // browser, it is answered as the built-in image instead.
+    std::string iconPath;
+    if (!normalizeGameImagePath(game.iconPath, kDefaultGameIcon, &iconPath)) {
+        iconPath = kDefaultGameIcon;
+    }
+    std::string bannerPath;
+    if (!normalizeGameImagePath(game.bannerPath, kDefaultGameBanner, &bannerPath)) {
+        bannerPath = kDefaultGameBanner;
+    }
+    result.set("iconUrl", iconPath);
+    result.set("bannerUrl", bannerPath);
 
     Json stats = Json::makeObject();
     stats.set("partsCount", game.partsCount);
@@ -3762,7 +3783,10 @@ bool WebsiteApp::handlePutGameScript(Request& request, Response& response) {
         return true;
     }
 
-    std::fprintf(stdout, "  script [%s] %zu bytes saved by %s\n", record.title.c_str(),
+    // A title written before control bytes were folded at the door is still in the
+    // data file, so the one line that prints one is cleaned here as well.
+    const std::string consoleTitle = singleLineCopy(record.title);
+    std::fprintf(stdout, "  script [%s] %zu bytes saved by %s\n", consoleTitle.c_str(),
                  text.size(), user.username.c_str());
 
     Json result = Json::makeObject();
@@ -3892,22 +3916,21 @@ bool WebsiteApp::handlePlayGame(Request& request, Response& response) {
     launch.set("host", snapshot.host);
     launch.set("port", snapshot.port);
     launch.set("webServerUrl", webServerUrl);
-    launch.set(
-        "protocolUrl",
-        "rblxclone://play?gameId=" + percentEncode(std::to_string(gameId)) + "&host=" +
-            percentEncode(snapshot.host) + "&port=" + percentEncode(std::to_string(snapshot.port)) +
-            "&web=" + percentEncode(webServerUrl) + "&token=" +
-            percentEncode(bearerToken(request.header("authorization"))));
+    // What the player is shown leaves the session token out. This string is rendered
+    // on the page, copied into a shell and pasted into chats, and a token there is a
+    // credential for the whole site rather than for one launch; a client started by
+    // hand signs in through the site instead. The process started below still gets the
+    // token on its own command line, which is the same trade-off as a game instance's
+    // launch token: anything that can read that line already runs as this user.
     std::string command = "\"" + clientPath + "\"";
-    for (const std::string& arg : args) {
-        command += " \"" + arg + "\"";
+    for (std::size_t i = 0; i < args.size(); ++i) {
+        if (args[i] == "--token") {
+            ++i;
+            continue;
+        }
+        command += " \"" + args[i] + "\"";
     }
     launch.set("command", command);
-    Json launchArgs = Json::makeArray();
-    for (const std::string& arg : args) {
-        launchArgs.push(Json(arg));
-    }
-    launch.set("args", launchArgs);
 
     Json player = Json::makeObject();
     const bool launchClientValue = body.has("launchClient")
@@ -5571,13 +5594,19 @@ bool WebsiteApp::createGame(const AuthUser& user, const Json& body, GameRecord* 
     record.slug = slugify(title);
     record.description = normalizeGameDescription(body.member("description").asString());
     record.isPublic = boolValue(body.member("isPublic"), true);
-    record.iconPath = body.member("iconUrl").asString(kDefaultGameIcon);
-    if (record.iconPath.empty()) {
-        record.iconPath = kDefaultGameIcon;
+    if (!normalizeGameImagePath(body.member("iconUrl").asString(), kDefaultGameIcon,
+                                &record.iconPath)) {
+        errorJson(response, 400,
+                  "A game icon is a path on this site, such as " +
+                      std::string(kDefaultGameIcon) + ". Off-site images are refused.");
+        return false;
     }
-    record.bannerPath = body.member("bannerUrl").asString(kDefaultGameBanner);
-    if (record.bannerPath.empty()) {
-        record.bannerPath = kDefaultGameBanner;
+    if (!normalizeGameImagePath(body.member("bannerUrl").asString(), kDefaultGameBanner,
+                                &record.bannerPath)) {
+        errorJson(response, 400,
+                  "A game banner is a path on this site, such as " +
+                      std::string(kDefaultGameBanner) + ". Off-site images are refused.");
+        return false;
     }
     record.partsCount = analysis.partsCount;
     record.dynamicPartsCount = analysis.dynamicPartsCount;
@@ -5635,12 +5664,22 @@ bool WebsiteApp::updateGameRecord(const AuthUser& user, int gameId, const Json& 
         record.isPublic = boolValue(body.member("isPublic"), record.isPublic);
     }
     if (body.has("iconUrl")) {
-        const std::string icon = body.member("iconUrl").asString();
-        record.iconPath = icon.empty() ? std::string(kDefaultGameIcon) : icon;
+        if (!normalizeGameImagePath(body.member("iconUrl").asString(), kDefaultGameIcon,
+                                    &record.iconPath)) {
+            errorJson(response, 400,
+                      "A game icon is a path on this site, such as " +
+                          std::string(kDefaultGameIcon) + ". Off-site images are refused.");
+            return false;
+        }
     }
     if (body.has("bannerUrl")) {
-        const std::string banner = body.member("bannerUrl").asString();
-        record.bannerPath = banner.empty() ? std::string(kDefaultGameBanner) : banner;
+        if (!normalizeGameImagePath(body.member("bannerUrl").asString(), kDefaultGameBanner,
+                                    &record.bannerPath)) {
+            errorJson(response, 400,
+                      "A game banner is a path on this site, such as " +
+                          std::string(kDefaultGameBanner) + ". Off-site images are refused.");
+            return false;
+        }
     }
 
     if (body.has("worldText") || body.has("world")) {

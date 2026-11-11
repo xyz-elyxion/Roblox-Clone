@@ -1352,6 +1352,11 @@ from the machine running the site: a player browsing from anywhere else gets the
 and command in the answer and opens the client on their own computer, because starting windows on
 the host is not something a remote caller should be able to ask for.
 
+The command shown on the game page leaves `--token` out, because it is rendered on the page and
+copied into a shell: the token is a session credential and does not belong in a string a
+screenshot or another program can read. The client the site starts itself still receives it on
+its own command line, and a client started by hand signs in through the site.
+
 Play waits for the server to own its port before launching the client, and each game server writes
 its output to `web/game-server-logs/game-server-<port>.log`. When a server dies during startup — for
 example because its port is still held by a leftover `Server.exe` — the game page shows that output

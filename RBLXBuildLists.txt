@@ -207,6 +207,10 @@ if(RBLX_BUILD_UPDATER)
     add_executable(RBLXSetup
         src/SetupMain.cpp
         src/Updater.cpp
+        # Updater.cpp verifies a manifest's signature before it trusts its paths,
+        # so the verification code has to be in this executable as well, even
+        # though the installer itself never downloads anything.
+        src/ReleaseSignature.cpp
         src/WebJson.cpp
         src/WebCrypto.cpp
         src/InstallUi.cpp
@@ -403,7 +407,8 @@ if(RBLX_BUILD_WEBAPP)
     )
     configure_rblx_target(WebApp)
     target_link_libraries(WebApp PRIVATE rblxwin rblxgl)
-    target_link_libraries(WebApp PRIVATE ws2_32 shell32)
+    # bcrypt is where WebCrypto gets its token and captcha bytes.
+    target_link_libraries(WebApp PRIVATE ws2_32 shell32 bcrypt)
 endif()
 
 if(RBLX_BUILD_TESTS)
@@ -518,7 +523,7 @@ if(RBLX_BUILD_TESTS)
             target_compile_options(WebAppTests PRIVATE -Wall -Wextra -Wpedantic)
         endif()
     endif()
-    target_link_libraries(WebAppTests PRIVATE ws2_32)
+    target_link_libraries(WebAppTests PRIVATE ws2_32 bcrypt)
     add_test(NAME WebAppTests COMMAND WebAppTests)
 
     # The sealed data file: the cipher against a published vector, and the store's

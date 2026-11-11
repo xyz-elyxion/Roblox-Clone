@@ -1550,7 +1550,7 @@ function sortGames(games, order) {
     return sorted;
 }
 
-function createGameCard(game, status) {
+function createGameCard(game, status, index) {
     const card = document.createElement('article');
     card.className = 'game-card';
 
@@ -1562,7 +1562,12 @@ function createGameCard(game, status) {
     const banner = document.createElement('img');
     banner.src = game.bannerUrl || '/assets/games/default-game-banner.png';
     banner.alt = '';
-    banner.loading = 'lazy';
+    // The first row is the one a visitor sees before scrolling, so it loads
+    // eagerly and the very first banner is the highest-priority request; the rest
+    // wait until they come near the viewport.
+    banner.loading = index < 4 ? 'eager' : 'lazy';
+    banner.decoding = 'async';
+    if (index === 0) banner.fetchPriority = 'high';
     media.appendChild(banner);
 
     const body = document.createElement('div');
@@ -1612,7 +1617,7 @@ function renderGameCards(container, games, emptyText, status) {
         container.appendChild(emptyMessage(emptyText));
         return;
     }
-    games.forEach((game) => container.appendChild(createGameCard(game, status)));
+    games.forEach((game, index) => container.appendChild(createGameCard(game, status, index)));
 }
 
 async function initGamesPage() {

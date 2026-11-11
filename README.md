@@ -823,6 +823,20 @@ panel is held to the same rules:
   lowest pair is 5.27:1. Controls stay at or above the 24×24 CSS pixel target, and forced-colours
   mode gets a system-colour focus ring because the palette is replaced there.
 
+### Caching and page weight
+
+Static pages and assets carry an `ETag` and `Cache-Control: no-cache`: the browser keeps its copy
+but asks before using it, so an edited file is seen on the next request while an unchanged one
+costs a `304` and no body. Generated API answers keep their own `no-store`, so a session or a coin
+balance is never cached.
+
+There is no gzip or Brotli stage — the server sends files as they sit — so the weight is kept down
+at the source. `app.js` and `style.css` are the only files every page loads; three.js is imported
+only on the pages that draw an avatar; and the two placeholder game images are sized for their
+largest display (a 1120×630 banner and a 192×192 icon, 205 KB and 18 KB) instead of the
+multi-megabyte originals. On the games page the first row of cards loads eagerly with the first
+banner marked `fetchpriority="high"`, and the rest are lazy.
+
 ### Privacy and terms
 
 `/privacy` and `/terms` are the policy pages (`web/public/privacy.html` and `terms.html`), both

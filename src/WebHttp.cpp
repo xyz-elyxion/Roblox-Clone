@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cstdio>
 #include <cstring>
 #include <fstream>
 #include <sstream>
@@ -153,6 +154,20 @@ bool readFile(const std::string& path, std::string* out) {
     buffer << stream.rdbuf();
     *out = buffer.str();
     return true;
+}
+
+// FNV-1a over the bytes about to be sent: any change to the file changes the tag,
+// and the body has already been read, so the pass costs nothing beside the disk
+// read. A strong tag is used because the body is always sent in full.
+std::string entityTag(const std::string& body) {
+    std::uint64_t hash = 1469598103934665603ull;
+    for (unsigned char byte : body) {
+        hash ^= byte;
+        hash *= 1099511628211ull;
+    }
+    char text[24];
+    std::snprintf(text, sizeof(text), "%016llx", static_cast<unsigned long long>(hash));
+    return "\"" + std::string(text) + "\"";
 }
 
 }  // namespace
@@ -532,6 +547,7 @@ bool HttpServer::writesResponse(std::intptr_t socketHandle, const Request& reque
     const SocketHandle handle = static_cast<SocketHandle>(socketHandle);
 
     std::string body = response.body;
+    bool servedFromFile = false;
     const auto fileHeader = response.headers.find("X-Served-File");
     if (fileHeader != response.headers.end()) {
         const std::string path = fileHeader->second;
@@ -540,6 +556,8 @@ bool HttpServer::writesResponse(std::intptr_t socketHandle, const Request& reque
             response.status = 404;
             response.contentType = "application/json; charset=utf-8";
             body = "{\"error\":\"Not found.\"}";
+        } else {
+            servedFromFile = true;
         }
     }
 
@@ -547,6 +565,23 @@ bool HttpServer::writesResponse(std::intptr_t socketHandle, const Request& reque
     *keepAlive = request.httpVersion != "HTTP/1.0" || connectionHeader == "keep-alive";
     if (connectionHeader == "close") {
         *keepAlive = false;
+    }
+
+    // A page or asset that has not changed only needs revalidating: the browser
+    // keeps its copy, asks once per navigation, and gets a 304 instead of the
+    // body. "no-cache" rather than a max-age keeps a local install honest after
+    // an update, since the file name carries no content hash. Generated API
+    // answers set their own Cache-Control and are left alone.
+    if (servedFromFile && response.status == 200) {
+        const std::string tag = entityTag(body);
+        response.headers["ETag"] = tag;
+        response.headers["Cache-Control"] = "no-cache";
+        const std::string asked = lowerCopy(request.header("if-none-match"));
+        if (!asked.empty() &&
+            (asked == "*" || asked.find(lowerCopy(tag)) != std::string::npos)) {
+            response.status = 304;
+            body.clear();
+        }
     }
 
     std::string out;

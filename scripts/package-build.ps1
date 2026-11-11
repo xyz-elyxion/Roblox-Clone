@@ -30,7 +30,12 @@ param(
     # privateExponent, all hex. Pass it to sign this release, which is what lets
     # a copy with a pinned key install it over a plain-HTTP channel. Keep that
     # file off this repository; only its public half belongs in update.json.
-    [string]$SigningKey = ''
+    [string]$SigningKey = '',
+
+    # Copy the finished package into the folder the website serves updates from
+    # (web/public/updates), which is what makes the default -UpdateUrl answer
+    # instead of a 404. Off unless asked: that copy is a whole release.
+    [switch]$Publish
 )
 
 $ErrorActionPreference = 'Stop'
@@ -115,7 +120,16 @@ try {
     # read the first time WebApp.exe publishes the starter games.
     $webTarget = Join-Path $Output 'web'
     New-Item -ItemType Directory -Path $webTarget -Force | Out-Null
-    Copy-Item -LiteralPath 'web/public' -Destination $webTarget -Recurse
+    # web/public/updates holds a published release (see -Publish below). A
+    # release server hands that folder out, so it is not part of the site the
+    # next package ships; copying it would put one release inside another.
+    $publicTarget = Join-Path $webTarget 'public'
+    New-Item -ItemType Directory -Path $publicTarget -Force | Out-Null
+    Get-ChildItem -LiteralPath 'web/public' -Force |
+        Where-Object { $_.Name -ne 'updates' } |
+        ForEach-Object {
+            Copy-Item -LiteralPath $_.FullName -Destination $publicTarget -Recurse
+        }
     Copy-Item -LiteralPath 'web/seed-worlds' -Destination $webTarget -Recurse
     # The RBLXHosts control panel. RBLXHosts.exe looks for web/host next to
     # itself, and shows a plain page that says so if the folder is missing.
@@ -323,6 +337,29 @@ try {
     else {
         Write-Warning ('Packaged an unsigned release. RBLXUpdater only accepts it from a loopback ' +
             'URL; pass -SigningKey <file> to sign it before publishing.')
+    }
+
+    # A published release is the same folder, copied where the website can serve
+    # it: the site answers /updates/ out of web/public, so the default -UpdateUrl
+    # is exactly this copy. Replacing the folder rather than merging into it
+    # means a file this release dropped cannot be downloaded from the old one.
+    if ($Publish) {
+        $publishRoot = Join-Path $repoRoot 'web/public/updates'
+        $separator = [System.IO.Path]::DirectorySeparatorChar
+        if ($Output.StartsWith($publishRoot + $separator) -or
+            $publishRoot.StartsWith($Output + $separator)) {
+            throw "-Publish would copy $Output into itself."
+        }
+        if (Test-Path -LiteralPath $publishRoot) {
+            Remove-Item -LiteralPath $publishRoot -Recurse -Force
+        }
+        New-Item -ItemType Directory -Path $publishRoot -Force | Out-Null
+        Get-ChildItem -LiteralPath $Output -Force |
+            ForEach-Object {
+                Copy-Item -LiteralPath $_.FullName -Destination $publishRoot -Recurse
+            }
+        Write-Host ("Published version {0} to {1}" -f $Version, $publishRoot)
+        Write-Host ("  the site now answers {0}" -f $UpdateUrl)
     }
 
     $files = Get-ChildItem -LiteralPath $Output -Recurse -File

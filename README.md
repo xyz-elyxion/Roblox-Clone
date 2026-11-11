@@ -105,7 +105,10 @@ leaves the previous file in place; the manifest is written last, which is what m
 complete. A machine that is offline, whose release server has published nothing yet (the usual state
 of a fresh copy, and of every build that has never been put on a server), or whose build is newer
 than the published one, still starts the game; a 404 for `manifest.json` is reported as "nothing is
-published yet" rather than as a failure.
+published yet" rather than as a failure. Nothing is published until a release is put where the site
+serves it: `/updates/` is `web/public/updates`, and `./scripts/package-build.ps1 -Publish` copies a
+finished package there, replacing whatever the folder held before, so the default
+`http://127.0.0.1:3000/updates/manifest.json` answers with the manifest the updater expects.
 
 The update channel is plain HTTP, so the manifest is signed rather than trusted: a release is signed
 with an RSA-2048 key and the public half is pinned in `update.json`, a file that belongs to the
@@ -1345,7 +1348,10 @@ rblx-windows-release/
 ```
 
 The same folder can be produced locally with `./scripts/package-build.ps1 -Configuration Release`
-after building that configuration.
+after building that configuration. Add `-Publish` and it is copied into `web/public/updates` as
+well, which is where a `WebApp.exe` started from this checkout hands it out; the published folder is
+`/dist` output for the website, so it is ignored by git and left out of the site inside the next
+package.
 
 ## Multi-game local hosting
 

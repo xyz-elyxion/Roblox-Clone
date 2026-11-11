@@ -8,6 +8,8 @@ rblxbuild-build-*/
 
 # Packaging output
 /dist/
+# A release published for the website to hand out (package-build.ps1 -Publish)
+web/public/updates/
 
 # Compiled binaries
 *.exe

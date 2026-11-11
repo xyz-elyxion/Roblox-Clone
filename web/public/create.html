@@ -50,8 +50,8 @@
                         <label for="game-description">Description</label>
                         <textarea class="input textarea" id="game-description" name="description" maxlength="240"></textarea>
                     </div>
-                    <div class="field">
-                        <span class="label" id="world-label">World</span>
+                    <fieldset class="field field-group">
+                        <legend class="label" id="world-label">World</legend>
                         <label class="check-row">
                             <input type="radio" name="worldMode" value="starter" checked>
                             <span>Start from a blank baseplate</span>
@@ -62,7 +62,7 @@
                         </label>
                         <input class="input file-input" id="world-file" name="world" type="file"
                             accept=".world,text/plain" aria-labelledby="world-label" disabled>
-                    </div>
+                    </fieldset>
                     <label class="check-row">
                         <input type="checkbox" name="isPublic" checked>
                         <span>Public</span>

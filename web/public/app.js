@@ -32,6 +32,31 @@ function setStatus(element, message, type) {
     element.className = `status ${type || ''}`.trim();
 }
 
+// A check that blames one field marks that field, not just the status line: the
+// message is attached to the control, focus moves there, and the first edit
+// clears the mark so the field is not left looking wrong.
+let statusIds = 0;
+function rejectField(control, status, message) {
+    if (!control || !status) return;
+    if (!status.id) {
+        statusIds += 1;
+        status.id = `form-status-${statusIds}`;
+    }
+    const described = (control.getAttribute('aria-describedby') || '').split(/\s+/).filter(Boolean);
+    if (!described.includes(status.id)) described.push(status.id);
+    control.setAttribute('aria-describedby', described.join(' '));
+    control.setAttribute('aria-invalid', 'true');
+    setStatus(status, message, 'error');
+    control.focus();
+    control.addEventListener('input', () => {
+        control.removeAttribute('aria-invalid');
+        const rest = (control.getAttribute('aria-describedby') || '')
+            .split(/\s+/).filter((id) => id && id !== status.id);
+        if (rest.length > 0) control.setAttribute('aria-describedby', rest.join(' '));
+        else control.removeAttribute('aria-describedby');
+    }, { once: true });
+}
+
 async function postJson(url, body, token) {
     const headers = { 'Content-Type': 'application/json' };
     if (token) headers.Authorization = `Bearer ${token}`;
@@ -332,6 +357,8 @@ function createUserCard(user, onChanged) {
         const dot = document.createElement('span');
         dot.className = 'presence-dot';
         dot.title = 'Online now';
+        // A label on a bare span is not exposed, so the dot is given a role.
+        dot.setAttribute('role', 'img');
         dot.setAttribute('aria-label', 'Online now');
         name.append(' ', dot);
     }
@@ -579,7 +606,7 @@ function initSignup() {
 
         const body = Object.fromEntries(new FormData(form).entries());
         if (body.password !== body.confirmPassword) {
-            setStatus(status, 'Passwords do not match.', 'error');
+            rejectField(form.querySelector('#confirmPassword'), status, 'Passwords do not match.');
             return;
         }
         delete body.confirmPassword;
@@ -1700,7 +1727,8 @@ function initCreateGamePage() {
         const useFile = form.elements.worldMode.value === 'file';
         const file = useFile ? form.elements.world.files[0] : null;
         if (useFile && !file) {
-            setStatus(status, 'Choose a .world file, or start from the baseplate.', 'error');
+            rejectField(form.elements.world, status,
+                'Choose a .world file, or start from the baseplate.');
             return;
         }
 
@@ -2204,7 +2232,7 @@ function initAdminPage() {
     async function giveCoins(user, input, button) {
         const amount = Math.trunc(Number(input.value));
         if (!Number.isFinite(amount) || amount <= 0) {
-            setStatus(status, 'Enter a whole number of coins to give.', 'error');
+            rejectField(input, status, 'Enter a whole number of coins to give.');
             return;
         }
         button.disabled = true;
@@ -2854,10 +2882,10 @@ function initSettings() {
         const submit = form.querySelector('button[type="submit"]');
         const currentPassword = form.querySelector('#current-password').value;
         const newPassword = form.querySelector('#new-password').value;
-        const confirmPassword = form.querySelector('#confirm-password').value;
+        const confirmPassword = form.querySelector('#confirm-password');
 
-        if (newPassword !== confirmPassword) {
-            setStatus(status, 'The new passwords do not match.', 'error');
+        if (newPassword !== confirmPassword.value) {
+            rejectField(confirmPassword, status, 'The new passwords do not match.');
             return;
         }
 
@@ -3008,10 +3036,10 @@ function initRecovery() {
         const username = form.querySelector('#recovery-username').value.trim();
         const recoveryCode = form.querySelector('#recovery-code').value.trim();
         const newPassword = form.querySelector('#recovery-password').value;
-        const confirmPassword = form.querySelector('#recovery-confirm').value;
+        const confirmPassword = form.querySelector('#recovery-confirm');
 
-        if (newPassword !== confirmPassword) {
-            setStatus(status, 'The new passwords do not match.', 'error');
+        if (newPassword !== confirmPassword.value) {
+            rejectField(confirmPassword, status, 'The new passwords do not match.');
             return;
         }
 

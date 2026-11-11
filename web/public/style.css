@@ -73,6 +73,14 @@ input {
     outline-offset: 2px;
 }
 
+/* Forced colours replace the palette, so the ring names a system colour instead
+   of a variable that no longer resolves to anything visible. */
+@media (forced-colors: active) {
+    :focus-visible {
+        outline: 3px solid Highlight;
+    }
+}
+
 .page {
     width: min(1120px, calc(100% - 32px));
     margin: 0 auto;
@@ -1208,6 +1216,20 @@ input {
         scroll-behavior: auto !important;
         transition: none !important;
     }
+}
+
+/* The world picker is a radio group, so its two options belong in a fieldset
+   with the prompt as the legend; the browser reset is undone to keep the panel's
+   spacing. */
+.field-group {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    min-width: 0;
+}
+
+.field-group legend {
+    padding: 0;
 }
 
 /* Hat shop on the avatar page: a colour swatch plus the name and price. */

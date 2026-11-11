@@ -79,6 +79,14 @@ code {
     outline-offset: 2px;
 }
 
+/* Forced colours replace the palette, so the ring has to name a system colour or
+   it disappears along with the fill it was chosen to sit on. */
+@media (forced-colors: active) {
+    :focus-visible {
+        outline: 3px solid Highlight;
+    }
+}
+
 .page {
     width: min(1120px, calc(100% - 32px));
     margin: 0 auto;

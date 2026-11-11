@@ -803,7 +803,11 @@ panel is held to the same rules:
   sits outside the fill instead of disappearing into it.
 - Each field has a real `<label>`, the hint under it is joined to it with `aria-describedby`
   (signup, login, settings and the script editor), and the status line turns into `role="alert"`
-  while a message is an error, so a refusal is announced instead of being missed.
+  while a message is an error, so a refusal is announced instead of being missed. A check that
+  blames one field — a password that does not match, a missing world file, a coin amount that is
+  not a number — also marks that field `aria-invalid`, attaches the message to it and moves focus
+  there, so the correction starts where the mistake is. Radio options that belong together sit in
+  a `<fieldset>` with the prompt as its `<legend>`.
 - The dashboard's tab strip is the whole ARIA tab pattern: each tab names its panel with
   `aria-controls`, panels name their tab with `aria-labelledby`, and only the selected tab is in
   the tab order — arrows, Home and End move between them.
@@ -815,7 +819,9 @@ panel is held to the same rules:
   its shortcut hint and saving is announced from the editor bar.
 - Reduce motion is honoured from `prefers-reduced-motion` and can be turned on in Settings; both
   remove transitions and animated scrolling. Every colour is a custom property, and the text,
-  muted text and status accents meet WCAG AA contrast on their backgrounds in both themes.
+  muted text and status accents meet WCAG AA contrast on their backgrounds in both themes — the
+  lowest pair is 5.27:1. Controls stay at or above the 24×24 CSS pixel target, and forced-colours
+  mode gets a system-colour focus ring because the palette is replaced there.
 
 ### Privacy and terms
 

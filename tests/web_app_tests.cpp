@@ -413,6 +413,19 @@ std::string bodyOf(const std::string& response) {
     return separator == std::string::npos ? std::string() : response.substr(separator + 4);
 }
 
+// Only the response head is searched: a tag can appear in the body of a page, but
+// the header names asked about here are unique to the head.
+std::string headerValue(const std::string& response, const std::string& name) {
+    const std::string key = name + ": ";
+    const std::size_t start = response.find(key);
+    if (start == std::string::npos) {
+        return std::string();
+    }
+    const std::size_t valueStart = start + key.size();
+    const std::size_t end = response.find("\r\n", valueStart);
+    return response.substr(valueStart, end == std::string::npos ? std::string::npos : end - valueStart);
+}
+
 std::string buildRequest(const std::string& method, const std::string& path,
                          const std::string& body, const std::string& token,
                          const std::string& contentType) {
@@ -1397,6 +1410,33 @@ void testDevTokens() {
                 200, "developer tokens: the token is revoked", &body);
     checkStatus(app, "POST", "/api/ai/login", gameBody, secret, 401,
                 "developer tokens: a revoked token cannot sign in");
+
+    // A page or asset is revalidated rather than re-sent: it carries an ETag, and
+    // the same file asked for again with that tag answers 304 with no body.
+    std::string staticHead;
+    {
+        std::thread staticThread([&app]() { app.server().serveOneConnection(); });
+        staticHead = sendRaw(app.server().port(),
+                             buildRequest("GET", "/index.html", std::string(), std::string(),
+                                          std::string()));
+        staticThread.join();
+    }
+    const std::string staticTag = headerValue(staticHead, "ETag");
+    check(statusOf(staticHead) == 200 && !staticTag.empty(),
+          "static files: a page carries an ETag");
+    check(headerValue(staticHead, "Cache-Control") == "no-cache",
+          "static files: the page is revalidated on each visit");
+
+    std::string revalidate = "GET /index.html HTTP/1.1\r\nHost: 127.0.0.1\r\n";
+    revalidate += "Connection: close\r\nIf-None-Match: " + staticTag + "\r\n\r\n";
+    std::string cached;
+    {
+        std::thread cachedThread([&app]() { app.server().serveOneConnection(); });
+        cached = sendRaw(app.server().port(), revalidate);
+        cachedThread.join();
+    }
+    check(statusOf(cached) == 304 && bodyOf(cached).empty(),
+          "static files: an unchanged page answers 304 with no body");
 
     app.stop();
 }

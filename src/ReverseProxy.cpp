@@ -380,20 +380,23 @@ bool forward(const Upstream& upstream, const web::Request& request, UpstreamResp
         }
         head += header.first + ": " + header.second + "\r\n";
     }
+    // The names this proxy adds itself are written the way the request's own
+    // headers are: lower case, because that is how the request map holds them and
+    // a head that mixes the two is a second spelling for the same header.
     const std::string forwarded =
         forwardedFor(request.header("x-forwarded-for"), request.remoteAddress);
     if (!forwarded.empty()) {
-        head += "X-Forwarded-For: " + forwarded + "\r\n";
+        head += "x-forwarded-for: " + forwarded + "\r\n";
     }
     const std::string originalHost = request.header("host");
     if (!originalHost.empty()) {
-        head += "X-Forwarded-Host: " + originalHost + "\r\n";
+        head += "x-forwarded-host: " + originalHost + "\r\n";
     }
-    head += "X-Forwarded-Proto: http\r\n";
-    head += "Content-Length: " + std::to_string(request.body.size()) + "\r\n";
+    head += "x-forwarded-proto: http\r\n";
+    head += "content-length: " + std::to_string(request.body.size()) + "\r\n";
     // One request per backend connection: the answer is read to its end and the
     // connection closed, so nothing here depends on the backend's keep-alive.
-    head += "Connection: close\r\n\r\n";
+    head += "connection: close\r\n\r\n";
 
     const SocketHandle handle = connectTo(upstream, error);
     if (handle == kInvalidSocket) {

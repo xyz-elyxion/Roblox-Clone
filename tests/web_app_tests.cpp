@@ -743,8 +743,10 @@ void testHttp() {
 
     checkStatus(app, "GET", "/api/admin/overview", std::string(), token, 200,
                 "the admin overview lists site data", &body);
-    // The store seeds a creator account, so the count covers it plus the two signups.
-    checkContains(body, "\"userCount\":3", "the overview counts users");
+    // Two accounts: the administrator this test wrote into the data file before
+    // start-up, and the account that signed up afterwards. AdminPilot was refused
+    // as a reserved name, so it does not add a third.
+    checkContains(body, "\"userCount\":2", "the overview counts users");
     checkContains(body, "\"username\":\"Outsider\"", "the overview lists every account");
     checkContains(body, "\"gameCount\":1", "the overview counts games");
     checkContains(body, "Test World", "the overview lists games");

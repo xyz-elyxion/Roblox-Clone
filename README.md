@@ -1339,10 +1339,12 @@ for code that has not been converted.
 
 The `Build` workflow runs on every push: one Windows job with MSVC (its build tool is bootstrapped
 with MinGW) configures, builds and runs the test suite, then packages the Release build into a folder
-you can unzip and run. The tool is cached against the contents of `rblxbuild/` and of the workflow
-itself, so a run whose compiler sources are unchanged reuses the tool an earlier run built - its
-executable and the `Modules` tree it reads at startup - instead of bootstrapping one; a change under
-`rblxbuild/` costs one bootstrap and then stays cached.
+you can unzip and run. The tool is cached against the contents of `rblxbuild/` (plus a token bumped
+when the bootstrap flags change), so a run whose compiler sources are unchanged reuses the tool an
+earlier run built - its executable and the `Modules` tree it reads at startup - instead of
+bootstrapping one. The cache is written as soon as the tool is built rather than when the job ends,
+so a run that goes on to fail a test or a compile still leaves the tool behind: the point of
+caching it is the ten minutes after a failure, which is when the next run would pay for it again.
 Open the latest run under **Actions** and download `rblx-windows-release`.
 
 ```

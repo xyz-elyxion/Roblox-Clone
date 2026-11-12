@@ -264,7 +264,12 @@ const std::vector<std::pair<std::string, const char*>> FACE_TEXTURE_FILES = {
 };
 std::map<std::string, unsigned int> faceTextureIds;
 
-GameState currentState = MENU_AUTH_CHOICE;
+GameState currentState = MENU_LOADING;
+
+// The saved sign-in is checked once the loading screen is on screen; this is the
+// token that check will use and where it came from.
+std::string pendingSessionToken;
+bool pendingSessionFromArguments = false;
 
 // Network State
 SOCKET clientSocket = INVALID_SOCKET;
@@ -1108,6 +1113,33 @@ void mouse_callback(RBLXWINwindow* window, double xposIn, double yposIn) {
     camera.ProcessMouseMovement(xoffset, yoffset);
 }
 
+// Runs on the first frame after the loading screen is up. A rejected token is
+// signed out; a website that cannot be reached keeps the token but still lands on
+// the sign-in page, which is the screen that can ask again.
+void restorePendingSession() {
+    const std::string token = pendingSessionToken;
+    const bool fromArguments = pendingSessionFromArguments;
+    pendingSessionToken.clear();
+    pendingSessionFromArguments = false;
+
+    std::string authError;
+    bool tokenRejected = false;
+    if (applyAuthSession(token, "Player", automaticWebServerUrl(), false, authError,
+                         &tokenRejected)) {
+        currentState = MENU_PLAY_CHOICE;
+        return;
+    }
+    if (tokenRejected) {
+        signOutInvalidToken(authError);
+        return;
+    }
+    if (!fromArguments) {
+        authToken[0] = '\0';
+    }
+    currentState = MENU_AUTH_CHOICE;
+    addChatLine("System", authError, true);
+}
+
 int main(int argc, char** argv) {
     // Redirect stdout/stderr to files for debugging
     freopen("client_log.txt", "w", stdout);
@@ -1223,35 +1255,22 @@ int main(int argc, char** argv) {
 
         parseClientArguments(argc, argv);
         const bool hasLaunchToken = std::strlen(authToken) > 0;
-        
+
         // Load saved avatar (will be fetched from server when logged in)
         currentAvatar.loadFromFile("avatar.txt");
-        if (hasLaunchToken) {
-            std::string authError;
-            bool tokenRejected = false;
-            if (applyAuthSession(authToken, "Player", automaticWebServerUrl(), false, authError,
-                                 &tokenRejected)) {
-                currentState = MENU_PLAY_CHOICE;
-            } else if (tokenRejected) {
-                signOutInvalidToken(authError);
-            } else {
-                addChatLine("System", authError, true);
-            }
-        } else if (!savedToken.empty()) {
-            std::string authError;
-            bool tokenRejected = false;
-            if (applyAuthSession(savedToken, "Player", automaticWebServerUrl(), false, authError,
-                                 &tokenRejected)) {
-                currentState = MENU_PLAY_CHOICE;
-            } else if (tokenRejected) {
-                signOutInvalidToken(authError);
-            } else {
-                authToken[0] = '\0';
-                currentState = MENU_AUTH_CHOICE;
-                addChatLine("System", authError, true);
-            }
+
+        // Verifying a saved sign-in is an HTTP call that may use its whole
+        // timeout, and a client that shows nothing until it answers looks hung.
+        // The check waits for the first loading frame instead, so the window and
+        // the word "Loading" are on screen while it runs.
+        if (hasLaunchToken || !savedToken.empty()) {
+            pendingSessionToken = hasLaunchToken ? std::string(authToken) : savedToken;
+            pendingSessionFromArguments = hasLaunchToken;
+        } else {
+            // Nothing saved to check, so there is nothing to wait for.
+            currentState = MENU_AUTH_CHOICE;
         }
-        
+
         loadFaceTextures();
 
         if (autoConnectOnStart) {
@@ -1282,16 +1301,20 @@ int main(int argc, char** argv) {
                 if (inGame && escapeMenuOpen) {
                     closeEscapeMenu();
                 } else if (inGame) {
-                    escapeMenuOpen = true;
-                    escapeMenuTab = ESCAPE_TAB_PEOPLE;
-                    isCursorLocked = false;
-                    rblxwinSetInputMode(window.getNativeWindow(), RBLXWIN_CURSOR, RBLXWIN_CURSOR_NORMAL);
+                    openEscapeMenu();
                 } else if (isCursorLocked) {
                     isCursorLocked = false;
                     rblxwinSetInputMode(window.getNativeWindow(), RBLXWIN_CURSOR, RBLXWIN_CURSOR_NORMAL);
                 }
             }
             escapeWasDown = escapeDown;
+
+            // One pass of the loop has drawn and presented the loading screen, so
+            // the check that can block for seconds may run now.
+            static int loadingFrames = 0;
+            if (currentState == MENU_LOADING && !pendingSessionToken.empty()) {
+                if (loadingFrames++ >= 1) restorePendingSession();
+            }
 
             // 2. RblxUI NewFrame
             RblxUI_ImplOpenGL3_NewFrame();
@@ -1347,6 +1370,8 @@ int main(int argc, char** argv) {
                 renderPlayMenu(uiScale);
             } else if (currentState == MENU_GAMES) {
                 renderGamesMenu(uiScale);
+            } else if (currentState == MENU_LOADING) {
+                renderLoadingScreen(uiScale);
             }
             if (currentState != ONLINE && currentState != OFFLINE) {
                 escapeMenuOpen = false;

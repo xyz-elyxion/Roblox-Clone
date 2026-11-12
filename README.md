@@ -1045,8 +1045,16 @@ colours, the handle the account is found by, and a mark each to open that profil
 report them or block them, with **Add Friend** asking the website for the friendship the same
 way its own pages do. Its first row copies a link to the game's page, which is how a friend
 joins. **Settings** holds the controls and the interface switches, **Report** sends the reason a
-player or the game was reported, and **Help** lists the keys. The bar under the strip marks the
-open page, and Resume and Leave game stay at the bottom of every page.
+player or the game was reported — it can name the account itself, not only the target a row's
+flag filled in — and **Help** lists the keys. The bar under the strip marks the open page, and
+Resume and Leave game stay at the bottom of every page. The same panel opens from the menu button
+in the top-left corner of the in-game HUD, for a player who does not know the `Esc` key; the chat
+window sits below that button.
+
+The client opens on a loading screen rather than an empty frame. A saved sign-in is checked
+against the website once that panel is on screen, and the answer decides which screen comes next:
+the play menu, or the sign-in page with the reason in the chat log. A website that is not running
+is one of those reasons, never a client that refuses to start.
 
 **Browse games** in the player list shows public games straight from the website and joins them
 without a browser. Settings holds shift lock, mouse sensitivity, invert mouse Y, field of view,

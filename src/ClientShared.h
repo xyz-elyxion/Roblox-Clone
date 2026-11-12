@@ -29,6 +29,7 @@
 
 // Which screen the player is on. Stored in `currentState` below.
 enum GameState {
+    MENU_LOADING,      // Startup: the window is up and the saved sign-in is being checked
     MENU,
     MENU_AUTH_CHOICE,  // First menu: Login/Register/Guest
     MENU_PLAY_CHOICE,  // Second menu: Online/Offline
@@ -151,9 +152,11 @@ bool joinDiscoveredGame(const DiscoverGame& game, std::string& error);
 void renderAuthMenu(float uiScale);
 void renderPlayMenu(float uiScale);
 void renderGamesMenu(float uiScale);
+void renderLoadingScreen(float uiScale);
 void renderGameHud(std::deque<Part>& parts, PhysicsWorld& physicsWorld, float uiScale);
 void renderEscapeMenu(std::deque<Part>& parts, PhysicsWorld& physicsWorld, float uiScale);
 void setShiftLockEnabled(bool enabled);
+void openEscapeMenu();
 void closeEscapeMenu();
 void resetClientSettings();
 

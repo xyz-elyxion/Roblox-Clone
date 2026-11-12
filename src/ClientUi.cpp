@@ -96,7 +96,8 @@ enum MenuIcon {
     MENU_ICON_HELP,
     MENU_ICON_SEARCH,
     MENU_ICON_FLAG,
-    MENU_ICON_BLOCK
+    MENU_ICON_BLOCK,
+    MENU_ICON_MENU
 };
 
 void drawMenuIcon(RblxDrawList* draw, MenuIcon icon, const RblxVec2& center, float size,
@@ -166,6 +167,14 @@ void drawMenuIcon(RblxDrawList* draw, MenuIcon icon, const RblxVec2& center, flo
             draw->AddLine(RblxVec2(center.x - size * 0.20f, center.y + size * 0.20f),
                           RblxVec2(center.x + size * 0.20f, center.y - size * 0.20f), color,
                           std::max(1.0f, stroke * 1.2f));
+            break;
+        case MENU_ICON_MENU:
+            // Three bars, the mark a player already reads as "the menu".
+            for (int bar = -1; bar <= 1; ++bar) {
+                const float y = center.y + half * 0.44f * static_cast<float>(bar);
+                draw->AddLine(RblxVec2(center.x - half * 0.72f, y),
+                              RblxVec2(center.x + half * 0.72f, y), color, stroke);
+            }
             break;
     }
 }
@@ -280,10 +289,21 @@ bool menuStatusIsError = false;
 int reportTargetKind = 0;  // 1 when the open report is about a player
 std::string reportTargetName;
 char reportReason[240] = "";
+// The name typed on the Report page, kept beside the resolved target because a
+// text field needs a buffer and a report needs a name.
+char reportTargetInput[32] = "";
 
 void setMenuStatus(const std::string& text, bool isError = false) {
     menuStatus = text;
     menuStatusIsError = isError;
+}
+
+// One place that points a report at a target: a row's flag and the Report page's
+// own field have to agree on who is being reported, whichever was used last.
+void setReportTarget(const std::string& username) {
+    reportTargetKind = username.empty() ? 0 : 1;
+    reportTargetName = username;
+    copyToBuffer(reportTargetInput, sizeof(reportTargetInput), username);
 }
 
 // The site names every account by id, and the menu only knows the names in this
@@ -472,8 +492,7 @@ void drawPeopleRows(float uiScale) {
             right -= mark;
             RblxUI::SetCursorScreenPos(RblxVec2(right, markY));
             if (menuIconButton(MENU_ICON_FLAG, "Report this player", mark, uiScale)) {
-                reportTargetKind = 1;
-                reportTargetName = person.name;
+                setReportTarget(person.name);
                 setMenuStatus(std::string());
                 escapeMenuTab = ESCAPE_TAB_REPORT;
             }
@@ -814,7 +833,9 @@ void renderChat(float uiScale) {
     const float width = std::clamp(display.x * 0.34f, UiScale::Px(300.0f, uiScale), UiScale::Px(460.0f, uiScale));
     const float height = std::clamp(display.y * 0.30f, UiScale::Px(210.0f, uiScale), UiScale::Px(320.0f, uiScale));
 
-    RblxUI::SetNextWindowPos(RblxVec2(margin, margin), RblxUICond_Always);
+    // Below the corner menu button, which owns the corner itself.
+    RblxUI::SetNextWindowPos(RblxVec2(margin, margin + UiScale::Px(50.0f, uiScale)),
+                             RblxUICond_Always);
     RblxUI::SetNextWindowSize(RblxVec2(width, height), RblxUICond_Always);
     if (RblxUI::Begin("ChatHud", nullptr, overlayFlags())) {
         drawLabel("CHAT");
@@ -908,9 +929,65 @@ void renderDeathOverlay(float uiScale) {
     RblxUI::End();
 }
 
+// The Esc key and the button in the corner open the same menu, so both come
+// through here rather than each doing half of it.
+void openEscapeMenu() {
+    escapeMenuOpen = true;
+    escapeMenuTab = ESCAPE_TAB_PEOPLE;
+    menuStatus.clear();
+    isCursorLocked = false;
+
+    RBLXWINwindow* window = rblxwinGetCurrentContext();
+    if (!window) return;
+    rblxwinSetInputMode(window, RBLXWIN_CURSOR, RBLXWIN_CURSOR_NORMAL);
+}
+
+// Where a game puts its menu: a square in the top-left corner, so a player who
+// never learned the Esc key still finds it. Chat sits below it rather than under.
+void renderMenuButton(float uiScale) {
+    const float margin = UiScale::Px(18.0f, uiScale);
+    const float size = UiScale::Px(40.0f, uiScale);
+    RblxUI::SetNextWindowPos(RblxVec2(margin, margin), RblxUICond_Always);
+    RblxUI::SetNextWindowSize(RblxVec2(size, size), RblxUICond_Always);
+    RblxUI::PushStyleVar(RblxUIStyleVar_WindowPadding, RblxVec2(0.0f, 0.0f));
+    if (RblxUI::Begin("MenuButtonHud", nullptr, overlayFlags())) {
+        if (menuIconButton(MENU_ICON_MENU, "Menu (Esc)", size, uiScale)) {
+            openEscapeMenu();
+        }
+    }
+    RblxUI::End();
+    RblxUI::PopStyleVar();
+}
+
+// The first screen: the window is up and the saved sign-in is being checked, so
+// the client says what it is doing instead of showing an empty frame.
+void renderLoadingScreen(float uiScale) {
+    const rblx::ui::theme::Colors& palette = rblx::ui::theme::colors();
+    const RblxVec2 display = RblxUI::GetIO().DisplaySize;
+    const float panelWidth =
+        std::min(display.x - UiScale::Px(40.0f, uiScale), UiScale::Px(430.0f, uiScale));
+    const float panelHeight = UiScale::Px(170.0f, uiScale);
+    RblxUI::SetNextWindowPos(
+        RblxVec2((display.x - panelWidth) * 0.5f, (display.y - panelHeight) * 0.5f),
+        RblxUICond_Always);
+    RblxUI::SetNextWindowSize(RblxVec2(panelWidth, panelHeight), RblxUICond_Always);
+
+    if (RblxUI::Begin("LoadingScreen", nullptr, overlayFlags())) {
+        drawLabel("RBLX CLONE");
+        RblxUI::TextUnformatted("Loading");
+        RblxUI::PushStyleColor(RblxUICol_Text, palette.muted);
+        RblxUI::TextWrapped("Checking the saved sign-in with the website, then opening the "
+                            "menu. A webserver that is not running only means signing in "
+                            "again.");
+        RblxUI::PopStyleColor();
+    }
+    RblxUI::End();
+}
+
 void renderGameHud(std::deque<Part>& parts, PhysicsWorld& physicsWorld, float uiScale) {
     if (escapeMenuOpen) return;
     if ((currentState != ONLINE && currentState != OFFLINE) || !myCharacter) return;
+    renderMenuButton(uiScale);
     if (showChatHud) {
         renderChat(uiScale);
     }
@@ -1145,19 +1222,28 @@ void renderEscapeMenu(std::deque<Part>& parts, PhysicsWorld& physicsWorld, float
         RblxUI::BeginChild("EscapeReport", RblxVec2(0, -footerHeight), false);
 
         drawLabel("WHAT TO REPORT");
-        if (reportTargetKind == 1 && !reportTargetName.empty()) {
-            RblxUI::Text("Player %s", reportTargetName.c_str());
+        if (RblxUI::RadioButton("This game", reportTargetKind == 0)) {
+            setReportTarget(std::string());
+        }
+        RblxUI::SameLine();
+        if (RblxUI::RadioButton("A player", reportTargetKind == 1)) {
+            reportTargetKind = 1;
+            reportTargetName = reportTargetInput;
+        }
+        if (reportTargetKind == 1) {
+            RblxUI::SetNextItemWidth(-1.0f);
+            if (RblxUI::InputText("##reportTarget", reportTargetInput,
+                                  sizeof(reportTargetInput))) {
+                reportTargetName = reportTargetInput;
+            }
+            RblxUI::PushStyleColor(RblxUICol_Text, palette.muted);
+            RblxUI::TextWrapped("The account name, spelled the way the site has it. Reporting "
+                                "a player from the People list fills this in for you.");
+            RblxUI::PopStyleColor();
         } else if (launchGameId > 0) {
             RblxUI::Text("Game %d", launchGameId);
         } else {
             RblxUI::TextUnformatted("This session");
-        }
-        if (reportTargetKind == 1) {
-            if (modernButton("Report the game instead", RblxVec2(-1, UiScale::Px(32.0f, uiScale)),
-                             rblx::ui::theme::secondaryButton())) {
-                reportTargetKind = 0;
-                reportTargetName.clear();
-            }
         }
 
         RblxUI::Spacing();
@@ -1170,7 +1256,8 @@ void renderEscapeMenu(std::deque<Part>& parts, PhysicsWorld& physicsWorld, float
         RblxUI::PopStyleColor();
 
         const bool signedIn = std::strlen(authToken) > 0;
-        const bool ready = signedIn && std::strlen(reportReason) >= 3;
+        const bool ready = signedIn && std::strlen(reportReason) >= 3 &&
+                           (reportTargetKind != 1 || std::strlen(reportTargetInput) > 0);
         if (!ready) RblxUI::BeginDisabled();
         if (modernButton("Send report", RblxVec2(-1, UiScale::Px(40.0f, uiScale)),
                          rblx::ui::theme::primaryButton())) {

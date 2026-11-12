@@ -17,8 +17,13 @@ on:
   pull_request:
   workflow_dispatch:
 
+# The group serialises this branch's builds, which is what cancel-in-progress
+# needs. A run GitHub leaves queued after a service incident is never cancelled,
+# though: it holds the group and every later push waits behind it. The suffix
+# below gives new runs a group of their own while such a record exists; drop it
+# once the stuck run is gone.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}-v2
   cancel-in-progress: true
 
 env:

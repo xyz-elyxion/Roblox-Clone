@@ -239,7 +239,10 @@ is compiled into the client.
 - No CMake install: the build tool is vendored in `rblxbuild/` and bootstrapped from source.
 - An OpenGL-capable GPU and drivers.
 - RBLXWindow, RBLXMath, RBLXUI, RblxGizmo, RBLXTextEdit, RBLXPhysics, RBLXStb and RBLXGL are
-  vendored in their own trees at the top of the repository, so configuring needs no network.
+  vendored in their own trees at the top of the repository, so configuring needs no network. The
+  trees carry the code, not the upstream release notes around it: generated API docs, example
+  programs, their own test suites, screenshots and CI files are not part of the snapshot because
+  nothing here builds or reads them.
 
 **The website** is built from the same tree and needs nothing beyond it: no Node.js, npm or SQLite.
 

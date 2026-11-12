@@ -57,7 +57,9 @@ them, and writes `README.txt`, `update.json` and `manifest.json` into `dist/rblx
    this project's scheme. Do not reformat or "clean up" them, keep their licences
    (`RBLXAntiCheat/LICENSE`, `rblxbuild/Licenses/` and the `LICENSE`/`copying.txt` in each
    tree) intact, and do not rename identifiers piecemeal: a change there is a fork-wide
-   rename or nothing, because the trees must stay internally consistent.
+   rename or nothing, because the trees must stay internally consistent. Their generated
+   documentation, examples, own test suites and CI files have been pruned; the code, build
+   files and licences are upstream as pinned.
 3. **One palette, in `include/UiTheme.h`.** Every window — client, Studio, RBLXCode, the
    server console, the installer, the updater — reads its colours from there. There are
    two palettes, dark and light, and which one is used is the `theme` key in

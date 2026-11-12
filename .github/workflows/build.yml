@@ -117,6 +117,9 @@ jobs:
       # leaves the tool behind for the next run. A cache hit is already stored.
       - name: Save the build tool
         if: steps.tool.outputs.reused != 'true'
+        # A second run can win the race for the same key; that run has stored an
+        # identical tool, so losing it is not a reason to fail the build.
+        continue-on-error: true
         uses: actions/cache/save@v4
         with:
           path: |

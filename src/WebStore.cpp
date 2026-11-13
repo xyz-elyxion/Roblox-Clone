@@ -1715,6 +1715,16 @@ std::vector<std::string> Store::pruneOrphanUploads(long long nowMs, long long gr
     return removed;
 }
 
+std::vector<const UploadRecord*> Store::uploadsForUser(int userId) const {
+    std::vector<const UploadRecord*> out;
+    for (const UploadRecord& record : uploads_) {
+        if (record.userId == userId) {
+            out.push_back(&record);
+        }
+    }
+    return out;
+}
+
 long long Store::uploadBytesForUser(int userId) const {
     long long total = 0;
     for (const UploadRecord& record : uploads_) {
@@ -1743,6 +1753,22 @@ std::vector<const ChatMessageRecord*> Store::chatMessages(int gameId, const std:
         out.push_back(&*it);
     }
     std::reverse(out.begin(), out.end());
+    return out;
+}
+
+std::vector<const ChatMessageRecord*> Store::chatMessagesByUser(int userId,
+                                                                std::size_t limit) const {
+    std::vector<const ChatMessageRecord*> out;
+    if (userId <= 0 || limit == 0) {
+        return out;
+    }
+    // Newest first, which is how an export reads best: the last thing said is the
+    // first thing someone looks for.
+    for (auto it = chat_.rbegin(); it != chat_.rend() && out.size() < limit; ++it) {
+        if (it->userId == userId) {
+            out.push_back(&*it);
+        }
+    }
     return out;
 }
 

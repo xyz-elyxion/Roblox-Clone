@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Support - RBLX Clone</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <div class="page">
+        <header class="topbar">
+            <a class="brand" href="/" aria-label="RBLX Clone home">
+                <span>RBLX Clone</span>
+            </a>
+            <nav class="nav" aria-label="Primary">
+                <a href="/dashboard" data-nav-user hidden>Home</a>
+                <a href="/games">Games</a>
+                <a href="/chat" data-nav-user hidden>Chat</a>
+                <a href="/welcome">Tour</a>
+                <a href="/support">Support</a>
+                <a href="/create" data-nav-user hidden>Create</a>
+                <a href="/dashboard#search" data-nav-user hidden>Search</a>
+                <a href="/avatar" data-nav-user hidden>Avatar</a>
+                <a href="/profile" data-nav-user hidden>Profile</a>
+                <a href="/settings" data-nav-user hidden>Settings</a>
+                <a href="/developers" data-nav-user hidden>Developers</a>
+                <a href="/admin" data-admin-only data-nav-user hidden>Admin</a>
+                <a href="/login" data-nav-guest>Login</a>
+                <a href="/signup" data-nav-guest>Sign up</a>
+                <button class="button danger" type="button" data-logout data-nav-user hidden>Logout</button>
+            </nav>
+        </header>
+
+        <main id="main" tabindex="-1">
+            <div class="dashboard-head">
+                <div>
+                    <p class="label">Help</p>
+                    <h1 class="legal-title">Support</h1>
+                </div>
+            </div>
+
+            <article class="panel legal-doc">
+                <p class="legal-meta">Last updated 13 November 2026</p>
+
+                <p>RBLX Clone is a self-hosted prototype, so there is no support desk behind it: the person
+                    who runs the install is the person who can read the data file, the server log and the
+                    game-server logs. This page collects the problems people actually hit in this build and
+                    what fixes each one, so most of them do not need anybody else.</p>
+
+                <h2>The site loads but every list is empty</h2>
+                <p>Every page is plain HTML served by <code>WebApp.exe</code>, and everything on the page is
+                    fetched from it. If the pages open but games, friends or chat stay empty, or a banner says
+                    the site cannot be reached, the backend is not running or is on another port. Start
+                    <code>WebApp.exe</code> from the folder the site was installed to and reload; the port it
+                    prints on start is the one to open.</p>
+
+                <h2>Signing in</h2>
+                <ul>
+                    <li>The session is a signed token kept in this browser's <code>localStorage</code>. It
+                        expires after the lifetime the operator configured, seven days by default, and an
+                        <em>Invalid or expired token</em> answer means exactly that: sign in again.</li>
+                    <li><strong>Logout</strong> removes the token from this browser. Signing out on one browser
+                        does not sign out another one.</li>
+                    <li><strong>Forgotten password.</strong> When the account was created the site showed a
+                        recovery code once. <a href="/login">Sign in</a> has a recovery form below the password
+                        box: the username plus that code sets a new password. A new code can be generated from
+                        <a href="/settings">Settings</a> while you are still signed in, and generating one
+                        replaces the old code.</li>
+                    <li>If the password and the recovery code are both gone, nobody can recover the account:
+                        the site keeps only hashes, so there is nothing to read back. The operator can remove
+                        the account, and a new one starts from nothing.</li>
+                </ul>
+
+                <h2>Chat</h2>
+                <ul>
+                    <li>Reading a room is open to anyone. Posting needs an account and an account that is not
+                        suspended or banned; <a href="/settings">Settings</a> shows the standing and any
+                        infractions.</li>
+                    <li>A message may be 500 characters. One account may post five messages in ten seconds,
+                        and the composer shows the wait the server sent back rather than losing the text.</li>
+                    <li>A private game's room answers <code>404</code> to everyone but its owner.</li>
+                    <li>Blocking an account hides both sides' messages from each other, and the log says how
+                        many it hid instead of looking truncated.</li>
+                </ul>
+
+                <h2>Files, voice clips and the scanner</h2>
+                <ul>
+                    <li>One attachment per message, up to 2 MiB. Allowed files are PNG, JPEG, WebP and GIF
+                        pictures, WebM, Ogg, WAV, MP3 and M4A audio, and TXT, MD, LOG, WORLD and RBX text.
+                        Anything else, including installers, archives and web pages, is refused by name.</li>
+                    <li>Every file is scanned before it is stored. A clean file is posted normally. A file the
+                        scanner doubted is kept but labelled, and it is served as a download rather than drawn.
+                        A blocked file is refused with the name the scanner gave it, for example
+                        <code>Win32.Executable</code>, <code>Trojan.Downloader</code> or
+                        <code>Trojan.Macro</code>; that gate is a fixed set of checks, not an anti-virus, so a
+                        file it accepts is not a promise that the file is safe.</li>
+                    <li><strong>Voice</strong> records a clip of up to sixty seconds and posts it as a
+                        message. It is not a live call, and this build cannot make one.</li>
+                    <li>If recording does nothing, the browser refused the microphone. The site asks for
+                        permission the first time; the answer lives in the browser's site settings, not in
+                        this account.</li>
+                </ul>
+
+                <h2>A game will not start</h2>
+                <p><strong>Play</strong> on a game page asks the backend to start a local game server and
+                    hands the client what it needs to join. A failure is almost always one of three things:
+                    the game has no world file, the game is private and not yours, or the server could not be
+                    started. The console of <code>WebApp.exe</code> lists each running instance, and every
+                    instance writes its output to <code>web/game-server-logs</code>; the admin dashboard shows
+                    the same list to an administrator.</p>
+
+                <h2>Moderation, appeals and reports</h2>
+                <ul>
+                    <li><a href="/settings">Settings</a> shows the account's standing, its infractions, and a
+                        form to appeal one. An appeal is read by the people with the appeals permission, and
+                        the answer appears in the same panel.</li>
+                    <li><strong>Report</strong> on a game's page files a report against that game, with a
+                        reason, which the admin dashboard lists newest first. A block is for your own account;
+                        a report is for the operator.</li>
+                    <li>A ban reaches the account in a wave: the next authenticated request after the wave is
+                        answered with it, and a banned account can still read the site.</li>
+                </ul>
+
+                <h2>Your data</h2>
+                <p><a href="/settings">Settings</a> can download everything kept about the account as JSON —
+                    profile, avatar, playtime, coins, friends, blocks, the games you own, the chat messages you
+                    posted and the files attached to them with their scan verdicts — and can delete the account
+                    after asking for its password. The install owner cannot be deleted, because the install
+                    cannot be recovered without it. <a href="/privacy">Privacy</a> describes what is stored and
+                    where it lives.</p>
+
+                <h2>Who to ask</h2>
+                <p>Ask the person who runs this install: they started <code>WebApp.exe</code>, they have the
+                    data file and the logs, and this build has no external support address to write to. If you
+                    are the operator, the <a href="/welcome">tour</a> covers the setup, the
+                    <a href="/developers">developer page</a> covers tokens for the trainer, and the project's
+                    <code>README.md</code> and <code>HOSTING.md</code> next to the executables cover the rest.
+                    Problems that look like a bug in the build are worth writing down with the page, what you
+                    clicked and what the console printed, so the next person can reproduce them.</p>
+            </article>
+        </main>
+
+        <footer class="legal-footer">
+            <span>RBLX Clone · local prototype</span>
+            <nav aria-label="Legal">
+                <a href="/support">Support</a>
+                <a href="/privacy">Privacy</a>
+                <a href="/terms">Terms</a>
+            </nav>
+        </footer>
+    </div>
+    <script src="/app.js?v=roles-1" defer></script>
+</body>
+</html>

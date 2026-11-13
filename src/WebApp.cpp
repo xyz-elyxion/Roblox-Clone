@@ -800,6 +800,11 @@ std::string pageFileForPath(const std::string& path) {
     if (path == "/terms") {
         return "terms.html";
     }
+    // Help for a stuck player: the limits and the fixes this build actually has,
+    // rather than a contact form nothing answers.
+    if (path == "/support") {
+        return "support.html";
+    }
     if (path == "/admin") {
         return "admin.html";
     }
@@ -3244,6 +3249,31 @@ bool WebsiteApp::handleExportData(Request& request, Response& response) {
         blocks.push(entry);
     }
     result.set("blocks", blocks);
+
+    // Chat is the account's data too: the messages it wrote, where they went, and
+    // for a message carrying a file, that file's name, size, hash and the scan
+    // verdict. The download link travels with it, so the export is a way to get the
+    // files back rather than a list of files that cannot be opened.
+    Json chat = Json::makeArray();
+    for (const ChatMessageRecord* message : store_.chatMessagesByUser(user.id, 4000)) {
+        Json entry = Json::makeObject();
+        entry.set("id", message->id);
+        entry.set("gameId", message->gameId);
+        entry.set("channel", message->channel);
+        entry.set("body", message->body);
+        entry.set("at", message->createdAt);
+        if (const UploadRecord* upload = store_.findUpload(message->attachmentId)) {
+            entry.set("attachment", uploadJson(*upload));
+        }
+        chat.push(entry);
+    }
+    result.set("chat", chat);
+
+    Json uploads = Json::makeArray();
+    for (const UploadRecord* upload : store_.uploadsForUser(user.id)) {
+        uploads.push(uploadJson(*upload));
+    }
+    result.set("uploads", uploads);
 
     sendJson(response, 200, result);
     return true;

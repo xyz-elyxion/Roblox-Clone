@@ -611,8 +611,9 @@ code.
   reports it filed and its games — world files deleted, running instances stopped — after checking
   the password. The install owner is refused with `400`, because the install cannot be recovered
   without that account.
-- `GET /api/account/export` returns the same data as JSON and leaves the password and recovery
-  hashes out.
+- `GET /api/account/export` returns the same data as JSON — including the chat messages the account
+  wrote and the files attached to them, with their scan verdicts and download links — and leaves the
+  password and recovery hashes out.
 
 All three live in Settings, next to the password form.
 
@@ -921,6 +922,20 @@ liability and the fact that the person running the install is the party responsi
 Both are a starting point for a local prototype, not legal advice: have them reviewed before
 pointing an install at the open internet, and adjust the contact and governing-law wording to
 whoever operates it.
+
+### Support
+
+`/support` (`web/public/support.html`) is the page a stuck player is pointed at, linked from the
+menu bar and the footer of every page. It collects the answers this build actually has instead of a
+contact form nothing answers: the backend has to be running for any list to fill, a session expires
+after the configured lifetime and signing in again is the fix, a forgotten password needs the
+recovery code from the sign-in page, chat posting needs an account and an unrestricted standing, an
+attachment is capped at two mebibytes and only the listed types are accepted with the scanner's
+verdicts described in plain words, a game that will not start is a game server whose log is under
+`web/game-server-logs`, an infraction is answered by the appeal form in Settings, a report goes
+through a game page, and the export and the delete button are both in Settings. The last section
+says who the support is: the person who runs the install, because the accounts and the logs are on
+their machine and this build has no external support address to invent.
 
 ### Settings
 

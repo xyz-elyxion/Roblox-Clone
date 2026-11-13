@@ -536,6 +536,8 @@ public:
     bool removeUpload(int id);
     std::size_t uploadCountForUser(int userId) const;
     long long uploadBytesForUser(int userId) const;
+    // The files one account uploaded, oldest first, with their scan verdicts.
+    std::vector<const UploadRecord*> uploadsForUser(int userId) const;
     // Points a record at the bytes once they are written; false when unknown.
     bool setUploadPath(int id, const std::string& path);
     // Drops records no message refers to - a file whose message was trimmed out of
@@ -553,6 +555,11 @@ public:
     std::vector<const ChatMessageRecord*> chatMessages(int gameId, const std::string& channel,
                                                       int afterId, std::size_t limit) const;
     std::size_t chatMessageCount() const { return chat_.size(); }
+    // The messages one account wrote, newest first, for the data export. The limit
+    // keeps one very busy account from turning the export into the largest answer
+    // the site can build.
+    std::vector<const ChatMessageRecord*> chatMessagesByUser(int userId,
+                                                             std::size_t limit) const;
     // A game's chat goes with the game, and an account's messages go with the
     // account: deleting either leaves nothing behind that a reader could find.
     void removeChatMessagesForGame(int gameId);

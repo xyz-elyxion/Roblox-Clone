@@ -714,6 +714,11 @@ std::string HttpServer::mimeTypeForPath(const std::string& path) {
     if (extension == ".png") {
         return "image/png";
     }
+    // The site's own placeholder art and the avatar face textures ship as WebP:
+    // the same pictures at roughly half to a third of the PNG bytes.
+    if (extension == ".webp") {
+        return "image/webp";
+    }
     if (extension == ".jpg" || extension == ".jpeg") {
         return "image/jpeg";
     }

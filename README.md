@@ -865,9 +865,9 @@ balance is never cached.
 
 There is no gzip or Brotli stage — the server sends files as they sit — so the weight is kept down
 at the source. `app.js` and `style.css` are the only files every page loads; three.js is imported
-only on the pages that draw an avatar; and the two placeholder game images are sized for their
-largest display (a 1120×630 banner and a 192×192 icon, 205 KB and 18 KB) instead of the
-multi-megabyte originals. On the games page the first row of cards loads eagerly with the first
+only on the pages that draw an avatar; and the placeholder game art and the avatar face textures
+ship as WebP at the size they are displayed (a 1120×630 banner, a 192×192 icon and five 512×512
+faces, 99 KB, 11 KB and 42 KB in total) instead of the multi-megabyte originals. On the games page the first row of cards loads eagerly with the first
 banner marked `fetchpriority="high"`, and the rest are lazy.
 
 ### Privacy and terms

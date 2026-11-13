@@ -1435,7 +1435,7 @@ void testDevTokens() {
                 token, 201, "a title with a control byte is accepted", &body);
     checkContains(body, "\"title\":\"Esc [31mTitle\"",
                   "a control byte is folded out of a stored title");
-    checkContains(body, "\"iconUrl\":\"/assets/games/default-game-icon.png\"",
+    checkContains(body, "\"iconUrl\":\"/assets/games/default-game-icon.webp\"",
                   "an absent icon is answered as the built-in one");
 
     // A page or asset is revalidated rather than re-sent: it carries an ETag, and

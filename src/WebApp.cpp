@@ -83,12 +83,12 @@ namespace rblx {
 namespace web {
 namespace {
 
-const char* kDefaultGameIcon = "/assets/games/default-game-icon.png";
+const char* kDefaultGameIcon = "/assets/games/default-game-icon.webp";
 
 // A game's script is source a person writes, so it stays small; the cap keeps a
 // paste from filling the install's disk, and the editor reads it to show the limit.
 const std::size_t kMaxGameScriptBytes = 256 * 1024;
-const char* kDefaultGameBanner = "/assets/games/default-game-banner.png";
+const char* kDefaultGameBanner = "/assets/games/default-game-banner.webp";
 const long long kMaxWorldBytes = 2 * 1024 * 1024;
 
 // How many game servers one game, and the install as a whole, may run at once.

@@ -1,10 +1,10 @@
 const tokenKey = 'authToken';
 const faceCatalog = [
-    { id: 'classic', label: 'Classic', src: '/faces/classic.png' },
-    { id: 'happy', label: 'Happy', src: '/faces/happy.png' },
-    { id: 'surprised', label: 'Surprised', src: '/faces/surprised.png' },
-    { id: 'smirk', label: 'Smirk', src: '/faces/smirk.png' },
-    { id: 'wink', label: 'Wink', src: '/faces/wink.png' }
+    { id: 'classic', label: 'Classic', src: '/faces/classic.webp' },
+    { id: 'happy', label: 'Happy', src: '/faces/happy.webp' },
+    { id: 'surprised', label: 'Surprised', src: '/faces/surprised.webp' },
+    { id: 'smirk', label: 'Smirk', src: '/faces/smirk.webp' },
+    { id: 'wink', label: 'Wink', src: '/faces/wink.webp' }
 ];
 const defaultFaceId = 'classic';
 
@@ -1569,7 +1569,7 @@ function createGameCard(game, status, index) {
     media.setAttribute('aria-label', `${game.title} details`);
 
     const banner = document.createElement('img');
-    banner.src = game.bannerUrl || '/assets/games/default-game-banner.png';
+    banner.src = game.bannerUrl || '/assets/games/default-game-banner.webp';
     banner.alt = '';
     // The first row is the one a visitor sees before scrolling, so it loads
     // eagerly and the very first banner is the highest-priority request; the rest
@@ -1584,7 +1584,7 @@ function createGameCard(game, status, index) {
 
     const icon = document.createElement('img');
     icon.className = 'game-icon';
-    icon.src = game.iconUrl || '/assets/games/default-game-icon.png';
+    icon.src = game.iconUrl || '/assets/games/default-game-icon.webp';
     icon.alt = '';
     icon.loading = 'lazy';
 
@@ -1665,7 +1665,7 @@ function createMyGameRow(game) {
 
     const icon = document.createElement('img');
     icon.className = 'game-icon small-icon';
-    icon.src = game.iconUrl || '/assets/games/default-game-icon.png';
+    icon.src = game.iconUrl || '/assets/games/default-game-icon.webp';
     icon.alt = '';
 
     const text = document.createElement('div');
@@ -2056,7 +2056,7 @@ function initGamePage() {
         title.textContent = currentGame.title;
         owner.textContent = `By ${currentGame.ownerUsername}`;
         description.textContent = currentGame.description || 'No description yet.';
-        banner.src = currentGame.bannerUrl || '/assets/games/default-game-banner.png';
+        banner.src = currentGame.bannerUrl || '/assets/games/default-game-banner.webp';
         renderGameStats(stats, currentGame);
         renderServerList(servers, data.servers);
 

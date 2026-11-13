@@ -198,7 +198,11 @@ private:
         std::string username;
     };
 
-    HttpServer::Handler guard(HttpServer::Handler handler);
+    // Wraps a handler with the checks every API route shares: the Origin rule, the
+    // per-address budget and, for a mutating call, a JSON body. `acceptsRawBody`
+    // exempts the one route that carries a file rather than a document, because an
+    // upload is the bytes themselves and has no JSON to be.
+    HttpServer::Handler guard(HttpServer::Handler handler, bool acceptsRawBody = false);
     bool isOriginAllowed(const std::string& origin) const;
     bool isRateLimited(const std::string& remoteAddress);
     // Counts one request from `remoteAddress` against the site-wide budget.

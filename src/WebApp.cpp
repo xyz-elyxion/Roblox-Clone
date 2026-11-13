@@ -1691,8 +1691,8 @@ bool WebsiteApp::isRequestRateLimited(const std::string& remoteAddress,
     return false;
 }
 
-HttpServer::Handler WebsiteApp::guard(HttpServer::Handler handler) {
-    return [this, handler](Request& request, Response& response) {
+HttpServer::Handler WebsiteApp::guard(HttpServer::Handler handler, bool acceptsRawBody) {
+    return [this, handler, acceptsRawBody](Request& request, Response& response) {
         const std::string origin = request.header("origin");
         if (!origin.empty()) {
             const std::string host = request.header("host");
@@ -1713,7 +1713,8 @@ HttpServer::Handler WebsiteApp::guard(HttpServer::Handler handler) {
             response.body.clear();
             response.headers["Access-Control-Allow-Methods"] =
                 "GET,POST,PUT,PATCH,DELETE,OPTIONS";
-            response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization";
+            response.headers["Access-Control-Allow-Headers"] =
+                "Content-Type, Authorization, X-Upload-Name";
             return true;
         }
 
@@ -1742,7 +1743,7 @@ HttpServer::Handler WebsiteApp::guard(HttpServer::Handler handler) {
 
         const bool mutating = request.method == "POST" || request.method == "PUT" ||
                               request.method == "PATCH";
-        if (mutating && request.path.compare(0, 5, "/api/") == 0 &&
+        if (mutating && !acceptsRawBody && request.path.compare(0, 5, "/api/") == 0 &&
             !request.contentTypeStartsWith("application/json")) {
             errorJson(response, 415, "Content-Type must be application/json.");
             return true;
@@ -2313,10 +2314,12 @@ void WebsiteApp::installRoutes() {
                       return handleChatPost(request, response);
                   }));
     // Attachments: one file posted as a raw body, then referenced by a message.
+    // The upload route takes the file itself, so it is the one API call that is
+    // not a JSON body and is exempt from that rule.
     server_.route("POST", "/api/games/:id/uploads",
                   guard([this](Request& request, Response& response) {
                       return handleUpload(request, response);
-                  }));
+                  }, true));
     server_.route("GET", "/api/games/:id/uploads/:uploadId",
                   guard([this](Request& request, Response& response) {
                       return handleDownloadUpload(request, response);

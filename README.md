@@ -647,6 +647,23 @@ live in the website process's memory, so restarting the backend invalidates the 
 # Ask for a machine challenge, then hash until the digest starts with zeros.
 curl -s "http://localhost:3000/api/captcha?kind=machine"
 ```
+### Friends
+
+`/friends` is the roster as a page of its own, linked beside Chat in the menu bar: who is online, the
+requests waiting on an answer, the requests you sent (cancellable from the same card), and a username
+search that adds someone without leaving the page. The dashboard's **Friends / Requests / Search**
+tabs and the profile page read the same endpoint and draw the same cards, so the three cannot
+disagree about a relationship.
+
+The rules are the system's, not the page's. A pair has one row, so a request that crosses an existing
+one is answered rather than duplicated, and a request to an account that had already asked you is
+accepted on the spot — two people reaching for each other should not have to press two buttons. A
+blocked pair is refused with `403`, because a block ends contact in both directions and the search
+already hides it. The roster is capped at 200 accepted friends and 50 sent requests still waiting,
+so relationships cannot be used to grow the data file without bound. Presence is the same two-minute
+window the rest of the site uses, which is why the roster can say how many are online without a
+second connection, and deleting an account takes its friendship rows with it.
+
 ### Blocks, reports and presence
 
 `POST /api/blocks` with `{ "userId": 3, "blocked": true }` blocks an account and drops any

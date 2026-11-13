@@ -223,6 +223,16 @@ detections are filed against the caller's own account only. Bans also bar the ma
 account was last seen on (`POST /api/hardware-check` for guests), as a 32-character hash of
 the system volume serial and the computer name; the raw values never leave the client.
 
+**Friends.** A friendship is one row per pair holding the requester, the addressee, a status and
+the two timestamps, so a request crossing an existing row is answered rather than duplicated and a
+pair cannot appear twice in a list. Both endpoints take a target user id that has to exist, and read
+the pair through the caller's own id, so a caller cannot act on a friendship it is not part of. A
+blocked pair is refused with `403`: a block is a request to end contact in both directions, and a
+friend request is contact. Accepted friends are capped at 200 and unresolved requests a sender may
+leave at 50, which bounds the relationship table against one account filling it. Deleting an account
+deletes its rows, and online state is the same two-minute presence window used elsewhere, kept in
+memory rather than on disk.
+
 **Chat attachments.** An upload is a raw body on `POST /api/games/:id/uploads` with the name in
 `X-Upload-Name`. The name is checked against an allowlist (pictures, audio, text) and refused if it
 contains a path, control characters or a trailing dot, and it never becomes a path: the bytes are

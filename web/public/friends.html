@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Friends - RBLX Clone</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <div class="page">
+        <header class="topbar">
+            <a class="brand" href="/" aria-label="RBLX Clone home">
+                <span>RBLX Clone</span>
+            </a>
+            <nav class="nav" aria-label="Primary">
+                <a href="/dashboard" data-nav-user hidden>Home</a>
+                <a href="/games">Games</a>
+                <a href="/chat" data-nav-user hidden>Chat</a>
+                <a href="/friends" data-nav-user hidden>Friends</a>
+                <a href="/welcome">Tour</a>
+                <a href="/support">Support</a>
+                <a href="/create" data-nav-user hidden>Create</a>
+                <a href="/dashboard#search" data-nav-user hidden>Search</a>
+                <a href="/avatar" data-nav-user hidden>Avatar</a>
+                <a href="/profile" data-nav-user hidden>Profile</a>
+                <a href="/settings" data-nav-user hidden>Settings</a>
+                <a href="/developers" data-nav-user hidden>Developers</a>
+                <a href="/admin" data-admin-only data-nav-user hidden>Admin</a>
+                <a href="/login" data-nav-guest>Login</a>
+                <a href="/signup" data-nav-guest>Sign up</a>
+                <button class="button danger" type="button" data-logout data-nav-user hidden>Logout</button>
+            </nav>
+        </header>
+
+        <main id="main" tabindex="-1" data-friends-page>
+            <div class="dashboard-head">
+                <div>
+                    <p class="label">Social</p>
+                    <h1>Friends</h1>
+                </div>
+                <p class="label" data-friend-count aria-live="polite"></p>
+            </div>
+
+            <p class="status" data-friends-status aria-live="polite"></p>
+
+            <section class="panel" aria-labelledby="friends-requests-title">
+                <div class="panel-heading">
+                    <div>
+                        <p class="label">Requests</p>
+                        <h2 id="friends-requests-title">Friend requests</h2>
+                    </div>
+                    <span class="label" data-request-count aria-live="polite"></span>
+                </div>
+                <h3>Waiting for you</h3>
+                <div class="stack-list" data-incoming></div>
+                <h3>You sent</h3>
+                <div class="stack-list" data-outgoing></div>
+            </section>
+
+            <section class="panel" aria-labelledby="friends-roster-title">
+                <div class="panel-heading">
+                    <div>
+                        <p class="label">Roster</p>
+                        <h2 id="friends-roster-title">Your friends</h2>
+                    </div>
+                </div>
+                <div class="user-grid" data-friend-list></div>
+            </section>
+
+            <section class="panel" aria-labelledby="friends-search-title">
+                <div class="panel-heading">
+                    <div>
+                        <p class="label">People</p>
+                        <h2 id="friends-search-title">Add someone</h2>
+                    </div>
+                </div>
+                <p class="lede">Search by username. An account that already asked you is added straight away
+                    instead of sending the request back, and an account either of you blocked does not
+                    appear.</p>
+                <form class="form" data-friend-search>
+                    <label for="friend-search-input">Username</label>
+                    <input class="input" id="friend-search-input" data-friend-search-input maxlength="30"
+                           autocomplete="off" placeholder="Username" required>
+                    <button class="button" type="submit">Search</button>
+                </form>
+                <p class="status" data-friend-search-status aria-live="polite"></p>
+                <div class="user-grid" data-friend-search-results></div>
+            </section>
+        </main>
+
+        <footer class="legal-footer">
+            <span>RBLX Clone · local prototype</span>
+            <nav aria-label="Legal">
+                <a href="/support">Support</a>
+                <a href="/privacy">Privacy</a>
+                <a href="/terms">Terms</a>
+            </nav>
+        </footer>
+    </div>
+    <script src="/app.js?v=roles-1" defer></script>
+    <script src="/friends.js?v=friends-1" defer></script>
+</body>
+</html>

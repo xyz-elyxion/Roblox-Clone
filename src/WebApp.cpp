@@ -782,6 +782,11 @@ std::string pageFileForPath(const std::string& path) {
     if (path == "/chat") {
         return "chat.html";
     }
+    // The friend roster and its requests as a page of their own: the dashboard can
+    // do this too, but a friend list is something people look for by name.
+    if (path == "/friends") {
+        return "friends.html";
+    }
     if (path == "/create") {
         return "create.html";
     }
@@ -3638,6 +3643,14 @@ bool WebsiteApp::handleFriendRequest(Request& request, Response& response) {
         return true;
     }
 
+    // A block is meant to end contact in both directions. The search already hides
+    // the pair, so a request that crosses a block is refused the same way instead of
+    // landing in a list the blocked account would still have to read.
+    if (store_.blockedEitherWay(user.id, targetUserId)) {
+        errorJson(response, 403, "You cannot add this account.");
+        return true;
+    }
+
     if (const FriendshipRecord* existing = store_.findFriendship(user.id, targetUserId)) {
         const int existingId = existing->id;
         const bool iAmRequester = existing->requesterId == user.id;
@@ -3653,6 +3666,10 @@ bool WebsiteApp::handleFriendRequest(Request& request, Response& response) {
             sendJson(response, 200, result);
             return true;
         }
+        if (static_cast<std::size_t>(store_.countAcceptedFriends(user.id)) >= kMaxFriends) {
+            errorJson(response, 409, "Your friend list is as large as the site allows.");
+            return true;
+        }
         store_.setFriendshipStatus(existingId, "accepted", nowIso());
         std::string saveError;
         store_.save(&saveError);
@@ -3664,7 +3681,22 @@ bool WebsiteApp::handleFriendRequest(Request& request, Response& response) {
         return true;
     }
 
-    store_.addFriendship(user.id, targetUserId, nowIso());
+    // A pending request sits in the other account's list, so the number one account
+    // may leave there is capped; so is the roster an answer could fill.
+    if (store_.sentFriendRequests(user.id) >= kMaxPendingFriendRequests) {
+        errorJson(response, 429,
+                  "You have sent as many friend requests as the site allows. Wait for an answer, or "
+                  "cancel one from the Friends page.");
+        return true;
+    }
+    if (static_cast<std::size_t>(store_.countAcceptedFriends(targetUserId)) >= kMaxFriends) {
+        errorJson(response, 409, "That account already has as many friends as the site allows.");
+        return true;
+    }
+    if (store_.addFriendship(user.id, targetUserId, nowIso()) <= 0) {
+        errorJson(response, 409, "That friend request could not be sent.");
+        return true;
+    }
     std::string saveError;
     store_.save(&saveError);
 
@@ -3708,6 +3740,11 @@ bool WebsiteApp::handleFriendRespond(Request& request, Response& response) {
 
     const int friendshipId = pending->id;
     if (action == "accept") {
+        if (static_cast<std::size_t>(store_.countAcceptedFriends(user.id)) >= kMaxFriends) {
+            errorJson(response, 409, "Your friend list is as full as the site allows. Remove someone "
+                                     "before accepting another.");
+            return true;
+        }
         store_.setFriendshipStatus(friendshipId, "accepted", nowIso());
     } else {
         store_.removeFriendship(friendshipId);

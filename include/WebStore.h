@@ -207,6 +207,13 @@ struct FriendshipRecord {
     std::string updatedAt;
 };
 
+// How many accounts one account may be friends with, and how many requests it may
+// have waiting on an answer. Requests are capped lower than friends because a
+// pending request sits in someone else's list, which is the part a stranger can
+// fill.
+const std::size_t kMaxFriends = 200;
+const std::size_t kMaxPendingFriendRequests = 50;
+
 struct StatsRecord {
     int userId = 0;
     long long playtimeSeconds = 0;
@@ -473,6 +480,8 @@ public:
     int countAcceptedFriends(int userId) const;
     std::vector<const FriendshipRecord*> acceptedFriendships(int userId, std::size_t limit) const;
     std::vector<const FriendshipRecord*> pendingFriendships(int userId, bool incoming) const;
+    // How many requests this account has sent that are still waiting on an answer.
+    std::size_t sentFriendRequests(int userId) const;
     int addFriendship(int requesterId, int addresseeId, const std::string& nowIso);
     void setFriendshipStatus(int friendshipId, const std::string& status,
                              const std::string& nowIso);

@@ -1217,6 +1217,21 @@ std::vector<const FriendshipRecord*> Store::pendingFriendships(int userId, bool 
 }
 
 int Store::addFriendship(int requesterId, int addresseeId, const std::string& nowIso) {
+    if (requesterId <= 0 || addresseeId <= 0 || requesterId == addresseeId) {
+        return 0;
+    }
+    // One row per pair. The request endpoint reuses an existing row rather than
+    // adding a second one, and refusing here keeps a list from counting a pair
+    // twice if anything ever calls this directly.
+    if (findFriendship(requesterId, addresseeId) != nullptr) {
+        return 0;
+    }
+    if (sentFriendRequests(requesterId) >= kMaxPendingFriendRequests ||
+        static_cast<std::size_t>(countAcceptedFriends(requesterId)) >= kMaxFriends ||
+        static_cast<std::size_t>(countAcceptedFriends(addresseeId)) >= kMaxFriends) {
+        return 0;
+    }
+
     FriendshipRecord record;
     record.id = nextFriendshipId_++;
     record.requesterId = requesterId;
@@ -1226,6 +1241,16 @@ int Store::addFriendship(int requesterId, int addresseeId, const std::string& no
     record.updatedAt = nowIso;
     friendships_.push_back(record);
     return record.id;
+}
+
+std::size_t Store::sentFriendRequests(int userId) const {
+    std::size_t count = 0;
+    for (const FriendshipRecord& record : friendships_) {
+        if (record.requesterId == userId && record.status != "accepted") {
+            ++count;
+        }
+    }
+    return count;
 }
 
 void Store::setFriendshipStatus(int friendshipId, const std::string& status,

@@ -400,6 +400,14 @@ function initNavAuth() {
     guestLinks.forEach((link) => { link.hidden = signedIn; });
     userButtons.forEach((button) => { button.hidden = !signedIn; });
 
+    if (signedIn) {
+        const name = localStorage.getItem('username') || 'Account';
+        const nameTarget = document.querySelector('[data-nav-name]');
+        const initialsTarget = document.querySelector('[data-nav-initials]');
+        if (nameTarget) nameTarget.textContent = name;
+        if (initialsTarget) initialsTarget.textContent = accountInitials(name);
+    }
+
     // The Admin entry is part of the same bar on every page, so the dashboard
     // is no longer the only page that reveals it.
     const adminLinks = document.querySelectorAll('[data-admin-only]');
@@ -411,6 +419,92 @@ function initNavAuth() {
             })
             .catch(() => {});
     }
+}
+
+// The bar's menus: one panel at a time, closed by the trigger, Escape, a click
+// outside, or choosing something inside it. The panel is a list of links, so it
+// opens on a click and on ArrowDown rather than needing its own focus trap.
+function initMenus() {
+    const menus = Array.from(document.querySelectorAll('[data-menu]'));
+    if (menus.length === 0) return;
+
+    function parts(menu) {
+        return {
+            trigger: menu.querySelector('[data-menu-trigger]'),
+            panel: menu.querySelector('[data-menu-panel]')
+        };
+    }
+
+    function close(menu) {
+        const { trigger, panel } = parts(menu);
+        if (!trigger || !panel) return;
+        panel.hidden = true;
+        trigger.setAttribute('aria-expanded', 'false');
+    }
+
+    function open(menu) {
+        for (const other of menus) {
+            if (other !== menu) close(other);
+        }
+        const { trigger, panel } = parts(menu);
+        if (!trigger || !panel) return;
+        panel.hidden = false;
+        trigger.setAttribute('aria-expanded', 'true');
+    }
+
+    for (const menu of menus) {
+        const { trigger, panel } = parts(menu);
+        if (!trigger || !panel) continue;
+
+        trigger.addEventListener('click', () => {
+            if (panel.hidden) open(menu);
+            else close(menu);
+        });
+
+        trigger.addEventListener('keydown', (event) => {
+            if (event.key !== 'ArrowDown') return;
+            event.preventDefault();
+            open(menu);
+            const first = panel.querySelector('a, button');
+            if (first) first.focus();
+        });
+
+        // Following a link leaves the page, so the panel only has to close for the
+        // log out button and anything else that stays put.
+        panel.addEventListener('click', (event) => {
+            if (event.target.closest('a')) close(menu);
+        });
+
+    }
+
+    document.addEventListener('click', (event) => {
+        for (const menu of menus) {
+            if (!menu.contains(event.target)) close(menu);
+        }
+    });
+
+    // Escape closes whichever panel is open, wherever the focus is: the trigger
+    // keeps it, so the keyboard is left where the menu was opened from.
+    document.addEventListener('keydown', (event) => {
+        if (event.key !== 'Escape') return;
+        for (const menu of menus) {
+            const { trigger, panel } = parts(menu);
+            if (!panel || panel.hidden) continue;
+            close(menu);
+            if (trigger) trigger.focus();
+        }
+    });
+
+    // The key hint in the search field does what it says, unless the caret is
+    // already in a field that wants the character.
+    document.addEventListener('keydown', (event) => {
+        if (event.key !== '/' || event.ctrlKey || event.metaKey || event.altKey) return;
+        if (event.target.closest('input, textarea, select, [contenteditable="true"]')) return;
+        const field = document.querySelector('#nav-search');
+        if (!field) return;
+        event.preventDefault();
+        field.focus();
+    });
 }
 
 // The page being read is marked in the menu, so the link is announced as the
@@ -3504,6 +3598,7 @@ document.addEventListener('DOMContentLoaded', () => {
     applyDisplayPreferences();
     initNavAuth();
     initNavCurrent();
+    initMenus();
     initStandingNotice();
     initLogoutButtons();
     initLogin();

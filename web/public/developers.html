@@ -18,16 +18,61 @@
                 <a href="/games">Games</a>
                 <a href="/chat" data-nav-user hidden>Chat</a>
                 <a href="/friends" data-nav-user hidden>Friends</a>
-                <a href="/create" data-nav-user hidden>Create</a>
-                <a href="/dashboard#search" data-nav-user hidden>Search</a>
-                <a href="/avatar" data-nav-user hidden>Avatar</a>
-                <a href="/profile" data-nav-user hidden>Profile</a>
-                <a href="/settings" data-nav-user hidden>Settings</a>
-                <a href="/developers" data-nav-user hidden>Developers</a>
-                <a href="/admin" data-admin-only data-nav-user hidden>Admin</a>
-                <a href="/login" data-nav-guest>Login</a>
-                <a href="/signup" data-nav-guest>Sign up</a>
-                <button class="button danger" type="button" data-logout data-nav-user hidden>Logout</button>
+                <a href="/welcome">Tour</a>
+                <a href="/support">Support</a>
+                <div class="nav-menu" data-menu data-nav-user hidden>
+                    <button class="nav-trigger" type="button" data-menu-trigger
+                        aria-expanded="false" aria-controls="nav-create">
+                        Create
+                        <span class="nav-caret" aria-hidden="true"></span>
+                    </button>
+                    <div class="nav-panel" id="nav-create" data-menu-panel hidden>
+                        <div class="nav-column">
+                            <p class="nav-label">Build</p>
+                            <a href="/create">A new game</a>
+                            <a href="/developers">Developers</a>
+                        </div>
+                        <div class="nav-column">
+                            <p class="nav-label">Play</p>
+                            <a href="/games">Explore games</a>
+                            <a href="/avatar">Avatar shop</a>
+                        </div>
+                    </div>
+                </div>
+                <form class="nav-search" action="/search" method="get" role="search" data-nav-user hidden>
+                    <label class="visually-hidden" for="nav-search">Search people</label>
+                    <input class="input" id="nav-search" name="q" type="search" placeholder="Search" autocomplete="off">
+                    <span class="nav-key" aria-hidden="true">/</span>
+                </form>
+                <a href="/login" data-nav-guest>Sign in</a>
+                <a class="nav-button" href="/signup" data-nav-guest>Sign up</a>
+                <div class="nav-menu" data-menu data-nav-user hidden>
+                    <button class="nav-trigger" type="button" data-menu-trigger
+                        aria-expanded="false" aria-controls="nav-account">
+                        <span class="nav-avatar" data-nav-initials aria-hidden="true">?</span>
+                        <span data-nav-name>Account</span>
+                        <span class="nav-caret" aria-hidden="true"></span>
+                    </button>
+                    <div class="nav-panel nav-panel-right" id="nav-account" data-menu-panel hidden>
+                        <div class="nav-column">
+                            <p class="nav-label">Account</p>
+                            <a href="/profile">Profile</a>
+                            <a href="/avatar">Avatar</a>
+                            <a href="/settings">Settings</a>
+                        </div>
+                        <div class="nav-column">
+                            <p class="nav-label">Moderation</p>
+                            <a href="/settings#infractions">Account standing</a>
+                            <a href="/support">Support</a>
+                        </div>
+                        <div class="nav-column">
+                            <p class="nav-label">Staff</p>
+                            <a href="/admin" data-admin-only data-nav-user hidden>Admin</a>
+                            <a href="/developers">Developers</a>
+                            <button class="nav-item" type="button" data-logout data-nav-user hidden>Log out</button>
+                        </div>
+                    </div>
+                </div>
             </nav>
         </header>
 

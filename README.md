@@ -871,6 +871,21 @@ dashboard's account list. Staff roles also carry the staff style on those badges
 `POST /api/admin/users/:id/role`, and the dashboard's Roles panel lists the whole ladder with what
 each role is allowed to do.
 
+### The menu bar
+
+Every page but Chat carries the same bar: the brand, plain text items for Home, Games, Chat, Friends,
+Tour and Support, a **Create** menu, the people search and an account menu. Groups that would
+otherwise crowd it live in a menu panel of labelled columns — Create holds a new game and Developers
+beside the games and the avatar shop, the account menu holds the profile pages, the standing page and
+log out — so a signed-in bar stays on one line instead of wrapping into two rows of boxes.
+
+Guests see **Sign in** and a filled **Sign up** where the account menu would be. The bar marks the
+page being read with a rule under the item and `aria-current="page"`. A menu opens on click or with
+ArrowDown on its trigger, closes with Escape (which puts the focus back on the trigger), a click
+outside it, or following one of its links, and only one is open at a time. The search field carries a
+`/` hint: pressing `/` anywhere outside a field puts the caret in it, and submitting goes to
+`/search?q=`, the page that lists matching people.
+
 ### 404, CSP and themes
 
 An address that matches no page answers with `404.html` and a real `404` status instead of a JSON

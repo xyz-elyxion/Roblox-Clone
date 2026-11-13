@@ -15,6 +15,11 @@ std::string escapeHtml(const std::string& text);
 // Percent-encodes a repository path for use inside an href.
 std::string urlPath(const std::string& path);
 
+// Where the pages are mounted. RBLXHub serves them at the root of its own server,
+// WebApp under /hub, and every absolute link in a page is built from this so the
+// same rendering works for both. Empty (the default) means the root.
+void setMountPath(const std::string& mountPath);
+
 struct RepoSummary {
     std::string name;
     std::string description;

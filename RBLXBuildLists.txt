@@ -273,11 +273,13 @@ endif()
 
 if(RBLX_BUILD_HUB)
     # The repository browser: pages rendered as strings from the same repository
-    # code RBLXGit writes, served on loopback by the website's HTTP server. The
-    # issues page writes one JSON file beside the reflog; the pages themselves are
-    # static HTML, so the browser needs no scripting.
+    # code RBLXGit writes, served on loopback by the website's HTTP server. HubSite
+    # holds the pages and the routing, so WebApp serves the same ones under /hub.
+    # The issues page writes one JSON file beside the reflog; the pages themselves
+    # are static HTML, so the browser needs no scripting.
     add_executable(RBLXHub
         src/HubMain.cpp
+        src/HubSite.cpp
         src/HubViews.cpp
         src/GitRepo.cpp
         src/GitIndex.cpp
@@ -393,6 +395,15 @@ set(WEB_SOURCES
     src/ChatRoom.cpp
     src/WebChat.cpp
     src/MalwareScan.cpp
+    # The repository browser WebApp serves under /hub. It is the same HubSite
+    # RBLXHub runs, so the pages are rendered once instead of twice, and it reads
+    # the repository through the same git code RBLXGit writes.
+    src/HubSite.cpp
+    src/HubViews.cpp
+    src/GitRepo.cpp
+    src/GitIndex.cpp
+    src/GitSha1.cpp
+    src/GitZlib.cpp
 )
 
 if(RBLX_BUILD_WEBAPP)

@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <deque>
 #include <map>
+#include <memory>
 #include <mutex>
 #include <string>
 #include <thread>
@@ -16,6 +17,11 @@
 #include "WebStore.h"
 
 namespace rblx {
+
+namespace hub {
+class HubSite;
+}
+
 namespace web {
 
 struct Config {
@@ -60,6 +66,10 @@ struct Config {
     std::size_t jsonBodyLimitBytes = 2 * 1024 * 1024;
     std::string repoRoot;
     std::string webRoot;
+    // The repository the /hub pages read. Empty means the checkout the site was
+    // found in, which is what an install built from source has; RBLX_HUB_REPO
+    // points it at another repository.
+    std::string hubRepo;
     std::string gameWorldsDir;
     std::string gameServerHost = "127.0.0.1";
     int gameServerBasePort = 7777;
@@ -126,6 +136,8 @@ public:
     void installRoutes();
 
     HttpServer& server() { return server_; }
+    // Whether /hub can answer: a repository was opened at start-up.
+    bool hubReady() const;
     const Config& config() const { return config_; }
     Store& store() { return store_; }
 
@@ -362,6 +374,9 @@ private:
     // Catalog plus what this account owns and wears, in one list.
     Json itemsJson(int userId) const;
     bool handleStatic(Request& request, Response& response);
+    // The repository browser RBLXHub also runs, served here under /hub for the
+    // machine the site runs on.
+    bool handleHub(Request& request, Response& response);
 
     bool createGame(const AuthUser& user, const Json& body, GameRecord* created,
                     Response& response);
@@ -403,6 +418,7 @@ private:
 
     Config config_;
     Store store_;
+    std::unique_ptr<rblx::hub::HubSite> hub_;
     HttpServer server_;
     std::mutex mutex_;
     std::map<std::string, GameInstance> instances_;

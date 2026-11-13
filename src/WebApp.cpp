@@ -6,6 +6,8 @@
 #include "Roles.h"
 #include "WebApp.h"
 
+#include "HubSite.h"
+
 #include <iostream>
 #include "WebCaptcha.h"
 #include "WebCrypto.h"
@@ -1173,6 +1175,13 @@ bool loadConfigFromEnvironment(Config* config, std::string* error) {
 
     loaded.webRoot = webRoot;
     loaded.repoRoot = directoryOf(webRoot);
+    // The repository browser reads the checkout the site runs from, so an install
+    // built from source needs no setting for it; RBLX_HUB_REPO points an install
+    // at another repository.
+    loaded.hubRepo = resolvePath(webRoot, envString("RBLX_HUB_REPO"));
+    if (loaded.hubRepo.empty()) {
+        loaded.hubRepo = loaded.repoRoot;
+    }
     loaded.dataPath = resolvePath(webRoot, envString("DATABASE_PATH"));
     if (loaded.dataPath.empty()) {
         loaded.dataPath = joinPath(webRoot, "users.json");
@@ -1361,6 +1370,18 @@ bool WebsiteApp::initialize(std::string* error) {
 
     if (!seedStarterGames(error)) {
         return false;
+    }
+
+    // The repository browser is the same HubSite RBLXHub runs. It is opened once
+    // here; a checkout without a repository is not an error, because a packaged
+    // install ships the site without the git tree it was built from, and /hub
+    // says so on the page instead of failing the server.
+    hub_ = std::make_unique<rblx::hub::HubSite>();
+    std::string hubError;
+    if (!hub_->open(config_.hubRepo, config_.webRoot, "/hub", &hubError)) {
+        std::cout << "Repository browser off: " << hubError << " (set RBLX_HUB_REPO to a checkout)"
+                  << std::endl;
+        hub_.reset();
     }
 
     server_.setBodyLimitBytes(config_.jsonBodyLimitBytes);
@@ -2447,6 +2468,11 @@ void WebsiteApp::installRoutes() {
                   }));
 
     server_.setFallback([this](Request& request, Response& response) {
+        // The repository browser shares the site's port, so its paths are routed
+        // before the static files, which would otherwise answer /hub with 404.html.
+        if (request.path == "/hub" || request.path.rfind("/hub/", 0) == 0) {
+            return handleHub(request, response);
+        }
         return handleStatic(request, response);
     });
 }
@@ -5617,6 +5643,62 @@ bool WebsiteApp::handleEquipItem(Request& request, Response& response) {
     result.set("avatar", avatarJson(avatar));
     result.set("items", itemsJson(user.id));
     sendJson(response, 200, result);
+    return true;
+}
+
+bool WebsiteApp::hubReady() const {
+    return hub_ && hub_->ready();
+}
+
+bool WebsiteApp::handleHub(Request& request, Response& response) {
+    if (request.method != "GET" && request.method != "POST") {
+        response.text(405, "The repository browser answers GET and POST only.");
+        return true;
+    }
+
+    // These pages are this install's source tree and its history. RBLXHub listens
+    // on loopback for that reason, and this copy is held to the same rule: a player
+    // on the network has no business reading the code.
+    //
+    // The reverse proxy connects from loopback as well, so the peer address alone
+    // would let a forwarded request pass for a local one; a forwarded request is
+    // local only when the address it names is this machine too.
+    const std::string forwarded = request.header("x-forwarded-for");
+    std::string hop = forwarded.substr(0, forwarded.find(','));
+    while (!hop.empty() && (hop.back() == ' ' || hop.back() == '\t')) {
+        hop.pop_back();
+    }
+    const bool local = isLoopbackAddress(clientAddress(request)) &&
+                       (forwarded.empty() || isLoopbackAddress(hop));
+    if (!local) {
+        response.text(403, "The repository browser is served to this machine only.");
+        return true;
+    }
+
+    if (!hubReady()) {
+        response.text(404,
+                      "No repository is open here. Start WebApp beside a checkout, or set "
+                      "RBLX_HUB_REPO to one.");
+        return true;
+    }
+
+    // Everything after the mount point is the hub's own path, so the same routing
+    // answers here and in RBLXHub.
+    std::string path = request.path.substr(4);
+    if (path.empty()) {
+        path = "/";
+    }
+
+    hub::HubPage page;
+    hub_->route(request.method, path, request.body, &page);
+    response.text(page.status, page.body, page.contentType);
+    if (!page.location.empty()) {
+        response.headers["Location"] = "/hub" + page.location;
+    }
+    // No policy of its own: HttpServer marks every answer with the site's CSP,
+    // nosniff and referrer rule, and the hub pages carry their own stylesheet and
+    // no script at all, so the site's policy is already the strictest one that
+    // still lets them render. Repeating it here would send the header twice.
     return true;
 }
 

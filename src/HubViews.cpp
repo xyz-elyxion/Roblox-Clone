@@ -158,6 +158,25 @@ std::string urlPath(const std::string& path) {
     return out;
 }
 
+// RBLXHub serves these pages at "/" and WebApp under "/hub", so an absolute link
+// has the mount path inserted once, where the page is wrapped. Everything that
+// matches is markup written by this file: repository text is escaped into body
+// content and never reaches an href or an action.
+std::string mountPath;
+
+void prefixAbsoluteUrls(std::string* html) {
+    if (mountPath.empty()) {
+        return;
+    }
+    for (const std::string& attribute : { std::string("href=\"/"), std::string("action=\"/") }) {
+        std::size_t at = 0;
+        while ((at = html->find(attribute, at)) != std::string::npos) {
+            html->insert(at + attribute.size() - 1, mountPath);
+            at += attribute.size() + mountPath.size();
+        }
+    }
+}
+
 std::string page(const std::string& title, const std::string& body) {
     std::string out;
     out += "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n";
@@ -172,7 +191,19 @@ std::string page(const std::string& title, const std::string& body) {
     out += "</main>\n<footer class=\"foot\">Served by RBLXHub. Every page is rendered from the "
            "repository; nothing is stored anywhere else.</footer>\n";
     out += "</body>\n</html>\n";
+    prefixAbsoluteUrls(&out);
     return out;
+}
+
+void setMountPath(const std::string& path) {
+    if (path.empty() || path == "/") {
+        mountPath.clear();
+        return;
+    }
+    mountPath = path.front() == '/' ? path : "/" + path;
+    while (!mountPath.empty() && mountPath.back() == '/') {
+        mountPath.pop_back();
+    }
 }
 
 std::string breadcrumbs(const std::string& path) {

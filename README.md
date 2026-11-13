@@ -535,6 +535,7 @@ Configuration comes from the environment:
 | `CHAT_RATE_LIMIT_WINDOW_MS` / `CHAT_RATE_LIMIT_MAX` | `10000` / `5` | How many chat messages one account may post per window |
 | `BAN_WAVE_WINDOW_MS` | `300000` | How long a detection is held before the wave acts |
 | `GAME_WORLDS_DIR` | `web/game-worlds` | Where published `.world` files are written |
+| `RBLX_HUB_REPO` | the checkout the site runs from | Repository the `/hub` pages read. Relative to the web folder; a folder without `.git` leaves `/hub` explaining that no repository is open |
 | `GAME_SERVER_HOST` / `GAME_SERVER_BASE_PORT` | `127.0.0.1` / `7777` | Local game-server address |
 | `GAME_INSTANCE_EMPTY_GRACE_MS` | `30000` | How long an empty game instance stays up |
 | `SERVER_EXECUTABLE_PATH` / `CLIENT_EXECUTABLE_PATH` | — | Binaries launched when a game is played |
@@ -1416,7 +1417,7 @@ textures/               Tileable part textures a world can name
 games/                  The bundled worlds and their .rbx scripts
 web/                    Public pages, starter worlds, published worlds, game-server logs
 web/host/               The RBLXHosts control panel page (served by RBLXHosts.exe)
-web/hub/                The RBLXHub repository browser's stylesheet (served by RBLXHub.exe)
+web/hub/                The repository browser's stylesheet (RBLXHub.exe, and WebApp's /hub)
 ServerWorld.world       Default world file
 scripts/                package-build.ps1 and other tooling
 GameRelease/            Existing release asset folders (do not commit generated binaries here)
@@ -1564,6 +1565,20 @@ RBLXGit.exe init .          # once, in the folder to browse
 RBLXHub.exe                 # then open http://127.0.0.1:3100
 RBLXHub.exe --repo .. --port 8080 --host 0.0.0.0
 ```
+
+The same pages are served by `WebApp.exe` under `/hub`, so a machine that is already running the site
+does not need a second program: `/hub`, `/hub/tree/...`, `/hub/blob/...`, `/hub/commits`,
+`/hub/commit/<id>`, `/hub/issues` and `/hub/issues/new`. Both hosts run the same `HubSite`, and every
+link inside a page carries the prefix it is mounted at, so the pages read the same either way.
+
+`/hub` answers this machine only. The pages are the source tree and its history, and `RBLXHub` has
+never had accounts, so the site applies the rule it can keep: a request that did not arrive over
+loopback gets `403`, and a request that came through the reverse proxy counts as local only when the
+address it forwards is this machine too. Nothing in the site links to the page, because it is not a
+feature of the site: the console prints `Repository browser: http://localhost:3000/hub` at start-up
+when a repository is open, and that is how it is found. WebApp reads the checkout it was started from, and `RBLX_HUB_REPO` points it at
+another repository. A packaged install has no `.git` beside it, so `/hub` answers with a page saying
+no repository is open rather than failing the server.
 
 ## Known limitations
 

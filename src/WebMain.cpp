@@ -39,6 +39,11 @@ int runWebsiteServer(int argc, char** argv) {
     const std::string siteUrl = "http://localhost:" + std::to_string(app.server().port());
     std::printf("Website server running on %s\n", siteUrl.c_str());
     std::printf("Serving %s\n", config.webRoot.c_str());
+    // The repository browser is part of the site now, but nothing links to it: the
+    // console says where it is, so it is found without reading the source.
+    if (app.hubReady()) {
+        std::printf("Repository browser: %s/hub\n", siteUrl.c_str());
+    }
 
     if (!wantGui || !console::captureActive()) {
         std::printf("Console window disabled; press Ctrl+C to stop.\n");

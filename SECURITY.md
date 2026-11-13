@@ -40,8 +40,13 @@ lie" or "there is no TLS" is answered by the relevant paragraph below.
   server makes before letting a player in.
 - **The repository browser has no accounts.** `RBLXHub.exe` listens on `127.0.0.1:3100`
   unless it is started with `--host`, and it has no login: whoever can reach the port can read
-  the repository and open issues. It is a local view of a local repository, not a forge — do
-  not expose it with `--host 0.0.0.0` and expect access control.
+  the repository and open issues. The same pages are served by `WebApp.exe` under `/hub`, and
+  there the rule is enforced rather than assumed: a request whose client address is not
+  loopback is refused with `403`, whatever it asks for. `RBLXProxy.exe` connects from loopback
+  too, so a request carrying `X-Forwarded-For` is only treated as local when the address it
+  forwards is this machine as well; otherwise the proxy would hand the pages to whoever it
+  serves. It is a local view of a local repository, not a forge: do not expose it with
+  `--host 0.0.0.0` and expect access control.
 - **Data is a JSON file.** Accounts, worlds, moderation records and sessions live in
   `web/users.json` and `web/game-worlds/`. There is no database, no migration tool and no
   concurrency story beyond one `WebApp.exe` process owning the file.

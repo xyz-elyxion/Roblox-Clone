@@ -36,186 +36,268 @@
         <main id="main" tabindex="-1">
             <div class="dashboard-head">
                 <div>
-                    <p class="label">Settings</p>
-                    <h1 class="page-title">Account settings</h1>
+                    <p class="label">Account</p>
+                    <h1 class="page-title">Settings</h1>
                 </div>
             </div>
 
-            <section class="settings-layout">
-                <article class="panel">
-                    <div class="panel-heading">
-                        <div>
-                            <p class="label">Account</p>
-                            <h2>Signed in</h2>
+            <!-- One section at a time: the list on the left names them, the panel on
+                 the right holds the form. Each section keeps its own controls, so a
+                 hidden panel is still a live form for the script below. -->
+            <section class="settings-shell" data-settings-shell>
+                <aside class="settings-sidebar">
+                    <div class="settings-identity">
+                        <span class="settings-avatar" data-settings-initials aria-hidden="true">?</span>
+                        <div class="settings-identity-text">
+                            <p class="settings-name" data-settings-name>Account</p>
+                            <p class="settings-tag" data-settings-tag>Signed in</p>
                         </div>
                     </div>
-                    <dl class="settings-facts">
-                        <div>
-                            <dt>Username</dt>
-                            <dd data-settings-username>-</dd>
-                        </div>
-                        <div>
-                            <dt>User ID</dt>
-                            <dd data-settings-id>-</dd>
-                        </div>
-                        <div>
-                            <dt>Coins</dt>
-                            <dd data-settings-coins>-</dd>
-                        </div>
-                    </dl>
-                    <a class="button secondary" href="/profile">Open profile</a>
-                </article>
+                    <nav class="settings-nav" role="tablist" aria-label="Settings sections" aria-orientation="vertical">
+                        <button class="settings-nav-item" type="button" role="tab" id="settings-tab-account"
+                            data-settings-tab="account" aria-controls="settings-panel-account"
+                            aria-selected="true">Account</button>
+                        <button class="settings-nav-item" type="button" role="tab" id="settings-tab-security"
+                            data-settings-tab="security" aria-controls="settings-panel-security"
+                            aria-selected="false" tabindex="-1">Security</button>
+                        <button class="settings-nav-item" type="button" role="tab" id="settings-tab-devices"
+                            data-settings-tab="devices" aria-controls="settings-panel-devices"
+                            aria-selected="false" tabindex="-1">Devices</button>
+                        <button class="settings-nav-item" type="button" role="tab" id="settings-tab-infractions"
+                            data-settings-tab="infractions" aria-controls="settings-panel-infractions"
+                            aria-selected="false" tabindex="-1">Infractions</button>
+                        <button class="settings-nav-item" type="button" role="tab" id="settings-tab-display"
+                            data-settings-tab="display" aria-controls="settings-panel-display"
+                            aria-selected="false" tabindex="-1">Display</button>
+                        <button class="settings-nav-item" type="button" role="tab" id="settings-tab-data"
+                            data-settings-tab="data" aria-controls="settings-panel-data"
+                            aria-selected="false" tabindex="-1">Data</button>
+                    </nav>
+                    <!-- Pages rather than sections, so they sit outside the tab list. -->
+                    <nav class="settings-nav-links" aria-label="Account pages">
+                        <a class="settings-nav-item settings-nav-link" href="/profile">Profile</a>
+                        <a class="settings-nav-item settings-nav-link settings-nav-support" href="/support">Support</a>
+                    </nav>
+                </aside>
 
-                <article class="panel" id="standing" data-standing-panel>
-                    <div class="panel-heading">
-                        <div>
-                            <p class="label">Moderation</p>
-                            <h2>Account standing</h2>
-                        </div>
-                        <span class="standing-badge clear" data-standing-badge>Clear</span>
-                    </div>
-                    <p class="lede" data-standing-summary>Checking this account's record.</p>
-                    <div class="status" data-standing-status aria-live="polite"></div>
-                    <div class="admin-table-wrap">
-                        <table class="admin-table">
-                            <thead>
-                                <tr>
-                                    <th scope="col">When</th>
-                                    <th scope="col">What</th>
-                                    <th scope="col">Ends</th>
-                                    <th scope="col">Appeal</th>
-                                </tr>
-                            </thead>
-                            <tbody data-standing-infractions></tbody>
-                        </table>
-                    </div>
-                    <h3>Appeals</h3>
-                    <div class="standing-appeals" data-standing-appeals></div>
-                    <form class="form" data-appeal-form hidden>
-                        <input type="hidden" id="appeal-infraction" name="infractionId" value="" data-appeal-infraction>
-                        <p class="admin-reason" data-appeal-target hidden></p>
-                        <div class="field">
-                            <label for="appeal-message">Why should this be reviewed?</label>
-                            <textarea class="input" id="appeal-message" name="message" rows="4" minlength="20" maxlength="1000"
-                                aria-describedby="appeal-message-hint" required></textarea>
-                            <small id="appeal-message-hint">20 to 1000 characters. An admin reads this, so say what happened.</small>
-                        </div>
-                        <div class="status" data-appeal-status aria-live="polite"></div>
-                        <button class="button full" type="submit">Send appeal</button>
-                    </form>
-                </article>
+                <div class="settings-content">
+                    <section class="settings-panel" id="settings-panel-account" role="tabpanel"
+                        aria-labelledby="settings-tab-account" data-settings-panel="account">
+                        <article class="panel">
+                            <div class="panel-heading">
+                                <div>
+                                    <p class="label">Account</p>
+                                    <h2>Signed in</h2>
+                                </div>
+                            </div>
+                            <dl class="settings-facts">
+                                <div>
+                                    <dt>Username</dt>
+                                    <dd data-settings-username>-</dd>
+                                </div>
+                                <div>
+                                    <dt>User ID</dt>
+                                    <dd data-settings-id>-</dd>
+                                </div>
+                                <div>
+                                    <dt>Coins</dt>
+                                    <dd data-settings-coins>-</dd>
+                                </div>
+                            </dl>
+                            <a class="button secondary" href="/profile">Open profile</a>
+                        </article>
 
-                <article class="panel">
-                    <div class="panel-heading">
-                        <div>
-                            <p class="label">Security</p>
-                            <h2>Change password</h2>
-                        </div>
-                    </div>
-                    <form class="form" data-password-form>
-                        <div class="field">
-                            <label for="current-password">Current password</label>
-                            <input class="input" id="current-password" name="currentPassword" type="password" autocomplete="current-password" required>
-                        </div>
-                        <div class="field">
-                            <label for="new-password">New password</label>
-                            <input class="input" id="new-password" name="newPassword" type="password" autocomplete="new-password"
-                                minlength="8" maxlength="128" aria-describedby="password-new-hint" required>
-                            <small id="password-new-hint">8 to 128 characters.</small>
-                        </div>
-                        <div class="field">
-                            <label for="confirm-password">Confirm new password</label>
-                            <input class="input" id="confirm-password" name="confirmPassword" type="password" autocomplete="new-password" minlength="8" maxlength="128" required>
-                        </div>
-                        <div class="status" data-password-status aria-live="polite"></div>
-                        <button class="button full" type="submit">Change password</button>
-                    </form>
-                </article>
+                        <article class="panel">
+                            <div class="panel-heading">
+                                <div>
+                                    <p class="label">Account</p>
+                                    <h2>Change username</h2>
+                                </div>
+                            </div>
+                            <form class="form" data-username-form>
+                                <div class="field">
+                                    <label for="new-username">New username</label>
+                                    <input class="input" id="new-username" name="username" type="text" autocomplete="username"
+                                        minlength="3" maxlength="20" aria-describedby="username-new-hint" required>
+                                    <small id="username-new-hint">3 to 20 characters, the same rule signup uses.</small>
+                                </div>
+                                <div class="field">
+                                    <label for="username-password">Current password</label>
+                                    <input class="input" id="username-password" name="currentPassword" type="password" autocomplete="current-password" required>
+                                </div>
+                                <div class="status" data-username-status aria-live="polite"></div>
+                                <button class="button full" type="submit">Change username</button>
+                            </form>
+                        </article>
+                    </section>
 
-                <article class="panel">
-                    <div class="panel-heading">
-                        <div>
-                            <p class="label">Display</p>
-                            <h2>Motion</h2>
-                        </div>
-                    </div>
-                    <label class="check-row">
-                        <input type="checkbox" data-reduce-motion>
-                        <span>Reduce motion</span>
-                    </label>
-                    <p class="lede">Turns off the transitions on buttons and panels on every page. This browser remembers the choice.</p>
-                    <div class="field">
-                        <label for="theme">Theme</label>
-                        <select class="input" id="theme" data-theme-select>
-                            <option value="system">Follow the system</option>
-                            <option value="light">Light</option>
-                            <option value="dark">Dark</option>
-                        </select>
-                    </div>
-                </article>
+                    <section class="settings-panel" id="settings-panel-security" role="tabpanel"
+                        aria-labelledby="settings-tab-security" data-settings-panel="security" hidden>
+                        <article class="panel">
+                            <div class="panel-heading">
+                                <div>
+                                    <p class="label">Security</p>
+                                    <h2>Change password</h2>
+                                </div>
+                            </div>
+                            <form class="form" data-password-form>
+                                <div class="field">
+                                    <label for="current-password">Current password</label>
+                                    <input class="input" id="current-password" name="currentPassword" type="password" autocomplete="current-password" required>
+                                </div>
+                                <div class="field">
+                                    <label for="new-password">New password</label>
+                                    <input class="input" id="new-password" name="newPassword" type="password" autocomplete="new-password"
+                                        minlength="8" maxlength="128" aria-describedby="password-new-hint" required>
+                                    <small id="password-new-hint">8 to 128 characters.</small>
+                                </div>
+                                <div class="field">
+                                    <label for="confirm-password">Confirm new password</label>
+                                    <input class="input" id="confirm-password" name="confirmPassword" type="password" autocomplete="new-password" minlength="8" maxlength="128" required>
+                                </div>
+                                <div class="status" data-password-status aria-live="polite"></div>
+                                <button class="button full" type="submit">Change password</button>
+                            </form>
+                        </article>
 
-                <article class="panel">
-                    <div class="panel-heading">
-                        <div>
-                            <p class="label">Account</p>
-                            <h2>Change username</h2>
-                        </div>
-                    </div>
-                    <form class="form" data-username-form>
-                        <div class="field">
-                            <label for="new-username">New username</label>
-                            <input class="input" id="new-username" name="username" type="text" autocomplete="username"
-                                minlength="3" maxlength="20" aria-describedby="username-new-hint" required>
-                            <small id="username-new-hint">3 to 20 characters, the same rule signup uses.</small>
-                        </div>
-                        <div class="field">
-                            <label for="username-password">Current password</label>
-                            <input class="input" id="username-password" name="currentPassword" type="password" autocomplete="current-password" required>
-                        </div>
-                        <div class="status" data-username-status aria-live="polite"></div>
-                        <button class="button full" type="submit">Change username</button>
-                    </form>
-                </article>
+                        <article class="panel">
+                            <div class="panel-heading">
+                                <div>
+                                    <p class="label">Recovery</p>
+                                    <h2>Recovery code</h2>
+                                </div>
+                            </div>
+                            <p class="lede">A recovery code is the only way back into an account with a forgotten password. It is shown once and the site keeps only its hash.</p>
+                            <form class="form" data-recovery-form>
+                                <div class="field">
+                                    <label for="recovery-password">Current password</label>
+                                    <input class="input" id="recovery-password" name="currentPassword" type="password" autocomplete="current-password" required>
+                                </div>
+                                <div class="status" data-recovery-status aria-live="polite"></div>
+                                <button class="button secondary full" type="submit">Generate a new code</button>
+                            </form>
+                            <p class="recovery-code" data-recovery-code hidden></p>
+                        </article>
+                    </section>
 
-                <article class="panel">
-                    <div class="panel-heading">
-                        <div>
-                            <p class="label">Recovery</p>
-                            <h2>Recovery code</h2>
-                        </div>
-                    </div>
-                    <p class="lede">A recovery code is the only way back into an account with a forgotten password. It is shown once and the site keeps only its hash.</p>
-                    <form class="form" data-recovery-form>
-                        <div class="field">
-                            <label for="recovery-password">Current password</label>
-                            <input class="input" id="recovery-password" name="currentPassword" type="password" autocomplete="current-password" required>
-                        </div>
-                        <div class="status" data-recovery-status aria-live="polite"></div>
-                        <button class="button secondary full" type="submit">Generate a new code</button>
-                    </form>
-                    <p class="recovery-code" data-recovery-code hidden></p>
-                </article>
+                    <section class="settings-panel" id="settings-panel-devices" role="tabpanel"
+                        aria-labelledby="settings-tab-devices" data-settings-panel="devices" hidden>
+                        <article class="panel">
+                            <div class="panel-heading">
+                                <div>
+                                    <p class="label">Session</p>
+                                    <h2>Active session</h2>
+                                </div>
+                            </div>
+                            <div class="settings-device">
+                                <div class="settings-device-main">
+                                    <p class="settings-device-title">
+                                        <span data-session-device>This browser</span>
+                                    </p>
+                                    <p class="settings-device-meta">
+                                        Signed in as <span data-session-name>-</span> ·
+                                        <span data-session-expiry>Checking this session.</span>
+                                    </p>
+                                </div>
+                                <button class="button danger" type="button" data-logout>Log out</button>
+                            </div>
+                            <p class="lede">Signing in here replaces the session this browser held, and changing the password
+                                or username signs out every session on every device. There is no device list to manage:
+                                a session lives only in this browser's storage, so logging out here ends it.</p>
+                        </article>
+                    </section>
 
-                <article class="panel danger-zone">
-                    <div class="panel-heading">
-                        <div>
-                            <p class="label">Data</p>
-                            <h2>Export or delete</h2>
-                        </div>
-                    </div>
-                    <p class="lede">Download everything the site keeps about this account as JSON, or delete the account, its games and their world files.</p>
-                    <button class="button secondary" type="button" data-export>Download my data</button>
-                    <form class="form" data-delete-form>
-                        <div class="field">
-                            <label for="delete-password">Password</label>
-                            <input class="input" id="delete-password" name="password" type="password" autocomplete="current-password"
-                                aria-describedby="delete-password-hint" required>
-                            <small id="delete-password-hint">The account that owns this install cannot be deleted.</small>
-                        </div>
-                        <div class="status" data-delete-status aria-live="polite"></div>
-                        <button class="button danger full" type="submit">Delete my account</button>
-                    </form>
-                </article>
+                    <section class="settings-panel" id="settings-panel-infractions" role="tabpanel"
+                        aria-labelledby="settings-tab-infractions" data-settings-panel="infractions" hidden>
+                        <article class="panel" id="infractions" data-standing-panel>
+                            <div class="panel-heading">
+                                <div>
+                                    <p class="label">Moderation</p>
+                                    <h2>Account standing</h2>
+                                </div>
+                                <span class="standing-badge clear" data-standing-badge>Clear</span>
+                            </div>
+                            <p class="lede" data-standing-summary>Checking this account's record.</p>
+                            <div class="status" data-standing-status aria-live="polite"></div>
+                            <div class="admin-table-wrap">
+                                <table class="admin-table">
+                                    <thead>
+                                        <tr>
+                                            <th scope="col">When</th>
+                                            <th scope="col">What</th>
+                                            <th scope="col">Ends</th>
+                                            <th scope="col">Appeal</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody data-standing-infractions></tbody>
+                                </table>
+                            </div>
+                            <h3>Appeals</h3>
+                            <div class="standing-appeals" data-standing-appeals></div>
+                            <form class="form" data-appeal-form hidden>
+                                <input type="hidden" id="appeal-infraction" name="infractionId" value="" data-appeal-infraction>
+                                <p class="admin-reason" data-appeal-target hidden></p>
+                                <div class="field">
+                                    <label for="appeal-message">Why should this be reviewed?</label>
+                                    <textarea class="input" id="appeal-message" name="message" rows="4" minlength="20" maxlength="1000"
+                                        aria-describedby="appeal-message-hint" required></textarea>
+                                    <small id="appeal-message-hint">20 to 1000 characters. An admin reads this, so say what happened.</small>
+                                </div>
+                                <div class="status" data-appeal-status aria-live="polite"></div>
+                                <button class="button full" type="submit">Send appeal</button>
+                            </form>
+                        </article>
+                    </section>
+
+                    <section class="settings-panel" id="settings-panel-display" role="tabpanel"
+                        aria-labelledby="settings-tab-display" data-settings-panel="display" hidden>
+                        <article class="panel">
+                            <div class="panel-heading">
+                                <div>
+                                    <p class="label">Display</p>
+                                    <h2>Motion and theme</h2>
+                                </div>
+                            </div>
+                            <label class="check-row">
+                                <input type="checkbox" data-reduce-motion>
+                                <span>Reduce motion</span>
+                            </label>
+                            <p class="lede">Turns off the transitions on buttons and panels on every page. This browser remembers the choice.</p>
+                            <div class="field">
+                                <label for="theme">Theme</label>
+                                <select class="input" id="theme" data-theme-select>
+                                    <option value="system">Follow the system</option>
+                                    <option value="light">Light</option>
+                                    <option value="dark">Dark</option>
+                                </select>
+                            </div>
+                        </article>
+                    </section>
+
+                    <section class="settings-panel" id="settings-panel-data" role="tabpanel"
+                        aria-labelledby="settings-tab-data" data-settings-panel="data" hidden>
+                        <article class="panel danger-zone">
+                            <div class="panel-heading">
+                                <div>
+                                    <p class="label">Data</p>
+                                    <h2>Export or delete</h2>
+                                </div>
+                            </div>
+                            <p class="lede">Download everything the site keeps about this account as JSON, or delete the account, its games and their world files.</p>
+                            <button class="button secondary" type="button" data-export>Download my data</button>
+                            <form class="form" data-delete-form>
+                                <div class="field">
+                                    <label for="delete-password">Password</label>
+                                    <input class="input" id="delete-password" name="password" type="password" autocomplete="current-password"
+                                        aria-describedby="delete-password-hint" required>
+                                    <small id="delete-password-hint">The account that owns this install cannot be deleted.</small>
+                                </div>
+                                <div class="status" data-delete-status aria-live="polite"></div>
+                                <button class="button danger full" type="submit">Delete my account</button>
+                            </form>
+                        </article>
+                    </section>
+                </div>
             </section>
         </main>
         <footer class="legal-footer">
@@ -227,6 +309,6 @@
             </nav>
         </footer>
     </div>
-    <script src="/app.js?v=roles-1" defer></script>
+    <script src="/app.js?v=settings-1" defer></script>
 </body>
 </html>

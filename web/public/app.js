@@ -466,7 +466,7 @@ function renderStandingBanner(session) {
 
     const link = document.createElement('a');
     link.className = 'button small';
-    link.href = '/settings#standing';
+    link.href = '/settings#infractions';
     link.textContent = session.openAppeal ? 'Appeal sent' : 'Account standing';
 
     banner.append(text, link);
@@ -2920,6 +2920,82 @@ function initStanding() {
     load().catch(() => {});
 }
 
+// The sidebar shows who is signed in, and the panel beside it shows one section
+// at a time. The switching is presentation only: every form stays in the page, so
+// a hidden section keeps its own state and its own submit handler.
+function accountInitials(name) {
+    const letters = String(name || '').replace(/[^A-Za-z0-9]/g, '').slice(0, 2);
+    return letters ? letters.toUpperCase() : '?';
+}
+
+// The token carries its own expiry, so the Devices panel can say when this
+// browser has to sign in again without anything new from the server.
+function sessionExpiry(token) {
+    const payload = String(token || '').split('.')[1];
+    if (!payload) return 0;
+    const base64 = payload.replace(/-/g, '+').replace(/_/g, '/');
+    const padded = base64 + '='.repeat((4 - (base64.length % 4)) % 4);
+    try {
+        return Number(JSON.parse(atob(padded)).exp) || 0;
+    } catch (error) {
+        return 0;
+    }
+}
+
+function initSettingsNav() {
+    const shell = document.querySelector('[data-settings-shell]');
+    if (!shell) return;
+
+    const tabs = Array.from(shell.querySelectorAll('[data-settings-tab]'));
+    const panels = Array.from(shell.querySelectorAll('[data-settings-panel]'));
+    if (tabs.length === 0 || panels.length === 0) return;
+
+    const names = panels.map((panel) => panel.dataset.settingsPanel);
+
+    function show(name, moveFocus) {
+        const target = names.includes(name) ? name : names[0];
+        for (const tab of tabs) {
+            const active = tab.dataset.settingsTab === target;
+            tab.classList.toggle('is-active', active);
+            tab.setAttribute('aria-selected', active ? 'true' : 'false');
+            tab.tabIndex = active ? 0 : -1;
+            if (active && moveFocus) tab.focus();
+        }
+        for (const panel of panels) {
+            panel.hidden = panel.dataset.settingsPanel !== target;
+        }
+        // The hash is the section, so a link to /settings#devices opens Devices
+        // and the address bar says which one is on screen.
+        if (window.location.hash !== `#${target}`) {
+            history.replaceState(null, '', `#${target}`);
+        }
+    }
+
+    function fromHash() {
+        const hash = window.location.hash.replace('#', '');
+        // The standing banner used to link to #standing, and old links kept it.
+        show(hash === 'standing' ? 'infractions' : hash, false);
+    }
+
+    for (const tab of tabs) {
+        tab.addEventListener('click', () => show(tab.dataset.settingsTab, false));
+        tab.addEventListener('keydown', (event) => {
+            const index = tabs.indexOf(tab);
+            let next = -1;
+            if (event.key === 'ArrowDown' || event.key === 'ArrowRight') next = (index + 1) % tabs.length;
+            if (event.key === 'ArrowUp' || event.key === 'ArrowLeft') next = (index - 1 + tabs.length) % tabs.length;
+            if (event.key === 'Home') next = 0;
+            if (event.key === 'End') next = tabs.length - 1;
+            if (next < 0) return;
+            event.preventDefault();
+            show(tabs[next].dataset.settingsTab, true);
+        });
+    }
+
+    window.addEventListener('hashchange', fromHash);
+    fromHash();
+}
+
 function initSettings() {
     const root = document.querySelector('[data-settings]');
     if (!root) return;
@@ -2950,6 +3026,11 @@ function initSettings() {
     const idOutput = document.querySelector('[data-settings-id]');
     const coinsOutput = document.querySelector('[data-settings-coins]');
     const status = document.querySelector('[data-password-status]');
+    const sidebarName = document.querySelector('[data-settings-name]');
+    const sidebarTag = document.querySelector('[data-settings-tag]');
+    const sidebarInitials = document.querySelector('[data-settings-initials]');
+    const sessionName = document.querySelector('[data-session-name]');
+    const sessionExpiryOutput = document.querySelector('[data-session-expiry]');
 
     verifySession()
         .then((session) => {
@@ -2960,6 +3041,21 @@ function initSettings() {
             if (usernameOutput) usernameOutput.textContent = session.username;
             if (idOutput) idOutput.textContent = String(session.userId);
             if (coinsOutput) coinsOutput.textContent = String(Number(session.coins || 0));
+
+            // The sidebar repeats who this is, and Devices says when the token
+            // this browser holds runs out.
+            if (sidebarName) sidebarName.textContent = session.username;
+            if (sidebarInitials) sidebarInitials.textContent = accountInitials(session.username);
+            if (sidebarTag) {
+                sidebarTag.textContent = `#${session.userId} · ${Number(session.coins || 0)} coins`;
+            }
+            if (sessionName) sessionName.textContent = session.username;
+            if (sessionExpiryOutput) {
+                const expires = sessionExpiry(getToken());
+                sessionExpiryOutput.textContent = expires > 0
+                    ? `this session ends ${formatDateTime(new Date(expires * 1000).toISOString())}`
+                    : 'this session ends when its token expires';
+            }
         })
         .catch(() => {});
 
@@ -3022,6 +3118,9 @@ function initSettings() {
                 // session rather than leaving a stale claim behind.
                 saveSession(data);
                 if (usernameOutput) usernameOutput.textContent = data.username;
+                if (sidebarName) sidebarName.textContent = data.username;
+                if (sidebarInitials) sidebarInitials.textContent = accountInitials(data.username);
+                if (sessionName) sessionName.textContent = data.username;
                 usernameForm.reset();
                 setStatus(usernameStatus, `Signed in as ${data.username}.`, 'success');
                 initNavAuth();
@@ -3393,5 +3492,6 @@ document.addEventListener('DOMContentLoaded', () => {
     initGamePage();
     initAdminPage();
     initSettings();
+    initSettingsNav();
     initDevelopersPage();
 });

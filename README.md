@@ -956,10 +956,19 @@ their machine and this build has no external support address to invent.
 
 ### Settings
 
-`/settings` is the account page. It shows the signed-in username, user id and coin balance, changes
-the password through `POST /api/account/password` (`{"currentPassword": "...", "newPassword":
+`/settings` is the account page, laid out as a list of sections beside the one section it opens:
+Account shows the signed-in username, user id and coin balance and changes the username; Security
+holds the password form and the recovery code; then Devices, Infractions, Display and Data. The open
+section is part of the address (`/settings#devices`), so a link can name one, and the list behaves
+like a tab list, so the arrow keys move between sections.
+
+The password form posts to `POST /api/account/password` (`{"currentPassword": "...", "newPassword":
 "..."}`, 8 to 128 characters, the current password is required, a wrong one is refused with `403`
-and the new one must differ from the old), and has a Reduce motion switch.
+and the new one must differ from the old). Display has the Reduce motion switch.
+
+Devices shows the one session this browser holds, the date its token runs out and a Log out button.
+There is no device registry in this build, so that list never grows: changing the password issues a
+new token version and signs out every other browser, which is how a session elsewhere is ended.
 
 The switch is a browser preference rather than an account setting: it is stored in `localStorage`
 and applies the same `reduce-motion` rules as the `prefers-reduced-motion` media query, so it holds

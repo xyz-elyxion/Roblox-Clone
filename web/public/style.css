@@ -1250,10 +1250,173 @@ input {
 }
 
 /* Settings page: account facts, password form and display preference. */
-.settings-layout {
+/* Settings is a shell: who is signed in and a section list on the left, one
+   panel on the right. Only the selected panel is in the flow, and the others stay
+   in the page so their forms keep their handlers. */
+.settings-shell {
     display: grid;
     gap: var(--space-3);
     align-items: start;
+}
+
+.settings-sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    padding: var(--space-3);
+    border: 2px solid var(--line);
+    background: var(--panel-alt);
+}
+
+.settings-identity {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    min-width: 0;
+}
+
+.settings-avatar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    width: 48px;
+    height: 48px;
+    border: 2px solid var(--line);
+    background: var(--fg);
+    color: var(--bg);
+    font-weight: 900;
+    letter-spacing: 0.06em;
+}
+
+.settings-identity-text {
+    min-width: 0;
+}
+
+.settings-name {
+    margin: 0;
+    font-weight: 900;
+    overflow-wrap: anywhere;
+}
+
+.settings-tag {
+    margin: 0;
+    color: var(--muted);
+    font-size: 0.8rem;
+    font-weight: 700;
+}
+
+.settings-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+}
+
+.settings-nav-item {
+    display: block;
+    width: 100%;
+    padding: 0.5rem 0.65rem;
+    border: 0;
+    background: transparent;
+    color: var(--fg);
+    font: inherit;
+    font-weight: 700;
+    text-align: left;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.settings-nav-item:hover,
+.settings-nav-item:focus-visible {
+    background: var(--panel);
+    outline: 2px solid var(--line);
+    outline-offset: -2px;
+}
+
+.settings-nav-item.is-active {
+    background: var(--fg);
+    color: var(--bg);
+}
+
+.settings-nav-links {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    padding-top: 0.4rem;
+    border-top: 2px solid var(--line);
+}
+
+.settings-nav-support {
+    color: var(--success);
+}
+
+.settings-nav-support:hover,
+.settings-nav-support:focus-visible {
+    background: var(--success);
+    color: var(--bg);
+    outline-color: var(--success);
+}
+
+.settings-content {
+    display: grid;
+    gap: var(--space-3);
+    min-width: 0;
+}
+
+.settings-panel {
+    display: grid;
+    gap: var(--space-3);
+}
+
+.settings-panel[hidden] {
+    display: none;
+}
+
+/* One row per session in the Devices panel: what it is, then the way out. */
+.settings-device {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    padding: var(--space-3);
+    border: 2px solid var(--line);
+    background: var(--panel-alt);
+}
+
+.settings-device-main {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    min-width: 0;
+}
+
+.settings-device-title {
+    margin: 0;
+    font-weight: 900;
+}
+
+.settings-device-meta {
+    margin: 0;
+    color: var(--muted);
+    font-size: 0.82rem;
+}
+
+@media (max-width: 899px) {
+    .settings-nav {
+        flex-direction: row;
+        flex-wrap: wrap;
+    }
+
+    .settings-nav-item {
+        width: auto;
+    }
+
+    .settings-nav-links {
+        flex-direction: row;
+        flex-wrap: wrap;
+        border-top: 0;
+        padding-top: 0;
+    }
 }
 
 .settings-facts {
@@ -1280,8 +1443,13 @@ input {
 }
 
 @media (min-width: 900px) {
-    .settings-layout {
-        grid-template-columns: minmax(280px, 0.8fr) minmax(320px, 1.2fr);
+    .settings-shell {
+        grid-template-columns: minmax(220px, 260px) minmax(0, 1fr);
+    }
+
+    .settings-sidebar {
+        position: sticky;
+        top: var(--space-3);
     }
 }
 

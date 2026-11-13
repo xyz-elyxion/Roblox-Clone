@@ -69,10 +69,14 @@ jobs:
       # hits: a near match would hand back a tool built from different sources,
       # which is worse than rebuilding.
       #
-      # bin alone is not a working tool: rblxbuild reads its Modules tree from
-      # share/<name>-<version>/ next to the executable. Caching only bin produced a
-      # restored tool that failed with "Could not find RBLXBUILD_ROOT" before it
-      # could configure anything, so both are kept.
+      # bin alone is not a working tool. A build-tree rblxbuild finds its Modules
+      # by reading the source directory from RBLXBuildFiles/RBLXBuildSourceDir.txt
+      # beside it (FindRBLXBuildResourcesInBuildTree in
+      # rblxbuild/Source/cmSystemTools.cxx), and only an *installed* tool looks in
+      # share/<name>-<version>/. Caching bin and share without that pointer file is
+      # what produced a restored tool that failed with "Could not find
+      # RBLXBUILD_ROOT" before it could configure anything, so the pointer file's
+      # directory is cached too, and the check below validates it.
       #
       # Restore and save are separate actions on purpose. actions/cache saves in a
       # post step that only runs when the job succeeds, so a run that failed later
@@ -85,16 +89,29 @@ jobs:
           path: |
             build/rblxbuild-tool/bin
             build/rblxbuild-tool/share
-          key: rblxbuild-tool-${{ runner.os }}-flags1-${{ hashFiles('rblxbuild/**') }}
+            build/rblxbuild-tool/RBLXBuildFiles
+          # flags2: the key changed with the cached layout, so a cache written
+          # before RBLXBuildFiles was kept cannot be restored and skipped past.
+          key: rblxbuild-tool-${{ runner.os }}-flags2-${{ hashFiles('rblxbuild/**') }}
 
       - name: Look for a build tool
         id: tool
         run: |
-          # The Modules tree is what the executable reads at startup, so a
-          # restored bin without it is not usable and must not skip the bootstrap.
-          if [ -x build/rblxbuild-tool/bin/rblxbuild.exe ] &&
-             ls build/rblxbuild-tool/share/*/Modules > /dev/null 2>&1; then
+          # A restored tool is usable when the executable is there and the pointer
+          # file its build tree carries still names a directory with a Modules
+          # tree. Checking for share/<name>-<version>/Modules instead was wrong for
+          # this tree: the bootstrap only builds, it does not install, so share
+          # never appeared and every run bootstrapped the tool again.
+          root=""
+          if [ -f build/rblxbuild-tool/RBLXBuildFiles/RBLXBuildSourceDir.txt ]; then
+            root="$(cat build/rblxbuild-tool/RBLXBuildFiles/RBLXBuildSourceDir.txt)"
+          fi
+          if [ -f build/rblxbuild-tool/bin/rblxbuild.exe ] &&
+             [ -n "$root" ] && [ -f "$root/Modules/RBLXBuild.rblxbuild" ]; then
             echo "reusing the build tool from the cache"
+            # A restored archive can lose the executable bit, and the steps below
+            # run the tool as ./build/rblxbuild-tool/bin/rblxbuild.exe.
+            chmod +x build/rblxbuild-tool/bin/*.exe 2>/dev/null || true
             echo "reused=true" >> "$GITHUB_OUTPUT"
           else
             echo "no usable build tool cached; bootstrapping one"
@@ -125,6 +142,7 @@ jobs:
           path: |
             build/rblxbuild-tool/bin
             build/rblxbuild-tool/share
+            build/rblxbuild-tool/RBLXBuildFiles
           key: ${{ steps.tool-cache.outputs.cache-primary-key }}
 
       # Printed either way, so the log says which tool configured the build.

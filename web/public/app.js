@@ -2595,6 +2595,7 @@ function initAdminPage() {
             replayTitle.textContent = `Replay: ${data.username} - ${data.kind}`;
             replayNote.textContent = [data.proof, data.expected].filter(Boolean).join(' | ');
             replayOpener = document.activeElement;
+            openShellSection('appeals');
             replayPanel.hidden = false;
             replayPanel.focus();
             moveReplayMarker(0);
@@ -2716,6 +2717,18 @@ function initAdminPage() {
     refreshButton?.addEventListener('click', () => {
         load().catch(() => {});
     });
+
+    verifySession()
+        .then((session) => {
+            if (!session) return;
+            const adminName = document.querySelector('[data-admin-name]');
+            const adminRole = document.querySelector('[data-admin-role]');
+            const adminInitials = document.querySelector('[data-admin-initials]');
+            if (adminName) adminName.textContent = session.username;
+            if (adminRole) adminRole.textContent = session.roleName || 'Staff';
+            if (adminInitials) adminInitials.textContent = accountInitials(session.username);
+        })
+        .catch(() => {});
 
     load().catch((error) => {
         setStatus(status, error.message || 'Could not load admin data.', 'error');
@@ -2942,30 +2955,36 @@ function sessionExpiry(token) {
     }
 }
 
-function initSettingsNav() {
-    const shell = document.querySelector('[data-settings-shell]');
-    if (!shell) return;
+const shellShow = new WeakMap();
 
-    const tabs = Array.from(shell.querySelectorAll('[data-settings-tab]'));
-    const panels = Array.from(shell.querySelectorAll('[data-settings-panel]'));
+// Settings and the admin console are the same shape: who is signed in and a section
+// list on the left, one panel on the right. One script drives both, because the
+// shell, its tabs and its panels are all found by data attribute.
+function initShells() {
+    document.querySelectorAll('[data-shell]').forEach(bindShell);
+}
+
+function bindShell(shell) {
+    const tabs = Array.from(shell.querySelectorAll('[data-shell-tab]'));
+    const panels = Array.from(shell.querySelectorAll('[data-shell-panel]'));
     if (tabs.length === 0 || panels.length === 0) return;
 
-    const names = panels.map((panel) => panel.dataset.settingsPanel);
+    const names = panels.map((panel) => panel.dataset.shellPanel);
 
     function show(name, moveFocus) {
         const target = names.includes(name) ? name : names[0];
         for (const tab of tabs) {
-            const active = tab.dataset.settingsTab === target;
+            const active = tab.dataset.shellTab === target;
             tab.classList.toggle('is-active', active);
             tab.setAttribute('aria-selected', active ? 'true' : 'false');
             tab.tabIndex = active ? 0 : -1;
             if (active && moveFocus) tab.focus();
         }
         for (const panel of panels) {
-            panel.hidden = panel.dataset.settingsPanel !== target;
+            panel.hidden = panel.dataset.shellPanel !== target;
         }
-        // The hash is the section, so a link to /settings#devices opens Devices
-        // and the address bar says which one is on screen.
+        // The hash is the section, so a link to /settings#devices or /admin#appeals
+        // opens that one and the address bar says which is showing.
         if (window.location.hash !== `#${target}`) {
             history.replaceState(null, '', `#${target}`);
         }
@@ -2978,7 +2997,7 @@ function initSettingsNav() {
     }
 
     for (const tab of tabs) {
-        tab.addEventListener('click', () => show(tab.dataset.settingsTab, false));
+        tab.addEventListener('click', () => show(tab.dataset.shellTab, false));
         tab.addEventListener('keydown', (event) => {
             const index = tabs.indexOf(tab);
             let next = -1;
@@ -2988,12 +3007,21 @@ function initSettingsNav() {
             if (event.key === 'End') next = tabs.length - 1;
             if (next < 0) return;
             event.preventDefault();
-            show(tabs[next].dataset.settingsTab, true);
+            show(tabs[next].dataset.shellTab, true);
         });
     }
 
+    shellShow.set(shell, show);
     window.addEventListener('hashchange', fromHash);
     fromHash();
+}
+
+// A panel that code opens on its own (the admin replay) sits inside a section, so
+// that section has to be the visible one before the panel can be seen.
+function openShellSection(name) {
+    const shell = document.querySelector('[data-shell]');
+    const show = shell ? shellShow.get(shell) : null;
+    if (show) show(name, false);
 }
 
 function initSettings() {
@@ -3492,6 +3520,6 @@ document.addEventListener('DOMContentLoaded', () => {
     initGamePage();
     initAdminPage();
     initSettings();
-    initSettingsNav();
+    initShells();
     initDevelopersPage();
 });

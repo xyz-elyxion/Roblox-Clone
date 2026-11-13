@@ -37,202 +37,284 @@
             <div class="dashboard-head">
                 <div>
                     <p class="label">Admin</p>
-                    <h1 class="page-title">Site overview</h1>
+                    <h1 class="page-title">Admin console</h1>
                 </div>
                 <button class="button" type="button" data-admin-refresh>Refresh</button>
             </div>
 
+            <!-- Status lives outside the sections: an action reports there no matter
+                 which section the action was taken from. -->
             <div class="status" data-admin-status aria-live="polite"></div>
 
-            <section class="stats-grid admin-stats" data-admin-stats aria-label="Site totals"></section>
+            <!-- Same shell as /settings: the console's sections on the left, one
+                 panel on the right. Every table below is loaded once, whatever
+                 section is showing. -->
+            <section class="shell" data-shell>
+                <aside class="shell-sidebar">
+                    <div class="shell-identity">
+                        <span class="shell-avatar" data-admin-initials aria-hidden="true">?</span>
+                        <div class="shell-identity-text">
+                            <p class="shell-name" data-admin-name>Admin console</p>
+                            <p class="shell-tag" data-admin-role>Staff tools</p>
+                        </div>
+                    </div>
+                    <nav class="shell-nav" role="tablist" aria-label="Admin sections" aria-orientation="vertical">
+                        <button class="shell-nav-item" type="button" role="tab" id="admin-tab-overview"
+                            data-shell-tab="overview" aria-controls="admin-panel-overview"
+                            aria-selected="true">Overview</button>
+                        <button class="shell-nav-item" type="button" role="tab" id="admin-tab-users"
+                            data-shell-tab="users" aria-controls="admin-panel-users"
+                            aria-selected="false" tabindex="-1">Users</button>
+                        <button class="shell-nav-item" type="button" role="tab" id="admin-tab-roles"
+                            data-shell-tab="roles" aria-controls="admin-panel-roles"
+                            aria-selected="false" tabindex="-1">Roles</button>
+                        <button class="shell-nav-item" type="button" role="tab" id="admin-tab-appeals"
+                            data-shell-tab="appeals" aria-controls="admin-panel-appeals"
+                            aria-selected="false" tabindex="-1">Appeals</button>
+                        <button class="shell-nav-item" type="button" role="tab" id="admin-tab-games"
+                            data-shell-tab="games" aria-controls="admin-panel-games"
+                            aria-selected="false" tabindex="-1">Games</button>
+                        <button class="shell-nav-item" type="button" role="tab" id="admin-tab-instances"
+                            data-shell-tab="instances" aria-controls="admin-panel-instances"
+                            aria-selected="false" tabindex="-1">Instances</button>
+                        <button class="shell-nav-item" type="button" role="tab" id="admin-tab-diagnostics"
+                            data-shell-tab="diagnostics" aria-controls="admin-panel-diagnostics"
+                            aria-selected="false" tabindex="-1">Diagnostics</button>
+                        <button class="shell-nav-item" type="button" role="tab" id="admin-tab-reports"
+                            data-shell-tab="reports" aria-controls="admin-panel-reports"
+                            aria-selected="false" tabindex="-1">Reports</button>
+                    </nav>
+                    <!-- Pages rather than sections, so they sit outside the tab list. -->
+                    <nav class="shell-nav-links" aria-label="Site pages">
+                        <a class="shell-nav-item" href="/dashboard">Dashboard</a>
+                        <a class="shell-nav-item shell-nav-support" href="/support">Support</a>
+                    </nav>
+                </aside>
 
-            <section class="admin-sections">
-                <article class="panel">
-                    <div class="panel-heading">
-                        <div>
-                            <p class="label">Accounts</p>
-                            <h2>Users</h2>
-                        </div>
-                    </div>
-                    <div class="admin-table-wrap">
-                        <table class="admin-table">
-                            <thead>
-                                <tr>
-                                    <th scope="col">ID</th>
-                                    <th scope="col">Username</th>
-                                    <th scope="col">Role</th>
-                                    <th scope="col">Games</th>
-                                    <th scope="col">Friends</th>
-                                    <th scope="col">Coins</th>
-                                    <th scope="col">Playtime</th>
-                                    <th scope="col">Joined</th>
-                                    <th scope="col">Client AC</th>
-                                    <th scope="col">Strikes</th>
-                                    <th scope="col">Moderation</th>
-                                </tr>
-                            </thead>
-                            <tbody data-admin-users></tbody>
-                        </table>
-                    </div>
-                </article>
+                <div class="shell-content">
+                    <section class="shell-panel" id="admin-panel-overview" role="tabpanel"
+                        aria-labelledby="admin-tab-overview" data-shell-panel="overview">
+                        <article class="panel">
+                            <div class="panel-heading">
+                                <div>
+                                    <p class="label">Site</p>
+                                    <h2>Totals</h2>
+                                </div>
+                            </div>
+                            <section class="stats-grid admin-stats" data-admin-stats aria-label="Site totals"></section>
+                        </article>
+                    </section>
 
-                <article class="panel">
-                    <div class="panel-heading">
-                        <div>
-                            <p class="label">Staff</p>
-                            <h2>Roles</h2>
-                        </div>
-                    </div>
-                    <p class="admin-reason">Every role there is, lowest first. A role is only
-                        handed out by an account above it, and moderation follows the same
-                        ladder: no role acts on its own level or above.</p>
-                    <div class="admin-table-wrap">
-                        <table class="admin-table">
-                            <thead>
-                                <tr>
-                                    <th scope="col">Role</th>
-                                    <th scope="col">Rank</th>
-                                    <th scope="col">Kind</th>
-                                    <th scope="col">Can</th>
-                                </tr>
-                            </thead>
-                            <tbody data-admin-roles></tbody>
-                        </table>
-                    </div>
-                </article>
+                    <section class="shell-panel" id="admin-panel-users" role="tabpanel"
+                        aria-labelledby="admin-tab-users" data-shell-panel="users" hidden>
+                        <article class="panel">
+                            <div class="panel-heading">
+                                <div>
+                                    <p class="label">Accounts</p>
+                                    <h2>Users</h2>
+                                </div>
+                            </div>
+                            <div class="admin-table-wrap">
+                                <table class="admin-table">
+                                    <thead>
+                                        <tr>
+                                            <th scope="col">ID</th>
+                                            <th scope="col">Username</th>
+                                            <th scope="col">Role</th>
+                                            <th scope="col">Games</th>
+                                            <th scope="col">Friends</th>
+                                            <th scope="col">Coins</th>
+                                            <th scope="col">Playtime</th>
+                                            <th scope="col">Joined</th>
+                                            <th scope="col">Client AC</th>
+                                            <th scope="col">Strikes</th>
+                                            <th scope="col">Moderation</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody data-admin-users></tbody>
+                                </table>
+                            </div>
+                        </article>
+                    </section>
 
-                <article class="panel">
-                    <div class="panel-heading">
-                        <div>
-                            <p class="label">Moderation</p>
-                            <h2>Appeals</h2>
-                        </div>
-                    </div>
-                    <div class="admin-table-wrap">
-                        <table class="admin-table">
-                            <thead>
-                                <tr>
-                                    <th scope="col">When</th>
-                                    <th scope="col">Account</th>
-                                    <th scope="col">Appeal</th>
-                                    <th scope="col">Status</th>
-                                    <th scope="col">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody data-admin-appeals></tbody>
-                        </table>
-                    </div>
-                </article>
+                    <section class="shell-panel" id="admin-panel-roles" role="tabpanel"
+                        aria-labelledby="admin-tab-roles" data-shell-panel="roles" hidden>
+                        <article class="panel">
+                            <div class="panel-heading">
+                                <div>
+                                    <p class="label">Staff</p>
+                                    <h2>Roles</h2>
+                                </div>
+                            </div>
+                            <p class="admin-reason">Every role there is, lowest first. A role is only
+                                handed out by an account above it, and moderation follows the same
+                                ladder: no role acts on its own level or above.</p>
+                            <div class="admin-table-wrap">
+                                <table class="admin-table">
+                                    <thead>
+                                        <tr>
+                                            <th scope="col">Role</th>
+                                            <th scope="col">Rank</th>
+                                            <th scope="col">Kind</th>
+                                            <th scope="col">Can</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody data-admin-roles></tbody>
+                                </table>
+                            </div>
+                        </article>
+                    </section>
 
-                <article class="panel" data-admin-replay-panel tabindex="-1"
-                    aria-labelledby="admin-replay-title" hidden>
-                    <div class="panel-heading">
-                        <div>
-                            <p class="label">Moderation</p>
-                            <h2 id="admin-replay-title" data-admin-replay-title>Replay</h2>
-                        </div>
-                        <div>
-                            <button type="button" class="button secondary small" data-admin-replay-play>Play</button>
-                            <button type="button" class="button secondary small" data-admin-replay-close>Close</button>
-                        </div>
-                    </div>
-                    <p class="admin-reason" data-admin-replay-note></p>
-                    <div data-admin-replay-stage></div>
-                </article>
+                    <section class="shell-panel" id="admin-panel-appeals" role="tabpanel"
+                        aria-labelledby="admin-tab-appeals" data-shell-panel="appeals" hidden>
+                        <article class="panel">
+                            <div class="panel-heading">
+                                <div>
+                                    <p class="label">Moderation</p>
+                                    <h2>Appeals</h2>
+                                </div>
+                            </div>
+                            <div class="admin-table-wrap">
+                                <table class="admin-table">
+                                    <thead>
+                                        <tr>
+                                            <th scope="col">When</th>
+                                            <th scope="col">Account</th>
+                                            <th scope="col">Appeal</th>
+                                            <th scope="col">Status</th>
+                                            <th scope="col">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody data-admin-appeals></tbody>
+                                </table>
+                            </div>
+                        </article>
 
-                <article class="panel">
-                    <div class="panel-heading">
-                        <div>
-                            <p class="label">Worlds</p>
-                            <h2>Games</h2>
-                        </div>
-                    </div>
-                    <div class="admin-table-wrap">
-                        <table class="admin-table">
-                            <thead>
-                                <tr>
-                                    <th scope="col">ID</th>
-                                    <th scope="col">Title</th>
-                                    <th scope="col">Owner</th>
-                                    <th scope="col">Visibility</th>
-                                    <th scope="col">Size</th>
-                                    <th scope="col">Launches</th>
-                                    <th scope="col">Updated</th>
-                                    <th scope="col">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody data-admin-games></tbody>
-                        </table>
-                    </div>
-                </article>
+                        <!-- Opened by a row above rather than by the section list, so the
+                             script selects this section before it shows the panel. -->
+                        <article class="panel" data-admin-replay-panel tabindex="-1"
+                            aria-labelledby="admin-replay-title" hidden>
+                            <div class="panel-heading">
+                                <div>
+                                    <p class="label">Moderation</p>
+                                    <h2 id="admin-replay-title" data-admin-replay-title>Replay</h2>
+                                </div>
+                                <div>
+                                    <button type="button" class="button secondary small" data-admin-replay-play>Play</button>
+                                    <button type="button" class="button secondary small" data-admin-replay-close>Close</button>
+                                </div>
+                            </div>
+                            <p class="admin-reason" data-admin-replay-note></p>
+                            <div data-admin-replay-stage></div>
+                        </article>
+                    </section>
 
-                <article class="panel">
-                    <div class="panel-heading">
-                        <div>
-                            <p class="label">Servers</p>
-                            <h2>Running instances</h2>
-                        </div>
-                    </div>
-                    <div class="admin-table-wrap">
-                        <table class="admin-table">
-                            <thead>
-                                <tr>
-                                    <th scope="col">Instance</th>
-                                    <th scope="col">Address</th>
-                                    <th scope="col">Status</th>
-                                    <th scope="col">Players</th>
-                                    <th scope="col">Started</th>
-                                </tr>
-                            </thead>
-                            <tbody data-admin-instances></tbody>
-                        </table>
-                    </div>
-                </article>
+                    <section class="shell-panel" id="admin-panel-games" role="tabpanel"
+                        aria-labelledby="admin-tab-games" data-shell-panel="games" hidden>
+                        <article class="panel">
+                            <div class="panel-heading">
+                                <div>
+                                    <p class="label">Worlds</p>
+                                    <h2>Games</h2>
+                                </div>
+                            </div>
+                            <div class="admin-table-wrap">
+                                <table class="admin-table">
+                                    <thead>
+                                        <tr>
+                                            <th scope="col">ID</th>
+                                            <th scope="col">Title</th>
+                                            <th scope="col">Owner</th>
+                                            <th scope="col">Visibility</th>
+                                            <th scope="col">Size</th>
+                                            <th scope="col">Launches</th>
+                                            <th scope="col">Updated</th>
+                                            <th scope="col">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody data-admin-games></tbody>
+                                </table>
+                            </div>
+                        </article>
+                    </section>
 
-                <article class="panel">
-                    <div class="panel-heading">
-                        <div>
-                            <p class="label">Diagnostics</p>
-                            <h2>Client problems</h2>
-                        </div>
-                    </div>
-                    <div class="admin-table-wrap">
-                        <table class="admin-table">
-                            <thead>
-                                <tr>
-                                    <th scope="col">When</th>
-                                    <th scope="col">Player</th>
-                                    <th scope="col">Stage</th>
-                                    <th scope="col">Server</th>
-                                    <th scope="col">Reason</th>
-                                </tr>
-                            </thead>
-                            <tbody data-admin-reports></tbody>
-                        </table>
-                    </div>
-                </article>
+                    <section class="shell-panel" id="admin-panel-instances" role="tabpanel"
+                        aria-labelledby="admin-tab-instances" data-shell-panel="instances" hidden>
+                        <article class="panel">
+                            <div class="panel-heading">
+                                <div>
+                                    <p class="label">Servers</p>
+                                    <h2>Running instances</h2>
+                                </div>
+                            </div>
+                            <div class="admin-table-wrap">
+                                <table class="admin-table">
+                                    <thead>
+                                        <tr>
+                                            <th scope="col">Instance</th>
+                                            <th scope="col">Address</th>
+                                            <th scope="col">Status</th>
+                                            <th scope="col">Players</th>
+                                            <th scope="col">Started</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody data-admin-instances></tbody>
+                                </table>
+                            </div>
+                        </article>
+                    </section>
 
-                <article class="panel">
-                    <div class="panel-heading">
-                        <div>
-                            <p class="label">Moderation</p>
-                            <h2>Reports</h2>
-                        </div>
-                    </div>
-                    <div class="admin-table-wrap">
-                        <table class="admin-table">
-                            <thead>
-                                <tr>
-                                    <th scope="col">When</th>
-                                    <th scope="col">Reporter</th>
-                                    <th scope="col">Target</th>
-                                    <th scope="col">Reason</th>
-                                </tr>
-                            </thead>
-                            <tbody data-admin-user-reports></tbody>
-                        </table>
-                    </div>
-                </article>
+                    <section class="shell-panel" id="admin-panel-diagnostics" role="tabpanel"
+                        aria-labelledby="admin-tab-diagnostics" data-shell-panel="diagnostics" hidden>
+                        <article class="panel">
+                            <div class="panel-heading">
+                                <div>
+                                    <p class="label">Diagnostics</p>
+                                    <h2>Client problems</h2>
+                                </div>
+                            </div>
+                            <div class="admin-table-wrap">
+                                <table class="admin-table">
+                                    <thead>
+                                        <tr>
+                                            <th scope="col">When</th>
+                                            <th scope="col">Player</th>
+                                            <th scope="col">Stage</th>
+                                            <th scope="col">Server</th>
+                                            <th scope="col">Reason</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody data-admin-reports></tbody>
+                                </table>
+                            </div>
+                        </article>
+                    </section>
+
+                    <section class="shell-panel" id="admin-panel-reports" role="tabpanel"
+                        aria-labelledby="admin-tab-reports" data-shell-panel="reports" hidden>
+                        <article class="panel">
+                            <div class="panel-heading">
+                                <div>
+                                    <p class="label">Moderation</p>
+                                    <h2>Reports</h2>
+                                </div>
+                            </div>
+                            <div class="admin-table-wrap">
+                                <table class="admin-table">
+                                    <thead>
+                                        <tr>
+                                            <th scope="col">When</th>
+                                            <th scope="col">Reporter</th>
+                                            <th scope="col">Target</th>
+                                            <th scope="col">Reason</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody data-admin-user-reports></tbody>
+                                </table>
+                            </div>
+                        </article>
+                    </section>
+                </div>
             </section>
         </main>
         <footer class="legal-footer">
@@ -244,6 +326,6 @@
             </nav>
         </footer>
     </div>
-    <script src="/app.js?v=roles-1" defer></script>
+    <script src="/app.js?v=shell-1" defer></script>
 </body>
 </html>

@@ -749,11 +749,6 @@ input {
     overflow-wrap: anywhere;
 }
 
-.admin-sections {
-    display: grid;
-    gap: var(--space-4);
-    margin-top: var(--space-4);
-}
 
 /* Wider than the two-column profile tiles so the totals read as a summary row. */
 .stats-grid.admin-stats {
@@ -1253,13 +1248,13 @@ input {
 /* Settings is a shell: who is signed in and a section list on the left, one
    panel on the right. Only the selected panel is in the flow, and the others stay
    in the page so their forms keep their handlers. */
-.settings-shell {
+.shell {
     display: grid;
     gap: var(--space-3);
     align-items: start;
 }
 
-.settings-sidebar {
+.shell-sidebar {
     display: flex;
     flex-direction: column;
     gap: var(--space-3);
@@ -1268,14 +1263,14 @@ input {
     background: var(--panel-alt);
 }
 
-.settings-identity {
+.shell-identity {
     display: flex;
     align-items: center;
     gap: var(--space-2);
     min-width: 0;
 }
 
-.settings-avatar {
+.shell-avatar {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -1289,30 +1284,30 @@ input {
     letter-spacing: 0.06em;
 }
 
-.settings-identity-text {
+.shell-identity-text {
     min-width: 0;
 }
 
-.settings-name {
+.shell-name {
     margin: 0;
     font-weight: 900;
     overflow-wrap: anywhere;
 }
 
-.settings-tag {
+.shell-tag {
     margin: 0;
     color: var(--muted);
     font-size: 0.8rem;
     font-weight: 700;
 }
 
-.settings-nav {
+.shell-nav {
     display: flex;
     flex-direction: column;
     gap: 0.15rem;
 }
 
-.settings-nav-item {
+.shell-nav-item {
     display: block;
     width: 100%;
     padding: 0.5rem 0.65rem;
@@ -1326,19 +1321,19 @@ input {
     cursor: pointer;
 }
 
-.settings-nav-item:hover,
-.settings-nav-item:focus-visible {
+.shell-nav-item:hover,
+.shell-nav-item:focus-visible {
     background: var(--panel);
     outline: 2px solid var(--line);
     outline-offset: -2px;
 }
 
-.settings-nav-item.is-active {
+.shell-nav-item.is-active {
     background: var(--fg);
     color: var(--bg);
 }
 
-.settings-nav-links {
+.shell-nav-links {
     display: flex;
     flex-direction: column;
     gap: 0.15rem;
@@ -1346,34 +1341,44 @@ input {
     border-top: 2px solid var(--line);
 }
 
-.settings-nav-support {
+.shell-nav-support {
     color: var(--success);
 }
 
-.settings-nav-support:hover,
-.settings-nav-support:focus-visible {
+.shell-nav-support:hover,
+.shell-nav-support:focus-visible {
     background: var(--success);
     color: var(--bg);
     outline-color: var(--success);
 }
 
-.settings-content {
+.shell-content {
     display: grid;
+    /* An implicit auto column would take its width from the widest table and push
+       the page sideways; a 1fr column stays inside the grid and lets the table's
+       own wrapper scroll. */
+    grid-template-columns: minmax(0, 1fr);
     gap: var(--space-3);
     min-width: 0;
 }
 
-.settings-panel {
+.shell-panel {
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
     gap: var(--space-3);
+    min-width: 0;
 }
 
-.settings-panel[hidden] {
+.shell-panel > .panel {
+    min-width: 0;
+}
+
+.shell-panel[hidden] {
     display: none;
 }
 
 /* One row per session in the Devices panel: what it is, then the way out. */
-.settings-device {
+.shell-device {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -1383,35 +1388,35 @@ input {
     background: var(--panel-alt);
 }
 
-.settings-device-main {
+.shell-device-main {
     display: flex;
     flex-direction: column;
     gap: 0.15rem;
     min-width: 0;
 }
 
-.settings-device-title {
+.shell-device-title {
     margin: 0;
     font-weight: 900;
 }
 
-.settings-device-meta {
+.shell-device-meta {
     margin: 0;
     color: var(--muted);
     font-size: 0.82rem;
 }
 
 @media (max-width: 899px) {
-    .settings-nav {
+    .shell-nav {
         flex-direction: row;
         flex-wrap: wrap;
     }
 
-    .settings-nav-item {
+    .shell-nav-item {
         width: auto;
     }
 
-    .settings-nav-links {
+    .shell-nav-links {
         flex-direction: row;
         flex-wrap: wrap;
         border-top: 0;
@@ -1443,11 +1448,11 @@ input {
 }
 
 @media (min-width: 900px) {
-    .settings-shell {
+    .shell {
         grid-template-columns: minmax(220px, 260px) minmax(0, 1fr);
     }
 
-    .settings-sidebar {
+    .shell-sidebar {
         position: sticky;
         top: var(--space-3);
     }

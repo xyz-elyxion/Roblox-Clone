@@ -44,45 +44,45 @@
             <!-- One section at a time: the list on the left names them, the panel on
                  the right holds the form. Each section keeps its own controls, so a
                  hidden panel is still a live form for the script below. -->
-            <section class="settings-shell" data-settings-shell>
-                <aside class="settings-sidebar">
-                    <div class="settings-identity">
-                        <span class="settings-avatar" data-settings-initials aria-hidden="true">?</span>
-                        <div class="settings-identity-text">
-                            <p class="settings-name" data-settings-name>Account</p>
-                            <p class="settings-tag" data-settings-tag>Signed in</p>
+            <section class="shell" data-shell>
+                <aside class="shell-sidebar">
+                    <div class="shell-identity">
+                        <span class="shell-avatar" data-settings-initials aria-hidden="true">?</span>
+                        <div class="shell-identity-text">
+                            <p class="shell-name" data-settings-name>Account</p>
+                            <p class="shell-tag" data-settings-tag>Signed in</p>
                         </div>
                     </div>
-                    <nav class="settings-nav" role="tablist" aria-label="Settings sections" aria-orientation="vertical">
-                        <button class="settings-nav-item" type="button" role="tab" id="settings-tab-account"
-                            data-settings-tab="account" aria-controls="settings-panel-account"
+                    <nav class="shell-nav" role="tablist" aria-label="Settings sections" aria-orientation="vertical">
+                        <button class="shell-nav-item" type="button" role="tab" id="settings-tab-account"
+                            data-shell-tab="account" aria-controls="shell-panel-account"
                             aria-selected="true">Account</button>
-                        <button class="settings-nav-item" type="button" role="tab" id="settings-tab-security"
-                            data-settings-tab="security" aria-controls="settings-panel-security"
+                        <button class="shell-nav-item" type="button" role="tab" id="settings-tab-security"
+                            data-shell-tab="security" aria-controls="shell-panel-security"
                             aria-selected="false" tabindex="-1">Security</button>
-                        <button class="settings-nav-item" type="button" role="tab" id="settings-tab-devices"
-                            data-settings-tab="devices" aria-controls="settings-panel-devices"
+                        <button class="shell-nav-item" type="button" role="tab" id="settings-tab-devices"
+                            data-shell-tab="devices" aria-controls="shell-panel-devices"
                             aria-selected="false" tabindex="-1">Devices</button>
-                        <button class="settings-nav-item" type="button" role="tab" id="settings-tab-infractions"
-                            data-settings-tab="infractions" aria-controls="settings-panel-infractions"
+                        <button class="shell-nav-item" type="button" role="tab" id="settings-tab-infractions"
+                            data-shell-tab="infractions" aria-controls="shell-panel-infractions"
                             aria-selected="false" tabindex="-1">Infractions</button>
-                        <button class="settings-nav-item" type="button" role="tab" id="settings-tab-display"
-                            data-settings-tab="display" aria-controls="settings-panel-display"
+                        <button class="shell-nav-item" type="button" role="tab" id="settings-tab-display"
+                            data-shell-tab="display" aria-controls="shell-panel-display"
                             aria-selected="false" tabindex="-1">Display</button>
-                        <button class="settings-nav-item" type="button" role="tab" id="settings-tab-data"
-                            data-settings-tab="data" aria-controls="settings-panel-data"
+                        <button class="shell-nav-item" type="button" role="tab" id="settings-tab-data"
+                            data-shell-tab="data" aria-controls="shell-panel-data"
                             aria-selected="false" tabindex="-1">Data</button>
                     </nav>
                     <!-- Pages rather than sections, so they sit outside the tab list. -->
-                    <nav class="settings-nav-links" aria-label="Account pages">
-                        <a class="settings-nav-item settings-nav-link" href="/profile">Profile</a>
-                        <a class="settings-nav-item settings-nav-link settings-nav-support" href="/support">Support</a>
+                    <nav class="shell-nav-links" aria-label="Account pages">
+                        <a class="shell-nav-item shell-nav-link" href="/profile">Profile</a>
+                        <a class="shell-nav-item shell-nav-link shell-nav-support" href="/support">Support</a>
                     </nav>
                 </aside>
 
-                <div class="settings-content">
-                    <section class="settings-panel" id="settings-panel-account" role="tabpanel"
-                        aria-labelledby="settings-tab-account" data-settings-panel="account">
+                <div class="shell-content">
+                    <section class="shell-panel" id="shell-panel-account" role="tabpanel"
+                        aria-labelledby="settings-tab-account" data-shell-panel="account">
                         <article class="panel">
                             <div class="panel-heading">
                                 <div>
@@ -131,8 +131,8 @@
                         </article>
                     </section>
 
-                    <section class="settings-panel" id="settings-panel-security" role="tabpanel"
-                        aria-labelledby="settings-tab-security" data-settings-panel="security" hidden>
+                    <section class="shell-panel" id="shell-panel-security" role="tabpanel"
+                        aria-labelledby="settings-tab-security" data-shell-panel="security" hidden>
                         <article class="panel">
                             <div class="panel-heading">
                                 <div>
@@ -180,8 +180,8 @@
                         </article>
                     </section>
 
-                    <section class="settings-panel" id="settings-panel-devices" role="tabpanel"
-                        aria-labelledby="settings-tab-devices" data-settings-panel="devices" hidden>
+                    <section class="shell-panel" id="shell-panel-devices" role="tabpanel"
+                        aria-labelledby="settings-tab-devices" data-shell-panel="devices" hidden>
                         <article class="panel">
                             <div class="panel-heading">
                                 <div>
@@ -189,12 +189,12 @@
                                     <h2>Active session</h2>
                                 </div>
                             </div>
-                            <div class="settings-device">
-                                <div class="settings-device-main">
-                                    <p class="settings-device-title">
+                            <div class="shell-device">
+                                <div class="shell-device-main">
+                                    <p class="shell-device-title">
                                         <span data-session-device>This browser</span>
                                     </p>
-                                    <p class="settings-device-meta">
+                                    <p class="shell-device-meta">
                                         Signed in as <span data-session-name>-</span> ·
                                         <span data-session-expiry>Checking this session.</span>
                                     </p>
@@ -207,8 +207,8 @@
                         </article>
                     </section>
 
-                    <section class="settings-panel" id="settings-panel-infractions" role="tabpanel"
-                        aria-labelledby="settings-tab-infractions" data-settings-panel="infractions" hidden>
+                    <section class="shell-panel" id="shell-panel-infractions" role="tabpanel"
+                        aria-labelledby="settings-tab-infractions" data-shell-panel="infractions" hidden>
                         <article class="panel" id="infractions" data-standing-panel>
                             <div class="panel-heading">
                                 <div>
@@ -249,8 +249,8 @@
                         </article>
                     </section>
 
-                    <section class="settings-panel" id="settings-panel-display" role="tabpanel"
-                        aria-labelledby="settings-tab-display" data-settings-panel="display" hidden>
+                    <section class="shell-panel" id="shell-panel-display" role="tabpanel"
+                        aria-labelledby="settings-tab-display" data-shell-panel="display" hidden>
                         <article class="panel">
                             <div class="panel-heading">
                                 <div>
@@ -274,8 +274,8 @@
                         </article>
                     </section>
 
-                    <section class="settings-panel" id="settings-panel-data" role="tabpanel"
-                        aria-labelledby="settings-tab-data" data-settings-panel="data" hidden>
+                    <section class="shell-panel" id="shell-panel-data" role="tabpanel"
+                        aria-labelledby="settings-tab-data" data-shell-panel="data" hidden>
                         <article class="panel danger-zone">
                             <div class="panel-heading">
                                 <div>
@@ -309,6 +309,6 @@
             </nav>
         </footer>
     </div>
-    <script src="/app.js?v=settings-1" defer></script>
+    <script src="/app.js?v=shell-1" defer></script>
 </body>
 </html>

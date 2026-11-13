@@ -819,6 +819,12 @@ menu once you are signed in.
 totals, the full user and game lists, the running game-server instances, and a Delete action that
 removes a game together with its published `.world` file (stopping any instance for it first).
 
+It is laid out like `/settings`: the console's sections — Overview, Users, Roles, Appeals, Games,
+Instances, Diagnostics and Reports — on the left and one of them open on the right, with the open
+section in the address (`/admin#appeals`). Every table is loaded once when the page opens, so
+switching sections does not refetch, and Refresh still reloads the lot. A replay opened from an
+appeal switches to Appeals first, because that is the section the replay belongs to.
+
 Each account row carries the balance it earned by playing and a Give box beside it, so an admin can
 hand out coins — a prize, a refund, or making a run the server dropped good — without touching the
 playtime that earned the rest. A grant is one account at a time and only ever adds, 1 to 100000

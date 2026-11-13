@@ -223,6 +223,34 @@ detections are filed against the caller's own account only. Bans also bar the ma
 account was last seen on (`POST /api/hardware-check` for guests), as a 32-character hash of
 the system volume serial and the computer name; the raw values never leave the client.
 
+**Chat attachments.** An upload is a raw body on `POST /api/games/:id/uploads` with the name in
+`X-Upload-Name`. The name is checked against an allowlist (pictures, audio, text) and refused if it
+contains a path, control characters or a trailing dot, and it never becomes a path: the bytes are
+written as `<id><extension>` into an `uploads` folder beside the data file, which is outside
+`web/public` and therefore not reachable as a static file. Reading one back goes through
+`GET /api/games/:id/uploads/:uploadId?t=…`, which applies the room's own existence rule; the URL
+carries a 128-bit random token, checked with a constant-time compare, because an `<img>` or an
+`<audio>` element cannot send an `Authorization` header. The token appears only in the room's message
+list, so an id on its own answers `404`, and the file also has to belong to the room in the URL. The trade is deliberate and stated: whoever holds a
+message's URL can read the file, which is exactly the audience of the message, and a token cannot be
+revoked on its own — deleting the message's file (which trimming does) is what ends the link. A
+message may cite an upload only when the caller uploaded it, for that room. The body is capped by
+the server's request limit, and an account may keep 40 attachments totalling 40 MiB; files whose
+messages have been trimmed out are deleted, so the cap cannot be reached by posting.
+
+Before anything is written, the bytes go through `include/MalwareScan.h`: an executable inside the
+file (`Win32.Executable`), an OLE document or macro project (`Trojan.Macro`), a downloader command
+in a text file (`Trojan.Downloader`), the EICAR test file, or a name hiding an executable behind a
+second extension (`Trojan.Generic`) is blocked and nothing is stored; contents that disagree with
+the extension, or markup in a text file, are kept but labelled (`Heuristic.Mismatch`,
+`Heuristic.Markup`) and served with `Content-Disposition: attachment`. These are static heuristics
+with a fixed check list — no signature database, no sandbox and no emulation — so a file can be
+clean to this gate and still be malicious to whatever opens it later; the allowlist, the fixed
+`Content-Type` from the extension (never the client's), `X-Content-Type-Options: nosniff` and
+`Content-Disposition` on everything that is not a picture or a clip are what keep a stored file from
+being executed by the browser. Voice clips are recorded by the browser and uploaded through the same
+route; there is no live call, and therefore no peer-to-peer audio channel to secure.
+
 **Chat.** A message is read back by game id and channel, never by a caller-supplied index, so a
 room cannot be reached around the game it belongs to; a private game's room answers `404` to
 everyone but its owner. Posting needs a session, and the text is cleaned server-side before it is

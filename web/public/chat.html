@@ -66,12 +66,22 @@
                  aria-relevant="additions" aria-label="Messages" tabindex="-1"></div>
 
             <form class="chat-composer" data-composer>
+                <div class="chat-composer-tray" data-composer-tray hidden>
+                    <span class="chat-composer-file" data-composer-file></span>
+                    <button class="chat-text-button" type="button" data-clear-attachment>Remove</button>
+                </div>
                 <div class="chat-composer-field">
+                    <button class="chat-text-button chat-composer-action" type="button" data-attach
+                            title="Attach a picture, a clip or a text file">Attach</button>
+                    <button class="chat-text-button chat-composer-action" type="button" data-record
+                            title="Record a voice clip of up to 60 seconds" aria-pressed="false">Voice</button>
                     <textarea rows="1" maxlength="500" data-message-input aria-label="Message"
                               aria-describedby="chat-hint" placeholder="Message #general"></textarea>
                     <button class="button small chat-send" type="submit">Send</button>
                 </div>
                 <p class="chat-hint" id="chat-hint" data-chat-hint aria-live="polite">Enter sends, Shift+Enter starts a new line.</p>
+                <input type="file" data-file-input hidden
+                       accept="image/png,image/jpeg,image/webp,image/gif,audio/webm,audio/ogg,audio/wav,audio/mpeg,audio/mp4,.txt,.md,.log,.world,.rbx">
             </form>
         </main>
 
@@ -87,6 +97,6 @@
     </noscript>
 
     <script src="/app.js?v=roles-1" defer></script>
-    <script src="/chat.js?v=chat-3" defer></script>
+    <script src="/chat.js?v=chat-4" defer></script>
 </body>
 </html>

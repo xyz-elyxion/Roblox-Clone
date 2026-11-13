@@ -177,6 +177,7 @@ void Store::clear() {
     hardwareBans_.clear();
     chat_.clear();
     chatReads_.clear();
+    uploads_.clear();
     likes_.clear();
     nextUserId_ = 1;
     nextFriendshipId_ = 1;
@@ -186,6 +187,7 @@ void Store::clear() {
     nextInfractionId_ = 1;
     nextAppealId_ = 1;
     nextChatMessageId_ = 1;
+    nextUploadId_ = 1;
 }
 
 bool Store::load(std::string* error) {
@@ -426,16 +428,44 @@ bool Store::load(std::string* error) {
         record.userId = static_cast<int>(entry.member("userId").asInteger(0));
         record.username = entry.member("username").asString();
         record.body = entry.member("body").asString();
+        record.attachmentId = static_cast<int>(entry.member("attachmentId").asInteger(0));
         record.createdAt = entry.member("createdAt").asString();
         record.atMs = entry.member("atMs").asInteger(0);
-        // A row without a room, an author or text cannot be shown anywhere, so
-        // it is dropped rather than carried around.
+        // A row without a room, an author or content cannot be shown anywhere, so
+        // it is dropped rather than carried around. Content is the text or the
+        // attachment: a file posted without a caption is still a message.
         if (record.id <= 0 || record.gameId <= 0 || record.userId <= 0 ||
-            record.channel.empty() || record.body.empty()) {
+            record.channel.empty() || (record.body.empty() && record.attachmentId <= 0)) {
             continue;
         }
         chat_.push_back(record);
         nextChatMessageId_ = std::max(nextChatMessageId_, record.id + 1);
+    }
+
+    for (const Json& entry : document.member("uploads").elements()) {
+        UploadRecord record;
+        record.id = static_cast<int>(entry.member("id").asInteger(0));
+        record.userId = static_cast<int>(entry.member("userId").asInteger(0));
+        record.gameId = static_cast<int>(entry.member("gameId").asInteger(0));
+        record.name = entry.member("name").asString();
+        record.mime = entry.member("mime").asString();
+        record.bytes = entry.member("bytes").asInteger(0);
+        record.sha256 = entry.member("sha256").asString();
+        record.verdict = entry.member("verdict").asString();
+        record.detection = entry.member("detection").asString();
+        record.path = entry.member("path").asString();
+        record.token = entry.member("token").asString();
+        record.createdAt = entry.member("createdAt").asString();
+        record.atMs = entry.member("atMs").asInteger(0);
+        // A record whose bytes are not on disk cannot be served, and one without a
+        // name cannot be shown; both are dropped so the chat never points at
+        // nothing.
+        if (record.id <= 0 || record.userId <= 0 || record.gameId <= 0 || record.name.empty() ||
+            record.path.empty()) {
+            continue;
+        }
+        uploads_.push_back(record);
+        nextUploadId_ = std::max(nextUploadId_, record.id + 1);
     }
 
     for (const Json& entry : document.member("chatReads").elements()) {
@@ -679,11 +709,32 @@ bool Store::save(std::string* error) const {
         entry.set("userId", record.userId);
         entry.set("username", record.username);
         entry.set("body", record.body);
+        entry.set("attachmentId", record.attachmentId);
         entry.set("createdAt", record.createdAt);
         entry.set("atMs", record.atMs);
         chat.push(entry);
     }
     document.set("chat", chat);
+
+    Json uploads = Json::makeArray();
+    for (const UploadRecord& record : uploads_) {
+        Json entry = Json::makeObject();
+        entry.set("id", record.id);
+        entry.set("userId", record.userId);
+        entry.set("gameId", record.gameId);
+        entry.set("name", record.name);
+        entry.set("mime", record.mime);
+        entry.set("bytes", record.bytes);
+        entry.set("sha256", record.sha256);
+        entry.set("verdict", record.verdict);
+        entry.set("detection", record.detection);
+        entry.set("path", record.path);
+        entry.set("token", record.token);
+        entry.set("createdAt", record.createdAt);
+        entry.set("atMs", record.atMs);
+        uploads.push(entry);
+    }
+    document.set("uploads", uploads);
 
     Json chatReads = Json::makeArray();
     for (const ChatReadRecord& record : chatReads_) {
@@ -1575,7 +1626,8 @@ std::vector<const BlockRecord*> Store::blocksBy(int userId) const {
 
 int Store::addChatMessage(const ChatMessageRecord& record) {
     if (record.gameId <= 0 || record.userId <= 0 || record.channel.empty() ||
-        record.body.empty() || chat::findChannel(record.channel) == nullptr) {
+        (record.body.empty() && record.attachmentId <= 0) ||
+        chat::findChannel(record.channel) == nullptr) {
         return 0;
     }
     ChatMessageRecord stored = record;
@@ -1583,6 +1635,94 @@ int Store::addChatMessage(const ChatMessageRecord& record) {
     chat_.push_back(stored);
     trimChat();
     return stored.id;
+}
+
+int Store::addUpload(const UploadRecord& record) {
+    if (record.userId <= 0 || record.gameId <= 0 || record.name.empty() || record.bytes <= 0 ||
+        record.token.empty()) {
+        return 0;
+    }
+    if (uploadCountForUser(record.userId) >= kMaxUploadsPerUser ||
+        uploadBytesForUser(record.userId) + record.bytes > kMaxUploadBytesPerUser) {
+        return 0;
+    }
+    UploadRecord stored = record;
+    stored.id = nextUploadId_++;
+    if (stored.verdict != "suspicious") {
+        stored.verdict = "clean";
+    }
+    uploads_.push_back(stored);
+    return stored.id;
+}
+
+const UploadRecord* Store::findUpload(int id) const {
+    for (const UploadRecord& record : uploads_) {
+        if (record.id == id) {
+            return &record;
+        }
+    }
+    return nullptr;
+}
+
+bool Store::removeUpload(int id) {
+    for (auto it = uploads_.begin(); it != uploads_.end(); ++it) {
+        if (it->id == id) {
+            uploads_.erase(it);
+            return true;
+        }
+    }
+    return false;
+}
+
+std::size_t Store::uploadCountForUser(int userId) const {
+    std::size_t count = 0;
+    for (const UploadRecord& record : uploads_) {
+        if (record.userId == userId) {
+            ++count;
+        }
+    }
+    return count;
+}
+
+bool Store::setUploadPath(int id, const std::string& path) {
+    for (UploadRecord& record : uploads_) {
+        if (record.id == id) {
+            record.path = path;
+            return true;
+        }
+    }
+    return false;
+}
+
+std::vector<std::string> Store::pruneOrphanUploads(long long nowMs, long long graceMs) {
+    std::vector<std::string> removed;
+    const auto referenced = [this](int id) {
+        for (const ChatMessageRecord& message : chat_) {
+            if (message.attachmentId == id) {
+                return true;
+            }
+        }
+        return false;
+    };
+    for (auto it = uploads_.begin(); it != uploads_.end();) {
+        if (!referenced(it->id) && (it->atMs <= 0 || nowMs - it->atMs > graceMs)) {
+            removed.push_back(it->path);
+            it = uploads_.erase(it);
+        } else {
+            ++it;
+        }
+    }
+    return removed;
+}
+
+long long Store::uploadBytesForUser(int userId) const {
+    long long total = 0;
+    for (const UploadRecord& record : uploads_) {
+        if (record.userId == userId) {
+            total += record.bytes;
+        }
+    }
+    return total;
 }
 
 std::vector<const ChatMessageRecord*> Store::chatMessages(int gameId, const std::string& channel,

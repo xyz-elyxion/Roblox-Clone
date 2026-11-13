@@ -7,6 +7,9 @@
 
 const chatBaseTitle = document.title;
 const chatPollMs = 4000;
+// One attachment per message, the same ceiling the upload route enforces: the
+// request body is capped at two mebibytes, so the page says so before sending.
+const chatUploadLimit = 2 * 1024 * 1024;
 
 const chatShell = document.querySelector('[data-chat-shell]');
 const chatLog = document.querySelector('[data-chat-log]');
@@ -19,6 +22,12 @@ const channelTopic = document.querySelector('[data-channel-topic]');
 const chatComposer = document.querySelector('[data-composer]');
 const messageInput = document.querySelector('[data-message-input]');
 const sendButton = chatComposer.querySelector('button[type="submit"]');
+const attachButton = chatComposer.querySelector('[data-attach]');
+const recordButton = chatComposer.querySelector('[data-record]');
+const fileInput = chatComposer.querySelector('[data-file-input]');
+const composerTray = chatComposer.querySelector('[data-composer-tray]');
+const composerFile = chatComposer.querySelector('[data-composer-file]');
+const clearAttachment = chatComposer.querySelector('[data-clear-attachment]');
 const chatHint = document.querySelector('[data-chat-hint]');
 const memberGroups = document.querySelector('[data-member-groups]');
 const membersToggle = document.querySelector('[data-toggle-members]');
@@ -41,6 +50,10 @@ const chatState = {
     maxLength: 500,
     polling: false,
     sending: false,
+    uploading: false,
+    pendingUpload: null,
+    recording: false,
+    recordedGame: 0,
     pollTimer: 0,
     pollCount: 0,
     unreadTotal: 0
@@ -247,6 +260,161 @@ function chatScrollToBottom() {
     chatLog.scrollTop = chatLog.scrollHeight;
 }
 
+// Attachments are uploaded first and posted second: the file goes up as a raw
+// body with its name in a header, the server answers with an id and its scan
+// verdict, and the message that follows cites that id. The page never decides
+// whether a file is safe; it shows what the server said about it.
+function chatUploadName(name) {
+    // The name travels in a header, which is ASCII, and is shown in the room, so
+    // anything else is folded to a dash rather than dropped.
+    let out = '';
+    for (const character of String(name || '')) {
+        const code = character.codePointAt(0);
+        out += code >= 32 && code < 127 ? character : '-';
+    }
+    out = out.replace(/["\\]/g, '-').trim().slice(0, 80);
+    return out || 'attachment';
+}
+
+function chatBytes(count) {
+    const size = Number(count) || 0;
+    if (size < 1024) {
+        return `${size} B`;
+    }
+    if (size < 1024 * 1024) {
+        return `${(size / 1024).toFixed(size < 10 * 1024 ? 1 : 0)} KB`;
+    }
+    return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+async function chatUpload(file) {
+    if (!file || chatState.gameId === 0) {
+        return null;
+    }
+    if (file.size > chatUploadLimit) {
+        chatSetHint(`Files are limited to ${chatBytes(chatUploadLimit)}.`, 'error');
+        return null;
+    }
+
+    const headers = {
+        'Content-Type': 'application/octet-stream',
+        'X-Upload-Name': chatUploadName(file.name)
+    };
+    const token = chatToken();
+    if (token) {
+        headers.Authorization = `Bearer ${token}`;
+    }
+
+    chatState.uploading = true;
+    chatSyncComposer();
+    chatSetHint(`Uploading ${chatUploadName(file.name)} …`);
+
+    let response;
+    try {
+        response = await fetch(`/api/games/${chatState.gameId}/uploads`, {
+            method: 'POST',
+            headers,
+            body: file
+        });
+    } catch (error) {
+        chatState.uploading = false;
+        chatSyncComposer();
+        chatSetHint('The upload could not be sent. Check the connection.', 'error');
+        return null;
+    }
+
+    let data = {};
+    try {
+        data = await response.json();
+    } catch (error) {
+        data = {};
+    }
+    chatState.uploading = false;
+    chatSyncComposer();
+
+    if (!response.ok) {
+        // A blocked file comes back with the scanner's name for it, which is the
+        // part a reader needs to see: "Trojan.Downloader", not just "refused".
+        const label = data.detection ? ` (${data.detection})` : '';
+        chatSetHint(`${data.error || 'The file was refused.'}${label}`, 'error');
+        return null;
+    }
+
+    const upload = data.upload || null;
+    if (upload && upload.scan === 'suspicious') {
+        chatSetHint(`Kept and labelled: ${upload.name} looked like ` +
+            `${upload.detection || 'a mismatched file'}.`, 'error');
+    }
+    return upload;
+}
+
+function chatSyncPending() {
+    const upload = chatState.pendingUpload;
+    composerTray.hidden = !upload;
+    composerFile.textContent = upload
+        ? `${upload.name} · ${chatBytes(upload.bytes)} · ${upload.scan === 'suspicious' ? 'flagged' : 'clean'}`
+        : '';
+    attachButton.disabled = !chatState.canPost || chatState.uploading;
+    // The microphone stays live while recording, because it is also the stop
+    // button; attaching a second file mid-recording is what gets locked out.
+    recordButton.disabled = !chatState.canPost || chatState.uploading;
+    attachButton.disabled = !chatState.canPost || chatState.uploading || chatState.recording;
+    recordButton.setAttribute('aria-pressed', chatState.recording ? 'true' : 'false');
+    recordButton.classList.toggle('is-recording', chatState.recording);
+}
+
+// One attachment, drawn from the JSON the server sent: a picture is shown, a clip
+// gets a player, anything else is a link to save. The scan verdict is a label, so
+// a file the scanner doubted is readable before it is opened.
+function chatAttachmentNode(attachment) {
+    const wrap = document.createElement('div');
+    wrap.className = 'chat-attachment';
+    const mime = String(attachment.mime || '');
+    const flagged = attachment.scan === 'suspicious';
+    if (flagged) {
+        wrap.classList.add('is-flagged');
+    }
+
+    if (mime.startsWith('image/')) {
+        const image = document.createElement('img');
+        image.className = 'chat-attachment-image';
+        image.src = attachment.url;
+        image.alt = attachment.name;
+        image.loading = 'lazy';
+        wrap.append(image);
+    } else if (mime.startsWith('audio/')) {
+        const player = document.createElement('audio');
+        player.className = 'chat-attachment-audio';
+        player.controls = true;
+        player.preload = 'none';
+        player.src = attachment.url;
+        wrap.append(player);
+    } else {
+        const link = document.createElement('a');
+        link.className = 'chat-attachment-file';
+        link.href = attachment.url;
+        link.rel = 'noopener';
+        link.textContent = attachment.name;
+        wrap.append(link);
+    }
+
+    const meta = document.createElement('span');
+    meta.className = 'chat-attachment-meta';
+    const size = chatBytes(attachment.bytes);
+    const named = mime.startsWith('image/') || mime.startsWith('audio/');
+    meta.textContent = named ? `${attachment.name} · ${size}` : size;
+    wrap.append(meta);
+
+    if (flagged) {
+        const badge = document.createElement('span');
+        badge.className = 'chat-scan-badge';
+        badge.textContent = `Flagged: ${attachment.detection || 'unknown'}`;
+        badge.title = 'The file was kept, but the site scanner was not sure about it.';
+        wrap.append(badge);
+    }
+    return wrap;
+}
+
 function chatAppendMessage(message) {
     if (message.id <= chatState.lastId) {
         return;
@@ -302,10 +470,16 @@ function chatAppendMessage(message) {
         body.append(head);
     }
 
-    const text = document.createElement('p');
-    text.className = 'chat-message-text';
-    text.textContent = message.body;
-    body.append(text);
+    if (message.body) {
+        const text = document.createElement('p');
+        text.className = 'chat-message-text';
+        text.textContent = message.body;
+        body.append(text);
+    }
+
+    if (message.attachment) {
+        body.append(chatAttachmentNode(message.attachment));
+    }
 
     row.append(body);
     chatLog.append(row);
@@ -484,7 +658,9 @@ function chatRenderHead(game) {
 function chatSyncComposer() {
     const open = chatState.gameId > 0;
     messageInput.disabled = !open || !chatState.canPost;
-    sendButton.disabled = !open || !chatState.canPost || chatState.sending;
+    sendButton.disabled = !open || !chatState.canPost || chatState.sending ||
+        (!messageInput.value.trim() && !chatState.pendingUpload);
+    chatSyncPending();
 
     if (!open) {
         chatSetHint('Open a game to read its chat.', 'error');
@@ -568,6 +744,10 @@ function chatFatal(message) {
 async function chatOpenRoom(gameId, channel) {
     chatState.gameId = gameId;
     chatState.lastId = 0;
+    // A file uploaded for one room is not a file for the next one; the server would
+    // refuse the post, so the tray is emptied rather than left holding it.
+    chatState.pendingUpload = null;
+    chatSyncComposer();
     const wanted = channel || 'general';
 
     const response = await chatJson(
@@ -672,7 +852,9 @@ function chatStartPolling() {
 
 async function chatSend() {
     const text = messageInput.value.trim();
-    if (!text || chatState.sending || !chatState.canPost || chatState.gameId === 0) {
+    const attachment = chatState.pendingUpload;
+    if ((!text && !attachment) || chatState.sending || !chatState.canPost ||
+        chatState.gameId === 0) {
         return;
     }
 
@@ -681,7 +863,11 @@ async function chatSend() {
 
     const response = await chatJson(`/api/chat/${chatState.gameId}/messages`, {
         method: 'POST',
-        body: { channel: chatState.channel, body: text }
+        body: {
+            channel: chatState.channel,
+            body: text,
+            attachmentId: attachment ? attachment.id : 0
+        }
     });
 
     chatState.sending = false;
@@ -696,6 +882,7 @@ async function chatSend() {
     }
 
     messageInput.value = '';
+    chatState.pendingUpload = null;
     chatResizeInput();
     chatSyncComposer();
     messageInput.focus();
@@ -709,6 +896,95 @@ async function chatSend() {
     } else {
         await chatPoll();
     }
+}
+
+let chatRecorder = null;
+let chatRecordTimer = 0;
+let chatRecordChunks = [];
+
+async function chatStartRecording() {
+    if (chatState.recording || !chatState.canPost || chatState.gameId === 0) {
+        return;
+    }
+    if (!navigator.mediaDevices || typeof window.MediaRecorder !== 'function') {
+        chatSetHint('This browser cannot record audio.', 'error');
+        return;
+    }
+
+    let stream;
+    try {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch (error) {
+        chatSetHint('The microphone was refused. The site needs permission to record a clip.',
+            'error');
+        return;
+    }
+
+    // WebM/Opus is what every current browser records and what the upload route
+    // accepts. A browser without it still records; the server says what it made of
+    // the bytes, and an unsupported container is refused rather than guessed at.
+    const preferred = 'audio/webm;codecs=opus';
+    const options = window.MediaRecorder.isTypeSupported(preferred)
+        ? { mimeType: preferred }
+        : undefined;
+
+    chatRecordChunks = [];
+    chatState.recordedGame = chatState.gameId;
+    chatRecorder = options ? new MediaRecorder(stream, options) : new MediaRecorder(stream);
+    chatRecorder.addEventListener('dataavailable', (event) => {
+        if (event.data && event.data.size > 0) {
+            chatRecordChunks.push(event.data);
+        }
+    });
+    chatRecorder.addEventListener('stop', () => {
+        stream.getTracks().forEach((track) => track.stop());
+        const recordedGame = chatState.recordedGame;
+        const blob = new Blob(chatRecordChunks, { type: 'audio/webm' });
+        chatRecordChunks = [];
+        chatState.recording = false;
+        window.clearTimeout(chatRecordTimer);
+        chatSyncComposer();
+        if (recordedGame === 0 || recordedGame !== chatState.gameId) {
+            chatSetHint('The room changed while recording, so the clip was dropped.');
+            return;
+        }
+        if (blob.size === 0) {
+            chatSetHint('The clip was empty, so nothing was sent.', 'error');
+            return;
+        }
+        chatFinishRecording(blob);
+    });
+
+    try {
+        chatRecorder.start();
+    } catch (error) {
+        stream.getTracks().forEach((track) => track.stop());
+        chatSetHint('This browser could not start recording.', 'error');
+        return;
+    }
+    chatState.recording = true;
+    chatSyncComposer();
+    chatSetHint('Recording a voice clip. Press Voice again to stop, or it stops by itself at 60 s.');
+    chatRecordTimer = window.setTimeout(() => chatStopRecording(), 60000);
+}
+
+function chatStopRecording() {
+    if (chatRecorder && chatState.recording) {
+        chatRecorder.stop();
+    }
+}
+
+async function chatFinishRecording(blob) {
+    const file = new File([blob], `voice-${Date.now()}.webm`, { type: 'audio/webm' });
+    const upload = await chatUpload(file);
+    if (!upload) {
+        return;
+    }
+    chatState.pendingUpload = upload;
+    chatSyncComposer();
+    // A clip is a message on its own, so it is posted as soon as it is stored;
+    // anything already typed becomes its caption.
+    await chatSend();
 }
 
 function chatResizeInput() {
@@ -775,7 +1051,41 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    messageInput.addEventListener('input', chatResizeInput);
+    messageInput.addEventListener('input', () => {
+        chatResizeInput();
+        chatSyncComposer();
+    });
+
+    attachButton.addEventListener('click', () => {
+        fileInput.click();
+    });
+
+    fileInput.addEventListener('change', async () => {
+        const file = fileInput.files && fileInput.files[0];
+        fileInput.value = '';
+        if (!file) {
+            return;
+        }
+        const upload = await chatUpload(file);
+        if (upload) {
+            chatState.pendingUpload = upload;
+            chatSyncComposer();
+            messageInput.focus();
+        }
+    });
+
+    recordButton.addEventListener('click', () => {
+        if (chatState.recording) {
+            chatStopRecording();
+        } else {
+            chatStartRecording();
+        }
+    });
+
+    clearAttachment.addEventListener('click', () => {
+        chatState.pendingUpload = null;
+        chatSyncComposer();
+    });
 
     channelsToggle.addEventListener('click', () => {
         chatSetChannels(!chatShell.classList.contains('channels-open'));

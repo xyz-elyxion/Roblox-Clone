@@ -336,8 +336,16 @@ private:
     bool handleChatServers(Request& request, Response& response);
     bool handleChatRoom(Request& request, Response& response);
     bool handleChatPost(Request& request, Response& response);
+    // Chat attachments: a file is scanned before it is written, kept outside the
+    // served web root, and fetched by id only through the room it belongs to.
+    bool handleUpload(Request& request, Response& response);
+    bool handleDownloadUpload(Request& request, Response& response);
+    std::string uploadDirectory() const;
     Json chatChannelJson(const chat::Channel& channel) const;
     Json chatMessageJson(const ChatMessageRecord& message, int viewerId) const;
+    // An attachment as the pages read it: name, type, size, scan verdict and the
+    // URL a signed-in reader of that room fetches it from.
+    Json uploadJson(const UploadRecord& upload) const;
     // The people in a room: whoever polled it recently plus whoever wrote the
     // page of messages being read, so a quiet room still names its regulars.
     Json chatMembersJson(const GameRecord& game, long long nowMs, int viewerId,

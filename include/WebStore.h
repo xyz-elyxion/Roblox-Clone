@@ -247,11 +247,47 @@ struct ChatMessageRecord {
     int userId = 0;
     std::string username;
     std::string body;
+    // The attachment this message carries, or zero. A message with an attachment
+    // may have an empty body: posting a file without a caption is a normal thing
+    // to do, and the file is the message.
+    int attachmentId = 0;
     std::string createdAt;
     // When the same moment as createdAt, in milliseconds, so a message's age can
     // be compared with presence without parsing a timestamp.
     long long atMs = 0;
 };
+
+// One file attached to a chat message. The bytes live in the uploads folder beside
+// the data file; this record is the part the site lists, labels with the scan
+// verdict and serves by id. A file the scanner blocked never gets a record.
+struct UploadRecord {
+    int id = 0;
+    int userId = 0;
+    int gameId = 0;
+    std::string name;
+    std::string mime;
+    long long bytes = 0;
+    std::string sha256;
+    // "clean" or "suspicious"; a blocked file is refused before this record exists.
+    std::string verdict = "clean";
+    // The scanner's family name, e.g. "Trojan.Downloader"; empty when clean.
+    std::string detection;
+    // File name inside the uploads folder, built from the id and the extension, so
+    // no uploaded text ever becomes part of a path.
+    std::string path;
+    // An unguessable capability for the download URL. A picture in a chat message
+    // is fetched by an <img>, which cannot send an Authorization header, so the URL
+    // itself carries the right to read the file; nothing but the message list ever
+    // hands it out.
+    std::string token;
+    std::string createdAt;
+    long long atMs = 0;
+};
+
+// How many attachments one account may keep, and how many bytes they may total.
+// The upload route caps one file; these cap an account filling the disk.
+const std::size_t kMaxUploadsPerUser = 40;
+const long long kMaxUploadBytesPerUser = 40LL * 1024 * 1024;
 
 // How far one account has read in one channel. Kept on disk so an unread badge
 // survives a restart: a badge that resets every time the website restarts would
@@ -491,6 +527,23 @@ public:
     std::vector<const BlockRecord*> blocksBy(int userId) const;
 
     // chat
+    // uploads
+    // Stores an attachment record and returns its id, or 0 when the account is over
+    // its allowance. The caller writes the bytes, sets the path and saves.
+    int addUpload(const UploadRecord& record);
+    const UploadRecord* findUpload(int id) const;
+    // Drops a record whose bytes could not be written; false when unknown.
+    bool removeUpload(int id);
+    std::size_t uploadCountForUser(int userId) const;
+    long long uploadBytesForUser(int userId) const;
+    // Points a record at the bytes once they are written; false when unknown.
+    bool setUploadPath(int id, const std::string& path);
+    // Drops records no message refers to - a file whose message was trimmed out of
+    // the file has no reader left - and returns their paths so the caller can
+    // delete the bytes. Records newer than `graceMs` are kept: a file uploaded in
+    // another tab may be about to be posted.
+    std::vector<std::string> pruneOrphanUploads(long long nowMs, long long graceMs);
+
     // Appends one message and returns its id, or 0 for a record that is not a
     // message (no game, no account, no channel or no text). The oldest messages
     // of a channel, and of the whole file, are dropped to keep it bounded.
@@ -585,6 +638,7 @@ private:
     std::vector<DevTokenRecord> devTokens_;
     std::vector<ChatMessageRecord> chat_;
     std::vector<ChatReadRecord> chatReads_;
+    std::vector<UploadRecord> uploads_;
     std::vector<GameLikeRecord> likes_;
     int nextUserId_ = 1;
     int nextFriendshipId_ = 1;
@@ -598,6 +652,7 @@ private:
     int nextAppealId_ = 1;
     int nextDevTokenId_ = 1;
     int nextChatMessageId_ = 1;
+    int nextUploadId_ = 1;
 };
 
 // Turns key material written by a person into the 32 bytes AES-256 takes: 64 hex

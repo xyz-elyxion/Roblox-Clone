@@ -84,6 +84,13 @@ Json WebsiteApp::chatMessageJson(const ChatMessageRecord& message, int viewerId)
     entry.set("body", message.body);
     entry.set("at", message.createdAt);
     entry.set("mine", viewerId > 0 && message.userId == viewerId);
+    // A message can carry one file. A file the scanner doubted says so here, so a
+    // reader sees the label before opening it rather than after.
+    if (message.attachmentId > 0) {
+        if (const UploadRecord* upload = store_.findUpload(message.attachmentId)) {
+            entry.set("attachment", uploadJson(*upload));
+        }
+    }
     return entry;
 }
 
@@ -401,12 +408,33 @@ bool WebsiteApp::handleChatPost(Request& request, Response& response) {
         return true;
     }
 
-    std::string text;
+    // A file is attached by reference, and only the account that uploaded it, in
+    // this room, can post it: that is what stops one account from posting
+    // another's file or moving a file into a game it was not uploaded for.
+    const int attachmentId = static_cast<int>(body.member("attachmentId").asInteger(0));
+    if (attachmentId > 0) {
+        const UploadRecord* upload = store_.findUpload(attachmentId);
+        if (upload == nullptr || upload->userId != user.id || upload->gameId != game->id) {
+            chatError(response, 400, "That attachment is not yours to post.");
+            return true;
+        }
+    }
+
+    // A caption is optional when a file is attached: without one the file is the
+    // message. The text that is there still goes through the same checks as any
+    // other message, and a caption that normalizes to nothing is no caption.
+    const std::string rawText = body.member("body").asString();
+    std::string normalized;
     std::string textError;
-    if (!chat::normalizeBody(body.member("body").asString(), &text, &textError)) {
-        chatError(response, 400, textError);
+    bool hasText = false;
+    if (!rawText.empty()) {
+        hasText = chat::normalizeBody(rawText, &normalized, &textError);
+    }
+    if (!hasText && attachmentId <= 0) {
+        chatError(response, 400, textError.empty() ? "A message cannot be empty." : textError);
         return true;
     }
+    const std::string text = hasText ? normalized : std::string();
 
     int retryAfterSeconds = 0;
     if (isChatRateLimited(user.id, &retryAfterSeconds)) {
@@ -422,12 +450,25 @@ bool WebsiteApp::handleChatPost(Request& request, Response& response) {
     record.userId = user.id;
     record.username = user.username;
     record.body = text;
+    record.attachmentId = attachmentId;
     record.createdAt = chatIsoNow();
     record.atMs = now;
     record.id = store_.addChatMessage(record);
     if (record.id <= 0) {
         chatError(response, 400, "That message could not be stored.");
         return true;
+    }
+
+    // An attachment follows the message that carries it: once a channel's oldest
+    // messages are trimmed out of the file, the files they carried have no reader
+    // left, so their bytes go too and the account gets the space back. Files
+    // uploaded in the last ten minutes are left alone, because another tab may be
+    // about to post one.
+    const std::string directory = uploadDirectory();
+    for (const std::string& path : store_.pruneOrphanUploads(now, 10LL * 60 * 1000)) {
+        if (!path.empty()) {
+            std::remove((directory.empty() ? path : directory + "/" + path).c_str());
+        }
     }
 
     std::string saveError;

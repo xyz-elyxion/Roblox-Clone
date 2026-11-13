@@ -1,6 +1,7 @@
 #include "AvatarItems.h"
 #include "ReplayRecorder.h"
 #include "HardwareId.h"
+#include "MalwareScan.h"
 #include "Moderation.h"
 #include "Roles.h"
 #include "WebApp.h"
@@ -2047,6 +2048,162 @@ Json WebsiteApp::instanceJson(const GameInstance& instance, bool includeProcess)
     return result;
 }
 
+Json WebsiteApp::uploadJson(const UploadRecord& upload) const {
+    Json entry = Json::makeObject();
+    entry.set("id", upload.id);
+    entry.set("name", upload.name);
+    entry.set("mime", upload.mime);
+    entry.set("bytes", upload.bytes);
+    entry.set("sha256", upload.sha256);
+    entry.set("scan", upload.verdict);
+    entry.set("detection", upload.detection);
+    // The token is what lets an <img> or an <audio> element read the file: the
+    // element cannot send the session header, and the token is only handed out in
+    // the message list of the room the file belongs to.
+    entry.set("url", "/api/games/" + std::to_string(upload.gameId) + "/uploads/" +
+                         std::to_string(upload.id) + "?t=" + upload.token);
+    return entry;
+}
+
+std::string WebsiteApp::uploadDirectory() const {
+    return joinPath(directoryOf(config_.dataPath), "uploads");
+}
+
+// One file, sent as the raw body with its name in a header because the browser
+// can send a Blob without a multipart encoder. The name never becomes a path, so
+// there is nothing a multipart parser could get wrong either.
+bool WebsiteApp::handleUpload(Request& request, Response& response) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    AuthUser user;
+    if (!requireAuth(request, response, &user)) {
+        return true;
+    }
+
+    const int gameId = parseUserId(request.param("id"));
+    const GameRecord* game = gameId > 0 ? store_.findGame(gameId) : nullptr;
+    // A file belongs to the room it will be posted in, so it follows the room's
+    // visibility rule: a private game's chat is not a place to park bytes.
+    if (game == nullptr || (!game->isPublic && game->ownerId != user.id)) {
+        errorJson(response, 404, "Game not found.");
+        return true;
+    }
+
+    const std::string name = request.header("x-upload-name");
+    std::string nameError;
+    if (!rblx::scan::nameAllowed(name, &nameError)) {
+        errorJson(response, 400, nameError);
+        return true;
+    }
+    if (request.body.empty()) {
+        errorJson(response, 400, "The file is empty.");
+        return true;
+    }
+
+    // The bytes are read before anything is written: a file the scanner blocks
+    // never reaches the disk, so there is nothing to clean up and nothing that can
+    // be served by mistake.
+    const rblx::scan::Result scan = rblx::scan::inspect(name, request.body);
+    if (scan.verdict == rblx::scan::Verdict::Blocked) {
+        Json body = Json::makeObject();
+        body.set("success", false);
+        body.set("error", scan.detail);
+        body.set("detection", scan.detection);
+        response.json(422, body.dump());
+        return true;
+    }
+
+    if (store_.uploadCountForUser(user.id) >= kMaxUploadsPerUser ||
+        store_.uploadBytesForUser(user.id) + static_cast<long long>(request.body.size()) >
+            kMaxUploadBytesPerUser) {
+        errorJson(response, 429,
+                  "Your attachments are over the allowance. Files are freed as the messages "
+                  "that carry them leave the room.");
+        return true;
+    }
+
+    UploadRecord record;
+    record.userId = user.id;
+    record.gameId = game->id;
+    record.name = name;
+    record.mime = rblx::scan::mimeForName(name);
+    record.bytes = static_cast<long long>(request.body.size());
+    record.sha256 = hexEncode(sha256(request.body));
+    record.verdict = scan.verdict == rblx::scan::Verdict::Suspicious ? "suspicious" : "clean";
+    record.detection = scan.detection;
+    record.token = randomHex(16);
+    record.createdAt = nowIso();
+    record.atMs = presenceMillis();
+    record.id = store_.addUpload(record);
+    if (record.id <= 0) {
+        errorJson(response, 400, "That file could not be stored.");
+        return true;
+    }
+
+    // The name on disk is the record's id and the extension, never the uploaded
+    // text, so nothing a sender writes can shape a path.
+    const std::string directory = uploadDirectory();
+    const std::string path = std::to_string(record.id) + rblx::scan::extensionOf(name);
+    if (!makeDirectories(directory) || !writeWholeFile(joinPath(directory, path), request.body)) {
+        store_.removeUpload(record.id);
+        errorJson(response, 500, "The file could not be written.");
+        return true;
+    }
+    store_.setUploadPath(record.id, path);
+
+    std::string saveError;
+    if (!store_.save(&saveError)) {
+        std::remove(joinPath(directory, path).c_str());
+        store_.removeUpload(record.id);
+        errorJson(response, 500, "Could not update the data file.");
+        return true;
+    }
+
+    Json result = Json::makeObject();
+    result.set("success", true);
+    result.set("upload", uploadJson(*store_.findUpload(record.id)));
+    response.json(201, result.dump());
+    return true;
+}
+
+bool WebsiteApp::handleDownloadUpload(Request& request, Response& response) {
+    std::lock_guard<std::mutex> lock(mutex_);
+
+    const int gameId = parseUserId(request.param("id"));
+    const GameRecord* game = gameId > 0 ? store_.findGame(gameId) : nullptr;
+    if (game == nullptr) {
+        errorJson(response, 404, "File not found.");
+        return true;
+    }
+
+    const int uploadId = parseUserId(request.param("uploadId"));
+    const UploadRecord* upload = uploadId > 0 ? store_.findUpload(uploadId) : nullptr;
+    // The id alone is not enough: the file has to belong to the room in the URL and
+    // the request has to carry the token the message list handed out. The token is
+    // 128 random bits, so a guessed id and a guessed token do not meet.
+    if (upload == nullptr || upload->gameId != game->id ||
+        !constantTimeEquals(upload->token, request.queryParam("t"))) {
+        errorJson(response, 404, "File not found.");
+        return true;
+    }
+    std::string bytes;
+    if (!readWholeFile(joinPath(uploadDirectory(), upload->path), &bytes)) {
+        errorJson(response, 404, "File not found.");
+        return true;
+    }
+
+    response.text(200, bytes, upload->mime);
+    // A picture and a clip are shown in the room; everything else is saved under
+    // the name its sender chose instead of being opened.
+    const bool displayed =
+        upload->mime.rfind("image/", 0) == 0 || upload->mime.rfind("audio/", 0) == 0;
+    if (!displayed) {
+        response.headers["Content-Disposition"] =
+            "attachment; filename=\"" + upload->name + "\"";
+    }
+    response.headers["Cache-Control"] = "private, max-age=300";
+    return true;
+}
+
 void WebsiteApp::installRoutes() {
     server_.route("GET", "/api/dev/tokens", guard([this](Request& request, Response& response) {
                       return handleListDevTokens(request, response);
@@ -2154,6 +2311,15 @@ void WebsiteApp::installRoutes() {
     server_.route("POST", "/api/chat/:id/messages",
                   guard([this](Request& request, Response& response) {
                       return handleChatPost(request, response);
+                  }));
+    // Attachments: one file posted as a raw body, then referenced by a message.
+    server_.route("POST", "/api/games/:id/uploads",
+                  guard([this](Request& request, Response& response) {
+                      return handleUpload(request, response);
+                  }));
+    server_.route("GET", "/api/games/:id/uploads/:uploadId",
+                  guard([this](Request& request, Response& response) {
+                      return handleDownloadUpload(request, response);
                   }));
     server_.route("GET", "/api/games", guard([this](Request& request, Response& response) {
                       return handleListGames(request, response);

@@ -392,6 +392,7 @@ set(WEB_SOURCES
     src/WebStore.cpp
     src/ChatRoom.cpp
     src/WebChat.cpp
+    src/MalwareScan.cpp
 )
 
 if(RBLX_BUILD_WEBAPP)
@@ -442,6 +443,12 @@ if(RBLX_BUILD_TESTS)
     add_executable(RolesTests tests/roles_tests.cpp)
     target_include_directories(RolesTests PRIVATE ${RBLXBUILD_CURRENT_SOURCE_DIR}/include)
     add_test(NAME RolesTests COMMAND RolesTests)
+
+    # The attachment scanner: the allowlist and the static checks behind it. It
+    # has no dependency beyond the standard library, so the checks run anywhere.
+    add_executable(MalwareScanTests tests/malware_scan_tests.cpp src/MalwareScan.cpp)
+    target_include_directories(MalwareScanTests PRIVATE ${RBLXBUILD_CURRENT_SOURCE_DIR}/include)
+    add_test(NAME MalwareScanTests COMMAND MalwareScanTests)
 
     # The machine id the join carries, and the ban records a ban is copied onto.
     # The store is linked so the ban lifecycle is checked against the same class the

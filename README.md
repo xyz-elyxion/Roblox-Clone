@@ -753,6 +753,43 @@ than losing the text. Guests can read: the composer explains that posting needs 
 links to the sign-in page. Served straight from `web/public` with no backend, the page says it
 cannot reach the chat instead of showing a conversation that never happened.
 
+#### Attachments, scanning and voice clips
+
+A message can carry one file. **Attach** takes a picture, a clip or a text file, and **Voice**
+records up to sixty seconds from the microphone and posts the result as a voice clip. That is a
+recorded message in the room, not a live call: a call needs an audio stream between two browsers —
+WebRTC plus an Opus encoder, neither of which this repository vendors — while a clip needs only the
+recorder the browser already has. Live calls are not implemented, and the page does not pretend
+they are.
+
+An upload is a raw body on `POST /api/games/:id/uploads` with the name in `X-Upload-Name`, so no
+multipart parser is involved and an uploaded name never becomes a path: the bytes are written as
+`<id><extension>` into an `uploads` folder beside the data file, never under `web/public`, and they
+are read back only through `GET /api/games/:id/uploads/:uploadId?t=…`, where `t` is 128 random bits
+handed out only in that room's message list. The token is in the URL because an `<img>` or an
+`<audio>` element cannot send a session header; a guessed id without the token answers `404`. A
+message cites the upload by id, and only the account that uploaded it, in that room, can post it.
+
+Every upload is scanned before anything is written (`include/MalwareScan.h`):
+
+| Verdict | When | What happens |
+| --- | --- | --- |
+| clean | nothing matched | stored and shown |
+| suspicious | the bytes disagree with the extension, or a text file carries markup | stored, labelled in the room, and served as a download |
+| blocked | a program inside the file, a document with macros, a downloader command, the EICAR test file | refused with the detection name; nothing is written |
+
+The detection names are family-style — `Win32.Executable`, `Trojan.Macro`, `Trojan.Downloader`,
+`Trojan.Generic`, `EICAR-Test-File`, `Heuristic.Mismatch`, `Heuristic.Markup` — and the checks are
+static: a fixed list of headers, containers and command strings, with no signature database, no
+sandbox and no opinion about a file that only turns harmful when another program opens it. It is a
+gate for attachments, not an anti-virus engine, and `SECURITY.md` says the same. The extension
+allowlist is the first gate and the scan is the second: a `.exe`, an archive or a `.html` page is
+refused by name alone.
+
+An account may keep 40 attachments totalling 40 MiB. Attachments follow their messages: when the
+oldest messages of a channel are trimmed out of the file, the files they carried are deleted and the
+space comes back, so a busy room cannot fill the disk.
+
 The layout folds down with the window: the member list becomes a drawer below 1180px and the
 channel column below 900px, both closed with Escape or a click outside. Every colour comes from the
 existing custom properties, so light and dark both work, and pages carry a **Chat** link in the
@@ -943,7 +980,9 @@ compatibility fallback, but new callers should use the header.
 | --- | --- |
 | `GET /api/chat` | Public games as chat servers, the channel list, and whether the caller is signed in |
 | `GET /api/chat/:id?channel=general&after=0` | One room: messages (only newer than `after`), members, and what the caller may do |
-| `POST /api/chat/:id/messages` | `{ "channel": "general", "body": "..." }` — posts as the caller; 500 characters at most |
+| `POST /api/chat/:id/messages` | `{ "channel": "general", "body": "...", "attachmentId": 3 }` — posts as the caller; 500 characters at most, and the body may be empty when a file is attached |
+| `POST /api/games/:id/uploads` | Raw body plus `X-Upload-Name`; scans, then stores; `422` carries `detection` when the file is blocked |
+| `GET /api/games/:id/uploads/:uploadId?t=…` | One attachment through its token link; pictures and clips inline, everything else as a download |
 
 ### Games
 

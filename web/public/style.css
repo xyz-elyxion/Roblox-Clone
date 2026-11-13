@@ -2515,3 +2515,26 @@ textarea.input {
     margin-left: auto;
     border-color: var(--panel-alt);
 }
+
+/* A role badge sits beside a username and in the dashboard's role table. */
+.role-badge {
+    display: inline-block;
+    padding: 0.05rem 0.5rem;
+    border: 1px solid var(--soft-line);
+    border-radius: 999px;
+    color: var(--muted);
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    vertical-align: middle;
+    white-space: nowrap;
+}
+
+.role-badge.staff {
+    border-color: var(--fg);
+    color: var(--fg);
+}
+
+.role-select {
+    min-width: 9rem;
+}

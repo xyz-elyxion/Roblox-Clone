@@ -1,5 +1,7 @@
 #include "WebStore.h"
 
+#include "Roles.h"
+
 #include "ChatRoom.h"
 #include "HardwareId.h"
 #include "WebCrypto.h"
@@ -224,6 +226,9 @@ bool Store::load(std::string* error) {
         user.id = static_cast<int>(entry.member("id").asInteger(0));
         user.username = entry.member("username").asString();
         user.createdAt = entry.member("createdAt").asString();
+        // An id this build does not know is read back as the default role: a
+        // stored string no page can interpret is worse than no role at all.
+        user.role = rblx::roles::find(entry.member("role").asString()).id;
         user.lastSeenAtMs = entry.member("lastSeenAtMs").asInteger(0);
         user.tokenVersion = static_cast<int>(entry.member("tokenVersion").asInteger(0));
         user.cheatStrikes = static_cast<int>(entry.member("cheatStrikes").asInteger(0));
@@ -504,6 +509,7 @@ bool Store::save(std::string* error) const {
         entry.set("id", user.id);
         entry.set("username", user.username);
         entry.set("createdAt", user.createdAt);
+        entry.set("role", user.role);
         entry.set("lastSeenAtMs", user.lastSeenAtMs);
         entry.set("tokenVersion", user.tokenVersion);
         entry.set("cheatStrikes", user.cheatStrikes);
@@ -795,6 +801,21 @@ bool Store::setModeration(int id, int strikeCount, long long suspendedUntilMs, b
         user.banned = banned;
         user.moderationReason = reason;
         user.moderatedAt = nowIso;
+        return true;
+    }
+    return false;
+}
+
+bool Store::setRole(int id, const std::string& roleId) {
+    if (!rblx::roles::isKnown(roleId)) {
+        return false;
+    }
+    const std::string normalized = rblx::roles::find(roleId).id;
+    for (UserRecord& user : users_) {
+        if (user.id != id) {
+            continue;
+        }
+        user.role = normalized;
         return true;
     }
     return false;

@@ -77,6 +77,31 @@
                 <article class="panel">
                     <div class="panel-heading">
                         <div>
+                            <p class="label">Staff</p>
+                            <h2>Roles</h2>
+                        </div>
+                    </div>
+                    <p class="admin-reason">Every role there is, lowest first. A role is only
+                        handed out by an account above it, and moderation follows the same
+                        ladder: no role acts on its own level or above.</p>
+                    <div class="admin-table-wrap">
+                        <table class="admin-table">
+                            <thead>
+                                <tr>
+                                    <th scope="col">Role</th>
+                                    <th scope="col">Rank</th>
+                                    <th scope="col">Kind</th>
+                                    <th scope="col">Can</th>
+                                </tr>
+                            </thead>
+                            <tbody data-admin-roles></tbody>
+                        </table>
+                    </div>
+                </article>
+
+                <article class="panel">
+                    <div class="panel-heading">
+                        <div>
                             <p class="label">Moderation</p>
                             <h2>Appeals</h2>
                         </div>
@@ -216,6 +241,6 @@
             </nav>
         </footer>
     </div>
-    <script src="/app.js?v=standing-2" defer></script>
+    <script src="/app.js?v=roles-1" defer></script>
 </body>
 </html>

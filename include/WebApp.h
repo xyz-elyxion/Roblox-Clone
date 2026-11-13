@@ -10,6 +10,7 @@
 
 #include "ChatRoom.h"
 #include "Moderation.h"
+#include "Roles.h"
 #include "WebHttp.h"
 #include "WebJson.h"
 #include "WebStore.h"
@@ -214,7 +215,15 @@ private:
     // Filled by resolveAdminIds() from Config::adminUsernames, at start-up only:
     // a name that is given up later must not carry rights to whoever claims it.
     std::vector<int> adminUserIds_;
-    bool isAdminUser(const AuthUser& user) const;
+    // The role an account holds. The account that owns the install is always the
+    // Owner, whatever its stored role says, so editing the data file cannot lock
+    // the install out of its own dashboard.
+    const rblx::roles::Role& roleOf(const AuthUser& user) const;
+    bool can(const AuthUser& user, rblx::roles::Permission permission) const;
+    // Writes the 403 naming the caller's role; true when the permission is held.
+    bool requirePermission(const AuthUser& user, rblx::roles::Permission permission,
+                           const std::string& action, Response& response) const;
+    Json roleJson(const rblx::roles::Role& role) const;
     // Names are resolved to ids once, at start-up, so a name that is given up
     // later cannot carry admin rights to whoever claims it next.
     void resolveAdminIds();
@@ -281,6 +290,12 @@ private:
     // The report is filed against the signed-in account, which is what makes it
     // attributable: a token-bearing detection climbs the moderation ladder.
     bool handleClientDetection(Request& request, Response& response);
+    // The role ladder and what each role may do. The dashboard's picker and its
+    // role table are both built from this, so the two can never disagree.
+    bool handleRoles(Request& request, Response& response);
+    // Puts an account on a role below the caller's own, which is what stops a
+    // moderator from appointing an administrator.
+    bool handleAdminSetRole(Request& request, Response& response);
     bool handleAdminOverview(Request& request, Response& response);
     bool handleAdminDeleteGame(Request& request, Response& response);
     // The running game server reports a confirmed detection here. The instance's

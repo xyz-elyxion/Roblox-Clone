@@ -769,19 +769,46 @@ hand out coins — a prize, a refund, or making a run the server dropped good �
 playtime that earned the rest. A grant is one account at a time and only ever adds, 1 to 100000
 coins, and it lands in the same balance Settings and the avatar shop read.
 
-Admin access is by account, and the account that owns the install is always an admin. That is the
-seeded `defaultuser0` account, and it stays the admin after a rename or a differently-spelled seed,
-because the owner is matched by id rather than by name. `ADMIN_USERNAMES` adds other accounts to the
-list; it never replaces the owner, so naming someone else there cannot lock the install's own owner
-out of `/admin`. A configured name is resolved to its account id when the backend starts, and the
-admin check uses that id, so giving a name up and letting someone else claim it does not hand them
-the panel. That also means the account has to exist before its name goes into `ADMIN_USERNAMES`:
-signup and rename refuse a name on the list, so create the account first, then add the name and
-restart. Usernames are compared case-sensitively, so the flag follows the account rather
-than the browser. Non-admins get `403` from `GET /api/admin/overview` and
-`DELETE /api/admin/games/:id`, the Admin link on the dashboard stays hidden for them, and the
-refusal names the account that is signed in and the names that are allowed, so a mismatch is
-visible instead of silent.
+The dashboard is for staff roles rather than for a list of names. The account that owns the
+install is always the Owner: the seeded `defaultuser0` account keeps that role after a rename or a
+differently-spelled seed, because the owner is matched by id rather than by name. `ADMIN_USERNAMES`
+names other accounts that are Owner as well; it never replaces the install's own owner, so naming
+someone else there cannot lock it out of `/admin`. A configured name is resolved to its account id
+when the backend starts, so giving a name up and letting someone else claim it does not hand them
+the panel. That also means the account has to exist before its name goes into the variable: signup
+and rename refuse a name on the list, so create the account first, then add the name and restart. A
+signed-in account below what a route needs gets `403` with its own role in the message, and the
+Admin link stays hidden for it.
+
+### Roles and staff
+
+Every account carries one role. The roles are defined once, in `include/Roles.h`, and the dashboard
+shows the same table it reads, so a role that is not there cannot be stored on an account.
+
+| Role | Rank | What it may do |
+| --- | --- | --- |
+| Player | 0 | Nothing beyond playing; every account starts here |
+| Premium | 10 | Badge only |
+| Contributor | 20 | Badge only |
+| Translator | 30 | Badge only |
+| Verified | 40 | Badge only; the identity badge |
+| Star Creator | 50 | Badge only |
+| Support | 100 | Opens the dashboard and answers appeals |
+| Moderator | 200 | Support, plus warn, suspend, ban and pardon, and the replays behind them |
+| Administrator | 300 | Moderator, plus deleting games, giving coins, hardware bans and handing out roles |
+| Owner | 400 | Everything, including moving an administrator |
+
+An account's role is read from its record on every request rather than carried in the session token,
+so a change lands on the next page load and revoking a role takes effect immediately. The dashboard's
+picker offers only the roles below the caller's own and the server refuses anything else: a role may
+only be handed out by an account above both the role being given and the one the target holds, nobody
+may change their own role, and the table has one Owner, appointed by the install. Moderation follows
+the same ladder, so a moderator cannot ban an administrator and an administrator cannot act on a peer.
+
+Community roles are badges and nothing else: they show beside the username on a profile and in the
+dashboard's account list. Staff roles also carry the staff style on those badges. A change is one
+`POST /api/admin/users/:id/role`, and the dashboard's Roles panel lists the whole ladder with what
+each role is allowed to do.
 
 ### 404, CSP and themes
 
@@ -938,6 +965,8 @@ compatibility fallback, but new callers should use the header.
 | `POST /api/client-detections` | What the client's anti-cheat found; files against the caller's account |
 | `POST /api/instance-detections` | What a game server's movement guard caught, with its proof |
 | `GET /api/admin/overview` | Site totals plus user, game and instance lists |
+| `GET /api/roles` | The ladder: each role's id, name, rank, staff flag and permissions |
+| `POST /api/admin/users/:id/role` | `{ "role": "moderator" }` — a role below the caller's own |
 | `DELETE /api/admin/games/:id` | Deletes a game and its world file |
 | `POST /api/admin/users/:id/coins` | `{ "amount": 100 }` — gives an account coins |
 | `POST /api/admin/users/:id/moderate` | Pardons or bans an account by hand |

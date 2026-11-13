@@ -71,7 +71,19 @@ accounts to the administrator list on top of the install owner, which is always 
 configured name is resolved to an account id when the backend starts, and admin checks use
 that id, so a name that is later given up does not carry the rights to whoever claims it; the
 account has to exist before its name is configured, and signup and rename refuse a configured
-name. The seeded owner starts with the documented development password, so
+name.
+
+**Roles.** The unit of authority is the role, not a name in a list. Every account carries one role id
+from `include/Roles.h`, and the website reads it from the account on each request rather than
+trusting a claim in the session token, so a revoked role is refused on the next request. Each
+route checks a named permission (dashboard, appeals, moderation, content, coins, hardware bans,
+roles) instead of asking whether the caller is an administrator, so support can read appeals
+without being able to ban anyone. An assignment is refused unless the caller's role is strictly
+above both the role being handed out and the role the target already holds, and nobody may change
+their own role, so a staff account cannot promote itself or demote the account above it. The
+install's owner is Owner whatever the stored value says, which is what keeps a bad edit of the
+data file from taking the dashboard away from the install.
+The seeded owner starts with the documented development password, so
 a production start requires `STARTER_PASSWORD` (12+ characters, not the documented default) and
 refuses to run otherwise; the account owns the starter games and cannot be deleted or restricted.
 

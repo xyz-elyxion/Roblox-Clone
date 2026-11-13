@@ -882,7 +882,16 @@ function initProfilePage() {
     async function renderProfile(profileData) {
         const { profile, friends: profileFriends } = profileData;
         document.title = `${profile.username} - RBLX Clone`;
-        if (title) title.textContent = profile.username;
+        if (title) {
+            title.textContent = profile.username;
+            if (profile.roleName) {
+                title.appendChild(document.createTextNode(' '));
+                const badge = document.createElement('span');
+                badge.className = profile.isStaff ? 'role-badge staff' : 'role-badge';
+                badge.textContent = profile.roleName;
+                title.appendChild(badge);
+            }
+        }
         if (label) label.textContent = profile.relationship === 'self' ? 'Your profile' : `User ID ${profile.id}`;
 
         if (stats) {
@@ -2128,6 +2137,12 @@ function initAdminPage() {
     const replayClose = document.querySelector('[data-admin-replay-close]');
     const status = document.querySelector('[data-admin-status]');
     const refreshButton = document.querySelector('[data-admin-refresh]');
+    const rolesBody = document.querySelector('[data-admin-roles]');
+    // The ladder as the server described it to this caller, and where the caller
+    // sits on it: the picker offers only what an assignment would be accepted for.
+    let roleTable = [];
+    let callerRank = 0;
+    let canAssignRoles = false;
     let replayOpener = null;
 
     function adminRow(cells) {
@@ -2196,6 +2211,68 @@ function initAdminPage() {
             statTile('Playtime', formatPlaytime(stats.playtimeSeconds)),
             statTile('Open appeals', String(stats.openAppealCount ?? 0))
         );
+    }
+
+    function roleBadge(label, staff) {
+        const badge = document.createElement('span');
+        badge.className = staff ? 'role-badge staff' : 'role-badge';
+        badge.textContent = label;
+        return badge;
+    }
+
+    async function assignRole(user, select) {
+        select.disabled = true;
+        try {
+            const response = await fetch(`/api/admin/users/${user.id}/role`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${getToken()}`
+                },
+                body: JSON.stringify({ role: select.value })
+            });
+            const data = await response.json();
+            if (!response.ok || !data.success) throw new Error(data.error || 'Could not change the role.');
+            await load();
+            setStatus(status, data.message || `Updated "${user.username}".`, 'success');
+        } catch (error) {
+            setStatus(status, error.message || 'Could not change the role.', 'error');
+            select.disabled = false;
+        }
+    }
+
+    // An account at or above the caller's own role is shown as a badge instead of
+    // a picker, because the server would refuse the change either way.
+    function roleCell(user) {
+        if (!canAssignRoles || (user.roleRank ?? 0) >= callerRank) {
+            return roleBadge(user.roleName || 'Player', Boolean(user.isStaff));
+        }
+        const select = document.createElement('select');
+        select.className = 'input role-select';
+        select.setAttribute('aria-label', `Role for ${user.username}`);
+        for (const role of roleTable) {
+            if (role.rank >= callerRank) continue;
+            const option = document.createElement('option');
+            option.value = role.id;
+            option.textContent = role.name;
+            if (role.id === user.role) option.selected = true;
+            select.appendChild(option);
+        }
+        select.addEventListener('change', () => { assignRole(user, select).catch(() => {}); });
+        return select;
+    }
+
+    function renderRoles(roles) {
+        if (!rolesBody) return;
+        rolesBody.innerHTML = '';
+        for (const role of roles ?? []) {
+            rolesBody.appendChild(adminRow([
+                roleBadge(role.name, role.staff),
+                role.rank,
+                role.staff ? 'Staff' : 'Community',
+                (role.permissions ?? []).join(', ') || 'none'
+            ]));
+        }
     }
 
     function moderationLabel(user) {
@@ -2309,7 +2386,7 @@ function initAdminPage() {
             usersBody.appendChild(adminRow([
                 user.id,
                 name,
-                user.isAdmin ? 'Admin' : 'Player',
+                roleCell(user),
                 user.gameCount,
                 user.friendCount,
                 coinCell,
@@ -2617,7 +2694,11 @@ function initAdminPage() {
                 return;
             }
             if (!response.ok || !data.success) throw new Error(data.error || 'Could not load admin data.');
+            roleTable = data.roles ?? [];
+            callerRank = data.yourRoleRank ?? 0;
+            canAssignRoles = Boolean(data.canAssignRoles);
             renderStats(data.stats);
+            renderRoles(data.roles);
             renderUsers(data.users);
             renderGames(data.games);
             renderInstances(data.instances);

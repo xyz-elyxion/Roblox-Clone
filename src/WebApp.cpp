@@ -2,6 +2,7 @@
 #include "ReplayRecorder.h"
 #include "HardwareId.h"
 #include "Moderation.h"
+#include "Roles.h"
 #include "WebApp.h"
 
 #include <iostream>
@@ -1794,41 +1795,55 @@ bool WebsiteApp::isReservedAdminName(const std::string& username) const {
     return false;
 }
 
-bool WebsiteApp::isAdminUser(const AuthUser& user) const {
+const rblx::roles::Role& WebsiteApp::roleOf(const AuthUser& user) const {
     if (user.id <= 0) {
-        return false;
+        return rblx::roles::player();
     }
     if (std::find(adminUserIds_.begin(), adminUserIds_.end(), user.id) != adminUserIds_.end()) {
-        return true;
+        return rblx::roles::find("owner");
     }
-    // The account that owns the install is always an admin, whether or not
+    // The account that owns the install is always the Owner, whether or not
     // ADMIN_USERNAMES was set. Matching the owner instead of a literal name keeps
     // the dashboard reachable when the seeded account was renamed or seeded under
     // another spelling, since usernames are compared case-sensitively.
     const UserRecord* owner = store_.firstUser();
-    return owner != nullptr && owner->id == user.id;
+    if (owner != nullptr && owner->id == user.id) {
+        return rblx::roles::find("owner");
+    }
+    const UserRecord* record = store_.findUserById(user.id);
+    return rblx::roles::find(record == nullptr ? std::string() : record->role);
+}
+
+bool WebsiteApp::can(const AuthUser& user, rblx::roles::Permission permission) const {
+    return rblx::roles::has(roleOf(user).permissions, permission);
+}
+
+bool WebsiteApp::requirePermission(const AuthUser& user, rblx::roles::Permission permission,
+                                   const std::string& action, Response& response) const {
+    if (can(user, permission)) {
+        return true;
+    }
+    errorJson(response, 403, "Your role (" + roleOf(user).name + ") cannot " + action + ".");
+    return false;
+}
+
+Json WebsiteApp::roleJson(const rblx::roles::Role& role) const {
+    Json entry = Json::makeObject();
+    entry.set("id", role.id);
+    entry.set("name", role.name);
+    entry.set("rank", role.rank);
+    entry.set("staff", role.staff);
+    Json permissions = Json::makeArray();
+    for (const std::string& permission : rblx::roles::permissionNames(role.permissions)) {
+        permissions.push(Json(permission));
+    }
+    entry.set("permissions", permissions);
+    return entry;
 }
 
 std::string WebsiteApp::adminDeniedMessage(const AuthUser& user) const {
-    // Mirrors isAdminUser so the message names exactly who is allowed in.
-    std::vector<std::string> names = config_.adminUsernames;
-    if (const UserRecord* owner = store_.firstUser()) {
-        if (std::find(names.begin(), names.end(), owner->username) == names.end()) {
-            names.push_back(owner->username);
-        }
-    }
-    std::string allowed;
-    for (const std::string& name : names) {
-        if (!allowed.empty()) {
-            allowed += ", ";
-        }
-        allowed += name;
-    }
-    if (allowed.empty()) {
-        allowed = "(none)";
-    }
-    return "Admin access is required: signed in as '" + user.username + "', allowed: " + allowed +
-           ".";
+    return "The dashboard is for staff roles: signed in as '" + user.username + "' on the " +
+           roleOf(user).name + " role.";
 }
 
 bool WebsiteApp::requireAuth(const Request& request, Response& response, AuthUser* user) {
@@ -1907,6 +1922,13 @@ Json WebsiteApp::profileJson(int userId, int viewerId) {
     }
     profile.set("id", user->id);
     profile.set("username", user->username);
+    AuthUser profileOwner;
+    profileOwner.id = user->id;
+    profileOwner.username = user->username;
+    const rblx::roles::Role& profileRole = roleOf(profileOwner);
+    profile.set("role", profileRole.id);
+    profile.set("roleName", profileRole.name);
+    profile.set("isStaff", profileRole.staff);
     profile.set("createdAt", user->createdAt);
     profile.set("avatar", avatarJson(store_.avatarFor(userId)));
 
@@ -2207,6 +2229,13 @@ void WebsiteApp::installRoutes() {
     server_.route("POST", "/api/admin/users/:id/coins",
                   guard([this](Request& request, Response& response) {
                       return handleAdminGrantCoins(request, response);
+                  }));
+    server_.route("GET", "/api/roles", guard([this](Request& request, Response& response) {
+                      return handleRoles(request, response);
+                  }));
+    server_.route("POST", "/api/admin/users/:id/role",
+                  guard([this](Request& request, Response& response) {
+                      return handleAdminSetRole(request, response);
                   }));
     server_.route("GET", "/api/account/standing",
                   guard([this](Request& request, Response& response) {
@@ -2658,7 +2687,13 @@ bool WebsiteApp::handleVerify(Request& request, Response& response) {
     result.set("userId", user->id);
     result.set("username", user->username);
     result.set("coins", store_.coinsFor(user->id));
-    result.set("isAdmin", isAdminUser(authUser));
+    const rblx::roles::Role& sessionRole = roleOf(authUser);
+    result.set("isAdmin", rblx::roles::has(sessionRole.permissions, rblx::roles::kViewDashboard));
+    result.set("role", sessionRole.id);
+    result.set("roleName", sessionRole.name);
+    result.set("isStaff", sessionRole.staff);
+    result.set("canAssignRoles",
+               rblx::roles::has(sessionRole.permissions, rblx::roles::kAssignRoles));
     result.set("standing",
                rblx::moderation::standingName(rblx::moderation::standingOf(standing, standingNow)));
     result.set("restricted", rblx::moderation::isRestricted(standing, standingNow));
@@ -3180,7 +3215,13 @@ bool WebsiteApp::handleSocial(Request& request, Response& response) {
     const long long presenceNow = presenceMillis();
     Json result = Json::makeObject();
     result.set("success", true);
-    result.set("isAdmin", isAdminUser(user));
+    const rblx::roles::Role& sessionRole = roleOf(user);
+    result.set("isAdmin", rblx::roles::has(sessionRole.permissions, rblx::roles::kViewDashboard));
+    result.set("role", sessionRole.id);
+    result.set("roleName", sessionRole.name);
+    result.set("isStaff", sessionRole.staff);
+    result.set("canAssignRoles",
+               rblx::roles::has(sessionRole.permissions, rblx::roles::kAssignRoles));
     result.set("profile", profileJson(user.id, user.id));
 
     Json friends = Json::makeArray();
@@ -4325,8 +4366,8 @@ bool WebsiteApp::handleAdminInfractionReplay(Request& request, Response& respons
     if (!requireAuth(request, response, &user)) {
         return true;
     }
-    if (!isAdminUser(user)) {
-        errorJson(response, 403, adminDeniedMessage(user));
+    if (!requirePermission(user, rblx::roles::kModerateUsers, "read a moderation replay",
+                           response)) {
         return true;
     }
 
@@ -4376,8 +4417,8 @@ bool WebsiteApp::handleAdminModerateUser(Request& request, Response& response) {
     if (!requireAuth(request, response, &user)) {
         return true;
     }
-    if (!isAdminUser(user)) {
-        errorJson(response, 403, adminDeniedMessage(user));
+    if (!requirePermission(user, rblx::roles::kModerateUsers,
+                           "change an account's moderation", response)) {
         return true;
     }
 
@@ -4392,6 +4433,19 @@ bool WebsiteApp::handleAdminModerateUser(Request& request, Response& response) {
     const UserRecord* owner = store_.firstUser();
     if (owner != nullptr && owner->id == record->id) {
         errorJson(response, 403, "The account that owns this install cannot be restricted.");
+        return true;
+    }
+    // The ladder the dashboard shows is the one moderation follows: an account
+    // may only act on roles below its own, so a moderator cannot ban an
+    // administrator and an administrator cannot ban a peer by accident.
+    AuthUser subject;
+    subject.id = record->id;
+    subject.username = record->username;
+    const rblx::roles::Role& subjectRole = roleOf(subject);
+    const rblx::roles::Role& actorRole = roleOf(user);
+    if (subjectRole.rank >= actorRole.rank) {
+        errorJson(response, 403, "That account is on the " + subjectRole.name +
+                                     " role, which your role cannot act on.");
         return true;
     }
 
@@ -4489,8 +4543,7 @@ bool WebsiteApp::handleAdminHardwareBans(Request& request, Response& response) {
     if (!requireAuth(request, response, &user)) {
         return true;
     }
-    if (!isAdminUser(user)) {
-        errorJson(response, 403, adminDeniedMessage(user));
+    if (!requirePermission(user, rblx::roles::kHardwareBans, "see the hardware bans", response)) {
         return true;
     }
 
@@ -4523,8 +4576,7 @@ bool WebsiteApp::handleAdminLiftHardwareBan(Request& request, Response& response
     if (!requireAuth(request, response, &user)) {
         return true;
     }
-    if (!isAdminUser(user)) {
-        errorJson(response, 403, adminDeniedMessage(user));
+    if (!requirePermission(user, rblx::roles::kHardwareBans, "lift a hardware ban", response)) {
         return true;
     }
 
@@ -4596,8 +4648,7 @@ bool WebsiteApp::handleAdminGrantCoins(Request& request, Response& response) {
     if (!requireAuth(request, response, &user)) {
         return true;
     }
-    if (!isAdminUser(user)) {
-        errorJson(response, 403, adminDeniedMessage(user));
+    if (!requirePermission(user, rblx::roles::kGrantCoins, "hand out coins", response)) {
         return true;
     }
 
@@ -4797,8 +4848,7 @@ bool WebsiteApp::handleAdminAppeals(Request& request, Response& response) {
     if (!requireAuth(request, response, &user)) {
         return true;
     }
-    if (!isAdminUser(user)) {
-        errorJson(response, 403, adminDeniedMessage(user));
+    if (!requirePermission(user, rblx::roles::kReviewAppeals, "review appeals", response)) {
         return true;
     }
 
@@ -4890,13 +4940,92 @@ bool WebsiteApp::handleAdminAppeals(Request& request, Response& response) {
     return true;
 }
 
+// The ladder as data. It is public because every profile shows a badge and the
+// dashboard's picker is built from it; knowing that a role called "Moderator"
+// exists says nothing about who holds it.
+bool WebsiteApp::handleRoles(Request&, Response& response) {
+    Json roles = Json::makeArray();
+    for (const rblx::roles::Role& role : rblx::roles::all()) {
+        roles.push(roleJson(role));
+    }
+    Json result = Json::makeObject();
+    result.set("success", true);
+    result.set("roles", roles);
+    sendJson(response, 200, result);
+    return true;
+}
+
+bool WebsiteApp::handleAdminSetRole(Request& request, Response& response) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    AuthUser user;
+    if (!requireAuth(request, response, &user)) {
+        return true;
+    }
+    if (!requirePermission(user, rblx::roles::kAssignRoles, "change roles", response)) {
+        return true;
+    }
+
+    Json body;
+    if (!parseJsonBody(request, &body, response)) {
+        return true;
+    }
+    const std::string wantedId = trimCopy(body.member("role").asString());
+    if (!rblx::roles::isKnown(wantedId)) {
+        errorJson(response, 400, "Unknown role.");
+        return true;
+    }
+    const int userId = parseUserId(request.param("id"));
+    const UserRecord* record = userId > 0 ? store_.findUserById(userId) : nullptr;
+    if (record == nullptr) {
+        errorJson(response, 404, "User not found.");
+        return true;
+    }
+    // An account that can change roles could otherwise promote itself past the
+    // person above it. The owner is appointed by the install, not by a click.
+    if (record->id == user.id) {
+        errorJson(response, 403, "You cannot change your own role.");
+        return true;
+    }
+
+    AuthUser subject;
+    subject.id = record->id;
+    subject.username = record->username;
+    const rblx::roles::Role& wanted = rblx::roles::find(wantedId);
+    if (!rblx::roles::mayAssign(roleOf(user), roleOf(subject), wanted)) {
+        errorJson(response, 403,
+                  "Your role (" + roleOf(user).name + ") cannot put an account on " +
+                      wanted.name + ".");
+        return true;
+    }
+    if (!store_.setRole(record->id, wanted.id)) {
+        errorJson(response, 404, "User not found.");
+        return true;
+    }
+    std::string saveError;
+    if (!store_.save(&saveError)) {
+        errorJson(response, 500, saveError.empty() ? "Could not save the change." : saveError);
+        return true;
+    }
+    const std::string message = record->username + " is now " + wanted.name + ".";
+    std::fprintf(stdout, "  role %s -> %s by %s\n", record->username.c_str(),
+                 wanted.id.c_str(), user.username.c_str());
+
+    Json result = Json::makeObject();
+    result.set("success", true);
+    result.set("role", wanted.id);
+    result.set("roleName", wanted.name);
+    result.set("message", message);
+    sendJson(response, 200, result);
+    return true;
+}
+
 bool WebsiteApp::handleAdminOverview(Request& request, Response& response) {
     std::lock_guard<std::mutex> lock(mutex_);
     AuthUser user;
     if (!requireAuth(request, response, &user)) {
         return true;
     }
-    if (!isAdminUser(user)) {
+    if (!can(user, rblx::roles::kViewDashboard)) {
         errorJson(response, 403, adminDeniedMessage(user));
         return true;
     }
@@ -4930,7 +5059,13 @@ bool WebsiteApp::handleAdminOverview(Request& request, Response& response) {
         entry.set("coins", store_.coinsFor(record.id));
         entry.set("friendCount", store_.countAcceptedFriends(record.id));
         entry.set("gameCount", static_cast<long long>(store_.gamesOwnedBy(record.id).size()));
-        entry.set("isAdmin", isAdminUser(listed));
+        const rblx::roles::Role& listedRole = roleOf(listed);
+        entry.set("isAdmin",
+                  rblx::roles::has(listedRole.permissions, rblx::roles::kViewDashboard));
+        entry.set("role", listedRole.id);
+        entry.set("roleName", listedRole.name);
+        entry.set("roleRank", listedRole.rank);
+        entry.set("isStaff", listedRole.staff);
         entry.set("cheatStrikes", record.cheatStrikes);
         entry.set("clientDetections", record.clientDetections);
         entry.set("banned", record.banned);
@@ -5035,6 +5170,19 @@ bool WebsiteApp::handleAdminOverview(Request& request, Response& response) {
         userReports.push(entry);
     }
     result.set("reports", userReports);
+    // The table rides along with the overview so the picker and the legend are
+    // built from the same answer that lists the accounts.
+    Json roleList = Json::makeArray();
+    for (const rblx::roles::Role& role : rblx::roles::all()) {
+        roleList.push(roleJson(role));
+    }
+    result.set("roles", roleList);
+    const rblx::roles::Role& callerRole = roleOf(user);
+    result.set("yourRole", callerRole.id);
+    result.set("yourRoleName", callerRole.name);
+    result.set("yourRoleRank", callerRole.rank);
+    result.set("canAssignRoles",
+               rblx::roles::has(callerRole.permissions, rblx::roles::kAssignRoles));
     sendJson(response, 200, result);
     return true;
 }
@@ -5045,8 +5193,7 @@ bool WebsiteApp::handleAdminDeleteGame(Request& request, Response& response) {
     if (!requireAuth(request, response, &user)) {
         return true;
     }
-    if (!isAdminUser(user)) {
-        errorJson(response, 403, adminDeniedMessage(user));
+    if (!requirePermission(user, rblx::roles::kDeleteContent, "delete games", response)) {
         return true;
     }
 

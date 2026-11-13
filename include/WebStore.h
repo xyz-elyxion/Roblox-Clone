@@ -132,6 +132,10 @@ struct UserRecord {
     // created or when the code was rotated. Empty when no code was issued yet.
     std::string recoveryHash;
     std::string createdAt;
+    // The role held on the site, as an id from Roles.h. It sits in the clear half
+    // of the record because the dashboard, the profile and the game server all
+    // need it without opening the account's sealed secrets.
+    std::string role = "player";
     // Wall-clock time of the account's last authenticated request, in ms since
     // the epoch. Used for the online dot and never sent to another account.
     long long lastSeenAtMs = 0;
@@ -363,6 +367,10 @@ public:
     // Replaces the stored hash; the caller builds it with hashPassword so the
     // iterations and salt stay with the credential rather than the store.
     bool setPasswordHash(int id, const std::string& passwordHash);
+    // Puts an account on a role from Roles.h; false when the id is unknown or
+    // there is no such account. The caller decides whether the actor outranks
+    // the account, because that depends on who is asking, not on the store.
+    bool setRole(int id, const std::string& roleId);
     // Raises the account's token version and returns the new value, or -1 when
     // there is no account with that id. Every token issued earlier stops being
     // accepted once this returns.

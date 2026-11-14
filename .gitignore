@@ -11,6 +11,10 @@ rblxbuild-build-*/
 # A release published for the website to hand out (package-build.ps1 -Publish)
 web/public/updates/
 
+# The settings ServerSetup.exe writes: it holds this install's signing secret, its
+# data key and the owner password, so it belongs to the machine and never the tree.
+server.conf
+
 # Compiled binaries
 *.exe
 *.dll

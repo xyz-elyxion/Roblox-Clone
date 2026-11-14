@@ -59,7 +59,10 @@ where it can. **Tour** in the site navigation reopens it. `Studio.exe` opens the
 an update before starting it. `RBLXHosts.exe` is in the same folder: `RBLXHosts.exe up` keeps a pool
 of `Server.exe` processes alive on their own ports and prints a loopback address for its control
 panel, where you can watch the pool and start, stop or restart a server ([HOSTING.md](HOSTING.md)).
-`RBLXProxy.exe` is the site's front door: it listens on `127.0.0.1:8080`, forwards each request to
+`ServerSetup.exe` is for a machine that other people play on: it asks for the port, the public URL
+and the owner password, writes `server.conf` and starts the site in production ([Setting up a
+server](#setting-up-a-server)). `RBLXProxy.exe` is the site's front door: it listens on
+`127.0.0.1:8080`, forwards each request to
 `WebApp.exe`, and adds the `X-Forwarded-*` headers the site cannot learn from its own socket, so the
 site can be reached through one address of your choosing. `RBLXProxy.exe --listen 0.0.0.0:80
 --upstream 127.0.0.1:3000` puts it on port 80; the listener stays on loopback until you say
@@ -164,6 +167,39 @@ build/rblxbuild-tool/bin/rblxtest --preset windows-release
 ```
 
 The MinGW and manual configure forms are under [Building](#building).
+
+### Setting up a server
+
+An install other people play on needs seven settings, two of them secrets, and the site reads them
+from the environment because that is what a service or a container can set. `ServerSetup.exe` is for
+the other case: the folder was unzipped and nobody wants to open a terminal first.
+
+Double-click it, or run it with no arguments, and it asks for the port, the public URL and the owner
+password, generates the signing secret and the data key, writes `server.conf` beside `WebApp.exe` and
+starts the site in production. It refuses a folder with no `web/public/index.html` or no
+`WebApp.exe`, a port something is already listening on, an owner password shorter than twelve
+characters, and a URL that is not a plain `http(s)://host:port` — before it writes anything.
+
+```powershell
+ServerSetup.exe                                         # ask in a window, then start
+ServerSetup.exe --port 8080 --url http://play.example.com:8080
+ServerSetup.exe --password "<12+ characters>" --no-start  # write the settings and stop
+```
+
+`server.conf` is a `key = value` file of the environment variables below — `NODE_ENV`, `PORT`,
+`PUBLIC_BASE_URL`, `ADMIN_USERNAMES`, `STARTER_PASSWORD`, `JWT_SECRET`, `DATA_KEY` — with `#` for
+comments, read by `WebApp.exe` at start-up. Two things follow from that, and they are why the file
+exists at all:
+
+- **The environment still wins.** A service or a script that sets `PORT` runs on that port whatever
+  the file says, so the file is the install's default rather than an override of what was asked for.
+- **Running the setup again keeps what the file has**, secrets included: regenerating them would sign
+  everyone out and, because the account data is sealed with one of them, leave it unreadable. Clear a
+  field to have that value made again, or delete its line to fall back to the site's own default.
+
+`--no-start` writes the settings and stops, which is what an unattended setup wants. `SERVER_SETTINGS`
+points `WebApp.exe` at a settings file somewhere else. The file is where the secrets live, so it stays
+out of anything shared or published; [SECURITY.md](SECURITY.md) says the same in its own words.
 
 ## What's in the box
 
@@ -516,7 +552,9 @@ headless host or in CI. If no window can be created, it falls back to the plain 
 
 ### Configuration
 
-Configuration comes from the environment:
+Configuration comes from the environment. `ServerSetup.exe` can write the ones a server needs to
+`server.conf` instead, which is read as a fallback: a variable that is set always wins, so the file is
+a convenience and never a second configuration system ([Setting up a server](#setting-up-a-server)).
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
@@ -536,6 +574,7 @@ Configuration comes from the environment:
 | `BAN_WAVE_WINDOW_MS` | `300000` | How long a detection is held before the wave acts |
 | `GAME_WORLDS_DIR` | `web/game-worlds` | Where published `.world` files are written |
 | `RBLX_HUB_REPO` | the checkout the site runs from | Repository the `/hub` pages read. Relative to the web folder; a folder without `.git` leaves `/hub` explaining that no repository is open |
+| `SERVER_SETTINGS` | `server.conf` beside the program | Settings file read at start-up. Its keys are the variables in this table, and a variable that is already set wins |
 | `GAME_SERVER_HOST` / `GAME_SERVER_BASE_PORT` | `127.0.0.1` / `7777` | Local game-server address |
 | `GAME_INSTANCE_EMPTY_GRACE_MS` | `30000` | How long an empty game instance stays up |
 | `SERVER_EXECUTABLE_PATH` / `CLIENT_EXECUTABLE_PATH` | — | Binaries launched when a game is played |
@@ -1419,6 +1458,7 @@ web/                    Public pages, starter worlds, published worlds, game-ser
 web/host/               The RBLXHosts control panel page (served by RBLXHosts.exe)
 web/hub/                The repository browser's stylesheet (RBLXHub.exe, and WebApp's /hub)
 ServerWorld.world       Default world file
+server.conf             Settings ServerSetup.exe writes (this machine only, never committed)
 scripts/                package-build.ps1 and other tooling
 GameRelease/            Existing release asset folders (do not commit generated binaries here)
 rblxwin/ … rblxgl/      The eight renamed vendored libraries (see Credits)
@@ -1486,7 +1526,7 @@ rblx-windows-release/
   WebApp.exe  Server.exe  Client.exe  Studio.exe  RBLXCode.exe
   web/public/  web/seed-worlds/
   shaders/  ServerWorld.world  face*.png  face_hex.txt
-  RBLXUpdater.exe  RBLXSetup.exe  AiTrainer.exe  RBLXHosts.exe  RBLXProxy.exe
+  RBLXUpdater.exe  RBLXSetup.exe  ServerSetup.exe  AiTrainer.exe  RBLXHosts.exe  RBLXProxy.exe
   RBLXGit.exe  RBLXHub.exe  update.json  manifest.json
   README.txt
 ```

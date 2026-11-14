@@ -6,6 +6,7 @@
 #include <fstream>
 #include <string>
 #include <thread>
+#include <utility>
 #include <vector>
 
     #ifndef WIN32_LEAN_AND_MEAN
@@ -210,8 +211,11 @@ Result run(Options& options, const std::vector<std::string>& actions,
     rblxwinWindowHint(RBLXWIN_CONTEXT_VERSION_MINOR, 3);
     rblxwinWindowHint(RBLXWIN_OPENGL_PROFILE, RBLXWIN_OPENGL_CORE_PROFILE);
 
+    // A window with inputs in it needs room for them instead of clipping the
+    // buttons off the bottom, so it grows with the field count up to a sane limit.
+    const int height = std::min(kWindowHeight + static_cast<int>(options.fields.size()) * 54, 900);
     RBLXWINwindow* window =
-        rblxwinCreateWindow(kWindowWidth, kWindowHeight, options.title.c_str(), nullptr, nullptr);
+        rblxwinCreateWindow(kWindowWidth, height, options.title.c_str(), nullptr, nullptr);
     if (window == nullptr) {
         rblxwinTerminate();
         return result;
@@ -247,6 +251,18 @@ Result run(Options& options, const std::vector<std::string>& actions,
     std::snprintf(folderBuffer, sizeof(folderBuffer), "%s", options.folder.c_str());
     bool shortcuts = options.shortcuts;
 
+    // One buffer per field, because the widget edits a fixed-size char array. The
+    // value goes back into the options when the job is started, so the tool reads
+    // exactly what was typed.
+    std::vector<std::vector<char>> fieldBuffers;
+    fieldBuffers.reserve(options.fields.size());
+    for (const Options::Field& field : options.fields) {
+        const std::size_t capacity = field.capacity < 16 ? 16 : field.capacity;
+        std::vector<char> buffer(capacity + 1, '\0');
+        std::snprintf(buffer.data(), buffer.size(), "%s", field.value.c_str());
+        fieldBuffers.push_back(std::move(buffer));
+    }
+
     bool started = false;
     bool closeRequested = false;
     std::thread worker;
@@ -260,6 +276,9 @@ Result run(Options& options, const std::vector<std::string>& actions,
         // What the user typed is what the tool must use.
         if (options.showFolder) options.folder = folderBuffer;
         options.shortcuts = shortcuts;
+        for (std::size_t index = 0; index < options.fields.size(); ++index) {
+            options.fields[index].value = fieldBuffers[index].data();
+        }
         started = true;
         worker = std::thread([&report, &job]() { report.finish(job(report)); });
     };
@@ -310,14 +329,28 @@ Result run(Options& options, const std::vector<std::string>& actions,
 
         if (!started) {
             if (options.showFolder) {
-                RblxUI::TextColored(kMuted, "Install folder");
+                RblxUI::TextColored(kMuted, "%s", options.folderLabel.c_str());
                 RblxUI::SetNextItemWidth(-1.0f);
                 RblxUI::InputText("##folder", folderBuffer, sizeof(folderBuffer));
                 RblxUI::Spacing();
-                RblxUI::Checkbox("Add Play to the Start menu and the desktop", &shortcuts);
-                RblxUI::Spacing();
+                if (options.showShortcuts) {
+                    RblxUI::Checkbox("Add Play to the Start menu and the desktop", &shortcuts);
+                    RblxUI::Spacing();
+                }
                 RblxUI::Spacing();
             }
+
+            for (std::size_t index = 0; index < options.fields.size(); ++index) {
+                const Options::Field& field = options.fields[index];
+                RblxUI::TextColored(kMuted, "%s", field.label.c_str());
+                RblxUI::SetNextItemWidth(-1.0f);
+                char id[32] = {};
+                std::snprintf(id, sizeof(id), "##field%zu", index);
+                RblxUI::InputText(id, fieldBuffers[index].data(), fieldBuffers[index].size(),
+                                  field.secret ? RblxUIInputTextFlags_Password : 0);
+                RblxUI::Spacing();
+            }
+            if (!options.fields.empty()) RblxUI::Spacing();
 
             const std::string startLabel = options.startLabel;
             if (RblxUI::Button(startLabel.c_str(), RblxVec2(132.0f, 0.0f))) {
@@ -441,6 +474,10 @@ Result run(Options& options, const std::vector<std::string>& actions,
     result.ok = report.ok();
     result.shortcuts = shortcuts;
     if (options.showFolder) result.folder = folderBuffer;
+    result.fields.reserve(options.fields.size());
+    for (std::size_t index = 0; index < options.fields.size(); ++index) {
+        result.fields.push_back(fieldBuffers[index].data());
+    }
     // Closing the window before starting is the same answer as pressing Cancel.
     if (!started) result.cancelled = true;
     return result;

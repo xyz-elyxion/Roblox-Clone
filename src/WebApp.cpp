@@ -7,6 +7,7 @@
 #include "WebApp.h"
 
 #include "HubSite.h"
+#include "ServerConfig.h"
 
 #include <iostream>
 #include "WebCaptcha.h"
@@ -1090,20 +1091,71 @@ std::string singleLineCopy(const std::string& input) {
     return out;
 }
 
+// server.conf is what ServerSetup.exe writes: the settings an install runs with,
+// named after the environment variables they stand for. The file is optional -
+// a checkout has none, and the environment alone is the documented way to
+// configure the site - and every value in it is a fallback, so a service or a
+// build script still overrides one of them for one run without editing the file.
+bool loadInstallSettings(rblx::server::Settings* settings, std::string* path,
+                         std::string* error) {
+    if (error) error->clear();
+    std::vector<std::string> candidates;
+    const std::string requested = envString("SERVER_SETTINGS");
+    if (!requested.empty()) {
+        candidates.push_back(resolvePath(currentDirectory(), requested));
+    } else {
+        candidates.push_back(rblx::server::settingsPathFor(executableDirectory()));
+        candidates.push_back(rblx::server::settingsPathFor(currentDirectory()));
+    }
+
+    for (const std::string& candidate : candidates) {
+        if (!fileExists(candidate)) continue;
+        if (path != nullptr) *path = candidate;
+        return rblx::server::loadSettings(candidate, settings, error);
+    }
+    if (path != nullptr) path->clear();
+    return false;
+}
+
 bool loadConfigFromEnvironment(Config* config, std::string* error) {
     if (config == nullptr) {
         return false;
     }
     Config loaded;
 
+    rblx::server::Settings installSettings;
+    std::string installSettingsPath;
+    std::string installSettingsError;
+    const bool haveInstallSettings =
+        loadInstallSettings(&installSettings, &installSettingsPath, &installSettingsError);
+    if (!installSettingsError.empty()) {
+        std::cout << "Ignoring " << installSettingsPath << ": " << installSettingsError
+                  << std::endl;
+    }
+    if (haveInstallSettings) {
+        std::cout << "Reading server settings from " << installSettingsPath << std::endl;
+    }
+
     loaded.nodeEnv = envString("NODE_ENV");
+    if (loaded.nodeEnv.empty() && haveInstallSettings) {
+        loaded.nodeEnv = installSettings.nodeEnv;
+    }
     if (loaded.nodeEnv.empty()) {
         loaded.nodeEnv = "development";
     }
     loaded.isProduction = loaded.nodeEnv == "production";
 
-    loaded.port = parsePositiveInt(envString("PORT"), 3000);
+    loaded.port = parsePositiveInt(envString("PORT"), 0);
+    if (loaded.port == 0 && haveInstallSettings) {
+        loaded.port = parsePositiveInt(installSettings.port, 0);
+    }
+    if (loaded.port == 0) {
+        loaded.port = 3000;
+    }
     loaded.jwtSecret = trimCopy(envString("JWT_SECRET"));
+    if (loaded.jwtSecret.empty() && haveInstallSettings) {
+        loaded.jwtSecret = trimCopy(installSettings.jwtSecret);
+    }
     if (loaded.isProduction &&
         (isUnsafeDevSecret(loaded.jwtSecret) || loaded.jwtSecret.size() < 32)) {
         if (error) {
@@ -1114,11 +1166,17 @@ bool loadConfigFromEnvironment(Config* config, std::string* error) {
     loaded.jwtExpiresSeconds = parseDurationSeconds(envString("JWT_EXPIRES_IN"), 7 * 86400);
     loaded.passwordIterations = parsePositiveInt(envString("PASSWORD_ITERATIONS"), 120000);
     loaded.dataKeyText = envString("DATA_KEY");
+    if (loaded.dataKeyText.empty() && haveInstallSettings) {
+        loaded.dataKeyText = installSettings.dataKey;
+    }
 
     // The seeded owner is an administrator and its development password is in
     // the README, so production has to choose one. Refusing to start is the only
     // safe answer: a warning would still leave a published admin login open.
     loaded.starterPassword = envString("STARTER_PASSWORD");
+    if (loaded.starterPassword.empty() && haveInstallSettings) {
+        loaded.starterPassword = installSettings.starterPassword;
+    }
     if (loaded.isProduction &&
         (loaded.starterPassword.empty() || isUnsafeDevSecret(loaded.starterPassword) ||
          loaded.starterPassword.size() < 12)) {
@@ -1243,7 +1301,10 @@ bool loadConfigFromEnvironment(Config* config, std::string* error) {
         static_cast<long long>(parsePositiveInt(envString("GAME_INSTANCE_LAUNCH_GRACE_MS"), 120000));
 
     loaded.adminUsernames.clear();
-    const std::string adminNames = envString("ADMIN_USERNAMES");
+    std::string adminNames = envString("ADMIN_USERNAMES");
+    if (adminNames.empty() && haveInstallSettings) {
+        adminNames = installSettings.adminUsernames;
+    }
     if (adminNames.empty()) {
         // The seeded starter account owns the starter games.
         loaded.adminUsernames.push_back("defaultuser0");
@@ -1256,7 +1317,10 @@ bool loadConfigFromEnvironment(Config* config, std::string* error) {
         }
     }
 
-    const std::string configuredBaseUrl = trimCopy(envString("PUBLIC_BASE_URL"));
+    std::string configuredBaseUrl = trimCopy(envString("PUBLIC_BASE_URL"));
+    if (configuredBaseUrl.empty() && haveInstallSettings) {
+        configuredBaseUrl = trimCopy(installSettings.publicBaseUrl);
+    }
     loaded.publicBaseUrlSet = !configuredBaseUrl.empty();
     if (loaded.publicBaseUrlSet) {
         std::string normalized;

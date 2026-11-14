@@ -47,6 +47,13 @@ lie" or "there is no TLS" is answered by the relevant paragraph below.
   forwards is this machine as well; otherwise the proxy would hand the pages to whoever it
   serves. It is a local view of a local repository, not a forge: do not expose it with
   `--host 0.0.0.0` and expect access control.
+- **The server settings file holds the secrets.** `server.conf`, written by `ServerSetup.exe`, keeps
+  `JWT_SECRET`, `DATA_KEY` and the seeded owner's password in clear text, because the site has to read
+  them at start-up and this project has no key store to keep them in. It sits in the folder the
+  programs run from, which makes that folder as sensitive as the data file: do not share it, do not
+  commit it, and do not hand out a copy of an installed folder. `SERVER_SETTINGS` moves the file
+  elsewhere without changing what it contains. Whoever reads it can sign sessions as any account and,
+  with `DATA_KEY`, decrypt the data file.
 - **Data is a JSON file.** Accounts, worlds, moderation records and sessions live in
   `web/users.json` and `web/game-worlds/`. There is no database, no migration tool and no
   concurrency story beyond one `WebApp.exe` process owning the file.

@@ -10,6 +10,7 @@
 // server, a driver that cannot give us a context - run() says so and the caller
 // keeps its console behaviour.
 
+#include <cstddef>
 #include <functional>
 #include <mutex>
 #include <string>
@@ -76,11 +77,27 @@ struct Options {
     // An editable install folder. Empty hides the field and the shortcuts
     // checkbox, which is what an uninstall wants: it only asks to confirm.
     std::string folder;
+    std::string folderLabel = "Install folder";
     bool showFolder = true;
     bool shortcuts = true;
+    // The installer offers the shortcuts; a server setup has none to offer.
+    bool showShortcuts = true;
     // Run the job as soon as the window opens, for a tool whose whole purpose is
     // the job rather than a choice.
     bool autoStart = false;
+
+    // One-line inputs drawn above the buttons, in order, before the job starts.
+    // The installer asks for nothing but a folder; a server setup asks for a port,
+    // a URL and the secrets the install will run with. `secret` masks what is
+    // typed, because a password left readable in a window is a password in the
+    // next screenshot.
+    struct Field {
+        std::string label;
+        std::string value;
+        bool secret = false;
+        std::size_t capacity = 256;
+    };
+    std::vector<Field> fields;
 };
 
 struct Result {
@@ -95,6 +112,8 @@ struct Result {
     std::string action;
     std::string folder;
     bool shortcuts = true;
+    // What was typed into Options::fields, in the same order.
+    std::vector<std::string> fields;
 };
 
 // Shows the window, runs `job` on a worker thread once it is started, and

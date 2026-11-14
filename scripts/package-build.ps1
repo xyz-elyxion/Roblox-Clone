@@ -76,7 +76,7 @@ try {
     $exeDir = Join-Path $BuildDir $Configuration
     $found = @()
     $missing = @()
-    foreach ($name in @('WebApp', 'Server', 'Client', 'Studio', 'RBLXCode', 'AiTrainer', 'RBLXUpdater', 'RBLXSetup', 'RBLXHosts', 'RBLXProxy', 'RBLXGit', 'RBLXHub')) {
+    foreach ($name in @('WebApp', 'Server', 'Client', 'Studio', 'RBLXCode', 'AiTrainer', 'RBLXUpdater', 'RBLXSetup', 'RBLXHosts', 'RBLXProxy', 'RBLXGit', 'RBLXHub', 'ServerSetup')) {
         $exePath = Join-Path $exeDir "$name.exe"
         if (Test-Path -LiteralPath $exePath) {
             Copy-Item -LiteralPath $exePath -Destination $Output
@@ -167,6 +167,8 @@ try {
         '                changed, then starts the game'
         '  RBLXSetup.exe   installer: copies this folder into your account, adds the shortcuts'
         '                and the Add/Remove Programs entry, and it is what that entry runs'
+        '  ServerSetup.exe first run of a server install: writes server.conf (port, public URL,'
+        '                owner password, secrets) and starts WebApp.exe in production'
         '  RBLXHosts.exe   server supervisor: keeps a pool of Server.exe processes alive, one'
         '                per port with its own log, restarting any that exit'
         '  RBLXProxy.exe   reverse proxy: puts the website on another address - port 80 on the'
@@ -192,6 +194,7 @@ try {
         '  Client.exe          opens the client directly (the website normally does this)'
         '  RBLXUpdater.exe     checks for an update, installs it, then starts the client'
         '  RBLXSetup.exe       installs this folder for the current user (no unzip needed after)'
+        '  ServerSetup.exe     sets this folder up as a server and starts the website (below)'
         '  AiTrainer.exe       headless trainer, run it from this folder with the flags below'
         '  RBLXHosts.exe up    keeps a pool of servers running on their own ports (HOSTING below)'
         '  RBLXGit.exe init .  makes a repository in this folder; add .,'
@@ -204,6 +207,15 @@ try {
         '  the client and game servers, Studio, RBLXCode and the trainer. Steps the site'
         '  can see for itself tick themselves off; the rest you mark as done. It is'
         '  linked as "Tour" in the site navigation, so /welcome works at any time.'
+        ''
+        'SETTING UP A SERVER (ServerSetup.exe)'
+        '  Double-click it, or run it with no arguments: it asks for the port, the public URL'
+        '  and the owner password, writes server.conf beside WebApp.exe and starts the site.'
+        '  server.conf holds the settings the site otherwise reads from environment'
+        '  variables, and the environment still wins over it, so a service or a script can'
+        '  override one value. Running it again keeps the secrets it wrote: clear a field to'
+        '  have a value made again, or delete a line to fall back to a default. The file'
+        '  holds the owner password, so keep it off shared folders and out of backups.'
         ''
         'SOURCE EDITOR (RBLXCode.exe)'
         '  RBLXCode.exe                edits this folder: shaders/, web/public/, games/'

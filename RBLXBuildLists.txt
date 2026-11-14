@@ -29,6 +29,7 @@ option(RBLX_BUILD_HOSTS "Build the game server supervisor target" ON)
 option(RBLX_BUILD_PROXY "Build the website reverse proxy target" ON)
 option(RBLX_BUILD_GIT "Build the RBLXGit command line target" ON)
 option(RBLX_BUILD_HUB "Build the RBLXHub repository browser target" ON)
+option(RBLX_BUILD_SERVERSETUP "Build the ServerSetup server setup target" ON)
 option(RBLX_ENABLE_WARNINGS "Enable stricter compiler warnings" ON)
 
 add_compile_definitions(NOMINMAX RBLXMATH_ENABLE_EXPERIMENTAL)
@@ -223,6 +224,27 @@ if(RBLX_BUILD_UPDATER)
     target_link_libraries(RBLXSetup PRIVATE ole32 shell32 advapi32 uuid)
 endif()
 
+if(RBLX_BUILD_SERVERSETUP)
+    # The first run of a server install: a window that asks for the port, the
+    # public URL and the owner account, writes server.conf beside WebApp.exe and
+    # starts it. It shares the installer's window (InstallUi) rather than growing a
+    # second one, and it never starts anything the settings did not validate first.
+    add_executable(ServerSetup
+        src/ServerSetupMain.cpp
+        src/ServerConfig.cpp
+        # The signing secret and the data key are generated here, so the install
+        # never ships a secret anybody else knows.
+        src/WebCrypto.cpp
+        src/InstallUi.cpp
+        ${RBLXUI_SOURCES}
+    )
+    configure_rblx_target(ServerSetup)
+    target_link_libraries(ServerSetup PRIVATE rblxwin rblxgl bcrypt)
+    # ws2_32 is the port test and the readiness probe, shell32 opens the site in a
+    # browser, and the start itself is CreateProcess.
+    target_link_libraries(ServerSetup PRIVATE ws2_32 shell32)
+endif()
+
 if(RBLX_BUILD_HOSTS)
     # The project's own hosting supervisor: N game servers, each on its own port
     # with its own log, restarted when they die and given up on when they keep
@@ -395,6 +417,8 @@ set(WEB_SOURCES
     src/ChatRoom.cpp
     src/WebChat.cpp
     src/MalwareScan.cpp
+    # server.conf, which ServerSetup writes and loadConfigFromEnvironment reads.
+    src/ServerConfig.cpp
     # The repository browser WebApp serves under /hub. It is the same HubSite
     # RBLXHub runs, so the pages are rendered once instead of twice, and it reads
     # the repository through the same git code RBLXGit writes.
@@ -650,5 +674,11 @@ if(RBLX_BUILD_TESTS)
     add_executable(HubViewsTests tests/hub_views_tests.cpp src/HubViews.cpp)
     target_include_directories(HubViewsTests PRIVATE ${RBLXBUILD_CURRENT_SOURCE_DIR}/include)
     add_test(NAME HubViewsTests COMMAND HubViewsTests)
+
+    # server.conf: the document ServerSetup writes and the website reads. It is
+    # plain text and filesystem only, so the checks run without a server.
+    add_executable(ServerConfigTests tests/server_config_tests.cpp src/ServerConfig.cpp)
+    target_include_directories(ServerConfigTests PRIVATE ${RBLXBUILD_CURRENT_SOURCE_DIR}/include)
+    add_test(NAME ServerConfigTests COMMAND ServerConfigTests)
 
 endif()

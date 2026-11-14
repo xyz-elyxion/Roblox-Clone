@@ -40,7 +40,7 @@ namespace {
 
 // Where the folder picker starts when the box already holds a path.
 int CALLBACK browseStartAt(HWND window, UINT message, LPARAM, LPARAM data) {
-    if (message == BFFM_INITIALIZER && data != 0) {
+    if (message == BFFM_INITIALIZED && data != 0) {
         ::SendMessageA(window, BFFM_SETSELECTIONA, TRUE, data);
     }
     return 0;

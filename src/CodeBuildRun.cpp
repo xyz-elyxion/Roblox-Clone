@@ -71,7 +71,10 @@ bool BuildRun::start(const std::string& projectRoot, const std::string& program,
     startup.dwFlags = STARTF_USESTDHANDLES;
     startup.hStdOutput = writePipe;
     startup.hStdError = writePipe;
-    startup.hStdInput = ::GetStdHandle(STD_INPUT_HANDLE);
+    // Not the process's own stdin: it is not guaranteed to be inheritable, and
+    // STARTF_USESTDHANDLES refuses a handle the child cannot inherit. The build
+    // reads nothing, so it gets no input at all.
+    startup.hStdInput = nullptr;
 
     PROCESS_INFORMATION process{};
     std::vector<char> mutableCommand(commandLine.begin(), commandLine.end());

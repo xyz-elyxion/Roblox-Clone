@@ -12,8 +12,6 @@ namespace {
 
 namespace fs = std::filesystem;
 
-constexpr std::size_t kMaxLines = 20000;
-
 std::string trim(const std::string& text) {
     std::size_t start = 0;
     while (start < text.size() && (text[start] == ' ' || text[start] == '\t')) ++start;

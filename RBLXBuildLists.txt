@@ -128,6 +128,19 @@ set(RBLXGIZMO_SOURCES
     ${rblxgizmo_SOURCE_DIR}/src/RblxGizmo.cpp
 )
 
+# The vendored sources compiled straight into our targets predate the CRT's safer
+# names: rblxui's OpenGL backend calls sscanf, strcpy and strcat directly, and its
+# loader header does too (C4996). Those trees are pinned, so the deprecation is
+# switched off for those files alone, which is why this is a per-source definition
+# and not a target-wide one - every file of ours still reports C4996.
+if(MSVC)
+    set_source_files_properties(
+        ${RBLXUI_SOURCES}
+        ${RBLXGIZMO_SOURCES}
+        ${rblxtextedit_SOURCE_DIR}/RblxTextEditor.cpp
+        PROPERTIES COMPILE_DEFINITIONS "_CRT_SECURE_NO_WARNINGS")
+endif()
+
 function(configure_rblx_target target_name)
     target_include_directories(${target_name} PRIVATE
         ${RBLXBUILD_CURRENT_SOURCE_DIR}/include

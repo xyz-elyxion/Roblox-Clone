@@ -87,6 +87,23 @@ bool splitSeverity(const std::string& text, std::string* severity, std::string* 
 
 }  // namespace
 
+std::string findBuildRoot(const std::string& start) {
+    if (start.empty()) return start;
+    std::error_code code;
+    fs::path folder = fs::absolute(fs::path(start), code);
+    if (code) return start;
+    for (;;) {
+        if (fs::is_regular_file(folder / "RBLXBuildPresets.json", code) ||
+            fs::is_regular_file(folder / "RBLXBuildLists.txt", code)) {
+            return folder.string();
+        }
+        const fs::path parent = folder.parent_path();
+        if (parent.empty() || parent == folder) break;
+        folder = parent;
+    }
+    return start;
+}
+
 bool findBuildTool(const std::string& projectRoot, std::string* program, std::string* error) {
     std::vector<fs::path> candidates;
     const char* overridePath = std::getenv("RBLXBUILD");
@@ -107,10 +124,21 @@ bool findBuildTool(const std::string& projectRoot, std::string* program, std::st
     }
 
     if (error != nullptr) {
-        *error = "No build tool in " + projectRoot +
+        *error = "No build tool for the checkout at " + projectRoot +
                  ". Build it once from this folder: mkdir -p build/rblxbuild-tool, then "
                  "../../rblxbuild/bootstrap --parallel 4 inside it (RBLXBUILD points at one "
                  "somewhere else).";
+    }
+    return false;
+}
+
+bool selfLinkBlocked(const std::vector<std::string>& lines) {
+    for (const std::string& line : lines) {
+        if (line.find(kEditorProgram) == std::string::npos) continue;
+        // MSVC refuses the write with LNK1104, and MinGW reports the same thing as
+        // an open that failed.
+        if (line.find("LNK1104") != std::string::npos) return true;
+        if (line.find("cannot open output file") != std::string::npos) return true;
     }
     return false;
 }

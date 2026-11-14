@@ -34,6 +34,14 @@ struct Diagnostic {
 // The default preset is the one RBLXBuildPresets.json ships.
 constexpr const char* kDefaultPreset = "windows-release";
 
+// The folder the build belongs to. RBLXCode starts in whatever folder it was
+// launched from, and the usual one is build\windows-release\Release, which has
+// neither the sources nor the tool: walk up until a folder looks like this
+// checkout (RBLXBuildPresets.json or RBLXBuildLists.txt), and use that. A folder
+// with no checkout above it is returned unchanged, so the error is about the
+// folder that was actually opened.
+std::string findBuildRoot(const std::string& start);
+
 // The build tool of this checkout: the vendored one under build/rblxbuild-tool,
 // because that is what the bootstrap builds and what CI and the packaging script
 // run. `RBLXBUILD` overrides it for a tool somewhere else. The error carries the
@@ -41,6 +49,13 @@ constexpr const char* kDefaultPreset = "windows-release";
 bool findBuildTool(const std::string& projectRoot, std::string* program, std::string* error);
 
 // `"C:\...\rblxbuild.exe" --build --preset windows-release`
+// The editor is one of the programs this checkout builds, and Windows will not
+// overwrite a program that is running: a build started from the panel always
+// stops at the link step of RBLXCode.exe itself. Recognising that in the output
+// is what turns a red build into "everything else is up to date".
+constexpr const char* kEditorProgram = "RBLXCode.exe";
+bool selfLinkBlocked(const std::vector<std::string>& lines);
+
 std::string buildCommandLine(const std::string& program, const std::string& preset);
 
 // Every diagnostic in these lines, in the order they were printed. Both the MSVC

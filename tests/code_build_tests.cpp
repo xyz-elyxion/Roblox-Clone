@@ -117,6 +117,42 @@ int main() {
         }
     }
 
+    // The one failure the panel is guaranteed to cause: the build cannot replace
+    // the editor it is running inside, and only that failure is worth excusing.
+    {
+        check(code::selfLinkBlocked(
+                  {"LINK : fatal error LNK1104: cannot open file "
+                   "'D:\\repo\\build\\windows-release\\Release\\RBLXCode.exe'"}),
+              "the editor's own link failure is recognised");
+        check(code::selfLinkBlocked(
+                  {"g++: fatal error: cannot open output file RBLXCode.exe: Permission denied"}),
+              "MinGW's version of the same failure is recognised");
+        check(!code::selfLinkBlocked({"Client.obj : error LNK2019: unresolved external symbol"}),
+              "an ordinary link error is not excused");
+        check(!code::selfLinkBlocked({"LINK : fatal error LNK1104: cannot open file 'Client.exe'"}),
+              "another program's link failure is not excused");
+    }
+
+    // The folder opened is usually not the checkout: the editor is started from
+    // build\windows-release\Release, which is where the executables land.
+    {
+        const fs::path repo = root / "checkout";
+        const fs::path deep = repo / "build" / "windows-release" / "Release";
+        fs::create_directories(deep, error);
+        writeFile(repo / "RBLXBuildPresets.json", "[]");
+        check(code::findBuildRoot(deep.string()) == repo.string(),
+              "a folder inside the checkout resolves to its root, got " +
+                  code::findBuildRoot(deep.string()));
+        check(code::findBuildRoot(repo.string()) == fs::absolute(repo).string(),
+              "a checkout root resolves to itself");
+        const fs::path outside = root / "elsewhere";
+        fs::create_directories(outside, error);
+        check(code::findBuildRoot(outside.string()) == outside.string(),
+              "a folder with no checkout above it is used as it is");
+        check(code::findBuildRoot(std::string()) == std::string(),
+              "no folder stays no folder");
+    }
+
     // A message that names no file at all is not a diagnostic.
     {
         const std::vector<code::Diagnostic> found = code::parseDiagnostics(

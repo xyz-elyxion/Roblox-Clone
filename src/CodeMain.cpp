@@ -120,8 +120,13 @@ struct App {
     std::vector<rblx::code::Diagnostic> buildDiagnostics;
     std::map<std::string, std::size_t> buildDiagnosticByText;
     std::string buildProgram;
+    // The checkout the build belongs to, which is not always the open folder: the
+    // editor is normally started from build\windows-release\Release.
+    std::string buildRoot;
+    std::string buildCommand;
     std::string buildPreset = rblx::code::kDefaultPreset;
     std::string buildState = "not built yet";
+    bool buildFailed = false;
     bool showBuild = true;
     bool buildPending = false;
 
@@ -1331,17 +1336,21 @@ struct App {
             return;
         }
         std::string error;
-        if (!rblx::code::findBuildTool(root, &buildProgram, &error)) {
+        buildRoot = rblx::code::findBuildRoot(root);
+        if (!rblx::code::findBuildTool(buildRoot, &buildProgram, &error)) {
             buildState = error;
             status = error;
+            buildFailed = true;
             return;
         }
-        const std::string command = rblx::code::buildCommandLine(buildProgram, buildPreset);
-        if (!build.start(root, buildProgram, command, &error)) {
+        buildCommand = rblx::code::buildCommandLine(buildProgram, buildPreset);
+        if (!build.start(buildRoot, buildProgram, buildCommand, &error)) {
             buildState = error;
             status = error;
+            buildFailed = true;
             return;
         }
+        buildFailed = false;
         buildLines.clear();
         buildLineCount = 0;
         buildDiagnostics.clear();
@@ -1358,6 +1367,7 @@ struct App {
         build.stop();
         buildState = "cancelled";
         status = "Build cancelled";
+        buildFailed = false;
     }
 
     // Called once a frame. The log is copied when it grows rather than every frame,
@@ -1391,6 +1401,7 @@ struct App {
             buildDiagnosticByText.emplace(diagnostic.text, index);
         }
         const int code = build.exitCode();
+        buildFailed = code != 0;
         if (code == 0) {
             buildState = "build succeeded";
         } else if (code < 0) {
@@ -1402,11 +1413,21 @@ struct App {
             buildState += " - " + std::to_string(errors) + " error(s), " +
                           std::to_string(warnings) + " warning(s)";
         }
+        // The editor is running, so the link step of RBLXCode.exe itself cannot
+        // finish. When that is the only failure the checkout is otherwise up to
+        // date, and calling it a failed build hides the work that did happen.
+        if (buildFailed && errors == 0 && rblx::code::selfLinkBlocked(buildLines)) {
+            buildFailed = false;
+            buildState = std::string("everything but ") + rblx::code::kEditorProgram +
+                         " was built - Windows will not replace the editor while it is "
+                         "running, so close it and build again to update the editor itself";
+        }
         status = buildState;
     }
 
     void openDiagnostic(const rblx::code::Diagnostic& diagnostic) {
-        const std::string absolute = rblx::code::resolveDiagnosticPath(root, diagnostic.path);
+        const std::string& base = buildRoot.empty() ? root : buildRoot;
+        const std::string absolute = rblx::code::resolveDiagnosticPath(base, diagnostic.path);
         std::string relative = rblx::code::relativePathOf(root, absolute);
         if (relative.empty()) {
             relative = diagnostic.path;
@@ -1429,7 +1450,21 @@ struct App {
             showBuild = false;
         }
         RblxUI::SameLine();
-        RblxUI::TextDisabled("%s", buildState.c_str());
+        if (buildFailed) {
+            RblxUI::PushStyleColor(RblxUICol_Text, rblx::ui::theme::error());
+            RblxUI::Text("%s", buildState.c_str());
+            RblxUI::PopStyleColor();
+        } else {
+            RblxUI::TextDisabled("%s", buildState.c_str());
+        }
+        // The exact command and the folder it runs in, so a build that does not
+        // work can be repeated in a terminal without guessing either.
+        if (!buildCommand.empty()) {
+            RblxUI::TextDisabled("%s", buildCommand.c_str());
+            if (buildRoot != root) {
+                RblxUI::TextDisabled("in %s", buildRoot.c_str());
+            }
+        }
         RblxUI::Separator();
 
         RblxUI::BeginChild("##buildlog", RblxVec2(0.0f, 0.0f), false,

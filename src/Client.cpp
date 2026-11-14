@@ -1,4 +1,3 @@
-#define _CRT_SECURE_NO_WARNINGS
 #include "Window.h"
 #include "Renderer.h"
 #include "Camera.h"
@@ -1141,9 +1140,15 @@ void restorePendingSession() {
 }
 
 int main(int argc, char** argv) {
-    // Redirect stdout/stderr to files for debugging
-    freopen("client_log.txt", "w", stdout);
-    freopen("client_error_log.txt", "w", stderr);
+    // Redirect stdout/stderr to files for debugging. These are best effort: if the
+    // file cannot be opened the console stays the destination and the run continues,
+    // which is why the checked form of freopen is used and its result read.
+    FILE* logOut = nullptr;
+    FILE* logErr = nullptr;
+    if (freopen_s(&logOut, "client_log.txt", "w", stdout) != 0 || logOut == nullptr)
+        std::cout << "warning: could not redirect stdout to client_log.txt" << std::endl;
+    if (freopen_s(&logErr, "client_error_log.txt", "w", stderr) != 0 || logErr == nullptr)
+        std::cerr << "warning: could not redirect stderr to client_error_log.txt" << std::endl;
     setvbuf(stdout, NULL, _IONBF, 0);
     setvbuf(stderr, NULL, _IONBF, 0);
 
@@ -1862,7 +1867,8 @@ int main(int argc, char** argv) {
                             
                             // Read player count
                             uint32_t playerCount = *(uint32_t*)(packetBuffer + offset + sizeof(PacketHeader));
-                            int expectedSize = sizeof(uint32_t) + playerCount * sizeof(PlayerInfo);
+                            const uint32_t expectedSize = static_cast<uint32_t>(
+                                sizeof(uint32_t) + playerCount * sizeof(PlayerInfo));
                             
                             if (header->size != expectedSize) {
                                 std::cerr << "ERROR: PLAYER_LIST size mismatch. Expected " << expectedSize 
@@ -1934,7 +1940,8 @@ int main(int argc, char** argv) {
                             
                             // Read part count
                             uint32_t partCount = *(uint32_t*)(packetBuffer + offset + sizeof(PacketHeader));
-                            int expectedSize = sizeof(uint32_t) + partCount * sizeof(PartData);
+                            const uint32_t expectedSize = static_cast<uint32_t>(
+                                sizeof(uint32_t) + partCount * sizeof(PartData));
                             
                             if (header->size != expectedSize) {
                                 std::cerr << "ERROR: WORLD_STATE size mismatch. Expected " << expectedSize 

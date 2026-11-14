@@ -57,8 +57,10 @@ public:
         }
 
         std::time_t now = std::time(nullptr);
+        std::tm localTime;
+        localtime_s(&localTime, &now);
         char timestamp[20];
-        std::strftime(timestamp, sizeof(timestamp), "%Y-%m-%d %H:%M:%S", std::localtime(&now));
+        std::strftime(timestamp, sizeof(timestamp), "%Y-%m-%d %H:%M:%S", &localTime);
 
         logFile << "[" << timestamp << "] " << message << std::endl;
 
@@ -205,7 +207,7 @@ public:
     static void SetColor(int color) 
     {
         HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
-        SetConsoleTextAttribute(hConsole, color);
+        SetConsoleTextAttribute(hConsole, static_cast<WORD>(color));
     }
 
     static void ResetColor()

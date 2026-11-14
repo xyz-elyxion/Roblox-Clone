@@ -2241,8 +2241,8 @@ struct App {
 
         drawCompletionPopup();
         drawDocumentationWindow();
-        RblxUI::End();
-        drawPopups();
+        // The workspace is the one window this frame opened, so it is closed once:
+        // a second End() lands with no window open and rblxui asserts on it.
         RblxUI::End();
         drawPopups();
     }

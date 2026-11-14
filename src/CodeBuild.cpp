@@ -132,6 +132,53 @@ bool findBuildTool(const std::string& projectRoot, std::string* program, std::st
     return false;
 }
 
+std::string stageCommandLine(const Stage& stage) {
+    if (stage.arguments.empty()) return "\"" + stage.program + "\"";
+    return "\"" + stage.program + "\" " + stage.arguments;
+}
+
+std::vector<Stage> releaseStages(const std::string& buildRoot, const std::string& tool,
+                                 const std::string& preset) {
+    const std::string chosen = preset.empty() ? std::string(kDefaultPreset) : preset;
+    const fs::path root(buildRoot);
+    const fs::path buildDir = root / "build" / chosen;
+    std::error_code code;
+
+    std::vector<Stage> stages;
+    // No cache means the preset was never configured, and --build on a folder
+    // with no cache fails before it compiles anything.
+    if (!fs::is_regular_file(buildDir / "CMakeCache.txt", code)) {
+        stages.push_back(Stage{"configure", tool, "--preset " + chosen});
+    }
+    stages.push_back(Stage{"build", tool, "--build --preset " + chosen});
+
+    // The tests are whatever the build produced: the workflow runs them the same
+    // way, one executable at a time, because rblxtest is not a program here.
+    std::vector<std::string> tests;
+    const fs::path release = buildDir / "Release";
+    for (fs::directory_iterator entry(release, code), last; !code && entry != last;
+         entry.increment(code)) {
+        if (!entry->is_regular_file(code)) continue;
+        const std::string name = entry->path().filename().string();
+        const std::size_t suffix = std::string("Tests.exe").size();
+        if (name.size() > suffix && name.compare(name.size() - suffix, suffix, "Tests.exe") == 0) {
+            tests.push_back(entry->path().string());
+        }
+    }
+    std::sort(tests.begin(), tests.end());
+    for (const std::string& test : tests) {
+        stages.push_back(Stage{"test", test, ""});
+    }
+
+    // The packager's own defaults are the workflow's -Configuration Release,
+    // so the version stamp and the folder are its decision, not a second copy.
+    stages.push_back(Stage{"package", "powershell.exe",
+                           "-NoProfile -ExecutionPolicy Bypass -File \"" +
+                               (root / "scripts" / "package-build.ps1").string() +
+                               "\" -Configuration Release"});
+    return stages;
+}
+
 bool selfLinkBlocked(const std::vector<std::string>& lines) {
     for (const std::string& line : lines) {
         if (line.find(kEditorProgram) == std::string::npos) continue;

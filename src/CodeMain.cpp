@@ -114,14 +114,21 @@ struct App {
     // Building from the editor and committing from it. Both tools are part of this
     // checkout - the vendored build tool and the repository code RBLXGit drives -
     // so the editor can run them itself instead of sending somebody to a terminal.
+    // A release is what the Windows workflow makes: configure, build, the tests,
+    // then the packager. The stages run one process at a time, because each one's
+    // output is only readable when it is the only thing writing.
     rblx::code::BuildRun build;
-    std::vector<std::string> buildLines;
-    std::size_t buildLineCount = 0;
+    std::vector<rblx::code::Stage> buildStages;
+    std::size_t buildStage = 0;
+    std::string buildStageLabel;
+    std::vector<std::string> buildLog;   // everything the finished stages printed
+    std::vector<std::string> buildLive;  // what the running stage has printed so far
+    std::size_t buildLiveCount = 0;
     std::vector<rblx::code::Diagnostic> buildDiagnostics;
     std::map<std::string, std::size_t> buildDiagnosticByText;
     std::string buildProgram;
     // The checkout the build belongs to, which is not always the open folder: the
-    // editor is normally started from build\windows-release\Release.
+    // editor is normally started from the folder the executables land in.
     std::string buildRoot;
     std::string buildCommand;
     std::string buildPreset = rblx::code::kDefaultPreset;
@@ -1189,7 +1196,7 @@ struct App {
             RblxUI::EndMenu();
         }
         if (RblxUI::BeginMenu("Build")) {
-            if (RblxUI::MenuItem("Build", "Ctrl+B", false, !root.empty())) {
+            if (RblxUI::MenuItem("Build release", "Ctrl+B", false, !root.empty())) {
                 startBuild();
             }
             if (RblxUI::MenuItem("Cancel build", "", false, build.running())) {
@@ -1332,32 +1339,58 @@ struct App {
     void startBuild() {
         showBuild = true;
         if (build.running()) {
-            status = "A build is already running";
+            status = "A release is already being built";
             return;
         }
         std::string error;
         buildRoot = rblx::code::findBuildRoot(root);
         if (!rblx::code::findBuildTool(buildRoot, &buildProgram, &error)) {
+            buildStages.clear();
             buildState = error;
             status = error;
             buildFailed = true;
             return;
         }
-        buildCommand = rblx::code::buildCommandLine(buildProgram, buildPreset);
-        if (!build.start(buildRoot, buildProgram, buildCommand, &error)) {
-            buildState = error;
-            status = error;
-            buildFailed = true;
-            return;
-        }
-        buildFailed = false;
-        buildLines.clear();
-        buildLineCount = 0;
+        // The stages the workflow runs, in its order: configure a preset whose
+        // folder has never been written, build it, run the tests the build
+        // produced, then package - which stamps a new version.
+        buildStages = rblx::code::releaseStages(buildRoot, buildProgram, buildPreset);
+        buildStage = 0;
+        buildLog.clear();
+        buildLive.clear();
+        buildLiveCount = 0;
         buildDiagnostics.clear();
         buildDiagnosticByText.clear();
+        buildState = "building a release";
+        startStage();
+    }
+
+    void startStage() {
+        if (buildStage >= buildStages.size()) {
+            return;
+        }
+        const rblx::code::Stage& stage = buildStages[buildStage];
+        buildStageLabel = "step " + std::to_string(buildStage + 1) + " of " +
+                          std::to_string(buildStages.size()) + ": ";
+        if (stage.name == "test") {
+            buildStageLabel += "test " + std::filesystem::path(stage.program).stem().string();
+        } else {
+            buildStageLabel += stage.name;
+        }
+        buildCommand = rblx::code::stageCommandLine(stage);
+        std::string error;
+        if (!build.start(buildRoot, stage.program, buildCommand, &error)) {
+            buildState = error;
+            status = error;
+            buildFailed = true;
+            buildStages.clear();
+            return;
+        }
         buildPending = true;
-        buildState = "building with " + buildPreset;
-        status = "Building with " + buildProgram;
+        buildFailed = false;
+        buildLiveCount = 0;
+        buildLive.clear();
+        status = buildStageLabel + " (" + stage.program + ")";
     }
 
     void stopBuild() {
@@ -1365,6 +1398,12 @@ struct App {
             return;
         }
         build.stop();
+        // The stages stop with the process: the next one is only started when a
+        // stage finished, so emptying the list and forgetting the pending stage is
+        // what "cancelled" means. The reader still has to finish what was written.
+        buildStages.clear();
+        buildPending = false;
+        buildStageLabel.clear();
         buildState = "cancelled";
         status = "Build cancelled";
         buildFailed = false;
@@ -1375,9 +1414,9 @@ struct App {
     void pollBuild() {
         if (build.running()) {
             const std::size_t count = build.lineCount();
-            if (count != buildLineCount) {
-                buildLines = build.lines();
-                buildLineCount = buildLines.size();
+            if (count != buildLiveCount) {
+                buildLive = build.lines();
+                buildLiveCount = buildLive.size();
             }
             return;
         }
@@ -1385,9 +1424,14 @@ struct App {
             return;
         }
         buildPending = false;
-        buildLines = build.lines();
-        buildLineCount = buildLines.size();
-        buildDiagnostics = rblx::code::parseDiagnostics(buildLines);
+
+        // The finished stage's output joins the log, so the compiler's lines stay
+        // readable while the tests and the packager run after it.
+        const std::vector<std::string> printed = build.lines();
+        buildLog.insert(buildLog.end(), printed.begin(), printed.end());
+        buildLive.clear();
+        buildLiveCount = 0;
+        buildDiagnostics = rblx::code::parseDiagnostics(buildLog);
         buildDiagnosticByText.clear();
         std::size_t errors = 0;
         std::size_t warnings = 0;
@@ -1400,27 +1444,41 @@ struct App {
             }
             buildDiagnosticByText.emplace(diagnostic.text, index);
         }
+
         const int code = build.exitCode();
-        buildFailed = code != 0;
-        if (code == 0) {
-            buildState = "build succeeded";
-        } else if (code < 0) {
-            buildState = "the build tool did not run";
-        } else {
-            buildState = "build failed (exit " + std::to_string(code) + ")";
+        // The link step of RBLXCode.exe itself cannot replace a running program.
+        // The workflow never trips over it, and a release built from the panel is
+        // not a failed one because of it.
+        const bool excused = code != 0 && errors == 0 && rblx::code::selfLinkBlocked(printed);
+        if (code < 0) {
+            buildFailed = true;
+            buildState = buildStageLabel + ": the program did not run";
+            status = buildState;
+            buildStages.clear();
+            return;
         }
-        if (!buildDiagnostics.empty()) {
-            buildState += " - " + std::to_string(errors) + " error(s), " +
-                          std::to_string(warnings) + " warning(s)";
+        if (code != 0 && !excused) {
+            buildFailed = true;
+            buildState = buildStageLabel + " failed (exit " + std::to_string(code) + ")";
+            if (errors > 0 || warnings > 0) {
+                buildState += " - " + std::to_string(errors) + " error(s), " +
+                              std::to_string(warnings) + " warning(s)";
+            }
+            status = buildState;
+            buildStages.clear();
+            return;
         }
-        // The editor is running, so the link step of RBLXCode.exe itself cannot
-        // finish. When that is the only failure the checkout is otherwise up to
-        // date, and calling it a failed build hides the work that did happen.
-        if (buildFailed && errors == 0 && rblx::code::selfLinkBlocked(buildLines)) {
-            buildFailed = false;
-            buildState = std::string("everything but ") + rblx::code::kEditorProgram +
-                         " was built - Windows will not replace the editor while it is "
-                         "running, so close it and build again to update the editor itself";
+        if (buildStage + 1 < buildStages.size()) {
+            ++buildStage;
+            startStage();
+            return;
+        }
+        buildFailed = false;
+        buildStages.clear();
+        buildState = "release packaged into dist/rblx-windows-release - a new version, with "
+                     "update.json and manifest.json";
+        if (rblx::code::selfLinkBlocked(printed)) {
+            buildState += " (the editor is still the copy that was running)";
         }
         status = buildState;
     }
@@ -1435,8 +1493,18 @@ struct App {
         openAt(relative, diagnostic.line > 0 ? diagnostic.line : 1, diagnostic.column);
     }
 
+    void drawDiagnosticRow(const rblx::code::Diagnostic& diagnostic) {
+        RblxUI::PushStyleColor(RblxUICol_Text, diagnostic.severity == "error"
+                                                   ? rblx::ui::theme::error()
+                                                   : rblx::ui::theme::warning());
+        if (RblxUI::Selectable(diagnostic.text.c_str())) {
+            openDiagnostic(diagnostic);
+        }
+        RblxUI::PopStyleColor();
+    }
+
     void drawBuildPanel() {
-        if (RblxUI::SmallButton(build.running() ? "Build (running)" : "Build")) {
+        if (RblxUI::SmallButton(build.running() ? "Release (running)" : "Build release")) {
             startBuild();
         }
         if (build.running()) {
@@ -1457,7 +1525,11 @@ struct App {
         } else {
             RblxUI::TextDisabled("%s", buildState.c_str());
         }
-        // The exact command and the folder it runs in, so a build that does not
+        if (build.running() && !buildStageLabel.empty()) {
+            RblxUI::SameLine();
+            RblxUI::TextDisabled("(%s)", buildStageLabel.c_str());
+        }
+        // The exact command and the folder it runs in, so a stage that does not
         // work can be repeated in a terminal without guessing either.
         if (!buildCommand.empty()) {
             RblxUI::TextDisabled("%s", buildCommand.c_str());
@@ -1469,25 +1541,24 @@ struct App {
 
         RblxUI::BeginChild("##buildlog", RblxVec2(0.0f, 0.0f), false,
                            RblxUIWindowFlags_HorizontalScrollbar);
-        if (buildLines.empty()) {
-            RblxUI::TextDisabled("Ctrl+B builds this checkout with the tool in build/, "
-                                 "preset %s",
+        if (buildLog.empty() && buildLive.empty()) {
+            RblxUI::TextDisabled("Ctrl+B makes a release the way the Windows workflow does: "
+                                 "configure, build, run the tests, then package a new version "
+                                 "into dist/rblx-windows-release (preset %s)",
                                  buildPreset.c_str());
         }
-        for (const std::string& line : buildLines) {
+        for (const std::string& line : buildLog) {
             const auto found = buildDiagnosticByText.find(line);
             if (found == buildDiagnosticByText.end()) {
                 RblxUI::TextUnformatted(line.c_str());
                 continue;
             }
-            const rblx::code::Diagnostic& diagnostic = buildDiagnostics[found->second];
-            RblxUI::PushStyleColor(RblxUICol_Text, diagnostic.severity == "error"
-                                                       ? rblx::ui::theme::error()
-                                                       : rblx::ui::theme::warning());
-            if (RblxUI::Selectable(line.c_str())) {
-                openDiagnostic(diagnostic);
-            }
-            RblxUI::PopStyleColor();
+            drawDiagnosticRow(buildDiagnostics[found->second]);
+        }
+        // The running stage's lines are not in the log yet: they are shown as they
+        // arrive, and become rows that can be clicked when the stage finishes.
+        for (const std::string& line : buildLive) {
+            RblxUI::TextUnformatted(line.c_str());
         }
         if (build.running()) {
             RblxUI::SetScrollHereY(1.0f);
@@ -2165,7 +2236,8 @@ struct App {
             RblxUI::TextUnformatted("Ctrl+W   close the file in front");
             RblxUI::TextUnformatted("Ctrl+Tab   next tab, Ctrl+Shift+Tab   previous tab");
             RblxUI::Separator();
-            RblxUI::TextUnformatted("Ctrl+B   build the checkout with the tool in build/");
+            RblxUI::TextUnformatted(
+            "Ctrl+B   build a release: configure, build, tests, package");
             RblxUI::TextUnformatted(
                 "Source control (left panel)   the changed files, stage everything, commit");
             RblxUI::Separator();

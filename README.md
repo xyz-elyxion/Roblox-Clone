@@ -1309,30 +1309,39 @@ status bar instead of being coloured wrongly.
 | `Ctrl+Tab`, `Ctrl+Shift+Tab` | Switch tabs |
 | `Ctrl+S`, `Ctrl+Shift+S` | Save the file in front / every open file |
 | `Ctrl+R`, `Ctrl+W` | Reload from disk / close the tab |
-| `Ctrl+B` | Build this checkout with the tool in `build/`, streaming the output into the panel under the editor |
+| `Ctrl+B` | Make a release like the Windows workflow: configure, build, run the tests, package a new version into `dist\rblx-windows-release` |
 
 Undo, redo, cut, copy and paste belong to the text widget and work as usual; `Ctrl+Z` also takes
 back a single replace and a comment toggle.
 
 #### Building and committing from the editor
 
-The panel under the editor is the build. `Ctrl+B`, or **Build → Build**, runs the vendored tool the
-rest of this project uses -- `build/rblxbuild-tool/bin/rblxbuild --build --preset windows-release`, in
-the checkout the open folder belongs to -- and prints what it says as it arrives, so a build that
-takes minutes shows progress instead of nothing. The checkout rather than the folder matters because
-the editor is normally started from `build\windows-release\Release`: the panel walks up to the folder
-holding `RBLXBuildPresets.json`, and prints the command it ran and that folder above the log, so a
-build can be repeated in a terminal without guessing either. **Cancel** ends it, and a checkout with no tool in `build/` gets the
-bootstrap line in the panel rather than a silent failure. When the tool exits, every line that names
-a file becomes a row with its severity: clicking an error opens that file at the reported line and
-column, and the heading counts them (`build failed (exit 1) - 3 error(s), 12 warning(s)`). Linker
-messages that name no source are shown but stay plain text, because there is nothing to open.
-`RBLXBUILD` points the editor at a tool somewhere else.
+`Ctrl+B`, or **Build → Build release**, makes a release the way the Windows workflow does, in this
+window: configure the preset if its folder has never been written, build it, run every `*Tests.exe`
+the build produced, and then run `scripts/package-build.ps1 -Configuration Release`. The result is a
+new version in `dist\rblx-windows-release` -- the folder the workflow uploads as its artifact, with
+`manifest.json` and `update.json` beside the executables. The packager stamps the moment it ran unless
+it is given a version, so two runs never share a number and the newer one always wins in the updater.
+
+Each step runs in turn and its output is appended to the log, so a build that takes minutes shows
+progress instead of nothing, and the compiler's lines stay readable while the tests and the packager
+run after them. The heading counts what happened, every line that names a file becomes a row with its
+severity, and clicking an error opens that file at the reported line and column; linker messages that
+name no source stay plain text because there is nothing to open. **Cancel** stops the step that is
+running and the ones after it. The command being run and the folder it runs in are printed above the
+log, so anything can be repeated in a terminal without guessing.
+
+The panel builds the checkout the open folder belongs to rather than the folder itself, because the
+editor is normally started from `build\windows-release\Release` and that folder holds neither the
+sources nor the tool: it walks up to the folder holding `RBLXBuildPresets.json` and works there. A
+checkout with no tool in `build/` gets the bootstrap line in the panel instead of a silent failure,
+and `RBLXBUILD` points the editor at a tool somewhere else.
 
 The editor is one of the programs the checkout builds, and Windows will not replace a program that is
-running, so the link step of `RBLXCode.exe` itself cannot finish inside it. When that is the only thing
-that failed the panel says so -- everything else was built -- instead of reporting a failed build;
-close the editor and build once more from a terminal to update the editor itself.
+running, so the link step of `RBLXCode.exe` itself cannot finish inside it. That one step is excused --
+the release goes on to the tests and the packager, and the packaged editor is the copy that was
+already there -- rather than failing a build that produced everything else. Close the editor and run
+`build\rblxbuild-tool\bin\rblxbuild --build --preset windows-release` once to update the editor itself.
 
 The left panel switches between the tree and **Source control**: the branch, every changed path with
 the two letters git prints (`M ` staged, ` M` unstaged, `??` new), and one button that stages

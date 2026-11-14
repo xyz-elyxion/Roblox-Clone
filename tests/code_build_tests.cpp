@@ -153,6 +153,57 @@ int main() {
               "no folder stays no folder");
     }
 
+    // The release stages are the Windows workflow's steps, in its order. What
+    // matters is that a never-configured preset gets its configure step, that the
+    // tests come from what the build produced, and that the packager is the last
+    // thing to run with the version left to its own stamp.
+    {
+        const fs::path checkout = root / "release-checkout";
+        const fs::path buildDir = checkout / "build" / "windows-release";
+        fs::create_directories(buildDir / "Release", error);
+        fs::create_directories(checkout / "scripts", error);
+        writeFile(checkout / "scripts" / "package-build.ps1", "# empty");
+
+        const std::string tool = (checkout / "build" / "rblxbuild-tool" / "bin" / "rblxbuild.exe")
+                                     .string();
+        // No CMakeCache.txt yet: configure first, or --build has nothing to read.
+        std::vector<code::Stage> stages = code::releaseStages(checkout.string(), tool, "");
+        check(stages.size() == 3, "configure, build and package, got " +
+                                      std::to_string(stages.size()));
+        check(stages[0].name == "configure" && stages[0].arguments == "--preset windows-release",
+              "the configure step uses the preset");
+        check(stages[1].name == "build" &&
+                  stages[1].arguments == "--build --preset windows-release",
+              "the build step is the one the README runs");
+        check(stages[2].name == "package", "nothing was built, so nothing is tested");
+
+        // Configured, with three tests and one program that is not a test.
+        writeFile(buildDir / "CMakeCache.txt", "# configured");
+        writeFile(buildDir / "Release" / "CodeGitTests.exe", "not a program");
+        writeFile(buildDir / "Release" / "CodeBuildTests.exe", "not a program");
+        writeFile(buildDir / "Release" / "ServerConfigTests.exe", "not a program");
+        writeFile(buildDir / "Release" / "Client.exe", "not a program");
+        stages = code::releaseStages(checkout.string(), tool, "windows-release");
+        check(stages.size() == 5, "build, three tests and package, got " +
+                                      std::to_string(stages.size()));
+        check(stages[0].name == "build", "a configured preset is not configured again");
+        check(stages[1].name == "test" &&
+                  stages[1].program.find("CodeBuildTests.exe") != std::string::npos,
+              "the tests are the build's own, in order: " + stages[1].program);
+        check(stages[3].program.find("ServerConfigTests.exe") != std::string::npos,
+              "every *Tests.exe is run: " + stages[3].program);
+        check(stages[4].name == "package", "the package is last");
+        check(stages[4].program == "powershell.exe", "the packager runs in PowerShell");
+        check(stages[4].arguments.find("package-build.ps1") != std::string::npos &&
+                  stages[4].arguments.find("-Configuration Release") != std::string::npos,
+              "the packager gets the configuration the workflow passes: " + stages[4].arguments);
+
+        check(code::stageCommandLine(stages[0]) == "\"" + tool + "\" --build --preset windows-release",
+              "a stage's command line quotes the program: " + code::stageCommandLine(stages[0]));
+        check(code::stageCommandLine(stages[1]) == "\"" + stages[1].program + "\"",
+              "a stage with no arguments is just the program");
+    }
+
     // A message that names no file at all is not a diagnostic.
     {
         const std::vector<code::Diagnostic> found = code::parseDiagnostics(

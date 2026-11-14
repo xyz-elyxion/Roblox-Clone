@@ -49,6 +49,26 @@ std::string findBuildRoot(const std::string& start);
 bool findBuildTool(const std::string& projectRoot, std::string* program, std::string* error);
 
 // `"C:\...\rblxbuild.exe" --build --preset windows-release`
+// One step of the release pipeline: a program and the arguments it is started
+// with, in the order the Windows workflow runs them.
+struct Stage {
+    std::string name;       // what the panel calls it: "configure", "build", "package"
+    std::string program;    // the executable
+    std::string arguments;  // everything after it on the command line
+};
+
+// The stages the GitHub Actions workflow runs, for the button that makes a new
+// release: configure a checkout whose build folder has never been written, build
+// the preset, run every *Tests.exe the build produced, then package the result
+// with scripts/package-build.ps1. The packager stamps the moment it ran when it
+// is given no version, so this produces a new version every time - the same
+// folder the workflow uploads as its artifact.
+std::vector<Stage> releaseStages(const std::string& buildRoot, const std::string& tool,
+                                 const std::string& preset);
+
+// `"program" arguments`, the command line a stage is started with.
+std::string stageCommandLine(const Stage& stage);
+
 // The editor is one of the programs this checkout builds, and Windows will not
 // overwrite a program that is running: a build started from the panel always
 // stops at the link step of RBLXCode.exe itself. Recognising that in the output

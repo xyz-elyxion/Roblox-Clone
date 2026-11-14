@@ -809,7 +809,7 @@ void broadcastPartChanges() {
         state.data = makePartData(serverParts[i]);
         broadcastPacket(PacketProtocol::buildStructPacket(PacketType::PART_STATE, state), -1, true);
         announcedPartLooks.push_back(state.data);
-        lastBroadcastPositions[i] = serverParts[i].position;
+        lastBroadcastPositions[static_cast<int>(i)] = serverParts[i].position;
     }
 
     // Parts the clients already have can still change how they look. The Doors
@@ -849,7 +849,7 @@ void broadcastWorldUpdate() {
         const rblxphysics::Quaternion rot = t.getOrientation();
         const rblxmath::vec3 newPosition(pos.x, pos.y, pos.z);
 
-        const auto previous = lastBroadcastPositions.find(i);
+        const auto previous = lastBroadcastPositions.find(static_cast<int>(i));
         const bool moved = previous == lastBroadcastPositions.end() ||
                            rblxmath::length(previous->second - newPosition) > 0.001f;
         if (!dynamic && !moved) continue;
@@ -865,7 +865,7 @@ void broadcastWorldUpdate() {
         up.rotation = rblxmath::degrees(rblxmath::eulerAngles(q));
 
         updates.push_back(up);
-        lastBroadcastPositions[i] = newPosition;
+        lastBroadcastPositions[static_cast<int>(i)] = newPosition;
     }
 
     if (updates.empty()) return;

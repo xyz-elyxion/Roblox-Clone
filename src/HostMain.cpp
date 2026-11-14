@@ -251,8 +251,8 @@ int main(int argc, char** argv) {
 
         // The panel only ever queues a command; applying it here keeps every
         // decision about the pool on this thread.
-        for (const rblx::hosting::Command& command : dashboard.takeCommands()) {
-            applyCommand(supervisor, command);
+        for (const rblx::hosting::Command& queued : dashboard.takeCommands()) {
+            applyCommand(supervisor, queued);
         }
 
         supervisor.tick(now);

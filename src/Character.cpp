@@ -38,7 +38,7 @@ Character::Character(rblxmath::vec3 startPos, PhysicsWorld* physicsWorld, std::d
     playerFolder.canCollide = false;
     playerFolder.transparency = 1.0f;
     partsList->push_back(playerFolder);
-    int folderIndex = partsList->size() - 1;
+    int folderIndex = static_cast<int>(partsList->size()) - 1;
 
     // 1. RootPart / Torso (Main Physics Body)
     rblxmath::vec3 rootSize(2.0f, 5.0f, 1.0f);
@@ -52,7 +52,7 @@ Character::Character(rblxmath::vec3 startPos, PhysicsWorld* physicsWorld, std::d
     rootPart.material = Material::SmoothPlastic;
     
     partsList->push_back(rootPart);
-    rootPartIndex = partsList->size() - 1;
+    rootPartIndex = static_cast<int>(partsList->size()) - 1;
     physicsWorld->addPart(&partsList->back());
     
     if (partsList->back().physicsBody) {
@@ -73,7 +73,7 @@ Character::Character(rblxmath::vec3 startPos, PhysicsWorld* physicsWorld, std::d
     // character.
     torso.material = Material::SmoothPlastic;
     partsList->push_back(torso);
-    torsoIndex = partsList->size() - 1;
+    torsoIndex = static_cast<int>(partsList->size()) - 1;
 
     auto createLimb = [&](std::string name, rblxmath::vec3 size, rblxmath::vec3 col) -> int {
         Part p(startPos, size, col); 
@@ -83,7 +83,7 @@ Character::Character(rblxmath::vec3 startPos, PhysicsWorld* physicsWorld, std::d
         p.canCollide = false; 
         p.material = Material::SmoothPlastic;
         partsList->push_back(p);
-        return partsList->size() - 1;
+        return static_cast<int>(partsList->size()) - 1;
     };
 
     headIndex = createLimb("Head", rblxmath::vec3(1.2f, 1.2f, 1.2f), headColor);

@@ -73,6 +73,10 @@ if(TARGET rblxphysics)
         # nothing in this project includes that header: our own files keep their
         # warnings, including the ones this suppresses for the logger.
         target_compile_definitions(rblxphysics PRIVATE _CRT_SECURE_NO_WARNINGS)
+        # Deque::getItem (containers/Deque.h) falls off the end of the function
+        # instead of returning, which MSVC reports as C4715. Same rule as the
+        # line above: the snapshot keeps its code and the diagnostic is off for it.
+        target_compile_options(rblxphysics PRIVATE /wd4715)
     else()
         target_compile_options(rblxphysics PUBLIC
             $<$<COMPILE_LANGUAGE:CXX>:-include>
@@ -86,6 +90,14 @@ add_subdirectory(${RBLXBUILD_CURRENT_SOURCE_DIR}/rblxgl)
 set(rblxui_SOURCE_DIR ${RBLXBUILD_CURRENT_SOURCE_DIR}/rblxui)
 set(rblxgizmo_SOURCE_DIR ${RBLXBUILD_CURRENT_SOURCE_DIR}/rblxgizmo)
 set(rblxtextedit_SOURCE_DIR ${RBLXBUILD_CURRENT_SOURCE_DIR}/rblxtextedit)
+# RblxTextEditor.cpp is another pinned snapshot, compiled straight into the two
+# editors rather than built as a library: its unused 'lineSize' (C4189) and the
+# int/char conversion inside the std::transform it calls (C4244) are upstream's,
+# and correcting either would mean editing the file we vendored.
+if(MSVC)
+    set_source_files_properties(${rblxtextedit_SOURCE_DIR}/RblxTextEditor.cpp
+        PROPERTIES COMPILE_OPTIONS "/wd4189;/wd4244")
+endif()
 set(rblxstb_SOURCE_DIR ${RBLXBUILD_CURRENT_SOURCE_DIR}/rblxstb)
 
 set(SHARED_SOURCES
@@ -341,6 +353,13 @@ endif()
 # executable to launch or ship.
 if(RBLX_BUILD_ANTICHEAT)
     add_subdirectory(RBLXAntiCheat)
+    # The anti-cheat is a pinned snapshot as well, and its size arithmetic converts
+    # size_t to int, unsigned int, DWORD and USHORT in a dozen places (C4267).
+    # Narrowing there is deliberate on 32-bit values that never exceed a part count,
+    # so the conversion warning is switched off for the tree instead of cast into it.
+    if(MSVC AND TARGET RBLXAntiCheat)
+        target_compile_options(RBLXAntiCheat PRIVATE /wd4267)
+    endif()
 endif()
 
 if(RBLX_BUILD_CLIENT)

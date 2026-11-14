@@ -1283,7 +1283,9 @@ into another.
 sources. It is not the Studio: Studio edits a world and runs a script, this edits the C++, shaders,
 website and `.rbx` scripts that make up RBLX Clone itself, and saves them in place. Launch it from
 the checkout (`RBLXCode.exe` on Windows, `./RBLXCode .` elsewhere), or name the folder to open, and
-it walks that folder for source files.
+it walks that folder for source files. To switch folders while it runs, **File → Open folder...** has
+a `Browse...` button that opens the folder picker Explorer uses -- the path can still be typed or
+pasted instead, and `Open` decides either way.
 
 It has a project tree on the left, an outline of the file in front on the right, tabs across the top
 (a `*` marks unsaved work), the RBLXUI colour text editor Studio's Script panel uses in the middle,

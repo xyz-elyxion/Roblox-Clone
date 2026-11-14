@@ -1,4 +1,7 @@
 #define RBLXMATH_ENABLE_EXPERIMENTAL
+// The Open folder popup hands its dialog this window as the owner, and the HWND
+// accessor only exists when rblxwin is asked for it before its headers are read.
+#define RBLXWIN_EXPOSE_NATIVE_WIN32
 
 #include "CodeBuild.h"
 #include "CodeBuildRun.h"
@@ -10,6 +13,9 @@
 
 #include <rblxgl/rblxgl.h>
 #include <RBLXWIN/rblxwin.h>
+#include <RBLXWIN/rblxwinnative.h>
+// SHBrowseForFolder, the dialog Explorer uses to pick a folder.
+#include <shlobj.h>
 #include "rblxui.h"
 #include "rblxui_impl_rblxwin.h"
 #include "rblxui_impl_opengl3.h"
@@ -31,6 +37,43 @@
 // without a display live in CodeProject. It opens the folder it is launched from
 // (or the one named on the command line) and edits the files in it in place.
 namespace {
+
+// Where the folder picker starts when the box already holds a path.
+int CALLBACK browseStartAt(HWND window, UINT message, LPARAM, LPARAM data) {
+    if (message == BFFM_INITIALIZER && data != 0) {
+        ::SendMessageA(window, BFFM_SETSELECTIONA, TRUE, data);
+    }
+    return 0;
+}
+
+// The folder the person picked, or empty when they closed the dialog. Typing a
+// path is how this started, but a folder is a thing you point at: this is the
+// dialog Explorer opens, so nothing here has to list a drive one directory at a
+// time. It is COM, which the editor does not otherwise use, so it is initialised
+// for the length of the call only.
+std::string chooseFolder(HWND owner, const std::string& start) {
+    const HRESULT initialised =
+        ::CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE);
+    BROWSEINFOA info{};
+    info.hwndOwner = owner;
+    info.lpszTitle = "Choose the folder to open";
+    info.ulFlags = BIF_RETURNONLYFSDIRS | BIF_NEWDIALOGSTYLE | BIF_EDITBOX;
+    info.lpfn = browseStartAt;
+    info.lParam = reinterpret_cast<LPARAM>(start.c_str());
+
+    std::string chosen;
+    if (LPITEMIDLIST selected = ::SHBrowseForFolderA(&info)) {
+        char path[MAX_PATH] = {};
+        if (::SHGetPathFromIDListA(selected, path) == TRUE) {
+            chosen = path;
+        }
+        ::CoTaskMemFree(selected);
+    }
+    if (SUCCEEDED(initialised)) {
+        ::CoUninitialize();
+    }
+    return chosen;
+}
 
 using rblx::code::FileEntry;
 using rblx::code::Language;
@@ -117,6 +160,9 @@ struct App {
     // A release is what the Windows workflow makes: configure, build, the tests,
     // then the packager. The stages run one process at a time, because each one's
     // output is only readable when it is the only thing writing.
+    // The dialog is owned by this window, so it stays in front of the editor.
+    RBLXWINwindow* owner = nullptr;
+
     rblx::code::BuildRun build;
     std::vector<rblx::code::Stage> buildStages;
     std::size_t buildStage = 0;
@@ -2205,6 +2251,15 @@ struct App {
         RblxUI::SetNextItemWidth(520.0f);
         const bool submitted = RblxUI::InputText("Folder", folderPath, sizeof(folderPath),
                                                 RblxUIInputTextFlags_EnterReturnsTrue);
+        // The box is still there for a path that is already known, and this is for
+        // every other time: Explorer's own folder picker fills it in.
+        if (RblxUI::Button("Browse...")) {
+            const std::string chosen = chooseFolder(rblxwinGetWin32Window(owner), folderPath);
+            if (!chosen.empty()) {
+                std::snprintf(folderPath, sizeof(folderPath), "%s", chosen.c_str());
+            }
+        }
+        RblxUI::SameLine();
         if (submitted || RblxUI::Button("Open")) {
             std::error_code error;
             if (std::filesystem::is_directory(folderPath, error)) {
@@ -2358,6 +2413,7 @@ struct App {
     }
 
     void draw(Window& window) {
+        owner = window.getNativeWindow();
         checkDiskChanges();
         pollBuild();
         handleKeys();

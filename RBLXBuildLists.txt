@@ -182,7 +182,9 @@ if(RBLX_BUILD_CODEEDITOR)
     )
     configure_rblx_target(RBLXCode)
     target_include_directories(RBLXCode PRIVATE ${rblxtextedit_SOURCE_DIR})
-    target_link_libraries(RBLXCode PRIVATE rblxwin rblxgl)
+    # shell32 is the folder picker the Open folder popup uses and ole32 is the COM
+    # it needs; neither is a dependency of the editor's own code.
+    target_link_libraries(RBLXCode PRIVATE rblxwin rblxgl shell32 ole32)
 endif()
 
 if(RBLX_BUILD_UPDATER)

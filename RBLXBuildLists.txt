@@ -387,7 +387,11 @@ if(RBLX_BUILD_ANTICHEAT)
     # the limitation is written down rather than hidden.
     if(MSVC AND TARGET RBLXAntiCheat)
         # C4244 joins them: Detections.cpp narrows an unsigned long into a uint8_t.
-        target_compile_options(RBLXAntiCheat PRIVATE /wd4267 /wd4293 /wd4244)
+        # C4101 is the two catch clauses in AntiCheatLib.cpp that name the exception
+        # they translate into a more specific one (a runtime_error rethrown as
+        # "could not create protected memory", a bad_alloc rethrown as a failed init).
+        # The names are documentation there, not variables to read.
+        target_compile_options(RBLXAntiCheat PRIVATE /wd4267 /wd4293 /wd4244 /wd4101)
     endif()
 endif()
 

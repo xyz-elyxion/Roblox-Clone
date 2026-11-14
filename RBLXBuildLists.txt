@@ -34,6 +34,18 @@ option(RBLX_ENABLE_WARNINGS "Enable stricter compiler warnings" ON)
 
 add_compile_definitions(NOMINMAX RBLXMATH_ENABLE_EXPERIMENTAL)
 
+# The C++ runtime is linked statically, as the README tells players: the executables then
+# need neither Visual Studio nor the VC++ redistributable on the machine that runs them.
+# It is also forced by the anti-cheat, whose prebuilt curl, brotli and zlib libraries were
+# built against the static runtime - linking them into a /MD executable mixes two copies
+# of the CRT's state in one process and makes the linker warn about LIBCMT (LNK4098).
+# Both spellings are given on purpose: the property is what CMake itself understands, the
+# compile option is what still applies if the generated project predates CMP0091.
+if(MSVC)
+    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+    add_compile_options($<$<CONFIG:Debug>:/MTd> $<$<NOT:$<CONFIG:Debug>>:/MT>)
+endif()
+
 # The vendored libraries sit in their own trees beside this file: pinned commits,
 # written in this dialect, renamed into this project's scheme. Configuring therefore
 # needs no network and no compatibility mode. The four that ship a build system are

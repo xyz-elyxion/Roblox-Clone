@@ -3,6 +3,7 @@
 // and the other way round.
 
 #include "GitRepo.h"
+#include "Environment.h"
 
 #include <cstdio>
 #include <cstdlib>
@@ -27,8 +28,8 @@ void usage() {
 }
 
 std::string envOr(const char* name, const std::string& fallback) {
-    const char* value = std::getenv(name);
-    return value != nullptr && *value != '\0' ? std::string(value) : fallback;
+    const std::string value = rblx::environment::get(name);
+    return value.empty() ? fallback : value;
 }
 
 // Commit times are stored the way git stores them: unix seconds plus an offset.

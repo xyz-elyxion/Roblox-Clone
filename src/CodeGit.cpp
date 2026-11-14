@@ -1,5 +1,6 @@
 #include "CodeGit.h"
 
+#include "Environment.h"
 #include "GitRepo.h"
 
 #include <cctype>
@@ -18,8 +19,8 @@ std::string trim(const std::string& text) {
 }
 
 std::string envOr(const char* name, const char* fallback) {
-    const char* value = std::getenv(name);
-    return value != nullptr && *value != '\0' ? std::string(value) : std::string(fallback);
+    const std::string value = rblx::environment::get(name);
+    return value.empty() ? std::string(fallback) : value;
 }
 
 }  // namespace

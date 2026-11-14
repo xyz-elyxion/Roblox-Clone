@@ -9,6 +9,7 @@
 #include "UiScale.h"
 #include "UiTheme.h"
 
+#include <cstdio>
 #include <fstream>
 #include <sstream>
 #include <deque>
@@ -329,7 +330,7 @@ int main() {
                 
                 RblxUI::PushStyleColor(RblxUICol_PlotHistogram, color);
                 char buf[32];
-                sprintf(buf, "%.0f / %.0f", health, maxHealth);
+                std::snprintf(buf, sizeof(buf), "%.0f / %.0f", health, maxHealth);
                 RblxUI::ProgressBar(health / maxHealth, UiScale::Size(200.0f, 20.0f, uiScale), buf);
                 RblxUI::PopStyleColor();
             }

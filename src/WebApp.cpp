@@ -1,4 +1,5 @@
 #include "AvatarItems.h"
+#include "Environment.h"
 #include "ReplayRecorder.h"
 #include "HardwareId.h"
 #include "MalwareScan.h"
@@ -696,8 +697,7 @@ std::vector<std::string> splitCsv(const std::string& value) {
 }
 
 std::string envString(const char* name) {
-    const char* value = std::getenv(name);
-    return value == nullptr ? std::string() : std::string(value);
+    return rblx::environment::get(name);
 }
 
 int parsePositiveInt(const std::string& text, int fallback) {

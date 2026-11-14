@@ -1,6 +1,7 @@
 #include "WebCrypto.h"
 
-#define NOMINMAX
+// NOMINMAX is defined for every target in RBLXBuildLists.txt; defining it here
+// again is what MSVC reports as a macro redefinition.
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 

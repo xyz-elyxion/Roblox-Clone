@@ -322,9 +322,9 @@ Response request(const std::string& method,
     const size_t lengthHeader = lowered.find("content-length:");
     if (lengthHeader != std::string::npos) {
         const size_t valueBegin = lengthHeader + std::strlen("content-length:");
-        const long long declared = std::atoll(headers.c_str() + valueBegin);
-        if (declared >= 0 && static_cast<size_t>(declared) <= payload.size()) {
-            payload.resize(static_cast<size_t>(declared));
+        const long long declaredLength = std::atoll(headers.c_str() + valueBegin);
+        if (declaredLength >= 0 && static_cast<size_t>(declaredLength) <= payload.size()) {
+            payload.resize(static_cast<size_t>(declaredLength));
         }
     }
 

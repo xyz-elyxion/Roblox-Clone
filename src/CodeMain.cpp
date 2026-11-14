@@ -385,7 +385,8 @@ struct App {
         }
         const std::string lineText = text.substr(start, end - start);
         editor.SetCursorPosition(RblxTextEditor::Coordinates(
-            clamped - 1, rblx::code::byteOffsetOfColumn(lineText, column, tabSize)));
+            clamped - 1,
+            static_cast<int>(rblx::code::byteOffsetOfColumn(lineText, column, tabSize))));
     }
 
     void jumpToLine(int line) {
@@ -449,7 +450,9 @@ struct App {
             }
             const std::string lineText = text.substr(start, end - start);
             editor.SetCursorPosition(RblxTextEditor::Coordinates(
-                line - 1, rblx::code::byteOffsetOfColumn(lineText, point.column, tabSize)));
+                line - 1,
+                static_cast<int>(
+                    rblx::code::byteOffsetOfColumn(lineText, point.column, tabSize))));
         }
         navigating = false;
         status = "Went to " + point.relative + ":" + std::to_string(point.line);

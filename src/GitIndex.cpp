@@ -37,16 +37,26 @@ std::string hexOf(const unsigned char* bytes) {
     return out;
 }
 
+int hexDigit(char c) {
+    if (c >= '0' && c <= '9') return c - '0';
+    if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+    if (c >= 'A' && c <= 'F') return c - 'A' + 10;
+    return -1;
+}
+
 bool bytesOf(const std::string& hex, unsigned char out[20]) {
     if (hex.size() != 40) {
         return false;
     }
     for (int i = 0; i < 20; ++i) {
-        unsigned value = 0;
-        if (std::sscanf(hex.c_str() + i * 2, "%2x", &value) != 1) {
+        const int high = hexDigit(hex[i * 2]);
+        const int low = hexDigit(hex[i * 2 + 1]);
+        // A file that is not a hash at all is refused here rather than turned into
+        // whatever scanf managed to read out of it.
+        if (high < 0 || low < 0) {
             return false;
         }
-        out[i] = static_cast<unsigned char>(value);
+        out[i] = static_cast<unsigned char>(high * 16 + low);
     }
     return true;
 }

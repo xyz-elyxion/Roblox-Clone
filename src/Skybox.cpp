@@ -3,6 +3,8 @@
 #define RBLXSTB_IMAGE_IMPLEMENTATION
 #include <rblxstb_image.h>
 
+#include <fstream>
+
 Skybox::Skybox() : shader(nullptr), skyboxVAO(0), skyboxVBO(0), cubemapTexture(0) {}
 
 Skybox::~Skybox() {
@@ -69,12 +71,10 @@ void Skybox::init() {
     // Try to locate shaders similar to Renderer
     const char* vPath = "shaders/skybox_vertex.glsl";
     const char* fPath = "shaders/skybox_fragment.glsl";
-    FILE* f = fopen(vPath, "r");
-    if (!f) {
+    // Present when it opens; Shader does the reading.
+    if (!std::ifstream(vPath).good()) {
         vPath = "../../shaders/skybox_vertex.glsl";
         fPath = "../../shaders/skybox_fragment.glsl";
-    } else {
-        fclose(f);
     }
 
     shader = new Shader(vPath, fPath);

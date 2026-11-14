@@ -2,6 +2,7 @@
 #include "UdpTransport.h"
 
 #include <cassert>
+#include <cstdio>
 #include <cstring>
 #include <iostream>
 #include <vector>
@@ -34,8 +35,8 @@ int main() {
 
     PacketChat chat{};
     chat.playerId = 7;
-    std::strncpy(chat.username, "ChatUser", sizeof(chat.username) - 1);
-    std::strncpy(chat.message, "Hello from chat", sizeof(chat.message) - 1);
+    std::snprintf(chat.username, sizeof(chat.username), "%s", "ChatUser");
+    std::snprintf(chat.message, sizeof(chat.message), "%s", "Hello from chat");
     std::vector<char> chatPacket = PacketProtocol::buildStructPacket(PacketType::CHAT, chat);
     assert(PacketProtocol::tryReadFrame(chatPacket, parsed) == PacketProtocol::ParseStatus::Complete);
     assert(parsed.type == PacketType::CHAT);

@@ -146,12 +146,12 @@ bool firstMouse = true;
 unsigned int loadTexture(const char* path) {
     unsigned int textureID = 0;
     
-    FILE* f = fopen(path, "rb");
-    if (!f) {
+    // Only asks whether the file can be read: rblxstbi_load does the reading.
+    // An ifstream is that question without the CRT's deprecated fopen.
+    if (!std::ifstream(path, std::ios::binary)) {
         std::cout << "Texture file not found: " << path << std::endl;
         return 0;
     }
-    fclose(f);
 
     int width, height, nrComponents;
     unsigned char *data = rblxstbi_load(path, &width, &height, &nrComponents, 0);
@@ -963,8 +963,8 @@ float fogDensity = 0.0f;
 
 void copyArgument(char* destination, size_t destinationSize, const char* value) {
     if (!destination || destinationSize == 0 || !value) return;
-    std::memset(destination, 0, destinationSize);
-    std::strncpy(destination, value, destinationSize - 1);
+    // snprintf always terminates, and strncpy is deprecated as C4996 on Windows.
+    std::snprintf(destination, destinationSize, "%s", value);
 }
 
 void parseClientArguments(int argc, char** argv) {
@@ -995,7 +995,7 @@ bool connectToConfiguredServer() {
     clientSocket = Network::createUdpSocket();
     if (clientSocket == INVALID_SOCKET) {
         showLoginError = true;
-        std::strncpy(loginErrorMsg, "Could not create network socket.", sizeof(loginErrorMsg) - 1);
+        std::snprintf(loginErrorMsg, sizeof(loginErrorMsg), "%s", "Could not create network socket.");
         return false;
     }
 
@@ -1004,7 +1004,7 @@ bool connectToConfiguredServer() {
     serverAddr.sin_family = AF_INET;
     if (inet_pton(AF_INET, serverIP, &serverAddr.sin_addr) != 1) {
         showLoginError = true;
-        std::strncpy(loginErrorMsg, "Invalid server address.", sizeof(loginErrorMsg) - 1);
+        std::snprintf(loginErrorMsg, sizeof(loginErrorMsg), "%s", "Invalid server address.");
         closesocket(clientSocket);
         clientSocket = INVALID_SOCKET;
         return false;
@@ -1013,7 +1013,7 @@ bool connectToConfiguredServer() {
 
     if (connect(clientSocket, (sockaddr*)&serverAddr, sizeof(serverAddr)) == SOCKET_ERROR) {
         showLoginError = true;
-        std::strncpy(loginErrorMsg, "Connection failed.", sizeof(loginErrorMsg) - 1);
+        std::snprintf(loginErrorMsg, sizeof(loginErrorMsg), "%s", "Connection failed.");
         closesocket(clientSocket);
         clientSocket = INVALID_SOCKET;
         return false;
@@ -1031,15 +1031,15 @@ bool connectToConfiguredServer() {
     pkt.packetLayout = PacketProtocol::packetLayoutSignature();
 
     if (std::strlen(authToken) > 0) {
-        std::strncpy(pkt.username, myUsername, sizeof(pkt.username) - 1);
-        std::strncpy(pkt.authToken, authToken, sizeof(pkt.authToken) - 1);
+        std::snprintf(pkt.username, sizeof(pkt.username), "%s", myUsername);
+        std::snprintf(pkt.authToken, sizeof(pkt.authToken), "%s", authToken);
     } else {
-        std::strncpy(pkt.username, "Guest", sizeof(pkt.username) - 1);
+        std::snprintf(pkt.username, sizeof(pkt.username), "%s", "Guest");
     }
 
     if (!sendClientPacket(PacketProtocol::buildStructPacket(PacketType::CONNECT, pkt), true)) {
         showLoginError = true;
-        std::strncpy(loginErrorMsg, "Failed to send connect packet.", sizeof(loginErrorMsg) - 1);
+        std::snprintf(loginErrorMsg, sizeof(loginErrorMsg), "%s", "Failed to send connect packet.");
         isConnected = false;
         closesocket(clientSocket);
         clientSocket = INVALID_SOCKET;
@@ -1154,8 +1154,7 @@ int main(int argc, char** argv) {
     try {
         std::cout << "Starting Client..." << std::endl;
         
-        FILE* f = fopen("shaders/vertex.glsl", "r");
-        if (!f) {
+        if (!std::ifstream("shaders/vertex.glsl")) {
              std::cout << "CRITICAL ERROR: shaders/vertex.glsl not found in current directory!" << std::endl;
              std::cout << "Please ensure the 'shaders' folder is next to the executable." << std::endl;
              reportClientProblem("startup",
@@ -1164,7 +1163,6 @@ int main(int argc, char** argv) {
              pauseBeforeExit();
              return -1;
         }
-        fclose(f);
 
         Window window(SCR_WIDTH, SCR_HEIGHT, "RBLX Clone Client");
         std::cout << "Window Created." << std::endl;

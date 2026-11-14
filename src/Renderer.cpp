@@ -5,6 +5,7 @@
 #include <vector>
 #include <cmath>
 #include <iostream>
+#include <fstream>
 #include <string>
 
 #include "rblxstb_image.h"
@@ -45,14 +46,15 @@ void Renderer::init() {
     const char* vPath = "shaders/vertex.glsl";
     const char* fPath = "shaders/fragment.glsl";
     
-    FILE* f = fopen(vPath, "r");
-    if (!f) {
+    // The shader is present when its file opens; Shader reads it again itself.
+    const auto readable = [](const char* path) { return std::ifstream(path).good(); };
+
+    if (!readable(vPath)) {
         std::cout << "Main vertex shader not found at: " << vPath << " trying ../../" << std::endl;
         vPath = "../../shaders/vertex.glsl";
         fPath = "../../shaders/fragment.glsl";
     } else {
         std::cout << "Main vertex shader found at: " << vPath << std::endl;
-        fclose(f);
     }
     
     std::cout << "Compiling Main Shader..." << std::endl;
@@ -63,14 +65,12 @@ void Renderer::init() {
     const char* vDepthPath = "shaders/shadow_depth_vertex.glsl";
     const char* fDepthPath = "shaders/shadow_depth_fragment.glsl";
     
-    f = fopen(vDepthPath, "r");
-    if (!f) {
+    if (!readable(vDepthPath)) {
         std::cout << "Shadow vertex shader not found at: " << vDepthPath << " trying ../../" << std::endl;
         vDepthPath = "../../shaders/shadow_depth_vertex.glsl";
         fDepthPath = "../../shaders/shadow_depth_fragment.glsl";
     } else {
         std::cout << "Shadow vertex shader found at: " << vDepthPath << std::endl;
-        fclose(f);
     }
     
     std::cout << "Compiling Depth Shader..." << std::endl;

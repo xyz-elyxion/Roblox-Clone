@@ -34,7 +34,7 @@ void Window::init() {
 
     glViewport(0, 0, width, height);
     
-    rblxwinSetFramebufferSizeCallback(window, [](RBLXWINwindow* window, int w, int h) {
+    rblxwinSetFramebufferSizeCallback(window, [](RBLXWINwindow*, int w, int h) {
         glViewport(0, 0, w, h);
     });
 }

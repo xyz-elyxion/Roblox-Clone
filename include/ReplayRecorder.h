@@ -15,6 +15,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 #include <string>
 #include <vector>
 
@@ -93,6 +94,26 @@ private:
 // Reads what encode wrote. A record cut short by a size limit loses its last
 // frame and nothing else, so a malformed entry ends the read rather than dropping
 // the frames already read.
+// "x,y,z" as encode wrote it. strtof stops at the comma, so each number is read
+// with the character that has to follow it, and anything else ends the read: a
+// frame that was cut short is not a frame with three zeroes in it.
+inline bool parsePoint(const std::string& text, float* x, float* y, float* z) {
+    const char* cursor = text.c_str();
+    char* end = nullptr;
+    const float parsedX = std::strtof(cursor, &end);
+    if (end == cursor || *end != ',') return false;
+    cursor = end + 1;
+    const float parsedY = std::strtof(cursor, &end);
+    if (end == cursor || *end != ',') return false;
+    cursor = end + 1;
+    const float parsedZ = std::strtof(cursor, &end);
+    if (end == cursor || *end != '\0') return false;
+    *x = parsedX;
+    *y = parsedY;
+    *z = parsedZ;
+    return true;
+}
+
 inline std::vector<Frame> decode(const std::string& text) {
     std::vector<Frame> frames;
     std::size_t start = 0;
@@ -101,15 +122,22 @@ inline std::vector<Frame> decode(const std::string& text) {
         const std::string entry =
             text.substr(start, end == std::string::npos ? std::string::npos : end - start);
 
-        unsigned long long atMs = 0;
-        char claimed[64] = {0};
-        char accepted[64] = {0};
+        // "at:claimed:accepted", in the two halves a frame has.
+        const std::size_t firstColon = entry.find(':');
+        if (firstColon == std::string::npos) break;
+        const std::size_t secondColon = entry.find(':', firstColon + 1);
+        if (secondColon == std::string::npos) break;
+
+        const std::string atText = entry.substr(0, firstColon);
+        char* numberEnd = nullptr;
+        const unsigned long long atMs = std::strtoull(atText.c_str(), &numberEnd, 10);
+        if (numberEnd == atText.c_str() || *numberEnd != '\0') break;
+
         Frame frame;
-        if (std::sscanf(entry.c_str(), "%llu:%63[^:]:%63[^:]", &atMs, claimed, accepted) != 3 ||
-            std::sscanf(claimed, "%f,%f,%f", &frame.claimed.x, &frame.claimed.y,
-                        &frame.claimed.z) != 3 ||
-            std::sscanf(accepted, "%f,%f,%f", &frame.accepted.x, &frame.accepted.y,
-                        &frame.accepted.z) != 3) {
+        if (!parsePoint(entry.substr(firstColon + 1, secondColon - firstColon - 1),
+                        &frame.claimed.x, &frame.claimed.y, &frame.claimed.z) ||
+            !parsePoint(entry.substr(secondColon + 1), &frame.accepted.x, &frame.accepted.y,
+                        &frame.accepted.z)) {
             break;
         }
         frame.atMs = static_cast<uint64_t>(atMs);

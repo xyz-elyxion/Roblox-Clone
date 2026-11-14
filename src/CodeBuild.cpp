@@ -1,5 +1,6 @@
 #include "CodeBuild.h"
 
+#include "Environment.h"
 #include <algorithm>
 #include <cctype>
 #include <cstdlib>
@@ -106,8 +107,8 @@ std::string findBuildRoot(const std::string& start) {
 
 bool findBuildTool(const std::string& projectRoot, std::string* program, std::string* error) {
     std::vector<fs::path> candidates;
-    const char* overridePath = std::getenv("RBLXBUILD");
-    if (overridePath != nullptr && *overridePath != '\0') {
+    const std::string overridePath = rblx::environment::get("RBLXBUILD");
+    if (!overridePath.empty()) {
         const fs::path given(overridePath);
         candidates.push_back(given.is_absolute() ? given : fs::path(projectRoot) / given);
     }

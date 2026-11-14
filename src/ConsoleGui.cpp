@@ -1,5 +1,6 @@
 #include "ConsoleGui.h"
 
+#include "Environment.h"
 #include <algorithm>
 #include <atomic>
 #include <cctype>
@@ -279,8 +280,8 @@ bool beginCapture() {
 bool captureActive() { return g_captureActive.load(); }
 
 bool guiAllowed(int argc, char** argv) {
-    const char* disabled = std::getenv("RBLX_NO_GUI");
-    if (disabled != nullptr && disabled[0] != '\0' && std::strcmp(disabled, "0") != 0) {
+    const std::string disabled = rblx::environment::get("RBLX_NO_GUI");
+    if (!disabled.empty() && disabled != "0") {
         return false;
     }
     for (int index = 1; index < argc; ++index) {

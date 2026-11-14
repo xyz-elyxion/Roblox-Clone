@@ -112,7 +112,9 @@ server and the tests can share it.
   library target), not the whole game.
 - **Configuration** is an environment variable read with `parsePositiveInt` / `envString`
   in `src/WebApp.cpp`, with a default in the same place and a row in the README's
-  configuration table. Never read `getenv` at a call site.
+  configuration table. Never read `getenv` at a call site: `include/Environment.h` has
+  `rblx::environment::get`, which asks Windows rather than the CRT, because MSVC
+  deprecates `getenv` as C4996.
 - **A feature users can see** gets prose in `README.md` in the relevant section, not a
   changelog entry. Longer topics get their own file (`HOSTING.md`, `RBLXBUILD.md`) linked
   from the README.

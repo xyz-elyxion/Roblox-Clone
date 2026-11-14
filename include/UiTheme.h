@@ -3,6 +3,8 @@
 #include <cctype>
 #include <cstdlib>
 #include <fstream>
+#include "Environment.h"
+
 #include <string>
 
 #include "rblxui.h"
@@ -116,13 +118,13 @@ inline std::string lower(std::string text) {
 // error: every window then draws the dark palette, which is what it did before
 // anyone wrote the file.
 inline std::string settingsPath() {
-    const char* explicitPath = std::getenv("RBLX_UI_SETTINGS");
-    if (explicitPath && *explicitPath) return explicitPath;
+    const std::string explicitPath = rblx::environment::get("RBLX_UI_SETTINGS");
+    if (!explicitPath.empty()) return explicitPath;
 
-    const char* appData = std::getenv("APPDATA");
-    if (appData && *appData) return std::string(appData) + "/RBLXClone/ui.settings";
-    const char* home = std::getenv("USERPROFILE");
-    if (home && *home) return std::string(home) + "/.config/rblxclone/ui.settings";
+    const std::string appData = rblx::environment::get("APPDATA");
+    if (!appData.empty()) return appData + "/RBLXClone/ui.settings";
+    const std::string home = rblx::environment::get("USERPROFILE");
+    if (!home.empty()) return home + "/.config/rblxclone/ui.settings";
     return std::string();
 }
 
@@ -178,8 +180,8 @@ inline void read() {
 
     // The environment comes last so a single launch can be shown in the other
     // palette without editing the file.
-    const char* env = std::getenv("RBLX_THEME");
-    if (env && *env) {
+    const std::string env = rblx::environment::get("RBLX_THEME");
+    if (!env.empty()) {
         const std::string value = lower(trim(env));
         if (value == "light") {
             state.palette = Palette::Light;

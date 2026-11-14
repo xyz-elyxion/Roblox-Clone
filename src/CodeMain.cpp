@@ -136,6 +136,14 @@ struct App {
     bool buildFailed = false;
     bool showBuild = true;
     bool buildPending = false;
+    // The bar needs a total that outlives the queue: the stages are cleared when
+    // the release finishes, and a bar that drops back to zero then would read as a
+    // failure. The tool help is kept for the case the checkout has never been
+    // bootstrapped, which a downloaded ZIP always is.
+    std::size_t buildStageTotal = 0;
+    bool buildComplete = false;
+    bool buildNeedsBootstrap = false;
+    std::string buildBootstrapCommands;
 
     rblx::git::Repo repo;
     bool repoOpen = false;
@@ -1346,16 +1354,28 @@ struct App {
         buildRoot = rblx::code::findBuildRoot(root);
         if (!rblx::code::findBuildTool(buildRoot, &buildProgram, &error)) {
             buildStages.clear();
+            buildStageTotal = 0;
+            buildComplete = false;
+            buildNeedsBootstrap = true;
+            buildBootstrapCommands =
+                "mkdir -p build/rblxbuild-tool\n"
+                "cd build/rblxbuild-tool\n"
+                "../../rblxbuild/bootstrap --parallel 4\n"
+                "cd ../..";
             buildState = error;
             status = error;
             buildFailed = true;
             return;
         }
+        buildNeedsBootstrap = false;
+        buildBootstrapCommands.clear();
         // The stages the workflow runs, in its order: configure a preset whose
         // folder has never been written, build it, run the tests the build
         // produced, then package - which stamps a new version.
         buildStages = rblx::code::releaseStages(buildRoot, buildProgram, buildPreset);
         buildStage = 0;
+        buildStageTotal = buildStages.size();
+        buildComplete = false;
         buildLog.clear();
         buildLive.clear();
         buildLiveCount = 0;
@@ -1403,6 +1423,7 @@ struct App {
         // what "cancelled" means. The reader still has to finish what was written.
         buildStages.clear();
         buildPending = false;
+        buildComplete = false;
         buildStageLabel.clear();
         buildState = "cancelled";
         status = "Build cancelled";
@@ -1474,6 +1495,8 @@ struct App {
             return;
         }
         buildFailed = false;
+        buildStage = buildStageTotal;
+        buildComplete = true;
         buildStages.clear();
         buildState = "release packaged into dist/rblx-windows-release - a new version, with "
                      "update.json and manifest.json";
@@ -1537,11 +1560,38 @@ struct App {
                 RblxUI::TextDisabled("in %s", buildRoot.c_str());
             }
         }
+        // A bar for the whole release, not just the step: the build is the long part
+        // and seeing "step 2 of 5" move is what says it is working.
+        if (buildStageTotal > 0) {
+            const float progress = static_cast<float>(buildStage) /
+                                   static_cast<float>(buildStageTotal);
+            const char* overlay = build.running()
+                                      ? buildStageLabel.c_str()
+                                      : (buildComplete ? "release packaged" : "");
+            RblxUI::ProgressBar(progress, RblxVec2(-1.0f, RblxUI::GetFrameHeight()), overlay);
+        }
+        if (buildNeedsBootstrap) {
+            const std::filesystem::path tool = std::filesystem::path(buildRoot) / "build" /
+                                               "rblxbuild-tool" / "bin" / "rblxbuild.exe";
+            RblxUI::TextDisabled("Looked for %s", tool.string().c_str());
+            if (!std::filesystem::exists(std::filesystem::path(buildRoot) / "build")) {
+                RblxUI::TextWrapped("This folder has never been built here, which is what a ZIP "
+                                    "of the repository looks like: the sources are there, the "
+                                    "build tool is not. Bootstrap it once, then Build release.");
+            } else {
+                RblxUI::TextWrapped("The build tool the bootstrap produces is missing:");
+            }
+            RblxUI::TextDisabled("%s", buildBootstrapCommands.c_str());
+            if (RblxUI::SmallButton("Copy the commands")) {
+                RblxUI::SetClipboardText(buildBootstrapCommands.c_str());
+                status = "The bootstrap commands are on the clipboard";
+            }
+        }
         RblxUI::Separator();
 
         RblxUI::BeginChild("##buildlog", RblxVec2(0.0f, 0.0f), false,
                            RblxUIWindowFlags_HorizontalScrollbar);
-        if (buildLog.empty() && buildLive.empty()) {
+        if (buildLog.empty() && buildLive.empty() && !buildNeedsBootstrap) {
             RblxUI::TextDisabled("Ctrl+B makes a release the way the Windows workflow does: "
                                  "configure, build, run the tests, then package a new version "
                                  "into dist/rblx-windows-release (preset %s)",

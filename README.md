@@ -1324,7 +1324,8 @@ new version in `dist\rblx-windows-release` -- the folder the workflow uploads as
 it is given a version, so two runs never share a number and the newer one always wins in the updater.
 
 Each step runs in turn and its output is appended to the log, so a build that takes minutes shows
-progress instead of nothing, and the compiler's lines stay readable while the tests and the packager
+progress instead of nothing, and a bar across the panel fills as the steps pass with the one that is
+running written on it, and the compiler's lines stay readable while the tests and the packager
 run after them. The heading counts what happened, every line that names a file becomes a row with its
 severity, and clicking an error opens that file at the reported line and column; linker messages that
 name no source stay plain text because there is nothing to open. **Cancel** stops the step that is
@@ -1334,8 +1335,10 @@ log, so anything can be repeated in a terminal without guessing.
 The panel builds the checkout the open folder belongs to rather than the folder itself, because the
 editor is normally started from `build\windows-release\Release` and that folder holds neither the
 sources nor the tool: it walks up to the folder holding `RBLXBuildPresets.json` and works there. A
-checkout with no tool in `build/` gets the bootstrap line in the panel instead of a silent failure,
-and `RBLXBUILD` points the editor at a tool somewhere else.
+checkout with no tool in `build/` gets more than an error: the panel says where it looked, that a
+folder downloaded as a ZIP has never had a tool built in it, and the four bootstrap lines with a
+button that copies them, instead of failing silently. `RBLXBUILD` points the editor at a tool
+somewhere else.
 
 The editor is one of the programs the checkout builds, and Windows will not replace a program that is
 running, so the link step of `RBLXCode.exe` itself cannot finish inside it. That one step is excused --

@@ -66,6 +66,13 @@ if(TARGET rblxphysics)
         target_compile_options(rblxphysics PUBLIC
             $<$<COMPILE_LANGUAGE:CXX>:/FIchrono>
         )
+        # DefaultLogger.h passes std::localtime to std::put_time, which MSVC reports as
+        # C4996 ("may be unsafe"). The tree is a pinned snapshot that has to stay
+        # identical to what was vendored, so the deprecation is switched off for the
+        # tree itself rather than patched out of its header. It is PRIVATE because
+        # nothing in this project includes that header: our own files keep their
+        # warnings, including the ones this suppresses for the logger.
+        target_compile_definitions(rblxphysics PRIVATE _CRT_SECURE_NO_WARNINGS)
     else()
         target_compile_options(rblxphysics PUBLIC
             $<$<COMPILE_LANGUAGE:CXX>:-include>

@@ -63,8 +63,9 @@ them, and writes `README.txt`, `update.json` and `manifest.json` into `dist/rblx
    `RBLXAntiCheat/Common/SHA256.{hpp,cpp}`, the missing return in
    `rblxphysics/.../containers/Deque.h`, the unsigned `INVALID_INDEX` in its
    `Map.h`/`Set.h`, `toLocalTime` in `DefaultLogger.h`, the safe CRT calls in
-   `rblxui`, and the narrowing casts in the anti-cheat's `Detections.cpp` and
-   `Process.cpp`. Keep those fixes; they are corrections, not a reformat. Their generated
+   `rblxui`, the signed sentinels in `rblxgizmo/src/RblxGizmo.cpp`, and the narrowing
+   casts in the anti-cheat's `Detections.cpp` and `Process.cpp`. Keep those fixes;
+   they are corrections, not a reformat. Their generated
    documentation, examples, own test suites and CI files have been pruned; the code, build
    files and licences are upstream as pinned.
 3. **One palette, in `include/UiTheme.h`.** Every window — client, Studio, RBLXCode, the

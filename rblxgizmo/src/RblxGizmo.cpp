@@ -756,7 +756,7 @@ namespace RBLXGIZMO_NAMESPACE
 
       RblxUIWindow* mAlternativeWindow = nullptr;
       RblxVector<RblxUIID> mIDStack;
-      RblxUIID mEditingID = -1;
+      RblxUIID mEditingID = static_cast<RblxUIID>(-1);
       OPERATION mOperation = OPERATION(0);
 
       bool mAllowAxisFlip = true;
@@ -766,7 +766,7 @@ namespace RBLXGIZMO_NAMESPACE
       {
          if (mIDStack.empty())
          {
-            mIDStack.push_back(-1);
+            mIDStack.push_back(static_cast<RblxUIID>(-1));
          }
          return mIDStack.back();
       }
@@ -1986,7 +1986,7 @@ namespace RBLXGIZMO_NAMESPACE
 
          if (!io.MouseDown[0]) {
             gContext.mbUsingBounds = false;
-            gContext.mEditingID = -1;
+            gContext.mEditingID = static_cast<RblxUIID>(-1);
          }
          if (gContext.mbUsingBounds)
          {
@@ -2571,7 +2571,7 @@ namespace RBLXGIZMO_NAMESPACE
          if (!io.MouseDown[0])
          {
             gContext.mbUsing = false;
-            gContext.mEditingID = -1;
+            gContext.mEditingID = static_cast<RblxUIID>(-1);
          }
          type = gContext.mCurrentHandleType;
       }
@@ -2636,9 +2636,9 @@ namespace RBLXGIZMO_NAMESPACE
    {
       if (gContext.mIDStack.empty())
       {
-         gContext.mIDStack.push_back(-1);
+         gContext.mIDStack.push_back(static_cast<RblxUIID>(-1));
       }
-      gContext.mIDStack.back() = id;
+      gContext.mIDStack.back() = static_cast<RblxUIID>(id);
    }
 
    RblxUIID GetID(const char* str, const char* str_end)

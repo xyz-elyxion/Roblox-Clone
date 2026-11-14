@@ -251,7 +251,10 @@ void Character::setRemoteState(rblxmath::vec3 pos, float yaw, bool walking, bool
     }
 }
 
-void Character::update(float deltaTime, Camera* camera, bool isSprinting) {
+// isSprinting is part of the shape the caller uses - the same flag drives the
+// camera's speed - and the character's own movement does not read it, so the
+// parameter stays unnamed instead of tripping an unreferenced-parameter warning.
+void Character::update(float deltaTime, Camera* camera, bool /*isSprinting*/) {
     if (!partsList || rootPartIndex < 0 || rootPartIndex >= partsList->size()) return;
     Part& root = (*partsList)[rootPartIndex];
     if (root.deleted) return; // Character is deleted

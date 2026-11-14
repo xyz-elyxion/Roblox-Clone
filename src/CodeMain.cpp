@@ -1,4 +1,3 @@
-#define RBLXMATH_ENABLE_EXPERIMENTAL
 // The Open folder popup hands its dialog this window as the owner, and the HWND
 // accessor only exists when rblxwin is asked for it before its headers are read.
 #define RBLXWIN_EXPOSE_NATIVE_WIN32

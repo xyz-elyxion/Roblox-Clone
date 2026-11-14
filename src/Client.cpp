@@ -1,5 +1,4 @@
 #define _CRT_SECURE_NO_WARNINGS
-#define RBLXMATH_ENABLE_EXPERIMENTAL
 #include "Window.h"
 #include "Renderer.h"
 #include "Camera.h"
@@ -21,6 +20,7 @@
 #include "Obfuscated.h"
 #include "WebJson.h"
 #include <rblxmath/gtx/euler_angles.hpp>
+#include <cstdint>
 #include <fstream>
 #include <sstream>
 
@@ -85,7 +85,7 @@ namespace {
             };
 
             g_antiCheatSettings = std::make_unique<Settings>(
-                "127.0.0.1", 5445,
+                "127.0.0.1", static_cast<unsigned short>(5445),
                 /*bNetworkingEnabled*/ false,   // no anti-cheat server is running
                 /*bEnforceSecureBoot*/ false,
                 /*bEnforceDSE*/ false,

@@ -34,7 +34,6 @@
 #include <thread>
 
 // RBLXMATH Includes
-#define RBLXMATH_ENABLE_EXPERIMENTAL
 #include <rblxmath/rblxmath.hpp>
 #include <rblxmath/gtc/quaternion.hpp>
 #include <rblxmath/gtx/quaternion.hpp>

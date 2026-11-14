@@ -142,6 +142,14 @@ function(configure_rblx_target target_name)
     if(RBLX_ENABLE_WARNINGS)
         if(MSVC)
             target_compile_options(${target_name} PRIVATE /W4 /permissive-)
+            # Two conversion codes that our own files do not raise, but that the
+            # vendored headers compiled into these targets do: rblxphysics's Map.h and
+            # Set.h narrow an int literal into a uint64 (C4245), and its DefaultLogger.h
+            # runs std::toupper through std::transform over a std::string, which MSVC
+            # reports from <algorithm> (C4244). Both are upstream's, in pinned trees, so
+            # the codes are switched off here rather than the headers edited. The rest of
+            # /W4 still covers every file of ours.
+            target_compile_options(${target_name} PRIVATE /wd4244 /wd4245)
         else()
             target_compile_options(${target_name} PRIVATE -Wall -Wextra -Wpedantic)
         endif()
@@ -357,8 +365,17 @@ if(RBLX_BUILD_ANTICHEAT)
     # size_t to int, unsigned int, DWORD and USHORT in a dozen places (C4267).
     # Narrowing there is deliberate on 32-bit values that never exceed a part count,
     # so the conversion warning is switched off for the tree instead of cast into it.
+    #
+    # C4293 is the same story with a real edge to it. SHA256::pad() writes the message
+    # length into the last eight bytes from a uint32_t counter, so the shifts by 32, 40,
+    # 48 and 56 in SHA256.cpp are undefined. On Microsoft's compiler they fold to zero,
+    # which is the correct high half for any message under 512 MB - the kind this project
+    # hashes - so the digest is right and the warning is what is left. Widening m_bitlen
+    # would fix it and would edit a pinned snapshot, so the diagnostic is off here and
+    # the limitation is written down rather than hidden.
     if(MSVC AND TARGET RBLXAntiCheat)
-        target_compile_options(RBLXAntiCheat PRIVATE /wd4267)
+        # C4244 joins them: Detections.cpp narrows an unsigned long into a uint8_t.
+        target_compile_options(RBLXAntiCheat PRIVATE /wd4267 /wd4293 /wd4244)
     endif()
 endif()
 

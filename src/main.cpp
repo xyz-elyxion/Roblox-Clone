@@ -1,6 +1,3 @@
-
-#define RBLXMATH_ENABLE_EXPERIMENTAL
-
 #include "Window.h"
 #include "Renderer.h"
 #include "Camera.h"

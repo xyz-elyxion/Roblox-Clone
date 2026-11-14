@@ -204,7 +204,9 @@ out of anything shared or published; [SECURITY.md](SECURITY.md) says the same in
 ## What's in the box
 
 **The client** is a third-person game: WASD and mouse, shift lock, a player list, chat, a debug
-overlay, health and a death overlay, and sound. Health and respawning are decided by the game server, not the
+overlay, health and a death overlay, and sound. The camera orbits the character and pulls in
+when a wall is behind it, so it never ends up on the far side of the level's geometry. Health and
+respawning are decided by the game server, not the
 client: the server keeps each player's health, kills anyone who falls below the world or takes
 damage, and returns them to the world's `SpawnLocation` after a three-second countdown every
 client sees. The client draws the bar and stops taking movement input while dead; **Reset

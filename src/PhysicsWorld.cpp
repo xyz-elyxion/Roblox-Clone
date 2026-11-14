@@ -303,6 +303,11 @@ public:
         for (auto const& [part, body] : bodyMap) {
             if (body == info.body) {
                 if (part == ignorePart) return -1.0; // Continue raycast, ignore this hit
+
+                // Collision filtering already lets everything pass through this part,
+                // so it cannot be what blocked the ray either: without this the camera
+                // would duck in against a decoration the player walks through.
+                if (!part->canCollide) return -1.0;
                 
                 // Valid hit
                 result->part = part;

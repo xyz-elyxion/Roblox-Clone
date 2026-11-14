@@ -404,32 +404,40 @@ void Character::update(float deltaTime, Camera* camera, bool /*isSprinting*/) {
     
     // Update Camera (Local only)
     if (!isRemote && camera) {
-        float distance = zoomDistance;
-        float height = 3.0f; 
-        // Calculate camera position behind character
-        float yawRad = rblxmath::radians(camera->Yaw);
-        float pitchRad = rblxmath::radians(camera->Pitch);
-        
-        rblxmath::vec3 offset;
-        offset.x = cos(yawRad) * cos(pitchRad);
-        offset.y = sin(pitchRad);
-        offset.z = sin(yawRad) * cos(pitchRad);
-        offset = rblxmath::normalize(offset) * distance; // Direction from character to camera if reversed, or camera to character?
-        // Camera Front points TO character usually? No, Front points AWAY from viewer.
-        // Let's stick to standard orbital logic:
-        // Position = Target - (Front * dist)
-        
-        // Ensure Camera Front is updated by Mouse Input (it is)
-        // So just set position relative to Root
-        
-        camera->Position = rootPos - (camera->Front * distance);
-        camera->Position.y += height; 
+        const float distance = zoomDistance;
+        const float height = 3.0f;
 
-        // Shift lock pulls the camera over the shoulder so the character does not
-        // block the middle of the screen.
+        // The pivot is the point the camera orbits: head height on the character, so the
+        // orbit is level with the view rather than with the feet.
+        const rblxmath::vec3 pivot = rootPos + rblxmath::vec3(0.0f, height, 0.0f);
+
+        // Offset from the pivot to where the camera wants to sit. Shift lock slides that
+        // position sideways rather than changing the orbit distance.
+        rblxmath::vec3 orbit = camera->Front * -distance;
         if (cameraShoulderOffset != 0.0f) {
-            camera->Position += camera->Right * cameraShoulderOffset;
+            orbit += camera->Right * cameraShoulderOffset;
         }
+
+        const float reach = rblxmath::length(orbit);
+        float allowed = reach;
+
+        // Pull the camera in when something solid is between it and the character.
+        // Without this the orbit distance is taken as given, so standing with your back
+        // to a wall leaves the camera on the far side of it: the near plane clips the
+        // wall open and the room is seen from inside the geometry.
+        if (physicsWorld && reach > 0.001f) {
+            PhysicsWorld::RaycastResult hit;
+            if (physicsWorld->raycast(pivot, pivot + orbit, hit, &root)) {
+                const float hitDistance = rblxmath::length(hit.hitPoint - pivot);
+                // A short skin keeps the near plane off the surface, and the floor stops
+                // the camera collapsing onto the head in a corner.
+                allowed = std::min(allowed, std::max(0.15f, hitDistance - 0.2f));
+            }
+        }
+
+        camera->Position = (allowed > 0.001f && reach > 0.001f)
+            ? pivot + rblxmath::normalize(orbit) * allowed
+            : pivot + orbit;
     }
 }
 

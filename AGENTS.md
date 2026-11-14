@@ -83,7 +83,7 @@ them, and writes `README.txt`, `update.json` and `manifest.json` into `dist/rblx
 | Game client | `src/Client.cpp` (startup, arguments, loop), `src/ClientNet.cpp` (socket, session, join), `src/ClientUi.cpp` (menus, HUD, chat, settings), `src/ClientShared.h` |
 | Game server | `src/Server.cpp`, `include/MovementGuard.h`, `include/Moderation.h`, `src/Player.cpp` |
 | Studio | `src/Editor.cpp`, `src/WorldLoader.cpp`, `src/WorldScript.cpp` |
-| RBLXCode | `src/CodeMain.cpp`, `src/CodeProject.cpp` |
+| RBLXCode | `src/CodeMain.cpp`, `src/CodeProject.cpp` (tree, search, outline, docs), `src/CodeBuild.cpp` + `src/CodeBuildRun.cpp` (the build panel), `src/CodeGit.cpp` (the Source control panel) |
 | Website backend | `src/WebApp.cpp`, `src/WebHttp.cpp`, `src/WebJson.cpp`, `src/WebStore.cpp`, `src/WebCrypto.cpp`, `src/WebCaptcha.h` |
 | Website pages | `web/public` (plain HTML/CSS/JS, no build step), `web/seed-worlds` |
 | Server supervisor | `src/ServerHost.cpp`, `src/HostMain.cpp`, `include/ServerHost.h` |

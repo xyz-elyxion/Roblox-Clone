@@ -1309,9 +1309,29 @@ status bar instead of being coloured wrongly.
 | `Ctrl+Tab`, `Ctrl+Shift+Tab` | Switch tabs |
 | `Ctrl+S`, `Ctrl+Shift+S` | Save the file in front / every open file |
 | `Ctrl+R`, `Ctrl+W` | Reload from disk / close the tab |
+| `Ctrl+B` | Build this checkout with the tool in `build/`, streaming the output into the panel under the editor |
 
 Undo, redo, cut, copy and paste belong to the text widget and work as usual; `Ctrl+Z` also takes
 back a single replace and a comment toggle.
+
+#### Building and committing from the editor
+
+The panel under the editor is the build. `Ctrl+B`, or **Build → Build**, runs the vendored tool the
+rest of this project uses -- `build/rblxbuild-tool/bin/rblxbuild --build --preset windows-release`, in
+the folder that is open -- and prints what it says as it arrives, so a build that takes minutes shows
+progress instead of nothing. **Cancel** ends it, and a checkout with no tool in `build/` gets the
+bootstrap line in the panel rather than a silent failure. When the tool exits, every line that names
+a file becomes a row with its severity: clicking an error opens that file at the reported line and
+column, and the heading counts them (`build failed (exit 1) - 3 error(s), 12 warning(s)`). Linker
+messages that name no source are shown but stay plain text, because there is nothing to open.
+`RBLXBUILD` points the editor at a tool somewhere else.
+
+The left panel switches between the tree and **Source control**: the branch, every changed path with
+the two letters git prints (`M ` staged, ` M` unstaged, `??` new), and one button that stages
+everything and records it under the message in the box. It runs the same repository code `RBLXGit`
+does, so a commit made here is a commit git can read, and it signs with `RBLX_GIT_NAME` and
+`RBLX_GIT_EMAIL` the way the command line does. A blank message, a clean checkout and a folder that is
+not a repository are each answered in the status bar instead of being committed anyway.
 
 #### Suggestions and documentation
 

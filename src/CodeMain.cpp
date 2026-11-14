@@ -1,6 +1,10 @@
 #define RBLXMATH_ENABLE_EXPERIMENTAL
 
+#include "CodeBuild.h"
+#include "CodeBuildRun.h"
+#include "CodeGit.h"
 #include "CodeProject.h"
+#include "GitRepo.h"
 #include "RblxTextEditor.h"
 #include "Window.h"
 
@@ -16,6 +20,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <filesystem>
+#include <map>
 #include <memory>
 #include <string>
 #include <utility>
@@ -106,6 +111,27 @@ struct App {
     int active = -1;
     std::size_t pendingClose = kNoFile;
 
+    // Building from the editor and committing from it. Both tools are part of this
+    // checkout - the vendored build tool and the repository code RBLXGit drives -
+    // so the editor can run them itself instead of sending somebody to a terminal.
+    rblx::code::BuildRun build;
+    std::vector<std::string> buildLines;
+    std::size_t buildLineCount = 0;
+    std::vector<rblx::code::Diagnostic> buildDiagnostics;
+    std::map<std::string, std::size_t> buildDiagnosticByText;
+    std::string buildProgram;
+    std::string buildPreset = rblx::code::kDefaultPreset;
+    std::string buildState = "not built yet";
+    bool showBuild = true;
+    bool buildPending = false;
+
+    rblx::git::Repo repo;
+    bool repoOpen = false;
+    std::vector<rblx::code::ChangeRow> changes;
+    std::string repoNote = "No folder open";
+    char commitMessage[256] = {};
+    bool showChanges = false;
+
     char query[128] = {};
     char quickFilter[128] = {};
     char folderPath[512] = {};
@@ -178,6 +204,9 @@ struct App {
     void setRoot(const std::string& path) {
         root = path;
         std::snprintf(folderPath, sizeof(folderPath), "%s", root.c_str());
+        // Another folder is another repository, and possibly none at all.
+        repo = rblx::git::Repo();
+        repoOpen = false;
         refresh();
     }
 
@@ -187,6 +216,7 @@ struct App {
         hits.clear();
         lastQuery.clear();
         branch = rblx::code::gitBranchOf(root);
+        refreshGit();
         std::size_t fileCount = 0;
         for (const FileEntry& entry : entries) {
             if (!entry.directory) {
@@ -1153,6 +1183,23 @@ struct App {
             }
             RblxUI::EndMenu();
         }
+        if (RblxUI::BeginMenu("Build")) {
+            if (RblxUI::MenuItem("Build", "Ctrl+B", false, !root.empty())) {
+                startBuild();
+            }
+            if (RblxUI::MenuItem("Cancel build", "", false, build.running())) {
+                stopBuild();
+            }
+            RblxUI::Separator();
+            RblxUI::MenuItem("Build panel", "", &showBuild);
+            if (RblxUI::MenuItem("Source control panel", "", showChanges)) {
+                showChanges = !showChanges;
+                if (showChanges) {
+                    refreshGit();
+                }
+            }
+            RblxUI::EndMenu();
+        }
         if (RblxUI::BeginMenu("View")) {
             RblxUI::MenuItem("Outline panel", "", &showOutline);
             RblxUI::MenuItem("Show whitespace", "", &showWhitespace);
@@ -1191,7 +1238,242 @@ struct App {
         RblxUI::EndMainMenuBar();
     }
 
+    // ---------------------------------------------------------------------
+    // Source control
+
+    // The branch, and every changed path. Reopened rather than cached across a
+    // folder change, because the checkout is a property of the folder.
+    void refreshGit() {
+        changes.clear();
+        if (root.empty()) {
+            repoOpen = false;
+            repoNote = "No folder open";
+            return;
+        }
+        std::string error;
+        if (!repo.isOpen() && !repo.open(root, &error)) {
+            repoOpen = false;
+            repoNote = error;
+            return;
+        }
+        repoOpen = true;
+        if (!rblx::code::loadChanges(repo, &changes, &error)) {
+            repoNote = error;
+            return;
+        }
+        repoNote = rblx::code::changesSummary(changes);
+        const std::string name = repo.branch();
+        if (!name.empty()) {
+            branch = name;
+        }
+    }
+
+    void commitChanges() {
+        std::string id;
+        std::string error;
+        std::size_t committed = 0;
+        if (!rblx::code::commitEverything(repo, commitMessage, &id, &committed, &error)) {
+            status = error;
+            return;
+        }
+        status = "Committed " + std::to_string(committed) +
+                 (committed == 1 ? " path as " : " paths as ") +
+                 id.substr(0, id.size() < 7 ? id.size() : 7);
+        commitMessage[0] = '\0';
+        refreshGit();
+    }
+
+    void drawSourceControl() {
+        const std::string heading =
+            !repoOpen ? "Not a repository"
+                      : (branch.empty() ? "No commits yet" : branch);
+        RblxUI::TextDisabled("%s", heading.c_str());
+        RblxUI::TextWrapped("%s", repoNote.c_str());
+        if (RblxUI::SmallButton("Refresh status")) {
+            refreshGit();
+        }
+        RblxUI::Separator();
+
+        RblxUI::SetNextItemWidth(-1.0f);
+        RblxUI::InputTextWithHint("##commit-message", "Commit message", commitMessage,
+                                  sizeof(commitMessage));
+        if (!repoOpen) {
+            RblxUI::TextDisabled("This folder is not a repository");
+        } else if (changes.empty()) {
+            RblxUI::TextDisabled("Nothing to commit");
+        } else if (RblxUI::Button("Stage all and commit")) {
+            commitChanges();
+        }
+        RblxUI::Separator();
+
+        RblxUI::BeginChild("##changes");
+        for (const rblx::code::ChangeRow& row : changes) {
+            RblxUI::PushID(row.path.c_str());
+            const std::string label = rblx::code::changeLabel(row) + "  " + row.path;
+            if (RblxUI::Selectable(label.c_str(), false)) {
+                openRelative(row.path);
+            }
+            if (RblxUI::IsItemHovered()) {
+                RblxUI::SetTooltip("%s", row.path.c_str());
+            }
+            RblxUI::PopID();
+        }
+        RblxUI::EndChild();
+    }
+
+    // ---------------------------------------------------------------------
+    // Build
+
+    void startBuild() {
+        showBuild = true;
+        if (build.running()) {
+            status = "A build is already running";
+            return;
+        }
+        std::string error;
+        if (!rblx::code::findBuildTool(root, &buildProgram, &error)) {
+            buildState = error;
+            status = error;
+            return;
+        }
+        const std::string command = rblx::code::buildCommandLine(buildProgram, buildPreset);
+        if (!build.start(root, buildProgram, command, &error)) {
+            buildState = error;
+            status = error;
+            return;
+        }
+        buildLines.clear();
+        buildLineCount = 0;
+        buildDiagnostics.clear();
+        buildDiagnosticByText.clear();
+        buildPending = true;
+        buildState = "building with " + buildPreset;
+        status = "Building with " + buildProgram;
+    }
+
+    void stopBuild() {
+        if (!build.running()) {
+            return;
+        }
+        build.stop();
+        buildState = "cancelled";
+        status = "Build cancelled";
+    }
+
+    // Called once a frame. The log is copied when it grows rather than every frame,
+    // and the diagnostics are read once, when the tool exits.
+    void pollBuild() {
+        if (build.running()) {
+            const std::size_t count = build.lineCount();
+            if (count != buildLineCount) {
+                buildLines = build.lines();
+                buildLineCount = buildLines.size();
+            }
+            return;
+        }
+        if (!buildPending || !build.finished()) {
+            return;
+        }
+        buildPending = false;
+        buildLines = build.lines();
+        buildLineCount = buildLines.size();
+        buildDiagnostics = rblx::code::parseDiagnostics(buildLines);
+        buildDiagnosticByText.clear();
+        std::size_t errors = 0;
+        std::size_t warnings = 0;
+        for (std::size_t index = 0; index < buildDiagnostics.size(); ++index) {
+            const rblx::code::Diagnostic& diagnostic = buildDiagnostics[index];
+            if (diagnostic.severity == "error") {
+                ++errors;
+            } else if (diagnostic.severity == "warning") {
+                ++warnings;
+            }
+            buildDiagnosticByText.emplace(diagnostic.text, index);
+        }
+        const int code = build.exitCode();
+        if (code == 0) {
+            buildState = "build succeeded";
+        } else if (code < 0) {
+            buildState = "the build tool did not run";
+        } else {
+            buildState = "build failed (exit " + std::to_string(code) + ")";
+        }
+        if (!buildDiagnostics.empty()) {
+            buildState += " - " + std::to_string(errors) + " error(s), " +
+                          std::to_string(warnings) + " warning(s)";
+        }
+        status = buildState;
+    }
+
+    void openDiagnostic(const rblx::code::Diagnostic& diagnostic) {
+        const std::string absolute = rblx::code::resolveDiagnosticPath(root, diagnostic.path);
+        std::string relative = rblx::code::relativePathOf(root, absolute);
+        if (relative.empty()) {
+            relative = diagnostic.path;
+        }
+        openAt(relative, diagnostic.line > 0 ? diagnostic.line : 1, diagnostic.column);
+    }
+
+    void drawBuildPanel() {
+        if (RblxUI::SmallButton(build.running() ? "Build (running)" : "Build")) {
+            startBuild();
+        }
+        if (build.running()) {
+            RblxUI::SameLine();
+            if (RblxUI::SmallButton("Cancel")) {
+                stopBuild();
+            }
+        }
+        RblxUI::SameLine();
+        if (RblxUI::SmallButton("Close")) {
+            showBuild = false;
+        }
+        RblxUI::SameLine();
+        RblxUI::TextDisabled("%s", buildState.c_str());
+        RblxUI::Separator();
+
+        RblxUI::BeginChild("##buildlog", RblxVec2(0.0f, 0.0f), false,
+                           RblxUIWindowFlags_HorizontalScrollbar);
+        if (buildLines.empty()) {
+            RblxUI::TextDisabled("Ctrl+B builds this checkout with the tool in build/, "
+                                 "preset %s",
+                                 buildPreset.c_str());
+        }
+        for (const std::string& line : buildLines) {
+            const auto found = buildDiagnosticByText.find(line);
+            if (found == buildDiagnosticByText.end()) {
+                RblxUI::TextUnformatted(line.c_str());
+                continue;
+            }
+            const rblx::code::Diagnostic& diagnostic = buildDiagnostics[found->second];
+            RblxUI::PushStyleColor(RblxUICol_Text, diagnostic.severity == "error"
+                                                       ? rblx::ui::theme::error()
+                                                       : rblx::ui::theme::warning());
+            if (RblxUI::Selectable(line.c_str())) {
+                openDiagnostic(diagnostic);
+            }
+            RblxUI::PopStyleColor();
+        }
+        if (build.running()) {
+            RblxUI::SetScrollHereY(1.0f);
+        }
+        RblxUI::EndChild();
+    }
+
     void drawSidebar() {
+        if (RblxUI::SmallButton(showChanges ? "Files" : "[Files]")) {
+            showChanges = false;
+        }
+        RblxUI::SameLine();
+        if (RblxUI::SmallButton(showChanges ? "[Source control]" : "Source control")) {
+            showChanges = true;
+            refreshGit();
+        }
+        RblxUI::Separator();
+        if (showChanges) {
+            drawSourceControl();
+            return;
+        }
         RblxUI::TextDisabled("%s", root.empty() ? "No folder open" : root.c_str());
         RblxUI::Separator();
 
@@ -1616,6 +1898,9 @@ struct App {
         if (ctrl && RblxUI::IsKeyPressed(RblxUIKey_Tab)) {
             cycleTab(shift ? -1 : 1);
         }
+        if (ctrl && RblxUI::IsKeyPressed(RblxUIKey_B)) {
+            startBuild();
+        }
         if (RblxUI::IsKeyPressed(RblxUIKey_F5)) {
             refresh();
         }
@@ -1845,6 +2130,10 @@ struct App {
             RblxUI::TextUnformatted("Ctrl+W   close the file in front");
             RblxUI::TextUnformatted("Ctrl+Tab   next tab, Ctrl+Shift+Tab   previous tab");
             RblxUI::Separator();
+            RblxUI::TextUnformatted("Ctrl+B   build the checkout with the tool in build/");
+            RblxUI::TextUnformatted(
+                "Source control (left panel)   the changed files, stage everything, commit");
+            RblxUI::Separator();
             RblxUI::TextUnformatted("Alt+Left / Alt+Right   back and forward between jumps");
             RblxUI::TextUnformatted("Ctrl+]   jump to the matching bracket");
             RblxUI::Separator();
@@ -1913,6 +2202,7 @@ struct App {
 
     void draw(Window& window) {
         checkDiskChanges();
+        pollBuild();
         handleKeys();
         drawMenuBar(window);
 
@@ -1938,10 +2228,16 @@ struct App {
             RblxUI::SameLine();
         }
 
-        RblxUI::BeginChild("##editor", RblxVec2(0.0f, 0.0f), false,
+        RblxUI::BeginChild("##editor", RblxVec2(0.0f, showBuild ? -190.0f : 0.0f), false,
                           RblxUIWindowFlags_NoScrollbar | RblxUIWindowFlags_NoScrollWithMouse);
         drawEditorArea();
         RblxUI::EndChild();
+
+        if (showBuild) {
+            RblxUI::BeginChild("##build", RblxVec2(0.0f, 178.0f), true);
+            drawBuildPanel();
+            RblxUI::EndChild();
+        }
 
         drawCompletionPopup();
         drawDocumentationWindow();

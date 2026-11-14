@@ -166,6 +166,16 @@ if(RBLX_BUILD_CODEEDITOR)
     add_executable(RBLXCode
         src/CodeMain.cpp
         src/CodeProject.cpp
+        # Building from the editor, and the repository it commits to. The build
+        # tool is the vendored one under build/, and the repository code is the
+        # same GitRepo RBLXGit drives, so neither needs anything installed.
+        src/CodeBuild.cpp
+        src/CodeBuildRun.cpp
+        src/CodeGit.cpp
+        src/GitRepo.cpp
+        src/GitIndex.cpp
+        src/GitSha1.cpp
+        src/GitZlib.cpp
         src/Window.cpp
         ${rblxtextedit_SOURCE_DIR}/RblxTextEditor.cpp
         ${RBLXUI_SOURCES}
@@ -683,5 +693,24 @@ if(RBLX_BUILD_TESTS)
     add_executable(ServerConfigTests tests/server_config_tests.cpp src/ServerConfig.cpp)
     target_include_directories(ServerConfigTests PRIVATE ${RBLXBUILD_CURRENT_SOURCE_DIR}/include)
     add_test(NAME ServerConfigTests COMMAND ServerConfigTests)
+
+    # Finding the build tool and reading a compiler's lines. No compiler and no
+    # window: the parsing is the part that decides whether the panel is usable.
+    add_executable(CodeBuildTests tests/code_build_tests.cpp src/CodeBuild.cpp)
+    target_include_directories(CodeBuildTests PRIVATE ${RBLXBUILD_CURRENT_SOURCE_DIR}/include)
+    add_test(NAME CodeBuildTests COMMAND CodeBuildTests)
+
+    # The Source control panel's work, against a repository in a temporary folder:
+    # staging everything, one commit, and the two-letter labels git prints.
+    add_executable(CodeGitTests
+        tests/code_git_tests.cpp
+        src/CodeGit.cpp
+        src/GitRepo.cpp
+        src/GitIndex.cpp
+        src/GitSha1.cpp
+        src/GitZlib.cpp
+    )
+    target_include_directories(CodeGitTests PRIVATE ${RBLXBUILD_CURRENT_SOURCE_DIR}/include)
+    add_test(NAME CodeGitTests COMMAND CodeGitTests)
 
 endif()

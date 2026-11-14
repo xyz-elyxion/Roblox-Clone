@@ -36,7 +36,7 @@ public:
 	bool SendFlag(__in const DetectionFlags flag);
 	bool FlagWithData(__in const DetectionFlags flag, __in const std::string& data, __in const DWORD pid, __in const bool ShouldMarkAsSent);
 
-	int GetFlagListSize() const { return this->FlaggedList.size(); }
+	int GetFlagListSize() const { return static_cast<int>(this->FlaggedList.size()); }
 
 private:
 

@@ -114,6 +114,12 @@ class Deque {
             }
             else {
                 assert(false);
+
+                // Unreachable while callers respect the size, but this returns a
+                // reference: running off the end of the function would be undefined
+                // (MSVC reports that as C4715), so the first item stands in for the
+                // impossible one.
+                return mChunks[0][0];
             }
         }
 

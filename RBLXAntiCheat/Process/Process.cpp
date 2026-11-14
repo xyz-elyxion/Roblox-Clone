@@ -175,8 +175,8 @@ bool Process::ChangeModuleName(__in const std::wstring& moduleName, __in const  
         if (wcsstr(dataEntry->FullDllName.Buffer, moduleName.c_str()))
         {
             wcscpy_s(dataEntry->FullDllName.Buffer, moduleName.size() + 1, newName.c_str()); //..then modify the string modulename to newName
-            dataEntry->FullDllName.Length = (newName.length() * 2) + 1;
-            dataEntry->FullDllName.MaximumLength = (newName.length() * 2) + 1;
+            dataEntry->FullDllName.Length = static_cast<USHORT>((newName.length() * 2) + 1);
+            dataEntry->FullDllName.MaximumLength = static_cast<USHORT>((newName.length() * 2) + 1);
             Found = TRUE;
             return true;
         }

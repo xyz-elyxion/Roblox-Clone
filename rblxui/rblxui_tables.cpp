@@ -3943,7 +3943,7 @@ static void* TableSettingsHandler_ReadOpen(RblxUIContext*, RblxUISettingsHandler
 {
     RblxUIID id = 0;
     int columns_count = 0;
-    if (sscanf(name, "0x%08X,%d", &id, &columns_count) < 2)
+    if (sscanf_s(name, "0x%08X,%d", &id, &columns_count) < 2)
         return NULL;
 
     if (RblxUITableSettings* settings = RblxUI::TableSettingsFindByID(id))
@@ -3965,9 +3965,9 @@ static void TableSettingsHandler_ReadLine(RblxUIContext*, RblxUISettingsHandler*
     float f = 0.0f;
     int column_n = 0, r = 0, n = 0;
 
-    if (sscanf(line, "RefScale=%f", &f) == 1) { settings->RefScale = f; return; }
+    if (sscanf_s(line, "RefScale=%f", &f) == 1) { settings->RefScale = f; return; }
 
-    if (sscanf(line, "Column %d%n", &column_n, &r) == 1)
+    if (sscanf_s(line, "Column %d%n", &column_n, &r) == 1)
     {
         if (column_n < 0 || column_n >= settings->ColumnsCount)
             return;
@@ -3975,12 +3975,12 @@ static void TableSettingsHandler_ReadLine(RblxUIContext*, RblxUISettingsHandler*
         char c = 0;
         RblxUITableColumnSettings* column = settings->GetColumnSettings() + column_n;
         column->Index = (RblxUITableColumnIdx)column_n;
-        if (sscanf(line, "UserID=0x%08X%n", (RblxU32*)&n, &r)==1) { line = RblxStrSkipBlank(line + r); column->UserID = (RblxUIID)n; }
-        if (sscanf(line, "Width=%d%n", &n, &r) == 1)            { line = RblxStrSkipBlank(line + r); column->WidthOrWeight = (float)n; column->IsStretch = 0; settings->SaveFlags |= RblxUITableFlags_Resizable; }
-        if (sscanf(line, "Weight=%f%n", &f, &r) == 1)           { line = RblxStrSkipBlank(line + r); column->WidthOrWeight = f; column->IsStretch = 1; settings->SaveFlags |= RblxUITableFlags_Resizable; }
-        if (sscanf(line, "Visible=%d%n", &n, &r) == 1)          { line = RblxStrSkipBlank(line + r); column->IsEnabled = (RblxU8)n; settings->SaveFlags |= RblxUITableFlags_Hideable; }
-        if (sscanf(line, "Order=%d%n", &n, &r) == 1)            { line = RblxStrSkipBlank(line + r); column->DisplayOrder = (RblxUITableColumnIdx)n; settings->SaveFlags |= RblxUITableFlags_Reorderable; }
-        if (sscanf(line, "Sort=%d%c%n", &n, &c, &r) == 2)       { line = RblxStrSkipBlank(line + r); column->SortOrder = (RblxUITableColumnIdx)n; column->SortDirection = (c == '^') ? RblxUISortDirection_Descending : RblxUISortDirection_Ascending; settings->SaveFlags |= RblxUITableFlags_Sortable; }
+        if (sscanf_s(line, "UserID=0x%08X%n", (RblxU32*)&n, &r)==1) { line = RblxStrSkipBlank(line + r); column->UserID = (RblxUIID)n; }
+        if (sscanf_s(line, "Width=%d%n", &n, &r) == 1)            { line = RblxStrSkipBlank(line + r); column->WidthOrWeight = (float)n; column->IsStretch = 0; settings->SaveFlags |= RblxUITableFlags_Resizable; }
+        if (sscanf_s(line, "Weight=%f%n", &f, &r) == 1)           { line = RblxStrSkipBlank(line + r); column->WidthOrWeight = f; column->IsStretch = 1; settings->SaveFlags |= RblxUITableFlags_Resizable; }
+        if (sscanf_s(line, "Visible=%d%n", &n, &r) == 1)          { line = RblxStrSkipBlank(line + r); column->IsEnabled = (RblxU8)n; settings->SaveFlags |= RblxUITableFlags_Hideable; }
+        if (sscanf_s(line, "Order=%d%n", &n, &r) == 1)            { line = RblxStrSkipBlank(line + r); column->DisplayOrder = (RblxUITableColumnIdx)n; settings->SaveFlags |= RblxUITableFlags_Reorderable; }
+        if (sscanf_s(line, "Sort=%d%c%n", &n, &c, 1, &r) == 2)       { line = RblxStrSkipBlank(line + r); column->SortOrder = (RblxUITableColumnIdx)n; column->SortDirection = (c == '^') ? RblxUISortDirection_Descending : RblxUISortDirection_Ascending; settings->SaveFlags |= RblxUITableFlags_Sortable; }
     }
 }
 

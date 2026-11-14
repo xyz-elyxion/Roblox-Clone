@@ -14,11 +14,11 @@ Detections::Detections(Settings* s, EvidenceLocker* evidence, std::shared_ptr<Ne
 		auto sections = Process::GetSections(_MAIN_MODULE_NAME);
 
         if(sections.size() > 0)
-            _Proc = std::make_unique<Process>(sections.size());
+            _Proc = std::make_unique<Process>(static_cast<unsigned int>(sections.size()));
         else
             _Proc = std::make_unique<Process>(6); //.text , .rdata, .data, .pdata, .rsrc, .reloc, .tls, 
 
-        Process::SetNumSections(sections.size());
+        Process::SetNumSections(static_cast<unsigned int>(sections.size()));
 
         _Services = std::make_unique<Services>();
 
@@ -441,7 +441,7 @@ bool Detections::FetchBlacklistedBytePatterns(__in const char* url)
             if (_byte.size() >= 2 && _byte[0] == '/' && _byte[1] == '/') //found comment at end of pattern, don't parse this part
                 break;
 
-            uint8_t byte = stoul(_byte, nullptr, 16);
+            uint8_t byte = static_cast<uint8_t>(stoul(_byte, nullptr, 16));
             bytes.push_back(byte);
         }
      
@@ -1073,7 +1073,7 @@ bool Detections::FindBlacklistedProgramsThroughByteScan(__in const DWORD pid)
 
     for (const auto& pattern : this->BlacklistedBytePatterns)
     {
-        DWORD patternSize = pattern.size;
+        DWORD patternSize = static_cast<DWORD>(pattern.size);
 
         std::vector<BYTE> textSectionBytes = Process::ReadRemoteTextSection(pid);
 

@@ -47,7 +47,7 @@ public:
     {
         for (std::size_t i = 0; i < N; ++i) 
         {
-            encrypted[i] = encrypt_char(str[i], XorKey, i);
+            encrypted[i] = encrypt_char(str[i], XorKey, static_cast<int>(i));
         }
     }
 
@@ -61,7 +61,7 @@ public:
     {
         for (std::size_t i = 0; i < N; ++i) 
         {
-            output[i] = decrypt_char(encrypted[i], XorKey, i);
+            output[i] = decrypt_char(encrypted[i], XorKey, static_cast<int>(i));
         }
     }
 
@@ -75,7 +75,7 @@ public:
         std::string output(N, '\0');
         for (std::size_t i = 0; i < N; ++i)
         {
-            output[i] = decrypt_char(encrypted[i], XorKey, i);
+            output[i] = decrypt_char(encrypted[i], XorKey, static_cast<int>(i));
         }
         return output;
     }
@@ -114,7 +114,7 @@ public:
     {
         for (std::size_t i = 0; i < N; ++i)
         {
-            encrypted[i] = encrypt_wchar(str[i], XorKey, i);
+            encrypted[i] = encrypt_wchar(str[i], XorKey, static_cast<int>(i));
         }
     }
 
@@ -128,7 +128,7 @@ public:
     {
         for (std::size_t i = 0; i < N; ++i)
         {
-            output[i] = decrypt_wchar(encrypted[i], XorKey, i);
+            output[i] = decrypt_wchar(encrypted[i], XorKey, static_cast<int>(i));
         }
     }
 
@@ -142,7 +142,7 @@ public:
         std::wstring output(N, L'\0');
         for (std::size_t i = 0; i < N; ++i)
         {
-            output[i] = decrypt_wchar(encrypted[i], XorKey, i);
+            output[i] = decrypt_wchar(encrypted[i], XorKey, static_cast<int>(i));
         }
         return output;
     }

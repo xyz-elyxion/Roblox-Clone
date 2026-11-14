@@ -73,7 +73,7 @@ struct AntiCheat::Impl
         {
             this->ProtectedSettings->Protect(); //remap the protected memory to prevent tampering (this doesn't call DRM::Protect)
         }
-        catch (const std::runtime_error& ex)
+        catch (const std::runtime_error&)
         {
             throw std::runtime_error("Could not create protected memory for DRM settings");
         }
@@ -98,7 +98,7 @@ struct AntiCheat::Impl
 
             this->Barrier = std::make_unique<Preventions>(Config, true);
         }
-        catch (const std::bad_alloc& _)
+        catch (const std::bad_alloc&)
         {
             throw AntiCheatInitFail(AntiCheatInitFailReason::BadAlloc);
         }

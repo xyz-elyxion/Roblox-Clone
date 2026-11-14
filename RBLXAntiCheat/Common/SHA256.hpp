@@ -20,7 +20,7 @@ public:
 private:
 	uint8_t  m_data[64] = { 0 };
 	uint32_t m_blocklen;
-	uint32_t m_bitlen;
+	uint64_t m_bitlen;
 	uint32_t m_state[8]; //A, B, C, D, E, F, G, H
 
 	static constexpr std::array<uint32_t, 64> K = {

@@ -66,17 +66,6 @@ if(TARGET rblxphysics)
         target_compile_options(rblxphysics PUBLIC
             $<$<COMPILE_LANGUAGE:CXX>:/FIchrono>
         )
-        # DefaultLogger.h passes std::localtime to std::put_time, which MSVC reports as
-        # C4996 ("may be unsafe"). The tree is a pinned snapshot that has to stay
-        # identical to what was vendored, so the deprecation is switched off for the
-        # tree itself rather than patched out of its header. It is PRIVATE because
-        # nothing in this project includes that header: our own files keep their
-        # warnings, including the ones this suppresses for the logger.
-        target_compile_definitions(rblxphysics PRIVATE _CRT_SECURE_NO_WARNINGS)
-        # Deque::getItem (containers/Deque.h) falls off the end of the function
-        # instead of returning, which MSVC reports as C4715. Same rule as the
-        # line above: the snapshot keeps its code and the diagnostic is off for it.
-        target_compile_options(rblxphysics PRIVATE /wd4715)
     else()
         target_compile_options(rblxphysics PUBLIC
             $<$<COMPILE_LANGUAGE:CXX>:-include>
@@ -90,14 +79,6 @@ add_subdirectory(${RBLXBUILD_CURRENT_SOURCE_DIR}/rblxgl)
 set(rblxui_SOURCE_DIR ${RBLXBUILD_CURRENT_SOURCE_DIR}/rblxui)
 set(rblxgizmo_SOURCE_DIR ${RBLXBUILD_CURRENT_SOURCE_DIR}/rblxgizmo)
 set(rblxtextedit_SOURCE_DIR ${RBLXBUILD_CURRENT_SOURCE_DIR}/rblxtextedit)
-# RblxTextEditor.cpp is another pinned snapshot, compiled straight into the two
-# editors rather than built as a library: its unused 'lineSize' (C4189) and the
-# int/char conversion inside the std::transform it calls (C4244) are upstream's,
-# and correcting either would mean editing the file we vendored.
-if(MSVC)
-    set_source_files_properties(${rblxtextedit_SOURCE_DIR}/RblxTextEditor.cpp
-        PROPERTIES COMPILE_OPTIONS "/wd4189;/wd4244")
-endif()
 set(rblxstb_SOURCE_DIR ${RBLXBUILD_CURRENT_SOURCE_DIR}/rblxstb)
 
 set(SHARED_SOURCES
@@ -128,19 +109,6 @@ set(RBLXGIZMO_SOURCES
     ${rblxgizmo_SOURCE_DIR}/src/RblxGizmo.cpp
 )
 
-# The vendored sources compiled straight into our targets predate the CRT's safer
-# names: rblxui's OpenGL backend calls sscanf, strcpy and strcat directly, and its
-# loader header does too (C4996). Those trees are pinned, so the deprecation is
-# switched off for those files alone, which is why this is a per-source definition
-# and not a target-wide one - every file of ours still reports C4996.
-if(MSVC)
-    set_source_files_properties(
-        ${RBLXUI_SOURCES}
-        ${RBLXGIZMO_SOURCES}
-        ${rblxtextedit_SOURCE_DIR}/RblxTextEditor.cpp
-        PROPERTIES COMPILE_DEFINITIONS "_CRT_SECURE_NO_WARNINGS")
-endif()
-
 function(configure_rblx_target target_name)
     target_include_directories(${target_name} PRIVATE
         ${RBLXBUILD_CURRENT_SOURCE_DIR}/include
@@ -167,14 +135,6 @@ function(configure_rblx_target target_name)
     if(RBLX_ENABLE_WARNINGS)
         if(MSVC)
             target_compile_options(${target_name} PRIVATE /W4 /permissive-)
-            # Two conversion codes that our own files do not raise, but that the
-            # vendored headers compiled into these targets do: rblxphysics's Map.h and
-            # Set.h narrow an int literal into a uint64 (C4245), and its DefaultLogger.h
-            # runs std::toupper through std::transform over a std::string, which MSVC
-            # reports from <algorithm> (C4244). Both are upstream's, in pinned trees, so
-            # the codes are switched off here rather than the headers edited. The rest of
-            # /W4 still covers every file of ours.
-            target_compile_options(${target_name} PRIVATE /wd4244 /wd4245)
         else()
             target_compile_options(${target_name} PRIVATE -Wall -Wextra -Wpedantic)
         endif()
@@ -386,26 +346,6 @@ endif()
 # executable to launch or ship.
 if(RBLX_BUILD_ANTICHEAT)
     add_subdirectory(RBLXAntiCheat)
-    # The anti-cheat is a pinned snapshot as well, and its size arithmetic converts
-    # size_t to int, unsigned int, DWORD and USHORT in a dozen places (C4267).
-    # Narrowing there is deliberate on 32-bit values that never exceed a part count,
-    # so the conversion warning is switched off for the tree instead of cast into it.
-    #
-    # C4293 is the same story with a real edge to it. SHA256::pad() writes the message
-    # length into the last eight bytes from a uint32_t counter, so the shifts by 32, 40,
-    # 48 and 56 in SHA256.cpp are undefined. On Microsoft's compiler they fold to zero,
-    # which is the correct high half for any message under 512 MB - the kind this project
-    # hashes - so the digest is right and the warning is what is left. Widening m_bitlen
-    # would fix it and would edit a pinned snapshot, so the diagnostic is off here and
-    # the limitation is written down rather than hidden.
-    if(MSVC AND TARGET RBLXAntiCheat)
-        # C4244 joins them: Detections.cpp narrows an unsigned long into a uint8_t.
-        # C4101 is the two catch clauses in AntiCheatLib.cpp that name the exception
-        # they translate into a more specific one (a runtime_error rethrown as
-        # "could not create protected memory", a bad_alloc rethrown as a failed init).
-        # The names are documentation there, not variables to read.
-        target_compile_options(RBLXAntiCheat PRIVATE /wd4267 /wd4293 /wd4244 /wd4101)
-    endif()
 endif()
 
 if(RBLX_BUILD_CLIENT)

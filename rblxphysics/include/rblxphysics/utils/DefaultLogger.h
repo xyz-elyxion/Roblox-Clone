@@ -36,9 +36,18 @@
 #include <sstream>
 #include <iomanip>
 #include <mutex>
+#include <ctime>
 
 /// RblxPhysics namespace
 namespace rblxphysics {
+
+// Local time the caller owns. std::localtime hands back a shared buffer and MSVC
+// deprecates it as C4996, so the Windows call fills a tm of ours instead.
+inline std::tm toLocalTime(const std::time_t& time) {
+    std::tm out{};
+    localtime_s(&out, &time);
+    return out;
+}
 
 // Class Logger
 /**
@@ -106,7 +115,8 @@ class DefaultLogger : public Logger {
                     std::stringstream ss;
                     ss << "RblxPhysics Logs" << std::endl;
                     ss << "RblxPhysics Version: " << RBLXPHYSICS_VERSION << std::endl;
-                    ss << "Date: " << std::put_time(std::localtime(&time), "%Y-%m-%d") << std::endl;
+                    const std::tm local = toLocalTime(time);
+                    ss << "Date: " << std::put_time(&local, "%Y-%m-%d") << std::endl;
                     ss << "---------------------------------------------------------" << std::endl;
 
                     return ss.str();
@@ -118,7 +128,8 @@ class DefaultLogger : public Logger {
                     std::stringstream ss;
 
                     // Time
-                    ss << std::put_time(std::localtime(&time), "%X") << " ";
+                    const std::tm localTimeOfLine = toLocalTime(time);
+                    ss << std::put_time(&localTimeOfLine, "%X") << " ";
 
                     // World
                     ss << "World:" << physicsWorldName << std::endl;
@@ -164,7 +175,8 @@ class DefaultLogger : public Logger {
                     ss << "<h1>RblxPhysics Logs</h1>" << std::endl;
                     ss << "<div class='general_info'>" << std::endl;
                     ss << "<p>RblxPhysics version: " << RBLXPHYSICS_VERSION << "</p>" << std::endl;
-                    ss << "<p>Date: " << std::put_time(std::localtime(&time), "%Y-%m-%d") << "</p>" << std::endl;
+                    const std::tm local = toLocalTime(time);
+                    ss << "<p>Date: " << std::put_time(&local, "%Y-%m-%d") << "</p>" << std::endl;
                     ss << "</div>" << std::endl;
                     ss << "<hr>";
 
@@ -253,7 +265,8 @@ class DefaultLogger : public Logger {
             /// Convert a string to lower case
             std::string toLowerCase(const std::string& text) {
                 std::string textLower = text;
-                std::transform(textLower.begin(), textLower.end(), textLower.begin(), ::tolower);
+                std::transform(textLower.begin(), textLower.end(), textLower.begin(),
+                               [](unsigned char c) { return static_cast<char>(::tolower(c)); });
                 return textLower;
             }
 
@@ -279,7 +292,8 @@ class DefaultLogger : public Logger {
 
                     // Time
                     ss << "<div class='time'>";
-                    ss << std::put_time(std::localtime(&time), "%X");
+                    const std::tm localTimeOfLine = toLocalTime(time);
+                    ss << std::put_time(&localTimeOfLine, "%X");
                     ss << "</div>";
 
                     // Message

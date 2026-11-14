@@ -139,6 +139,18 @@ function(configure_rblx_target target_name)
         ${rblxgl_SOURCE_DIR}/include
     )
 
+    # rblxgl's header defines APIENTRY itself whenever Windows has not defined it
+    # first, and minwindef then reports the redefinition (C4005) from whichever header
+    # pulls in windows.h afterwards - a shader header can be read long before shlobj.h
+    # in a TU like CodeMain.cpp. Windows is therefore forced in ahead of every file of
+    # these targets, through our own Environment.h so the NOMINMAX and
+    # WIN32_LEAN_AND_MEAN guards come with it. The glue code is order-sensitive here;
+    # the fix belongs on the command line rather than in eleven include blocks.
+    if(MSVC)
+        target_compile_options(${target_name} PRIVATE
+            "/FI${RBLXBUILD_CURRENT_SOURCE_DIR}/include/Environment.h")
+    endif()
+
     if(RBLX_ENABLE_WARNINGS)
         if(MSVC)
             target_compile_options(${target_name} PRIVATE /W4 /permissive-)

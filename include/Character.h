@@ -83,6 +83,15 @@ private:
     bool isWalking;
     float zoomDistance;
 
+    // Jump state. A jump is a press on a grounded body, and only the vertical speed
+    // was available before: it is momentarily zero at the top of a jump as well as
+    // on the floor, which is what let a held key launch the character again at every
+    // apex. grounded is what the air state is read from, by the animation and by the
+    // client's jump and landing sounds.
+    bool grounded = true;
+    bool jumpWasHeld = false;
+    float lastVerticalSpeed = 0.0f;
+
     // Rotation State
     float internalYaw;
     bool hasReceivedFirstRotation; // Track if we've received first rotation update for remote characters

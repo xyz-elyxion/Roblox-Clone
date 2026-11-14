@@ -120,6 +120,9 @@ void Character::teleportTo(const rblxmath::vec3& position) {
     body->setTransform(transform);
     body->setLinearVelocity(rblxphysics::Vector3(0.0f, 0.0f, 0.0f));
     body->setAngularVelocity(rblxphysics::Vector3(0.0f, 0.0f, 0.0f));
+    grounded = true;
+    jumpWasHeld = false;
+    lastVerticalSpeed = 0.0f;
 }
 
 void Character::setFaceTexture(unsigned int textureId) {
@@ -283,10 +286,12 @@ void Character::update(float deltaTime, Camera* camera, bool /*isSprinting*/) {
             return;
         }
         
-        // Determine Animation State from Physics
+        // Determine Animation State from Physics. Airborne is the state a jump leaves
+        // behind, not a threshold on the vertical speed: that speed passes through zero
+        // at the apex, so it reported "landed" halfway through every jump.
         float speed = rblxmath::length(rblxmath::vec2(vel.x, vel.z));
         isWalking = speed > 0.1f;
-        isJumping = std::abs(vel.y) > 0.5f;
+        isJumping = !grounded;
     }
 
     // 2. Animation
@@ -514,13 +519,27 @@ void Character::processInput(bool forward, bool backward, bool left, bool right,
     t.setOrientation(q);
     body->setTransform(t);
     
-    if (jump) {
-        rblxphysics::Vector3 vel = body->getLinearVelocity();
-        if (std::abs(vel.y) < 0.1f) {
-            body->setIsActive(true);
-            body->setLinearVelocity(rblxphysics::Vector3(vel.x, 12.0f, vel.z)); 
-        }
+    // A jump is a press on a grounded body. The test used to be "vertical speed near
+    // zero", and that is true at the top of a jump as well as on the floor, so holding
+    // the key re-launched the character at every apex and it climbed for as long as the
+    // key was down. Grounded is tracked instead: falling means airborne, and airborne
+    // ends when a fall actually stops.
+    const rblxphysics::Vector3 jumpVelocity = body->getLinearVelocity();
+    const float verticalSpeed = jumpVelocity.y;
+    if (verticalSpeed < -1.0f) {
+        grounded = false;                       // stepped off a ledge, or still falling
+    } else if (lastVerticalSpeed < -1.0f && verticalSpeed > -0.5f) {
+        grounded = true;                        // the fall stopped: this is a landing
     }
+
+    const bool jumpPressed = jump && !jumpWasHeld;
+    jumpWasHeld = jump;
+    if (jumpPressed && grounded) {
+        body->setIsActive(true);
+        body->setLinearVelocity(rblxphysics::Vector3(jumpVelocity.x, 12.0f, jumpVelocity.z));
+        grounded = false;
+    }
+    lastVerticalSpeed = body->getLinearVelocity().y;
 }
 
 rblxmath::vec3 Character::getPosition() const {
@@ -559,6 +578,9 @@ void Character::respawn() {
             body->setTransform(t);
             body->setLinearVelocity(rblxphysics::Vector3(0, 0, 0));
             body->setAngularVelocity(rblxphysics::Vector3(0, 0, 0));
+            grounded = true;
+            jumpWasHeld = false;
+            lastVerticalSpeed = 0.0f;
         }
     }
 }

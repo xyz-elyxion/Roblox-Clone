@@ -108,6 +108,10 @@ std::string joinPath(const std::string& base, const std::string& name) {
     return (fs::path(base) / name).string();
 }
 
+int portNumber(const std::string& text) {
+    return static_cast<int>(std::strtol(text.c_str(), nullptr, 10));
+}
+
 std::string trim(const std::string& text) {
     std::size_t start = 0;
     while (start < text.size() && (text[start] == ' ' || text[start] == '\t')) ++start;
@@ -233,9 +237,7 @@ bool prepare(Options& options, server::Settings* settings, std::string* error) {
 
     if (!server::validateSettings(next, error)) return false;
 
-    int port = 0;
-    std::sscanf(next.port.c_str(), "%d", &port);
-    if (!portIsFree(port, error)) return false;
+    if (!portIsFree(portNumber(next.port), error)) return false;
 
     *settings = next;
     return true;
@@ -264,7 +266,7 @@ bool setUp(Options& options, server::Settings* settings, std::string* error) {
     // The site is ready when its port answers, not when the process exists: the
     // window says "running" only once there is something to open.
     for (int attempt = 0; attempt < 80; ++attempt) {
-        if (answers(std::atoi(settings->port.c_str()))) {
+        if (answers(portNumber(settings->port))) {
             say(options, "the website is running at " + browserUrl(*settings));
             return true;
         }
@@ -376,12 +378,12 @@ int windowed(Options& options) {
             if (!ok) {
                 report.problem(error);
             } else {
-                for (int attempt = 0; attempt < 80 && !answers(std::atoi(settings.port.c_str()));
+                for (int attempt = 0; attempt < 80 && !answers(portNumber(settings.port));
                      ++attempt) {
                     report.progress(static_cast<float>(attempt) / 80.0f);
                     ::Sleep(250);
                 }
-                if (!answers(std::atoi(settings.port.c_str()))) {
+                if (!answers(portNumber(settings.port))) {
                     report.problem("WebApp.exe started but nothing is listening on port " +
                                    settings.port + " yet; its console window has the reason");
                 } else {

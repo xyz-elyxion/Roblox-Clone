@@ -233,8 +233,11 @@ if(RBLX_BUILD_SERVERSETUP)
         src/ServerSetupMain.cpp
         src/ServerConfig.cpp
         # The signing secret and the data key are generated here, so the install
-        # never ships a secret anybody else knows.
+        # never ships a secret anybody else knows. WebCrypto signs and verifies a
+        # token as well as making bytes, and that path is written against Json, so
+        # the JSON reader is part of this executable too.
         src/WebCrypto.cpp
+        src/WebJson.cpp
         src/InstallUi.cpp
         ${RBLXUI_SOURCES}
     )

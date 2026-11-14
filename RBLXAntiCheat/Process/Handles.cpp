@@ -62,7 +62,7 @@ std::vector<Handles::SYSTEM_HANDLE> Handles::GetHandles()
 
     std::vector<SYSTEM_HANDLE> handles;
 
-	for (int i = 0; i < handleInfo->HandleCount; i++)
+	for (ULONG i = 0; i < handleInfo->HandleCount; i++)
 	{
 		if (handleInfo->Handles[i].ProcessId <= 4) //save some memory and cpu by skipping system process handles
 		{

@@ -1468,13 +1468,16 @@ int main(int argc, char** argv) {
                     }
                     int offset = 0;
                     while (offset < bytesToProcess) {
-                        if (offset + sizeof(PacketHeader) > bytesToProcess) break; // Safety check
+                        // Both sides signed: sizeof is compared as the int it fits in,
+                        // so the check raises no signed/unsigned warning of its own.
+                        if (offset + static_cast<int>(sizeof(PacketHeader)) > bytesToProcess)
+                            break; // Safety check
                         
                         PacketHeader* header = (PacketHeader*)(packetBuffer + offset);
                         uint32_t packetSize = sizeof(PacketHeader) + header->size;
                         
                         // Safety check: ensure entire packet fits in buffer
-                        if (offset + packetSize > bytesToProcess) {
+                        if (packetSize > static_cast<uint32_t>(bytesToProcess - offset)) {
                             std::cerr << "Warning: Incomplete packet, waiting for more data" << std::endl;
                             break; // Wait for more data
                         }

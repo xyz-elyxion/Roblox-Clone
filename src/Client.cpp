@@ -122,10 +122,28 @@ namespace {
 }
 #endif
 
+// The client sends its own output to client_log.txt, so the console it was started
+// from stays blank. A failure before the window opens then looks like the program doing
+// nothing at all, with the reason sitting in a file nobody thinks to open first. Startup
+// milestones and failures are written to the console as well, through its own handle.
+void sayToConsole(const std::string& message) {
+    std::cout << message << std::endl;
+
+    FILE* console = nullptr;
+    if (fopen_s(&console, "CONOUT$", "w") != 0 || console == nullptr) {
+        return;
+    }
+    std::fputs(message.c_str(), console);
+    std::fputc('\n', console);
+    std::fflush(console);
+    std::fclose(console);
+}
+
 // Keeps an error readable when the client was launched from a shortcut and its
-// window closes immediately. Windows uses its own `pause`; elsewhere the
-// message is already on the terminal or in client_error_log.txt.
+// window closes immediately. Windows uses its own `pause`; the reason itself has
+// already been put on the console by sayToConsole().
 void pauseBeforeExit() {
+    sayToConsole("The full log is in client_log.txt and client_error_log.txt, next to the client.");
     system("pause");
 }
 
@@ -1132,11 +1150,11 @@ int main(int argc, char** argv) {
 #endif
 
     try {
-        std::cout << "Starting Client..." << std::endl;
+        sayToConsole("Starting Client...");
         
         if (!std::ifstream("shaders/vertex.glsl")) {
-             std::cout << "CRITICAL ERROR: shaders/vertex.glsl not found in current directory!" << std::endl;
-             std::cout << "Please ensure the 'shaders' folder is next to the executable." << std::endl;
+             sayToConsole("CRITICAL ERROR: shaders/vertex.glsl not found in current directory!");
+             sayToConsole("Please ensure the 'shaders' folder is next to the executable.");
              reportClientProblem("startup",
                                  "shaders/vertex.glsl is missing from the client's working "
                                  "directory, so the client stopped before opening a window.");
@@ -1145,7 +1163,7 @@ int main(int argc, char** argv) {
         }
 
         Window window(SCR_WIDTH, SCR_HEIGHT, "RBLX Clone Client");
-        std::cout << "Window Created." << std::endl;
+        sayToConsole("Window Created.");
 
         // A machine with no output device still has a game to play, so audio
         // failing is a line in the log and silence, never a reason to stop.
@@ -1165,11 +1183,11 @@ int main(int argc, char** argv) {
         const float uiScale = UiScale::Apply(window.getNativeWindow());
         RblxUI_ImplRblxWin_InitForOpenGL(window.getNativeWindow(), true);
         RblxUI_ImplOpenGL3_Init("#version 330");
-        std::cout << "RblxUI Initialized." << std::endl;
+        sayToConsole("RblxUI Initialized.");
 
         Renderer renderer;
         renderer.init();
-        std::cout << "Renderer Initialized." << std::endl;
+        sayToConsole("Renderer Initialized.");
 
         // Skybox skybox; 
         // skybox.init();
@@ -2555,12 +2573,12 @@ int main(int argc, char** argv) {
         std::cout << "Winsock closed after " << shutdownMs() << " ms." << std::endl;
         return 0;
     } catch (const std::exception& e) {
-        std::cout << "CRITICAL ERROR: " << e.what() << std::endl;
+        sayToConsole(std::string("CRITICAL ERROR: ") + e.what());
         reportClientProblem("startup", std::string("The client stopped with an error: ") + e.what());
         pauseBeforeExit();
         return -1;
     } catch (...) {
-        std::cout << "CRITICAL ERROR: Unknown." << std::endl;
+        sayToConsole("CRITICAL ERROR: the client stopped with an unknown error.");
         reportClientProblem("startup", "The client stopped with an unknown error.");
         pauseBeforeExit();
         return -1;

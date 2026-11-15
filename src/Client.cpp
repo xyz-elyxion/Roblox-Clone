@@ -1059,37 +1059,12 @@ bool connectToConfiguredServer() {
     return true;
 }
 
-void mouse_callback(RBLXWINwindow* window, double xposIn, double yposIn) {
+// The cursor mode is not touched here: applyCursorCapture() owns it, from the state
+// the player is in, so shift lock and a held right button both arrive with isCursorLocked
+// already set and neither can be undone between two mouse moves.
+void mouse_callback(RBLXWINwindow*, double xposIn, double yposIn) {
     if (escapeMenuOpen || RblxUI::GetIO().WantCaptureMouse) return;
-
-    const bool shiftLockActive = shiftLockEnabled &&
-                                 (currentState == ONLINE || currentState == OFFLINE);
-
-    if (shiftLockActive) {
-        // Shift lock keeps the cursor captured without needing right mouse held.
-        if (!isCursorLocked) {
-            isCursorLocked = true;
-            rblxwinSetInputMode(window, RBLXWIN_CURSOR, RBLXWIN_CURSOR_DISABLED);
-            firstMouse = true;
-        }
-    } else {
-        // Right Click to Look
-        bool isRightClickHeld = rblxwinGetMouseButton(window, RBLXWIN_MOUSE_BUTTON_RIGHT) == RBLXWIN_PRESS;
-
-        if (isRightClickHeld) {
-            if (!isCursorLocked) {
-                isCursorLocked = true;
-                rblxwinSetInputMode(window, RBLXWIN_CURSOR, RBLXWIN_CURSOR_DISABLED);
-                firstMouse = true; // Reset on re-engage
-            }
-        } else {
-            if (isCursorLocked) {
-                isCursorLocked = false;
-                rblxwinSetInputMode(window, RBLXWIN_CURSOR, RBLXWIN_CURSOR_NORMAL);
-            }
-            return; // Don't process mouse move for camera if not locked
-        }
-    }
+    if (!isCursorLocked) return; // Looking around is captured: not a free cursor
 
     float xpos = static_cast<float>(xposIn);
     float ypos = static_cast<float>(yposIn);
@@ -1292,6 +1267,7 @@ int main(int argc, char** argv) {
         while (!window.shouldClose()) {
             // 1. Poll Events
             window.pollEvents();
+            applyCursorCapture();
 
             float currentFrame = static_cast<float>(rblxwinGetTime());
             deltaTime = currentFrame - lastFrame;
@@ -1305,9 +1281,6 @@ int main(int argc, char** argv) {
                     closeEscapeMenu();
                 } else if (inGame) {
                     openEscapeMenu();
-                } else if (isCursorLocked) {
-                    isCursorLocked = false;
-                    rblxwinSetInputMode(window.getNativeWindow(), RBLXWIN_CURSOR, RBLXWIN_CURSOR_NORMAL);
                 }
             }
             escapeWasDown = escapeDown;
@@ -1379,10 +1352,6 @@ int main(int argc, char** argv) {
             if (currentState != ONLINE && currentState != OFFLINE) {
                 escapeMenuOpen = false;
                 escapeMenuTab = ESCAPE_TAB_PEOPLE;
-                if (isCursorLocked) {
-                    isCursorLocked = false;
-                    rblxwinSetInputMode(window.getNativeWindow(), RBLXWIN_CURSOR, RBLXWIN_CURSOR_NORMAL);
-                }
             }
             renderGameHud(parts, physicsWorld, uiScale);
             renderEscapeMenu(parts, physicsWorld, uiScale);
@@ -1539,11 +1508,9 @@ int main(int argc, char** argv) {
                              std::cout << "Joined with ID: " << myPlayerId << std::endl;
                              
                              // Don't create character yet - wait for WORLD_STATE to load all parts first
-                             // Character will be created after WORLD_STATE is received
-                             
-                             // Don't lock cursor on join, let user right click
-                             isCursorLocked = false;
-                             rblxwinSetInputMode(window.getNativeWindow(), RBLXWIN_CURSOR, RBLXWIN_CURSOR_NORMAL);
+                             // Character will be created after WORLD_STATE is received.
+                             // The cursor stays free until the player looks around or
+                             // turns shift lock on; applyCursorCapture() decides that.
                         }
                         else if (header->type == PacketType::SOUND) {
                             if (header->size < sizeof(PacketSound)) {
@@ -1580,9 +1547,9 @@ int main(int argc, char** argv) {
                             }
                             PacketPlayerState* pkt = (PacketPlayerState*)(packetBuffer + offset + sizeof(PacketHeader));
                             if (pkt->playerId == myPlayerId && myCharacter) {
+                                // A correction moves the character, not the player's
+                                // hands: the cursor stays captured through it.
                                 myCharacter->teleportTo(pkt->position);
-                                isCursorLocked = false;
-                                rblxwinSetInputMode(window.getNativeWindow(), RBLXWIN_CURSOR, RBLXWIN_CURSOR_NORMAL);
                             }
                         }
                         // ... (rest of packet handlers)
@@ -1826,17 +1793,12 @@ int main(int argc, char** argv) {
                                 myCharacter->maxHealth = maxHealth;
                                 myCharacter->serverControlsHealth = true;
 
-                                const bool wasDead = playerIsDead;
                                 playerIsDead = pkt->respawnSeconds > 0;
                                 respawnCountdown = static_cast<float>(pkt->respawnSeconds);
-                                if (playerIsDead && !wasDead) {
-                                    // The server is holding the character until the
-                                    // timer ends, so hand the mouse back instead of
-                                    // leaving the player looking around while the
-                                    // countdown runs.
-                                    isCursorLocked = false;
-                                    rblxwinSetInputMode(window.getNativeWindow(), RBLXWIN_CURSOR, RBLXWIN_CURSOR_NORMAL);
-                                }
+                                // The server is holding the character until the timer
+                                // ends, so the mouse is handed back for the countdown:
+                                // playerIsDead is what applyCursorCapture() reads, and
+                                // it captures again by itself when the respawn clears it.
                             } else if (remotePlayers.count(pkt->playerId) != 0) {
                                 Character* remoteChar = remotePlayers[pkt->playerId];
                                 if (remoteChar) {

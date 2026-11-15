@@ -156,6 +156,7 @@ void renderLoadingScreen(float uiScale);
 void renderGameHud(std::deque<Part>& parts, PhysicsWorld& physicsWorld, float uiScale);
 void renderEscapeMenu(std::deque<Part>& parts, PhysicsWorld& physicsWorld, float uiScale);
 void setShiftLockEnabled(bool enabled);
+void applyCursorCapture();
 void openEscapeMenu();
 void closeEscapeMenu();
 void resetClientSettings();

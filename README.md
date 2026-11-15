@@ -205,7 +205,9 @@ out of anything shared or published; [SECURITY.md](SECURITY.md) says the same in
 
 **The client** is a third-person game: WASD and mouse, shift lock, a player list, chat, a debug
 overlay, health and a death overlay, and sound. The camera orbits the character and pulls in
-when a wall is behind it, so it never ends up on the far side of the level's geometry. Health and
+when a wall is behind it, so it never ends up on the far side of the level's geometry. The mouse
+is captured while you look around and while shift lock is on, and handed back for the Esc menu
+and the respawn countdown; neither a respawn nor the server moving you gives it back. Health and
 respawning are decided by the game server, not the
 client: the server keeps each player's health, kills anyone who falls below the world or takes
 damage, and returns them to the world's `SpawnLocation` after a three-second countdown every

@@ -935,11 +935,7 @@ void openEscapeMenu() {
     escapeMenuOpen = true;
     escapeMenuTab = ESCAPE_TAB_PEOPLE;
     menuStatus.clear();
-    isCursorLocked = false;
-
-    RBLXWINwindow* window = rblxwinGetCurrentContext();
-    if (!window) return;
-    rblxwinSetInputMode(window, RBLXWIN_CURSOR, RBLXWIN_CURSOR_NORMAL);
+    applyCursorCapture();
 }
 
 // Where a game puts its menu: a square in the top-left corner, so a player who
@@ -1016,41 +1012,47 @@ void renderGameHud(std::deque<Part>& parts, PhysicsWorld& physicsWorld, float ui
     renderDeathOverlay(uiScale);
 }
 
-void setShiftLockEnabled(bool enabled) {
-    shiftLockEnabled = enabled;
-
+// One place decides whether the mouse is captured, and it decides from the state the
+// player is in rather than from whichever event changed it: shift lock, a held right
+// button, the Esc menu, and death. The other paths only change that state. Before this,
+// every one of them set the platform mode itself, so a teleport correction arriving while
+// shift lock was on handed the cursor back to the desktop: it slid across the screen until
+// the next mouse move grabbed it again, which hid it and snapped it to the middle, over
+// and over for as long as the player moved the mouse.
+void applyCursorCapture() {
     RBLXWINwindow* window = rblxwinGetCurrentContext();
     if (!window) return;
 
-    if (enabled) {
-        const bool inGame = currentState == ONLINE || currentState == OFFLINE;
-        if (inGame && !escapeMenuOpen) {
-            isCursorLocked = true;
-            rblxwinSetInputMode(window, RBLXWIN_CURSOR, RBLXWIN_CURSOR_DISABLED);
-            firstMouse = true;
-        }
-        return;
-    }
+    const bool inGame = currentState == ONLINE || currentState == OFFLINE;
+    // Right click only looks when the view is the thing being clicked: a right click on a
+    // panel is the panel's, which is what WantCaptureMouse reports.
+    const bool lookingWithRightButton =
+        rblxwinGetMouseButton(window, RBLXWIN_MOUSE_BUTTON_RIGHT) == RBLXWIN_PRESS &&
+        !RblxUI::GetIO().WantCaptureMouse;
+    const bool capture = inGame && !escapeMenuOpen && !playerIsDead &&
+                         (shiftLockEnabled || lookingWithRightButton);
+    if (capture == isCursorLocked) return;
 
-    if (isCursorLocked) {
-        isCursorLocked = false;
-        rblxwinSetInputMode(window, RBLXWIN_CURSOR, RBLXWIN_CURSOR_NORMAL);
+    isCursorLocked = capture;
+    rblxwinSetInputMode(window, RBLXWIN_CURSOR,
+                        capture ? RBLXWIN_CURSOR_DISABLED : RBLXWIN_CURSOR_NORMAL);
+    if (capture) {
+        // A fresh capture starts from wherever the cursor is, so the first movement
+        // after it is not read as a jump across the screen.
+        firstMouse = true;
     }
+}
+
+void setShiftLockEnabled(bool enabled) {
+    shiftLockEnabled = enabled;
+    applyCursorCapture();
 }
 
 void closeEscapeMenu() {
     escapeMenuOpen = false;
     escapeMenuTab = ESCAPE_TAB_PEOPLE;
     menuStatus.clear();
-
-    if (!shiftLockEnabled) return;
-    if (currentState != ONLINE && currentState != OFFLINE) return;
-
-    RBLXWINwindow* window = rblxwinGetCurrentContext();
-    if (!window) return;
-    isCursorLocked = true;
-    rblxwinSetInputMode(window, RBLXWIN_CURSOR, RBLXWIN_CURSOR_DISABLED);
-    firstMouse = true;
+    applyCursorCapture();
 }
 
 void resetClientSettings() {

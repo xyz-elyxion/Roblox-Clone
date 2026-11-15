@@ -20,6 +20,7 @@
 #include "WebJson.h"
 #include <rblxmath/gtx/euler_angles.hpp>
 #include <cstdint>
+#include <filesystem>
 #include <fstream>
 #include <sstream>
 
@@ -139,11 +140,21 @@ void sayToConsole(const std::string& message) {
     std::fclose(console);
 }
 
+// Every program here reads its data from the directory it was started in, which is not
+// always obvious: an executable opened from inside a .zip runs from a temporary folder
+// that holds nothing else. Naming it is what turns "it does not start" into a reason.
+std::string workingDirectory() {
+    std::error_code ignored;
+    const std::filesystem::path path = std::filesystem::current_path(ignored);
+    return ignored ? std::string(".") : path.string();
+}
+
 // Keeps an error readable when the client was launched from a shortcut and its
 // window closes immediately. Windows uses its own `pause`; the reason itself has
 // already been put on the console by sayToConsole().
 void pauseBeforeExit() {
-    sayToConsole("The full log is in client_log.txt and client_error_log.txt, next to the client.");
+    sayToConsole("The full log is in client_log.txt and client_error_log.txt in " +
+                 workingDirectory() + ".");
     system("pause");
 }
 
@@ -1154,7 +1165,10 @@ int main(int argc, char** argv) {
         
         if (!std::ifstream("shaders/vertex.glsl")) {
              sayToConsole("CRITICAL ERROR: shaders/vertex.glsl not found in current directory!");
-             sayToConsole("Please ensure the 'shaders' folder is next to the executable.");
+             sayToConsole("Working directory: " + workingDirectory());
+             sayToConsole("Please ensure the 'shaders' folder is next to the executable, and "
+                          "extract the package before running it rather than opening "
+                          "Client.exe from inside a .zip.");
              reportClientProblem("startup",
                                  "shaders/vertex.glsl is missing from the client's working "
                                  "directory, so the client stopped before opening a window.");

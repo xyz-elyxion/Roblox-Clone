@@ -1144,6 +1144,11 @@ void restorePendingSession() {
 }
 
 int main(int argc, char** argv) {
+    // Before anything is redirected, so this reaches the console even if the log cannot be
+    // opened: a run that prints nothing at all never entered main, which is a loader or
+    // static-initialisation problem rather than anything the client does.
+    std::cout << "Client starting." << std::endl;
+
     // Redirect stdout/stderr to files for debugging. These are best effort: if the
     // file cannot be opened the console stays the destination and the run continues,
     // which is why the checked form of freopen is used and its result read.
@@ -1157,7 +1162,9 @@ int main(int argc, char** argv) {
     setvbuf(stderr, NULL, _IONBF, 0);
 
 #if defined(RBLX_ANTICHEAT)
+    sayToConsole("Starting the anti-cheat...");
     startAntiCheat();
+    sayToConsole("Anti-cheat started.");
 #endif
 
     try {

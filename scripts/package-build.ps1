@@ -219,7 +219,7 @@ try {
         ''
         'SOURCE EDITOR (LinearCode.exe)'
         '  LinearCode.exe                edits this folder: shaders/, web/public/, games/'
-        '  LinearCode.exe D:\Roblox-Clone  edits a source clone, including the C++ files'
+        '  LinearCode.exe D:\Linear  edits a source clone, including the C++ files'
         '  Ctrl+P opens a file by name, Ctrl+F searches the folder, Ctrl+G goes to a line,'
         '  Ctrl+S saves. It writes the file back with the line endings it already had.'
         '  Ctrl+B makes a new release from a checkout - configure, build, tests, then this'

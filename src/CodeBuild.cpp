@@ -214,7 +214,7 @@ std::vector<Diagnostic> parseDiagnostics(const std::vector<std::string>& lines) 
 
         // MSVC: `path(line,col): severity CODE: message`, or `path(line): ...`.
         // The path is everything before the parenthesis, which may contain spaces
-        // (a folder called "Roblox Clone"), so the match is anchored at the end.
+        // (a folder called "Linear"), so the match is anchored at the end.
         Diagnostic diagnostic;
         bool matched = false;
 

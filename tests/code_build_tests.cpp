@@ -73,9 +73,9 @@ int main() {
     {
         const std::vector<std::string> lines = {
             "  ServerSetupMain.cpp",
-            "D:\\a\\Roblox-Clone\\src\\ServerSetupMain.cpp(237,10): warning C4996: 'sscanf': This "
+            "D:\\a\\Linear\\src\\ServerSetupMain.cpp(237,10): warning C4996: 'sscanf': This "
             "function or variable may be unsafe.",
-            "D:\\a\\Roblox-Clone\\src\\main.cpp(2,9): warning C4005: 'NOMINMAX': macro redefinition",
+            "D:\\a\\Linear\\src\\main.cpp(2,9): warning C4005: 'NOMINMAX': macro redefinition",
             "src/WebApp.cpp:5682:5: error: expected ';' before 'return'",
             "src/HubSite.cpp(231): error C2065: 'Json': undeclared identifier",
             "ServerSetup.obj : error LNK2019: unresolved external symbol \"Json::parse\"",
@@ -90,7 +90,7 @@ int main() {
         check(found.size() == 4, "four diagnostics are found, got " + std::to_string(found.size()));
 
         if (found.size() == 4) {
-            check(found[0].path == "D:\\a\\Roblox-Clone\\src\\ServerSetupMain.cpp",
+            check(found[0].path == "D:\\a\\Linear\\src\\ServerSetupMain.cpp",
                   "the MSVC path keeps its spaces and backslashes: " + found[0].path);
             check(found[0].line == 237 && found[0].column == 10, "the MSVC line and column");
             check(found[0].severity == "warning", "the severity is read: " + found[0].severity);

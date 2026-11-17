@@ -32,14 +32,16 @@ void usage() {
 
 std::string executablePath() {
     wchar_t wide[MAX_PATH * 4] = {};
-    const DWORD length = GetModuleFileNameW(nullptr, wide, static_cast<DWORD>(sizeof(wide) / sizeof(wide[0])));
+    const DWORD length =
+        GetModuleFileNameW(nullptr, wide, static_cast<DWORD>(sizeof(wide) / sizeof(wide[0])));
     if (length == 0) {
         return std::string();
     }
-    const int bytes = WideCharToMultiByte(CP_ACP, 0, wide, static_cast<int>(length), nullptr, 0, nullptr,
-                                          nullptr);
+    const int bytes = WideCharToMultiByte(CP_ACP, 0, wide, static_cast<int>(length), nullptr, 0,
+                                          nullptr, nullptr);
     std::string path(static_cast<std::size_t>(bytes), '\0');
-    WideCharToMultiByte(CP_ACP, 0, wide, static_cast<int>(length), path.data(), bytes, nullptr, nullptr);
+    WideCharToMultiByte(CP_ACP, 0, wide, static_cast<int>(length), path.data(), bytes, nullptr,
+                        nullptr);
     return path;
 }
 
@@ -72,7 +74,8 @@ int main(int argc, char** argv) {
         }
     }
 
-    const std::string path = file.empty() ? linear::certificate::defaultPath(executablePath()) : file;
+    const std::string path =
+        file.empty() ? linear::certificate::defaultPath(executablePath()) : file;
     if (path.empty()) {
         std::fprintf(stderr, "Could not work out where this program is, so pass --file.\n");
         return 1;

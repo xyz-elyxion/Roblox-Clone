@@ -11,6 +11,10 @@ namespace linear::certificate {
 
 namespace {
 
+// The encoding every store call takes: X.509 plus PKCS #7, which is what CertOpenStore and
+// the find and add functions expect for a plain certificate.
+const DWORD kEncoding = X509_ASN_ENCODING | PKCS_7_ASN_ENCODING;
+
 const StoreTarget kTargets[] = {
     {"ROOT"},
     {"TrustedPublisher"},
@@ -27,7 +31,8 @@ HCERTSTORE openStore(const StoreTarget& target, bool machine, std::string* error
     for (const char* p = target.name; *p != '\0'; ++p) {
         name.push_back(static_cast<wchar_t>(*p));
     }
-    HCERTSTORE store = CertOpenStore(CERT_STORE_PROV_SYSTEM_W, 0, 0, locationFor(machine), name.c_str());
+    HCERTSTORE store =
+        CertOpenStore(CERT_STORE_PROV_SYSTEM_W, 0, 0, locationFor(machine), name.c_str());
     if (store == nullptr) {
         if (error != nullptr) {
             *error = std::string("Could not open the ") + target.name + " store: " +
@@ -38,15 +43,14 @@ HCERTSTORE openStore(const StoreTarget& target, bool machine, std::string* error
 }
 
 PCCERT_CONTEXT contextFrom(const std::vector<unsigned char>& der) {
-    return CertCreateCertificateContext(X509_ASN_ENCODING | PKCS_7_ASN_ENCODING, der.data(),
-                                        static_cast<DWORD>(der.size()));
+    return CertCreateCertificateContext(kEncoding, der.data(), static_cast<DWORD>(der.size()));
 }
 
 bool presentIn(HCERTSTORE store, PCCERT_CONTEXT wanted) {
     // Only the certificate body is compared, so a re-issued file with the same subject but a
     // different key is not mistaken for the one already there.
-    PCCERT_CONTEXT found = CertFindCertificateInStore(store, X509_ASN_ENCODING | PKCS_7_ASN_ENCODING,
-                                                      0, CERT_FIND_EXACT, wanted, nullptr);
+    PCCERT_CONTEXT found =
+        CertFindCertificateInStore(store, kEncoding, 0, CERT_FIND_EXACT, wanted, nullptr);
     if (found == nullptr) {
         return false;
     }
@@ -82,17 +86,18 @@ bool readFile(const std::string& path, std::vector<unsigned char>* der, std::str
     if (raw.find("-----BEGIN CERTIFICATE-----") != std::string::npos) {
         // A PEM file is base64 between the markers; CryptStringToBinary does the decoding so
         // there is no second base64 implementation to get wrong.
+        const DWORD rawLength = static_cast<DWORD>(raw.size());
         DWORD size = 0;
-        if (!CryptStringToBinaryA(raw.c_str(), static_cast<DWORD>(raw.size()), CRYPT_STRING_BASE64HEADER,
-                                  nullptr, &size, nullptr, nullptr)) {
+        if (!CryptStringToBinaryA(raw.c_str(), rawLength, CRYPT_STRING_BASE64HEADER, nullptr, &size,
+                                  nullptr, nullptr)) {
             if (error != nullptr) {
                 *error = "Could not decode the PEM certificate in " + path;
             }
             return false;
         }
         der->assign(size, 0);
-        if (!CryptStringToBinaryA(raw.c_str(), static_cast<DWORD>(raw.size()), CRYPT_STRING_BASE64HEADER,
-                                  der->data(), &size, nullptr, nullptr)) {
+        if (!CryptStringToBinaryA(raw.c_str(), rawLength, CRYPT_STRING_BASE64HEADER, der->data(),
+                                  &size, nullptr, nullptr)) {
             if (error != nullptr) {
                 *error = "Could not decode the PEM certificate in " + path;
             }
@@ -141,7 +146,8 @@ bool install(const std::string& derPath, bool machine, int* alreadyThere, std::s
             continue;
         }
 
-        if (!CertAddCertificateContextToStore(store, context, CERT_STORE_ADD_REPLACE_EXISTING, nullptr)) {
+        if (!CertAddCertificateContextToStore(store, context, CERT_STORE_ADD_REPLACE_EXISTING,
+                                             nullptr)) {
             if (error != nullptr) {
                 *error = std::string("Could not add the certificate to the ") + list[i].name +
                          " store: " + std::to_string(static_cast<unsigned long>(GetLastError()));
@@ -182,8 +188,8 @@ bool remove(const std::string& derPath, bool machine, int* removedCount, std::st
             continue;
         }
 
-        PCCERT_CONTEXT found = CertFindCertificateInStore(store, X509_ASN_ENCODING | PKCS_7_ASN_ENCODING,
-                                                          0, CERT_FIND_EXACT, context, nullptr);
+        PCCERT_CONTEXT found =
+            CertFindCertificateInStore(store, kEncoding, 0, CERT_FIND_EXACT, context, nullptr);
         CertFreeCertificateContext(context);
         if (found == nullptr) {
             CertCloseStore(store, 0);

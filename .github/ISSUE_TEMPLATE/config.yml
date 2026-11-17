@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability
+    url: https://github.com/xyz-elyxion/Roblox-Clone/security/advisories/new
+    about: Private advisory, not a public issue. SECURITY.md says what the project does and does not defend against.
+  - name: Read the documentation first
+    url: https://github.com/xyz-elyxion/Roblox-Clone#readme
+    about: The README covers building, hosting, the web API, the anti-cheat and troubleshooting.
+  - name: How to contribute
+    url: https://github.com/xyz-elyxion/Roblox-Clone/blob/main/CONTRIBUTING.md
+    about: Build and test commands, the rules a pull request has to follow, and the code of conduct.

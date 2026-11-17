@@ -1715,6 +1715,17 @@ no repository is open rather than failing the server.
 | Client cannot connect | Start `Server.exe`, allow firewall access, and connect to `127.0.0.1` for local testing |
 | Play says the game server did not start | Read `web/game-server-logs/game-server-<port>.log`, which the error also quotes; a leftover `Server.exe` holding the port is the usual cause |
 
+## Contributing and licence
+
+Bug reports and pull requests are welcome. [CONTRIBUTING.md](CONTRIBUTING.md) has the build
+and test commands and the rules a change has to follow, and
+[CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) says how people are expected to behave here. A
+security problem goes through [SECURITY.md](SECURITY.md), never a public issue.
+
+The project is licensed under the GNU Affero General Public License v3. [LICENSE](LICENSE)
+explains why that licence and not a permissive one - `Client.exe` statically links the AGPL
+anti-cheat - and lists the terms the vendored trees keep.
+
 ## Credits
 
 - **LinearAntiCheat** is a renamed fork of

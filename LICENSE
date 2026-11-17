@@ -1,0 +1,43 @@
+Linear
+Copyright (C) 2026 xyz-elyxion
+
+This program is free software: you can redistribute it and/or modify it under the terms of
+the GNU Affero General Public License as published by the Free Software Foundation, version 3
+of the License.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
+without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See
+the GNU Affero General Public License for more details.
+
+The full text of that licence ships with this repository as `LinearAntiCheat/LICENSE`, and is
+also available at <https://www.gnu.org/licenses/agpl-3.0.txt>.
+
+Why this licence and not a permissive one
+-----------------------------------------
+
+`Client.exe` statically links `LinearAntiCheat`, a fork of UltimateAntiCheat, which is AGPL v3.
+A binary that links AGPL code has to be distributed under the AGPL, so this is the licence the
+whole project is offered under rather than a permissive licence that would misdescribe what
+ships. The AGPL's network clause is the part that matters in practice: if you run a modified
+version of `WebApp.exe` as a public website, people using it are entitled to the source of
+your version.
+
+If the client is ever built without the anti-cheat (`-DLINEAR_BUILD_ANTICHEAT=OFF`), the rest
+of the project is not entangled with AGPL code and a different licence becomes possible. That
+is a decision for the maintainer, not something a build switch changes on its own.
+
+Third-party code
+----------------
+
+The vendored trees keep their upstream terms, not this one. Each tree carries its own licence
+file, and [Credits](README.md#credits) lists what came from where:
+
+- `LinearAntiCheat` — AGPL v3, `LinearAntiCheat/LICENSE`
+- `linearbuild` — CMake, BSD 3-clause, `linearbuild/Licenses/`
+- `linearwin`, `linearmath`, `linearui`, `lineargizmo`, `lineartextedit`, `linearphysics`,
+  `linearstb` — GLFW, GLM, Dear ImGui, ImGuizmo, ImGuiColorTextEdit, ReactPhysics3D and stb
+  respectively, each with its licence file in its tree
+- `lineargl` — a generated OpenGL loader, with no separate licence file
+
+Redistributing a build means keeping those notices with it, which `scripts/package-build.ps1`
+does.

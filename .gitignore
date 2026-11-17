@@ -1,8 +1,10 @@
 # Build directories
-build/
-build2/
-build_old/
-build-*/
+# Anchored at the root: linearbuild/Utilities/cmlibarchive/build is vendored source,
+# and a bare build/ also hid it from every checkout.
+/build/
+/build2/
+/build_old/
+/build-*/
 cmake-build-*/
 linearbuild-build-*/
 

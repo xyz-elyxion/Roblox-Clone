@@ -110,8 +110,9 @@ foreach ($file in $files) {
 }
 
 if ($failed.Count -gt 0) {
-    Write-Error ("Signed $($files.Count - $failed.Count) of $($files.Count) file(s):`n  " + ($failed -join "`n  "))
-    exit 1
+    # A throw rather than exit: package-build.ps1 calls this and turns the failure into a
+    # warning, while a CI step that runs it directly still fails the job.
+    throw ("Signed $($files.Count - $failed.Count) of $($files.Count) file(s):`n  " + ($failed -join "`n  "))
 }
 
 Write-Host "signed $($files.Count) file(s) in $Folder"

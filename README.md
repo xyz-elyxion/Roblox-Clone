@@ -1719,45 +1719,50 @@ no repository is open rather than failing the server.
 
 ## Signing the release
 
-Every executable can be Authenticode-signed with this project's own certificate. That is
-what tells Windows, SmartScreen and an antivirus who published the file and that nobody
-edited it after signing — the difference between a program Kaspersky calls a suspicious
-new file and one it can check a publisher for.
-
-Make the certificate once, on the machine that signs:
+Every executable is Authenticode-signed when the package is assembled, with a certificate the
+packaging script makes for itself the first time it runs. There is nothing to prepare: no key
+file to generate, no password to set, no secret to add.
 
 ```powershell
-./scripts/make-certificate.ps1          # certs/linear-codesign.cer + .pfx
+./scripts/package-build.ps1 -Configuration Release
 ```
 
-The repository already carries one: `certs/linear-codesign.cer` is that public half, and it
-is what the package copies for `LinearCert.exe`. Regenerate it only when replacing the key,
-and keep the `.pfx` it produces — a certificate whose key was lost can sign nothing, and
-the signing script refuses a key that does not match the shipped certificate.
+That one command now makes `certs/linear-codesign.pfx` (the private key, local to the machine
+that builds and ignored by git) and `certs/linear-codesign.cer` (the public half) when they are
+missing, copies the `.cer` into the package, and signs every `.exe` in it with SHA-256 and a
+timestamp. `-NoCodeSign` skips all of it and leaves an unsigned folder, which Windows shows as
+an unknown publisher.
 
-`certs/linear-codesign.cer` is the public half and is committed: it ships in the package.
-`certs/linear-codesign.pfx` is the private key, is ignored by git, and signs. Anyone holding
-it can produce a program Windows calls Linear, so it belongs in a secret store, not in the
-repository and not in a package.
-
-Sign a folder, then put the certificate in the trust stores of the machine that will run
-the apps:
+The signature is what lets Windows, SmartScreen and an antivirus check who published a file and
+that nobody edited it afterwards. Windows only accepts it on a machine that has the certificate,
+so the package carries it and one program installs it:
 
 ```powershell
-./scripts/sign-binaries.ps1 -Folder dist/linear-windows-release
-./dist/linear-windows-release/LinearCert.exe install            # current user
-./dist/linear-windows-release/LinearCert.exe install --machine  # everyone, elevated
+./dist/linear-windows-release/LinearCert.exe install            # your account, no admin needed
+./dist/linear-windows-release/LinearCert.exe install --machine  # every account, elevated
+./dist/linear-windows-release/LinearCert.exe status             # does this machine trust it?
+./dist/linear-windows-release/LinearCert.exe uninstall
 ```
 
-`LinearCert.exe` writes to `ROOT` and `TrustedPublisher`. `status` says whether they hold
-the certificate and `uninstall` takes it out again. In CI, keep the `.pfx` and its password
-in repository secrets and pass them to `sign-binaries.ps1`; a release built without them is
-unsigned, and `package-build.ps1` says so.
+It writes the `certs\linear-codesign.cer` beside itself into `ROOT` and `TrustedPublisher`, and
+`--file <path>` picks a different certificate. After that, starting a program from that folder
+stops producing "unknown publisher", and `Get-AuthenticodeSignature Client.exe` reports `Valid`.
 
-One limit worth being clear about: this is a self-signed certificate, so it only helps on
-machines where it has been installed. Windows elsewhere still sees an unknown publisher,
-and Defender's SmartScreen reputation still starts from zero. Only a certificate from a
-recognised authority changes that, and that is a purchase rather than a script.
+The key never leaves the machine that built the package, which is the point: a release signed
+with a key in the repository would prove nothing. The flip side is that a package built
+somewhere else carries a different certificate, so the machines that run it install that
+package's certificate — the `.cer` and `LinearCert.exe` are always a matched pair inside one
+download. Signing and certificate making can still be run on their own:
+
+```powershell
+./scripts/sign-binaries.ps1 -Folder <folder>     # sign an existing folder with the same key
+./scripts/make-certificate.ps1 -Force            # replace the key (breaks trust for old builds)
+```
+
+Two limits worth knowing. The certificate is self-signed, so it only helps where it has been
+installed: Windows elsewhere still sees an unknown publisher, and SmartScreen's reputation for a
+freshly downloaded `.exe` starts from zero. Only a certificate from a recognised authority
+changes that, and that is a purchase rather than a script.
 
 ## Contributing and licence
 

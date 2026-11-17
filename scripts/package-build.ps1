@@ -35,7 +35,13 @@ param(
     # Copy the finished package into the folder the website serves updates from
     # (web/public/updates), which is what makes the default -UpdateUrl answer
     # instead of a 404. Off unless asked: that copy is a whole release.
-    [switch]$Publish
+    [switch]$Publish,
+
+    # Authenticode signing is on by default and needs nothing prepared: the certificate is
+    # made on first use and its public half ships in the package, where LinearCert.exe puts
+    # it in the trust stores. -NoCodeSign packages an unsigned folder instead, for a machine
+    # without the certificate tooling.
+    [switch]$NoCodeSign
 )
 
 $ErrorActionPreference = 'Stop'
@@ -72,6 +78,28 @@ try {
         Remove-Item -LiteralPath $Output -Recurse -Force
     }
     New-Item -ItemType Directory -Path $Output -Force | Out-Null
+
+    # The certificate makes itself. A checkout that has never signed anything gets one here,
+    # so a release needs no key file, no password and no setup step: the publisher identity
+    # belongs to whoever built the package, and certs/linear-codesign.cer travels with it.
+    $codeSign = -not $NoCodeSign
+    if ($codeSign) {
+        $pfxPath = Join-Path $repoRoot 'certs/linear-codesign.pfx'
+        if (-not (Test-Path -LiteralPath $pfxPath)) {
+            try {
+                Write-Host 'No signing certificate yet; making one.'
+                & (Join-Path $PSScriptRoot 'make-certificate.ps1')
+            }
+            catch {
+                Write-Warning ("Could not make a signing certificate: {0}" -f $_.Exception.Message)
+                $codeSign = $false
+            }
+            if ($codeSign -and -not (Test-Path -LiteralPath $pfxPath)) {
+                Write-Warning 'The certificate was not written; packaging an unsigned release.'
+                $codeSign = $false
+            }
+        }
+    }
 
     $exeDir = Join-Path $BuildDir $Configuration
     $found = @()
@@ -325,6 +353,20 @@ try {
         '}'
     ) -join $crlf
     [System.IO.File]::WriteAllText((Join-Path $Output 'update.json'), $updateConfig + $crlf, $encoding)
+
+    # Signing comes before manifest.json because that manifest records a hash per file: a
+    # signature added afterwards would leave the release describing files that no longer
+    # exist. -Publish copies this same signed folder, so the website serves a signed one.
+    # A failure is a warning rather than an error: an unsigned package still runs, Windows
+    # just asks who published it.
+    if ($codeSign) {
+        try {
+            & (Join-Path $PSScriptRoot 'sign-binaries.ps1') -Folder $Output
+        }
+        catch {
+            Write-Warning ("Could not sign the package: {0}" -f $_.Exception.Message)
+        }
+    }
 
     # The release description, generated last so every file above is in it. The
     # updater and its settings are left out on purpose: it cannot replace the copy

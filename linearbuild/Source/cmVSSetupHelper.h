@@ -2,6 +2,11 @@
    file LICENSE.rst or https://linearbuild.org/licensing for details.  */
 #pragma once
 
+// First include in this header on purpose: windows.h must not be processed before
+// winsock2.h. The Setup.Configuration.h below reaches objbase.h, and cmSystemTools.h
+// reaches libuv, which includes winsock2.h itself; MinGW warns if windows.h went first.
+#include <winsock2.h>
+
 #ifndef NOMINMAX
 #  define NOMINMAX // Undefine min and max defined by windows.h
 #endif

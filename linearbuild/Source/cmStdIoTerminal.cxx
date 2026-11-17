@@ -13,6 +13,7 @@
 #include <cmext/string_view>
 
 #ifdef _WIN32
+#  include <winsock2.h>  /* ahead of windows.h: uv/win.h includes it later, and MinGW warns when it comes second */
 #  include <windows.h>
 #endif
 

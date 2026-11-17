@@ -64,7 +64,9 @@ them, and writes `README.txt`, `update.json` and `manifest.json` into `dist/line
    `linearphysics/.../containers/Deque.h`, the unsigned `INVALID_INDEX` in its
    `Map.h`/`Set.h`, `toLocalTime` in `DefaultLogger.h`, the safe CRT calls in
    `linearui`, the signed sentinels in `lineargizmo/src/LinearGizmo.cpp`, and the narrowing
-   casts in the anti-cheat's `Detections.cpp` and `Process.cpp`; the TLS callback in
+   casts in the anti-cheat's `Detections.cpp` and `Process.cpp`; the winsock2.h-before-windows.h
+   order in `linearbuild`'s Windows translation units (ten of them), which MinGW warns about
+   because those files include windows.h before libuv reaches winsock2.h; the TLS callback in
    `Core/AntiCheatLib.cpp`, which scanned threads and logged through the C runtime while the
    loader still held its lock and before the static runtime existed, hanging the client
    before `main()` on an empty console. Keep those fixes;

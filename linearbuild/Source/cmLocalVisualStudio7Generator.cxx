@@ -12,6 +12,7 @@
 #include <cm/optional>
 #include <cmext/algorithm>
 
+#include <winsock2.h>  /* ahead of windows.h: uv/win.h includes it later, and MinGW warns when it comes second */
 #include <windows.h>
 
 #include <cm3p/expat.h>

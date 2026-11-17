@@ -9,6 +9,7 @@
 #include <ostream> // IWYU pragma: keep
 
 #ifdef _WIN32
+#  include <winsock2.h>  /* ahead of windows.h: uv/win.h includes it later, and MinGW warns when it comes second */
 #  include <windows.h>
 
 #  include <io.h> // for _get_osfhandle

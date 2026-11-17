@@ -2,6 +2,7 @@
    file LICENSE.rst or https://linearbuild.org/licensing for details.  */
 #include <cm/memory>
 
+#include <winsock2.h>  /* ahead of windows.h: uv/win.h includes it later, and MinGW warns when it comes second */
 #include <windows.h>
 
 #include "cmFileLock.h"

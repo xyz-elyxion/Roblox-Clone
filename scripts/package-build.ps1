@@ -161,7 +161,7 @@ try {
         '  Client.exe    game client, started by WebApp.exe when you press Play'
         '  Studio.exe    world editor for levels and their scripts'
         '  LinearCode.exe  source editor for the files in this folder: project tree, tabs,'
-        '                C++/GLSL/RBLX script highlighting, search, save'
+        '                C++/GLSL/Linear script highlighting, search, save'
         '  AiTrainer.exe headless trainer: signs in with an AI token, then learns and replays'
         '  LinearUpdater.exe auto updater: checks manifest.json, downloads only the files that'
         '                changed, then starts the game'

@@ -132,7 +132,7 @@ falls back to the local default. A proxy that forwards a caller-supplied `Host` 
 aim a player's client, and the session token it carries, at another origin.
 
 The play answer names the server but never the player's session token: the command shown on the
-page leaves `--token` out and there is no `rblxclone://` URL, because a token in a rendered string
+page leaves `--token` out and there is no `linear://` URL, because a token in a rendered string
 travels into screenshots, shell history and whichever program registered the scheme. The client this
 backend starts for a local player still receives the token on its own command line, the same
 trade-off as a game instance's launch token, and a client started by hand signs in through the site.

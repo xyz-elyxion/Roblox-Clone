@@ -184,7 +184,7 @@ std::string page(const std::string& title, const std::string& body) {
     out += "<title>" + escapeHtml(title) + " - LinearHub</title>\n";
     out += "<link rel=\"stylesheet\" href=\"/hub.css\">\n</head>\n<body>\n";
     out += "<a class=\"skip-link\" href=\"#main\">Skip to content</a>\n";
-    out += "<header class=\"top\"><a class=\"brand\" href=\"/\">RBLX<span>Hub</span></a>";
+    out += "<header class=\"top\"><a class=\"brand\" href=\"/\">Linear<span>Hub</span></a>";
     out += "<span class=\"tagline\">git, served from this machine</span></header>\n";
     out += "<main id=\"main\" tabindex=\"-1\">\n";
     out += body;

@@ -206,7 +206,7 @@ Response request(const std::string& method,
         head += ":" + std::to_string(parsed.port);
     }
     head += "\r\n";
-    head += "User-Agent: RBLX Client/1.0\r\n";
+    head += "User-Agent: Linear Client/1.0\r\n";
     head += "Accept: application/json\r\n";
     head += "Connection: close\r\n";
     if (!body.empty() || method == "POST" || method == "PUT") {

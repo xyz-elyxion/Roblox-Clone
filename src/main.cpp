@@ -669,7 +669,7 @@ int main() {
 
             // Studio's script panel is a code editor rather than a text box: line
             // numbers, syntax highlighting, selection, undo and the dark palette
-            // VS Code uses. RBLX Script is Lua-shaped, so the Lua definition is
+            // VS Code uses. Linear Script is Lua-shaped, so the Lua definition is
             // the one that colours it correctly. It is created on first use, once
             // the RblxUI context exists, and it holds the script itself - Save and
             // Run read it back instead of a fixed buffer that would cut a long

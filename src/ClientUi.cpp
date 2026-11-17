@@ -532,7 +532,7 @@ void renderAuthMenu(float uiScale) {
     RblxUI::SetNextWindowSize(RblxVec2(panelWidth, panelHeight), RblxUICond_Always);
 
     if (RblxUI::Begin("PlayerAuth", nullptr, overlayFlags())) {
-        drawLabel("RBLX CLONE PLAYER");
+        drawLabel("LINEAR PLAYER");
         RblxUI::TextUnformatted("Sign in through the website");
         RblxUI::PushTextWrapPos(RblxUI::GetCursorPosX() + panelWidth - UiScale::Px(48.0f, uiScale));
         RblxUI::TextWrapped("Sign in to continue with your account.");
@@ -969,7 +969,7 @@ void renderLoadingScreen(float uiScale) {
     RblxUI::SetNextWindowSize(RblxVec2(panelWidth, panelHeight), RblxUICond_Always);
 
     if (RblxUI::Begin("LoadingScreen", nullptr, overlayFlags())) {
-        drawLabel("RBLX CLONE");
+        drawLabel("LINEAR");
         RblxUI::TextUnformatted("Loading");
         RblxUI::PushStyleColor(RblxUICol_Text, palette.muted);
         RblxUI::TextWrapped("Checking the saved sign-in with the website, then opening the "

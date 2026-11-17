@@ -102,7 +102,7 @@ clears the failure budget, which is why one press is enough after a slot has giv
 The page polls `GET /api/status`; the buttons `POST /api/instances/<slot>/start|stop|restart`
 and `POST /api/pool/start|stop`; `GET /api/logs/<slot>?tail=200` returns a log as plain
 text. Those four are enough for a script to drive the pool, and a command-line client
-can send `X-RBLX-Token: <token>` instead of doing the cookie exchange.
+can send `X-Linear-Token: <token>` instead of doing the cookie exchange.
 
 ## Playing on a hosted server
 

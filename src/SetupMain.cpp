@@ -315,7 +315,7 @@ bool createShortcuts(const std::string& installDirectory, const Options& options
         // entry can point straight at it.
         ok = createShortcut((menu / "Linear website.lnk").string(),
                             (fs::path(installDirectory) / "WebApp.exe").string(), "", installDirectory,
-                            "Starts the local RBLX website") &&
+                            "Starts the local Linear website") &&
              ok;
         ok = createShortcut((menu / "Uninstall Linear.lnk").string(), setup, "--uninstall",
                             installDirectory, "Removes Linear from this account") &&

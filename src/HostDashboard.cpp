@@ -290,7 +290,7 @@ bool authorized(const HostDashboard::Impl& impl, const Request& request) {
     if (tokenMatches(cookieValue(request), impl.token)) return true;
     // curl and scripts can skip the cookie exchange; the page cannot, which is
     // what the redirect is for.
-    return tokenMatches(request.header("x-rblx-token"), impl.token);
+    return tokenMatches(request.header("x-linear-token"), impl.token);
 }
 
 // A POST from another site would arrive with its own Origin. Same-origin posts

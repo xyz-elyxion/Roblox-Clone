@@ -80,7 +80,7 @@ void testLanguages() {
     check(languageForPath("shaders/fragment.glsl") == Language::Glsl, "a shader is GLSL");
     check(languageForPath("shaders/shadow.vert") == Language::Glsl, "a vertex shader is GLSL");
     check(languageForPath("games/doors-hotel.rbx") == Language::Lua,
-          "an .rbx script is coloured as RBLX Script, which is Lua-shaped");
+          "an .rbx script is coloured as Linear Script, which is Lua-shaped");
     check(languageForPath("web/public/app.js") == Language::JavaScript, "a script is JavaScript");
     check(languageForPath("web/public/index.html") == Language::Html, "a page is HTML");
     check(languageForPath("web/public/style.css") == Language::Css, "a stylesheet is CSS");
@@ -88,7 +88,7 @@ void testLanguages() {
     check(languageForPath("web/data.json") == Language::Json, "a data file is JSON");
     check(languageForPath("textures/face.png") == Language::Plain, "an image is plain text");
     check(std::string(languageName(Language::Cpp)) == "C++", "C++ names itself");
-    check(std::string(languageName(Language::Lua)) == "RBLX script", "RBLX Script names itself");
+    check(std::string(languageName(Language::Lua)) == "Linear script", "Linear Script names itself");
 }
 
 void testFilters() {
@@ -474,7 +474,7 @@ void testEditingHelpers() {
     check(!lineHasComment("// note", "", &marker), "a language with no line comment never matches");
     check(std::string(lineCommentPrefix(Language::Cpp)) == "//", "C++ comments with two slashes");
     check(std::string(lineCommentPrefix(Language::Lua)) == "--",
-          "RBLX Script comments with two dashes");
+          "Linear Script comments with two dashes");
     check(std::string(lineCommentPrefix(Language::Css)).empty(),
           "CSS has no line comment to toggle");
 

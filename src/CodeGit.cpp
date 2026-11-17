@@ -89,7 +89,7 @@ bool commitEverything(git::Repo& repo, const std::string& message, std::string* 
     return true;
 }
 
-std::string authorName() { return envOr("LINEAR_GIT_NAME", "RBLX Code"); }
+std::string authorName() { return envOr("LINEAR_GIT_NAME", "Linear Code"); }
 
 std::string authorEmail() { return envOr("LINEAR_GIT_EMAIL", "editor@rblx.local"); }
 

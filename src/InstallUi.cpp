@@ -203,7 +203,7 @@ Result run(Options& options, const std::vector<std::string>& actions,
     Report report;
 
     rblxwinSetErrorCallback([](int, const char* description) {
-        std::fprintf(stderr, "RBLX window: %s\n", description == nullptr ? "unknown" : description);
+        std::fprintf(stderr, "Linear window: %s\n", description == nullptr ? "unknown" : description);
     });
     if (rblxwinInit() == 0) return result;
 

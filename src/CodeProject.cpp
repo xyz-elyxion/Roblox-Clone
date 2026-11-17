@@ -52,7 +52,7 @@ Language languageForPath(const std::string& path) {
         extension == ".tese") {
         return Language::Glsl;
     }
-    // The engine's own script language, RBLX Script, is Lua-shaped, so the Lua
+    // The engine's own script language, Linear Script, is Lua-shaped, so the Lua
     // definition is the one that colours it correctly.
     if (extension == ".rbx" || extension == ".lua") {
         return Language::Lua;
@@ -79,7 +79,7 @@ const char* languageName(Language language) {
     switch (language) {
         case Language::Cpp: return "C++";
         case Language::Glsl: return "GLSL";
-        case Language::Lua: return "RBLX script";
+        case Language::Lua: return "Linear script";
         case Language::JavaScript: return "JavaScript";
         case Language::Html: return "HTML";
         case Language::Css: return "CSS";
@@ -705,7 +705,7 @@ std::string firstWordAfter(const std::string& line, std::size_t at) {
     return line.substr(begin, at - begin);
 }
 
-// RBLX Script and JavaScript name their functions the way they are called:
+// Linear Script and JavaScript name their functions the way they are called:
 // `M.shop:open`, not just `open`.
 std::string qualifiedNameAfter(const std::string& line, std::size_t at) {
     while (at < line.size() && (line[at] == ' ' || line[at] == '\t')) {
@@ -1376,7 +1376,7 @@ std::vector<DocEntry> shortPages(const ShortPage (&pages)[N], const std::string&
     return out;
 }
 
-// RBLX Script: the globals and methods this build's interpreter and world
+// Linear Script: the globals and methods this build's interpreter and world
 // runtime actually install, not the ones a Roblox script would expect to find.
 std::vector<DocEntry> scriptPages() {
     std::vector<DocEntry> out;
@@ -1709,7 +1709,7 @@ std::vector<DocEntry> editorReference() {
         "Outline", "editor", "Ctrl+Shift+O",
         "The symbols of the file in front.",
         "The middle panel lists what the file declares: functions, classes and types from braces "
-        "and keywords in C++ and GLSL, functions in RBLX Script and JavaScript, headings in "
+        "and keywords in C++ and GLSL, functions in Linear Script and JavaScript, headings in "
         "Markdown and keys in JSON. A click jumps to the line, and Ctrl+Shift+O filters the list "
         "by name.", {"LinearCode"}));
     return out;

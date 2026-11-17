@@ -27,7 +27,7 @@ enum class Language {
 };
 
 Language languageForPath(const std::string& path);
-// Short name for the status bar: "C++", "GLSL", "RBLX script".
+// Short name for the status bar: "C++", "GLSL", "Linear script".
 const char* languageName(Language language);
 // The marker that comments out one line of this language, or "" when the
 // language has no single-line comment the editor can toggle.
@@ -122,7 +122,7 @@ std::size_t replaceAllInText(std::string* text, const std::string& needle,
                              const FindOptions& options = FindOptions());
 
 // A symbol panel or a Go to Symbol list, taken from the shape of the language:
-// braces and declaration keywords in C++ and GLSL, `function` in RBLX Script and
+// braces and declaration keywords in C++ and GLSL, `function` in Linear Script and
 // JavaScript, headings in Markdown and keys in JSON.
 struct OutlineSymbol {
     std::string kind;    // "function", "class", "heading", "key"...
@@ -179,7 +179,7 @@ std::string joinProjectPath(const std::string& root, const std::string& relative
 // ---------------------------------------------------------------------------
 
 // One page of documentation: what a name does. Pages come from three places --
-// the reference that ships with the editor (the RBLX script API and the keywords
+// the reference that ships with the editor (the Linear script API and the keywords
 // of each other language), the comment above a declaration in the file being
 // read, and the comment a file opens with. They all have the same shape, so the
 // hover tooltip, the completion popup and the documentation window draw any of
@@ -194,7 +194,7 @@ struct DocEntry {
 };
 
 // The pages that ship with the editor for a language family: the script API for
-// RBLX Script and JavaScript, the keywords and built-ins of the rest.
+// Linear Script and JavaScript, the keywords and built-ins of the rest.
 const std::vector<DocEntry>& referencePages(Language language);
 // A page by name: the exact name first, then a case-insensitive match, and a
 // member's page by its bare name when the qualified one is not there. nullptr

@@ -1260,7 +1260,7 @@ int runLiveGame(TrainingWorld& world, TrainerWindow& window, bool gui, const Opt
 
     TrainerFrame frame;
     if (gui) {
-        frame.title = "RBLX AI trainer - live";
+        frame.title = "Linear AI trainer - live";
         frame.doorCount = world.doorsCourse() ? kHotelDoors : 0;
         fillTrainerFrame(world, &frame);
         window.present(frame);
@@ -1469,7 +1469,7 @@ bool savePolicy(const Policy& policy, const std::string& path, const TrainingWor
         *error = "could not open " + path + " for writing";
         return false;
     }
-    out << "# RBLX AI policy v1\n";
+    out << "# Linear AI policy v1\n";
     out << "course " << (world.doorsCourse() ? "doors" : "map") << '\n';
     out << "goal " << world.goalName() << ' ' << world.goal().x << ' ' << world.goal().y << ' '
         << world.goal().z << '\n';
@@ -1658,7 +1658,7 @@ int main(int argc, char** argv) {
     TrainerWindow window;
     bool gui = options.gui;
     if (gui) {
-        if (!window.open("RBLX AI trainer - " + session.title, &error)) {
+        if (!window.open("Linear AI trainer - " + session.title, &error)) {
             std::fprintf(stderr, "No window: %s; training headless.\n", error.c_str());
             gui = false;
         } else {
@@ -1747,7 +1747,7 @@ int main(int argc, char** argv) {
                 std::vector<EpisodeResult> batchResults;
                 if (gui) {
                     TrainerFrame frame;
-                    frame.title = "RBLX AI trainer - " + session.title;
+                    frame.title = "Linear AI trainer - " + session.title;
                     frame.doorCount = world.doorsCourse() ? kHotelDoors : 0;
                     fillTrainerFrame(world, &frame);
                     window.present(frame);

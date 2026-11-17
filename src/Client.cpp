@@ -848,8 +848,8 @@ bool startAuthCallback(std::string& loginUrl, std::string& error) {
 
 void sendAuthCallbackResponse(SOCKET socket, bool success) {
     const char* body = success
-        ? "<!doctype html><title>RBLX Player</title><h1>Signed in</h1><p>You can return to the player.</p>"
-        : "<!doctype html><title>RBLX Player</title><h1>Login failed</h1><p>Please return to the player and try again.</p>";
+        ? "<!doctype html><title>Linear Player</title><h1>Signed in</h1><p>You can return to the player.</p>"
+        : "<!doctype html><title>Linear Player</title><h1>Login failed</h1><p>Please return to the player and try again.</p>";
     std::ostringstream response;
     response << "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: "
              << std::strlen(body) << "\r\nConnection: close\r\n\r\n" << body;

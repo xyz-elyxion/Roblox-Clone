@@ -35,7 +35,7 @@ The website starts a game server and launches the client for you.
 - [Anti-cheat and moderation](#anti-cheat-and-moderation) — the ladder, machine bans, appeals
 - [The website](#the-website) — configuration, accounts, captchas, coins, admin, themes
 - [Web API](#web-api) — every route, grouped
-- [Scripting](#scripting) — RBLX Script and the world API
+- [Scripting](#scripting) — Linear Script and the world API
 - [Controls](#controls) — client, Studio, LinearCode
 - [AI Trainer](#ai-trainer) · [Repository layout](#repository-layout)
 - [RBLXBuild and vendored dependencies](#rblxbuild-and-vendored-dependencies)
@@ -1140,7 +1140,7 @@ curl -s localhost:3000/api/account/standing -H "Authorization: Bearer $TOKEN"
 ```
 ## Scripting
 
-The engine has its own scripting language, **RBLX Script**, a Lua-style subset used by Studio, the
+The engine has its own scripting language, **Linear Script**, a Lua-style subset used by Studio, the
 game server and the seeded games. Scripts drive gameplay by moving parts and reacting to events.
 
 ```lua
@@ -1300,14 +1300,14 @@ It has a project tree on the left, an outline of the file in front on the right,
 (a `*` marks unsaved work), the RBLXUI colour text editor Studio's Script panel uses in the middle,
 and a status bar under it with the line and column, the language, the line count, whether the file
 is saved and the branch of the checkout. C++ and headers are coloured as C++, `.glsl`, `.vert` and
-`.frag` as GLSL, `.rbx` as RBLX Script (a Lua-shaped language, so the Lua definition is the right
+`.frag` as GLSL, `.rbx` as Linear Script (a Lua-shaped language, so the Lua definition is the right
 one), and anything the widget has no definition for opens as plain text with its real name in the
 status bar instead of being coloured wrongly.
 
 | Shortcut | Action |
 | --- | --- |
 | `Ctrl+P` | Quick open: type an abbreviation of a path (`cmain` finds `src/CodeMain.cpp`, not the files that merely contain those letters) and `Enter` opens the best match |
-| `Ctrl+Shift+O` | Go to a symbol in the open file. The outline lists functions, classes, structs, enums and namespaces in C++ and GLSL, functions and handlers in RBLX Script and JavaScript, rules in CSS, headings in Markdown and keys in JSON; declarations without a body are left out, and the outline is rebuilt only when the buffer changes |
+| `Ctrl+Shift+O` | Go to a symbol in the open file. The outline lists functions, classes, structs, enums and namespaces in C++ and GLSL, functions and handlers in Linear Script and JavaScript, rules in CSS, headings in Markdown and keys in JSON; declarations without a body are left out, and the outline is rebuilt only when the buffer changes |
 | `Ctrl+F` | Find in the file in front, with match case and whole word, a `3 of 12` count and `Enter`/`Shift+Enter` or `F3`/`Shift+F3` to walk the matches |
 | `Ctrl+H` | Adds the replace row: `Replace` takes one match, `Replace all` rewrites the buffer |
 | `Ctrl+Shift+F` | Project search: a case-insensitive substring across the project, one row per matching line; clicking a row opens the file on that line |
@@ -1378,7 +1378,7 @@ tree or a tab shows what that file says it does, taken from the comment it opens
 tooltip has a button that opens the whole page.
 
 `F1` opens the documentation window on whatever the caret is on, and the window reaches every page
-there is: the RBLX Script API this build actually implements (`print`, `warn`, `math`,
+there is: the Linear Script API this build actually implements (`print`, `warn`, `math`,
 `workspace:FindFirstChild`, `Vector3.new` and the rest of what the interpreter and the world runtime
 install), the keywords and built-ins of every other language the editor colours, the symbols the
 open file declares, the page for the file itself, and the editor's own pages for its project tree,

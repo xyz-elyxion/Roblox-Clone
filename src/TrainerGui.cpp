@@ -322,7 +322,7 @@ bool TrainerWindow::present(const Frame& frame) {
         RblxUIWindowFlags_NoTitleBar | RblxUIWindowFlags_NoResize | RblxUIWindowFlags_NoMove |
         RblxUIWindowFlags_NoCollapse | RblxUIWindowFlags_NoBringToFrontOnFocus |
         RblxUIWindowFlags_NoSavedSettings;
-    RblxUI::Begin("RBLX AI trainer", nullptr, flags);
+    RblxUI::Begin("Linear AI trainer", nullptr, flags);
 
     const ui::theme::Colors& colors = ui::theme::colors();
     RblxUI::TextColored(colors.text, "%s", frame.title.c_str());

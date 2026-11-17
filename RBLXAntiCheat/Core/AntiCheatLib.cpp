@@ -7,12 +7,23 @@
 #include "../AntiDebug/DebuggerDetections.hpp"
 #include "../AntiTamper/MapProtectedClass.hpp" //to make Settings class object write-protected (see https://github.com/AlSch092/RemapProtectedClass)
 #include "../SplashScreen.hpp"
+#include <atomic>
 
 #pragma comment(linker, "/ALIGN:0x10000") //for section remapping
 #pragma comment (linker, "/INCLUDE:_tls_used")
 #pragma comment (linker, "/INCLUDE:_tls_callback")
 
 void NTAPI __stdcall TLSCallback(PVOID pHandle, DWORD dwReason, PVOID Reserved);
+
+// False until the anti-cheat has actually started, which happens from main(). The TLS
+// callback below runs during process startup, while the loader lock is held, and its
+// thread branch suspends each new thread and then takes a Toolhelp module snapshot - and
+// a snapshot needs that same lock. Windows creates threads of its own while it is still
+// starting the process (the crypto thread pool), so the scan deadlocked there: the client
+// hung before main(), its threads suspended and not a line written to any log, which is
+// indistinguishable from a program that refuses to launch. Upstream is a standalone
+// executable where nothing creates a thread that early; this build embeds it in a game.
+static std::atomic<bool> g_anticheat_started{false};
 
 EXTERN_C
 #ifdef _M_X64
@@ -139,6 +150,8 @@ struct AntiCheat::Impl
 			Logger::logf(Err, "Failed to launch defenses @ Impl::Impl(). Shutting down.");
 			throw AntiCheatInitFail(AntiCheatInitFailReason::StartupFailed);
         }
+        // The anti-cheat is running: thread creation from now on is worth scanning.
+        g_anticheat_started.store(true, std::memory_order_relaxed);
     }
 
     ~Impl()
@@ -305,6 +318,12 @@ void NTAPI __stdcall TLSCallback(PVOID pHandle, DWORD dwReason, PVOID Reserved)
 
     case DLL_THREAD_ATTACH: //add to our thread list, or if thread is not executing valid address range, patch over execution address
     {
+        // Taking the loader lock here would deadlock the start of the process (see the
+        // comment on g_anticheat_started), so the scan only runs once main() has started
+        // the anti-cheat.
+        if (!g_anticheat_started.load(std::memory_order_relaxed))
+            return;
+
 #ifndef _DEBUG
         if (!Debugger::AntiDebug::HideThreadFromDebugger(GetCurrentThread())) //hide thread from debuggers, placing this in the TLS callback allows all threads to be hidden
         {

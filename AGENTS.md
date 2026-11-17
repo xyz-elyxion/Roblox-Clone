@@ -64,7 +64,9 @@ them, and writes `README.txt`, `update.json` and `manifest.json` into `dist/rblx
    `rblxphysics/.../containers/Deque.h`, the unsigned `INVALID_INDEX` in its
    `Map.h`/`Set.h`, `toLocalTime` in `DefaultLogger.h`, the safe CRT calls in
    `rblxui`, the signed sentinels in `rblxgizmo/src/RblxGizmo.cpp`, and the narrowing
-   casts in the anti-cheat's `Detections.cpp` and `Process.cpp`. Keep those fixes;
+   casts in the anti-cheat's `Detections.cpp` and `Process.cpp`; the TLS callback in
+   `Core/AntiCheatLib.cpp` that deadlocked the client before `main()` by taking the loader
+   lock to scan threads Windows had created while starting the process. Keep those fixes;
    they are corrections, not a reformat. Their generated
    documentation, examples, own test suites and CI files have been pruned; the code, build
    files and licences are upstream as pinned.

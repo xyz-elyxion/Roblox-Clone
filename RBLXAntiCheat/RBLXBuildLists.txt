@@ -80,6 +80,12 @@ if(MSVC)
     target_compile_options(RBLXAntiCheat PRIVATE /W3)
 endif()
 
+# Off by default: see the note on the option in the top-level build list. It selects the two
+# steps that make anti-virus engines treat the executable as malware.
+if(RBLX_ANTICHEAT_INVASIVE)
+    target_compile_definitions(RBLXAntiCheat PRIVATE RBLX_ANTICHEAT_INVASIVE)
+endif()
+
 # Prebuilt dependencies that ship with the vendored source: curl (used by the
 # optional anti-cheat server link), brotli and zlib. They are checked in under
 # Libs/ because the project has no package manager for them, and they must

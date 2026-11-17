@@ -24,6 +24,14 @@ option(RBLX_BUILD_TESTS "Build C++ test targets" ON)
 option(RBLX_BUILD_WEBAPP "Build the native website backend target" ON)
 option(RBLX_BUILD_TRAINER "Build the headless AI trainer target" ON)
 option(RBLX_BUILD_ANTICHEAT "Embed the vendored RBLXAntiCheat library in the game client (Windows only)" ON)
+
+# Two steps of the anti-cheat modify code and memory that do not belong to it: it writes a
+# RET over a function inside ntdll.dll, and it maps its settings section again as
+# read-only. Both are what a process-patching attack looks like, so an unsigned build that
+# does them is quarantined as malware - Kaspersky removes Client.exe outright. The client
+# loses nothing it uses: the checks that read state stay on. Turn this on only when the
+# executable is code-signed, or when building the anti-cheat for research.
+option(RBLX_ANTICHEAT_INVASIVE "Let the anti-cheat patch ntdll and remap its own settings (anti-virus engines flag this)" OFF)
 option(RBLX_BUILD_UPDATER "Build the installer and update launcher targets" ON)
 option(RBLX_BUILD_HOSTS "Build the game server supervisor target" ON)
 option(RBLX_BUILD_PROXY "Build the website reverse proxy target" ON)

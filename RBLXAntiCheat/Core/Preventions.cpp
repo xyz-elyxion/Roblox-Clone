@@ -185,6 +185,12 @@ bool Preventions::StopMultipleProcessInstances()
 */
 bool Preventions::StopAPCInjection()
 {
+#if !defined(RBLX_ANTICHEAT_INVASIVE)
+    // Not compiled into the game build: writing a RET over a function inside ntdll is the
+    // single clearest malware signal a static scan can find. See RBLX_ANTICHEAT_INVASIVE
+    // in the top-level build list.
+    return false;
+#else
     HMODULE ntdll = GetModuleHandleA("ntdll.dll");
 
     if (!ntdll)
@@ -227,6 +233,7 @@ bool Preventions::StopAPCInjection()
     }
 
     return true;
+#endif
 }
 
 #if _WIN32_WINNT >= 0x0602  //SetProcessMitigationPolicy starts support in Windows 8 

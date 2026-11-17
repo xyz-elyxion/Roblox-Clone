@@ -86,6 +86,7 @@ struct AntiCheat::Impl
             settings->bEnableLogging,
             settings->logFileName);
 
+#if defined(RBLX_ANTICHEAT_INVASIVE)
         try
         {
             this->ProtectedSettings->Protect(); //remap the protected memory to prevent tampering (this doesn't call DRM::Protect)
@@ -94,6 +95,12 @@ struct AntiCheat::Impl
         {
             throw std::runtime_error("Could not create protected memory for DRM settings");
         }
+#else
+        // Left as the writable mapping Construct() made. Re-mapping the section with
+        // SEC_NO_CHANGE is self-modification, which anti-virus engines score as malware,
+        // and this build is the one players run. Reset() unmaps whatever mapping exists,
+        // so the destructor is unaffected.
+#endif
           
         if (!DoPreInitializeChecks())
         {
@@ -101,7 +108,11 @@ struct AntiCheat::Impl
             throw AntiCheatInitFail(AntiCheatInitFailReason::PreInitializeChecksDidNotPass);
         }
             
+#if defined(RBLX_ANTICHEAT_INVASIVE)
         Preventions::StopAPCInjection(); //patch over ntdll.dll Ordinal8 unnamed function: we do this here or else integrity checker will show as nttdll.dll being modified
+#endif
+        // Without the patch ntdll is compared with its file exactly as the loader left it,
+        // so the integrity check needs no adjustment either way.
 
         try
         {

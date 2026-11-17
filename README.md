@@ -287,6 +287,10 @@ is compiled into the client.
 **The website** is built from the same tree and needs nothing beyond it: no Node.js, npm or SQLite.
 
 `RBLXAntiCheat` is compiled into the client; `-DRBLX_BUILD_ANTICHEAT=OFF` leaves it out.
+Two of its steps - writing over a function inside `ntdll.dll` and re-mapping its own
+settings section as read-only - are left out by default, because an unsigned executable
+that does them is quarantined as malware by anti-virus engines; `-DRBLX_ANTICHEAT_INVASIVE=ON`
+puts them back for a build that is code-signed.
 
 ## Building
 
@@ -333,6 +337,7 @@ build\rblxbuild-tool\bin\rblxtest --test-dir build/ninja --output-on-failure
 | `RBLX_BUILD_STUDIO` | Build the world editor |
 | `RBLX_BUILD_TESTS` | Build the C++ test suite (`rblxtest` runs it) |
 | `RBLX_BUILD_ANTICHEAT` | Compile RBLXAntiCheat into the client |
+| `RBLX_ANTICHEAT_INVASIVE` | Let the anti-cheat patch `ntdll` and remap its settings (anti-virus engines flag it; off by default) |
 | `RBLX_BUILD_HOSTS` | Build the game server supervisor (`RBLXHosts`) |
 | `RBLX_BUILD_GIT` | Build the git command line (`RBLXGit`) |
 | `RBLX_BUILD_HUB` | Build the repository browser (`RBLXHub`) |

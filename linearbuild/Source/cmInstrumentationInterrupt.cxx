@@ -20,6 +20,7 @@
 #ifdef _WIN32
 #  include <atomic>
 
+#  include <winsock2.h>  /* ahead of windows.h: libuv includes winsock2.h later, and MinGW warns when it comes second */
 #  include <windows.h>
 #else
 #  include <cstring>

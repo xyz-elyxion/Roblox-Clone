@@ -55,6 +55,7 @@
 #endif
 
 #if defined(_WIN32) && !defined(__CYGWIN__)
+#  include <winsock2.h>  /* ahead of windows.h: libuv includes winsock2.h later, and MinGW warns when it comes second */
 #  include <windows.h>
 // http://msdn.microsoft.com/en-us/library/aa384253%28v=vs.85%29.aspx
 #  if !defined(KEY_WOW64_32KEY)

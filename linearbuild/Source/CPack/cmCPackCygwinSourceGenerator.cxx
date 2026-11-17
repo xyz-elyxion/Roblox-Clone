@@ -16,6 +16,7 @@
 // system tools because it is not implemented robustly enough to move
 // files across directories.
 #ifdef _WIN32
+#  include <winsock2.h>  /* ahead of windows.h: libuv includes winsock2.h later, and MinGW warns when it comes second */
 #  include <windows.h>
 
 #  include "cm_sys_stat.h"

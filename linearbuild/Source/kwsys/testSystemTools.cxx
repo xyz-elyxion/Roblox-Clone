@@ -29,6 +29,7 @@
 #  ifdef _MSC_VER
 #    define umask _umask
 #  endif
+#  include <winsock2.h>  /* ahead of windows.h: libuv includes winsock2.h later, and MinGW warns when it comes second */
 #  include <windows.h>
 #endif
 #include <sys/stat.h> /* umask (POSIX), _S_I* constants (Windows) */

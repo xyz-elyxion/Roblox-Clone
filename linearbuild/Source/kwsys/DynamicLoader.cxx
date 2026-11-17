@@ -214,6 +214,7 @@ char const* DynamicLoader::LastError()
 
 #elif defined(_WIN32) && !defined(__CYGWIN__)
 // Implementation for Windows win32 code but not cygwin
+#  include <winsock2.h>  /* ahead of windows.h: libuv includes winsock2.h later, and MinGW warns when it comes second */
 #  include <windows.h>
 
 #  include <stdio.h>

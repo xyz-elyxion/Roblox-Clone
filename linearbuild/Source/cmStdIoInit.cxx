@@ -11,6 +11,7 @@
 #include <fcntl.h>
 
 #ifdef _WIN32
+#  include <winsock2.h>  /* ahead of windows.h: libuv includes winsock2.h later, and MinGW warns when it comes second */
 #  include <windows.h>
 
 #  include <io.h> // for _close, _dup2, _get_osfhandle

@@ -20,6 +20,7 @@
 #include "cmTargetTypes.h"
 
 #ifdef _WIN32
+#  include <winsock2.h>  /* ahead of windows.h: libuv includes winsock2.h later, and MinGW warns when it comes second */
 #  include <windows.h>
 
 #  include "cmsys/Encoding.hxx"

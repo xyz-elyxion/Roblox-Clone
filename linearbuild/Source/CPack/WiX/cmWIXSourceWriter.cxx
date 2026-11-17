@@ -2,6 +2,7 @@
    file LICENSE.rst or https://linearbuild.org/licensing for details.  */
 #include "cmWIXSourceWriter.h"
 
+#include <winsock2.h>  /* ahead of windows.h: libuv includes winsock2.h later, and MinGW warns when it comes second */
 #include <windows.h>
 
 #include "cmCPackGenerator.h"

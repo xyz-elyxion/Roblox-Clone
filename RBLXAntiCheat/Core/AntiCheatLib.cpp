@@ -62,6 +62,12 @@ struct AntiCheat::Impl
 
         this->WinVersion = Services::GetWindowsVersion();
 
+        // Upstream takes the single-instance section in the TLS callback, before the C
+        // runtime exists; that is where the client used to hang. The check is the same
+        // one, taken once the anti-cheat is starting and can report itself.
+        if (!Preventions::StopMultipleProcessInstances())
+            Logger::logf(Warning, "Another instance is already running; continuing anyway.");
+
         this->Config = this->ProtectedSettings->Construct<Settings>( //remake settings object inside our protected section
             settings->serverIP,
             settings->serverPort,
@@ -268,7 +274,6 @@ void NTAPI __stdcall TLSCallback(PVOID pHandle, DWORD dwReason, PVOID Reserved)
     const UINT ThreadExecutionAddressStackOffset = 0x378; //** this might change on different version of window, Windows 10 is all I have access to currently
 
     static bool SupressingNewThreads = true; //we need some variables in both our TLS callback and main()
-    static bool FirstProcessAttach = true;
     static bool SetExceptionHandler = false;
     static WindowsVersion WinVersion = WindowsVersion::ErrorUnknown;
 
@@ -276,39 +281,23 @@ void NTAPI __stdcall TLSCallback(PVOID pHandle, DWORD dwReason, PVOID Reserved)
     {
     case DLL_PROCESS_ATTACH:
     {
-        // Upstream terminates here. A leftover or crashed client keeps the named
-        // "UAC" section alive for as long as that process runs, and every later
-        // launch would then be killed before main() with a message that only reaches
-        // a console Play does not show - so pressing Play looked like a no-op.
-        // Warn instead: this is multi-boxing prevention, not a security boundary.
-        if (!Preventions::StopMultipleProcessInstances()) //prevent multi-clients by using shared memory-mapped region
+        // Nothing here may touch the C runtime. The game links the static runtime (/MT),
+        // which the loader initialises *after* it has run this callback, so printf,
+        // std::map, std::ofstream and even malloc are working on a stdio table and a heap
+        // that do not exist yet. Everything that used to be logged from here - the
+        // single-instance result, "New process attached" - did exactly that, and the
+        // client then hung during startup: no window, no log, nothing on the console,
+        // which is indistinguishable from an executable that refuses to launch. The
+        // single-instance check now runs from Impl::Impl, reached from main().
+        //
+        // What is left are Win32 calls, which are safe this early and worth having before
+        // main(): a crash during the rest of startup is caught here.
+        if (!SetExceptionHandler)
         {
-            Logger::logf(Warning, "Another instance is already running (shared memory check failed); continuing anyway.");
-        }
-
-        Logger::logf(Info, " New process attached, current thread %d\n", GetCurrentThreadId());
-
-        if (FirstProcessAttach) //process creation will trigger PROCESS_ATTACH, so we can put some initialize stuff in here incase main() is hooked or statically modified by the attacker
-        {
-            WinVersion = Services::GetWindowsVersion();
-
-            if (!SetExceptionHandler)
-            {
-                SetUnhandledExceptionFilter(g_ExceptionHandler);
-
-                if (!AddVectoredExceptionHandler(1, g_ExceptionHandler))
-                {
-                    Logger::logf(Err, " Failed to register Vectored Exception Handler @ TLSCallback: %d\n", GetLastError());
-                }
-
-                SetExceptionHandler = true;
-            }
-
-            FirstProcessAttach = false;
-        }
-        else
-        {
-            Logger::logf(Detection, " Some unknown process attached @ TLSCallback "); //this should generally never be triggered in this example
+            SetUnhandledExceptionFilter(g_ExceptionHandler);
+            // A failure cannot be reported from here for the reason above.
+            AddVectoredExceptionHandler(1, g_ExceptionHandler);
+            SetExceptionHandler = true;
         }
     }break;
 
@@ -330,6 +319,11 @@ void NTAPI __stdcall TLSCallback(PVOID pHandle, DWORD dwReason, PVOID Reserved)
             Logger::logf(Warning, " Failed to hide thread from debugger @ TLSCallback: thread id %d\n", GetCurrentThreadId());
         }
 #endif
+
+        // Looked up here rather than at load time: this branch only runs once main() has
+        // started the anti-cheat, and by then the C runtime the call needs exists.
+        if (WinVersion == WindowsVersion::ErrorUnknown)
+            WinVersion = Services::GetWindowsVersion();
 
         if (WinVersion == Windows11) //Windows 11 no longer has the thread's start address on the its stack, bummer. don't have a W11 machine either at home
             return;

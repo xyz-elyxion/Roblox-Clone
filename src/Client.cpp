@@ -149,6 +149,37 @@ std::string workingDirectory() {
     return ignored ? std::string(".") : path.string();
 }
 
+// A launch that shows nothing at all is the one failure this program cannot report on:
+// stdout goes into client_log.txt from inside main, and the console writes need a console
+// the process may not have, so a stop in the loader, in a TLS callback or in a static
+// initialiser leaves no evidence anywhere - the window opens on an empty prompt and that
+// is all anyone sees. This appends one line per stage to startup_trace.txt in the working
+// directory, using only the Win32 calls that are safe that early, so the next report says
+// how far the process got. It is three short lines per run; delete the file freely.
+void traceStartup(const char* stage) {
+    HANDLE trace = CreateFileA("startup_trace.txt", FILE_APPEND_DATA,
+                               FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_ALWAYS,
+                               FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (trace == INVALID_HANDLE_VALUE) {
+        return;
+    }
+    DWORD written = 0;
+    SetFilePointer(trace, 0, nullptr, FILE_END);
+    WriteFile(trace, stage, static_cast<DWORD>(lstrlenA(stage)), &written, nullptr);
+    WriteFile(trace, "\r\n", 2, &written, nullptr);
+    CloseHandle(trace);
+}
+
+namespace {
+// Static initialisers run after every TLS callback and before main, so this line being
+// present is what tells "the process got as far as its own code" from "it stopped in the
+// loader, before anything of ours ran".
+struct StartupTrace {
+    StartupTrace() { traceStartup("1/4 static initialisers ran"); }
+};
+const StartupTrace g_startupTrace;
+}
+
 // Keeps an error readable when the client was launched from a shortcut and its
 // window closes immediately. Windows uses its own `pause`; the reason itself has
 // already been put on the console by sayToConsole().
@@ -1145,9 +1176,11 @@ void restorePendingSession() {
 
 int main(int argc, char** argv) {
     // Before anything is redirected, so this reaches the console even if the log cannot be
-    // opened: a run that prints nothing at all never entered main, which is a loader or
-    // static-initialisation problem rather than anything the client does.
-    std::cout << "Client starting." << std::endl;
+    // opened: a run that prints nothing at all stopped with the loader or in a static
+    // initialiser rather than in anything the client does. sayToConsole() writes to the
+    // console's own handle as well, so a redirected stdout does not swallow it.
+    traceStartup("2/4 main entered");
+    sayToConsole("Client starting.");
 
     // Redirect stdout/stderr to files for debugging. These are best effort: if the
     // file cannot be opened the console stays the destination and the run continues,
@@ -1163,7 +1196,9 @@ int main(int argc, char** argv) {
 
 #if defined(RBLX_ANTICHEAT)
     sayToConsole("Starting the anti-cheat...");
+    traceStartup("3/4 starting the anti-cheat");
     startAntiCheat();
+    traceStartup("4/4 the anti-cheat returned");
     sayToConsole("Anti-cheat started.");
 #endif
 

@@ -50,7 +50,7 @@ bool presentIn(HCERTSTORE store, PCCERT_CONTEXT wanted) {
     // Only the certificate body is compared, so a re-issued file with the same subject but a
     // different key is not mistaken for the one already there.
     PCCERT_CONTEXT found =
-        CertFindCertificateInStore(store, kEncoding, 0, CERT_FIND_EXACT, wanted, nullptr);
+        CertFindCertificateInStore(store, kEncoding, 0, CERT_FIND_EXISTING, wanted, nullptr);
     if (found == nullptr) {
         return false;
     }
@@ -189,7 +189,7 @@ bool remove(const std::string& derPath, bool machine, int* removedCount, std::st
         }
 
         PCCERT_CONTEXT found =
-            CertFindCertificateInStore(store, kEncoding, 0, CERT_FIND_EXACT, context, nullptr);
+            CertFindCertificateInStore(store, kEncoding, 0, CERT_FIND_EXISTING, context, nullptr);
         CertFreeCertificateContext(context);
         if (found == nullptr) {
             CertCloseStore(store, 0);

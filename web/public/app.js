@@ -975,7 +975,7 @@ function initProfilePage() {
 
     async function renderProfile(profileData) {
         const { profile, friends: profileFriends } = profileData;
-        document.title = `${profile.username} - RBLX Clone`;
+        document.title = `${profile.username} - Linear`;
         if (title) {
             title.textContent = profile.username;
             if (profile.roleName) {
@@ -2146,7 +2146,7 @@ function initGamePage() {
         if (!response.ok || !data.success) throw new Error(data.error || 'Could not load game.');
 
         currentGame = data.game;
-        document.title = `${currentGame.title} - RBLX Clone`;
+        document.title = `${currentGame.title} - Linear`;
         title.textContent = currentGame.title;
         owner.textContent = `By ${currentGame.ownerUsername}`;
         description.textContent = currentGame.description || 'No description yet.';

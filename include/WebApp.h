@@ -67,7 +67,7 @@ struct Config {
     std::string repoRoot;
     std::string webRoot;
     // The repository the /hub pages read. Empty means the checkout the site was
-    // found in, which is what an install built from source has; RBLX_HUB_REPO
+    // found in, which is what an install built from source has; LINEAR_HUB_REPO
     // points it at another repository.
     std::string hubRepo;
     std::string gameWorldsDir;
@@ -374,7 +374,7 @@ private:
     // Catalog plus what this account owns and wears, in one list.
     Json itemsJson(int userId) const;
     bool handleStatic(Request& request, Response& response);
-    // The repository browser RBLXHub also runs, served here under /hub for the
+    // The repository browser LinearHub also runs, served here under /hub for the
     // machine the site runs on.
     bool handleHub(Request& request, Response& response);
 
@@ -437,7 +437,7 @@ private:
 };
 
 // Serves the site, showing the desktop console window unless --nogui /
-// --headless is passed or RBLX_NO_GUI is set.
+// --headless is passed or LINEAR_NO_GUI is set.
 int runWebsiteServer(int argc, char** argv);
 
 }  // namespace web

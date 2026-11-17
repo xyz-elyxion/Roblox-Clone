@@ -36,36 +36,36 @@ namespace {
 }
 
 int main() {
-    check(RBLX_OBF("RBLXAntiCheat.log") == std::string("RBLXAntiCheat.log"),
+    check(LINEAR_OBF("RBLXAntiCheat.log") == std::string("RBLXAntiCheat.log"),
           "a narrow literal decodes back to itself");
-    check(RBLX_OBF("") == std::string(""), "an empty literal decodes to an empty string");
-    check(RBLX_OBF("Client.exe") == std::string("Client.exe"),
+    check(LINEAR_OBF("") == std::string(""), "an empty literal decodes to an empty string");
+    check(LINEAR_OBF("Client.exe") == std::string("Client.exe"),
           "a second literal decodes independently");
 
-    const std::string decoded = RBLX_OBF("RBLXAntiCheat did not start: ");
+    const std::string decoded = LINEAR_OBF("RBLXAntiCheat did not start: ");
     check(decoded == std::string("RBLXAntiCheat did not start: "),
           "a longer sentence decodes exactly");
     check(decoded.back() == ' ', "trailing whitespace survives the round trip");
 
-    check(RBLX_OBF_W(L"WebApp.exe") == std::wstring(L"WebApp.exe"),
+    check(LINEAR_OBF_W(L"WebApp.exe") == std::wstring(L"WebApp.exe"),
           "a wide literal decodes back to itself");
-    check(RBLX_OBF_W(L"pwsh.exe") == std::wstring(L"pwsh.exe"),
+    check(LINEAR_OBF_W(L"pwsh.exe") == std::wstring(L"pwsh.exe"),
           "wide literals of different lengths decode independently");
 
     // Two uses of the same text must not share mutable state.
-    check(RBLX_OBF("node.exe") == std::string("node.exe") &&
-              RBLX_OBF("node.exe") == std::string("node.exe"),
+    check(LINEAR_OBF("node.exe") == std::string("node.exe") &&
+              LINEAR_OBF("node.exe") == std::string("node.exe"),
           "repeated decodes are stable");
 
     const std::list<std::wstring> allowedParents = {
-        RBLX_OBF_W(L"WebApp.exe"), RBLX_OBF_W(L"node.exe"),
-        RBLX_OBF_W(L"powershell.exe")
+        LINEAR_OBF_W(L"WebApp.exe"), LINEAR_OBF_W(L"node.exe"),
+        LINEAR_OBF_W(L"powershell.exe")
     };
     check(allowedParents.size() == 3 && allowedParents.front() == std::wstring(L"WebApp.exe") &&
               allowedParents.back() == std::wstring(L"powershell.exe"),
           "wide literals populate the allowed-parent list in order");
 
-    takeSettingsLogName(RBLX_OBF("RBLXAntiCheat.log"));
+    takeSettingsLogName(LINEAR_OBF("RBLXAntiCheat.log"));
 
     if (failures != 0) {
         std::printf("%d obfuscation check(s) failed.\n", failures);

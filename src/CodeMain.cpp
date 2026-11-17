@@ -31,7 +31,7 @@
 #include <utility>
 #include <vector>
 
-// RBLXCode is the source editor for this repository: the window, the project
+// LinearCode is the source editor for this repository: the window, the project
 // tree, the tabs and the text widget are here, and the parts that can be tested
 // without a display live in CodeProject. It opens the folder it is launched from
 // (or the one named on the command line) and edits the files in it in place.
@@ -154,7 +154,7 @@ struct App {
     std::size_t pendingClose = kNoFile;
 
     // Building from the editor and committing from it. Both tools are part of this
-    // checkout - the vendored build tool and the repository code RBLXGit drives -
+    // checkout - the vendored build tool and the repository code LinearGit drives -
     // so the editor can run them itself instead of sending somebody to a terminal.
     // A release is what the Windows workflow makes: configure, build, the tests,
     // then the packager. The stages run one process at a time, because each one's
@@ -1515,7 +1515,7 @@ struct App {
         }
 
         const int code = build.exitCode();
-        // The link step of RBLXCode.exe itself cannot replace a running program.
+        // The link step of LinearCode.exe itself cannot replace a running program.
         // The workflow never trips over it, and a release built from the panel is
         // not a failed one because of it.
         const bool excused = code != 0 && errors == 0 && rblx::code::selfLinkBlocked(printed);
@@ -1546,7 +1546,7 @@ struct App {
         buildStage = buildStageTotal;
         buildComplete = true;
         buildStages.clear();
-        buildState = "release packaged into dist/rblx-windows-release - a new version, with "
+        buildState = "release packaged into dist/linear-windows-release - a new version, with "
                      "update.json and manifest.json";
         if (rblx::code::selfLinkBlocked(printed)) {
             buildState += " (the editor is still the copy that was running)";
@@ -1642,7 +1642,7 @@ struct App {
         if (buildLog.empty() && buildLive.empty() && !buildNeedsBootstrap) {
             RblxUI::TextDisabled("Ctrl+B makes a release the way the Windows workflow does: "
                                  "configure, build, run the tests, then package a new version "
-                                 "into dist/rblx-windows-release (preset %s)",
+                                 "into dist/linear-windows-release (preset %s)",
                                  buildPreset.c_str());
         }
         for (const std::string& line : buildLog) {
@@ -2481,7 +2481,7 @@ void beginRblxUI(Window& window) {
 
 int main(int argc, char** argv) {
     try {
-        Window window(kWindowWidth, kWindowHeight, "RBLX Clone Code");
+        Window window(kWindowWidth, kWindowHeight, "Linear Code");
         beginRblxUI(window);
 
         App app;
@@ -2515,7 +2515,7 @@ int main(int argc, char** argv) {
         RblxUI_ImplRblxWin_Shutdown();
         RblxUI::DestroyContext();
     } catch (const std::exception& error) {
-        std::fprintf(stderr, "RBLXCode could not start: %s\n", error.what());
+        std::fprintf(stderr, "LinearCode could not start: %s\n", error.what());
         return 1;
     }
     return 0;

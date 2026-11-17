@@ -10,7 +10,7 @@
 #include "rblxui.h"
 
 // One look for every window this project puts on screen. The installer and the
-// updater draw it first; Studio, RBLXCode, the server console and the game
+// updater draw it first; Studio, LinearCode, the server console and the game
 // client read the same values from here instead of each keeping a copy, so the
 // palette cannot drift apart window by window.
 //
@@ -18,19 +18,19 @@
 // Which one is used is a setting, read once per process from a file every window
 // shares:
 //
-//   RBLX_THEME        "light" or "dark"; wins over the file, handy for a one-off
-//   RBLX_UI_SETTINGS  path to the settings file, if it is not the usual one
+//   LINEAR_THEME        "light" or "dark"; wins over the file, handy for a one-off
+//   LINEAR_UI_SETTINGS  path to the settings file, if it is not the usual one
 //
 // The settings file is
 //
-//   Windows  %APPDATA%\RBLXClone\ui.settings
-//   else     $XDG_CONFIG_HOME/rblxclone/ui.settings
-//            or ~/.config/rblxclone/ui.settings
+//   Windows  %APPDATA%\Linear\ui.settings
+//   else     $XDG_CONFIG_HOME/linear/ui.settings
+//            or ~/.config/linear/ui.settings
 //
 // and holds lines of "key = value", with # or ; starting a comment. The only key
 // is "theme":
 //
-//   # every RBLX Clone window follows this file
+//   # every Linear window follows this file
 //   theme = light
 namespace rblx {
 namespace ui {
@@ -118,13 +118,13 @@ inline std::string lower(std::string text) {
 // error: every window then draws the dark palette, which is what it did before
 // anyone wrote the file.
 inline std::string settingsPath() {
-    const std::string explicitPath = rblx::environment::get("RBLX_UI_SETTINGS");
+    const std::string explicitPath = rblx::environment::get("LINEAR_UI_SETTINGS");
     if (!explicitPath.empty()) return explicitPath;
 
     const std::string appData = rblx::environment::get("APPDATA");
-    if (!appData.empty()) return appData + "/RBLXClone/ui.settings";
+    if (!appData.empty()) return appData + "/Linear/ui.settings";
     const std::string home = rblx::environment::get("USERPROFILE");
-    if (!home.empty()) return home + "/.config/rblxclone/ui.settings";
+    if (!home.empty()) return home + "/.config/linear/ui.settings";
     return std::string();
 }
 
@@ -155,7 +155,7 @@ struct Settings {
     bool loaded = false;
     Palette palette = Palette::Dark;
     std::string path;    // the file that was consulted, empty when there is none
-    std::string origin;  // RBLX_THEME, the settings path, or "default"
+    std::string origin;  // LINEAR_THEME, the settings path, or "default"
 };
 
 inline Settings& settings() {
@@ -180,15 +180,15 @@ inline void read() {
 
     // The environment comes last so a single launch can be shown in the other
     // palette without editing the file.
-    const std::string env = rblx::environment::get("RBLX_THEME");
+    const std::string env = rblx::environment::get("LINEAR_THEME");
     if (!env.empty()) {
         const std::string value = lower(trim(env));
         if (value == "light") {
             state.palette = Palette::Light;
-            state.origin = "RBLX_THEME";
+            state.origin = "LINEAR_THEME";
         } else if (value == "dark") {
             state.palette = Palette::Dark;
-            state.origin = "RBLX_THEME";
+            state.origin = "LINEAR_THEME";
         }
     }
 }
@@ -205,7 +205,7 @@ inline bool isLight() {
 inline const char* activeName() { return isLight() ? "light" : "dark"; }
 
 // The file that was consulted, and what chose the palette ("default",
-// "RBLX_THEME" or that path). For a status line or a --version style report.
+// "LINEAR_THEME" or that path). For a status line or a --version style report.
 inline std::string settingsFile() {
     isLight();
     return detail::settings().path;

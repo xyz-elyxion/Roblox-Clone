@@ -1,6 +1,6 @@
 'use strict';
 
-// The RBLXHosts control panel. Everything it knows comes from /api/status, which
+// The LinearHosts control panel. Everything it knows comes from /api/status, which
 // the supervisor refreshes on its own thread; the buttons only queue a command,
 // so a click never reaches into the pool directly. The token is not in this file:
 // it was exchanged for an HttpOnly cookie when the URL printed in the console was
@@ -60,7 +60,7 @@ async function command(path) {
             showNotice('');
         }
     } catch (error) {
-        showNotice('Cannot reach RBLXHosts: ' + error.message);
+        showNotice('Cannot reach LinearHosts: ' + error.message);
     } finally {
         view.busy = false;
         setTimeout(loadStatus, 300);
@@ -197,7 +197,7 @@ async function loadStatus() {
     try {
         const response = await fetch('/api/status', { headers: { Accept: 'application/json' } });
         if (response.status === 401) {
-            showNotice('Not signed in to the panel. Open the URL RBLXHosts printed at startup.');
+            showNotice('Not signed in to the panel. Open the URL LinearHosts printed at startup.');
             return;
         }
         if (!response.ok) throw new Error('HTTP ' + response.status);
@@ -205,7 +205,7 @@ async function loadStatus() {
         showNotice('');
         render();
     } catch (error) {
-        showNotice('Cannot reach RBLXHosts: ' + error.message);
+        showNotice('Cannot reach LinearHosts: ' + error.message);
     }
 }
 

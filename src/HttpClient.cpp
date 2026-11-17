@@ -15,8 +15,8 @@
     #pragma comment(lib, "ws2_32.lib")
     using SocketHandle = SOCKET;
     constexpr SocketHandle kInvalidSocket = INVALID_SOCKET;
-    #define RBLX_CLOSE_SOCKET(s) closesocket(s)
-    #define RBLX_LAST_ERROR() WSAGetLastError()
+    #define LINEAR_CLOSE_SOCKET(s) closesocket(s)
+    #define LINEAR_LAST_ERROR() WSAGetLastError()
 
 namespace rblx {
 namespace http {
@@ -110,7 +110,7 @@ SocketHandle connectToHost(const std::string& host, uint16_t port, int timeoutMs
         const int rc = ::connect(candidate, entry->ai_addr, static_cast<int>(entry->ai_addrlen));
         bool ready = rc == 0;
         if (!ready) {
-            const int lastError = RBLX_LAST_ERROR();
+            const int lastError = LINEAR_LAST_ERROR();
             const bool inProgress =
                 lastError == WSAEWOULDBLOCK;
             if (inProgress) {
@@ -125,7 +125,7 @@ SocketHandle connectToHost(const std::string& host, uint16_t port, int timeoutMs
         }
 
         if (!ready) {
-            RBLX_CLOSE_SOCKET(candidate);
+            LINEAR_CLOSE_SOCKET(candidate);
             continue;
         }
 
@@ -219,7 +219,7 @@ Response request(const std::string& method,
     head += "\r\n";
 
     if (!sendAll(socket, head + body)) {
-        RBLX_CLOSE_SOCKET(socket);
+        LINEAR_CLOSE_SOCKET(socket);
         response.error = "Could not send the request to " + parsed.host + ".";
         return response;
     }
@@ -284,7 +284,7 @@ Response request(const std::string& method,
             break;  // a runaway response must not grow without bound
         }
     }
-    RBLX_CLOSE_SOCKET(socket);
+    LINEAR_CLOSE_SOCKET(socket);
 
     if (aborted) {
         // An abandoned download is not a server fault, so it says so plainly.

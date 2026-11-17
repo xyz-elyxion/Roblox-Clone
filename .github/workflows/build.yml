@@ -182,12 +182,12 @@ jobs:
           ./scripts/package-build.ps1
           -Configuration Release
           -BuildDir build/windows-release
-          -Output dist/rblx-windows-release
+          -Output dist/linear-windows-release
 
       - name: Upload runnable package
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: rblx-windows-release
-          path: dist/rblx-windows-release
+          name: linear-windows-release
+          path: dist/linear-windows-release
           if-no-files-found: warn

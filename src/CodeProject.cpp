@@ -1662,9 +1662,9 @@ std::vector<DocEntry> markdownPages() {
 std::vector<DocEntry> editorReference() {
     std::vector<DocEntry> out;
     out.push_back(makePage(
-        "RBLXCode", "editor", "RBLXCode",
+        "LinearCode", "editor", "LinearCode",
         "The source editor for this repository.",
-        "RBLXCode opens the folder it is launched from and edits the files in it in place. The "
+        "LinearCode opens the folder it is launched from and edits the files in it in place. The "
         "left panel is the project tree and the project search, the middle panel lists the "
         "symbols of the file in front, and the rest is the text, split into tabs.\n\n"
         "It reads and writes the bytes that are already there: a CRLF file stays CRLF, so a "
@@ -1681,7 +1681,7 @@ std::vector<DocEntry> editorReference() {
         "single edit, so one undo takes it back. The list is drawn from three places: the "
         "reference that ships with the editor, the symbols this file declares, and the names the "
         "file already uses.",
-        {"Documentation", "RBLXCode"}));
+        {"Documentation", "LinearCode"}));
     out.push_back(makePage(
         "Documentation", "editor", "F1",
         "What is under the mouse, and a window that holds every page.",
@@ -1690,28 +1690,28 @@ std::vector<DocEntry> editorReference() {
         "F1 opens the documentation for whatever the caret is on, in a window with a filter over "
         "every page: the language reference, these editor pages, the symbols in this file, and "
         "the page for the file itself. The related pages at the bottom of each one are links.",
-        {"Completions", "RBLXCode"}));
+        {"Completions", "LinearCode"}));
     out.push_back(makePage(
         "Project tree", "editor", "the left panel",
         "Every file worth opening, and a search over all of them.",
         "The tree lists source, shaders, scripts, pages and project files, skipping build output, "
         "dependencies and the git directory. The box above it searches the text of every listed "
         "file and jumps to the line of a result.\n\nF5 walks the folder again, for when a file "
-        "was added outside the editor.", {"RBLXCode"}));
+        "was added outside the editor.", {"LinearCode"}));
     out.push_back(makePage(
         "Find and replace", "editor", "Ctrl+F, Ctrl+H",
         "Walking the matches of one file, with or without case.",
         "Ctrl+F opens the bar and Ctrl+H opens it with the replacement field. Match case and "
         "whole word narrow the search, F3 and Shift+F3 walk the matches in either direction, and "
         "Replace all rewrites the buffer in one step so a single undo takes it back.",
-        {"RBLXCode"}));
+        {"LinearCode"}));
     out.push_back(makePage(
         "Outline", "editor", "Ctrl+Shift+O",
         "The symbols of the file in front.",
         "The middle panel lists what the file declares: functions, classes and types from braces "
         "and keywords in C++ and GLSL, functions in RBLX Script and JavaScript, headings in "
         "Markdown and keys in JSON. A click jumps to the line, and Ctrl+Shift+O filters the list "
-        "by name.", {"RBLXCode"}));
+        "by name.", {"LinearCode"}));
     return out;
 }
 

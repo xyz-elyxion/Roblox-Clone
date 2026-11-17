@@ -1,4 +1,4 @@
-// RBLXProxy: a front door for the website.
+// LinearProxy: a front door for the website.
 //
 // WebApp answers on 127.0.0.1:3000, which is not an address anyone outside this
 // machine can type. This program listens where they can - port 80, a LAN
@@ -7,9 +7,9 @@
 // ReverseProxy.cpp and are covered by ReverseProxyTests; this file is the
 // console around them.
 //
-//   RBLXProxy                                  127.0.0.1:8080 -> 127.0.0.1:3000
-//   RBLXProxy --listen 0.0.0.0:80 --upstream 127.0.0.1:3000
-//   RBLXProxy --help
+//   LinearProxy                                  127.0.0.1:8080 -> 127.0.0.1:3000
+//   LinearProxy --listen 0.0.0.0:80 --upstream 127.0.0.1:3000
+//   LinearProxy --help
 
 #include "ReverseProxy.h"
 #include "WebHttp.h"
@@ -41,7 +41,7 @@ BOOL WINAPI consoleHandler(DWORD signal) {
 
 void printUsage(const char* program) {
     std::printf(
-        "RBLXProxy - puts the website on an address other machines can reach\n"
+        "LinearProxy - puts the website on an address other machines can reach\n"
         "\n"
         "  %s [options]\n"
         "\n"
@@ -86,17 +86,17 @@ int main(int argc, char** argv) {
             try {
                 timeoutMs = std::stoi(argv[++i]);
             } catch (...) {
-                std::fprintf(stderr, "RBLXProxy: --timeout needs a number of milliseconds\n");
+                std::fprintf(stderr, "LinearProxy: --timeout needs a number of milliseconds\n");
                 return 2;
             }
             if (timeoutMs < 100 || timeoutMs > 600000) {
-                std::fprintf(stderr, "RBLXProxy: --timeout must be between 100 and 600000\n");
+                std::fprintf(stderr, "LinearProxy: --timeout must be between 100 and 600000\n");
                 return 2;
             }
         } else if (argument == "--quiet") {
             quiet = true;
         } else {
-            std::fprintf(stderr, "RBLXProxy: unknown option %s (try --help)\n", argument.c_str());
+            std::fprintf(stderr, "LinearProxy: unknown option %s (try --help)\n", argument.c_str());
             return 2;
         }
     }
@@ -105,14 +105,14 @@ int main(int argc, char** argv) {
     upstream.timeoutMs = timeoutMs;
     std::string error;
     if (!rblx::proxy::parseHostPort(upstreamSpec, &upstream.host, &upstream.port, &error)) {
-        std::fprintf(stderr, "RBLXProxy: --upstream: %s\n", error.c_str());
+        std::fprintf(stderr, "LinearProxy: --upstream: %s\n", error.c_str());
         return 2;
     }
 
     std::string listenHost;
     int listenPort = 0;
     if (!rblx::proxy::parseHostPort(listenSpec, &listenHost, &listenPort, &error)) {
-        std::fprintf(stderr, "RBLXProxy: --listen: %s\n", error.c_str());
+        std::fprintf(stderr, "LinearProxy: --listen: %s\n", error.c_str());
         return 2;
     }
 
@@ -124,21 +124,21 @@ int main(int argc, char** argv) {
         });
 
     if (!server.listen(listenHost, listenPort, &error)) {
-        std::fprintf(stderr, "RBLXProxy: %s\n", error.c_str());
+        std::fprintf(stderr, "LinearProxy: %s\n", error.c_str());
         return 1;
     }
 
     g_server = &server;
     ::SetConsoleCtrlHandler(consoleHandler, TRUE);
 
-    std::printf("RBLXProxy: http://%s:%d -> http://%s:%d\n", listenHost.c_str(), server.port(),
+    std::printf("LinearProxy: http://%s:%d -> http://%s:%d\n", listenHost.c_str(), server.port(),
                 upstream.host.c_str(), upstream.port);
-    std::printf("RBLXProxy: start WebApp.exe on the backend port; Ctrl+C stops the proxy.\n");
+    std::printf("LinearProxy: start WebApp.exe on the backend port; Ctrl+C stops the proxy.\n");
     std::fflush(stdout);
 
     server.serveForever();
 
     g_server = nullptr;
-    std::printf("RBLXProxy: stopped.\n");
+    std::printf("LinearProxy: stopped.\n");
     return 0;
 }

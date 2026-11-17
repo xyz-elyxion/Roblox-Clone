@@ -248,13 +248,13 @@ std::string buildStatusJson(const Config& config, const Supervisor& supervisor, 
 
 const char* kFallbackPage =
     "<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"UTF-8\">"
-    "<title>RBLXHosts</title><style>body{font-family:Inter,system-ui,sans-serif;"
+    "<title>LinearHosts</title><style>body{font-family:Inter,system-ui,sans-serif;"
     "max-width:40rem;margin:3rem auto;padding:0 1rem;line-height:1.5}"
     "code{font-family:Consolas,monospace}</style></head><body>"
-    "<h1>RBLXHosts</h1>"
+    "<h1>LinearHosts</h1>"
     "<p>The control panel page is missing. It ships with the release as "
     "<code>web/host/index.html</code>; keep that folder next to "
-    "<code>RBLXHosts.exe</code>, or run from the repository root.</p>"
+    "<code>LinearHosts.exe</code>, or run from the repository root.</p>"
     "<p>The pool is still supervised, and <code>GET /api/status</code> works.</p>"
     "</body></html>";
 
@@ -303,7 +303,7 @@ bool sameOrigin(const HostDashboard::Impl& impl, const Request& request) {
 bool requireAccess(const HostDashboard::Impl& impl, const Request& request, Response& response,
                    bool mutating) {
     if (!authorized(impl, request)) {
-        response.json(401, "{\"error\":\"Open the URL with ?token= that RBLXHosts printed.\"}");
+        response.json(401, "{\"error\":\"Open the URL with ?token= that LinearHosts printed.\"}");
         return false;
     }
     if (mutating && !sameOrigin(impl, request)) {
@@ -372,7 +372,7 @@ bool HostDashboard::start(const DashboardSettings& settings, std::string* error)
         const std::string given = request.queryParam("token");
         if (!given.empty()) {
             if (!tokenMatches(given, raw->token)) {
-                response.text(401, "That is not the token RBLXHosts printed at startup.\n");
+                response.text(401, "That is not the token LinearHosts printed at startup.\n");
                 return true;
             }
             // The token becomes an HttpOnly cookie and leaves the address bar, so

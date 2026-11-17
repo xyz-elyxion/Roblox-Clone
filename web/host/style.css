@@ -1,6 +1,6 @@
 /* The control panel, in the same language as the rest of the site: white paper,
    black rules, hard offset shadows, uppercase labels. It is served by
-   RBLXHosts.exe, not by the website, so it carries its own small stylesheet and
+   LinearHosts.exe, not by the website, so it carries its own small stylesheet and
    does not depend on web/public. */
 :root {
     --bg: #ffffff;

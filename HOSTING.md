@@ -1,6 +1,6 @@
 # Hosting your own servers
 
-`RBLXHosts` is this project's own answer to a hosting platform: it keeps a fixed
+`LinearHosts` is this project's own answer to a hosting platform: it keeps a fixed
 number of game servers alive on one machine, each on its own port with its own log,
 and restarts one that exits.
 
@@ -11,8 +11,8 @@ one binary with no runtime to install, and the control panel is a page that bina
 serves.
 
 ```powershell
-RBLXHosts.exe init --config hosting.conf   # write a commented default file
-RBLXHosts.exe up --config hosting.conf     # keep the servers running until Ctrl+C
+LinearHosts.exe init --config hosting.conf   # write a commented default file
+LinearHosts.exe up --config hosting.conf     # keep the servers running until Ctrl+C
 ```
 
 With no config file the defaults are two servers on 7777 and 7778, running
@@ -118,5 +118,5 @@ address the server prints when it binds its port.
 - **No login beyond the token.** The panel has no accounts: the token printed at
   startup is the whole of its authentication, which is the right size for a tool that
   only listens on loopback.
-- **No multi-machine control.** One `RBLXHosts` supervises one machine. Running it
+- **No multi-machine control.** One `LinearHosts` supervises one machine. Running it
   on two is two pools, which is all a prototype needs.

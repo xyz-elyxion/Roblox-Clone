@@ -3,7 +3,7 @@
 // Steps the website can verify check themselves against the same API the rest
 // of the site uses: the public game list, the session, the avatar, playtime,
 // friends and the games this account published. The steps it cannot see —
-// opening Studio, editing in RBLXCode, running the trainer — are ticked off by
+// opening Studio, editing in LinearCode, running the trainer — are ticked off by
 // hand and kept in localStorage, so a half-finished tour can be resumed.
 
 const onboardingManualKey = 'rblxOnboardingManual';

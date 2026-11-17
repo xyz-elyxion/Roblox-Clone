@@ -1,4 +1,4 @@
-// The repository browser both hosts run: RBLXHub serves these pages at the root of
+// The repository browser both hosts run: LinearHub serves these pages at the root of
 // its own loopback server, and WebApp serves the same ones under /hub. Nothing in
 // this file touches a socket, so the routing and the page contents can be checked
 // without starting a server or a browser.

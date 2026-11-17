@@ -1,4 +1,4 @@
-// RBLXGit: the command line over the repository implementation in GitRepo. It
+// LinearGit: the command line over the repository implementation in GitRepo. It
 // writes the same layout git does, so a folder it commits in can be opened by git
 // and the other way round.
 
@@ -14,17 +14,17 @@ namespace {
 
 void usage() {
     std::printf(
-        "RBLXGit - a git command line\n"
+        "LinearGit - a git command line\n"
         "\n"
-        "  RBLXGit init [path]         create a repository (default: this folder)\n"
-        "  RBLXGit status              staged changes, working tree changes, new files\n"
-        "  RBLXGit add <path>...       stage files or folders; . stages everything\n"
-        "  RBLXGit commit -m <text>    record the staged tree as a commit\n"
-        "  RBLXGit log [-n <count>]    list commits, newest first\n"
-        "  RBLXGit branch [name]       list branches, or switch to and create one\n"
-        "  RBLXGit show <rev>:<path>   print a file as it was in a commit\n"
+        "  LinearGit init [path]         create a repository (default: this folder)\n"
+        "  LinearGit status              staged changes, working tree changes, new files\n"
+        "  LinearGit add <path>...       stage files or folders; . stages everything\n"
+        "  LinearGit commit -m <text>    record the staged tree as a commit\n"
+        "  LinearGit log [-n <count>]    list commits, newest first\n"
+        "  LinearGit branch [name]       list branches, or switch to and create one\n"
+        "  LinearGit show <rev>:<path>   print a file as it was in a commit\n"
         "\n"
-        "Author name and email come from RBLX_GIT_NAME and RBLX_GIT_EMAIL.\n");
+        "Author name and email come from LINEAR_GIT_NAME and LINEAR_GIT_EMAIL.\n");
 }
 
 std::string envOr(const char* name, const std::string& fallback) {
@@ -160,8 +160,8 @@ int main(int argc, char** argv) {
         return 0;
     }
 
-    const std::string name = envOr("RBLX_GIT_NAME", "RBLX Git");
-    const std::string email = envOr("RBLX_GIT_EMAIL", "git@rblx.local");
+    const std::string name = envOr("LINEAR_GIT_NAME", "Linear Git");
+    const std::string email = envOr("LINEAR_GIT_EMAIL", "git@linear.local");
 
     rblx::git::Repo repo;
     std::string error;
@@ -210,7 +210,7 @@ int main(int argc, char** argv) {
             }
         }
         if (message.empty()) {
-            return fail("a commit needs a message: RBLXGit commit -m \"what changed\"");
+            return fail("a commit needs a message: LinearGit commit -m \"what changed\"");
         }
 
         std::vector<rblx::git::StatusEntry> rows;

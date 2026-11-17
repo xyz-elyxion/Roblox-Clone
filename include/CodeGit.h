@@ -5,7 +5,7 @@
 // The editor already showed the branch in its status bar; this is what makes it a
 // place to work rather than a place to read: the changed files, one button that
 // stages everything, and a commit with a message. The repository code is the same
-// GitRepo RBLXGit drives, so what the editor writes git can read and the other way
+// GitRepo LinearGit drives, so what the editor writes git can read and the other way
 // round - there is no editor-only format.
 //
 // Everything here is filesystem and text, so it is checked against a real
@@ -44,8 +44,8 @@ bool loadChanges(git::Repo& repo, std::vector<ChangeRow>* rows, std::string* err
 bool commitEverything(git::Repo& repo, const std::string& message, std::string* commitId,
                       std::size_t* committed, std::string* error);
 
-// Who the commit is from: RBLX_GIT_NAME and RBLX_GIT_EMAIL, the same two variables
-// RBLXGit reads, so the editor and the command line write the same author.
+// Who the commit is from: LINEAR_GIT_NAME and LINEAR_GIT_EMAIL, the same two variables
+// LinearGit reads, so the editor and the command line write the same author.
 std::string authorName();
 std::string authorEmail();
 

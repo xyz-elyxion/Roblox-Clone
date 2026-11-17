@@ -1,9 +1,9 @@
 # Working in this repository
 
-RBLX Clone is a Windows-only Roblox-like prototype in C++17: a game client, a game
-server, a world editor (Studio), a source editor (RBLXCode), a native website backend
+Linear is a Windows-only Roblox-like prototype in C++17: a game client, a game
+server, a world editor (Studio), a source editor (LinearCode), a native website backend
 (`WebApp.exe`), an installer, an updater, a headless trainer and a server supervisor
-(`RBLXHosts.exe`). Everything — including the website — is C++ built from this tree, and
+(`LinearHosts.exe`). Everything — including the website — is C++ built from this tree, and
 the build tool itself is vendored. There is no Node.js, npm, Python, CMake install or
 package manager involved.
 
@@ -43,7 +43,7 @@ The release folder is assembled by:
 ```
 
 It copies a fixed list of executables, refuses to package a folder that is missing any of
-them, and writes `README.txt`, `update.json` and `manifest.json` into `dist/rblx-windows-release`.
+them, and writes `README.txt`, `update.json` and `manifest.json` into `dist/linear-windows-release`.
 
 ## Rules that are not negotiable
 
@@ -71,11 +71,11 @@ them, and writes `README.txt`, `update.json` and `manifest.json` into `dist/rblx
    they are corrections, not a reformat. Their generated
    documentation, examples, own test suites and CI files have been pruned; the code, build
    files and licences are upstream as pinned.
-3. **One palette, in `include/UiTheme.h`.** Every window — client, Studio, RBLXCode, the
+3. **One palette, in `include/UiTheme.h`.** Every window — client, Studio, LinearCode, the
    server console, the installer, the updater — reads its colours from there. There are
    two palettes, dark and light, and which one is used is the `theme` key in
-   `%APPDATA%\RBLXClone\ui.settings` (`RBLX_THEME` overrides it for one process,
-   `RBLX_UI_SETTINGS` moves the file). Never hard-code a colour in a window: add a named
+   `%APPDATA%\Linear\ui.settings` (`LINEAR_THEME` overrides it for one process,
+   `LINEAR_UI_SETTINGS` moves the file). Never hard-code a colour in a window: add a named
    role to `Colors` and give it a value in both palettes.
 4. **No launcher scripts.** There are no `.bat`/`.cmd` files in the repository or in the
    package, on purpose: every program finds its data in the folder it runs from, which is
@@ -94,7 +94,7 @@ them, and writes `README.txt`, `update.json` and `manifest.json` into `dist/rblx
 | Game client | `src/Client.cpp` (startup, arguments, loop), `src/ClientNet.cpp` (socket, session, join), `src/ClientUi.cpp` (menus, HUD, chat, settings), `src/ClientShared.h` |
 | Game server | `src/Server.cpp`, `include/MovementGuard.h`, `include/Moderation.h`, `src/Player.cpp` |
 | Studio | `src/Editor.cpp`, `src/WorldLoader.cpp`, `src/WorldScript.cpp` |
-| RBLXCode | `src/CodeMain.cpp`, `src/CodeProject.cpp` (tree, search, outline, docs), `src/CodeBuild.cpp` + `src/CodeBuildRun.cpp` (the build panel), `src/CodeGit.cpp` (the Source control panel) |
+| LinearCode | `src/CodeMain.cpp`, `src/CodeProject.cpp` (tree, search, outline, docs), `src/CodeBuild.cpp` + `src/CodeBuildRun.cpp` (the build panel), `src/CodeGit.cpp` (the Source control panel) |
 | Website backend | `src/WebApp.cpp`, `src/WebHttp.cpp`, `src/WebJson.cpp`, `src/WebStore.cpp`, `src/WebCrypto.cpp`, `src/WebCaptcha.h` |
 | Website pages | `web/public` (plain HTML/CSS/JS, no build step), `web/seed-worlds` |
 | Server supervisor | `src/ServerHost.cpp`, `src/HostMain.cpp`, `include/ServerHost.h` |
@@ -118,7 +118,7 @@ server and the tests can share it.
   listed simply does not compile into anything.
 - **A test** is `tests/<area>_tests.cpp`: a plain `main()` that exercises the unit, prints
   what failed and returns nonzero. There is no test framework and none should be added.
-  Register it with `add_executable` + `add_test` inside the `if(RBLX_BUILD_TESTS)` block
+  Register it with `add_executable` + `add_test` inside the `if(LINEAR_BUILD_TESTS)` block
   of `RBLXBuildLists.txt`. Tests link the source file they cover directly (or a small
   library target), not the whole game.
 - **Configuration** is an environment variable read with `parsePositiveInt` / `envString`
@@ -142,7 +142,7 @@ server and the tests can share it.
 - The website has no build step and no framework: `web/public` is served as it sits, so
   a change there is HTML/CSS/JS plus whatever route and JSON it talks to in `src/WebApp.cpp`.
 - No formatter or linter is configured. Match the surrounding file and keep the existing
-  compiler warning set (`RBLX_ENABLE_WARNINGS`) clean.
+  compiler warning set (`LINEAR_ENABLE_WARNINGS`) clean.
 
 ## Before you call it done
 

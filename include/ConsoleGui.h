@@ -57,7 +57,7 @@ struct ServerRow {
 };
 
 struct Host {
-    std::string title = "RBLX Clone Server";
+    std::string title = "Linear Server";
     std::string siteUrl;
     // Fills the game server list for the current frame.
     std::function<void(std::vector<ServerRow>*)> collectServers;
@@ -65,7 +65,7 @@ struct Host {
     std::function<bool(const std::string&)> stopServer;
 };
 
-// False when --nogui / --headless is passed or RBLX_NO_GUI is set.
+// False when --nogui / --headless is passed or LINEAR_NO_GUI is set.
 bool guiAllowed(int argc, char** argv);
 
 // Runs the console window until it is closed. Returns 0 on a normal close and

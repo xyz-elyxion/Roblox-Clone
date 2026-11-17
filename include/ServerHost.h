@@ -4,7 +4,7 @@
 #include <string>
 #include <vector>
 
-// RBLXHosts: this project's own server supervisor.
+// LinearHosts: this project's own server supervisor.
 //
 // Coolify's job, cut down to what this game needs. It keeps a fixed number of
 // game servers alive: one per slot, each on its own port, with its own log; a
@@ -45,7 +45,7 @@ struct Config {
 bool parseConfig(const std::string& text, Config* out, std::string* error);
 bool loadConfig(const std::string& path, Config* out, std::string* error);
 
-// A commented file `RBLXHosts init` writes, so the keys are discoverable.
+// A commented file `LinearHosts init` writes, so the keys are discoverable.
 std::string defaultConfigText();
 
 struct Instance {

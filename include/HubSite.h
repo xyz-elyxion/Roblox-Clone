@@ -11,7 +11,7 @@ namespace rblx {
 namespace hub {
 
 // One rendered answer: what a host has to write back to the socket. The pages are
-// strings, so the routing below is shared by the standalone RBLXHub (pages at the
+// strings, so the routing below is shared by the standalone LinearHub (pages at the
 // root of its own server) and by WebApp (the same pages under /hub) instead of
 // being written twice.
 struct HubPage {
@@ -29,7 +29,7 @@ class HubSite {
 public:
     // `repoPath` is any folder inside the repository. `webRoot` is the site's web
     // folder, where hub/hub.css is read from, or empty when it is not beside the
-    // program. `mountPath` is "" for RBLXHub, and "/hub" for the pages WebApp
+    // program. `mountPath` is "" for LinearHub, and "/hub" for the pages WebApp
     // serves: every absolute link in them is built from it.
     bool open(const std::string& repoPath, const std::string& webRoot,
               const std::string& mountPath, std::string* error);

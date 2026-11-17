@@ -18,7 +18,7 @@
 //   uninstall         remove the files the installed manifest lists, keep data
 //
 // Publishing a release is therefore two commands: package the build, then
-//   RBLXUpdater.exe manifest --dir dist\rblx-windows-release --version 1.2.0
+//   LinearUpdater.exe manifest --dir dist\linear-windows-release --version 1.2.0
 // and serve that folder over HTTP.
 
 #include "HttpClient.h"
@@ -78,7 +78,7 @@ void printError(const std::string& text) {
         g_problem(text);
         return;
     }
-    std::cerr << "RBLXUpdater: " << text << std::endl;
+    std::cerr << "LinearUpdater: " << text << std::endl;
 }
 
 void print(const Options& options, const std::string& text) {
@@ -90,14 +90,14 @@ void print(const Options& options, const std::string& text) {
 }
 
 void usage() {
-    std::cout << "RBLXUpdater - installs and updates RBLX Clone\n\n"
-                 "  RBLXUpdater [--launch]        apply any update, then start the game\n"
-                 "  RBLXUpdater check             report whether an update exists (exit 10 if so)\n"
-                 "  RBLXUpdater update            apply any update and exit\n"
-                 "  RBLXUpdater install --manifest <url> [--dir <folder>]\n"
-                 "  RBLXUpdater manifest --dir <folder> --version <version> [--channel stable]\n"
-                 "  RBLXUpdater sign-manifest --dir <folder> --key <keyfile>\n"
-                 "  RBLXUpdater uninstall [--dir <folder>]\n\n"
+    std::cout << "LinearUpdater - installs and updates Linear\n\n"
+                 "  LinearUpdater [--launch]        apply any update, then start the game\n"
+                 "  LinearUpdater check             report whether an update exists (exit 10 if so)\n"
+                 "  LinearUpdater update            apply any update and exit\n"
+                 "  LinearUpdater install --manifest <url> [--dir <folder>]\n"
+                 "  LinearUpdater manifest --dir <folder> --version <version> [--channel stable]\n"
+                 "  LinearUpdater sign-manifest --dir <folder> --key <keyfile>\n"
+                 "  LinearUpdater uninstall [--dir <folder>]\n\n"
                  "Options:\n"
                  "  --dir <folder>        the install folder, default: the one this exe is in\n"
                  "  --manifest <url>      manifest.json to use instead of update.json\n"
@@ -605,8 +605,8 @@ int applyRelease(Options& options, const Config& config, const std::string& conf
 // -1 when no window could be created, so the caller can use the console.
 int windowed(Options& options, bool installing) {
     rblx::ui::Options window;
-    window.title = "RBLX Clone";
-    window.heading = "RBLX Clone";
+    window.title = "Linear";
+    window.heading = "Linear";
     window.detail =
         "Checks for a new release, downloads only the files that changed, then starts the game.";
     window.showFolder = false;
@@ -631,7 +631,7 @@ int windowed(Options& options, bool installing) {
         std::string error;
         bool ok = false;
         if (run.manifestUrl.empty() && !rblx::update::readConfigFile(configPath, &config, &error)) {
-            printError(error + "; run: RBLXUpdater install --manifest <url>");
+            printError(error + "; run: LinearUpdater install --manifest <url>");
         } else {
             if (!run.manifestUrl.empty()) {
                 std::string ignored;
@@ -701,7 +701,7 @@ int main(int argc, char** argv) {
     std::string error;
     if (options.manifestUrl.empty()) {
         if (!rblx::update::readConfigFile(configPath, &config, &error)) {
-            printError(error + "; run: RBLXUpdater install --manifest <url>");
+            printError(error + "; run: LinearUpdater install --manifest <url>");
             return 1;
         }
     } else {

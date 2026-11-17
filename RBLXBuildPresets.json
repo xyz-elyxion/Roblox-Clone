@@ -8,10 +8,10 @@
       "binaryDir": "${sourceDir}/build/windows-release",
       "cacheVariables": {
         "RBLXBUILD_BUILD_TYPE": "Release",
-        "RBLX_BUILD_CLIENT": "ON",
-        "RBLX_BUILD_SERVER": "ON",
-        "RBLX_BUILD_STUDIO": "ON",
-        "RBLX_BUILD_TESTS": "ON"
+        "LINEAR_BUILD_CLIENT": "ON",
+        "LINEAR_BUILD_SERVER": "ON",
+        "LINEAR_BUILD_STUDIO": "ON",
+        "LINEAR_BUILD_TESTS": "ON"
       }
     }
   ],

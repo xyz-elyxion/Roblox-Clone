@@ -226,9 +226,9 @@ int main() {
 
     // Where the file goes: beside the programs, whatever form the folder takes.
     {
-        check(server::settingsPathFor("C:\\RBLXClone") == "C:\\RBLXClone/server.conf",
+        check(server::settingsPathFor("C:\\Linear") == "C:\\Linear/server.conf",
               "the file sits in the folder it is given");
-        check(server::settingsPathFor("C:\\RBLXClone\\") == "C:\\RBLXClone\\server.conf",
+        check(server::settingsPathFor("C:\\Linear\\") == "C:\\Linear\\server.conf",
               "a trailing separator does not double up");
         check(server::settingsPathFor("") == "server.conf",
               "no folder means the working directory");

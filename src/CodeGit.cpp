@@ -89,9 +89,9 @@ bool commitEverything(git::Repo& repo, const std::string& message, std::string* 
     return true;
 }
 
-std::string authorName() { return envOr("RBLX_GIT_NAME", "RBLX Code"); }
+std::string authorName() { return envOr("LINEAR_GIT_NAME", "RBLX Code"); }
 
-std::string authorEmail() { return envOr("RBLX_GIT_EMAIL", "editor@rblx.local"); }
+std::string authorEmail() { return envOr("LINEAR_GIT_EMAIL", "editor@rblx.local"); }
 
 std::string changesSummary(const std::vector<ChangeRow>& rows) {
     if (rows.empty()) return "nothing to commit";

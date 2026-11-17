@@ -1,4 +1,4 @@
-# RBLX Clone
+# Linear
 
 A Roblox-style platform built from scratch in C++17: a player client, an authoritative game
 server with its own scripting language, a Studio world editor, a source editor, and a website
@@ -13,11 +13,11 @@ before pointing it at the internet.
 | `Client.exe` | The game: player list, chat, shift lock, health and respawn, driving, the bundled games |
 | `Server.exe` | The authoritative game server: world, physics, scripts, players, movement guard |
 | `Studio.exe` | World editor: build, colour, texture, script and publish |
-| `RBLXCode.exe` | Source editor for this repository, the way VS Code is the editor for its own sources |
+| `LinearCode.exe` | Source editor for this repository, the way VS Code is the editor for its own sources |
 | `WebApp.exe` | The website: accounts, sessions, avatars, friends, games, coins, moderation, launching servers |
-| `RBLXProxy.exe` | Front door for the site: listens on one address and forwards every request to `WebApp.exe` |
+| `LinearProxy.exe` | Front door for the site: listens on one address and forwards every request to `WebApp.exe` |
 | `AiTrainer.exe` | Signs in with a developer token, learns to play an AI-compatible game, and can draw the run in a window while it trains |
-| `RBLXHosts.exe` | Keeps N game servers running on one machine — ports, logs, restarts, control panel — see [HOSTING.md](HOSTING.md) |
+| `LinearHosts.exe` | Keeps N game servers running on one machine — ports, logs, restarts, control panel — see [HOSTING.md](HOSTING.md) |
 
 ```powershell
 build\rblxbuild-tool\bin\rblxbuild --preset windows-release
@@ -36,7 +36,7 @@ The website starts a game server and launches the client for you.
 - [The website](#the-website) — configuration, accounts, captchas, coins, admin, themes
 - [Web API](#web-api) — every route, grouped
 - [Scripting](#scripting) — RBLX Script and the world API
-- [Controls](#controls) — client, Studio, RBLXCode
+- [Controls](#controls) — client, Studio, LinearCode
 - [AI Trainer](#ai-trainer) · [Repository layout](#repository-layout)
 - [RBLXBuild and vendored dependencies](#rblxbuild-and-vendored-dependencies)
 - [CI and prebuilt packages](#ci-and-prebuilt-packages)
@@ -47,24 +47,24 @@ The website starts a game server and launches the client for you.
 
 ### The unzip-and-run package
 
-The `Build` workflow packages every push into `rblx-windows-release` (see
+The `Build` workflow packages every push into `linear-windows-release` (see
 [CI and prebuilt packages](#ci-and-prebuilt-packages)). Unzip it and double-click `WebApp.exe`: it
 serves the site on <http://localhost:3000>, uses the `Server.exe` and `Client.exe` beside it, and
 **Open site** in its window opens the page in the browser.
 
 The guided tour is at <http://localhost:3000/welcome>: nine steps through the website, the client and
-game servers, Studio, RBLXCode and the trainer, each one checking itself against the running site
+game servers, Studio, LinearCode and the trainer, each one checking itself against the running site
 where it can. **Tour** in the site navigation reopens it. `Studio.exe` opens the world editor,
-`RBLXCode.exe` the source editor, `Client.exe` the game on its own, and `RBLXUpdater.exe` checks for
-an update before starting it. `RBLXHosts.exe` is in the same folder: `RBLXHosts.exe up` keeps a pool
+`LinearCode.exe` the source editor, `Client.exe` the game on its own, and `LinearUpdater.exe` checks for
+an update before starting it. `LinearHosts.exe` is in the same folder: `LinearHosts.exe up` keeps a pool
 of `Server.exe` processes alive on their own ports and prints a loopback address for its control
 panel, where you can watch the pool and start, stop or restart a server ([HOSTING.md](HOSTING.md)).
 `ServerSetup.exe` is for a machine that other people play on: it asks for the port, the public URL
 and the owner password, writes `server.conf` and starts the site in production ([Setting up a
-server](#setting-up-a-server)). `RBLXProxy.exe` is the site's front door: it listens on
+server](#setting-up-a-server)). `LinearProxy.exe` is the site's front door: it listens on
 `127.0.0.1:8080`, forwards each request to
 `WebApp.exe`, and adds the `X-Forwarded-*` headers the site cannot learn from its own socket, so the
-site can be reached through one address of your choosing. `RBLXProxy.exe --listen 0.0.0.0:80
+site can be reached through one address of your choosing. `LinearProxy.exe --listen 0.0.0.0:80
 --upstream 127.0.0.1:3000` puts it on port 80; the listener stays on loopback until you say
 otherwise, and the site then answers whoever can reach that port.
 
@@ -77,29 +77,29 @@ executables load `shaders/`, `ServerWorld.world` and `web/` relative to the work
 
 ### The installer, and how a copy updates itself
 
-`RBLXSetup.exe` is the installer, and it is this project's own code: no installer tool to download,
+`LinearSetup.exe` is the installer, and it is this project's own code: no installer tool to download,
 nothing vendored that never ships. It is built with everything else and travels inside the package,
 where a player runs it from the folder they unpacked:
 
 ```powershell
-RBLXSetup.exe                                  # install into %LOCALAPPDATA%\RBLXClone
-RBLXSetup.exe --dir D:\Games\RBLXClone --launch
-RBLXSetup.exe --uninstall                      # keeps worlds and account data
-RBLXSetup.exe --uninstall --purge              # removes those too
+LinearSetup.exe                                  # install into %LOCALAPPDATA%\Linear
+LinearSetup.exe --dir D:\Games\Linear --launch
+LinearSetup.exe --uninstall                      # keeps worlds and account data
+LinearSetup.exe --uninstall --purge              # removes those too
 ```
 
 It copies the folder with its layout intact and leaves anything already identical alone, so running
 it over an existing install is an upgrade rather than a clobber. It records what it installed as
 `manifest.json` — the same document the updater diffs against — which means an installed copy can
-update and uninstall itself file by file. Then it adds **Play RBLX Clone** to the Start menu and the
+update and uninstall itself file by file. Then it adds **Play Linear** to the Start menu and the
 desktop, lists the program in Settings → Apps → Installed apps and in Control Panel → Programs and
 Features with its own `UninstallString`, and copies itself into the install so that entry works.
 Shortcuts are COM's `IShellLink` and the entry is the per-user
-`HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\RBLXClone`, carrying the version,
+`HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\Linear`, carrying the version,
 publisher, install date, size and icon those two pages display. Uninstalling removes exactly the
 recorded files and leaves worlds, saves and account data unless `--purge` is given.
 
-The shortcut points at `RBLXUpdater.exe` rather than `Client.exe`, so an update is checked every
+The shortcut points at `LinearUpdater.exe` rather than `Client.exe`, so an update is checked every
 time somebody plays and nobody has to run a second program. The updater asks the URL in `update.json`
 for `manifest.json`, compares it with the manifest it saved in the install folder, and downloads only
 the files whose SHA-256 differs. Each download is checked against its hash before it is written, and
@@ -115,34 +115,34 @@ finished package there, replacing whatever the folder held before, so the defaul
 
 The update channel is plain HTTP, so the manifest is signed rather than trusted: a release is signed
 with an RSA-2048 key and the public half is pinned in `update.json`, a file that belongs to the
-machine and that an update never rewrites. `RBLXUpdater` verifies the signature over the exact
+machine and that an update never rewrites. `LinearUpdater` verifies the signature over the exact
 bytes of the manifest before it plans a single download and refuses an unsigned or altered
 release, so intercepting the request no longer buys the ability to write into the install folder.
 A copy with no key pinned is only allowed to use a loopback release URL, which is what keeps a
 fresh checkout and the packaging step working without one.
 
-Every window this project opens — the installer and updater, the server console, Studio, RBLXCode and
+Every window this project opens — the installer and updater, the server console, Studio, LinearCode and
 the client's menus — takes its palette and spacing from `include/UiTheme.h`, so they read as one
 program rather than five. There are two palettes, a dark one and a light one built on the same mint
 accent, and a single settings file chooses between them for every window:
 
 ```ini
-# %APPDATA%\RBLXClone\ui.settings
+# %APPDATA%\Linear\ui.settings
 theme = light
 ```
 
 Nothing is written until somebody makes that file, and without it every window draws the dark
-palette. `RBLX_THEME=light` or `RBLX_THEME=dark` overrides the file for one launch, and
-`RBLX_UI_SETTINGS` points at a different file, which is how the tests below run without touching the
+palette. `LINEAR_THEME=light` or `LINEAR_THEME=dark` overrides the file for one launch, and
+`LINEAR_UI_SETTINGS` points at a different file, which is how the tests below run without touching the
 user's settings. Lines starting with `#` or `;` are comments, both the key and the value are
 case-insensitive, and an unknown key or value is ignored rather than treated as an error, so a
-settings file written for a later version still loads. RBLXCode's own editor palette starts out
+settings file written for a later version still loads. LinearCode's own editor palette starts out
 matching the window and stays switchable from its View menu.
 
 The release side is one command on the machine that produced the package:
 
 ```powershell
-RBLXUpdater.exe manifest --dir dist\rblx-windows-release --version 1.2.0
+LinearUpdater.exe manifest --dir dist\linear-windows-release --version 1.2.0
 ```
 
 Leave `-Version` off and the package is stamped with its build time instead —
@@ -150,7 +150,7 @@ Leave `-Version` off and the package is stamped with its build time instead —
 it. A deliberate `-Version 1.1.0` still outranks every automatic build, because only the
 components after the minor carry the stamp.
 
-`RBLXUpdater.exe install --manifest <url> --dir <folder>` fills a folder from scratch, and `check`
+`LinearUpdater.exe install --manifest <url> --dir <folder>` fills a folder from scratch, and `check`
 (exit 10 when an update exists, 0 when current) is there for a scheduled task or a monitor. The rules the updater applies are covered by
 `UpdaterTests`: version order, manifest parsing, paths that try to leave the install folder, which
 files a plan touches, and the rename that replaces a file.
@@ -286,10 +286,10 @@ is compiled into the client.
 
 **The website** is built from the same tree and needs nothing beyond it: no Node.js, npm or SQLite.
 
-`RBLXAntiCheat` is compiled into the client; `-DRBLX_BUILD_ANTICHEAT=OFF` leaves it out.
+`RBLXAntiCheat` is compiled into the client; `-DLINEAR_BUILD_ANTICHEAT=OFF` leaves it out.
 Two of its steps - writing over a function inside `ntdll.dll` and re-mapping its own
 settings section as read-only - are left out by default, because an unsigned executable
-that does them is quarantined as malware by anti-virus engines; `-DRBLX_ANTICHEAT_INVASIVE=ON`
+that does them is quarantined as malware by anti-virus engines; `-DLINEAR_ANTICHEAT_INVASIVE=ON`
 puts them back for a build that is code-signed.
 
 ## Building
@@ -317,13 +317,13 @@ Manual configure works too, with Visual Studio or a portable MinGW/Ninja toolcha
 
 ```powershell
 # Visual Studio
-build\rblxbuild-tool\bin\rblxbuild -S . -B build/windows-release -G "Visual Studio 17 2022" -DRBLX_BUILD_TESTS=ON
+build\rblxbuild-tool\bin\rblxbuild -S . -B build/windows-release -G "Visual Studio 17 2022" -DLINEAR_BUILD_TESTS=ON
 build\rblxbuild-tool\bin\rblxbuild --build build/windows-release --config Release
 build\rblxbuild-tool\bin\rblxtest --test-dir build/windows-release -C Release
 
 # MinGW + Ninja
 build\rblxbuild-tool\bin\rblxbuild -S . -B build/ninja -G Ninja `
-  -DRBLXBUILD_C_COMPILER=C:\path\to\gcc.exe -DRBLXBUILD_CXX_COMPILER=C:\path\to\g++.exe -DRBLX_BUILD_TESTS=ON
+  -DRBLXBUILD_C_COMPILER=C:\path\to\gcc.exe -DRBLXBUILD_CXX_COMPILER=C:\path\to\g++.exe -DLINEAR_BUILD_TESTS=ON
 build\rblxbuild-tool\bin\rblxbuild --build build/ninja
 build\rblxbuild-tool\bin\rblxtest --test-dir build/ninja --output-on-failure
 ```
@@ -332,16 +332,16 @@ build\rblxbuild-tool\bin\rblxtest --test-dir build/ninja --output-on-failure
 
 | Option | Effect |
 | --- | --- |
-| `RBLX_BUILD_CLIENT` | Build the game client |
-| `RBLX_BUILD_SERVER` | Build the game server |
-| `RBLX_BUILD_STUDIO` | Build the world editor |
-| `RBLX_BUILD_TESTS` | Build the C++ test suite (`rblxtest` runs it) |
-| `RBLX_BUILD_ANTICHEAT` | Compile RBLXAntiCheat into the client |
-| `RBLX_ANTICHEAT_INVASIVE` | Let the anti-cheat patch `ntdll` and remap its settings (anti-virus engines flag it; off by default) |
-| `RBLX_BUILD_HOSTS` | Build the game server supervisor (`RBLXHosts`) |
-| `RBLX_BUILD_GIT` | Build the git command line (`RBLXGit`) |
-| `RBLX_BUILD_HUB` | Build the repository browser (`RBLXHub`) |
-| `RBLX_ENABLE_WARNINGS` | Turn on the warning set |
+| `LINEAR_BUILD_CLIENT` | Build the game client |
+| `LINEAR_BUILD_SERVER` | Build the game server |
+| `LINEAR_BUILD_STUDIO` | Build the world editor |
+| `LINEAR_BUILD_TESTS` | Build the C++ test suite (`rblxtest` runs it) |
+| `LINEAR_BUILD_ANTICHEAT` | Compile RBLXAntiCheat into the client |
+| `LINEAR_ANTICHEAT_INVASIVE` | Let the anti-cheat patch `ntdll` and remap its settings (anti-virus engines flag it; off by default) |
+| `LINEAR_BUILD_HOSTS` | Build the game server supervisor (`LinearHosts`) |
+| `LINEAR_BUILD_GIT` | Build the git command line (`LinearGit`) |
+| `LINEAR_BUILD_HUB` | Build the repository browser (`LinearHub`) |
+| `LINEAR_ENABLE_WARNINGS` | Turn on the warning set |
 
 Windows builds compile the vendored RBLXAntiCheat into the client (see `RBLXAntiCheat/`); on other
 platforms that target is skipped.
@@ -352,13 +352,13 @@ After a Release build with the preset:
 
 ```powershell
 .\build\windows-release\Release\Studio.exe
-.\build\windows-release\Release\RBLXCode.exe
+.\build\windows-release\Release\LinearCode.exe
 .\build\windows-release\Release\Server.exe
 .\build\windows-release\Release\Client.exe
 .\build\windows-release\Release\WebApp.exe
 ```
 
-`RBLXCode.exe .` opens the source editor on the checkout it is launched from.
+`LinearCode.exe .` opens the source editor on the checkout it is launched from.
 
 Start the website before using authenticated client login. A game server can also be started by
 hand, with or without a script:
@@ -556,7 +556,7 @@ its working directory.
 - buttons to open the site in the browser, copy the log and clear it. Closing the window stops the
   website and every game server it started.
 
-The text is still written to the terminal, so run it with `--nogui` (or set `RBLX_NO_GUI=1`) on a
+The text is still written to the terminal, so run it with `--nogui` (or set `LINEAR_NO_GUI=1`) on a
 headless host or in CI. If no window can be created, it falls back to the plain console on its own.
 
 ### Configuration
@@ -582,7 +582,7 @@ a convenience and never a second configuration system ([Setting up a server](#se
 | `CHAT_RATE_LIMIT_WINDOW_MS` / `CHAT_RATE_LIMIT_MAX` | `10000` / `5` | How many chat messages one account may post per window |
 | `BAN_WAVE_WINDOW_MS` | `300000` | How long a detection is held before the wave acts |
 | `GAME_WORLDS_DIR` | `web/game-worlds` | Where published `.world` files are written |
-| `RBLX_HUB_REPO` | the checkout the site runs from | Repository the `/hub` pages read. Relative to the web folder; a folder without `.git` leaves `/hub` explaining that no repository is open |
+| `LINEAR_HUB_REPO` | the checkout the site runs from | Repository the `/hub` pages read. Relative to the web folder; a folder without `.git` leaves `/hub` explaining that no repository is open |
 | `SERVER_SETTINGS` | `server.conf` beside the program | Settings file read at start-up. Its keys are the variables in this table, and a variable that is already set wins |
 | `GAME_SERVER_HOST` / `GAME_SERVER_BASE_PORT` | `127.0.0.1` / `7777` | Local game-server address |
 | `GAME_INSTANCE_EMPTY_GRACE_MS` | `30000` | How long an empty game instance stays up |
@@ -1286,12 +1286,12 @@ restored world never points at a part that no longer exists. The history keeps t
 and is dropped when a different world is loaded, because a step taken in one world cannot be undone
 into another.
 
-### RBLXCode, the source editor
+### LinearCode, the source editor
 
-`RBLXCode` is the code editor for this repository, the way VS Code is the editor for its own
+`LinearCode` is the code editor for this repository, the way VS Code is the editor for its own
 sources. It is not the Studio: Studio edits a world and runs a script, this edits the C++, shaders,
-website and `.rbx` scripts that make up RBLX Clone itself, and saves them in place. Launch it from
-the checkout (`RBLXCode.exe` on Windows, `./RBLXCode .` elsewhere), or name the folder to open, and
+website and `.rbx` scripts that make up Linear itself, and saves them in place. Launch it from
+the checkout (`LinearCode.exe` on Windows, `./LinearCode .` elsewhere), or name the folder to open, and
 it walks that folder for source files. To switch folders while it runs, **File → Open folder...** has
 a `Browse...` button that opens the folder picker Explorer uses -- the path can still be typed or
 pasted instead, and `Open` decides either way.
@@ -1320,7 +1320,7 @@ status bar instead of being coloured wrongly.
 | `Ctrl+Tab`, `Ctrl+Shift+Tab` | Switch tabs |
 | `Ctrl+S`, `Ctrl+Shift+S` | Save the file in front / every open file |
 | `Ctrl+R`, `Ctrl+W` | Reload from disk / close the tab |
-| `Ctrl+B` | Make a release like the Windows workflow: configure, build, run the tests, package a new version into `dist\rblx-windows-release` |
+| `Ctrl+B` | Make a release like the Windows workflow: configure, build, run the tests, package a new version into `dist\linear-windows-release` |
 
 Undo, redo, cut, copy and paste belong to the text widget and work as usual; `Ctrl+Z` also takes
 back a single replace and a comment toggle.
@@ -1330,7 +1330,7 @@ back a single replace and a comment toggle.
 `Ctrl+B`, or **Build → Build release**, makes a release the way the Windows workflow does, in this
 window: configure the preset if its folder has never been written, build it, run every `*Tests.exe`
 the build produced, and then run `scripts/package-build.ps1 -Configuration Release`. The result is a
-new version in `dist\rblx-windows-release` -- the folder the workflow uploads as its artifact, with
+new version in `dist\linear-windows-release` -- the folder the workflow uploads as its artifact, with
 `manifest.json` and `update.json` beside the executables. The packager stamps the moment it ran unless
 it is given a version, so two runs never share a number and the newer one always wins in the updater.
 
@@ -1352,16 +1352,16 @@ button that copies them, instead of failing silently. `RBLXBUILD` points the edi
 somewhere else.
 
 The editor is one of the programs the checkout builds, and Windows will not replace a program that is
-running, so the link step of `RBLXCode.exe` itself cannot finish inside it. That one step is excused --
+running, so the link step of `LinearCode.exe` itself cannot finish inside it. That one step is excused --
 the release goes on to the tests and the packager, and the packaged editor is the copy that was
 already there -- rather than failing a build that produced everything else. Close the editor and run
 `build\rblxbuild-tool\bin\rblxbuild --build --preset windows-release` once to update the editor itself.
 
 The left panel switches between the tree and **Source control**: the branch, every changed path with
 the two letters git prints (`M ` staged, ` M` unstaged, `??` new), and one button that stages
-everything and records it under the message in the box. It runs the same repository code `RBLXGit`
-does, so a commit made here is a commit git can read, and it signs with `RBLX_GIT_NAME` and
-`RBLX_GIT_EMAIL` the way the command line does. A blank message, a clean checkout and a folder that is
+everything and records it under the message in the box. It runs the same repository code `LinearGit`
+does, so a commit made here is a commit git can read, and it signs with `LINEAR_GIT_NAME` and
+`LINEAR_GIT_EMAIL` the way the command line does. A blank message, a clean checkout and a folder that is
 not a repository are each answered in the status bar instead of being committed anyway.
 
 #### Suggestions and documentation
@@ -1405,7 +1405,7 @@ editor that rewrote every line would bury a one-line fix in a whole-file diff. B
 tree, images and models are never offered, and a file with a NUL byte or one larger than 4 MB is
 refused with the reason in the status bar rather than opened.
 
-In the Windows package, double-click `RBLXCode.exe`: it opens the folder it was started in (the
+In the Windows package, double-click `LinearCode.exe`: it opens the folder it was started in (the
 shaders, website and example games); the C++ sources are not in that package, so for those run it
 from a checkout, where it opens the clone, or pass another folder's path.
 
@@ -1506,8 +1506,8 @@ shaders/                OpenGL shaders used by Client and Studio
 textures/               Tileable part textures a world can name
 games/                  The bundled worlds and their .rbx scripts
 web/                    Public pages, starter worlds, published worlds, game-server logs
-web/host/               The RBLXHosts control panel page (served by RBLXHosts.exe)
-web/hub/                The repository browser's stylesheet (RBLXHub.exe, and WebApp's /hub)
+web/host/               The LinearHosts control panel page (served by LinearHosts.exe)
+web/hub/                The repository browser's stylesheet (LinearHub.exe, and WebApp's /hub)
 ServerWorld.world       Default world file
 server.conf             Settings ServerSetup.exe writes (this machine only, never committed)
 scripts/                package-build.ps1 and other tooling
@@ -1570,15 +1570,15 @@ earlier run built - its executable and the `Modules` tree it reads at startup - 
 bootstrapping one. The cache is written as soon as the tool is built rather than when the job ends,
 so a run that goes on to fail a test or a compile still leaves the tool behind: the point of
 caching it is the ten minutes after a failure, which is when the next run would pay for it again.
-Open the latest run under **Actions** and download `rblx-windows-release`.
+Open the latest run under **Actions** and download `linear-windows-release`.
 
 ```
-rblx-windows-release/
-  WebApp.exe  Server.exe  Client.exe  Studio.exe  RBLXCode.exe
+linear-windows-release/
+  WebApp.exe  Server.exe  Client.exe  Studio.exe  LinearCode.exe
   web/public/  web/seed-worlds/
   shaders/  ServerWorld.world  face*.png  face_hex.txt
-  RBLXUpdater.exe  RBLXSetup.exe  ServerSetup.exe  AiTrainer.exe  RBLXHosts.exe  RBLXProxy.exe
-  RBLXGit.exe  RBLXHub.exe  update.json  manifest.json
+  LinearUpdater.exe  LinearSetup.exe  ServerSetup.exe  AiTrainer.exe  LinearHosts.exe  LinearProxy.exe
+  LinearGit.exe  LinearHub.exe  update.json  manifest.json
   README.txt
 ```
 
@@ -1611,12 +1611,12 @@ its output to `web/game-server-logs/game-server-<port>.log`. When a server dies 
 example because its port is still held by a leftover `Server.exe` — the game page shows that output
 and the log path instead of a bare connection error.
 
-## Git: RBLXGit and RBLXHub
+## Git: LinearGit and LinearHub
 
 The tree carries its own git implementation and a browser over it, both C++ and both with no
-git library underneath: `RBLXGit.exe` and `RBLXHub.exe`.
+git library underneath: `LinearGit.exe` and `LinearHub.exe`.
 
-`RBLXGit` writes the format git defines — loose objects as zlib streams with a
+`LinearGit` writes the format git defines — loose objects as zlib streams with a
 `<type> <size>\0<payload>` header, the version 2 index with its trailing digest, nested trees
 sorted the way git sorts them, refs, `HEAD` and the reflog — so `git fsck`, `git log`,
 `git status` and `git ls-files` read a repository it wrote, and it reads one git wrote.
@@ -1627,22 +1627,22 @@ there is no zlib dependency, and a real deflate stream written by Python's zlib 
 test as proof the reader handles input it did not produce.
 
 ```powershell
-RBLXGit.exe init .
-RBLXGit.exe add .
-RBLXGit.exe commit -m "first import"
-RBLXGit.exe status
-RBLXGit.exe log -n 5
-RBLXGit.exe branch feature
-RBLXGit.exe show HEAD:README.md
+LinearGit.exe init .
+LinearGit.exe add .
+LinearGit.exe commit -m "first import"
+LinearGit.exe status
+LinearGit.exe log -n 5
+LinearGit.exe branch feature
+LinearGit.exe show HEAD:README.md
 ```
 
-The author on a commit comes from `RBLX_GIT_NAME` and `RBLX_GIT_EMAIL` (defaults `RBLX Git`
-and `git@rblx.local`). The commands are init, status, add, commit, log, branch and show.
+The author on a commit comes from `LINEAR_GIT_NAME` and `LINEAR_GIT_EMAIL` (defaults `Linear Git`
+and `git@linear.local`). The commands are init, status, add, commit, log, branch and show.
 There is no merge, rebase, remote, pack file or `.gitignore` support, so `add .` stages what
 is on disk and a repository that `git gc` has packed has to be unpacked with
 `git unpack-objects` before this reads it.
 
-`RBLXHub.exe` serves the repository on <http://127.0.0.1:3100>: the files at `HEAD` folder by
+`LinearHub.exe` serves the repository on <http://127.0.0.1:3100>: the files at `HEAD` folder by
 folder, a file page with line numbers, the commit history, a page per commit with the paths
 it changed, and an issues list that a plain HTML form adds to. The pages are built as strings
 in `HubViews`, which is why the escaping and the links are tested without a browser, and they
@@ -1652,9 +1652,9 @@ are kept in `hub-issues.json` in the `.git` folder: they belong to the hub, not 
 repository, so they are never part of a commit.
 
 ```powershell
-RBLXGit.exe init .          # once, in the folder to browse
-RBLXHub.exe                 # then open http://127.0.0.1:3100
-RBLXHub.exe --repo .. --port 8080 --host 0.0.0.0
+LinearGit.exe init .          # once, in the folder to browse
+LinearHub.exe                 # then open http://127.0.0.1:3100
+LinearHub.exe --repo .. --port 8080 --host 0.0.0.0
 ```
 
 The same pages are served by `WebApp.exe` under `/hub`, so a machine that is already running the site
@@ -1662,12 +1662,12 @@ does not need a second program: `/hub`, `/hub/tree/...`, `/hub/blob/...`, `/hub/
 `/hub/commit/<id>`, `/hub/issues` and `/hub/issues/new`. Both hosts run the same `HubSite`, and every
 link inside a page carries the prefix it is mounted at, so the pages read the same either way.
 
-`/hub` answers this machine only. The pages are the source tree and its history, and `RBLXHub` has
+`/hub` answers this machine only. The pages are the source tree and its history, and `LinearHub` has
 never had accounts, so the site applies the rule it can keep: a request that did not arrive over
 loopback gets `403`, and a request that came through the reverse proxy counts as local only when the
 address it forwards is this machine too. Nothing in the site links to the page, because it is not a
 feature of the site: the console prints `Repository browser: http://localhost:3000/hub` at start-up
-when a repository is open, and that is how it is found. WebApp reads the checkout it was started from, and `RBLX_HUB_REPO` points it at
+when a repository is open, and that is how it is found. WebApp reads the checkout it was started from, and `LINEAR_HUB_REPO` points it at
 another repository. A packaged install has no `.git` beside it, so `/hub` answers with a page saying
 no repository is open rather than failing the server.
 

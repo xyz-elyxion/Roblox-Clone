@@ -1,4 +1,4 @@
-// RBLXHub: a repository browser for the repository on this machine.
+// LinearHub: a repository browser for the repository on this machine.
 //
 // The pages and the routing are HubSite, which WebApp also serves under /hub; this
 // file is only the program around it - the command line, a loopback listener and
@@ -6,9 +6,9 @@
 // database: issues live in one JSON file beside the reflog, and the pages are HTML
 // that a browser can read with scripting switched off.
 //
-//   RBLXHub                      the repository this folder is inside, 127.0.0.1:3100
-//   RBLXHub --repo .. --port 8080 --host 0.0.0.0
-//   RBLXHub --help
+//   LinearHub                      the repository this folder is inside, 127.0.0.1:3100
+//   LinearHub --repo .. --port 8080 --host 0.0.0.0
+//   LinearHub --help
 
 #include "HubSite.h"
 #include "WebHttp.h"
@@ -50,7 +50,7 @@ std::string executableDirectory() {
     return slash == std::string::npos ? std::string(".") : path.substr(0, slash);
 }
 
-// web, found the way RBLXHosts finds its panel and WebApp finds the site: next to
+// web, found the way LinearHosts finds its panel and WebApp finds the site: next to
 // the executables first, then by walking up from them and from the folder this
 // program was started in. The package keeps web/ beside the executables, so the
 // first step usually wins.
@@ -86,11 +86,11 @@ int main(int argc, char** argv) {
         const std::string argument = argv[i];
         if (argument == "--help" || argument == "-h" || argument == "/?") {
             std::printf(
-                "RBLXHub - browse the git repository in this folder\n"
+                "LinearHub - browse the git repository in this folder\n"
                 "\n"
-                "  RBLXHub [repository] [--host address] [--port number]\n"
+                "  LinearHub [repository] [--host address] [--port number]\n"
                 "\n"
-                "Start the repository with RBLXGit init and commit something first; the\n"
+                "Start the repository with LinearGit init and commit something first; the\n"
                 "hub shows the commits, the files at HEAD and the issues kept beside the\n"
                 "repository. It listens on loopback only unless --host says otherwise.\n"
                 "\n"
@@ -103,18 +103,18 @@ int main(int argc, char** argv) {
             try {
                 port = std::stoi(argv[++i]);
             } catch (...) {
-                std::fprintf(stderr, "RBLXHub: --port needs a number\n");
+                std::fprintf(stderr, "LinearHub: --port needs a number\n");
                 return 2;
             }
         } else if (argument.rfind("--", 0) == 0) {
-            std::fprintf(stderr, "RBLXHub: unknown option %s (try --help)\n", argument.c_str());
+            std::fprintf(stderr, "LinearHub: unknown option %s (try --help)\n", argument.c_str());
             return 2;
         } else {
             repoPath = argument;
         }
     }
     if (port < 1 || port > 65535) {
-        std::fprintf(stderr, "RBLXHub: --port must be between 1 and 65535\n");
+        std::fprintf(stderr, "LinearHub: --port must be between 1 and 65535\n");
         return 2;
     }
 
@@ -122,8 +122,8 @@ int main(int argc, char** argv) {
     hub::HubSite site;
     // The pages are the whole site here, so they are mounted at the root.
     if (!site.open(repoPath, findWebDirectory(), std::string(), &error)) {
-        std::fprintf(stderr, "RBLXHub: %s\n", error.c_str());
-        std::fprintf(stderr, "RBLXHub: run RBLXGit init and make a commit first.\n");
+        std::fprintf(stderr, "LinearHub: %s\n", error.c_str());
+        std::fprintf(stderr, "LinearHub: run LinearGit init and make a commit first.\n");
         return 2;
     }
 
@@ -149,20 +149,20 @@ int main(int argc, char** argv) {
     });
 
     if (!server.listen(host, port, &error)) {
-        std::fprintf(stderr, "RBLXHub: %s\n", error.c_str());
+        std::fprintf(stderr, "LinearHub: %s\n", error.c_str());
         return 1;
     }
 
     g_server = &server;
     ::SetConsoleCtrlHandler(consoleHandler, TRUE);
 
-    std::printf("RBLXHub: %s on http://%s:%d\n", site.name().c_str(), host.c_str(), server.port());
-    std::printf("RBLXHub: Ctrl+C stops the server. Pages are rendered from the repository.\n");
+    std::printf("LinearHub: %s on http://%s:%d\n", site.name().c_str(), host.c_str(), server.port());
+    std::printf("LinearHub: Ctrl+C stops the server. Pages are rendered from the repository.\n");
     std::fflush(stdout);
 
     server.serveForever();
 
     g_server = nullptr;
-    std::printf("RBLXHub: stopped.\n");
+    std::printf("LinearHub: stopped.\n");
     return 0;
 }

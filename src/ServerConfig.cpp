@@ -153,7 +153,7 @@ bool loadSettings(const std::string& path, Settings* settings, std::string* erro
 
 bool saveSettings(const std::string& path, const Settings& settings, std::string* error) {
     std::ostringstream out;
-    out << "# RBLX Clone server settings, written by ServerSetup.exe.\n"
+    out << "# Linear server settings, written by ServerSetup.exe.\n"
            "#\n"
            "# Every key here is an environment variable the website reads, so this file is a\n"
            "# convenience rather than a second configuration system: a value set in the\n"

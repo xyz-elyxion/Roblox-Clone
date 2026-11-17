@@ -158,7 +158,7 @@ std::string urlPath(const std::string& path) {
     return out;
 }
 
-// RBLXHub serves these pages at "/" and WebApp under "/hub", so an absolute link
+// LinearHub serves these pages at "/" and WebApp under "/hub", so an absolute link
 // has the mount path inserted once, where the page is wrapped. Everything that
 // matches is markup written by this file: repository text is escaped into body
 // content and never reaches an href or an action.
@@ -181,14 +181,14 @@ std::string page(const std::string& title, const std::string& body) {
     std::string out;
     out += "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n";
     out += "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n";
-    out += "<title>" + escapeHtml(title) + " - RBLXHub</title>\n";
+    out += "<title>" + escapeHtml(title) + " - LinearHub</title>\n";
     out += "<link rel=\"stylesheet\" href=\"/hub.css\">\n</head>\n<body>\n";
     out += "<a class=\"skip-link\" href=\"#main\">Skip to content</a>\n";
     out += "<header class=\"top\"><a class=\"brand\" href=\"/\">RBLX<span>Hub</span></a>";
     out += "<span class=\"tagline\">git, served from this machine</span></header>\n";
     out += "<main id=\"main\" tabindex=\"-1\">\n";
     out += body;
-    out += "</main>\n<footer class=\"foot\">Served by RBLXHub. Every page is rendered from the "
+    out += "</main>\n<footer class=\"foot\">Served by LinearHub. Every page is rendered from the "
            "repository; nothing is stored anywhere else.</footer>\n";
     out += "</body>\n</html>\n";
     prefixAbsoluteUrls(&out);

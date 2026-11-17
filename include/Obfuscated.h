@@ -61,17 +61,17 @@ namespace rblx::obf {
 
 }
 
-// RBLX_OBF("text")        -> std::string
-// RBLX_OBF_W(L"text")     -> std::wstring
+// LINEAR_OBF("text")        -> std::string
+// LINEAR_OBF_W(L"text")     -> std::wstring
 // Each use is its own constexpr instance, so the masked bytes stay in .rdata
 // and only the decode runs at runtime.
-#define RBLX_OBF(text)                                                                 \
+#define LINEAR_OBF(text)                                                                 \
     ([] {                                                                              \
         static constexpr ::rblx::obf::Literal<char, sizeof(text)> literal(text);        \
         return literal.str();                                                          \
     }())
 
-#define RBLX_OBF_W(text)                                                               \
+#define LINEAR_OBF_W(text)                                                               \
     ([] {                                                                              \
         static constexpr ::rblx::obf::Literal<wchar_t, sizeof(text) / sizeof(wchar_t)>  \
             literal(text);                                                             \

@@ -69,7 +69,7 @@ private:
 };
 
 struct Options {
-    std::string title = "RBLX Clone";
+    std::string title = "Linear";
     std::string heading;
     std::string detail;
     std::string startLabel = "Install";

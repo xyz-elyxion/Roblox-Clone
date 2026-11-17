@@ -2,7 +2,7 @@
 
 // Building the checkout from the editor, and reading what the compiler said.
 //
-// RBLXCode is the editor for this repository, and it used to be the one place where
+// LinearCode is the editor for this repository, and it used to be the one place where
 // changing a source file and finding out whether it still compiles meant leaving:
 // the build tool is vendored under build/, so there is nothing to install and no
 // reason the editor cannot run it.
@@ -34,7 +34,7 @@ struct Diagnostic {
 // The default preset is the one RBLXBuildPresets.json ships.
 constexpr const char* kDefaultPreset = "windows-release";
 
-// The folder the build belongs to. RBLXCode starts in whatever folder it was
+// The folder the build belongs to. LinearCode starts in whatever folder it was
 // launched from, and the usual one is build\windows-release\Release, which has
 // neither the sources nor the tool: walk up until a folder looks like this
 // checkout (RBLXBuildPresets.json or RBLXBuildLists.txt), and use that. A folder
@@ -71,9 +71,9 @@ std::string stageCommandLine(const Stage& stage);
 
 // The editor is one of the programs this checkout builds, and Windows will not
 // overwrite a program that is running: a build started from the panel always
-// stops at the link step of RBLXCode.exe itself. Recognising that in the output
+// stops at the link step of LinearCode.exe itself. Recognising that in the output
 // is what turns a red build into "everything else is up to date".
-constexpr const char* kEditorProgram = "RBLXCode.exe";
+constexpr const char* kEditorProgram = "LinearCode.exe";
 bool selfLinkBlocked(const std::vector<std::string>& lines);
 
 std::string buildCommandLine(const std::string& program, const std::string& preset);

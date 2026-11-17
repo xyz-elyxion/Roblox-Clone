@@ -1234,9 +1234,9 @@ bool loadConfigFromEnvironment(Config* config, std::string* error) {
     loaded.webRoot = webRoot;
     loaded.repoRoot = directoryOf(webRoot);
     // The repository browser reads the checkout the site runs from, so an install
-    // built from source needs no setting for it; RBLX_HUB_REPO points an install
+    // built from source needs no setting for it; LINEAR_HUB_REPO points an install
     // at another repository.
-    loaded.hubRepo = resolvePath(webRoot, envString("RBLX_HUB_REPO"));
+    loaded.hubRepo = resolvePath(webRoot, envString("LINEAR_HUB_REPO"));
     if (loaded.hubRepo.empty()) {
         loaded.hubRepo = loaded.repoRoot;
     }
@@ -1436,14 +1436,14 @@ bool WebsiteApp::initialize(std::string* error) {
         return false;
     }
 
-    // The repository browser is the same HubSite RBLXHub runs. It is opened once
+    // The repository browser is the same HubSite LinearHub runs. It is opened once
     // here; a checkout without a repository is not an error, because a packaged
     // install ships the site without the git tree it was built from, and /hub
     // says so on the page instead of failing the server.
     hub_ = std::make_unique<rblx::hub::HubSite>();
     std::string hubError;
     if (!hub_->open(config_.hubRepo, config_.webRoot, "/hub", &hubError)) {
-        std::cout << "Repository browser off: " << hubError << " (set RBLX_HUB_REPO to a checkout)"
+        std::cout << "Repository browser off: " << hubError << " (set LINEAR_HUB_REPO to a checkout)"
                   << std::endl;
         hub_.reset();
     }
@@ -5720,7 +5720,7 @@ bool WebsiteApp::handleHub(Request& request, Response& response) {
         return true;
     }
 
-    // These pages are this install's source tree and its history. RBLXHub listens
+    // These pages are this install's source tree and its history. LinearHub listens
     // on loopback for that reason, and this copy is held to the same rule: a player
     // on the network has no business reading the code.
     //
@@ -5742,12 +5742,12 @@ bool WebsiteApp::handleHub(Request& request, Response& response) {
     if (!hubReady()) {
         response.text(404,
                       "No repository is open here. Start WebApp beside a checkout, or set "
-                      "RBLX_HUB_REPO to one.");
+                      "LINEAR_HUB_REPO to one.");
         return true;
     }
 
     // Everything after the mount point is the hub's own path, so the same routing
-    // answers here and in RBLXHub.
+    // answers here and in LinearHub.
     std::string path = request.path.substr(4);
     if (path.empty()) {
         path = "/";

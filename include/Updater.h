@@ -114,7 +114,7 @@ bool writeConfigFile(const std::string& path, const Config& config, std::string*
 bool isPackagedFile(const std::string& relativePath);
 
 // Every file in a folder that belongs in a release, sorted and relative. The
-// walk behind `RBLXUpdater manifest` and the list the installer copies, so the
+// walk behind `LinearUpdater manifest` and the list the installer copies, so the
 // two can never disagree about what a release is.
 bool collectPayloadFiles(const std::string& directory, std::vector<std::string>* out,
                          std::string* error);

@@ -1,5 +1,5 @@
 rblxbuild_minimum_required(VERSION 3.14)
-project(RBLXClone LANGUAGES CXX)
+project(Linear LANGUAGES CXX)
 
 # Link the MSVC runtime statically so the executables in the packaged build run
 # on a machine without Visual Studio (Debug) or the VC++ redistributable
@@ -16,14 +16,14 @@ set(RBLXBUILD_CXX_STANDARD 17)
 set(RBLXBUILD_CXX_STANDARD_REQUIRED ON)
 set(RBLXBUILD_CXX_EXTENSIONS OFF)
 
-option(RBLX_BUILD_STUDIO "Build the Studio editor target" ON)
-option(RBLX_BUILD_CODEEDITOR "Build the RBLXCode source editor target" ON)
-option(RBLX_BUILD_CLIENT "Build the game client target" ON)
-option(RBLX_BUILD_SERVER "Build the game server target" ON)
-option(RBLX_BUILD_TESTS "Build C++ test targets" ON)
-option(RBLX_BUILD_WEBAPP "Build the native website backend target" ON)
-option(RBLX_BUILD_TRAINER "Build the headless AI trainer target" ON)
-option(RBLX_BUILD_ANTICHEAT "Embed the vendored RBLXAntiCheat library in the game client (Windows only)" ON)
+option(LINEAR_BUILD_STUDIO "Build the Studio editor target" ON)
+option(LINEAR_BUILD_CODEEDITOR "Build the LinearCode source editor target" ON)
+option(LINEAR_BUILD_CLIENT "Build the game client target" ON)
+option(LINEAR_BUILD_SERVER "Build the game server target" ON)
+option(LINEAR_BUILD_TESTS "Build C++ test targets" ON)
+option(LINEAR_BUILD_WEBAPP "Build the native website backend target" ON)
+option(LINEAR_BUILD_TRAINER "Build the headless AI trainer target" ON)
+option(LINEAR_BUILD_ANTICHEAT "Embed the vendored RBLXAntiCheat library in the game client (Windows only)" ON)
 
 # Two steps of the anti-cheat modify code and memory that do not belong to it: it writes a
 # RET over a function inside ntdll.dll, and it maps its settings section again as
@@ -31,14 +31,14 @@ option(RBLX_BUILD_ANTICHEAT "Embed the vendored RBLXAntiCheat library in the gam
 # does them is quarantined as malware - Kaspersky removes Client.exe outright. The client
 # loses nothing it uses: the checks that read state stay on. Turn this on only when the
 # executable is code-signed, or when building the anti-cheat for research.
-option(RBLX_ANTICHEAT_INVASIVE "Let the anti-cheat patch ntdll and remap its own settings (anti-virus engines flag this)" OFF)
-option(RBLX_BUILD_UPDATER "Build the installer and update launcher targets" ON)
-option(RBLX_BUILD_HOSTS "Build the game server supervisor target" ON)
-option(RBLX_BUILD_PROXY "Build the website reverse proxy target" ON)
-option(RBLX_BUILD_GIT "Build the RBLXGit command line target" ON)
-option(RBLX_BUILD_HUB "Build the RBLXHub repository browser target" ON)
-option(RBLX_BUILD_SERVERSETUP "Build the ServerSetup server setup target" ON)
-option(RBLX_ENABLE_WARNINGS "Enable stricter compiler warnings" ON)
+option(LINEAR_ANTICHEAT_INVASIVE "Let the anti-cheat patch ntdll and remap its own settings (anti-virus engines flag this)" OFF)
+option(LINEAR_BUILD_UPDATER "Build the installer and update launcher targets" ON)
+option(LINEAR_BUILD_HOSTS "Build the game server supervisor target" ON)
+option(LINEAR_BUILD_PROXY "Build the website reverse proxy target" ON)
+option(LINEAR_BUILD_GIT "Build the LinearGit command line target" ON)
+option(LINEAR_BUILD_HUB "Build the LinearHub repository browser target" ON)
+option(LINEAR_BUILD_SERVERSETUP "Build the ServerSetup server setup target" ON)
+option(LINEAR_ENABLE_WARNINGS "Enable stricter compiler warnings" ON)
 
 add_compile_definitions(NOMINMAX RBLXMATH_ENABLE_EXPERIMENTAL)
 
@@ -152,7 +152,7 @@ function(configure_rblx_target target_name)
             "/FI${RBLXBUILD_CURRENT_SOURCE_DIR}/include/Environment.h")
     endif()
 
-    if(RBLX_ENABLE_WARNINGS)
+    if(LINEAR_ENABLE_WARNINGS)
         if(MSVC)
             target_compile_options(${target_name} PRIVATE /W4 /permissive-)
         else()
@@ -161,7 +161,7 @@ function(configure_rblx_target target_name)
     endif()
 endfunction()
 
-if(RBLX_BUILD_STUDIO)
+if(LINEAR_BUILD_STUDIO)
     add_executable(Studio
         src/main.cpp
         src/HttpClient.cpp
@@ -189,18 +189,18 @@ if(RBLX_BUILD_STUDIO)
     target_link_libraries(Studio PRIVATE ws2_32 shell32)
 endif()
 
-if(RBLX_BUILD_CODEEDITOR)
+if(LINEAR_BUILD_CODEEDITOR)
     # The source editor for this project: a window, a project tree, tabs and the
     # same text widget Studio's script panel uses, with CodeProject doing the
     # scanning, reading, saving and searching. It has no renderer and no physics,
     # so it builds on a machine that cannot run the game, and it is a separate
     # executable because editing C++ and playing a level are different jobs.
-    add_executable(RBLXCode
+    add_executable(LinearCode
         src/CodeMain.cpp
         src/CodeProject.cpp
         # Building from the editor, and the repository it commits to. The build
         # tool is the vendored one under build/, and the repository code is the
-        # same GitRepo RBLXGit drives, so neither needs anything installed.
+        # same GitRepo LinearGit drives, so neither needs anything installed.
         src/CodeBuild.cpp
         src/CodeBuildRun.cpp
         src/CodeGit.cpp
@@ -212,25 +212,25 @@ if(RBLX_BUILD_CODEEDITOR)
         ${rblxtextedit_SOURCE_DIR}/RblxTextEditor.cpp
         ${RBLXUI_SOURCES}
     )
-    configure_rblx_target(RBLXCode)
-    target_include_directories(RBLXCode PRIVATE ${rblxtextedit_SOURCE_DIR})
+    configure_rblx_target(LinearCode)
+    target_include_directories(LinearCode PRIVATE ${rblxtextedit_SOURCE_DIR})
     # shell32 is the folder picker the Open folder popup uses and ole32 is the COM
     # it needs; neither is a dependency of the editor's own code.
-    target_link_libraries(RBLXCode PRIVATE rblxwin rblxgl shell32 ole32)
+    target_link_libraries(LinearCode PRIVATE rblxwin rblxgl shell32 ole32)
 endif()
 
-if(RBLX_BUILD_UPDATER)
+if(LINEAR_BUILD_UPDATER)
     # The installer and the auto updater are one target. It reads manifest.json,
     # downloads only the files whose SHA-256 differs, replaces them through a
     # rename, and starts the game - which is what the installed Play shortcut
-    # runs. RBLXSetup (below) is the installer that puts a packaged folder on a
+    # runs. LinearSetup (below) is the installer that puts a packaged folder on a
     # machine in the first place.
     #
     # Both show their work in a window (InstallUi), which is why they carry the
     # same window and RblxUI sources the editors do. The console commands are not a
     # fallback for a missing window: they are how a script and the packaging step
     # drive these tools, and they keep working exactly as before.
-    add_executable(RBLXUpdater
+    add_executable(LinearUpdater
         src/UpdaterMain.cpp
         src/Updater.cpp
         src/ReleaseSignature.cpp
@@ -240,16 +240,16 @@ if(RBLX_BUILD_UPDATER)
         src/InstallUi.cpp
         ${RBLXUI_SOURCES}
     )
-    configure_rblx_target(RBLXUpdater)
-    target_link_libraries(RBLXUpdater PRIVATE rblxwin rblxgl bcrypt)
-    target_link_libraries(RBLXUpdater PRIVATE ws2_32)
+    configure_rblx_target(LinearUpdater)
+    target_link_libraries(LinearUpdater PRIVATE rblxwin rblxgl bcrypt)
+    target_link_libraries(LinearUpdater PRIVATE ws2_32)
 
     # The setup is the installer: it copies the packaged folder into a per-user
     # location, records what it put there as manifest.json, adds the shortcuts and
     # the Add/Remove Programs entry, and is its own uninstaller. It never touches
     # the network - the payload is the folder it was run from - so it links the
     # file and hash helpers the updater uses, the window, and nothing else.
-    add_executable(RBLXSetup
+    add_executable(LinearSetup
         src/SetupMain.cpp
         src/Updater.cpp
         # Updater.cpp verifies a manifest's signature before it trusts its paths,
@@ -261,14 +261,14 @@ if(RBLX_BUILD_UPDATER)
         src/InstallUi.cpp
         ${RBLXUI_SOURCES}
     )
-    configure_rblx_target(RBLXSetup)
-    target_link_libraries(RBLXSetup PRIVATE rblxwin rblxgl bcrypt)
+    configure_rblx_target(LinearSetup)
+    target_link_libraries(LinearSetup PRIVATE rblxwin rblxgl bcrypt)
     # IShellLink and IPersistFile are COM, the folder lookups are shell32, and
     # the uninstall entry is written with the registry API.
-    target_link_libraries(RBLXSetup PRIVATE ole32 shell32 advapi32 uuid)
+    target_link_libraries(LinearSetup PRIVATE ole32 shell32 advapi32 uuid)
 endif()
 
-if(RBLX_BUILD_SERVERSETUP)
+if(LINEAR_BUILD_SERVERSETUP)
     # The first run of a server install: a window that asks for the port, the
     # public URL and the owner account, writes server.conf beside WebApp.exe and
     # starts it. It shares the installer's window (InstallUi) rather than growing a
@@ -292,61 +292,61 @@ if(RBLX_BUILD_SERVERSETUP)
     target_link_libraries(ServerSetup PRIVATE ws2_32 shell32)
 endif()
 
-if(RBLX_BUILD_HOSTS)
+if(LINEAR_BUILD_HOSTS)
     # The project's own hosting supervisor: N game servers, each on its own port
     # with its own log, restarted when they die and given up on when they keep
     # dying. No window and no graphics dependency, so it runs on the same
     # headless machine the servers do; the control panel is a page on loopback,
     # which is why this target links the website's HTTP server and nothing else.
     # See HOSTING.md.
-    add_executable(RBLXHosts
+    add_executable(LinearHosts
         src/HostMain.cpp
         src/ServerHost.cpp
         src/HostDashboard.cpp
         src/WebHttp.cpp
     )
-    configure_rblx_target(RBLXHosts)
+    configure_rblx_target(LinearHosts)
     # ws2_32 for the panel's listener; bcrypt for the token's random bytes.
-    target_link_libraries(RBLXHosts PRIVATE ws2_32 bcrypt)
+    target_link_libraries(LinearHosts PRIVATE ws2_32 bcrypt)
 endif()
 
-if(RBLX_BUILD_PROXY)
+if(LINEAR_BUILD_PROXY)
     # The website's front door: it takes a request on one address, sends the same
     # method, path, query and body to WebApp on another, and hands the answer
     # back, adding the X-Forwarded-* headers WebApp cannot learn from its own
     # socket. It owns no files and no state, so it links the site's HTTP server
     # and nothing else. See src/ReverseProxy.cpp and ReverseProxyTests.
-    add_executable(RBLXProxy
+    add_executable(LinearProxy
         src/ProxyMain.cpp
         src/ReverseProxy.cpp
         src/WebHttp.cpp
     )
-    configure_rblx_target(RBLXProxy)
-    target_link_libraries(RBLXProxy PRIVATE ws2_32)
+    configure_rblx_target(LinearProxy)
+    target_link_libraries(LinearProxy PRIVATE ws2_32)
 endif()
 
-if(RBLX_BUILD_GIT)
+if(LINEAR_BUILD_GIT)
     # A git implementation and the command line over it. It talks to no server and
     # needs no other program: a repository is loose objects, refs, an index and the
     # same zlib streams git writes, which is what lets GitTests check the result
     # against the values git itself produces.
-    add_executable(RBLXGit
+    add_executable(LinearGit
         src/GitMain.cpp
         src/GitRepo.cpp
         src/GitIndex.cpp
         src/GitSha1.cpp
         src/GitZlib.cpp
     )
-    configure_rblx_target(RBLXGit)
+    configure_rblx_target(LinearGit)
 endif()
 
-if(RBLX_BUILD_HUB)
+if(LINEAR_BUILD_HUB)
     # The repository browser: pages rendered as strings from the same repository
-    # code RBLXGit writes, served on loopback by the website's HTTP server. HubSite
+    # code LinearGit writes, served on loopback by the website's HTTP server. HubSite
     # holds the pages and the routing, so WebApp serves the same ones under /hub.
     # The issues page writes one JSON file beside the reflog; the pages themselves
     # are static HTML, so the browser needs no scripting.
-    add_executable(RBLXHub
+    add_executable(LinearHub
         src/HubMain.cpp
         src/HubSite.cpp
         src/HubViews.cpp
@@ -357,18 +357,18 @@ if(RBLX_BUILD_HUB)
         src/WebHttp.cpp
         src/WebJson.cpp
     )
-    configure_rblx_target(RBLXHub)
-    target_link_libraries(RBLXHub PRIVATE ws2_32)
+    configure_rblx_target(LinearHub)
+    target_link_libraries(LinearHub PRIVATE ws2_32)
 endif()
 
 # RBLXAntiCheat is compiled straight into the client (see its RBLXBuildLists): the
 # checks have to run inside the process they watch, so there is no separate
 # executable to launch or ship.
-if(RBLX_BUILD_ANTICHEAT)
+if(LINEAR_BUILD_ANTICHEAT)
     add_subdirectory(RBLXAntiCheat)
 endif()
 
-if(RBLX_BUILD_CLIENT)
+if(LINEAR_BUILD_CLIENT)
     add_executable(Client
         src/Client.cpp
         src/ClientNet.cpp
@@ -390,7 +390,7 @@ if(RBLX_BUILD_CLIENT)
     # winmm is the OS mixer waveOut lives in; no other audio dependency exists.
     target_link_libraries(Client PRIVATE ws2_32 shell32 comdlg32 winmm)
     if(TARGET RBLXAntiCheat)
-        target_compile_definitions(Client PRIVATE RBLX_ANTICHEAT)
+        target_compile_definitions(Client PRIVATE LINEAR_ANTICHEAT)
         target_link_libraries(Client PRIVATE RBLXAntiCheat)
     endif()
     if(MSVC)
@@ -415,7 +415,7 @@ if(RBLX_BUILD_CLIENT)
     endif()
 endif()
 
-if(RBLX_BUILD_SERVER)
+if(LINEAR_BUILD_SERVER)
     add_executable(Server
         src/Server.cpp
         src/ServerAuth.cpp
@@ -433,7 +433,7 @@ if(RBLX_BUILD_SERVER)
     target_link_libraries(Server PRIVATE ws2_32)
 endif()
 
-if(RBLX_BUILD_TRAINER)
+if(LINEAR_BUILD_TRAINER)
     # Learner: loads a .world, drives the same Character and PhysicsWorld the game
     # uses, and writes a policy file. It trains with no window unless --gui is
     # given, which is why it links GL: the window only draws, so a build machine
@@ -467,8 +467,8 @@ set(WEB_SOURCES
     # server.conf, which ServerSetup writes and loadConfigFromEnvironment reads.
     src/ServerConfig.cpp
     # The repository browser WebApp serves under /hub. It is the same HubSite
-    # RBLXHub runs, so the pages are rendered once instead of twice, and it reads
-    # the repository through the same git code RBLXGit writes.
+    # LinearHub runs, so the pages are rendered once instead of twice, and it reads
+    # the repository through the same git code LinearGit writes.
     src/HubSite.cpp
     src/HubViews.cpp
     src/GitRepo.cpp
@@ -477,10 +477,10 @@ set(WEB_SOURCES
     src/GitZlib.cpp
 )
 
-if(RBLX_BUILD_WEBAPP)
+if(LINEAR_BUILD_WEBAPP)
     # The website server has a desktop console window: it shows the process log,
     # every running game server and that server's output instead of a bare
-    # terminal. --nogui / RBLX_NO_GUI keeps the plain console for CI, tests and
+    # terminal. --nogui / LINEAR_NO_GUI keeps the plain console for CI, tests and
     # headless hosts, and a machine without a usable display falls back to it.
     add_executable(WebApp
         src/WebMain.cpp
@@ -494,7 +494,7 @@ if(RBLX_BUILD_WEBAPP)
     target_link_libraries(WebApp PRIVATE ws2_32 shell32 bcrypt)
 endif()
 
-if(RBLX_BUILD_TESTS)
+if(LINEAR_BUILD_TESTS)
     enable_testing()
     add_executable(ScriptTests tests/rblx_script_tests.cpp src/RblxScript.cpp)
     target_include_directories(ScriptTests PRIVATE ${RBLXBUILD_CURRENT_SOURCE_DIR}/include)
@@ -620,7 +620,7 @@ if(RBLX_BUILD_TESTS)
         ${WEB_SOURCES}
     )
     target_include_directories(WebAppTests PRIVATE ${RBLXBUILD_CURRENT_SOURCE_DIR}/include)
-    if(RBLX_ENABLE_WARNINGS)
+    if(LINEAR_ENABLE_WARNINGS)
         if(MSVC)
             target_compile_options(WebAppTests PRIVATE /W4 /permissive-)
         else()
@@ -642,7 +642,7 @@ if(RBLX_BUILD_TESTS)
     )
     target_link_libraries(StoreCryptoTests PRIVATE bcrypt)
     target_include_directories(StoreCryptoTests PRIVATE ${RBLXBUILD_CURRENT_SOURCE_DIR}/include)
-    if(RBLX_ENABLE_WARNINGS)
+    if(LINEAR_ENABLE_WARNINGS)
         if(MSVC)
             target_compile_options(StoreCryptoTests PRIVATE /W4 /permissive-)
         else()

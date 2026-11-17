@@ -1162,7 +1162,7 @@ static int runServer(int argc, char** argv) {
 
     // Print each start-up step as it happens, so a crash still leaves the log
     // pointing at the step that failed instead of an empty file.
-    std::cout << "RBLX Clone Server starting on port " << serverPort
+    std::cout << "Linear Server starting on port " << serverPort
               << " using " << worldPath
               << " with web auth " << webServerUrl << std::endl;
 
@@ -1297,7 +1297,7 @@ static int runServer(int argc, char** argv) {
         return 1;
     }
 
-    std::cout << "RBLX Clone Server listening on port " << serverPort << " (UDP)"
+    std::cout << "Linear Server listening on port " << serverPort << " (UDP)"
               << " using " << worldPath
               << " with web auth " << webServerUrl << std::endl;
 

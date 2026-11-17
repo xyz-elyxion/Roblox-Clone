@@ -74,7 +74,7 @@ const char* stateName(Instance::State state) {
 }
 
 std::string defaultConfigText() {
-    return "# RBLXHosts: the game servers this machine keeps running.\n"
+    return "# LinearHosts: the game servers this machine keeps running.\n"
            "# Every key has the default shown next to it; delete a line to keep it.\n"
            "\n"
            "# The server executable, relative to the directory below or absolute.\n"

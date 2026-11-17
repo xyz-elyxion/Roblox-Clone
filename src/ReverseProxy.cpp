@@ -427,7 +427,7 @@ bool ReverseProxy::handle(web::Request& request, web::Response& response) {
         // backend failed is a detail of this machine, not of the page.
         response.json(502, "{\"error\":\"The website is not answering.\"}");
         if (logRequests_) {
-            std::fprintf(stderr, "RBLXProxy: %s %s -> 502 (%s)\n", request.method.c_str(),
+            std::fprintf(stderr, "LinearProxy: %s %s -> 502 (%s)\n", request.method.c_str(),
                          target.c_str(), error.c_str());
             std::fflush(stderr);
         }
@@ -454,7 +454,7 @@ bool ReverseProxy::handle(web::Request& request, web::Response& response) {
         const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
                                  std::chrono::steady_clock::now() - started)
                                  .count();
-        std::printf("RBLXProxy: %s %s -> %d, %zu bytes, %lld ms\n", request.method.c_str(),
+        std::printf("LinearProxy: %s %s -> %d, %zu bytes, %lld ms\n", request.method.c_str(),
                     target.c_str(), answer.status, response.body.size(),
                     static_cast<long long>(elapsed));
         std::fflush(stdout);

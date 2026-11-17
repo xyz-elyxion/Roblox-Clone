@@ -122,10 +122,10 @@ int main() {
     {
         check(code::selfLinkBlocked(
                   {"LINK : fatal error LNK1104: cannot open file "
-                   "'D:\\repo\\build\\windows-release\\Release\\RBLXCode.exe'"}),
+                   "'D:\\repo\\build\\windows-release\\Release\\LinearCode.exe'"}),
               "the editor's own link failure is recognised");
         check(code::selfLinkBlocked(
-                  {"g++: fatal error: cannot open output file RBLXCode.exe: Permission denied"}),
+                  {"g++: fatal error: cannot open output file LinearCode.exe: Permission denied"}),
               "MinGW's version of the same failure is recognised");
         check(!code::selfLinkBlocked({"Client.obj : error LNK2019: unresolved external symbol"}),
               "an ordinary link error is not excused");

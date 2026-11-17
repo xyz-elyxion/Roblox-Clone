@@ -75,7 +75,7 @@ void say(const Options& options, const std::string& text) {
 
 void usage() {
     std::printf(
-        "ServerSetup - prepares this folder to host the RBLX Clone website\n\n"
+        "ServerSetup - prepares this folder to host the Linear website\n\n"
         "  ServerSetup [--port <n>] [--url <http(s)://host:port>] [--admin <names>]\n"
         "              [--password <12+ chars>] [--folder <dir>] [--no-start]\n\n"
         "Writes server.conf beside WebApp.exe and starts the site. The file holds the\n"
@@ -317,7 +317,7 @@ int windowed(Options& options) {
     const server::Settings existing = existingSettings(options.folder);
 
     rblx::ui::Options window;
-    window.title = "RBLX Clone server setup";
+    window.title = "Linear server setup";
     window.heading = "Set up this server";
     window.detail =
         "Writes server.conf beside WebApp.exe and starts the website in production. The "

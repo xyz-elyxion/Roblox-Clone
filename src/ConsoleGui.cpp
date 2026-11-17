@@ -280,7 +280,7 @@ bool beginCapture() {
 bool captureActive() { return g_captureActive.load(); }
 
 bool guiAllowed(int argc, char** argv) {
-    const std::string disabled = rblx::environment::get("RBLX_NO_GUI");
+    const std::string disabled = rblx::environment::get("LINEAR_NO_GUI");
     if (!disabled.empty() && disabled != "0") {
         return false;
     }

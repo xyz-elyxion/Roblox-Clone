@@ -6,7 +6,7 @@
 #include <string>
 #include <vector>
 
-// RBLXHosts' control panel.
+// LinearHosts' control panel.
 //
 // A pool of processes is only useful if you can see it and act on it, so the
 // supervisor serves a small dashboard on loopback: the state of every slot, its

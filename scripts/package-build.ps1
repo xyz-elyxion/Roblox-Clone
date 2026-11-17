@@ -20,7 +20,7 @@ param(
 
     # What this build calls itself, and where the copy it installs should look
     # for the next one. Both go into the package: manifest.json describes it,
-    # update.json tells RBLXUpdater.exe where to ask. Leave it empty and this
+    # update.json tells LinearUpdater.exe where to ask. Leave it empty and this
     # build's own date and time become the version; see below.
     [string]$Version = '',
 
@@ -76,7 +76,7 @@ try {
     $exeDir = Join-Path $BuildDir $Configuration
     $found = @()
     $missing = @()
-    foreach ($name in @('WebApp', 'Server', 'Client', 'Studio', 'RBLXCode', 'AiTrainer', 'RBLXUpdater', 'RBLXSetup', 'RBLXHosts', 'RBLXProxy', 'RBLXGit', 'RBLXHub', 'ServerSetup')) {
+    foreach ($name in @('WebApp', 'Server', 'Client', 'Studio', 'LinearCode', 'AiTrainer', 'LinearUpdater', 'LinearSetup', 'LinearHosts', 'LinearProxy', 'LinearGit', 'LinearHub', 'ServerSetup')) {
         $exePath = Join-Path $exeDir "$name.exe"
         if (Test-Path -LiteralPath $exePath) {
             Copy-Item -LiteralPath $exePath -Destination $Output
@@ -131,10 +131,10 @@ try {
             Copy-Item -LiteralPath $_.FullName -Destination $publicTarget -Recurse
         }
     Copy-Item -LiteralPath 'web/seed-worlds' -Destination $webTarget -Recurse
-    # The RBLXHosts control panel. RBLXHosts.exe looks for web/host next to
+    # The LinearHosts control panel. LinearHosts.exe looks for web/host next to
     # itself, and shows a plain page that says so if the folder is missing.
     Copy-Item -LiteralPath 'web/host' -Destination $webTarget -Recurse
-    # The RBLXHub stylesheet, found the same way.
+    # The LinearHub stylesheet, found the same way.
     Copy-Item -LiteralPath 'web/hub' -Destination $webTarget -Recurse
 
     # Scripted example games: the .world files and the .rbx scripts WebApp.exe
@@ -148,38 +148,38 @@ try {
 
     # There are no launcher scripts in the package. Every program finds its data
     # in the folder it runs from, so Explorer can start it directly: WebApp.exe
-    # locates web/ and the Server.exe and Client.exe beside it, and RBLXCode.exe
+    # locates web/ and the Server.exe and Client.exe beside it, and LinearCode.exe
     # opens the folder it was started in. Double-clicking a .bat only added a
     # console window and a wrapper around that.
 
     $readmeLines = @(
-        "RBLX Clone - Windows $Configuration build"
+        "Linear - Windows $Configuration build"
         ''
         'WHAT IS IN THIS FOLDER'
         '  WebApp.exe    website backend: pages, accounts, avatars, games, game-server launch'
         '  Server.exe    game server, started by WebApp.exe when a game is played'
         '  Client.exe    game client, started by WebApp.exe when you press Play'
         '  Studio.exe    world editor for levels and their scripts'
-        '  RBLXCode.exe  source editor for the files in this folder: project tree, tabs,'
+        '  LinearCode.exe  source editor for the files in this folder: project tree, tabs,'
         '                C++/GLSL/RBLX script highlighting, search, save'
         '  AiTrainer.exe headless trainer: signs in with an AI token, then learns and replays'
-        '  RBLXUpdater.exe auto updater: checks manifest.json, downloads only the files that'
+        '  LinearUpdater.exe auto updater: checks manifest.json, downloads only the files that'
         '                changed, then starts the game'
-        '  RBLXSetup.exe   installer: copies this folder into your account, adds the shortcuts'
+        '  LinearSetup.exe   installer: copies this folder into your account, adds the shortcuts'
         '                and the Add/Remove Programs entry, and it is what that entry runs'
         '  ServerSetup.exe first run of a server install: writes server.conf (port, public URL,'
         '                owner password, secrets) and starts WebApp.exe in production'
-        '  RBLXHosts.exe   server supervisor: keeps a pool of Server.exe processes alive, one'
+        '  LinearHosts.exe   server supervisor: keeps a pool of Server.exe processes alive, one'
         '                per port with its own log, restarting any that exit'
-        '  RBLXProxy.exe   reverse proxy: puts the website on another address - port 80 on the'
+        '  LinearProxy.exe   reverse proxy: puts the website on another address - port 80 on the'
         '                LAN, say - and forwards every request to WebApp.exe'
-        '  RBLXGit.exe     git command line: init, add, commit, log, branch and show, over a'
+        '  LinearGit.exe     git command line: init, add, commit, log, branch and show, over a'
         '                repository that git itself can read (loose objects, refs, index)'
-        '  RBLXHub.exe     repository browser: files at HEAD, history, a commit page and'
+        '  LinearHub.exe     repository browser: files at HEAD, history, a commit page and'
         '                issues on http://127.0.0.1:3100, rendered from the repository'
         '  web/          website assets (public/ pages and API scripts, seed-worlds/)'
-        '  web/host/     the RBLXHosts control panel page'
-        '  web/hub/      the RBLXHub browser stylesheet'
+        '  web/host/     the LinearHosts control panel page'
+        '  web/hub/      the LinearHub browser stylesheet'
         '  games/        example worlds and their .rbx scripts (Sky Platformer)'
         '  shaders/      OpenGL shaders used by Client and Studio'
         '  ServerWorld.world, face*.png, face_hex.txt  data loaded from the working directory'
@@ -187,24 +187,24 @@ try {
         'HOW TO RUN'
         '  WebApp.exe          starts the website on http://localhost:3000; press Open site'
         '                      in its window to open it in the browser'
-        '  RBLXProxy.exe       forwards http://127.0.0.1:8080 to WebApp.exe; add'
+        '  LinearProxy.exe       forwards http://127.0.0.1:8080 to WebApp.exe; add'
         '                      --listen 0.0.0.0:80 to serve other machines'
         '  Studio.exe          opens the Studio editor'
-        '  RBLXCode.exe        opens the source editor on this folder'
+        '  LinearCode.exe        opens the source editor on this folder'
         '  Client.exe          opens the client directly (the website normally does this)'
-        '  RBLXUpdater.exe     checks for an update, installs it, then starts the client'
-        '  RBLXSetup.exe       installs this folder for the current user (no unzip needed after)'
+        '  LinearUpdater.exe     checks for an update, installs it, then starts the client'
+        '  LinearSetup.exe       installs this folder for the current user (no unzip needed after)'
         '  ServerSetup.exe     sets this folder up as a server and starts the website (below)'
         '  AiTrainer.exe       headless trainer, run it from this folder with the flags below'
-        '  RBLXHosts.exe up    keeps a pool of servers running on their own ports (HOSTING below)'
-        '  RBLXGit.exe init .  makes a repository in this folder; add .,'
+        '  LinearHosts.exe up    keeps a pool of servers running on their own ports (HOSTING below)'
+        '  LinearGit.exe init .  makes a repository in this folder; add .,'
         '                      commit -m "first" and log are the rest of it'
-        '  RBLXHub.exe         browses the repository this folder is inside on port 3100'
+        '  LinearHub.exe         browses the repository this folder is inside on port 3100'
         ''
         'FIRST RUN: THE GUIDED TOUR'
         '  A fresh unzip has no account data yet. Start WebApp.exe, press Open site, and'
         '  the tour is at http://localhost:3000/welcome: nine steps through the website,'
-        '  the client and game servers, Studio, RBLXCode and the trainer. Steps the site'
+        '  the client and game servers, Studio, LinearCode and the trainer. Steps the site'
         '  can see for itself tick themselves off; the rest you mark as done. It is'
         '  linked as "Tour" in the site navigation, so /welcome works at any time.'
         ''
@@ -217,9 +217,9 @@ try {
         '  have a value made again, or delete a line to fall back to a default. The file'
         '  holds the owner password, so keep it off shared folders and out of backups.'
         ''
-        'SOURCE EDITOR (RBLXCode.exe)'
-        '  RBLXCode.exe                edits this folder: shaders/, web/public/, games/'
-        '  RBLXCode.exe D:\Roblox-Clone  edits a source clone, including the C++ files'
+        'SOURCE EDITOR (LinearCode.exe)'
+        '  LinearCode.exe                edits this folder: shaders/, web/public/, games/'
+        '  LinearCode.exe D:\Roblox-Clone  edits a source clone, including the C++ files'
         '  Ctrl+P opens a file by name, Ctrl+F searches the folder, Ctrl+G goes to a line,'
         '  Ctrl+S saves. It writes the file back with the line endings it already had.'
         '  Ctrl+B makes a new release from a checkout - configure, build, tests, then this'
@@ -244,9 +244,9 @@ try {
         '  Run it from this folder so web\ and models\ resolve. CPU only, no GPU; --gui needs a'
         '  desktop session, and every other run works headless.'
         ''
-        'HOSTING YOUR OWN SERVERS (RBLXHosts.exe)'
-        '  RBLXHosts.exe init --config hosting.conf  writes a commented default config file'
-        '  RBLXHosts.exe up --config hosting.conf    keeps the servers alive until Ctrl+C'
+        'HOSTING YOUR OWN SERVERS (LinearHosts.exe)'
+        '  LinearHosts.exe init --config hosting.conf  writes a commented default config file'
+        '  LinearHosts.exe up --config hosting.conf    keeps the servers alive until Ctrl+C'
         '  With no config it runs two servers on 7777 and 7778 from this folder, each with'
         '  its log in logs\host-<port>.log. A server that exits is started again after a'
         '  growing delay; one that keeps dying is marked failed and shown as such instead'
@@ -265,7 +265,7 @@ try {
         '  - WebApp.exe opens a server console window: the live log with level filters and'
         '    search, every running game server with its port, players and output, plus Stop,'
         '    Open site, Copy log and Clear. Closing it stops the website and its servers.'
-        '    Start it with --nogui (or set RBLX_NO_GUI=1) to keep the plain terminal log.'
+        '    Start it with --nogui (or set LINEAR_NO_GUI=1) to keep the plain terminal log.'
         '  - Website data lives in web/users.json and web/game-worlds/. Game server output'
         '    is written to web/game-server-logs/game-server-<port>.log, which is where a'
         '    failed Play reports the reason. Delete these to start over; they are'
@@ -317,9 +317,9 @@ try {
     # The release description, generated last so every file above is in it. The
     # updater and its settings are left out on purpose: it cannot replace the copy
     # that is running it, and the URL belongs to whoever installed this folder.
-    & (Join-Path $Output 'RBLXUpdater.exe') manifest --dir $Output --version $Version
+    & (Join-Path $Output 'LinearUpdater.exe') manifest --dir $Output --version $Version
     if ($LASTEXITCODE -ne 0) {
-        throw "Could not write manifest.json for $Output (RBLXUpdater exit $LASTEXITCODE)."
+        throw "Could not write manifest.json for $Output (LinearUpdater exit $LASTEXITCODE)."
     }
 
     # Signing is what makes the update channel trustworthy: the updater speaks
@@ -328,9 +328,9 @@ try {
     # update never rewrites, and the private half stays in the key file.
     if (-not [string]::IsNullOrWhiteSpace($SigningKey)) {
         $keyPath = (Resolve-Path -LiteralPath $SigningKey).Path
-        $signOutput = & (Join-Path $Output 'RBLXUpdater.exe') sign-manifest --dir $Output --key $keyPath
+        $signOutput = & (Join-Path $Output 'LinearUpdater.exe') sign-manifest --dir $Output --key $keyPath
         if ($LASTEXITCODE -ne 0) {
-            throw "Could not sign manifest.json (RBLXUpdater exit $LASTEXITCODE)."
+            throw "Could not sign manifest.json (LinearUpdater exit $LASTEXITCODE)."
         }
         $modulus = ($signOutput | Select-String -Pattern '^modulus=(.+)$').Matches.Groups[1].Value
         $exponent = ($signOutput | Select-String -Pattern '^exponent=(.+)$').Matches.Groups[1].Value
@@ -350,7 +350,7 @@ try {
         [System.IO.File]::WriteAllText((Join-Path $Output 'update.json'), $updateConfig + $crlf, $encoding)
     }
     else {
-        Write-Warning ('Packaged an unsigned release. RBLXUpdater only accepts it from a loopback ' +
+        Write-Warning ('Packaged an unsigned release. LinearUpdater only accepts it from a loopback ' +
             'URL; pass -SigningKey <file> to sign it before publishing.')
     }
 

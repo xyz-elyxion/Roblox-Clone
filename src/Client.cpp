@@ -52,7 +52,7 @@
 #include "rblxui_impl_rblxwin.h"
 #include "rblxui_impl_opengl3.h"
 
-#if defined(RBLX_ANTICHEAT)
+#if defined(LINEAR_ANTICHEAT)
 // Vendored from UltimateAntiCheat and renamed to RBLXAntiCheat (AGPL-3.0, see
 // RBLXAntiCheat/LICENSE). It is linked into this executable on purpose: the
 // integrity, anti-debug and injection checks only mean something inside the
@@ -78,10 +78,10 @@ namespace {
             // worth knowing before attacking it (launch from an allowed parent),
             // and it should not fall out of `strings Client.exe`.
             const std::list<std::wstring> allowedParents = {
-                RBLX_OBF_W(L"WebApp.exe"), RBLX_OBF_W(L"node.exe"),
-                RBLX_OBF_W(L"explorer.exe"), RBLX_OBF_W(L"cmd.exe"),
-                RBLX_OBF_W(L"powershell.exe"), RBLX_OBF_W(L"pwsh.exe"),
-                RBLX_OBF_W(L"bash.exe")
+                LINEAR_OBF_W(L"WebApp.exe"), LINEAR_OBF_W(L"node.exe"),
+                LINEAR_OBF_W(L"explorer.exe"), LINEAR_OBF_W(L"cmd.exe"),
+                LINEAR_OBF_W(L"powershell.exe"), LINEAR_OBF_W(L"pwsh.exe"),
+                LINEAR_OBF_W(L"bash.exe")
             };
 
             g_antiCheatSettings = std::make_unique<Settings>(
@@ -99,16 +99,16 @@ namespace {
                 L"",
                 allowedParents,
                 /*bEnableLogging*/ true,
-                RBLX_OBF("RBLXAntiCheat.log")
+                LINEAR_OBF("RBLXAntiCheat.log")
             );
 
             g_antiCheat = std::make_unique<AntiCheat>(g_antiCheatSettings.get());
-            std::cout << RBLX_OBF("RBLXAntiCheat started.") << std::endl;
+            std::cout << LINEAR_OBF("RBLXAntiCheat started.") << std::endl;
         } catch (const std::exception& e) {
-            std::cout << RBLX_OBF("RBLXAntiCheat did not start: ") << e.what() << std::endl;
+            std::cout << LINEAR_OBF("RBLXAntiCheat did not start: ") << e.what() << std::endl;
             g_antiCheat.reset();
         } catch (...) {
-            std::cout << RBLX_OBF("RBLXAntiCheat did not start.") << std::endl;
+            std::cout << LINEAR_OBF("RBLXAntiCheat did not start.") << std::endl;
             g_antiCheat.reset();
         }
     }
@@ -500,7 +500,7 @@ void reportClientProblem(const std::string& stage, const std::string& reason) {
     Auth::httpPost(automaticWebServerUrl() + "/api/client-reports", body, authToken);
 }
 
-#if defined(RBLX_ANTICHEAT)
+#if defined(LINEAR_ANTICHEAT)
 #include "ClientCheatReport.h"
 
 namespace {
@@ -542,7 +542,7 @@ namespace {
         }
 
         std::vector<std::string> lines;
-        if (!detectionTail->poll(RBLX_OBF("RBLXAntiCheat.log"), &lines)) {
+        if (!detectionTail->poll(LINEAR_OBF("RBLXAntiCheat.log"), &lines)) {
             return;
         }
 
@@ -559,12 +559,12 @@ namespace {
             // asking for it and hooks the frame it presents; that is not cheating
             // and the account must not climb the ladder over it.
             if (rblx::anticheat::namesOverlayModules(detail)) {
-                std::cout << RBLX_OBF("Ignored a detection about a Discord module.") << std::endl;
+                std::cout << LINEAR_OBF("Ignored a detection about a Discord module.") << std::endl;
                 continue;
             }
 
             if (rblx::anticheat::namesOurOwnProcesses(detail)) {
-                std::cout << RBLX_OBF("Ignored a detection about this project's own processes.")
+                std::cout << LINEAR_OBF("Ignored a detection about this project's own processes.")
                           << std::endl;
                 continue;
             }
@@ -1194,7 +1194,7 @@ int main(int argc, char** argv) {
     setvbuf(stdout, NULL, _IONBF, 0);
     setvbuf(stderr, NULL, _IONBF, 0);
 
-#if defined(RBLX_ANTICHEAT)
+#if defined(LINEAR_ANTICHEAT)
     sayToConsole("Starting the anti-cheat...");
     traceStartup("3/4 starting the anti-cheat");
     startAntiCheat();
@@ -1218,7 +1218,7 @@ int main(int argc, char** argv) {
              return -1;
         }
 
-        Window window(SCR_WIDTH, SCR_HEIGHT, "RBLX Clone Client");
+        Window window(SCR_WIDTH, SCR_HEIGHT, "Linear Client");
         sayToConsole("Window Created.");
 
         // A machine with no output device still has a game to play, so audio
@@ -1375,7 +1375,7 @@ int main(int argc, char** argv) {
 
             // 3. Logic / UI
             pollAuthCallback();
-#if defined(RBLX_ANTICHEAT)
+#if defined(LINEAR_ANTICHEAT)
             // Anti-cheat detections are filed against the signed-in account, so
             // tampering shows up on the site and not only in a local log.
             pollAntiCheatDetections();
@@ -2600,7 +2600,7 @@ int main(int argc, char** argv) {
         
         // The window is destroyed last, by the destructor of `window`, so all of
         // the shutdown below used to run behind a window that had stopped
-        // pumping messages. Windows paints that as "RBLX Clone Client is not
+        // pumping messages. Windows paints that as "Linear Client is not
         // responding" and the player has to kill the process, even though it was
         // busy shutting down. Hide the window as soon as the close is asked for,
         // so the close happens at once and the rest of the work (the anti-cheat's
@@ -2621,7 +2621,7 @@ int main(int argc, char** argv) {
         closeAuthCallback();
         std::cout << "Sockets closed after " << shutdownMs() << " ms." << std::endl;
 
-#if defined(RBLX_ANTICHEAT)
+#if defined(LINEAR_ANTICHEAT)
         stopAntiCheat();
         std::cout << "Anti-cheat stopped after " << shutdownMs() << " ms." << std::endl;
 #endif

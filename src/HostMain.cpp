@@ -1,4 +1,4 @@
-// RBLXHosts: keeps this machine's game servers running.
+// LinearHosts: keeps this machine's game servers running.
 //
 // This is the project's own answer to a hosting platform, at the size the game
 // needs: N servers, each on its own port and log, restarted when they die and
@@ -6,9 +6,9 @@
 // ServerHost.cpp and are covered by ServerHostTests; this file is the console
 // around them.
 //
-//   RBLXHosts up --config hosting.conf     keep the servers running until Ctrl+C
-//   RBLXHosts init --config hosting.conf   write a commented default file
-//   RBLXHosts --help
+//   LinearHosts up --config hosting.conf     keep the servers running until Ctrl+C
+//   LinearHosts init --config hosting.conf   write a commented default file
+//   LinearHosts --help
 
 #include "HostDashboard.h"
 #include "ServerHost.h"
@@ -46,7 +46,7 @@ long long nowMs() {
 
 void printUsage(const char* program) {
     std::printf(
-        "RBLXHosts - keeps the game servers on this machine running\n"
+        "LinearHosts - keeps the game servers on this machine running\n"
         "\n"
         "  %s up [options]      start the pool and supervise it until Ctrl+C\n"
         "  %s init [--config]   write a commented default config file\n"
@@ -94,7 +94,7 @@ void applyCommand(rblx::hosting::Supervisor& supervisor,
             break;
     }
     if (!applied && !error.empty()) {
-        std::fprintf(stderr, "RBLXHosts: %s\n", error.c_str());
+        std::fprintf(stderr, "LinearHosts: %s\n", error.c_str());
     }
 }
 
@@ -165,7 +165,7 @@ int main(int argc, char** argv) {
             overrides.dashboardHost = argv[++i];
             haveDashboardHost = true;
         } else {
-            std::fprintf(stderr, "RBLXHosts: unknown argument \"%s\"\n\n", argument.c_str());
+            std::fprintf(stderr, "LinearHosts: unknown argument \"%s\"\n\n", argument.c_str());
             printUsage(argv[0]);
             return 2;
         }
@@ -180,7 +180,7 @@ int main(int argc, char** argv) {
         const std::string path = configPath.empty() ? "hosting.conf" : configPath;
         std::string error;
         if (!writeDefaultConfig(path, &error)) {
-            std::fprintf(stderr, "RBLXHosts: %s\n", error.c_str());
+            std::fprintf(stderr, "LinearHosts: %s\n", error.c_str());
             return 1;
         }
         std::printf("wrote %s\n", path.c_str());
@@ -191,7 +191,7 @@ int main(int argc, char** argv) {
     if (!configPath.empty()) {
         std::string error;
         if (!rblx::hosting::loadConfig(configPath, &config, &error)) {
-            std::fprintf(stderr, "RBLXHosts: %s\n", error.c_str());
+            std::fprintf(stderr, "LinearHosts: %s\n", error.c_str());
             return 1;
         }
     }
@@ -205,16 +205,16 @@ int main(int argc, char** argv) {
     if (haveDashboardHost) config.dashboardHost = overrides.dashboardHost;
 
     if (config.instances < 1 || config.instances > 64) {
-        std::fprintf(stderr, "RBLXHosts: instances must be between 1 and 64\n");
+        std::fprintf(stderr, "LinearHosts: instances must be between 1 and 64\n");
         return 1;
     }
     if (config.firstPort < 1 || config.firstPort + config.instances - 1 > 65535) {
-        std::fprintf(stderr, "RBLXHosts: the ports from %d would leave the valid range\n",
+        std::fprintf(stderr, "LinearHosts: the ports from %d would leave the valid range\n",
                      config.firstPort);
         return 1;
     }
     if (config.dashboardPort < 0 || config.dashboardPort > 65535) {
-        std::fprintf(stderr, "RBLXHosts: dashboard-port must be between 0 and 65535\n");
+        std::fprintf(stderr, "LinearHosts: dashboard-port must be between 0 and 65535\n");
         return 1;
     }
 
@@ -223,7 +223,7 @@ int main(int argc, char** argv) {
     const std::unique_ptr<rblx::hosting::Launcher> launcher = rblx::hosting::makeSystemLauncher();
     rblx::hosting::Supervisor supervisor(config, launcher.get());
 
-    std::printf("RBLXHosts: %d server(s) from %d, %s\n", config.instances, config.firstPort,
+    std::printf("LinearHosts: %d server(s) from %d, %s\n", config.instances, config.firstPort,
                 config.server.c_str());
 
     rblx::hosting::HostDashboard dashboard;
@@ -235,7 +235,7 @@ int main(int argc, char** argv) {
         if (!dashboard.start(settings, &dashboardError)) {
             // The pool is the point and the panel is how it is watched, so a port
             // that is already taken is said out loud but is not a reason to stop.
-            std::fprintf(stderr, "RBLXHosts: control panel not started: %s\n",
+            std::fprintf(stderr, "LinearHosts: control panel not started: %s\n",
                          dashboardError.c_str());
         } else {
             std::printf("control panel: %s\n", dashboard.url().c_str());
@@ -266,7 +266,7 @@ int main(int argc, char** argv) {
         // Every slot having given up is the one state worth leaving on its own:
         // the table already explains why, and staying alive would only spin.
         if (supervisor.allFailed() && !reportedFailure) {
-            std::fprintf(stderr, "RBLXHosts: every server slot has failed; see the table above\n");
+            std::fprintf(stderr, "LinearHosts: every server slot has failed; see the table above\n");
             reportedFailure = true;
             break;
         }

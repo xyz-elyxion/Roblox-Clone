@@ -142,7 +142,7 @@ void testManifestDocument() {
     // The updater and the machine's own settings are never part of a release.
     check(!rblx::update::isPackagedFile("manifest.json"), "the manifest is not packaged");
     check(!rblx::update::isPackagedFile("update.json"), "the update settings are not packaged");
-    check(!rblx::update::isPackagedFile("RBLXUpdater.exe"), "the running updater is not packaged");
+    check(!rblx::update::isPackagedFile("LinearUpdater.exe"), "the running updater is not packaged");
     check(rblx::update::isPackagedFile("shaders/basic.vert"), "shaders are packaged");
 }
 
@@ -254,12 +254,12 @@ void testPayloadWalk() {
     writeFile(root / "Client.exe", "client");
     writeFile(root / "shaders" / "basic.vert", "shader");
     writeFile(root / "games" / "a.world", "world");
-    writeFile(root / "RBLXSetup.exe", "setup");
+    writeFile(root / "LinearSetup.exe", "setup");
     // Never payload: the updater replaces itself, settings belong to the machine,
     // and a staging folder is never part of a release.
     writeFile(root / "update.json", "{}");
     writeFile(root / "manifest.json", "{}");
-    writeFile(root / "RBLXUpdater.exe", "updater");
+    writeFile(root / "LinearUpdater.exe", "updater");
     writeFile(root / ".update-staging" / "leftover", "x");
 
     std::vector<std::string> files;
@@ -267,9 +267,9 @@ void testPayloadWalk() {
     check(rblx::update::collectPayloadFiles(root.string(), &files, &error), "the payload walk succeeds");
     check(files.size() == 4, "only the release files are collected");
     check(std::is_sorted(files.begin(), files.end()), "the payload list is sorted");
-    check(std::find(files.begin(), files.end(), "RBLXSetup.exe") != files.end(),
+    check(std::find(files.begin(), files.end(), "LinearSetup.exe") != files.end(),
           "the setup is part of the payload");
-    check(std::find(files.begin(), files.end(), "RBLXUpdater.exe") == files.end(),
+    check(std::find(files.begin(), files.end(), "LinearUpdater.exe") == files.end(),
           "the running updater is not part of the payload");
     check(std::find(files.begin(), files.end(), "update.json") == files.end(),
           "the machine's settings are not part of the payload");

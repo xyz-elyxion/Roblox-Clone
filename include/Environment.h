@@ -2,8 +2,8 @@
 
 // Reading an environment variable, in one place.
 //
-// Configuration is read this way all over the project - RBLX_THEME, RBLXBUILD,
-// RBLX_GIT_NAME and the rest - and the rule is that no call site touches getenv
+// Configuration is read this way all over the project - LINEAR_THEME, RBLXBUILD,
+// LINEAR_GIT_NAME and the rest - and the rule is that no call site touches getenv
 // itself. The CRT's getenv is also deprecated by MSVC as C4996, so the Win32 call
 // is used instead: it reports the length of the value, and every program here is
 // Windows.

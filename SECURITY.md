@@ -1,6 +1,6 @@
 # Security
 
-RBLX Clone is a prototype meant to run on one machine. It is not hardened for the public
+Linear is a prototype meant to run on one machine. It is not hardened for the public
 internet, and this file says exactly what it does do, what it does not, and how to report a
 problem. Read it with the [README](README.md) sections on anti-cheat and the web API.
 
@@ -14,7 +14,7 @@ vulnerability*). Do not open a public issue, and do not include a working exploi
 public discussion.
 
 Include what you did, what happened, which program and build (`Release`/`Debug`, and what
-`RBLX_BUILD_*` options), and the smallest reproduction you have. A packaged build and a
+`LINEAR_BUILD_*` options), and the smallest reproduction you have. A packaged build and a
 source build of the same commit behave the same unless an option was turned off.
 
 There is no bug bounty and no guaranteed response time. Do not test against a machine you
@@ -38,11 +38,11 @@ lie" or "there is no TLS" is answered by the relevant paragraph below.
   value. Neither is a boundary. The boundary is the server: the movement guard in
   `include/MovementGuard.h`, the ban ladder in `include/Moderation.h`, and the login check a
   server makes before letting a player in.
-- **The repository browser has no accounts.** `RBLXHub.exe` listens on `127.0.0.1:3100`
+- **The repository browser has no accounts.** `LinearHub.exe` listens on `127.0.0.1:3100`
   unless it is started with `--host`, and it has no login: whoever can reach the port can read
   the repository and open issues. The same pages are served by `WebApp.exe` under `/hub`, and
   there the rule is enforced rather than assumed: a request whose client address is not
-  loopback is refused with `403`, whatever it asks for. `RBLXProxy.exe` connects from loopback
+  loopback is refused with `403`, whatever it asks for. `LinearProxy.exe` connects from loopback
   too, so a request carrying `X-Forwarded-For` is only treated as local when the address it
   forwards is this machine as well; otherwise the proxy would hand the pages to whoever it
   serves. It is a local view of a local repository, not a forge: do not expose it with
@@ -199,7 +199,7 @@ after five minutes. Every response carries `X-Content-Type-Options: nosniff`,
 `frame-ancestors 'none'`). CORS allows only the site's own origin, plus localhost in
 development.
 
-**The control panel.** `RBLXHosts.exe` serves its dashboard on `127.0.0.1` and refuses a
+**The control panel.** `LinearHosts.exe` serves its dashboard on `127.0.0.1` and refuses a
 request that does not carry the token it printed at startup; opening the printed link
 exchanges that token for an `HttpOnly`, `SameSite=Strict` cookie, and a mutating request
 whose `Origin` is not the panel's own is refused. There is no account behind it and no
@@ -208,7 +208,7 @@ TLS, so it is a loopback tool: whoever can read that console controls the pool. 
 to leave it alone. The panel reads game-server logs, so it shows whatever a server chose
 to print.
 
-**The reverse proxy.** `RBLXProxy.exe` is optional and listens on `127.0.0.1:8080` unless told
+**The reverse proxy.** `LinearProxy.exe` is optional and listens on `127.0.0.1:8080` unless told
 otherwise. It passes the method, path, query, body and ordinary headers to WebApp, adds
 `X-Forwarded-For`, `-Host` and `-Proto`, and drops hop-by-hop headers in both directions plus the
 framing headers it writes itself, so no answer arrives with two `Content-Length` lines. Two
@@ -225,7 +225,7 @@ key is pinned in `update.json`, which belongs to the machine and is excluded fro
 network attacker cannot replace the key along with the manifest. `src/ReleaseSignature.cpp`
 verifies the signature before any file is planned or downloaded and fails closed on a missing key,
 a malformed signature or a digest mismatch; a copy with no key is restricted to a loopback release
-URL. Signing is `RBLXUpdater sign-manifest --key <file>`, and the private exponent never enters the
+URL. Signing is `LinearUpdater sign-manifest --key <file>`, and the private exponent never enters the
 package. The plain-HTTP channel still exposes which release is installed and when it is fetched.
 
 **Moderation as security.** A confirmed speed or fly detection — from the server's movement
@@ -289,7 +289,7 @@ Read marks are one row per account, room and channel, kept beside the messages; 
 is computed from the account's own mark and the room's messages, never from another account's
 data.
 
-**Repository browser.** `RBLXHub.exe` escapes repository content in one place
+**Repository browser.** `LinearHub.exe` escapes repository content in one place
 (`HubViews.cpp`) instead of at each call site, so a file name, a commit message or an issue
 title that contains markup is shown as text; every link built from a path percent-encodes
 what is not `[A-Za-z0-9-._~/]`. Its responses carry

@@ -55,7 +55,7 @@ int runWebsiteServer(int argc, char** argv) {
     std::thread serverThread([&app]() { app.run(); });
 
     console::Host host;
-    host.title = "RBLX Clone Server";
+    host.title = "Linear Server";
     host.siteUrl = siteUrl;
     host.collectServers = [&app](std::vector<console::ServerRow>* rows) {
         std::vector<GameInstanceInfo> instances;

@@ -985,7 +985,7 @@ void renderDebugWindow(const LinearUIIO& io) {
 
 
 
-// Roblox-style pause menu: dim the game, release the mouse and offer the things
+// The pause menu: dim the game, release the mouse and offer the things
 // you would expect from pressing Esc in a game - resume, reset, settings, leave.
 
 // File picker for opening a world file.

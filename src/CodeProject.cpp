@@ -1377,7 +1377,7 @@ std::vector<DocEntry> shortPages(const ShortPage (&pages)[N], const std::string&
 }
 
 // Linear Script: the globals and methods this build's interpreter and world
-// runtime actually install, not the ones a Roblox script would expect to find.
+// runtime actually install, not the ones a sandbox script would expect to find.
 std::vector<DocEntry> scriptPages() {
     std::vector<DocEntry> out;
     out.push_back(makePage(
@@ -1504,8 +1504,8 @@ std::vector<DocEntry> scriptPages() {
         "world was loaded with.", {"game.Workspace", "game.Name"}));
     out.push_back(makePage(
         "game.Workspace", "field", "game.Workspace",
-        "The world, reached the way a Roblox script reaches it.",
-        "The same object as workspace. A script written against the Roblox shape can use either; "
+        "The world, reached the way a script normally reaches it.",
+        "The same object as workspace. A script written against that shape can use either; "
         "this build has one world, so both names point at it.", {"workspace"}));
     out.push_back(makePage(
         "game.Name", "field", "game.Name",

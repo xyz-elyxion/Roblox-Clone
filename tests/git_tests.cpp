@@ -70,10 +70,10 @@ void testCompression() {
     // Written by Python's zlib: a dynamic Huffman stream, not the stored form this
     // program produces, so inflating it proves the reader handles real input.
     const std::string stream = fromHex(
-        "78da0b72f2895048cf2c51c84fca4a4d2e2956482c4a55a8cac94c52282e294a4dcc2dd6e30200d9aa0c27");
+        "78daf3c9cc4b4d2c5248cf2c51c84fca4a4d2e2956482c4a55a8cac94c52282e294a4dcc2dd6e3020001ea0d4a");
     std::string inflated;
     check(git::inflateZlib(stream, &inflated, &error), "a zlib stream inflates: " + error);
-    check(inflated == "RBLX git objects are zlib streams.\n", "the inflated text matches");
+    check(inflated == "Linear git objects are zlib streams.\n", "the inflated text matches");
 
     std::string stored;
     check(git::deflateZlibStored(inflated, &stored, &error), "a stored stream is written: " + error);

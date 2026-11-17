@@ -1,6 +1,6 @@
 # Working in this repository
 
-Linear is a Windows-only Roblox-like prototype in C++17: a game client, a game
+Linear is a Windows-only sandbox-platform prototype in C++17: a game client, a game
 server, a world editor (Studio), a source editor (LinearCode), a native website backend
 (`WebApp.exe`), an installer, an updater, a headless trainer and a server supervisor
 (`LinearHosts.exe`). Everything — including the website — is C++ built from this tree, and

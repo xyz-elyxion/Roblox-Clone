@@ -1414,20 +1414,6 @@ bool WebsiteApp::initialize(std::string* error) {
         return false;
     }
 
-    // Earlier builds seeded the starter account under its original product name. It owns the
-    // starter games and is the default admin, so an install that still has it
-    // is renamed in place: the id, password hash and games all stay with the
-    // account, and it can be signed into under the documented starter name.
-    if (const UserRecord* legacy = store_.findUserByName("RBLXCreator")) {
-        if (store_.findUserByName("defaultuser0") == nullptr &&
-            store_.renameUser(legacy->id, "defaultuser0")) {
-            std::string saveError;
-            if (!store_.save(&saveError)) {
-                std::fprintf(stderr, "Could not save the data file: %s\n", saveError.c_str());
-            }
-        }
-    }
-
     // Admin rights are remembered as account ids, not as the configured names:
     // a name can be given up, and whoever claims it next must not inherit them.
     resolveAdminIds();

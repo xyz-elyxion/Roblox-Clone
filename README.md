@@ -18,6 +18,7 @@ before pointing it at the internet.
 | `LinearProxy.exe` | Front door for the site: listens on one address and forwards every request to `WebApp.exe` |
 | `AiTrainer.exe` | Signs in with a developer token, learns to play an AI-compatible game, and can draw the run in a window while it trains |
 | `LinearHosts.exe` | Keeps N game servers running on one machine — ports, logs, restarts, control panel — see [HOSTING.md](HOSTING.md) |
+| `LinearCert.exe` | Installs the signing certificate into the Windows trust stores, so a signed build starts without Windows asking who published it |
 
 ```powershell
 build\linearbuild-tool\bin\linearbuild --preset windows-release
@@ -1577,7 +1578,8 @@ linear-windows-release/
   web/public/  web/seed-worlds/
   shaders/  ServerWorld.world  face*.png  face_hex.txt
   LinearUpdater.exe  LinearSetup.exe  ServerSetup.exe  AiTrainer.exe  LinearHosts.exe  LinearProxy.exe
-  LinearGit.exe  LinearHub.exe  update.json  manifest.json
+  LinearGit.exe  LinearHub.exe  LinearCert.exe  update.json  manifest.json
+  certs/linear-codesign.cer
   README.txt
 ```
 
@@ -1714,6 +1716,48 @@ no repository is open rather than failing the server.
 | Client login fails | Start the web backend first and confirm <http://localhost:3000> is reachable |
 | Client cannot connect | Start `Server.exe`, allow firewall access, and connect to `127.0.0.1` for local testing |
 | Play says the game server did not start | Read `web/game-server-logs/game-server-<port>.log`, which the error also quotes; a leftover `Server.exe` holding the port is the usual cause |
+
+## Signing the release
+
+Every executable can be Authenticode-signed with this project's own certificate. That is
+what tells Windows, SmartScreen and an antivirus who published the file and that nobody
+edited it after signing — the difference between a program Kaspersky calls a suspicious
+new file and one it can check a publisher for.
+
+Make the certificate once, on the machine that signs:
+
+```powershell
+./scripts/make-certificate.ps1          # certs/linear-codesign.cer + .pfx
+```
+
+The repository already carries one: `certs/linear-codesign.cer` is that public half, and it
+is what the package copies for `LinearCert.exe`. Regenerate it only when replacing the key,
+and keep the `.pfx` it produces — a certificate whose key was lost can sign nothing, and
+the signing script refuses a key that does not match the shipped certificate.
+
+`certs/linear-codesign.cer` is the public half and is committed: it ships in the package.
+`certs/linear-codesign.pfx` is the private key, is ignored by git, and signs. Anyone holding
+it can produce a program Windows calls Linear, so it belongs in a secret store, not in the
+repository and not in a package.
+
+Sign a folder, then put the certificate in the trust stores of the machine that will run
+the apps:
+
+```powershell
+./scripts/sign-binaries.ps1 -Folder dist/linear-windows-release
+./dist/linear-windows-release/LinearCert.exe install            # current user
+./dist/linear-windows-release/LinearCert.exe install --machine  # everyone, elevated
+```
+
+`LinearCert.exe` writes to `ROOT` and `TrustedPublisher`. `status` says whether they hold
+the certificate and `uninstall` takes it out again. In CI, keep the `.pfx` and its password
+in repository secrets and pass them to `sign-binaries.ps1`; a release built without them is
+unsigned, and `package-build.ps1` says so.
+
+One limit worth being clear about: this is a self-signed certificate, so it only helps on
+machines where it has been installed. Windows elsewhere still sees an unknown publisher,
+and Defender's SmartScreen reputation still starts from zero. Only a certificate from a
+recognised authority changes that, and that is a purchase rather than a script.
 
 ## Contributing and licence
 

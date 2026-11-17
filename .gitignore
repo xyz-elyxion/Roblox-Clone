@@ -114,3 +114,11 @@ models/
 
 # Runtime signing secret written by a development start
 web/jwt-secret
+
+# The code-signing private key and its password. The public certificate beside them
+# (certs/linear-codesign.cer) is committed on purpose: it is what ships.
+certs/*.pfx
+certs/*.password
+
+# Scratch output and local-only keys; nothing here is part of the project.
+artifacts/

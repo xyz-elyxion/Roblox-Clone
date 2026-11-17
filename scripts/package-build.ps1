@@ -76,7 +76,7 @@ try {
     $exeDir = Join-Path $BuildDir $Configuration
     $found = @()
     $missing = @()
-    foreach ($name in @('WebApp', 'Server', 'Client', 'Studio', 'LinearCode', 'AiTrainer', 'LinearUpdater', 'LinearSetup', 'LinearHosts', 'LinearProxy', 'LinearGit', 'LinearHub', 'ServerSetup')) {
+    foreach ($name in @('WebApp', 'Server', 'Client', 'Studio', 'LinearCode', 'AiTrainer', 'LinearUpdater', 'LinearSetup', 'LinearHosts', 'LinearProxy', 'LinearGit', 'LinearHub', 'LinearCert', 'ServerSetup')) {
         $exePath = Join-Path $exeDir "$name.exe"
         if (Test-Path -LiteralPath $exePath) {
             Copy-Item -LiteralPath $exePath -Destination $Output
@@ -143,6 +143,17 @@ try {
         Copy-Item -LiteralPath 'games' -Destination (Join-Path $Output 'games') -Recurse
     }
 
+    # The public half of the signing certificate, which LinearCert.exe installs. The .pfx
+    # that signs never ships: it is the private key, and it stays out of the package and out
+    # of git.
+    if (Test-Path -LiteralPath 'certs') {
+        $certsTarget = Join-Path $Output 'certs'
+        New-Item -ItemType Directory -Path $certsTarget -Force | Out-Null
+        Get-ChildItem -LiteralPath 'certs' -Filter *.cer -File | ForEach-Object {
+            Copy-Item -LiteralPath $_.FullName -Destination $certsTarget
+        }
+    }
+
     $crlf = "`r`n"
     $encoding = [System.Text.Encoding]::ASCII
 
@@ -169,6 +180,7 @@ try {
         '                and the Add/Remove Programs entry, and it is what that entry runs'
         '  ServerSetup.exe first run of a server install: writes server.conf (port, public URL,'
         '                owner password, secrets) and starts WebApp.exe in production'
+        '  LinearCert.exe    installs the signing certificate so Windows trusts the publisher'
         '  LinearHosts.exe   server supervisor: keeps a pool of Server.exe processes alive, one'
         '                per port with its own log, restarting any that exit'
         '  LinearProxy.exe   reverse proxy: puts the website on another address - port 80 on the'

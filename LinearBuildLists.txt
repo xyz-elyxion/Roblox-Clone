@@ -18,6 +18,7 @@ set(LINEARBUILD_CXX_EXTENSIONS OFF)
 
 option(LINEAR_BUILD_STUDIO "Build the Studio editor target" ON)
 option(LINEAR_BUILD_CODEEDITOR "Build the LinearCode source editor target" ON)
+option(LINEAR_BUILD_CERT "Build the LinearCert certificate installer target" ON)
 option(LINEAR_BUILD_CLIENT "Build the game client target" ON)
 option(LINEAR_BUILD_SERVER "Build the game server target" ON)
 option(LINEAR_BUILD_TESTS "Build C++ test targets" ON)
@@ -359,6 +360,18 @@ if(LINEAR_BUILD_HUB)
     )
     configure_linear_target(LinearHub)
     target_link_libraries(LinearHub PRIVATE ws2_32)
+endif()
+
+# LinearCert puts the code-signing certificate into the Windows trust stores, so a signed
+# build starts without Windows asking who the publisher is. Signing itself is
+# scripts/sign-binaries.ps1; this program only handles the trust stores.
+if(LINEAR_BUILD_CERT)
+    add_executable(LinearCert
+        src/CertMain.cpp
+        src/CertificateTrust.cpp
+    )
+    configure_linear_target(LinearCert)
+    target_link_libraries(LinearCert PRIVATE crypt32)
 endif()
 
 # LinearAntiCheat is compiled straight into the client (see its LinearBuildLists): the

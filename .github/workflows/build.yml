@@ -173,6 +173,27 @@ jobs:
           done
           exit $failed
 
+      - name: Set up the signing certificate
+        # The certificate ships with the package, so it has to exist before packaging copies
+        # certs/. The secret holds the base64 of certs/linear-codesign.pfx; without it the
+        # package is simply unsigned.
+        if: always()
+        shell: pwsh
+        env:
+          LINEAR_SIGNING_PFX: ${{ secrets.LINEAR_SIGNING_PFX }}
+          LINEAR_SIGNING_PASSWORD: ${{ secrets.LINEAR_SIGNING_PASSWORD }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:LINEAR_SIGNING_PFX)) {
+              Write-Host 'No LINEAR_SIGNING_PFX secret: this package will be unsigned.'
+              exit 0
+          }
+          New-Item -ItemType Directory -Path certs -Force | Out-Null
+          $pfx = Join-Path $PWD 'certs/linear-codesign.pfx'
+          [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:LINEAR_SIGNING_PFX))
+          $cert = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2(
+              $pfx, $env:LINEAR_SIGNING_PASSWORD)
+          Export-Certificate -Cert $cert -FilePath 'certs/linear-codesign.cer' -Type CERT | Out-Null
+
       - name: Package runnable folder
         # Runs even if the tests fail, so a red run still hands back whatever
         # targets linked.
@@ -183,6 +204,24 @@ jobs:
           -Configuration Release
           -BuildDir build/windows-release
           -Output dist/linear-windows-release
+
+      - name: Sign the executables
+        # Signs the packaged .exe files in place, so the artifact carries the signature. The
+        # key is deleted afterwards: it must not end up inside the download.
+        if: always()
+        shell: pwsh
+        env:
+          LINEAR_SIGNING_PFX: ${{ secrets.LINEAR_SIGNING_PFX }}
+          LINEAR_SIGNING_PASSWORD: ${{ secrets.LINEAR_SIGNING_PASSWORD }}
+        run: |
+          if (-not (Test-Path -LiteralPath 'certs/linear-codesign.pfx')) {
+              Write-Host 'No signing key: the package stays unsigned.'
+              exit 0
+          }
+          ./scripts/sign-binaries.ps1 -Folder dist/linear-windows-release `
+              -Pfx certs/linear-codesign.pfx -Password $env:LINEAR_SIGNING_PASSWORD
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Remove-Item -LiteralPath 'certs/linear-codesign.pfx'
 
       - name: Upload runnable package
         if: always()

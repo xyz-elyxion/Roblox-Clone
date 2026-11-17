@@ -25,7 +25,7 @@
 
 namespace {
 
-rblx::web::HttpServer* g_server = nullptr;
+linear::web::HttpServer* g_server = nullptr;
 
 BOOL WINAPI consoleHandler(DWORD signal) {
     if (signal == CTRL_C_EVENT || signal == CTRL_BREAK_EVENT || signal == CTRL_CLOSE_EVENT) {
@@ -101,25 +101,25 @@ int main(int argc, char** argv) {
         }
     }
 
-    rblx::proxy::Upstream upstream;
+    linear::proxy::Upstream upstream;
     upstream.timeoutMs = timeoutMs;
     std::string error;
-    if (!rblx::proxy::parseHostPort(upstreamSpec, &upstream.host, &upstream.port, &error)) {
+    if (!linear::proxy::parseHostPort(upstreamSpec, &upstream.host, &upstream.port, &error)) {
         std::fprintf(stderr, "LinearProxy: --upstream: %s\n", error.c_str());
         return 2;
     }
 
     std::string listenHost;
     int listenPort = 0;
-    if (!rblx::proxy::parseHostPort(listenSpec, &listenHost, &listenPort, &error)) {
+    if (!linear::proxy::parseHostPort(listenSpec, &listenHost, &listenPort, &error)) {
         std::fprintf(stderr, "LinearProxy: --listen: %s\n", error.c_str());
         return 2;
     }
 
-    rblx::web::HttpServer server;
-    rblx::proxy::ReverseProxy front(upstream, !quiet);
+    linear::web::HttpServer server;
+    linear::proxy::ReverseProxy front(upstream, !quiet);
     server.setFallback(
-        [&front](rblx::web::Request& request, rblx::web::Response& response) {
+        [&front](linear::web::Request& request, linear::web::Response& response) {
             return front.handle(request, response);
         });
 

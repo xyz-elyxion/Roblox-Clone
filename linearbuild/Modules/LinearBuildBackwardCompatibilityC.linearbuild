@@ -1,0 +1,75 @@
+# Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
+# file LICENSE.rst or https://linearbuild.org/licensing for details.
+
+
+if(NOT LINEARBUILD_SKIP_COMPATIBILITY_TESTS)
+  # Old LinearBuild versions did not support OS X universal binaries anyway,
+  # so just get through this with at least some size for the types.
+  list(LENGTH LINEARBUILD_OSX_ARCHITECTURES NUM_ARCHS)
+  if(${NUM_ARCHS} GREATER 1)
+    if(NOT DEFINED LINEARBUILD_TRY_COMPILE_OSX_ARCHITECTURES)
+      message(WARNING "This module does not work with OS X universal binaries.")
+      set(__ERASE_LINEARBUILD_TRY_COMPILE_OSX_ARCHITECTURES 1)
+      list(GET LINEARBUILD_OSX_ARCHITECTURES 0 LINEARBUILD_TRY_COMPILE_OSX_ARCHITECTURES)
+    endif()
+  endif()
+
+  include (CheckTypeSize)
+  check_type_size(int      LINEARBUILD_SIZEOF_INT)
+  check_type_size(long     LINEARBUILD_SIZEOF_LONG)
+  check_type_size("void*"  LINEARBUILD_SIZEOF_VOID_P)
+  check_type_size(char     LINEARBUILD_SIZEOF_CHAR)
+  check_type_size(short    LINEARBUILD_SIZEOF_SHORT)
+  check_type_size(float    LINEARBUILD_SIZEOF_FLOAT)
+  check_type_size(double   LINEARBUILD_SIZEOF_DOUBLE)
+
+  include (CheckIncludeFile)
+  check_include_file("limits.h"       LINEARBUILD_HAVE_LIMITS_H)
+  check_include_file("unistd.h"       LINEARBUILD_HAVE_UNISTD_H)
+  check_include_file("pthread.h"      LINEARBUILD_HAVE_PTHREAD_H)
+
+  include (CheckIncludeFiles)
+  check_include_files("sys/types.h;sys/prctl.h"    LINEARBUILD_HAVE_SYS_PRCTL_H)
+
+  include (TestBigEndian)
+  test_big_endian(LINEARBUILD_WORDS_BIGENDIAN)
+  include (FindX11)
+
+  if("${X11_X11_INCLUDE_PATH}" STREQUAL "/usr/include")
+    set (LINEARBUILD_X_CFLAGS "" CACHE STRING "X11 extra flags.")
+  else()
+    set (LINEARBUILD_X_CFLAGS "-I${X11_X11_INCLUDE_PATH}" CACHE STRING
+         "X11 extra flags.")
+  endif()
+  set (LINEARBUILD_X_LIBS "${X11_LIBRARIES}" CACHE STRING
+       "Libraries and options used in X11 programs.")
+  set (LINEARBUILD_HAS_X "${X11_FOUND}" CACHE INTERNAL "Is X11 around.")
+
+  include (FindThreads)
+
+  set (LINEARBUILD_THREAD_LIBS        "${LINEARBUILD_THREAD_LIBS_INIT}" CACHE STRING
+    "Thread library used.")
+
+  set (LINEARBUILD_USE_PTHREADS       "${LINEARBUILD_USE_PTHREADS_INIT}" CACHE BOOL
+     "Use the pthreads library.")
+
+  set (LINEARBUILD_USE_WIN32_THREADS  "${LINEARBUILD_USE_WIN32_THREADS_INIT}" CACHE BOOL
+       "Use the win32 thread library.")
+
+  set (LINEARBUILD_HP_PTHREADS        ${LINEARBUILD_HP_PTHREADS_INIT} CACHE BOOL
+     "Use HP pthreads.")
+
+  if(__ERASE_LINEARBUILD_TRY_COMPILE_OSX_ARCHITECTURES)
+    set(LINEARBUILD_TRY_COMPILE_OSX_ARCHITECTURES)
+    set(__ERASE_LINEARBUILD_TRY_COMPILE_OSX_ARCHITECTURES)
+  endif()
+endif()
+
+mark_as_advanced(
+LINEARBUILD_HP_PTHREADS
+LINEARBUILD_THREAD_LIBS
+LINEARBUILD_USE_PTHREADS
+LINEARBUILD_USE_WIN32_THREADS
+LINEARBUILD_X_CFLAGS
+LINEARBUILD_X_LIBS
+)

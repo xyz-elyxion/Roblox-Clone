@@ -23,15 +23,15 @@
 #include <fcntl.h>
 #include <io.h>
 
-#include <rblxgl/rblxgl.h>
-#include <RBLXWIN/rblxwin.h>
+#include <lineargl/lineargl.h>
+#include <LINEARWIN/linearwin.h>
 
-#include "rblxui.h"
-#include "rblxui_impl_rblxwin.h"
-#include "rblxui_impl_opengl3.h"
+#include "linearui.h"
+#include "linearui_impl_linearwin.h"
+#include "linearui_impl_opengl3.h"
 #include "UiTheme.h"
 
-namespace rblx {
+namespace linear {
 namespace console {
 namespace {
 
@@ -171,11 +171,11 @@ const ServerRow* findServer(const std::vector<ServerRow>& servers, const std::st
 }
 
 // Shared with every other window: UiTheme.h owns the palette and the spacing.
-void applyTheme() { rblx::ui::theme::apply(); }
+void applyTheme() { linear::ui::theme::apply(); }
 
 void loadConsoleFont() {
-    RblxUIIO& io = RblxUI::GetIO();
-    RblxFontConfig config;
+    LinearUIIO& io = LinearUI::GetIO();
+    LinearFontConfig config;
     config.OversampleH = 2;
     config.OversampleV = 1;
     const char* candidates[] = {
@@ -280,7 +280,7 @@ bool beginCapture() {
 bool captureActive() { return g_captureActive.load(); }
 
 bool guiAllowed(int argc, char** argv) {
-    const std::string disabled = rblx::environment::get("LINEAR_NO_GUI");
+    const std::string disabled = linear::environment::get("LINEAR_NO_GUI");
     if (!disabled.empty() && disabled != "0") {
         return false;
     }
@@ -304,42 +304,42 @@ void openInBrowser(const std::string& url) {
 }
 
 int runConsoleWindow(Host host) {
-    rblxwinSetErrorCallback([](int, const char* description) {
+    linearwinSetErrorCallback([](int, const char* description) {
         std::fprintf(stderr, "Console window: %s\n", description == nullptr ? "unknown" : description);
     });
-    if (rblxwinInit() == 0) {
+    if (linearwinInit() == 0) {
         return 1;
     }
 
-    rblxwinWindowHint(RBLXWIN_CONTEXT_VERSION_MAJOR, 3);
-    rblxwinWindowHint(RBLXWIN_CONTEXT_VERSION_MINOR, 3);
-    rblxwinWindowHint(RBLXWIN_OPENGL_PROFILE, RBLXWIN_OPENGL_CORE_PROFILE);
+    linearwinWindowHint(LINEARWIN_CONTEXT_VERSION_MAJOR, 3);
+    linearwinWindowHint(LINEARWIN_CONTEXT_VERSION_MINOR, 3);
+    linearwinWindowHint(LINEARWIN_OPENGL_PROFILE, LINEARWIN_OPENGL_CORE_PROFILE);
 
-    RBLXWINwindow* window = rblxwinCreateWindow(1040, 680, host.title.c_str(), nullptr, nullptr);
+    LINEARWINwindow* window = linearwinCreateWindow(1040, 680, host.title.c_str(), nullptr, nullptr);
     if (window == nullptr) {
-        rblxwinTerminate();
+        linearwinTerminate();
         return 1;
     }
-    rblxwinSetWindowSizeLimits(window, 860, 520, RBLXWIN_DONT_CARE, RBLXWIN_DONT_CARE);
-    rblxwinMakeContextCurrent(window);
-    rblxwinSwapInterval(1);
+    linearwinSetWindowSizeLimits(window, 860, 520, LINEARWIN_DONT_CARE, LINEARWIN_DONT_CARE);
+    linearwinMakeContextCurrent(window);
+    linearwinSwapInterval(1);
 
-    if (rblxglLoadGLLoader((RBLXGLloadproc)rblxwinGetProcAddress) == 0) {
-        rblxwinDestroyWindow(window);
-        rblxwinTerminate();
+    if (linearglLoadGLLoader((LINEARGLloadproc)linearwinGetProcAddress) == 0) {
+        linearwinDestroyWindow(window);
+        linearwinTerminate();
         return 1;
     }
 
-    RBLXUI_CHECKVERSION();
-    RblxUI::CreateContext();
-    RblxUIIO& io = RblxUI::GetIO();
+    LINEARUI_CHECKVERSION();
+    LinearUI::CreateContext();
+    LinearUIIO& io = LinearUI::GetIO();
     io.IniFilename = nullptr;
-    io.ConfigFlags |= RblxUIConfigFlags_NavEnableKeyboard;
+    io.ConfigFlags |= LinearUIConfigFlags_NavEnableKeyboard;
     applyTheme();
     loadConsoleFont();
 
-    RblxUI_ImplRblxWin_InitForOpenGL(window, true);
-    RblxUI_ImplOpenGL3_Init("#version 330");
+    LinearUI_ImplLinearWin_InitForOpenGL(window, true);
+    LinearUI_ImplOpenGL3_Init("#version 330");
 
     // The whole point is replacing the black terminal window, so drop the
     // console once the GUI owns the output. Detaching only affects this
@@ -366,14 +366,14 @@ int runConsoleWindow(Host host) {
     bool showError = true;
     bool autoScroll = true;
 
-    const RblxVec4 infoColor(0.80f, 0.82f, 0.86f, 1.00f);
-    const RblxVec4 warnColor(0.96f, 0.78f, 0.36f, 1.00f);
-    const RblxVec4 errorColor(0.96f, 0.45f, 0.45f, 1.00f);
-    const RblxVec4 okColor(0.42f, 0.86f, 0.60f, 1.00f);
-    const RblxVec4 mutedColor(0.55f, 0.58f, 0.64f, 1.00f);
+    const LinearVec4 infoColor(0.80f, 0.82f, 0.86f, 1.00f);
+    const LinearVec4 warnColor(0.96f, 0.78f, 0.36f, 1.00f);
+    const LinearVec4 errorColor(0.96f, 0.45f, 0.45f, 1.00f);
+    const LinearVec4 okColor(0.42f, 0.86f, 0.60f, 1.00f);
+    const LinearVec4 mutedColor(0.55f, 0.58f, 0.64f, 1.00f);
 
-    while (rblxwinWindowShouldClose(window) == 0) {
-        rblxwinPollEvents();
+    while (linearwinWindowShouldClose(window) == 0) {
+        linearwinPollEvents();
 
         const long long frameNow = nowMilliseconds();
 
@@ -403,92 +403,92 @@ int runConsoleWindow(Host host) {
             }
         }
 
-        RblxUI_ImplOpenGL3_NewFrame();
-        RblxUI_ImplRblxWin_NewFrame();
-        RblxUI::NewFrame();
+        LinearUI_ImplOpenGL3_NewFrame();
+        LinearUI_ImplLinearWin_NewFrame();
+        LinearUI::NewFrame();
 
-        RblxUI::SetNextWindowPos(RblxVec2(0.0f, 0.0f));
-        RblxUI::SetNextWindowSize(io.DisplaySize);
-        RblxUI::PushStyleVar(RblxUIStyleVar_WindowPadding, RblxVec2(14.0f, 12.0f));
-        RblxUI::Begin("##rblx-console", nullptr,
-                     RblxUIWindowFlags_NoTitleBar | RblxUIWindowFlags_NoResize |
-                         RblxUIWindowFlags_NoMove | RblxUIWindowFlags_NoCollapse |
-                         RblxUIWindowFlags_NoSavedSettings |
-                         RblxUIWindowFlags_NoBringToFrontOnFocus);
-        RblxUI::PopStyleVar();
+        LinearUI::SetNextWindowPos(LinearVec2(0.0f, 0.0f));
+        LinearUI::SetNextWindowSize(io.DisplaySize);
+        LinearUI::PushStyleVar(LinearUIStyleVar_WindowPadding, LinearVec2(14.0f, 12.0f));
+        LinearUI::Begin("##linear-console", nullptr,
+                     LinearUIWindowFlags_NoTitleBar | LinearUIWindowFlags_NoResize |
+                         LinearUIWindowFlags_NoMove | LinearUIWindowFlags_NoCollapse |
+                         LinearUIWindowFlags_NoSavedSettings |
+                         LinearUIWindowFlags_NoBringToFrontOnFocus);
+        LinearUI::PopStyleVar();
 
         // Header: server state, address and the actions that were previously
         // only available by opening a terminal.
-        RblxUI::TextColored(servers.empty() ? warnColor : okColor, "%s",
+        LinearUI::TextColored(servers.empty() ? warnColor : okColor, "%s",
                            servers.empty() ? "ONLINE (IDLE)" : "ONLINE");
-        RblxUI::SameLine();
-        RblxUI::TextUnformatted(host.siteUrl.c_str());
-        RblxUI::SameLine();
-        RblxUI::TextColored(mutedColor, "|  %d game server%s running", static_cast<int>(servers.size()),
+        LinearUI::SameLine();
+        LinearUI::TextUnformatted(host.siteUrl.c_str());
+        LinearUI::SameLine();
+        LinearUI::TextColored(mutedColor, "|  %d game server%s running", static_cast<int>(servers.size()),
                            servers.size() == 1 ? "" : "s");
 
         const float actionsWidth = 380.0f;
-        if (RblxUI::GetContentRegionAvail().x > actionsWidth) {
-            RblxUI::SameLine(RblxUI::GetWindowWidth() - actionsWidth);
+        if (LinearUI::GetContentRegionAvail().x > actionsWidth) {
+            LinearUI::SameLine(LinearUI::GetWindowWidth() - actionsWidth);
         } else {
-            RblxUI::SameLine();
+            LinearUI::SameLine();
         }
-        if (RblxUI::Button("Open site")) {
+        if (LinearUI::Button("Open site")) {
             openInBrowser(host.siteUrl);
             statusMessage = "Opened " + host.siteUrl + " in the default browser.";
             statusUntil = frameNow + 6000;
         }
-        RblxUI::SameLine();
-        if (RblxUI::Button("Copy log")) {
+        LinearUI::SameLine();
+        if (LinearUI::Button("Copy log")) {
             std::string clipboard;
             for (const Entry& entry : entries) {
                 clipboard += "[" + formatClock(entry.timeMs) + "] " + entry.text + "\n";
             }
-            RblxUI::SetClipboardText(clipboard.c_str());
+            LinearUI::SetClipboardText(clipboard.c_str());
             statusMessage = "Copied " + std::to_string(entries.size()) + " log lines to the clipboard.";
             statusUntil = frameNow + 6000;
         }
-        RblxUI::SameLine();
-        if (RblxUI::Button("Clear")) {
+        LinearUI::SameLine();
+        if (LinearUI::Button("Clear")) {
             log.clear();
             entries.clear();
             cachedRevision = 0;
             statusMessage = "Cleared the console.";
             statusUntil = frameNow + 6000;
         }
-        RblxUI::SameLine();
-        if (RblxUI::Button("Quit")) {
-            rblxwinSetWindowShouldClose(window, RBLXWIN_TRUE);
+        LinearUI::SameLine();
+        if (LinearUI::Button("Quit")) {
+            linearwinSetWindowShouldClose(window, LINEARWIN_TRUE);
         }
 
-        RblxUI::Spacing();
-        RblxUI::Separator();
-        RblxUI::Spacing();
+        LinearUI::Spacing();
+        LinearUI::Separator();
+        LinearUI::Spacing();
 
         // Filters
-        RblxUI::SetNextItemWidth(240.0f);
-        RblxUI::InputTextWithHint("##filter", "Filter lines", filter, sizeof(filter));
-        RblxUI::SameLine();
-        RblxUI::Checkbox("Info", &showInfo);
-        RblxUI::SameLine();
-        RblxUI::Checkbox("Warnings", &showWarn);
-        RblxUI::SameLine();
-        RblxUI::Checkbox("Errors", &showError);
-        RblxUI::SameLine();
-        RblxUI::Checkbox("Auto-scroll", &autoScroll);
-        RblxUI::SameLine();
-        RblxUI::TextColored(mutedColor, "%d lines", static_cast<int>(entries.size()));
+        LinearUI::SetNextItemWidth(240.0f);
+        LinearUI::InputTextWithHint("##filter", "Filter lines", filter, sizeof(filter));
+        LinearUI::SameLine();
+        LinearUI::Checkbox("Info", &showInfo);
+        LinearUI::SameLine();
+        LinearUI::Checkbox("Warnings", &showWarn);
+        LinearUI::SameLine();
+        LinearUI::Checkbox("Errors", &showError);
+        LinearUI::SameLine();
+        LinearUI::Checkbox("Auto-scroll", &autoScroll);
+        LinearUI::SameLine();
+        LinearUI::TextColored(mutedColor, "%d lines", static_cast<int>(entries.size()));
 
-        RblxUI::Spacing();
+        LinearUI::Spacing();
 
-        const RblxVec2 available = RblxUI::GetContentRegionAvail();
-        const float footerHeight = RblxUI::GetTextLineHeightWithSpacing() + 8.0f;
+        const LinearVec2 available = LinearUI::GetContentRegionAvail();
+        const float footerHeight = LinearUI::GetTextLineHeightWithSpacing() + 8.0f;
         const float bodyHeight = std::max(120.0f, available.y - footerHeight);
         const float logWidth = std::max(320.0f, available.x * 0.62f);
         const std::string needle = lowerCopy(filter);
 
-        RblxUI::BeginChild("##log", RblxVec2(logWidth, bodyHeight), 0,
-                          RblxUIWindowFlags_HorizontalScrollbar);
+        LinearUI::BeginChild("##log", LinearVec2(logWidth, bodyHeight), 0,
+                          LinearUIWindowFlags_HorizontalScrollbar);
         int visible = 0;
         for (const Entry& entry : entries) {
             if (entry.level == Level::Info && !showInfo) {
@@ -504,44 +504,44 @@ int runConsoleWindow(Host host) {
                 continue;
             }
             ++visible;
-            const RblxVec4 color = entry.level == Level::Error   ? errorColor
+            const LinearVec4 color = entry.level == Level::Error   ? errorColor
                                  : entry.level == Level::Warn ? warnColor
                                                               : infoColor;
-            RblxUI::TextColored(mutedColor, "[%s]", formatClock(entry.timeMs).c_str());
-            RblxUI::SameLine();
-            RblxUI::TextColored(color, "%s", entry.text.c_str());
+            LinearUI::TextColored(mutedColor, "[%s]", formatClock(entry.timeMs).c_str());
+            LinearUI::SameLine();
+            LinearUI::TextColored(color, "%s", entry.text.c_str());
         }
         if (visible == 0) {
-            RblxUI::TextColored(mutedColor, "Nothing to show yet.");
+            LinearUI::TextColored(mutedColor, "Nothing to show yet.");
         }
         if (autoScroll) {
-            RblxUI::SetScrollHereY(1.0f);
+            LinearUI::SetScrollHereY(1.0f);
         }
-        RblxUI::EndChild();
+        LinearUI::EndChild();
 
-        RblxUI::SameLine();
-        RblxUI::BeginChild("##servers", RblxVec2(0.0f, bodyHeight));
-        RblxUI::TextColored(mutedColor, "GAME SERVERS");
-        RblxUI::Separator();
+        LinearUI::SameLine();
+        LinearUI::BeginChild("##servers", LinearVec2(0.0f, bodyHeight));
+        LinearUI::TextColored(mutedColor, "GAME SERVERS");
+        LinearUI::Separator();
 
         if (servers.empty()) {
-            RblxUI::TextColored(mutedColor,
+            LinearUI::TextColored(mutedColor,
                                "No game servers are running.\nOpen the site and press Play to start one.");
         }
 
         for (const ServerRow& row : servers) {
-            RblxUI::PushID(row.id.c_str());
+            LinearUI::PushID(row.id.c_str());
             const bool selected = row.id == selectedId;
-            if (RblxUI::Selectable(row.title.c_str(), selected, RblxUISelectableFlags_None,
-                                  RblxVec2(std::max(80.0f, RblxUI::GetContentRegionAvail().x - 62.0f),
+            if (LinearUI::Selectable(row.title.c_str(), selected, LinearUISelectableFlags_None,
+                                  LinearVec2(std::max(80.0f, LinearUI::GetContentRegionAvail().x - 62.0f),
                                          0.0f))) {
                 selectedId = row.id;
                 tailInstanceId.clear();
                 tailReadAt = 0;
                 tailText = "(Loading output...)";
             }
-            RblxUI::SameLine();
-            if (RblxUI::SmallButton("Stop")) {
+            LinearUI::SameLine();
+            if (LinearUI::SmallButton("Stop")) {
                 if (host.stopServer && host.stopServer(row.id)) {
                     statusMessage = "Stopped " + row.title + " on port " + std::to_string(row.port) + ".";
                     statusUntil = frameNow + 6000;
@@ -552,55 +552,55 @@ int runConsoleWindow(Host host) {
                     statusUntil = frameNow + 6000;
                 }
             }
-            RblxUI::TextColored(mutedColor, "  :%d  |  pid %ld  |  %d playing  |  up %s  |  %s",
+            LinearUI::TextColored(mutedColor, "  :%d  |  pid %ld  |  %d playing  |  up %s  |  %s",
                                row.port, row.pid, row.players,
                                formatUptime(row.startedAtMs, frameNow).c_str(), row.status.c_str());
-            RblxUI::PopID();
-            RblxUI::Spacing();
+            LinearUI::PopID();
+            LinearUI::Spacing();
         }
 
-        RblxUI::Spacing();
-        RblxUI::Separator();
-        RblxUI::TextColored(mutedColor, "GAME SERVER OUTPUT");
+        LinearUI::Spacing();
+        LinearUI::Separator();
+        LinearUI::TextColored(mutedColor, "GAME SERVER OUTPUT");
         const ServerRow* selectedRow = selectedId.empty() ? nullptr : findServer(servers, selectedId);
         if (selectedRow == nullptr) {
-            RblxUI::TextColored(mutedColor, "Select a game server above to follow its output.");
+            LinearUI::TextColored(mutedColor, "Select a game server above to follow its output.");
         } else {
-            RblxUI::TextColored(mutedColor, "game-server-%d.log", selectedRow->port);
-            RblxUI::BeginChild("##tail", RblxVec2(0.0f, 0.0f), 0,
-                              RblxUIWindowFlags_HorizontalScrollbar);
-            RblxUI::TextUnformatted(tailText.c_str());
-            RblxUI::EndChild();
+            LinearUI::TextColored(mutedColor, "game-server-%d.log", selectedRow->port);
+            LinearUI::BeginChild("##tail", LinearVec2(0.0f, 0.0f), 0,
+                              LinearUIWindowFlags_HorizontalScrollbar);
+            LinearUI::TextUnformatted(tailText.c_str());
+            LinearUI::EndChild();
         }
-        RblxUI::EndChild();
+        LinearUI::EndChild();
 
         if (statusUntil > frameNow && !statusMessage.empty()) {
-            RblxUI::TextColored(okColor, "%s", statusMessage.c_str());
+            LinearUI::TextColored(okColor, "%s", statusMessage.c_str());
         } else {
-            RblxUI::TextColored(mutedColor,
+            LinearUI::TextColored(mutedColor,
                                "Closing this window stops the website and every game server it started.");
         }
 
-        RblxUI::End();
+        LinearUI::End();
 
-        RblxUI::Render();
+        LinearUI::Render();
         int displayWidth = 0;
         int displayHeight = 0;
-        rblxwinGetFramebufferSize(window, &displayWidth, &displayHeight);
+        linearwinGetFramebufferSize(window, &displayWidth, &displayHeight);
         glViewport(0, 0, displayWidth, displayHeight);
         glClearColor(0.07f, 0.08f, 0.10f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
-        RblxUI_ImplOpenGL3_RenderDrawData(RblxUI::GetDrawData());
-        rblxwinSwapBuffers(window);
+        LinearUI_ImplOpenGL3_RenderDrawData(LinearUI::GetDrawData());
+        linearwinSwapBuffers(window);
     }
 
-    RblxUI_ImplOpenGL3_Shutdown();
-    RblxUI_ImplRblxWin_Shutdown();
-    RblxUI::DestroyContext();
-    rblxwinDestroyWindow(window);
-    rblxwinTerminate();
+    LinearUI_ImplOpenGL3_Shutdown();
+    LinearUI_ImplLinearWin_Shutdown();
+    LinearUI::DestroyContext();
+    linearwinDestroyWindow(window);
+    linearwinTerminate();
     return 0;
 }
 
 }  // namespace console
-}  // namespace rblx
+}  // namespace linear

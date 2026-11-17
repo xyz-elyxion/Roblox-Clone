@@ -1,6 +1,6 @@
 #pragma once
 
-#include <rblxmath/rblxmath.hpp>
+#include <linearmath/linearmath.hpp>
 #include <string>
 #include <vector>
 
@@ -68,16 +68,16 @@ public:
     bool isSpawn;    // Is this a SpawnLocation?
     bool deleted;    // Mark as deleted instead of removing (prevents index shifts)
 
-    rblxmath::vec3 position;
-    rblxmath::vec3 size;
-    rblxmath::vec3 color;
-    rblxmath::vec3 rotation; // Euler angles in degrees
+    linearmath::vec3 position;
+    linearmath::vec3 size;
+    linearmath::vec3 color;
+    linearmath::vec3 rotation; // Euler angles in degrees
     float transparency;
     float reflectance;
     bool anchored;
     bool canCollide;
     float mass;
-    rblxmath::vec3 velocity;
+    linearmath::vec3 velocity;
     void* physicsBody; // Pointer to Bullet RigidBody
     ShapeType shape;
     std::vector<Weld> welds;
@@ -85,8 +85,8 @@ public:
     Material material;      // Surface shading used by the part shader
     std::string texture;    // Optional image path, tiled across every face
 
-    Part(rblxmath::vec3 pos = rblxmath::vec3(0.0f), rblxmath::vec3 size = rblxmath::vec3(1.0f), rblxmath::vec3 color = rblxmath::vec3(0.6f), ShapeType shape = ShapeType::Cube, std::string n = "Part")
-        : position(pos), size(size), color(color), rotation(rblxmath::vec3(0.0f)), 
+    Part(linearmath::vec3 pos = linearmath::vec3(0.0f), linearmath::vec3 size = linearmath::vec3(1.0f), linearmath::vec3 color = linearmath::vec3(0.6f), ShapeType shape = ShapeType::Cube, std::string n = "Part")
+        : position(pos), size(size), color(color), rotation(linearmath::vec3(0.0f)), 
           transparency(0.0f), reflectance(0.0f), anchored(true), canCollide(true), mass(1.0f), 
-          velocity(rblxmath::vec3(0.0f)), physicsBody(nullptr), shape(shape), name(n), parentIndex(-1), isFolder(false), isCamera(false), isSpawn(false), textureId(0), material(Material::Plastic), texture(), deleted(false) {}
+          velocity(linearmath::vec3(0.0f)), physicsBody(nullptr), shape(shape), name(n), parentIndex(-1), isFolder(false), isCamera(false), isSpawn(false), textureId(0), material(Material::Plastic), texture(), deleted(false) {}
 };

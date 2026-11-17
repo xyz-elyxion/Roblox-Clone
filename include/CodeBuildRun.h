@@ -12,7 +12,7 @@
 #include <thread>
 #include <vector>
 
-namespace rblx {
+namespace linear {
 namespace code {
 
 class BuildRun {
@@ -57,4 +57,4 @@ private:
 };
 
 }  // namespace code
-}  // namespace rblx
+}  // namespace linear

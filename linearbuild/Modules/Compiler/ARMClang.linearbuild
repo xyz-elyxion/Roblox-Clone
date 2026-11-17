@@ -1,0 +1,159 @@
+if(_ARMClang_LINEARBUILD_LOADED)
+  return()
+endif()
+
+# This file requires LINEARBUILD_LINKER and LINEARBUILD_AR set by LinearBuildFindBinUtils.linearbuild.
+if(NOT (DEFINED LINEARBUILD_LINKER AND DEFINED LINEARBUILD_AR))
+  return()
+endif()
+
+set(_ARMClang_LINEARBUILD_LOADED TRUE)
+
+# Save the CMP0123 setting in a variable used both below and by try_compile.
+linearbuild_policy(GET CMP0123 LINEARBUILD_ARMClang_CMP0123)
+
+set(LINEARBUILD_EXECUTABLE_SUFFIX ".elf")
+
+if (LINEARBUILD_LINKER MATCHES "armlink")
+  set(__LINEARBUILD_ARMClang_USING_armlink TRUE)
+  set(LINEARBUILD_LIBRARY_PATH_FLAG "--userlibpath=")
+else()
+  set(__LINEARBUILD_ARMClang_USING_armlink FALSE)
+endif()
+
+# get compiler supported cpu list
+function(__armclang_set_processor_list lang out_var)
+  execute_process(COMMAND "${LINEARBUILD_${lang}_COMPILER}" --target=${LINEARBUILD_${lang}_COMPILER_TARGET} -mcpu=list
+    OUTPUT_VARIABLE processor_list
+    ERROR_VARIABLE processor_list
+    RESULT_VARIABLE _res
+    )
+  set(processor_list)
+  if(_res EQUAL 0)
+    string(REGEX MATCHALL "-mcpu=([^ \n]*)" processor_list "${processor_list}")
+    string(REGEX REPLACE "-mcpu=" "" processor_list "${processor_list}")
+  endif()
+  set(${out_var} "${processor_list}" PARENT_SCOPE)
+endfunction()
+
+# check processor is in list
+function(__armclang_check_processor processor list out_var)
+  string(TOLOWER "${processor}" processor)
+  if(processor IN_LIST list)
+    set(${out_var} TRUE PARENT_SCOPE)
+  else()
+    set(${out_var} FALSE PARENT_SCOPE)
+  endif()
+endfunction()
+
+# get compiler supported arch list
+function(__armclang_set_arch_list lang out_var)
+  execute_process(COMMAND "${LINEARBUILD_${lang}_COMPILER}" --target=${LINEARBUILD_${lang}_COMPILER_TARGET} -march=list
+    OUTPUT_VARIABLE arch_list
+    ERROR_VARIABLE arch_list
+    RESULT_VARIABLE _res
+    )
+  set(arch_list)
+  if(_res EQUAL 0)
+    string(REGEX MATCHALL "-march=([^ \n]*)" arch_list "${arch_list}")
+    string(REGEX REPLACE "-march=" "" arch_list "${arch_list}")
+  endif()
+  set(${out_var} "${arch_list}" PARENT_SCOPE)
+endfunction()
+
+# get linker supported cpu list
+function(__armlink_set_cpu_list lang out_var)
+  if(__LINEARBUILD_ARMClang_USING_armlink)
+    set(__linker_wrapper_flags "")
+  else()
+    set(__linker_wrapper_flags --target=${LINEARBUILD_${lang}_COMPILER_TARGET} -Xlinker)
+  endif()
+
+  execute_process(COMMAND "${LINEARBUILD_LINKER}" ${__linker_wrapper_flags} --cpu=list
+    OUTPUT_VARIABLE cpu_list
+    ERROR_VARIABLE cpu_list
+    RESULT_VARIABLE _res
+    )
+  set(cpu_list)
+  if(_res EQUAL 0)
+    string(REGEX MATCHALL "--cpu=([^ \n]*)" cpu_list "${cpu_list}")
+    string(REGEX REPLACE "--cpu=" "" cpu_list "${cpu_list}")
+  endif()
+  set(${out_var} "${cpu_list}" PARENT_SCOPE)
+endfunction()
+
+macro(__compiler_armclang lang)
+  if(NOT LINEARBUILD_${lang}_COMPILER_TARGET)
+    set(LINEARBUILD_${lang}_COMPILER_TARGET arm-arm-none-eabi)
+  endif()
+  if(NOT LINEARBUILD_${lang}_COMPILER_PROCESSOR_LIST)
+    __armclang_set_processor_list(${lang} LINEARBUILD_${lang}_COMPILER_PROCESSOR_LIST)
+  endif()
+  if(NOT LINEARBUILD_${lang}_COMPILER_ARCH_LIST)
+    __armclang_set_arch_list(${lang} LINEARBUILD_${lang}_COMPILER_ARCH_LIST)
+  endif()
+
+  # LINEARBUILD_SYSTEM_PROCESSOR and LINEARBUILD_SYSTEM_ARCH are not sufficient because they provide no
+  # information of additional CPU features needed in `-mcpu=<name>[+[no]<feature>+...]`.
+  # The automatic setting of compile and link options is deprecated and projects should specify their own.
+  linearbuild_policy(GET CMP0123 policy_CMP0123)
+  if(NOT "x${LINEARBUILD_ARMClang_CMP0123}x" STREQUAL "xNEWx")
+    if(NOT "x${LINEARBUILD_ARMClang_CMP0123}x" STREQUAL "xOLDx")
+      linearbuild_policy(ISSUE_WARNING CMP0123 POST
+        "For compatibility, LinearBuild will automatically add cpu/arch flags based "
+        "on the LINEARBUILD_SYSTEM_PROCESSOR and/or LINEARBUILD_SYSTEM_ARCH variables."
+        )
+    endif()
+
+    if(NOT LINEARBUILD_SYSTEM_PROCESSOR AND NOT LINEARBUILD_SYSTEM_ARCH)
+      message(FATAL_ERROR "  LINEARBUILD_SYSTEM_PROCESSOR or LINEARBUILD_SYSTEM_ARCH must be set for ARMClang\n"
+        "  Supported processor: ${LINEARBUILD_${lang}_COMPILER_PROCESSOR_LIST}\n"
+        "  Supported Architecture: ${LINEARBUILD_${lang}_COMPILER_ARCH_LIST}")
+    else()
+      __armclang_check_processor("${LINEARBUILD_SYSTEM_ARCH}" "${LINEARBUILD_${lang}_COMPILER_ARCH_LIST}" _LINEARBUILD_${lang}_CHECK_ARCH_RESULT)
+      if( _LINEARBUILD_${lang}_CHECK_ARCH_RESULT)
+        string(APPEND LINEARBUILD_${lang}_FLAGS_INIT " -march=${LINEARBUILD_SYSTEM_ARCH}")
+        set(__march_flag_set TRUE)
+      endif()
+      __armclang_check_processor("${LINEARBUILD_SYSTEM_PROCESSOR}" "${LINEARBUILD_${lang}_COMPILER_PROCESSOR_LIST}" _LINEARBUILD_${lang}_CHECK_PROCESSOR_RESULT)
+      if(_LINEARBUILD_${lang}_CHECK_PROCESSOR_RESULT)
+        string(APPEND LINEARBUILD_${lang}_FLAGS_INIT " -mcpu=${LINEARBUILD_SYSTEM_PROCESSOR}")
+        set(__mcpu_flag_set TRUE)
+      endif()
+      if(NOT __march_flag_set AND NOT __mcpu_flag_set)
+        message(FATAL_ERROR "At least one of the variables LINEARBUILD_SYSTEM_PROCESSOR or LINEARBUILD_SYSTEM_ARCH must be set for ARMClang\n"
+                            "Supported processor: ${LINEARBUILD_${lang}_COMPILER_PROCESSOR_LIST}\n"
+                            "  Supported Architecture: ${LINEARBUILD_${lang}_COMPILER_ARCH_LIST}")
+      endif()
+      unset(_LINEARBUILD_${lang}_CHECK_PROCESSOR_RESULT)
+      unset(_LINEARBUILD_${lang}_CHECK_ARCH_RESULT)
+    endif()
+
+    #check if LINEARBUILD_SYSTEM_PROCESSOR belongs to supported cpu list for armlink
+    __armlink_set_cpu_list( ${lang} LINEARBUILD_LINKER_CPU_LIST)
+    list(TRANSFORM LINEARBUILD_LINKER_CPU_LIST TOLOWER)
+    __armclang_check_processor("${LINEARBUILD_SYSTEM_PROCESSOR}" "${LINEARBUILD_LINKER_CPU_LIST}" _LINEARBUILD_CHECK_LINK_CPU_RESULT)
+    if(_LINEARBUILD_CHECK_LINK_CPU_RESULT)
+      string(APPEND LINEARBUILD_EXECUTABLE_CREATE_${lang}_FLAGS " --cpu=${LINEARBUILD_SYSTEM_PROCESSOR}")
+      linearbuild_policy(GET CMP0210 _CMP0210)
+      if (NOT _CMP0210 STREQUAL "NEW")
+        string(APPEND LINEARBUILD_${lang}_LINK_FLAGS " --cpu=${LINEARBUILD_SYSTEM_PROCESSOR}")
+      endif()
+      unset(_CMP0210)
+    endif()
+
+  endif()
+
+  if(__LINEARBUILD_ARMClang_USING_armlink)
+    unset(LINEARBUILD_${lang}_LINKER_WRAPPER_FLAG)
+    set(__LINEARBUILD_ARMClang_USING_armlink_WRAPPER "")
+  else()
+    set(__LINEARBUILD_ARMClang_USING_armlink_WRAPPER "-Xlinker")
+  endif()
+  set(LINEARBUILD_${lang}_LINK_EXECUTABLE "<LINEARBUILD_LINKER> <LINK_FLAGS> <LINK_LIBRARIES> <OBJECTS> -o <TARGET> ${__LINEARBUILD_ARMClang_USING_armlink_WRAPPER}")
+  set(LINEARBUILD_${lang}_CREATE_STATIC_LIBRARY  "<LINEARBUILD_AR> --create -cr <TARGET> <LINK_FLAGS> <OBJECTS>")
+  set(LINEARBUILD_${lang}_ARCHIVE_CREATE         "<LINEARBUILD_AR> --create -cr <TARGET> <LINK_FLAGS> <OBJECTS>")
+  set(LINEARBUILD_${lang}_RESPONSE_FILE_LINK_FLAG "${__LINEARBUILD_ARMClang_USING_armlink_WRAPPER} --via=")
+  set(LINEARBUILD_${lang}_OUTPUT_EXTENSION ".o")
+  set(LINEARBUILD_${lang}_OUTPUT_EXTENSION_REPLACE 1)
+endmacro()

@@ -16,7 +16,7 @@
 //
 // Verification fails closed: a missing key, a short key, a malformed signature
 // or a digest that does not match all return false with a reason.
-namespace rblx {
+namespace linear {
 namespace update {
 
 // True when `modulusHex` is a 2048-bit odd modulus with its top bit set and
@@ -49,4 +49,4 @@ std::string base64Encode(const std::string& bytes);
 bool base64Decode(const std::string& text, std::string* bytes, std::string* error);
 
 }  // namespace update
-}  // namespace rblx
+}  // namespace linear

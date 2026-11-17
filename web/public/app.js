@@ -3295,7 +3295,7 @@ function initSettings() {
                 const url = URL.createObjectURL(blob);
                 const link = document.createElement('a');
                 link.href = url;
-                link.download = 'rblx-account.json';
+                link.download = 'linear-account.json';
                 link.click();
                 URL.revokeObjectURL(url);
             } catch (error) {

@@ -16,7 +16,7 @@
 #include <utility>
 #include <vector>
 
-namespace rblx {
+namespace linear {
 namespace web {
 namespace {
 
@@ -487,4 +487,4 @@ bool WebsiteApp::handleChatPost(Request& request, Response& response) {
 }
 
 }  // namespace web
-}  // namespace rblx
+}  // namespace linear

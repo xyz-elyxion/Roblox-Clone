@@ -49,7 +49,7 @@ namespace {
     }
 
     std::string postJson(const std::string& url, const std::string& body, const std::string& bearerToken) {
-        const rblx::http::Response response = rblx::http::request("POST", url, body, bearerToken);
+        const linear::http::Response response = linear::http::request("POST", url, body, bearerToken);
         if (!response.ok()) {
             return "";
         }
@@ -68,12 +68,12 @@ VerifiedUser ServerAuth::verifyToken(const std::string& token, const std::string
     // The machine goes with the login: the website records it on the account and
     // refuses the join when the machine itself is banned.
     std::string body = "{}";
-    const std::string machine = rblx::hwid::normalize(hardwareId);
-    if (rblx::hwid::valid(machine)) {
+    const std::string machine = linear::hwid::normalize(hardwareId);
+    if (linear::hwid::valid(machine)) {
         body = "{\"hardwareId\":\"" + machine + "\"}";
     }
-    const rblx::http::Response reply =
-        rblx::http::request("POST", serverUrl + "/api/verify", body, token);
+    const linear::http::Response reply =
+        linear::http::request("POST", serverUrl + "/api/verify", body, token);
     if (reply.body.empty() || !jsonBoolTrue(reply.body, "success")) {
         user.reason = jsonString(reply.body, "error");
         return user;
@@ -100,7 +100,7 @@ VerifiedUser ServerAuth::verifyToken(const std::string& token, const std::string
 std::string ServerAuth::getAvatar(const std::string& token, const std::string& serverUrl) {
     if (token.empty()) return "";
 
-    const rblx::http::Response response = rblx::http::request("GET", serverUrl + "/api/avatar", "", token);
+    const linear::http::Response response = linear::http::request("GET", serverUrl + "/api/avatar", "", token);
     if (!response.ok()) {
         return "";
     }
@@ -181,8 +181,8 @@ bool ServerAuth::isHardwareBanned(const std::string& hardwareId, std::string* re
     if (reason != nullptr) {
         reason->clear();
     }
-    const std::string machine = rblx::hwid::normalize(hardwareId);
-    if (!rblx::hwid::valid(machine)) {
+    const std::string machine = linear::hwid::normalize(hardwareId);
+    if (!linear::hwid::valid(machine)) {
         // Nothing to ask about, and refusing every join whose client could not
         // name its machine would lock out the players this is meant to protect.
         return false;

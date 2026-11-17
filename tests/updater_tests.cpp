@@ -35,7 +35,7 @@ std::string readFile(const fs::path& path) {
 
 // A clean folder per test, so one failure cannot look like another.
 fs::path makeScratch(const std::string& name) {
-    const fs::path root = fs::temp_directory_path() / ("rblx-updater-tests-" + name);
+    const fs::path root = fs::temp_directory_path() / ("linear-updater-tests-" + name);
     std::error_code error;
     fs::remove_all(root, error);
     fs::create_directories(root, error);
@@ -43,7 +43,7 @@ fs::path makeScratch(const std::string& name) {
 }
 
 void testVersionOrder() {
-    using rblx::update::compareVersions;
+    using linear::update::compareVersions;
     check(compareVersions("1.0.0", "1.0.0") == 0, "the same version compares equal");
     check(compareVersions("1.10.0", "1.9.2") > 0, "1.10.0 is newer than 1.9.2, not older");
     check(compareVersions("2", "1.99.99") > 0, "a major bump outranks any minor one");
@@ -64,7 +64,7 @@ void testVersionOrder() {
 }
 
 void testPathSafety() {
-    using rblx::update::isSafeRelativePath;
+    using linear::update::isSafeRelativePath;
     check(isSafeRelativePath("shaders/basic.vert", nullptr), "a normal relative path is accepted");
     check(isSafeRelativePath("Client.exe", nullptr), "a top level file is accepted");
 
@@ -80,21 +80,21 @@ void testPathSafety() {
 
     const fs::path root = makeScratch("resolve");
     std::string resolved;
-    check(rblx::update::resolveUnder(root.string(), "web/public/index.html", &resolved),
+    check(linear::update::resolveUnder(root.string(), "web/public/index.html", &resolved),
           "a nested path resolves inside the install folder");
     check(resolved.find("web/public/index.html") != std::string::npos,
           "the resolved path is the one asked for");
-    check(!rblx::update::resolveUnder(root.string(), "../escape.exe", &resolved),
+    check(!linear::update::resolveUnder(root.string(), "../escape.exe", &resolved),
           "a path that leaves the folder does not resolve");
 }
 
 void testUrlJoining() {
-    using rblx::update::joinUrl;
-    check(joinUrl("http://127.0.0.1:3000/rblx", "shaders/basic.vert") ==
-              "http://127.0.0.1:3000/rblx/shaders/basic.vert",
+    using linear::update::joinUrl;
+    check(joinUrl("http://127.0.0.1:3000/linear", "shaders/basic.vert") ==
+              "http://127.0.0.1:3000/linear/shaders/basic.vert",
           "a relative path is joined to the base URL");
-    check(joinUrl("http://127.0.0.1:3000/rblx/", "Client.exe") ==
-              "http://127.0.0.1:3000/rblx/Client.exe",
+    check(joinUrl("http://127.0.0.1:3000/linear/", "Client.exe") ==
+              "http://127.0.0.1:3000/linear/Client.exe",
           "a trailing slash on the base is not doubled");
     check(joinUrl("http://host/updates", "games/Sky Platformer.world") ==
               "http://host/updates/games/Sky%20Platformer.world",
@@ -104,46 +104,46 @@ void testUrlJoining() {
 }
 
 void testManifestDocument() {
-    rblx::update::Manifest manifest;
+    linear::update::Manifest manifest;
     manifest.version = "1.4.2";
     manifest.channel = "stable";
-    rblx::update::FileEntry entry;
+    linear::update::FileEntry entry;
     entry.path = "Client.exe";
     entry.sha256 = std::string(64, 'a');
     entry.size = 42;
     manifest.files.push_back(entry);
 
-    const std::string text = rblx::update::buildManifestJson(manifest);
-    rblx::update::Manifest parsed;
+    const std::string text = linear::update::buildManifestJson(manifest);
+    linear::update::Manifest parsed;
     std::string error;
-    check(rblx::update::parseManifest(text, &parsed, &error), "a manifest survives a round trip");
+    check(linear::update::parseManifest(text, &parsed, &error), "a manifest survives a round trip");
     check(parsed.version == "1.4.2", "the version survives");
     check(parsed.files.size() == 1 && parsed.files[0].path == "Client.exe",
           "the file list survives");
     check(parsed.files[0].size == 42, "the size survives");
 
-    rblx::update::Manifest ignored;
-    check(!rblx::update::parseManifest("{", &ignored, &error), "malformed JSON is rejected");
-    check(!rblx::update::parseManifest("{\"files\":[]}", &ignored, &error), "a manifest needs a version");
-    check(!rblx::update::parseManifest(
+    linear::update::Manifest ignored;
+    check(!linear::update::parseManifest("{", &ignored, &error), "malformed JSON is rejected");
+    check(!linear::update::parseManifest("{\"files\":[]}", &ignored, &error), "a manifest needs a version");
+    check(!linear::update::parseManifest(
               "{\"version\":\"1\",\"files\":[{\"path\":\"../x\",\"sha256\":\"" + std::string(64, 'a') +
                   "\"}]}",
               &ignored, &error),
           "a manifest cannot escape the install folder");
-    check(!rblx::update::parseManifest(
+    check(!linear::update::parseManifest(
               "{\"version\":\"1\",\"files\":[{\"path\":\"a\",\"sha256\":\"short\"}]}", &ignored, &error),
           "an entry without a real SHA-256 is rejected");
-    check(!rblx::update::parseManifest(
+    check(!linear::update::parseManifest(
               "{\"version\":\"1\",\"files\":[{\"path\":\"a\",\"sha256\":\"" + std::string(64, 'a') +
                   "\"},{\"path\":\"a\",\"sha256\":\"" + std::string(64, 'b') + "\"}]}",
               &ignored, &error),
           "the same path twice is rejected");
 
     // The updater and the machine's own settings are never part of a release.
-    check(!rblx::update::isPackagedFile("manifest.json"), "the manifest is not packaged");
-    check(!rblx::update::isPackagedFile("update.json"), "the update settings are not packaged");
-    check(!rblx::update::isPackagedFile("LinearUpdater.exe"), "the running updater is not packaged");
-    check(rblx::update::isPackagedFile("shaders/basic.vert"), "shaders are packaged");
+    check(!linear::update::isPackagedFile("manifest.json"), "the manifest is not packaged");
+    check(!linear::update::isPackagedFile("update.json"), "the update settings are not packaged");
+    check(!linear::update::isPackagedFile("LinearUpdater.exe"), "the running updater is not packaged");
+    check(linear::update::isPackagedFile("shaders/basic.vert"), "shaders are packaged");
 }
 
 void testPlanning() {
@@ -152,34 +152,34 @@ void testPlanning() {
     writeFile(root / "stale.txt", "old");
     // gone.txt is in the installed manifest but missing from disk already.
 
-    rblx::update::Manifest target;
+    linear::update::Manifest target;
     target.version = "2.0.0";
 
-    rblx::update::FileEntry kept;
+    linear::update::FileEntry kept;
     kept.path = "kept.txt";
-    kept.sha256 = rblx::update::sha256Text("same");
+    kept.sha256 = linear::update::sha256Text("same");
     kept.size = 4;
 
-    rblx::update::FileEntry stale;
+    linear::update::FileEntry stale;
     stale.path = "stale.txt";
-    stale.sha256 = rblx::update::sha256Text("new");
+    stale.sha256 = linear::update::sha256Text("new");
     stale.size = 3;
 
-    rblx::update::FileEntry missing;
+    linear::update::FileEntry missing;
     missing.path = "games/one.world";
-    missing.sha256 = rblx::update::sha256Text("world");
+    missing.sha256 = linear::update::sha256Text("world");
     missing.size = 5;
 
     target.files = {kept, stale, missing};
 
-    rblx::update::Manifest installed;
+    linear::update::Manifest installed;
     installed.version = "1.0.0";
-    rblx::update::FileEntry gone;
+    linear::update::FileEntry gone;
     gone.path = "old/removed.dll";
     gone.sha256 = std::string(64, 'c');
     installed.files = {kept, stale, gone};
 
-    const rblx::update::Plan plan = rblx::update::planUpdate(target, installed, root.string());
+    const linear::update::Plan plan = linear::update::planUpdate(target, installed, root.string());
     check(plan.current.size() == 1 && plan.current[0] == "kept.txt",
           "a file that already matches is not downloaded");
     check(plan.download.size() == 2, "a changed file and a missing one are downloaded");
@@ -188,12 +188,12 @@ void testPlanning() {
           "a file the new release dropped is removed");
     check(!plan.upToDate(), "a plan with downloads is not up to date");
 
-    const rblx::update::Plan settled = rblx::update::planUpdate(target, target, root.string());
+    const linear::update::Plan settled = linear::update::planUpdate(target, target, root.string());
     check(settled.download.size() == 2,
           "the removed file is not downloaded again, and the stale one still is");
 
     // Nothing on disk matches an empty folder, including the manifest's own key.
-    const rblx::update::Plan fresh = rblx::update::planUpdate(target, rblx::update::Manifest{}, root.string());
+    const linear::update::Plan fresh = linear::update::planUpdate(target, linear::update::Manifest{}, root.string());
     check(fresh.download.size() == 2, "an install fetches what is not on disk");
 }
 
@@ -206,7 +206,7 @@ void testApplying() {
     writeFile(staged, "new build");
 
     std::string error;
-    check(rblx::update::applyStagedFile(staged.string(), target.string(), &error),
+    check(linear::update::applyStagedFile(staged.string(), target.string(), &error),
           "a staged file replaces the installed one");
     check(readFile(target) == "new build", "the new contents are in place");
     check(!fs::exists(fs::path(target.string() + ".old")), "the backup is cleaned up");
@@ -216,29 +216,29 @@ void testApplying() {
     const fs::path fresh = root / "web" / "public" / "index.html";
     const fs::path freshStaged = root / ".update-staging" / "web" / "public" / "index.html";
     writeFile(freshStaged, "page");
-    check(rblx::update::applyStagedFile(freshStaged.string(), fresh.string(), &error),
+    check(linear::update::applyStagedFile(freshStaged.string(), fresh.string(), &error),
           "a new file is installed");
     check(readFile(fresh) == "page", "the new file has its contents");
 
     // The manifest round trip on disk, which is what the next run diffs against.
-    rblx::update::Manifest manifest;
+    linear::update::Manifest manifest;
     manifest.version = "3.1.0";
     const fs::path manifestPath = root / "manifest.json";
-    check(rblx::update::writeManifestFile(manifestPath.string(), manifest, &error),
+    check(linear::update::writeManifestFile(manifestPath.string(), manifest, &error),
           "a manifest is written");
-    rblx::update::Manifest read;
-    check(rblx::update::readManifestFile(manifestPath.string(), &read, &error),
+    linear::update::Manifest read;
+    check(linear::update::readManifestFile(manifestPath.string(), &read, &error),
           "the manifest is read back");
     check(read.version == "3.1.0", "the version came back");
 
     // Configuration belongs to the machine and survives an update.
-    rblx::update::Config config;
+    linear::update::Config config;
     config.manifestUrl = "http://127.0.0.1:3000/updates/manifest.json";
     config.launch = "Client.exe";
-    check(rblx::update::writeConfigFile((root / "update.json").string(), config, &error),
+    check(linear::update::writeConfigFile((root / "update.json").string(), config, &error),
           "update.json is written");
-    rblx::update::Config loaded;
-    check(rblx::update::readConfigFile((root / "update.json").string(), &loaded, &error),
+    linear::update::Config loaded;
+    check(linear::update::readConfigFile((root / "update.json").string(), &loaded, &error),
           "update.json is read back");
     check(loaded.manifestUrl == config.manifestUrl, "the manifest URL survives");
     check(!loaded.read("{\"launch\":\"Client.exe\"}", &error), "a config without a URL is refused");
@@ -264,7 +264,7 @@ void testPayloadWalk() {
 
     std::vector<std::string> files;
     std::string error;
-    check(rblx::update::collectPayloadFiles(root.string(), &files, &error), "the payload walk succeeds");
+    check(linear::update::collectPayloadFiles(root.string(), &files, &error), "the payload walk succeeds");
     check(files.size() == 4, "only the release files are collected");
     check(std::is_sorted(files.begin(), files.end()), "the payload list is sorted");
     check(std::find(files.begin(), files.end(), "LinearSetup.exe") != files.end(),
@@ -274,41 +274,41 @@ void testPayloadWalk() {
     check(std::find(files.begin(), files.end(), "update.json") == files.end(),
           "the machine's settings are not part of the payload");
 
-    rblx::update::Manifest manifest;
-    check(rblx::update::buildManifestFromDirectory(root.string(), "7.0.1", "", &manifest, &error),
+    linear::update::Manifest manifest;
+    check(linear::update::buildManifestFromDirectory(root.string(), "7.0.1", "", &manifest, &error),
           "a manifest can be built from a folder");
     check(manifest.version == "7.0.1", "the version given is recorded");
     check(manifest.channel == "stable", "an empty channel means stable");
     check(manifest.files.size() == 4, "the manifest describes the payload");
 
     bool hashesMatch = true;
-    for (const rblx::update::FileEntry& entry : manifest.files) {
-        if (entry.sha256 != rblx::update::sha256File((root / entry.path).string(), &error)) {
+    for (const linear::update::FileEntry& entry : manifest.files) {
+        if (entry.sha256 != linear::update::sha256File((root / entry.path).string(), &error)) {
             hashesMatch = false;
         }
     }
     check(hashesMatch, "every recorded hash is the hash of the file on disk");
 
     // A folder that is not there is an error with a reason, not an empty list.
-    check(!rblx::update::collectPayloadFiles((root / "missing").string(), nullptr, &error),
+    check(!linear::update::collectPayloadFiles((root / "missing").string(), nullptr, &error),
           "a missing folder is refused");
 }
 
 void testHashing() {
-    check(rblx::update::sha256Text("") ==
+    check(linear::update::sha256Text("") ==
               "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
           "the empty SHA-256 is the published one");
-    check(rblx::update::sha256Text("abc") ==
+    check(linear::update::sha256Text("abc") ==
               "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
           "abc hashes to the published value");
 
     const fs::path root = makeScratch("hash");
     writeFile(root / "file.bin", "abc");
     std::string error;
-    check(rblx::update::sha256File((root / "file.bin").string(), &error) ==
-              rblx::update::sha256Text("abc"),
+    check(linear::update::sha256File((root / "file.bin").string(), &error) ==
+              linear::update::sha256Text("abc"),
           "a file hashes the same as its contents");
-    check(rblx::update::sha256File((root / "missing.bin").string(), &error).empty(),
+    check(linear::update::sha256File((root / "missing.bin").string(), &error).empty(),
           "a missing file has no hash and says why");
 }
 
@@ -341,7 +341,7 @@ const char* kFixtureSignature =
     "drlIW60TcocXWDlLjHyCIg/hmKfoaCyMlL7AFQ+kCdQvFZLE9xbS5A==";
 
 void testReleaseSignature() {
-    using namespace rblx::update;
+    using namespace linear::update;
 
     Manifest manifest;
     manifest.version = "1.2.3";
@@ -352,7 +352,7 @@ void testReleaseSignature() {
     entry.size = 12345;
     manifest.files.push_back(entry);
 
-    const std::string expected = "rblx-manifest-v1\n1.2.3\nstable\nClient.exe\n" +
+    const std::string expected = "linear-manifest-v1\n1.2.3\nstable\nClient.exe\n" +
                                  std::string(64, 'a') + "\n12345\n";
     check(manifestSigningPayload(manifest) == expected,
           "the signed bytes are a fixed line document, not the JSON text");

@@ -1,0 +1,54 @@
+if(NOT DEFINED _LINEARBUILD_PROCESSING_LANGUAGE OR _LINEARBUILD_PROCESSING_LANGUAGE STREQUAL "")
+  message(FATAL_ERROR "Internal error: _LINEARBUILD_PROCESSING_LANGUAGE is not set")
+endif()
+
+# Ubuntu:
+# * /usr/bin/llvm-ar-9
+# * /usr/bin/llvm-ranlib-9
+string(REGEX MATCH "^([0-9]+)" __version_x
+    "${LINEARBUILD_${_LINEARBUILD_PROCESSING_LANGUAGE}_COMPILER_VERSION}")
+
+# Debian:
+# * /usr/bin/llvm-ar-4.0
+# * /usr/bin/llvm-ranlib-4.0
+string(REGEX MATCH "^([0-9]+\\.[0-9]+)" __version_x_y
+    "${LINEARBUILD_${_LINEARBUILD_PROCESSING_LANGUAGE}_COMPILER_VERSION}")
+
+# Try to find tools in the IntelLLVM Clang tools directory
+get_filename_component(__intel_llvm_hint_1 "${LINEARBUILD_${_LINEARBUILD_PROCESSING_LANGUAGE}_COMPILER}" DIRECTORY)
+get_filename_component(__intel_llvm_hint_1 "${__intel_llvm_hint_1}/../bin-llvm" REALPATH)
+
+get_filename_component(__intel_llvm_hint_2 "${LINEARBUILD_${_LINEARBUILD_PROCESSING_LANGUAGE}_COMPILER}" DIRECTORY)
+get_filename_component(__intel_llvm_hint_2 "${__intel_llvm_hint_2}/compiler" REALPATH)
+
+get_filename_component(__intel_llvm_hint_3 "${LINEARBUILD_${_LINEARBUILD_PROCESSING_LANGUAGE}_COMPILER}" DIRECTORY)
+
+set(__intel_llvm_hints ${__intel_llvm_hint_1} ${__intel_llvm_hint_2} ${__intel_llvm_hint_3})
+
+# http://manpages.ubuntu.com/manpages/precise/en/man1/llvm-ar.1.html
+find_program(LINEARBUILD_${_LINEARBUILD_PROCESSING_LANGUAGE}_COMPILER_AR
+  NAMES
+    "${_LINEARBUILD_TOOLCHAIN_PREFIX}llvm-ar-${__version_x_y}"
+    "${_LINEARBUILD_TOOLCHAIN_PREFIX}llvm-ar-${__version_x}"
+    "${_LINEARBUILD_TOOLCHAIN_PREFIX}llvm-ar"
+  HINTS ${__intel_llvm_hints}
+  NAMES_PER_DIR
+  NO_LINEARBUILD_PATH
+  NO_LINEARBUILD_ENVIRONMENT_PATH
+  DOC "LLVM archiver"
+)
+mark_as_advanced(LINEARBUILD_${_LINEARBUILD_PROCESSING_LANGUAGE}_COMPILER_AR)
+
+# http://manpages.ubuntu.com/manpages/precise/en/man1/llvm-ranlib.1.html
+find_program(LINEARBUILD_${_LINEARBUILD_PROCESSING_LANGUAGE}_COMPILER_RANLIB
+  NAMES
+    "${_LINEARBUILD_TOOLCHAIN_PREFIX}llvm-ranlib-${__version_x_y}"
+    "${_LINEARBUILD_TOOLCHAIN_PREFIX}llvm-ranlib-${__version_x}"
+    "${_LINEARBUILD_TOOLCHAIN_PREFIX}llvm-ranlib"
+  HINTS ${__intel_llvm_hints}
+  NAMES_PER_DIR
+  NO_LINEARBUILD_PATH
+  NO_LINEARBUILD_ENVIRONMENT_PATH
+  DOC "Generate index for LLVM archive"
+)
+mark_as_advanced(LINEARBUILD_${_LINEARBUILD_PROCESSING_LANGUAGE}_COMPILER_RANLIB)

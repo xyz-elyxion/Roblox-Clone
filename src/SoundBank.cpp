@@ -6,7 +6,7 @@
 #include <memory>
 #include <mutex>
 
-namespace rblx {
+namespace linear {
 namespace audio {
 namespace {
 
@@ -288,4 +288,4 @@ std::vector<std::string> soundNames() {
 }
 
 }  // namespace audio
-}  // namespace rblx
+}  // namespace linear

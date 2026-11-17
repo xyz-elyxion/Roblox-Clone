@@ -13,7 +13,7 @@
 #include <winsock2.h>
 #include <ws2tcpip.h>
 
-namespace rblx {
+namespace linear {
 namespace proxy {
 namespace {
 
@@ -463,4 +463,4 @@ bool ReverseProxy::handle(web::Request& request, web::Response& response) {
 }
 
 }  // namespace proxy
-}  // namespace rblx
+}  // namespace linear

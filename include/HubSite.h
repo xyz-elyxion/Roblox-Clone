@@ -7,7 +7,7 @@
 #include <string>
 #include <vector>
 
-namespace rblx {
+namespace linear {
 namespace hub {
 
 // One rendered answer: what a host has to write back to the socket. The pages are
@@ -58,4 +58,4 @@ private:
 };
 
 }  // namespace hub
-}  // namespace rblx
+}  // namespace linear

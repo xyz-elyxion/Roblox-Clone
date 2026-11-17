@@ -1,0 +1,121 @@
+# Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
+# file LICENSE.rst or https://linearbuild.org/licensing for details.
+
+
+# Block multiple inclusion because "LinearBuildCInformation.linearbuild" includes
+# "Platform/${LINEARBUILD_SYSTEM_NAME}" even though the generic module
+# "LinearBuildSystemSpecificInformation.linearbuild" already included it.
+# The extra inclusion is a work-around documented next to the include()
+# call, so this can be removed when the work-around is removed.
+if(__UNIX_PATHS_INCLUDED)
+  return()
+endif()
+set(__UNIX_PATHS_INCLUDED 1)
+
+# Since LinearBuild 3.27, the Platform/<os>-Initialize modules set UNIX
+# if the corresponding Platform/<os> modules includes UnixPaths.
+# Retain the setting here to support externally-maintained platform modules.
+set(UNIX 1)
+
+# also add the install directory of the running linearbuild to the search directories
+# LINEARBUILD_ROOT is LINEARBUILD_INSTALL_PREFIX/share/linearbuild, so we need to go two levels up.
+# When LinearBuild runs from its build tree, LINEARBUILD_ROOT is the source tree instead.
+get_filename_component(_LINEARBUILD_INSTALL_DIR "${LINEARBUILD_ROOT}" PATH)
+get_filename_component(_LINEARBUILD_INSTALL_DIR "${_LINEARBUILD_INSTALL_DIR}" PATH)
+get_property(_linearbuild_running_in_build_tree GLOBAL PROPERTY
+  _LINEARBUILD_RUNNING_IN_BUILD_TREE)
+if(_linearbuild_running_in_build_tree)
+  set(_LINEARBUILD_INSTALL_DIR "")
+endif()
+unset(_linearbuild_running_in_build_tree)
+
+# List common installation prefixes.  These will be used for all
+# search types.
+#
+# Reminder when adding new locations computed from environment variables
+# please make sure to keep Help/variable/LINEARBUILD_SYSTEM_PREFIX_PATH.rst
+# synchronized
+list(APPEND LINEARBUILD_SYSTEM_PREFIX_PATH
+  # Standard
+  /usr/local /usr /
+  )
+if(_LINEARBUILD_INSTALL_DIR)
+  list(APPEND LINEARBUILD_SYSTEM_PREFIX_PATH
+    # LinearBuild install location
+    "${_LINEARBUILD_INSTALL_DIR}"
+    )
+endif()
+if (NOT LINEARBUILD_FIND_NO_INSTALL_PREFIX)
+  list(APPEND LINEARBUILD_SYSTEM_PREFIX_PATH
+    # Project install destination.
+    "${LINEARBUILD_INSTALL_PREFIX}"
+  )
+  if(LINEARBUILD_STAGING_PREFIX)
+    list(APPEND LINEARBUILD_SYSTEM_PREFIX_PATH
+      # User-supplied staging prefix.
+      "${LINEARBUILD_STAGING_PREFIX}"
+    )
+  endif()
+endif()
+_linearbuild_record_install_prefix()
+
+# Non "standard" but common install prefixes
+list(APPEND LINEARBUILD_SYSTEM_PREFIX_PATH
+  /usr/X11R6
+  /usr/pkg
+  /opt
+  )
+
+# List common include file locations not under the common prefixes.
+list(APPEND LINEARBUILD_SYSTEM_INCLUDE_PATH
+  # X11
+  /usr/include/X11
+  )
+
+list(APPEND LINEARBUILD_SYSTEM_LIBRARY_PATH
+  # X11
+  /usr/lib/X11
+  )
+
+list(APPEND LINEARBUILD_PLATFORM_IMPLICIT_LINK_DIRECTORIES
+  /lib /lib32 /lib64 /usr/lib /usr/lib32 /usr/lib64
+  )
+
+if(LINEARBUILD_SYSROOT_COMPILE)
+  set(_linearbuild_sysroot_compile "${LINEARBUILD_SYSROOT_COMPILE}")
+else()
+  set(_linearbuild_sysroot_compile "${LINEARBUILD_SYSROOT}")
+endif()
+
+# Default per-language values.  These may be later replaced after
+# parsing the implicit directory information from compiler output.
+set(_LINEARBUILD_C_IMPLICIT_INCLUDE_DIRECTORIES_INIT
+  ${LINEARBUILD_C_IMPLICIT_INCLUDE_DIRECTORIES}
+  "${_linearbuild_sysroot_compile}/usr/include"
+  )
+set(_LINEARBUILD_CXX_IMPLICIT_INCLUDE_DIRECTORIES_INIT
+  ${LINEARBUILD_CXX_IMPLICIT_INCLUDE_DIRECTORIES}
+  "${_linearbuild_sysroot_compile}/usr/include"
+  )
+set(_LINEARBUILD_CUDA_IMPLICIT_INCLUDE_DIRECTORIES_INIT
+  ${LINEARBUILD_CUDA_IMPLICIT_INCLUDE_DIRECTORIES}
+  "${_linearbuild_sysroot_compile}/usr/include"
+  )
+
+unset(_linearbuild_sysroot_compile)
+
+# Reminder when adding new locations computed from environment variables
+# please make sure to keep Help/variable/LINEARBUILD_SYSTEM_PREFIX_PATH.rst
+# synchronized
+if(LINEARBUILD_COMPILER_SYSROOT)
+  list(PREPEND LINEARBUILD_SYSTEM_PREFIX_PATH "${LINEARBUILD_COMPILER_SYSROOT}")
+
+  if(DEFINED ENV{CONDA_PREFIX} AND EXISTS "$ENV{CONDA_PREFIX}")
+    list(APPEND LINEARBUILD_SYSTEM_PREFIX_PATH "$ENV{CONDA_PREFIX}")
+  endif()
+endif()
+
+# Enable use of lib32 and lib64 search path variants by default.
+set_property(GLOBAL PROPERTY FIND_LIBRARY_USE_LIB32_PATHS TRUE)
+set_property(GLOBAL PROPERTY FIND_LIBRARY_USE_LIB64_PATHS TRUE)
+set_property(GLOBAL PROPERTY FIND_LIBRARY_USE_LIBX32_PATHS TRUE)

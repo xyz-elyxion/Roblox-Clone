@@ -22,7 +22,7 @@
 #include <thread>
 #include <vector>
 
-#include <rblxmath/rblxmath.hpp>
+#include <linearmath/linearmath.hpp>
 
 #include "Camera.h"
 #include "Character.h"
@@ -38,11 +38,11 @@
 
 namespace {
 
-// The window's own types live in rblx::trainer; named here so the training code
+// The window's own types live in linear::trainer; named here so the training code
 // reads the same as the rest of this file.
-using AgentMarker = rblx::trainer::AgentMarker;
-using TrainerFrame = rblx::trainer::Frame;
-using TrainerWindow = rblx::trainer::TrainerWindow;
+using AgentMarker = linear::trainer::AgentMarker;
+using TrainerFrame = linear::trainer::Frame;
+using TrainerWindow = linear::trainer::TrainerWindow;
 
 constexpr float kStepSeconds = 1.0f / 60.0f;
 constexpr int kObservationCount = 8;
@@ -96,7 +96,7 @@ struct Policy {
 struct EpisodeResult {
     float reward = 0.0f;
     float distance = 0.0f;
-    rblxmath::vec3 finalPosition{0.0f, 0.0f, 0.0f};
+    linearmath::vec3 finalPosition{0.0f, 0.0f, 0.0f};
     int steps = 0;
     bool reached = false;
     bool fell = false;
@@ -156,12 +156,12 @@ public:
         // This character's own root part, so its feeler rays ignore the part
         // they start inside.
         Part* root = nullptr;
-        rblxmath::vec3 position{0.0f};
-        rblxmath::vec3 target{0.0f};
+        linearmath::vec3 position{0.0f};
+        linearmath::vec3 target{0.0f};
         std::size_t targetIndex = 0;
         float previousDistance = 0.0f;
         int lastAction = kActionCount - 1;
-        std::deque<rblxmath::vec3> trail;
+        std::deque<linearmath::vec3> trail;
         EpisodeResult result;
         bool finished = false;
     };
@@ -205,11 +205,11 @@ public:
     std::size_t partCount() const { return parts_.size(); }
     const std::deque<Part>& parts() const { return parts_; }
     const std::string& goalName() const { return goalName_; }
-    rblxmath::vec3 spawn() const { return spawn_; }
-    rblxmath::vec3 goal() const { return targets_.back(); }
+    linearmath::vec3 spawn() const { return spawn_; }
+    linearmath::vec3 goal() const { return targets_.back(); }
     std::size_t targetCount() const { return targets_.size(); }
-    float startDistance() const { return rblxmath::length(targets_.front() - spawn_); }
-    const std::vector<rblxmath::vec3>& targets() const { return targets_; }
+    float startDistance() const { return linearmath::length(targets_.front() - spawn_); }
+    const std::vector<linearmath::vec3>& targets() const { return targets_; }
     // The agents as the last batch left them, which is what the window draws.
     const std::vector<Agent>& agents() const { return agents_; }
 
@@ -219,7 +219,7 @@ public:
 
     // What one live step did, which is what --play sends to a game server.
     struct LiveStep {
-        rblxmath::vec3 position{0.0f};
+        linearmath::vec3 position{0.0f};
         float yaw = 0.0f;
         bool walking = false;
         bool jumping = false;
@@ -265,7 +265,7 @@ public:
 
     // The server rejected a step and sent the position it believes in. Follow it:
     // a character left where the trainer wanted it would be corrected every step.
-    void acceptServerPosition(const rblxmath::vec3& position) {
+    void acceptServerPosition(const linearmath::vec3& position) {
         if (agents_.empty() || agents_.front().character == nullptr) {
             return;
         }
@@ -273,12 +273,12 @@ public:
         agent.character->teleportTo(position);
         agent.character->update(0.0f, nullptr, false);
         agent.position = agent.character->getPosition();
-        agent.previousDistance = rblxmath::length(agent.target - agent.position);
+        agent.previousDistance = linearmath::length(agent.target - agent.position);
     }
 
     // Called once per simulated step, which is how --watch turns an episode into
     // frames without teaching the trainer anything about drawing.
-    using StepObserver = std::function<void(int step, int action, const rblxmath::vec3& position,
+    using StepObserver = std::function<void(int step, int action, const linearmath::vec3& position,
                                             float distance, float reward)>;
 
     // Called once per step of a batch; returning false stops the batch, which is
@@ -355,7 +355,7 @@ private:
     // of runBatch so the batch loop stays three lines long per phase.
     void advance(Agent& agent, int step) {
         agent.position = agent.character->getPosition();
-        const float distance = rblxmath::length(agent.target - agent.position);
+        const float distance = linearmath::length(agent.target - agent.position);
         // Progress toward the checkpoint being walked to is the reward, with a
         // small per-step cost so dawdling loses to walking a straight line.
         agent.result.reward += (agent.previousDistance - distance) - 0.01f;
@@ -383,7 +383,7 @@ private:
                 agent.result.reward += 4.0f;
             }
             agent.target = targets_[agent.targetIndex];
-            agent.previousDistance = rblxmath::length(agent.target - agent.position);
+            agent.previousDistance = linearmath::length(agent.target - agent.position);
             return;
         }
         if (agent.position.y < spawn_.y - kFallLimit) {
@@ -413,7 +413,7 @@ private:
 
         for (std::size_t index = 0; index < count; ++index) {
             Agent& agent = agents_[index];
-            const rblxmath::vec3 start = spawnFor(index, count);
+            const linearmath::vec3 start = spawnFor(index, count);
             agent.character->teleportTo(start);
             agent.character->update(0.0f, nullptr, false);
             agent.targetIndex = 0;
@@ -429,16 +429,16 @@ private:
         for (std::size_t index = 0; index < count; ++index) {
             Agent& agent = agents_[index];
             agent.position = agent.character->getPosition();
-            agent.previousDistance = rblxmath::length(agent.target - agent.position);
+            agent.previousDistance = linearmath::length(agent.target - agent.position);
         }
     }
 
     // Every course here runs along Z, so agents line up across X, the direction
     // with room to stand beside each other.
-    rblxmath::vec3 spawnFor(std::size_t index, std::size_t count) const {
+    linearmath::vec3 spawnFor(std::size_t index, std::size_t count) const {
         const float centre = (static_cast<float>(count) - 1.0f) * 0.5f;
         return spawn_ +
-               rblxmath::vec3((static_cast<float>(index) - centre) * kAgentSpacing, 0.0f, 0.0f);
+               linearmath::vec3((static_cast<float>(index) - centre) * kAgentSpacing, 0.0f, 0.0f);
     }
 
     bool loadMap(const std::string& worldPath, const std::string& goalName, std::string* error) {
@@ -451,13 +451,13 @@ private:
         bool hasSpawn = false;
         for (const Part& part : parts_) {
             if (!part.deleted && part.isSpawn) {
-                spawn_ = part.position + rblxmath::vec3(0.0f, 5.0f, 0.0f);
+                spawn_ = part.position + linearmath::vec3(0.0f, 5.0f, 0.0f);
                 hasSpawn = true;
                 break;
             }
         }
         if (!hasSpawn) {
-            spawn_ = rblxmath::vec3(0.0f, 10.0f, 0.0f);
+            spawn_ = linearmath::vec3(0.0f, 10.0f, 0.0f);
         }
 
         const Part* goalPart = nullptr;
@@ -473,7 +473,7 @@ private:
             float furthest = -1.0f;
             for (const Part& part : parts_) {
                 if (part.deleted || part.isFolder) continue;
-                const float distance = rblxmath::length(part.position - spawn_);
+                const float distance = linearmath::length(part.position - spawn_);
                 if (distance > furthest) {
                     furthest = distance;
                     goalPart = &part;
@@ -570,12 +570,12 @@ private:
             }
         }
 
-        const rblxmath::vec3 floorColor(0.11f, 0.095f, 0.115f);
-        const rblxmath::vec3 wallColor(0.16f, 0.15f, 0.17f);
+        const linearmath::vec3 floorColor(0.11f, 0.095f, 0.115f);
+        const linearmath::vec3 wallColor(0.16f, 0.15f, 0.17f);
         auto add = [this](const std::string& name, double x, float y, double z, float sizeX,
-                          float sizeY, float sizeZ, const rblxmath::vec3& color) {
-            Part part(rblxmath::vec3(static_cast<float>(x), y, static_cast<float>(z)),
-                      rblxmath::vec3(sizeX, sizeY, sizeZ), color, ShapeType::Cube, name);
+                          float sizeY, float sizeZ, const linearmath::vec3& color) {
+            Part part(linearmath::vec3(static_cast<float>(x), y, static_cast<float>(z)),
+                      linearmath::vec3(sizeX, sizeY, sizeZ), color, ShapeType::Cube, name);
             parts_.push_back(part);
             physics_.addPart(&parts_.back());
         };
@@ -583,7 +583,7 @@ private:
         // across it, so a room on either axis is the same call.
         auto place = [&add](const Room& room, const std::string& stem, int index, double u,
                             double v, float y, float sizeAlong, float sizeAcross, float sizeY,
-                            const rblxmath::vec3& color) {
+                            const linearmath::vec3& color) {
             const double x = room.entryX + room.dirX * u + room.acrX * v;
             const double z = room.entryZ + room.dirZ * u + room.acrZ * v;
             const float sizeX = std::fabs(static_cast<float>(room.dirX)) * sizeAlong +
@@ -634,7 +634,7 @@ private:
                       wallColor);
             }
 
-            targets_.push_back(rblxmath::vec3(
+            targets_.push_back(linearmath::vec3(
                 static_cast<float>(room.entryX + room.dirX * (length * 0.5)), kHotelWalkY,
                 static_cast<float>(room.entryZ + room.dirZ * (length * 0.5))));
         }
@@ -642,11 +642,11 @@ private:
         // The elevator, four studs short of the last room's far wall.
         const Room& last = rooms.back();
         const float elevatorU = last.length - 4.0f;
-        targets_.push_back(rblxmath::vec3(
+        targets_.push_back(linearmath::vec3(
             static_cast<float>(last.entryX + last.dirX * elevatorU), kHotelWalkY,
             static_cast<float>(last.entryZ + last.dirZ * elevatorU)));
 
-        spawn_ = rblxmath::vec3(0.0f, 6.2f, 0.0f);
+        spawn_ = linearmath::vec3(0.0f, 6.2f, 0.0f);
         goalName_ = "Door100";
         if (!error) {
             return true;
@@ -655,8 +655,8 @@ private:
     }
 
     void observe(const Agent& agent, float* out) {
-        const rblxmath::vec3 delta = agent.target - agent.position;
-        const float distance = rblxmath::length(delta);
+        const linearmath::vec3 delta = agent.target - agent.position;
+        const float distance = linearmath::length(delta);
         out[0] = std::clamp(delta.x / 40.0f, -1.0f, 1.0f);
         out[1] = std::clamp(delta.z / 40.0f, -1.0f, 1.0f);
         out[2] = std::clamp(distance / 100.0f, 0.0f, 1.0f);
@@ -665,14 +665,14 @@ private:
         // One feeler per movement axis. Without these the policy can only learn
         // to walk straight at the goal, which parks it against the first wall or
         // parked car in the way; with them it can learn to steer around one.
-        out[5] = freeAhead(agent, rblxmath::vec3(0.0f, 0.0f, -1.0f));
-        out[6] = freeAhead(agent, rblxmath::vec3(-1.0f, 0.0f, 0.0f));
-        out[7] = freeAhead(agent, rblxmath::vec3(1.0f, 0.0f, 0.0f));
+        out[5] = freeAhead(agent, linearmath::vec3(0.0f, 0.0f, -1.0f));
+        out[6] = freeAhead(agent, linearmath::vec3(-1.0f, 0.0f, 0.0f));
+        out[7] = freeAhead(agent, linearmath::vec3(1.0f, 0.0f, 0.0f));
     }
 
     // How much of a fixed-length probe in this direction is clear, 0 at a wall
     // to 1 when nothing is within reach.
-    float freeAhead(const Agent& agent, const rblxmath::vec3& direction) {
+    float freeAhead(const Agent& agent, const linearmath::vec3& direction) {
         constexpr float kFeelDistance = 12.0f;
         PhysicsWorld::RaycastResult hit;
         if (physics_.raycast(agent.position, agent.position + direction * kFeelDistance, hit,
@@ -696,10 +696,10 @@ private:
     PhysicsWorld physics_;
     std::vector<Agent> agents_;
     Course course_ = Course::Map;
-    rblxmath::vec3 spawn_{0.0f, 0.0f, 0.0f};
+    linearmath::vec3 spawn_{0.0f, 0.0f, 0.0f};
     // The checkpoint being walked to, and every checkpoint after it. A map course
     // has one; the hotel has a door per room and the elevator after the last.
-    std::vector<rblxmath::vec3> targets_;
+    std::vector<linearmath::vec3> targets_;
     std::string goalName_;
     Camera inputCamera_;
     bool recordTrails_ = false;
@@ -719,7 +719,7 @@ struct MapView {
     std::vector<unsigned char> tall;
 };
 
-MapView buildMapView(const std::deque<Part>& parts, const rblxmath::vec3& spawn) {
+MapView buildMapView(const std::deque<Part>& parts, const linearmath::vec3& spawn) {
     MapView view;
     float minX = 1.0e30f;
     float maxX = -1.0e30f;
@@ -781,8 +781,8 @@ const char* actionName(int action) {
     return action >= 0 && action < kActionCount ? names[action] : "idle";
 }
 
-void drawMapFrame(const MapView& view, const rblxmath::vec3& spawn, const rblxmath::vec3& goal,
-                  const rblxmath::vec3& position, const std::deque<rblxmath::vec3>& trail,
+void drawMapFrame(const MapView& view, const linearmath::vec3& spawn, const linearmath::vec3& goal,
+                  const linearmath::vec3& position, const std::deque<linearmath::vec3>& trail,
                   const std::string& status) {
     if (view.columns <= 0 || view.rows <= 0) {
         return;
@@ -795,7 +795,7 @@ void drawMapFrame(const MapView& view, const rblxmath::vec3& spawn, const rblxma
 
     const std::size_t cellCount = static_cast<std::size_t>(view.columns * view.rows);
     std::vector<Overlay> overlays(cellCount);
-    const auto mark = [&view, &overlays, cellCount](const rblxmath::vec3& point, char glyph,
+    const auto mark = [&view, &overlays, cellCount](const linearmath::vec3& point, char glyph,
                                                     const char* color) {
         const int column = static_cast<int>(std::floor((point.x - view.originX) / view.cellSize));
         const int row = static_cast<int>(std::floor((point.z - view.originZ) / view.cellSize));
@@ -806,7 +806,7 @@ void drawMapFrame(const MapView& view, const rblxmath::vec3& spawn, const rblxma
         overlays[index].color = color;
     };
 
-    for (const rblxmath::vec3& visited : trail) {
+    for (const linearmath::vec3& visited : trail) {
         mark(visited, '.', "\x1b[34m");
     }
     mark(spawn, 'S', "\x1b[36m");
@@ -845,14 +845,14 @@ void drawMapFrame(const MapView& view, const rblxmath::vec3& spawn, const rblxma
 EpisodeResult runWatchedEpisode(TrainingWorld& world, const Policy& policy, int maxSteps,
                                 const std::string& label) {
     const MapView view = buildMapView(world.parts(), world.spawn());
-    std::deque<rblxmath::vec3> trail;
+    std::deque<linearmath::vec3> trail;
     // Clear once so the first frame starts from a blank screen; later frames only
     // home the cursor, which avoids a full-screen flash on every step.
     std::fputs("\x1b[2J\x1b[H", stdout);
 
     const EpisodeResult result = world.runEpisode(
         policy, maxSteps,
-        [&](int step, int action, const rblxmath::vec3& position, float distance, float reward) {
+        [&](int step, int action, const linearmath::vec3& position, float distance, float reward) {
             trail.push_back(position);
             if (trail.size() > 4096) {
                 trail.pop_front();
@@ -949,8 +949,8 @@ public:
 
     // Reads whatever the server sent: the welcome, a chat line (a refused join is
     // explained there), or the position it moved the character back to.
-    void poll(rblxmath::vec3* correction, bool* corrected, std::string* notice);
-    bool sendState(const rblxmath::vec3& position, float yaw, bool walking, bool jumping,
+    void poll(linearmath::vec3* correction, bool* corrected, std::string* notice);
+    bool sendState(const linearmath::vec3& position, float yaw, bool walking, bool jumping,
                    std::string* error);
 
     int playerId() const { return playerId_; }
@@ -965,11 +965,11 @@ public:
 private:
     uint64_t nowMs() const;
     bool sendDatagram(const char* data, size_t size);
-    void handleFrame(const PacketProtocol::ParsedPacket& frame, rblxmath::vec3* correction,
+    void handleFrame(const PacketProtocol::ParsedPacket& frame, linearmath::vec3* correction,
                      bool* corrected, std::string* notice);
 
     SOCKET socket_ = INVALID_SOCKET;
-    rblx::net::UdpSession session_;
+    linear::net::UdpSession session_;
     // Bytes of frames that arrived but have not been parsed yet, because a message
     // can hold a frame and a half or several at once.
     std::vector<char> pending_;
@@ -1034,7 +1034,7 @@ bool LiveServer::join(const std::string& host, int port, const std::string& name
     std::memset(&packet, 0, sizeof(packet));
     std::snprintf(packet.username, sizeof(packet.username), "%s", name.c_str());
     std::snprintf(packet.hardwareId, sizeof(packet.hardwareId), "%s",
-                  rblx::hwid::machineId().c_str());
+                  linear::hwid::machineId().c_str());
     packet.protocolRevision = PacketProtocol::kProtocolRevision;
     packet.packetLayout = PacketProtocol::packetLayoutSignature();
 
@@ -1062,7 +1062,7 @@ void LiveServer::close() {
     Network::cleanup();
 }
 
-void LiveServer::handleFrame(const PacketProtocol::ParsedPacket& frame, rblxmath::vec3* correction,
+void LiveServer::handleFrame(const PacketProtocol::ParsedPacket& frame, linearmath::vec3* correction,
                              bool* corrected, std::string* notice) {
     if (frame.type == PacketType::WELCOME && frame.payloadSize == sizeof(PacketWelcome)) {
         PacketWelcome welcome;
@@ -1099,7 +1099,7 @@ void LiveServer::handleFrame(const PacketProtocol::ParsedPacket& frame, rblxmath
     }
 }
 
-void LiveServer::poll(rblxmath::vec3* correction, bool* corrected, std::string* notice) {
+void LiveServer::poll(linearmath::vec3* correction, bool* corrected, std::string* notice) {
     if (socket_ == INVALID_SOCKET) {
         return;
     }
@@ -1147,7 +1147,7 @@ void LiveServer::poll(rblxmath::vec3* correction, bool* corrected, std::string* 
     }
 }
 
-bool LiveServer::sendState(const rblxmath::vec3& position, float yaw, bool walking, bool jumping,
+bool LiveServer::sendState(const linearmath::vec3& position, float yaw, bool walking, bool jumping,
                            std::string* error) {
     if (socket_ == INVALID_SOCKET || playerId_ < 0) {
         *error = "the game server never answered the join request";
@@ -1271,7 +1271,7 @@ int runLiveGame(TrainingWorld& world, TrainerWindow& window, bool gui, const Opt
     // read before the run starts instead of after the first packet vanishes.
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
     while (!server.joined() && std::chrono::steady_clock::now() < deadline) {
-        rblxmath::vec3 correction(0.0f);
+        linearmath::vec3 correction(0.0f);
         bool corrected = false;
         std::string notice;
         server.poll(&correction, &corrected, &notice);
@@ -1293,14 +1293,14 @@ int runLiveGame(TrainingWorld& world, TrainerWindow& window, bool gui, const Opt
     // SpawnLocation) and measures every step from there. Sending this one position
     // before walking turns a world the trainer loaded differently into a mismatch
     // that is reported once, instead of a correction the guard sends every step.
-    const rblxmath::vec3 courseStart = world.agents().front().position;
+    const linearmath::vec3 courseStart = world.agents().front().position;
     if (!server.sendState(courseStart, 0.0f, false, false, &error)) {
         std::fprintf(stderr, "Lost the game server: %s\n", error.c_str());
         return 1;
     }
     const auto syncDeadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(500);
     while (std::chrono::steady_clock::now() < syncDeadline) {
-        rblxmath::vec3 correction(0.0f);
+        linearmath::vec3 correction(0.0f);
         bool corrected = false;
         std::string notice;
         server.poll(&correction, &corrected, &notice);
@@ -1322,7 +1322,7 @@ int runLiveGame(TrainingWorld& world, TrainerWindow& window, bool gui, const Opt
     for (int step = 0; step < maxSteps; ++step) {
         sample = world.stepLive(policy);
 
-        rblxmath::vec3 correction(0.0f);
+        linearmath::vec3 correction(0.0f);
         bool corrected = false;
         std::string notice;
         server.poll(&correction, &corrected, &notice);
@@ -1415,17 +1415,17 @@ std::string withoutTrailingSlash(std::string url) {
 
 bool signIn(const Options& options, Session* session, std::string* error) {
     const std::string url = withoutTrailingSlash(options.site) + "/api/ai/login";
-    rblx::web::Json request = rblx::web::Json::makeObject();
+    linear::web::Json request = linear::web::Json::makeObject();
     request.set("gameId", options.gameId);
-    const rblx::http::Response response =
-        rblx::http::request("POST", url, request.dump(), options.token, 8000);
+    const linear::http::Response response =
+        linear::http::request("POST", url, request.dump(), options.token, 8000);
     if (response.networkError()) {
         *error = "could not reach " + url + " (" + response.error +
                  "). Is WebApp.exe running?";
         return false;
     }
     std::string parseError;
-    const rblx::web::Json body = rblx::web::Json::parse(response.body, &parseError);
+    const linear::web::Json body = linear::web::Json::parse(response.body, &parseError);
     if (!response.ok() || !body.member("success").asBool(false)) {
         std::string message = body.member("error").asString();
         if (message.empty()) {
@@ -1435,7 +1435,7 @@ bool signIn(const Options& options, Session* session, std::string* error) {
         return false;
     }
 
-    const rblx::web::Json& game = body.member("game");
+    const linear::web::Json& game = body.member("game");
     session->gameId = static_cast<int>(game.member("id").asInteger(0));
     session->title = game.member("title").asString();
     session->world = game.member("world").asString();
@@ -1612,7 +1612,7 @@ int main(int argc, char** argv) {
                      "AiTrainer signs in before it runs.\n"
                      "Create a developer token at %s/developers, mark the game AI\n"
                      "compatible there, then pass the token and the game:\n\n"
-                     "  AiTrainer.exe --token rblxai_... --game <id>\n\n",
+                     "  AiTrainer.exe --token linearai_... --game <id>\n\n",
                      options.site.c_str());
         printUsage();
         return 2;

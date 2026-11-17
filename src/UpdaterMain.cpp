@@ -43,10 +43,10 @@
 namespace {
 
 namespace fs = std::filesystem;
-using rblx::update::Config;
-using rblx::update::FileEntry;
-using rblx::update::Manifest;
-using rblx::update::Plan;
+using linear::update::Config;
+using linear::update::FileEntry;
+using linear::update::Manifest;
+using linear::update::Plan;
 
 struct Options {
     std::string command;
@@ -173,13 +173,13 @@ bool parseOptions(int argc, char** argv, Options* options) {
 }
 
 bool fetch(const std::string& url, std::string* body, std::string* error,
-           const rblx::http::ProgressCallback& onProgress = rblx::http::ProgressCallback(),
+           const linear::http::ProgressCallback& onProgress = linear::http::ProgressCallback(),
            int* status = nullptr) {
     // g_cancelled makes the download itself interruptible, not just the space
     // between two files: a large file or an unreachable server would otherwise
     // leave the window's Cancel button with nothing to act on for two minutes.
-    const rblx::http::Response response =
-        rblx::http::request("GET", url, std::string(), std::string(), 120000, onProgress,
+    const linear::http::Response response =
+        linear::http::request("GET", url, std::string(), std::string(), 120000, onProgress,
                             g_cancelled);
     if (status) *status = response.status;
     if (!response.ok()) {
@@ -205,7 +205,7 @@ enum class ManifestFetch { Ok, NotPublished, Failed };
 bool manifestIsTrusted(const std::string& url, const Config& config, const Manifest& manifest,
                        std::string* error) {
     if (!config.signatureModulus.empty()) {
-        return rblx::update::verifyManifestSignature(manifest, config.signatureModulus,
+        return linear::update::verifyManifestSignature(manifest, config.signatureModulus,
                                                      config.signatureExponent, error);
     }
 
@@ -231,11 +231,11 @@ ManifestFetch fetchManifest(const std::string& url, const Config& config, Manife
                             std::string* error) {
     std::string body;
     int status = 0;
-    if (!fetch(url, &body, error, rblx::http::ProgressCallback(), &status)) {
+    if (!fetch(url, &body, error, linear::http::ProgressCallback(), &status)) {
         if (status == 404) return ManifestFetch::NotPublished;
         return ManifestFetch::Failed;
     }
-    if (!rblx::update::parseManifest(body, manifest, error)) return ManifestFetch::Failed;
+    if (!linear::update::parseManifest(body, manifest, error)) return ManifestFetch::Failed;
     if (!manifestIsTrusted(url, config, *manifest, error)) return ManifestFetch::Failed;
     return ManifestFetch::Ok;
 }
@@ -243,8 +243,8 @@ ManifestFetch fetchManifest(const std::string& url, const Config& config, Manife
 // The file is checked before it is written, and written through a rename, so a
 // connection that dies halfway leaves nothing that looks installed.
 bool downloadEntry(const fs::path& staging, const std::string& baseUrl, const FileEntry& entry,
-                   const rblx::http::ProgressCallback& onProgress, std::string* error) {
-    const std::string url = rblx::update::joinUrl(baseUrl, entry.path);
+                   const linear::http::ProgressCallback& onProgress, std::string* error) {
+    const std::string url = linear::update::joinUrl(baseUrl, entry.path);
     if (url.empty()) {
         *error = "could not build a download address for " + entry.path;
         return false;
@@ -258,14 +258,14 @@ bool downloadEntry(const fs::path& staging, const std::string& baseUrl, const Fi
                  std::to_string(entry.size);
         return false;
     }
-    const std::string digest = rblx::update::sha256Text(body);
+    const std::string digest = linear::update::sha256Text(body);
     if (digest != entry.sha256) {
         *error = entry.path + " does not match its SHA-256 (expected " + entry.sha256 + ", got " +
                  digest + "); the download was corrupted or the release changed under it";
         return false;
     }
 
-    return rblx::update::writeFileAtomically((staging / fs::path(entry.path)).string(), body, error);
+    return linear::update::writeFileAtomically((staging / fs::path(entry.path)).string(), body, error);
 }
 
 // Folders emptied by a removed file would otherwise stay behind forever.
@@ -322,9 +322,9 @@ bool sync(const Options& options, const Config& config, bool install,
     Manifest installed;
     if (!install) {
         std::string ignored;
-        rblx::update::readManifestFile(installedPath, &installed, &ignored);
+        linear::update::readManifestFile(installedPath, &installed, &ignored);
         if (!installed.version.empty() &&
-            rblx::update::compareVersions(target.version, installed.version) < 0) {
+            linear::update::compareVersions(target.version, installed.version) < 0) {
             print(options, "installed " + installed.version + " is newer than the published " +
                                target.version + "; keeping the installed copy");
             if (applied) *applied = installed;
@@ -332,7 +332,7 @@ bool sync(const Options& options, const Config& config, bool install,
         }
     }
 
-    const Plan plan = rblx::update::planUpdate(target, installed, options.directory);
+    const Plan plan = linear::update::planUpdate(target, installed, options.directory);
     if (plan.upToDate() && !installed.version.empty()) {
         print(options, "up to date (" + target.version + ")");
         if (applied) *applied = target;
@@ -365,7 +365,7 @@ bool sync(const Options& options, const Config& config, bool install,
         }
 
         long long thisFile = 0;
-        const rblx::http::ProgressCallback onProgress = [&](long long received, long long) {
+        const linear::http::ProgressCallback onProgress = [&](long long received, long long) {
             if (received > thisFile) thisFile = received;
             if (g_bytes) g_bytes(downloaded + thisFile, plan.downloadBytes);
         };
@@ -381,24 +381,24 @@ bool sync(const Options& options, const Config& config, bool install,
 
     for (const FileEntry& entry : plan.download) {
         std::string resolved;
-        if (!rblx::update::resolveUnder(options.directory, entry.path, &resolved)) {
+        if (!linear::update::resolveUnder(options.directory, entry.path, &resolved)) {
             *error = "refusing to write outside the install folder: " + entry.path;
             return false;
         }
         const fs::path staged = staging / fs::path(entry.path);
-        if (!rblx::update::applyStagedFile(staged.string(), resolved, error)) return false;
+        if (!linear::update::applyStagedFile(staged.string(), resolved, error)) return false;
     }
 
     for (const std::string& path : plan.remove) {
         std::string resolved;
-        if (!rblx::update::resolveUnder(options.directory, path, &resolved)) continue;
+        if (!linear::update::resolveUnder(options.directory, path, &resolved)) continue;
         fs::remove(resolved, ignored);
         print(options, "  removed " + path);
     }
 
     removeEmptyDirectories(options.directory);
 
-    if (!rblx::update::writeManifestFile(installedPath, target, error)) return false;
+    if (!linear::update::writeManifestFile(installedPath, target, error)) return false;
     fs::remove_all(staging, ignored);
 
     print(options, std::string(installed.version.empty() ? "installed " : "updated to ") +
@@ -425,16 +425,16 @@ int checkCommand(const Options& options, const Config& config) {
 
     Manifest installed;
     std::string ignored;
-    rblx::update::readManifestFile((fs::path(options.directory) / "manifest.json").string(), &installed,
+    linear::update::readManifestFile((fs::path(options.directory) / "manifest.json").string(), &installed,
                                    &ignored);
 
-    const int comparison = rblx::update::compareVersions(target.version, installed.version);
+    const int comparison = linear::update::compareVersions(target.version, installed.version);
     if (installed.version.empty()) {
         std::cout << "not installed; the published release is " << target.version << std::endl;
         return 10;
     }
     if (comparison > 0) {
-        const Plan plan = rblx::update::planUpdate(target, installed, options.directory);
+        const Plan plan = linear::update::planUpdate(target, installed, options.directory);
         std::cout << "an update is available: " << installed.version << " -> " << target.version << " ("
                   << plan.download.size() << " file(s), " << plan.downloadBytes / (1024 * 1024)
                   << " MB)" << std::endl;
@@ -452,7 +452,7 @@ int manifestCommand(const Options& options) {
 
     Manifest manifest;
     std::string error;
-    if (!rblx::update::buildManifestFromDirectory(options.directory, options.version,
+    if (!linear::update::buildManifestFromDirectory(options.directory, options.version,
                                                   options.channel, &manifest, &error)) {
         printError(error);
         return 1;
@@ -463,7 +463,7 @@ int manifestCommand(const Options& options) {
 
     const std::string manifestPath = (fs::path(options.directory) / "manifest.json").string();
     std::string writeError;
-    if (!rblx::update::writeManifestFile(manifestPath, manifest, &writeError)) {
+    if (!linear::update::writeManifestFile(manifestPath, manifest, &writeError)) {
         printError(writeError);
         return 1;
     }
@@ -485,31 +485,31 @@ int signManifestCommand(const Options& options) {
     const std::string manifestPath = (fs::path(options.directory) / "manifest.json").string();
     Manifest manifest;
     std::string error;
-    if (!rblx::update::readManifestFile(manifestPath, &manifest, &error)) {
+    if (!linear::update::readManifestFile(manifestPath, &manifest, &error)) {
         printError(error);
         return 1;
     }
 
     std::string keyText;
-    if (!rblx::update::readTextFile(options.signingKey, &keyText)) {
+    if (!linear::update::readTextFile(options.signingKey, &keyText)) {
         printError("could not read the signing key at " + options.signingKey);
         return 1;
     }
-    const rblx::web::Json key = rblx::web::Json::parse(keyText, &error);
+    const linear::web::Json key = linear::web::Json::parse(keyText, &error);
     if (!key.isObject()) {
         printError("the signing key must be JSON with modulus, exponent and privateExponent");
         return 1;
     }
     const std::string modulus = key.member("modulus").asString();
     const std::string exponent = key.member("exponent").asString("10001");
-    if (!rblx::update::isValidRsaKey(modulus, exponent, &error)) {
+    if (!linear::update::isValidRsaKey(modulus, exponent, &error)) {
         printError("the signing key: " + error);
         return 1;
     }
 
-    const std::string payload = rblx::update::manifestSigningPayload(manifest);
+    const std::string payload = linear::update::manifestSigningPayload(manifest);
     std::string signature;
-    if (!rblx::update::signRsaSha256(payload.data(), payload.size(), modulus,
+    if (!linear::update::signRsaSha256(payload.data(), payload.size(), modulus,
                                      key.member("privateExponent").asString(), &signature,
                                      &error)) {
         printError("could not sign the manifest: " + error);
@@ -517,7 +517,7 @@ int signManifestCommand(const Options& options) {
     }
 
     manifest.signature = signature;
-    if (!rblx::update::writeManifestFile(manifestPath, manifest, &error)) {
+    if (!linear::update::writeManifestFile(manifestPath, manifest, &error)) {
         printError(error);
         return 1;
     }
@@ -531,7 +531,7 @@ int uninstallCommand(const Options& options) {
     const fs::path root(options.directory);
     Manifest installed;
     std::string error;
-    if (!rblx::update::readManifestFile((root / "manifest.json").string(), &installed, &error)) {
+    if (!linear::update::readManifestFile((root / "manifest.json").string(), &installed, &error)) {
         printError(error);
         return 1;
     }
@@ -540,7 +540,7 @@ int uninstallCommand(const Options& options) {
     std::error_code ignored;
     for (const FileEntry& entry : installed.files) {
         std::string resolved;
-        if (!rblx::update::resolveUnder(options.directory, entry.path, &resolved)) continue;
+        if (!linear::update::resolveUnder(options.directory, entry.path, &resolved)) continue;
         if (fs::remove(resolved, ignored)) ++removed;
     }
 
@@ -586,7 +586,7 @@ int applyRelease(Options& options, const Config& config, const std::string& conf
 
     if (installing || !options.manifestUrl.empty()) {
         std::string writeError;
-        if (!rblx::update::writeConfigFile(configPath, config, &writeError)) {
+        if (!linear::update::writeConfigFile(configPath, config, &writeError)) {
             printError(writeError);
             if (!options.launch) return 1;
         }
@@ -604,7 +604,7 @@ int applyRelease(Options& options, const Config& config, const std::string& conf
 // Runs the update in a window and starts the game from its Play button. Returns
 // -1 when no window could be created, so the caller can use the console.
 int windowed(Options& options, bool installing) {
-    rblx::ui::Options window;
+    linear::ui::Options window;
     window.title = "Linear";
     window.heading = "Linear";
     window.detail =
@@ -614,7 +614,7 @@ int windowed(Options& options, bool installing) {
 
     const std::vector<std::string> actions{"Play", "Close"};
 
-    const rblx::ui::Result result = rblx::ui::run(window, actions, [&](rblx::ui::Report& report) {
+    const linear::ui::Result result = linear::ui::run(window, actions, [&](linear::ui::Report& report) {
         Options run = options;
         run.launch = false;  // the window's Play button starts the game
         run.quiet = false;
@@ -630,12 +630,12 @@ int windowed(Options& options, bool installing) {
         Config config;
         std::string error;
         bool ok = false;
-        if (run.manifestUrl.empty() && !rblx::update::readConfigFile(configPath, &config, &error)) {
+        if (run.manifestUrl.empty() && !linear::update::readConfigFile(configPath, &config, &error)) {
             printError(error + "; run: LinearUpdater install --manifest <url>");
         } else {
             if (!run.manifestUrl.empty()) {
                 std::string ignored;
-                rblx::update::readConfigFile(configPath, &config, &ignored);
+                linear::update::readConfigFile(configPath, &config, &ignored);
                 config.manifestUrl = run.manifestUrl;
             }
             ok = applyRelease(run, config, configPath, installing, &error) == 0;
@@ -653,7 +653,7 @@ int windowed(Options& options, bool installing) {
 
     Config config;
     std::string ignored;
-    rblx::update::readConfigFile((fs::path(options.directory) / "update.json").string(), &config,
+    linear::update::readConfigFile((fs::path(options.directory) / "update.json").string(), &config,
                                  &ignored);
     std::string error;
     const std::string program = config.launch.empty() ? "Client.exe" : config.launch;
@@ -700,13 +700,13 @@ int main(int argc, char** argv) {
     Config config;
     std::string error;
     if (options.manifestUrl.empty()) {
-        if (!rblx::update::readConfigFile(configPath, &config, &error)) {
+        if (!linear::update::readConfigFile(configPath, &config, &error)) {
             printError(error + "; run: LinearUpdater install --manifest <url>");
             return 1;
         }
     } else {
         std::string ignored;
-        rblx::update::readConfigFile(configPath, &config, &ignored);
+        linear::update::readConfigFile(configPath, &config, &ignored);
         config.manifestUrl = options.manifestUrl;
     }
 

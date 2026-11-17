@@ -33,16 +33,16 @@
 #include <sstream>
 #include <thread>
 
-// RBLXMATH Includes
-#include <rblxmath/rblxmath.hpp>
-#include <rblxmath/gtc/quaternion.hpp>
-#include <rblxmath/gtx/quaternion.hpp>
-#include <rblxmath/gtx/euler_angles.hpp>
+// LINEARMATH Includes
+#include <linearmath/linearmath.hpp>
+#include <linearmath/gtc/quaternion.hpp>
+#include <linearmath/gtx/quaternion.hpp>
+#include <linearmath/gtx/euler_angles.hpp>
 
 const char* DEFAULT_FACE_ID = "classic";
 
 struct ConnectedPlayer {
-    rblx::net::UdpSession session;
+    linear::net::UdpSession session;
     sockaddr_in address{};
     uint64_t lastReceiveAtMs = 0;
     int id;
@@ -55,30 +55,30 @@ struct ConnectedPlayer {
     // website can be told which machine a detection happened on.
     std::string hardwareId;
     std::chrono::steady_clock::time_point lastPlaytimeReportedAt;
-    rblxphysics::RigidBody* shadowBody; // Server-side physics body for player
-    rblxmath::vec3 headColor = rblxmath::vec3(0.8f, 0.6f, 0.4f);
-    rblxmath::vec3 torsoColor = rblxmath::vec3(0.2f, 0.4f, 0.8f);
-    rblxmath::vec3 leftArmColor = rblxmath::vec3(0.8f, 0.6f, 0.4f);
-    rblxmath::vec3 rightArmColor = rblxmath::vec3(0.8f, 0.6f, 0.4f);
-    rblxmath::vec3 leftLegColor = rblxmath::vec3(0.2f, 0.6f, 0.2f);
-    rblxmath::vec3 rightLegColor = rblxmath::vec3(0.2f, 0.6f, 0.2f);
+    linearphysics::RigidBody* shadowBody; // Server-side physics body for player
+    linearmath::vec3 headColor = linearmath::vec3(0.8f, 0.6f, 0.4f);
+    linearmath::vec3 torsoColor = linearmath::vec3(0.2f, 0.4f, 0.8f);
+    linearmath::vec3 leftArmColor = linearmath::vec3(0.8f, 0.6f, 0.4f);
+    linearmath::vec3 rightArmColor = linearmath::vec3(0.8f, 0.6f, 0.4f);
+    linearmath::vec3 leftLegColor = linearmath::vec3(0.2f, 0.6f, 0.2f);
+    linearmath::vec3 rightLegColor = linearmath::vec3(0.2f, 0.6f, 0.2f);
     std::string faceId = DEFAULT_FACE_ID;
     // Equipped hat id from the account, or empty. The catalog lives in
     // AvatarItems.h, so an id this build does not know is dropped rather than
     // sent on to clients that could not draw it.
     std::string hatId;
     // The server's own view of where this player can legitimately be.
-    rblx::movement::Guard movement;
+    linear::movement::Guard movement;
     // Corrections already reported to the website, so one long episode earns
     // one strike rather than one per packet.
     int reportedCorrections = 0;
     // The last couple of seconds of packets, so a report carries the run-up to
     // what it accuses the player of rather than a single frame.
-    rblx::replay::Recorder replay;
+    linear::replay::Recorder replay;
     // Health, death and the respawn timer are the server's, not the client's.
-    rblx::health::State health;
+    linear::health::State health;
     // Where a death puts this player back: the world's SpawnLocation.
-    rblxmath::vec3 spawnPosition = rblxmath::vec3(0.0f, 10.0f, 0.0f);
+    linearmath::vec3 spawnPosition = linearmath::vec3(0.0f, 10.0f, 0.0f);
 };
 
 std::map<int, ConnectedPlayer> players;
@@ -121,7 +121,7 @@ bool sendToPlayer(ConnectedPlayer& player, const std::vector<char>& frame, bool 
     return player.session.sendMessage(frame.data(), frame.size(), reliable);
 }
 
-rblx::net::UdpSession::SendFunction playerSendFunction(const ConnectedPlayer& player) {
+linear::net::UdpSession::SendFunction playerSendFunction(const ConnectedPlayer& player) {
     const sockaddr_in address = player.address;
     return [address](const char* data, size_t size) {
         if (gameSocket == INVALID_SOCKET) {
@@ -137,8 +137,8 @@ std::string serverLogPath; // --log: a copy of this output for the website that 
 std::string gameInstanceId;
 std::string gameInstanceToken;
 std::string scriptPath;
-std::unique_ptr<rblx::script::Interpreter> gameScriptInterpreter;
-std::unique_ptr<rblx::worldscript::WorldRuntime> gameScriptRuntime;
+std::unique_ptr<linear::script::Interpreter> gameScriptInterpreter;
+std::unique_ptr<linear::worldscript::WorldRuntime> gameScriptRuntime;
 
 // Sounds the script asked for during the tick being built. They are collected
 // and sent once instead of one packet per call: a door, a wardrobe and an entity
@@ -149,7 +149,7 @@ std::vector<PacketSound> pendingSounds;
 // a flood, so a tick carries a few and drops the rest: the player already heard
 // the first ones, and the mixer has eight voices anyway.
 constexpr std::size_t kMaxSoundsPerTick = 8;
-std::map<int, rblxmath::vec3> lastBroadcastPositions;
+std::map<int, linearmath::vec3> lastBroadcastPositions;
 
 // What the clients already know about the world: every part that was in the join
 // snapshot, then each part a script built, then each one it destroyed. A script
@@ -175,8 +175,8 @@ WorldEnvironment serverEnvironment;
 struct VehicleRuntime {
     int partIndex = -1;
     int driverId = -1;
-    rblx::vehicle::State state;
-    rblx::vehicle::Input input;
+    linear::vehicle::State state;
+    linear::vehicle::Input input;
     float seatHeight = 1.8f;
 };
 
@@ -349,7 +349,7 @@ void parseServerArguments(int argc, char** argv, int& serverPort, std::string& w
     }
 }
 
-bool isFiniteVec3(const rblxmath::vec3& value) {
+bool isFiniteVec3(const linearmath::vec3& value) {
     return std::isfinite(value.x) && std::isfinite(value.y) && std::isfinite(value.z);
 }
 
@@ -380,7 +380,7 @@ float clamp01(float value) {
     return std::max(0.0f, std::min(1.0f, value));
 }
 
-bool parseAvatarColor(const std::string& avatarJson, const std::string& name, rblxmath::vec3& color) {
+bool parseAvatarColor(const std::string& avatarJson, const std::string& name, linearmath::vec3& color) {
     size_t pos = avatarJson.find("\"" + name + "\":[");
     if (pos == std::string::npos) return false;
 
@@ -448,7 +448,7 @@ std::string parseAvatarHatId(const std::string& avatarJson) {
     if (end == std::string::npos) return std::string();
 
     const std::string id = avatarJson.substr(pos + 1, end - pos - 1);
-    return rblx::items::findAvatarItem(id) == nullptr ? std::string() : id;
+    return linear::items::findAvatarItem(id) == nullptr ? std::string() : id;
 }
 
 void copyFixedString(char* destination, size_t destinationSize, const std::string& value) {
@@ -479,8 +479,8 @@ const int kFlightCorrectionsPerReport = 30;
 
 // The recorder keeps plain numbers, so the server's vectors are handed over here
 // rather than inside a header the website also reads.
-rblx::replay::Point replayPoint(const rblxmath::vec3& value) {
-    return rblx::replay::Point{value.x, value.y, value.z};
+linear::replay::Point replayPoint(const linearmath::vec3& value) {
+    return linear::replay::Point{value.x, value.y, value.z};
 }
 
 void reportCheatingToWebsite(int playerId, const std::string& username, const std::string& reason,
@@ -647,17 +647,17 @@ void updatePlayerShadowBody(ConnectedPlayer& player) {
 
     if (!player.shadowBody) {
         // Create shadow body if not exists
-        rblxphysics::Vector3 pos(player.state.position.x, player.state.position.y, player.state.position.z);
-        rblxphysics::Quaternion rot = rblxphysics::Quaternion::identity();
-        rblxphysics::Transform transform(pos, rot);
+        linearphysics::Vector3 pos(player.state.position.x, player.state.position.y, player.state.position.z);
+        linearphysics::Quaternion rot = linearphysics::Quaternion::identity();
+        linearphysics::Transform transform(pos, rot);
 
         player.shadowBody = serverPhysicsWorld.world->createRigidBody(transform);
-        player.shadowBody->setType(rblxphysics::BodyType::KINEMATIC); // Moved by code (player input)
+        player.shadowBody->setType(linearphysics::BodyType::KINEMATIC); // Moved by code (player input)
 
         // Add a capsule or box shape for collision
-        rblxphysics::Vector3 halfExtents(1.0f, 2.5f, 1.0f); // Roughly character size
-        rblxphysics::BoxShape* shape = serverPhysicsWorld.physicsCommon.createBoxShape(halfExtents);
-        player.shadowBody->addCollider(shape, rblxphysics::Transform::identity());
+        linearphysics::Vector3 halfExtents(1.0f, 2.5f, 1.0f); // Roughly character size
+        linearphysics::BoxShape* shape = serverPhysicsWorld.physicsCommon.createBoxShape(halfExtents);
+        player.shadowBody->addCollider(shape, linearphysics::Transform::identity());
 
         // Set friction to 0 like character
         if (player.shadowBody->getNbColliders() > 0) {
@@ -666,39 +666,39 @@ void updatePlayerShadowBody(ConnectedPlayer& player) {
     }
 
     // Move shadow body smoothly using velocity (KINEMATIC bodies can push DYNAMIC parts when moving)
-    rblxphysics::Transform currentTransform = player.shadowBody->getTransform();
-    rblxphysics::Vector3 currentPos = currentTransform.getPosition();
-    rblxphysics::Vector3 targetPos(player.state.position.x, player.state.position.y, player.state.position.z);
+    linearphysics::Transform currentTransform = player.shadowBody->getTransform();
+    linearphysics::Vector3 currentPos = currentTransform.getPosition();
+    linearphysics::Vector3 targetPos(player.state.position.x, player.state.position.y, player.state.position.z);
 
-    rblxphysics::Vector3 diff = targetPos - currentPos;
+    linearphysics::Vector3 diff = targetPos - currentPos;
     float distance = diff.length();
 
     // Set velocity to move towards target (KINEMATIC bodies with velocity can push parts)
     if (distance > 0.01f) {
         // Calculate velocity needed to reach target in one physics step (1/60s)
         float speed = distance * 60.0f; // Move distance in one frame
-        rblxphysics::Vector3 direction = diff.getUnit();
-        rblxphysics::Vector3 velocity = direction * speed;
+        linearphysics::Vector3 direction = diff.getUnit();
+        linearphysics::Vector3 velocity = direction * speed;
         player.shadowBody->setLinearVelocity(velocity);
     } else {
         // Close enough, just set position directly
-        player.shadowBody->setLinearVelocity(rblxphysics::Vector3(0, 0, 0));
-        rblxphysics::Transform newTransform(targetPos, currentTransform.getOrientation());
+        player.shadowBody->setLinearVelocity(linearphysics::Vector3(0, 0, 0));
+        linearphysics::Transform newTransform(targetPos, currentTransform.getOrientation());
         player.shadowBody->setTransform(newTransform);
     }
 
     // Update rotation smoothly
-    rblxphysics::Quaternion currentRot = currentTransform.getOrientation();
-    rblxphysics::Quaternion targetRot = rblxphysics::Quaternion::fromEulerAngles(0, rblxmath::radians(player.state.rotationY), 0);
-    rblxphysics::Quaternion newRot = rblxphysics::Quaternion::slerp(currentRot, targetRot, 0.3f);
-    rblxphysics::Transform newTransform(currentPos, newRot);
+    linearphysics::Quaternion currentRot = currentTransform.getOrientation();
+    linearphysics::Quaternion targetRot = linearphysics::Quaternion::fromEulerAngles(0, linearmath::radians(player.state.rotationY), 0);
+    linearphysics::Quaternion newRot = linearphysics::Quaternion::slerp(currentRot, targetRot, 0.3f);
+    linearphysics::Transform newTransform(currentPos, newRot);
     player.shadowBody->setTransform(newTransform);
 
     // Zero angular velocity (we control rotation directly)
-    player.shadowBody->setAngularVelocity(rblxphysics::Vector3(0, 0, 0));
+    player.shadowBody->setAngularVelocity(linearphysics::Vector3(0, 0, 0));
 }
 
-void teleportPlayer(const std::string& username, const rblxmath::vec3& position) {
+void teleportPlayer(const std::string& username, const linearmath::vec3& position) {
     for (auto& entry : players) {
         ConnectedPlayer& player = entry.second;
         if (!player.active) continue;
@@ -708,11 +708,11 @@ void teleportPlayer(const std::string& username, const rblxmath::vec3& position)
 
         player.state.position = position;
         if (player.shadowBody) {
-            rblxphysics::Transform transform = player.shadowBody->getTransform();
-            transform.setPosition(rblxphysics::Vector3(position.x, position.y, position.z));
+            linearphysics::Transform transform = player.shadowBody->getTransform();
+            transform.setPosition(linearphysics::Vector3(position.x, position.y, position.z));
             player.shadowBody->setTransform(transform);
-            player.shadowBody->setLinearVelocity(rblxphysics::Vector3(0.0f, 0.0f, 0.0f));
-            player.shadowBody->setAngularVelocity(rblxphysics::Vector3(0.0f, 0.0f, 0.0f));
+            player.shadowBody->setLinearVelocity(linearphysics::Vector3(0.0f, 0.0f, 0.0f));
+            player.shadowBody->setAngularVelocity(linearphysics::Vector3(0.0f, 0.0f, 0.0f));
         }
         // A script moved this player: that position is the server's own, so it
         // becomes the baseline the next packet is measured against.
@@ -739,14 +739,14 @@ PartData makePartData(const Part& part) {
     if (part.deleted) data.flags |= 8;
 
     if (part.physicsBody) {
-        rblxphysics::RigidBody* body = static_cast<rblxphysics::RigidBody*>(part.physicsBody);
-        const rblxphysics::Transform t = body->getTransform();
-        const rblxphysics::Vector3 pos = t.getPosition();
-        const rblxphysics::Quaternion rot = t.getOrientation();
-        data.position = rblxmath::vec3(pos.x, pos.y, pos.z);
+        linearphysics::RigidBody* body = static_cast<linearphysics::RigidBody*>(part.physicsBody);
+        const linearphysics::Transform t = body->getTransform();
+        const linearphysics::Vector3 pos = t.getPosition();
+        const linearphysics::Quaternion rot = t.getOrientation();
+        data.position = linearmath::vec3(pos.x, pos.y, pos.z);
 
-        const rblxmath::quat q(rot.w, rot.x, rot.y, rot.z);
-        data.rotation = rblxmath::degrees(rblxmath::eulerAngles(q));
+        const linearmath::quat q(rot.w, rot.x, rot.y, rot.z);
+        data.rotation = linearmath::degrees(linearmath::eulerAngles(q));
     } else {
         data.position = part.position;
         data.rotation = part.rotation;
@@ -779,10 +779,10 @@ PartData makePartData(const Part& part) {
 bool samePartLook(const PartData& a, const PartData& b) {
     PartData left = a;
     PartData right = b;
-    left.position = rblxmath::vec3(0.0f);
-    right.position = rblxmath::vec3(0.0f);
-    left.rotation = rblxmath::vec3(0.0f);
-    right.rotation = rblxmath::vec3(0.0f);
+    left.position = linearmath::vec3(0.0f);
+    right.position = linearmath::vec3(0.0f);
+    left.rotation = linearmath::vec3(0.0f);
+    right.rotation = linearmath::vec3(0.0f);
     return std::memcmp(&left, &right, sizeof(PartData)) == 0;
 }
 
@@ -840,17 +840,17 @@ void broadcastWorldUpdate() {
         Part& p = serverParts[i];
         if (p.deleted || p.isFolder || !p.physicsBody) continue;
 
-        rblxphysics::RigidBody* body = static_cast<rblxphysics::RigidBody*>(p.physicsBody);
-        const bool dynamic = body->getType() == rblxphysics::BodyType::DYNAMIC;
+        linearphysics::RigidBody* body = static_cast<linearphysics::RigidBody*>(p.physicsBody);
+        const bool dynamic = body->getType() == linearphysics::BodyType::DYNAMIC;
 
-        rblxphysics::Transform t = body->getTransform();
-        const rblxphysics::Vector3 pos = t.getPosition();
-        const rblxphysics::Quaternion rot = t.getOrientation();
-        const rblxmath::vec3 newPosition(pos.x, pos.y, pos.z);
+        linearphysics::Transform t = body->getTransform();
+        const linearphysics::Vector3 pos = t.getPosition();
+        const linearphysics::Quaternion rot = t.getOrientation();
+        const linearmath::vec3 newPosition(pos.x, pos.y, pos.z);
 
         const auto previous = lastBroadcastPositions.find(static_cast<int>(i));
         const bool moved = previous == lastBroadcastPositions.end() ||
-                           rblxmath::length(previous->second - newPosition) > 0.001f;
+                           linearmath::length(previous->second - newPosition) > 0.001f;
         if (!dynamic && !moved) continue;
 
         p.position = newPosition;
@@ -860,8 +860,8 @@ void broadcastWorldUpdate() {
         up.position = newPosition;
 
         // Convert quaternion to euler for network transmission
-        rblxmath::quat q(rot.w, rot.x, rot.y, rot.z);
-        up.rotation = rblxmath::degrees(rblxmath::eulerAngles(q));
+        linearmath::quat q(rot.w, rot.x, rot.y, rot.z);
+        up.rotation = linearmath::degrees(linearmath::eulerAngles(q));
 
         updates.push_back(up);
         lastBroadcastPositions[static_cast<int>(i)] = newPosition;
@@ -880,12 +880,12 @@ void broadcastWorldUpdate() {
 // The world's first SpawnLocation, lifted by the same offset the client uses when
 // it creates a character. A world without one keeps the old default so an empty
 // test world still starts.
-rblxmath::vec3 findSpawnPosition() {
+linearmath::vec3 findSpawnPosition() {
     for (const Part& part : serverParts) {
         if (part.deleted || !part.isSpawn) continue;
-        return part.position + rblxmath::vec3(0.0f, 5.0f, 0.0f);
+        return part.position + linearmath::vec3(0.0f, 5.0f, 0.0f);
     }
-    return rblxmath::vec3(0.0f, 10.0f, 0.0f);
+    return linearmath::vec3(0.0f, 10.0f, 0.0f);
 }
 
 // The name scripts and chat use for a player, matching what setPlayerSource
@@ -898,7 +898,7 @@ std::string scriptPlayerName(const ConnectedPlayer& player, int id) {
     return name;
 }
 
-void broadcastPlayerHealth(int id, const rblx::health::State& health, uint64_t nowMs) {
+void broadcastPlayerHealth(int id, const linear::health::State& health, uint64_t nowMs) {
     PacketPlayerHealth packet;
     packet.playerId = id;
     packet.health = health.health;
@@ -945,12 +945,12 @@ void respawnPlayer(ConnectedPlayer& player, int id, uint64_t nowMs) {
     player.state.health = player.health.health;
 
     if (player.shadowBody) {
-        rblxphysics::Transform transform = player.shadowBody->getTransform();
-        transform.setPosition(rblxphysics::Vector3(player.spawnPosition.x, player.spawnPosition.y,
+        linearphysics::Transform transform = player.shadowBody->getTransform();
+        transform.setPosition(linearphysics::Vector3(player.spawnPosition.x, player.spawnPosition.y,
                                             player.spawnPosition.z));
         player.shadowBody->setTransform(transform);
-        player.shadowBody->setLinearVelocity(rblxphysics::Vector3(0.0f, 0.0f, 0.0f));
-        player.shadowBody->setAngularVelocity(rblxphysics::Vector3(0.0f, 0.0f, 0.0f));
+        player.shadowBody->setLinearVelocity(linearphysics::Vector3(0.0f, 0.0f, 0.0f));
+        player.shadowBody->setAngularVelocity(linearphysics::Vector3(0.0f, 0.0f, 0.0f));
     }
 
     player.movement.teleport(player.spawnPosition, nowMs);
@@ -1001,7 +1001,7 @@ void prepareVehicle() {
         // The server moves the body itself along the driving model, so it must
         // not be a dynamic body falling or being shoved while someone drives.
         if (part.physicsBody) {
-            static_cast<rblxphysics::RigidBody*>(part.physicsBody)->setType(rblxphysics::BodyType::KINEMATIC);
+            static_cast<linearphysics::RigidBody*>(part.physicsBody)->setType(linearphysics::BodyType::KINEMATIC);
         }
 
         std::cout << "Driving: car is part " << i << " at " << part.position.x << ", "
@@ -1034,9 +1034,9 @@ void unseatPlayer(ConnectedPlayer& player, int id, uint64_t nowMs, bool placeBes
     vehicle.input.set(0.0f, 0.0f);
 
     if (placeBeside) {
-        const float yaw = rblxmath::radians(vehicle.state.yawDegrees);
-        const rblxmath::vec3 right(-std::sin(yaw), 0.0f, std::cos(yaw));
-        player.state.position = vehicle.state.position + right * 3.0f + rblxmath::vec3(0.0f, 2.0f, 0.0f);
+        const float yaw = linearmath::radians(vehicle.state.yawDegrees);
+        const linearmath::vec3 right(-std::sin(yaw), 0.0f, std::cos(yaw));
+        player.state.position = vehicle.state.position + right * 3.0f + linearmath::vec3(0.0f, 2.0f, 0.0f);
         player.movement.teleport(player.state.position, nowMs);
         player.replay.reset();
         sendToPlayer(player, PacketProtocol::buildStructPacket(PacketType::TELEPORT, player.state), true);
@@ -1048,8 +1048,8 @@ void unseatPlayer(ConnectedPlayer& player, int id, uint64_t nowMs, bool placeBes
 
 // The boxes the car has to stop at. Read every tick rather than cached, because
 // a script can move, unanchor or delete a part while somebody is driving.
-std::vector<rblx::vehicle::Obstacle> vehicleObstacles() {
-    std::vector<rblx::vehicle::Obstacle> obstacles;
+std::vector<linear::vehicle::Obstacle> vehicleObstacles() {
+    std::vector<linear::vehicle::Obstacle> obstacles;
     for (int i = 0; i < static_cast<int>(serverParts.size()); ++i) {
         const Part& part = serverParts[i];
         if (i == vehicle.partIndex || part.deleted || part.isFolder || !part.canCollide) {
@@ -1058,13 +1058,13 @@ std::vector<rblx::vehicle::Obstacle> vehicleObstacles() {
         // A yaw-rotated box covers more ground than its own footprint, so the
         // obstacle is the axis-aligned box around it: generous at the corners of
         // a diagonal wall, and never small enough to let the car clip through.
-        const float yaw = rblxmath::radians(part.rotation.y);
+        const float yaw = linearmath::radians(part.rotation.y);
         const float cosine = std::abs(std::cos(yaw));
         const float sine = std::abs(std::sin(yaw));
-        const rblxmath::vec3 half(0.5f * (cosine * part.size.x + sine * part.size.z),
+        const linearmath::vec3 half(0.5f * (cosine * part.size.x + sine * part.size.z),
                              0.5f * part.size.y,
                              0.5f * (sine * part.size.x + cosine * part.size.z));
-        rblx::vehicle::Obstacle obstacle;
+        linear::vehicle::Obstacle obstacle;
         obstacle.min = part.position - half;
         obstacle.max = part.position + half;
         obstacles.push_back(obstacle);
@@ -1073,12 +1073,12 @@ std::vector<rblx::vehicle::Obstacle> vehicleObstacles() {
 }
 
 // Half the car part's size, so the box that collides is the car the player sees.
-rblxmath::vec3 vehicleHalfExtents() {
+linearmath::vec3 vehicleHalfExtents() {
     const Part* part = vehiclePart();
     if (part == nullptr) {
-        return rblxmath::vec3(5.0f, 1.0f, 3.0f);
+        return linearmath::vec3(5.0f, 1.0f, 3.0f);
     }
-    return rblxmath::vec3(std::max(0.5f, part->size.x) * 0.5f,
+    return linearmath::vec3(std::max(0.5f, part->size.x) * 0.5f,
                      std::max(0.5f, part->size.y) * 0.5f,
                      std::max(0.5f, part->size.z) * 0.5f);
 }
@@ -1100,7 +1100,7 @@ void updateVehicle(float dt, uint64_t nowMs) {
 
     if (vehicle.driverId == -1 || dt <= 0.0f) return;
 
-    rblx::vehicle::stepColliding(vehicle.state, vehicle.input, dt, vehicleObstacles(),
+    linear::vehicle::stepColliding(vehicle.state, vehicle.input, dt, vehicleObstacles(),
                                  vehicleHalfExtents());
 
     Part* part = vehiclePart();
@@ -1113,12 +1113,12 @@ void updateVehicle(float dt, uint64_t nowMs) {
     part->position = vehicle.state.position;
     part->rotation.y = vehicle.state.yawDegrees;
     if (part->physicsBody) {
-        auto* body = static_cast<rblxphysics::RigidBody*>(part->physicsBody);
-        body->setTransform(rblxphysics::Transform(
-            rblxphysics::Vector3(vehicle.state.position.x, vehicle.state.position.y, vehicle.state.position.z),
-            rblxphysics::Quaternion::fromEulerAngles(0.0f, rblxmath::radians(vehicle.state.yawDegrees), 0.0f)));
-        body->setLinearVelocity(rblxphysics::Vector3(0.0f, 0.0f, 0.0f));
-        body->setAngularVelocity(rblxphysics::Vector3(0.0f, 0.0f, 0.0f));
+        auto* body = static_cast<linearphysics::RigidBody*>(part->physicsBody);
+        body->setTransform(linearphysics::Transform(
+            linearphysics::Vector3(vehicle.state.position.x, vehicle.state.position.y, vehicle.state.position.z),
+            linearphysics::Quaternion::fromEulerAngles(0.0f, linearmath::radians(vehicle.state.yawDegrees), 0.0f)));
+        body->setLinearVelocity(linearphysics::Vector3(0.0f, 0.0f, 0.0f));
+        body->setAngularVelocity(linearphysics::Vector3(0.0f, 0.0f, 0.0f));
     }
 
     ConnectedPlayer& driver = players[vehicle.driverId];
@@ -1209,18 +1209,18 @@ static int runServer(int argc, char** argv) {
             std::stringstream scriptBuffer;
             scriptBuffer << scriptFile.rdbuf();
 
-            gameScriptInterpreter = std::make_unique<rblx::script::Interpreter>();
+            gameScriptInterpreter = std::make_unique<linear::script::Interpreter>();
             gameScriptInterpreter->setPrintHandler([](const std::string& message, bool isError) {
                 std::cout << (isError ? "[script error] " : "[script] ") << message << std::endl;
             });
-            gameScriptRuntime = std::make_unique<rblx::worldscript::WorldRuntime>(
+            gameScriptRuntime = std::make_unique<linear::worldscript::WorldRuntime>(
                 serverParts, &serverPhysicsWorld, *gameScriptInterpreter);
             gameScriptRuntime->setPlayerSource([]() {
-                std::vector<rblx::worldscript::ScriptPlayer> snapshot;
+                std::vector<linear::worldscript::ScriptPlayer> snapshot;
                 for (const auto& entry : players) {
                     const ConnectedPlayer& player = entry.second;
                     if (!player.active) continue;
-                    rblx::worldscript::ScriptPlayer scriptPlayer;
+                    linear::worldscript::ScriptPlayer scriptPlayer;
                     scriptPlayer.name = scriptPlayerName(player, entry.first);
                     scriptPlayer.position = player.state.position;
                     snapshot.push_back(scriptPlayer);
@@ -1228,7 +1228,7 @@ static int runServer(int argc, char** argv) {
                 return snapshot;
             });
             gameScriptRuntime->setTeleportHandler([](const std::string& name,
-                                                     const rblxmath::vec3& position) {
+                                                     const linearmath::vec3& position) {
                 teleportPlayer(name, position);
             });
             gameScriptRuntime->setDamageHandler([](const std::string& name, float amount) {
@@ -1242,7 +1242,7 @@ static int runServer(int argc, char** argv) {
                 }
             });
             gameScriptRuntime->setSoundHandler([](const std::string& sound,
-                                                  const rblxmath::vec3& position, float volume,
+                                                  const linearmath::vec3& position, float volume,
                                                   bool spatial) {
                 if (pendingSounds.size() >= kMaxSoundsPerTick) {
                     return;
@@ -1353,8 +1353,8 @@ static int runServer(int argc, char** argv) {
                 continue;
             }
 
-            if (player.state.position.y < rblx::health::kFallDeathHeight) {
-                damagePlayer(player, id, rblx::health::kMaxHealth, healthNowMs,
+            if (player.state.position.y < linear::health::kFallDeathHeight) {
+                damagePlayer(player, id, linear::health::kMaxHealth, healthNowMs,
                              "falling out of the world");
             }
         }
@@ -1409,12 +1409,12 @@ static int runServer(int argc, char** argv) {
                 break;
             }
             if (received <= 0) break;
-            if (static_cast<size_t>(received) < sizeof(rblx::net::UdpHeader)) continue;
+            if (static_cast<size_t>(received) < sizeof(linear::net::UdpHeader)) continue;
 
-            rblx::net::UdpHeader header;
+            linear::net::UdpHeader header;
             std::memcpy(&header, datagram, sizeof(header));
-            if (header.magic0 != rblx::net::kMagic0 || header.magic1 != rblx::net::kMagic1 ||
-                header.version != rblx::net::kVersion) {
+            if (header.magic0 != linear::net::kMagic0 || header.magic1 != linear::net::kMagic1 ||
+                header.version != linear::net::kVersion) {
                 continue;
             }
 
@@ -1564,12 +1564,12 @@ static int runServer(int argc, char** argv) {
                             PacketProtocol::fixedString(pkt.hardwareId, sizeof(pkt.hardwareId));
                         const bool isGuest = token.empty();
 
-                        player.headColor = rblxmath::vec3(0.8f, 0.6f, 0.4f);
-                        player.torsoColor = rblxmath::vec3(0.2f, 0.4f, 0.8f);
-                        player.leftArmColor = rblxmath::vec3(0.8f, 0.6f, 0.4f);
-                        player.rightArmColor = rblxmath::vec3(0.8f, 0.6f, 0.4f);
-                        player.leftLegColor = rblxmath::vec3(0.2f, 0.6f, 0.2f);
-                        player.rightLegColor = rblxmath::vec3(0.2f, 0.6f, 0.2f);
+                        player.headColor = linearmath::vec3(0.8f, 0.6f, 0.4f);
+                        player.torsoColor = linearmath::vec3(0.2f, 0.4f, 0.8f);
+                        player.leftArmColor = linearmath::vec3(0.8f, 0.6f, 0.4f);
+                        player.rightArmColor = linearmath::vec3(0.8f, 0.6f, 0.4f);
+                        player.leftLegColor = linearmath::vec3(0.2f, 0.6f, 0.2f);
+                        player.rightLegColor = linearmath::vec3(0.2f, 0.6f, 0.2f);
                         player.faceId = DEFAULT_FACE_ID;
                         player.hatId.clear();
 
@@ -1702,15 +1702,15 @@ static int runServer(int argc, char** argv) {
                             if (p.deleted) data.flags |= 8;
 
                             if (p.physicsBody) {
-                                rblxphysics::RigidBody* body = (rblxphysics::RigidBody*)p.physicsBody;
-                                rblxphysics::Transform t = body->getTransform();
-                                rblxphysics::Vector3 pos = t.getPosition();
-                                rblxphysics::Quaternion rot = t.getOrientation();
+                                linearphysics::RigidBody* body = (linearphysics::RigidBody*)p.physicsBody;
+                                linearphysics::Transform t = body->getTransform();
+                                linearphysics::Vector3 pos = t.getPosition();
+                                linearphysics::Quaternion rot = t.getOrientation();
 
-                                data.position = rblxmath::vec3(pos.x, pos.y, pos.z);
+                                data.position = linearmath::vec3(pos.x, pos.y, pos.z);
 
-                                rblxmath::quat q(rot.w, rot.x, rot.y, rot.z);
-                                data.rotation = rblxmath::degrees(rblxmath::eulerAngles(q));
+                                linearmath::quat q(rot.w, rot.x, rot.y, rot.z);
+                                data.rotation = linearmath::degrees(linearmath::eulerAngles(q));
                             } else {
                                 data.position = p.position;
                                 data.rotation = p.rotation;
@@ -1807,11 +1807,11 @@ static int runServer(int argc, char** argv) {
                         // Where the client said it was, before the guard touches
                         // it: a replay is only worth watching if it shows the claim
                         // rather than the correction.
-                        const rblxmath::vec3 claimedState = player.state.position;
+                        const linearmath::vec3 claimedState = player.state.position;
                         // Measured against the client's own clock: a packet that
                         // spent 200 ms in flight still describes movement that
                         // happened over the time the client says it did.
-                        const rblx::movement::Correction movement =
+                        const linear::movement::Correction movement =
                             player.movement.validate(player.state.position, nowMs,
                                                      pkt.clientTimeMs);
                         player.replay.add(nowMs, replayPoint(claimedState),
@@ -1839,13 +1839,13 @@ static int runServer(int argc, char** argv) {
                                 // reads what the server measured against what the game
                                 // allows, instead of a label nobody can check.
                                 std::string proof =
-                                    rblx::movement::describeProof(movement.evidence);
+                                    linear::movement::describeProof(movement.evidence);
                                 proof += ", correction " + std::to_string(corrections) +
                                          " this session";
                                 reportCheatingToWebsite(
                                     id, PacketProtocol::fixedString(player.username, sizeof(player.username)),
                                     movement.flight ? "flying" : "moving faster than allowed",
-                                    proof, rblx::movement::describeExpectation(movement.evidence),
+                                    proof, linear::movement::describeExpectation(movement.evidence),
                                     player.replay.encode());
                             }
 
@@ -1868,7 +1868,7 @@ static int runServer(int argc, char** argv) {
                             continue;
                         }
                         // Only a player standing next to the car can get in.
-                        if (!rblx::vehicle::canEnter(vehicle.state.position, player.state.position)) {
+                        if (!linear::vehicle::canEnter(vehicle.state.position, player.state.position)) {
                             continue;
                         }
                         seatPlayer(player, id, nowMs);
@@ -1888,7 +1888,7 @@ static int runServer(int argc, char** argv) {
                         }
                         // "Reset Character": the client asks, the server kills the
                         // character, so a reset and a death share one timer.
-                        damagePlayer(player, id, rblx::health::kMaxHealth, nowMs,
+                        damagePlayer(player, id, linear::health::kMaxHealth, nowMs,
                                      "resetting the character");
                     } else if (frame.type == PacketType::CHAT) {
                         if (!player.active) {

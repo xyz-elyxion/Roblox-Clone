@@ -11,7 +11,7 @@
 // name, and the client resolves it. A client built from other source therefore
 // plays silence for a sound it does not know instead of a wrong noise, and a
 // typo fails in the script that made it rather than becoming a mystery.
-namespace rblx {
+namespace linear {
 namespace audio {
 
 enum class SoundId {
@@ -50,4 +50,4 @@ const Clip* soundByName(const std::string& name);
 std::vector<std::string> soundNames();
 
 }  // namespace audio
-}  // namespace rblx
+}  // namespace linear

@@ -7,7 +7,7 @@
 #include <filesystem>
 #include <system_error>
 
-namespace rblx {
+namespace linear {
 namespace code {
 namespace {
 
@@ -94,8 +94,8 @@ std::string findBuildRoot(const std::string& start) {
     fs::path folder = fs::absolute(fs::path(start), code);
     if (code) return start;
     for (;;) {
-        if (fs::is_regular_file(folder / "RBLXBuildPresets.json", code) ||
-            fs::is_regular_file(folder / "RBLXBuildLists.txt", code)) {
+        if (fs::is_regular_file(folder / "LinearBuildPresets.json", code) ||
+            fs::is_regular_file(folder / "LinearBuildLists.txt", code)) {
             return folder.string();
         }
         const fs::path parent = folder.parent_path();
@@ -107,14 +107,14 @@ std::string findBuildRoot(const std::string& start) {
 
 bool findBuildTool(const std::string& projectRoot, std::string* program, std::string* error) {
     std::vector<fs::path> candidates;
-    const std::string overridePath = rblx::environment::get("RBLXBUILD");
+    const std::string overridePath = linear::environment::get("LINEARBUILD");
     if (!overridePath.empty()) {
         const fs::path given(overridePath);
         candidates.push_back(given.is_absolute() ? given : fs::path(projectRoot) / given);
     }
-    candidates.push_back(fs::path(projectRoot) / "build" / "rblxbuild-tool" / "bin" /
-                         "rblxbuild.exe");
-    candidates.push_back(fs::path(projectRoot) / "build" / "rblxbuild-tool" / "bin" / "rblxbuild");
+    candidates.push_back(fs::path(projectRoot) / "build" / "linearbuild-tool" / "bin" /
+                         "linearbuild.exe");
+    candidates.push_back(fs::path(projectRoot) / "build" / "linearbuild-tool" / "bin" / "linearbuild");
 
     std::error_code code;
     for (const fs::path& candidate : candidates) {
@@ -126,8 +126,8 @@ bool findBuildTool(const std::string& projectRoot, std::string* program, std::st
 
     if (error != nullptr) {
         *error = "No build tool for the checkout at " + projectRoot +
-                 ". Build it once from this folder: mkdir -p build/rblxbuild-tool, then "
-                 "../../rblxbuild/bootstrap --parallel 4 inside it (RBLXBUILD points at one "
+                 ". Build it once from this folder: mkdir -p build/linearbuild-tool, then "
+                 "../../linearbuild/bootstrap --parallel 4 inside it (LINEARBUILD points at one "
                  "somewhere else).";
     }
     return false;
@@ -154,7 +154,7 @@ std::vector<Stage> releaseStages(const std::string& buildRoot, const std::string
     stages.push_back(Stage{"build", tool, "--build --preset " + chosen});
 
     // The tests are whatever the build produced: the workflow runs them the same
-    // way, one executable at a time, because rblxtest is not a program here.
+    // way, one executable at a time, because lineartest is not a program here.
     std::vector<std::string> tests;
     const fs::path release = buildDir / "Release";
     for (fs::directory_iterator entry(release, code), last; !code && entry != last;
@@ -285,4 +285,4 @@ std::vector<Diagnostic> parseDiagnostics(const std::vector<std::string>& lines) 
 }
 
 }  // namespace code
-}  // namespace rblx
+}  // namespace linear

@@ -15,7 +15,7 @@
 #include <winsock2.h>
 #include <ws2tcpip.h>
 
-namespace rblx {
+namespace linear {
 namespace web {
 namespace {
 
@@ -741,4 +741,4 @@ std::string HttpServer::mimeTypeForPath(const std::string& path) {
 }
 
 }  // namespace web
-}  // namespace rblx
+}  // namespace linear

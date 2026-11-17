@@ -6,7 +6,7 @@
 #include <cctype>
 #include <cstdlib>
 
-namespace rblx {
+namespace linear {
 namespace code {
 namespace {
 
@@ -19,7 +19,7 @@ std::string trim(const std::string& text) {
 }
 
 std::string envOr(const char* name, const char* fallback) {
-    const std::string value = rblx::environment::get(name);
+    const std::string value = linear::environment::get(name);
     return value.empty() ? std::string(fallback) : value;
 }
 
@@ -91,7 +91,7 @@ bool commitEverything(git::Repo& repo, const std::string& message, std::string* 
 
 std::string authorName() { return envOr("LINEAR_GIT_NAME", "Linear Code"); }
 
-std::string authorEmail() { return envOr("LINEAR_GIT_EMAIL", "editor@rblx.local"); }
+std::string authorEmail() { return envOr("LINEAR_GIT_EMAIL", "editor@linear.local"); }
 
 std::string changesSummary(const std::vector<ChangeRow>& rows) {
     if (rows.empty()) return "nothing to commit";
@@ -109,4 +109,4 @@ std::string changesSummary(const std::vector<ChangeRow>& rows) {
 }
 
 }  // namespace code
-}  // namespace rblx
+}  // namespace linear

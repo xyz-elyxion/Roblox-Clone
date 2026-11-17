@@ -16,7 +16,7 @@
 #include <string>
 #include <vector>
 
-namespace rblx {
+namespace linear {
 namespace ui {
 
 // What a running job tells the window.
@@ -123,4 +123,4 @@ Result run(Options& options, const std::vector<std::string>& actions,
            const std::function<bool(Report&)>& job);
 
 }  // namespace ui
-}  // namespace rblx
+}  // namespace linear

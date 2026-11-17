@@ -33,7 +33,7 @@ lie" or "there is no TLS" is answered by the relevant paragraph below.
   there is no TLS implementation anywhere in the tree. Any token or password over a network
   is readable in transit. Put it behind a TLS-terminating proxy before it faces anything
   other than loopback and trusted LAN clients.
-- **The client is untrusted.** `RBLXAntiCheat` runs inside the client process, so a
+- **The client is untrusted.** `LinearAntiCheat` runs inside the client process, so a
   modified client can decline to run it, and the machine id the client sends can be any
   value. Neither is a boundary. The boundary is the server: the movement guard in
   `include/MovementGuard.h`, the ban ladder in `include/Moderation.h`, and the login check a
@@ -160,7 +160,7 @@ the account, which is a recovery-policy trade-off, not a bug.
 
 **Developer tokens and the AI trainer.** `AiTrainer.exe` cannot run without signing in. A
 token is minted in `/developers` by a signed-in account, is 192 random bits behind an
-`rblxai_` prefix, and only its SHA-256 is stored, so the value is shown once and a copy of
+`linearai_` prefix, and only its SHA-256 is stored, so the value is shown once and a copy of
 the data file cannot be replayed. The token carries a scope (`ai`) that no other route
 accepts: it cannot be spent as an account session, and `POST /api/ai/login` is the only
 route that reads one. A token belongs to the account that made it, is refused while that

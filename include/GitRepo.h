@@ -8,7 +8,7 @@
 #include <string>
 #include <vector>
 
-namespace rblx {
+namespace linear {
 namespace git {
 
 enum class ObjectKind { Blob, Tree, Commit };
@@ -106,4 +106,4 @@ private:
 };
 
 }  // namespace git
-}  // namespace rblx
+}  // namespace linear

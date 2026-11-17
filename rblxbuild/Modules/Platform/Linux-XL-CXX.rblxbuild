@@ -1,1 +1,0 @@
-set(RBLXBUILD_SHARED_LIBRARY_LINK_CXX_FLAGS "-Wl,-export-dynamic")

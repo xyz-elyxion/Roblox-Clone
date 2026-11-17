@@ -9,7 +9,7 @@
 #include <chrono>
 #include <vector>
 
-#include <rblxmath/rblxmath.hpp>
+#include <linearmath/linearmath.hpp>
 
 // Packet Types
 enum class PacketType : uint8_t {
@@ -65,7 +65,7 @@ struct PacketWelcome {
 // 3. Player State (Client <-> Server)
 struct PacketPlayerState {
     int playerId;
-    rblxmath::vec3 position;
+    linearmath::vec3 position;
     float rotationY;
     bool isWalking;
     bool isJumping;
@@ -96,7 +96,7 @@ struct PacketPlayerHealth {
 struct PacketVehicleState {
     int partIndex;  // index in the world's part list, -1 when the world has no car
     int driverId;   // -1 when nobody is driving
-    rblxmath::vec3 position;
+    linearmath::vec3 position;
     float yaw;      // degrees
     float speed;    // units per second along the heading
 };
@@ -143,8 +143,8 @@ struct PlayerInfo {
 // 6. World Update (Server -> Client)
 struct PartUpdate {
     int partIndex;
-    rblxmath::vec3 position;
-    rblxmath::vec3 rotation;
+    linearmath::vec3 position;
+    linearmath::vec3 rotation;
 };
 
 // 7. World State (Server -> Client)
@@ -153,10 +153,10 @@ struct PartData {
     char name[64];
     int parentIndex;
     uint8_t flags; // isFolder (bit 0), isCamera (bit 1), isSpawn (bit 2), deleted (bit 3)
-    rblxmath::vec3 position;
-    rblxmath::vec3 size;
-    rblxmath::vec3 color;
-    rblxmath::vec3 rotation;
+    linearmath::vec3 position;
+    linearmath::vec3 size;
+    linearmath::vec3 color;
+    linearmath::vec3 rotation;
     float transparency;
     float reflectance;
     uint8_t physicsFlags; // anchored (bit 0), canCollide (bit 1)
@@ -186,7 +186,7 @@ struct PacketPartRemove {
 // The colour is sRGB like a part colour, and the density is per stud: the haze
 // thickens until it is 1 - exp(-(distance * density)^2), so 0 is no fog at all.
 struct PacketWorldEnvironment {
-    rblxmath::vec3 fogColor;
+    linearmath::vec3 fogColor;
     float fogDensity;
 };
 
@@ -200,7 +200,7 @@ struct PacketWorldEnvironment {
 // is simply not heard.
 struct PacketSound {
     char name[24];      // one of the bank's names, see SoundBank.h
-    rblxmath::vec3 position; // where it happened, when spatial is set
+    linearmath::vec3 position; // where it happened, when spatial is set
     float volume;       // 0..1, the level the script asked for
     uint8_t spatial;    // 1 when position is a place in the world
     uint8_t reserved[3];
@@ -232,7 +232,7 @@ namespace PacketProtocol {
     // A snapshot of the world is one frame, so this is the size of the largest
     // world a server can hand to a client, not the size of a datagram. The
     // transport fragments a frame into datagrams and reassembles it (see
-    // rblx::net::kMaxMessageSize in UdpTransport.h), and the sockets are given
+    // linear::net::kMaxMessageSize in UdpTransport.h), and the sockets are given
     // multi-megabyte buffers for the burst, so the only real limit is this one.
     // It used to be 64 KB - one datagram - which was enough for a painted world
     // of a few hundred parts and silently too small for a script that builds a

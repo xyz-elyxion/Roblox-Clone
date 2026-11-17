@@ -59,7 +59,7 @@ void checkContains(const std::string& haystack, const std::string& needle,
 std::string testWebRoot() {
     const auto stamp = std::chrono::high_resolution_clock::now().time_since_epoch().count();
     const auto directory =
-        std::filesystem::temp_directory_path() / ("rblx-native-web-" + std::to_string(stamp));
+        std::filesystem::temp_directory_path() / ("linear-native-web-" + std::to_string(stamp));
     std::filesystem::create_directories(directory / "public");
     std::ofstream index((directory / "public" / "index.html").string().c_str(),
                         std::ios::binary | std::ios::trunc);
@@ -89,43 +89,43 @@ std::string validWorldLine() {
 // ---------------------------------------------------------------------------
 
 void testCrypto() {
-    checkEqual(rblx::web::hexEncode(rblx::web::sha256("abc")),
+    checkEqual(linear::web::hexEncode(linear::web::sha256("abc")),
                "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
                "sha256(\"abc\") matches the FIPS vector");
-    checkEqual(rblx::web::hexEncode(rblx::web::sha256("")),
+    checkEqual(linear::web::hexEncode(linear::web::sha256("")),
                "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
                "sha256(\"\") matches the FIPS vector");
-    checkEqual(rblx::web::hexEncode(rblx::web::hmacSha256("Jefe", "what do ya want for nothing?")),
+    checkEqual(linear::web::hexEncode(linear::web::hmacSha256("Jefe", "what do ya want for nothing?")),
                "5bdcc146bf60754e6a042426089575c75a003f089d2739839dec58b964ec3843",
                "hmac-sha256 matches RFC 4231 case 2");
 
     const std::vector<std::uint8_t> oneRound =
-        rblx::web::pbkdf2Sha256("password", "salt", 1, 32);
-    checkEqual(rblx::web::hexEncode(oneRound.data(), oneRound.size()),
+        linear::web::pbkdf2Sha256("password", "salt", 1, 32);
+    checkEqual(linear::web::hexEncode(oneRound.data(), oneRound.size()),
                "120fb6cffcf8b32c43e7225256c4f837a86548c92ccc35480805987cb70be17b",
                "pbkdf2-sha256 matches the reference vector (1 round)");
     const std::vector<std::uint8_t> twoRounds =
-        rblx::web::pbkdf2Sha256("password", "salt", 2, 32);
-    checkEqual(rblx::web::hexEncode(twoRounds.data(), twoRounds.size()),
+        linear::web::pbkdf2Sha256("password", "salt", 2, 32);
+    checkEqual(linear::web::hexEncode(twoRounds.data(), twoRounds.size()),
                "ae4d0c95af6b46d32d0adff928f06dd02a303f8ef3c251dfd6e2d85a95474c43",
                "pbkdf2-sha256 matches the reference vector (2 rounds)");
 
     const std::vector<std::uint8_t> bytes = {0xFB, 0xFF};
-    checkEqual(rblx::web::base64UrlEncode(bytes), "-_8", "base64url encodes without padding");
+    checkEqual(linear::web::base64UrlEncode(bytes), "-_8", "base64url encodes without padding");
     std::vector<std::uint8_t> decoded;
-    check(rblx::web::base64UrlDecode("-_8", &decoded) && decoded == bytes,
+    check(linear::web::base64UrlDecode("-_8", &decoded) && decoded == bytes,
           "base64url decode round-trips");
 
-    const std::string hash = rblx::web::hashPassword("correct horse battery", 800);
-    check(rblx::web::verifyPassword("correct horse battery", hash),
+    const std::string hash = linear::web::hashPassword("correct horse battery", 800);
+    check(linear::web::verifyPassword("correct horse battery", hash),
           "password hash verifies the original password");
-    check(!rblx::web::verifyPassword("wrong password", hash),
+    check(!linear::web::verifyPassword("wrong password", hash),
           "password hash rejects a wrong password");
     checkContains(hash, "pbkdf2-sha256$800$", "password hash records its iteration count");
 }
 
 void testJwt() {
-    rblx::web::Json payload = rblx::web::Json::makeObject();
+    linear::web::Json payload = linear::web::Json::makeObject();
     const long long now = static_cast<long long>(std::time(nullptr));
     payload.set("userId", 7);
     payload.set("username", "Pilot");
@@ -133,20 +133,20 @@ void testJwt() {
     payload.set("iat", now);
     payload.set("exp", now + 60);
 
-    const std::string token = rblx::web::signJwt(payload, "secret");
-    rblx::web::Json claims;
-    check(rblx::web::verifyJwt(token, "secret", &claims), "JWT verifies with the right secret");
+    const std::string token = linear::web::signJwt(payload, "secret");
+    linear::web::Json claims;
+    check(linear::web::verifyJwt(token, "secret", &claims), "JWT verifies with the right secret");
     check(claims.member("userId").asInteger(0) == 7, "JWT keeps the userId claim");
-    check(!rblx::web::verifyJwt(token, "other-secret", &claims),
+    check(!linear::web::verifyJwt(token, "other-secret", &claims),
           "JWT rejects a different secret");
 
     std::string tampered = token;
     tampered[tampered.size() - 2] = tampered[tampered.size() - 2] == 'A' ? 'B' : 'A';
-    check(!rblx::web::verifyJwt(tampered, "secret", &claims), "JWT rejects a tampered signature");
+    check(!linear::web::verifyJwt(tampered, "secret", &claims), "JWT rejects a tampered signature");
 
     payload.set("exp", now - 60);
-    const std::string expired = rblx::web::signJwt(payload, "secret");
-    check(!rblx::web::verifyJwt(expired, "secret", &claims), "JWT rejects an expired token");
+    const std::string expired = linear::web::signJwt(payload, "secret");
+    check(!linear::web::verifyJwt(expired, "secret", &claims), "JWT rejects an expired token");
 }
 
 // ---------------------------------------------------------------------------
@@ -155,7 +155,7 @@ void testJwt() {
 
 void testJson() {
     std::string error;
-    const rblx::web::Json parsed = rblx::web::Json::parse(
+    const linear::web::Json parsed = linear::web::Json::parse(
         "{\"name\":\"Pilot\",\"tags\":[1,2.5,\"x\"],\"flags\":{\"on\":true},\"none\":null}",
         &error);
     check(parsed.isObject() && error.empty(), "json parses an object");
@@ -166,22 +166,22 @@ void testJson() {
     check(parsed.member("none").isNull(), "json keeps nulls");
 
     const std::string serialized = parsed.dump();
-    const rblx::web::Json roundTripped = rblx::web::Json::parse(serialized, &error);
+    const linear::web::Json roundTripped = linear::web::Json::parse(serialized, &error);
     check(roundTripped.isObject(), "json output parses again");
     checkEqual(roundTripped.member("tags").elements()[1].dump(), "2.5",
                "json numbers round-trip");
 
-    const rblx::web::Json unicode = rblx::web::Json::parse("\"caf\\u00e9\"", &error);
+    const linear::web::Json unicode = linear::web::Json::parse("\"caf\\u00e9\"", &error);
     checkEqual(unicode.asString(), "caf\xC3\xA9", "json decodes \\u escapes to UTF-8");
 
-    const rblx::web::Json escaped = rblx::web::Json("line\n\"quoted\"");
+    const linear::web::Json escaped = linear::web::Json("line\n\"quoted\"");
     checkEqual(escaped.dump(), "\"line\\n\\\"quoted\\\"\"", "json escapes control characters");
 
     error.clear();
-    rblx::web::Json::parse("{\"broken\":", &error);
+    linear::web::Json::parse("{\"broken\":", &error);
     check(!error.empty(), "json reports malformed input");
 
-    checkEqual(rblx::web::formatJsonNumber(0.2), "0.2", "json prints doubles without noise");
+    checkEqual(linear::web::formatJsonNumber(0.2), "0.2", "json prints doubles without noise");
 }
 
 // ---------------------------------------------------------------------------
@@ -189,10 +189,10 @@ void testJson() {
 // ---------------------------------------------------------------------------
 
 void testWorld() {
-    rblx::web::WorldAnalysis analysis;
+    linear::web::WorldAnalysis analysis;
     std::string error;
     const std::string world = "2\n" + validWorldLine() + "\n" + validWorldLine() + "\n";
-    check(rblx::web::analyzeWorldSource(world, &analysis, &error),
+    check(linear::web::analyzeWorldSource(world, &analysis, &error),
           "world analysis accepts a valid document");
     check(analysis.partsCount == 2, "world analysis counts parts");
     check(analysis.spawnCount == 2, "world analysis counts spawn markers");
@@ -205,47 +205,47 @@ void testWorld() {
     // texture path. Publishing has to keep accepting worlds that use them.
     const std::string materialWorld = "1\n" + validWorldLine() + " 3 \"brick.png\"\n";
     error.clear();
-    check(rblx::web::analyzeWorldSource(materialWorld, &analysis, &error),
+    check(linear::web::analyzeWorldSource(materialWorld, &analysis, &error),
           "world analysis accepts material and texture fields");
     check(analysis.partsCount == 1, "a material world still counts its parts");
 
     error.clear();
-    check(!rblx::web::analyzeWorldSource("", &analysis, &error), "world analysis rejects empty data");
+    check(!linear::web::analyzeWorldSource("", &analysis, &error), "world analysis rejects empty data");
     checkEqual(error, "World data is required.", "empty world reports the expected message");
 
     error.clear();
-    check(!rblx::web::analyzeWorldSource("abc\n" + validWorldLine(), &analysis, &error),
+    check(!linear::web::analyzeWorldSource("abc\n" + validWorldLine(), &analysis, &error),
           "world analysis rejects a bad header");
     checkEqual(error, "World file header must contain a valid part count.",
                "bad header reports the expected message");
 
     error.clear();
-    check(!rblx::web::analyzeWorldSource("3\n" + validWorldLine(), &analysis, &error),
+    check(!linear::web::analyzeWorldSource("3\n" + validWorldLine(), &analysis, &error),
           "world analysis rejects a truncated document");
     checkEqual(error, "World file ended before all parts were present.",
                "truncated world reports the expected message");
 
     error.clear();
-    check(!rblx::web::analyzeWorldSource("1\n0 1 2\n", &analysis, &error),
+    check(!linear::web::analyzeWorldSource("1\n0 1 2\n", &analysis, &error),
           "world analysis rejects short lines");
     checkEqual(error, "World part 1 is missing fields.", "short line reports the expected message");
 
     error.clear();
     std::string badShape = validWorldLine();
     badShape[0] = '9';
-    check(!rblx::web::analyzeWorldSource("1\n" + badShape + "\n", &analysis, &error),
+    check(!linear::web::analyzeWorldSource("1\n" + badShape + "\n", &analysis, &error),
           "world analysis rejects unknown shapes");
     checkEqual(error, "World part 1 has an unsupported shape.",
                "unknown shape reports the expected message");
 
     error.clear();
-    check(!rblx::web::analyzeWorldSource("1\n" + validWorldLine() + "\r\n", &analysis, &error) ==
+    check(!linear::web::analyzeWorldSource("1\n" + validWorldLine() + "\r\n", &analysis, &error) ==
               false,
           "world analysis accepts CRLF input");
 
     error.clear();
     const std::string huge = "1\n" + validWorldLine() + std::string(3 * 1024 * 1024, ' ');
-    check(!rblx::web::analyzeWorldSource(huge, &analysis, &error),
+    check(!linear::web::analyzeWorldSource(huge, &analysis, &error),
           "world analysis rejects oversized data");
     checkContains(error, "too large", "oversized world reports the expected message");
 }
@@ -258,7 +258,7 @@ void testStore() {
     const std::string directory = testWebRoot();
     const std::string path = directory + "/data.json";
 
-    rblx::web::Store store(path);
+    linear::web::Store store(path);
     std::string error;
     check(store.load(&error), "store loads a missing data file as empty");
     const int first = store.createUser("Pilot", "hash-one", "2026-01-01T00:00:00Z");
@@ -267,7 +267,7 @@ void testStore() {
     check(store.createUser("Pilot", "hash-three", "2026-01-01T00:00:00Z") < 0,
           "store rejects duplicate usernames");
 
-    rblx::web::Avatar avatar;
+    linear::web::Avatar avatar;
     avatar.colors[0][0] = 0.25;
     avatar.faceId = "wink";
     store.setAvatar(first, avatar);
@@ -287,7 +287,7 @@ void testStore() {
     check(friends.size() == 1 && friends[0]->status == "accepted",
           "accepted friendships are listed");
 
-    rblx::web::GameRecord game;
+    linear::web::GameRecord game;
     game.ownerId = first;
     game.title = "Test World";
     game.slug = "test-world";
@@ -302,7 +302,7 @@ void testStore() {
     check(store.findGame(gameId)->launchCount == 1, "store increments launch counts");
 
     check(store.save(&error), "store writes the data file");
-    rblx::web::Store reloaded(path);
+    linear::web::Store reloaded(path);
     check(reloaded.load(&error), "store reloads the data file");
     check(reloaded.findUserByName("Pilot") != nullptr, "reloaded store keeps users");
     check(reloaded.playtimeFor(first) == 150, "reloaded store keeps playtime");
@@ -340,7 +340,7 @@ void testStore() {
           "store keeps the expectation on the action a detection filed");
 
     check(store.save(&error), "store writes the record with its proof");
-    rblx::web::Store proofReloaded(path);
+    linear::web::Store proofReloaded(path);
     check(proofReloaded.load(&error), "the record with proof reloads");
     check(proofReloaded.pendingDetectionsFor(watcher).size() == 1 &&
               proofReloaded.pendingDetectionsFor(watcher)[0].expected == expected,
@@ -446,7 +446,7 @@ std::string buildRequest(const std::string& method, const std::string& path,
 
 // The account endpoints only answer a solved captcha. The tests take the machine
 // route, which is the same path a script or the desktop client uses.
-std::string machineCaptcha(rblx::web::WebsiteApp& app) {
+std::string machineCaptcha(linear::web::WebsiteApp& app) {
     std::thread serverThread([&app]() { app.server().serveOneConnection(); });
     const std::string response = sendRaw(
         app.server().port(),
@@ -455,11 +455,11 @@ std::string machineCaptcha(rblx::web::WebsiteApp& app) {
     serverThread.join();
 
     std::string error;
-    const rblx::web::Json challenge = rblx::web::Json::parse(bodyOf(response), &error);
+    const linear::web::Json challenge = linear::web::Json::parse(bodyOf(response), &error);
     const std::string id = challenge.member("id").asString();
     const int difficulty = static_cast<int>(challenge.member("difficulty").asInteger(0));
     std::string nonce;
-    if (id.empty() || !rblx::web::solveCaptchaPow(id, difficulty, &nonce)) {
+    if (id.empty() || !linear::web::solveCaptchaPow(id, difficulty, &nonce)) {
         ++failures;
         std::printf("FAIL could not solve a machine captcha: %s\n", bodyOf(response).c_str());
         return "\"captchaId\":\"\",\"captchaNonce\":\"\"";
@@ -469,11 +469,11 @@ std::string machineCaptcha(rblx::web::WebsiteApp& app) {
 
 // The website seals its data file with a key derived from its configuration, so a
 // test that reopens that file has to open it the same way.
-void openSealed(rblx::web::Store& store, const rblx::web::Config& config) {
-    store.setDataKey(rblx::web::dataKeyFromText("jwt:" + config.jwtSecret));
+void openSealed(linear::web::Store& store, const linear::web::Config& config) {
+    store.setDataKey(linear::web::dataKeyFromText("jwt:" + config.jwtSecret));
 }
 
-void checkStatus(rblx::web::WebsiteApp& app, const std::string& method,
+void checkStatus(linear::web::WebsiteApp& app, const std::string& method,
                  const std::string& path, const std::string& body, const std::string& token,
                  int expected, const std::string& name, std::string* bodyOut = nullptr,
                  const std::string& contentType = "application/json") {
@@ -498,7 +498,7 @@ void checkStatus(rblx::web::WebsiteApp& app, const std::string& method,
 void testHttp() {
     const std::string webRoot = testWebRoot();
 
-    rblx::web::Config config;
+    linear::web::Config config;
     config.nodeEnv = "test";
     config.isProduction = false;
     config.jwtSecret = "test-secret-that-is-long-enough-for-hs256";
@@ -523,19 +523,19 @@ void testHttp() {
     // order is to create it and then configure the name.
     std::string error;
     {
-        rblx::web::Store store(config.dataPath);
+        linear::web::Store store(config.dataPath);
         openSealed(store, config);
         check(store.load(&error), "app: the data file loads: " + error);
         if (store.findUserByName("TestPilot") == nullptr) {
             store.createUser("TestPilot",
-                             rblx::web::hashPassword("long-enough-password",
+                             linear::web::hashPassword("long-enough-password",
                                                      config.passwordIterations),
                              "2026-01-01T00:00:00Z");
             check(store.save(&error), "app: the admin account is written: " + error);
         }
     }
 
-    rblx::web::WebsiteApp app(config);
+    linear::web::WebsiteApp app(config);
     check(app.initialize(&error), "app initialises: " + error);
     app.installRoutes();
     check(app.start(&error), "app listens: " + error);
@@ -569,7 +569,7 @@ void testHttp() {
                 "{\"username\":\"TestPilot\",\"password\":\"long-enough-password\"," +
                     signupCaptcha + "}",
                 std::string(), 200, "an existing admin signs in", &body);
-    rblx::web::Json signup = rblx::web::Json::parse(body, &error);
+    linear::web::Json signup = linear::web::Json::parse(body, &error);
     const std::string token = signup.member("token").asString();
     check(!token.empty(), "the session carries a token");
     check(signup.member("userId").asInteger(0) > 0, "the session names the account");
@@ -614,7 +614,7 @@ void testHttp() {
                                        validWorldLine() + "\\n\"}";
     checkStatus(app, "POST", "/api/games", createGameBody, token, 201, "creating a game succeeds",
                 &body);
-    rblx::web::Json created = rblx::web::Json::parse(body, &error);
+    linear::web::Json created = linear::web::Json::parse(body, &error);
     const int gameId = static_cast<int>(created.member("game").member("id").asInteger(0));
     check(gameId > 0, "the created game has an id");
     check(created.member("game").member("canEdit").asBool(), "the owner sees canEdit");
@@ -629,7 +629,7 @@ void testHttp() {
 
     checkStatus(app, "POST", "/api/games/" + std::to_string(gameId) + "/play",
                 "{\"launchClient\":false}", token, 200, "POST play returns a launch", &body);
-    rblx::web::Json play = rblx::web::Json::parse(body, &error);
+    linear::web::Json play = linear::web::Json::parse(body, &error);
     checkEqual(play.member("player").member("reason").asString(), "Client launch was skipped.",
                "play honours launchClient:false");
     check(play.member("server").member("port").asInteger(0) >= 7777,
@@ -649,7 +649,7 @@ void testHttp() {
     checkStatus(app, "POST", "/api/avatar", avatarBody, token, 200, "POST /api/avatar saves");
     checkStatus(app, "GET", "/api/avatar", std::string(), token, 200, "GET /api/avatar reads",
                 &body);
-    checkEqual(rblx::web::Json::parse(body, &error).member("avatar").member("faceId").asString(),
+    checkEqual(linear::web::Json::parse(body, &error).member("avatar").member("faceId").asString(),
                "wink", "the saved avatar face is returned");
 
     checkStatus(app, "POST", "/api/avatar", "{\"avatar\":{\"headColor\":[9,0,0]}}", token, 400,
@@ -657,7 +657,7 @@ void testHttp() {
 
     checkStatus(app, "POST", "/api/me/playtime", "{\"seconds\":120}", token, 200,
                 "POST /api/me/playtime records time", &body);
-    check(rblx::web::Json::parse(body, &error)
+    check(linear::web::Json::parse(body, &error)
               .member("profile")
               .member("stats")
               .member("playtimeSeconds")
@@ -696,7 +696,7 @@ void testHttp() {
                     machineCaptcha(app) + "}",
                 std::string(), 201, "a second account signs up", &body);
     const std::string outsiderToken =
-        rblx::web::Json::parse(body, &error).member("token").asString();
+        linear::web::Json::parse(body, &error).member("token").asString();
     checkStatus(app, "GET", "/api/admin/overview", std::string(), outsiderToken, 403,
                 "the admin overview rejects a normal account");
 
@@ -727,11 +727,11 @@ void testHttp() {
     checkContains(body, "hello", "the whole script is returned");
 
     {
-        rblx::web::Store reloaded(config.dataPath);
+        linear::web::Store reloaded(config.dataPath);
         openSealed(reloaded, config);
         std::string loadError;
         check(reloaded.load(&loadError), "the script path reaches the data file");
-        const rblx::web::GameRecord* saved = reloaded.findGame(gameId);
+        const linear::web::GameRecord* saved = reloaded.findGame(gameId);
         check(saved != nullptr && !saved->scriptPath.empty(),
               "the game remembers where its script is");
         check(saved != nullptr && std::filesystem::file_size(saved->scriptPath) ==
@@ -787,7 +787,7 @@ void testHttp() {
     // Moderation. The ladder itself is covered by ModerationTests; these checks
     // are about an account restricted here being unable to sign in or keep a
     // session, which is the part a player actually feels.
-    const rblx::web::UserRecord* outsider = app.store().findUserByName("Outsider");
+    const linear::web::UserRecord* outsider = app.store().findUserByName("Outsider");
     check(outsider != nullptr, "the second account exists");
     const std::string outsiderId = std::to_string(outsider != nullptr ? outsider->id : 0);
 
@@ -812,7 +812,7 @@ void testHttp() {
                 "the account reads its own profile", &body);
     checkContains(body, "\"coins\":250", "the account sees the coins it was given");
     {
-        rblx::web::Store reloaded(config.dataPath);
+        linear::web::Store reloaded(config.dataPath);
         openSealed(reloaded, config);
         std::string loadError;
         check(reloaded.load(&loadError), "the grant reaches the data file");
@@ -854,7 +854,7 @@ void testHttp() {
                     machineCaptcha(app) + "}",
                 std::string(), 200, "a pardoned account can sign in again");
 
-    const rblx::web::UserRecord* owner = app.store().firstUser();
+    const linear::web::UserRecord* owner = app.store().firstUser();
     checkStatus(app, "POST",
                 "/api/admin/users/" + std::to_string(owner != nullptr ? owner->id : 0) +
                     "/moderation",
@@ -869,11 +869,11 @@ void testHttp() {
     // A restriction that is not written down is not enforcement, so the account
     // is reloaded from the data file it was saved to.
     {
-        rblx::web::Store reloaded(config.dataPath);
+        linear::web::Store reloaded(config.dataPath);
         openSealed(reloaded, config);
         std::string loadError;
         check(reloaded.load(&loadError), "the moderation state reaches the data file");
-        const rblx::web::UserRecord* saved = reloaded.findUserByName("Outsider");
+        const linear::web::UserRecord* saved = reloaded.findUserByName("Outsider");
         check(saved != nullptr && saved->suspendedUntilMs > 0,
               "the suspension survives a restart");
     }
@@ -890,8 +890,8 @@ void testHttp() {
     // An appeal is about one named action, so the record's own ids are what the
     // account sends back.
     int suspensionAction = 0;
-    const rblx::web::Json standingAfterBan = rblx::web::Json::parse(body, &error);
-    for (const rblx::web::Json& entry : standingAfterBan.member("infractions").elements()) {
+    const linear::web::Json standingAfterBan = linear::web::Json::parse(body, &error);
+    for (const linear::web::Json& entry : standingAfterBan.member("infractions").elements()) {
         if (entry.member("kind").asString() == "suspension") {
             suspensionAction = static_cast<int>(entry.member("id").asInteger(0));
             break;
@@ -913,7 +913,7 @@ void testHttp() {
                 outsiderToken, 201, "a suspended account appeals the action it is under", &body);
     checkContains(body, "\"status\":\"open\"", "the appeal starts open");
     int appealId = static_cast<int>(
-        rblx::web::Json::parse(body, &error).member("appeal").member("id").asInteger(0));
+        linear::web::Json::parse(body, &error).member("appeal").member("id").asInteger(0));
     check(appealId > 0, "the filed appeal has an id");
     checkStatus(app, "POST", "/api/account/appeal",
                 appealTo + "\"message\":\"A second appeal about the same action.\"}",
@@ -942,14 +942,14 @@ void testHttp() {
                 "a reviewed appeal cannot be answered twice");
 
     {
-        rblx::web::Store reloaded(config.dataPath);
+        linear::web::Store reloaded(config.dataPath);
         openSealed(reloaded, config);
         std::string loadError;
         check(reloaded.load(&loadError), "the appeal reaches the data file");
-        const rblx::web::AppealRecord* saved = reloaded.findAppeal(appealId);
+        const linear::web::AppealRecord* saved = reloaded.findAppeal(appealId);
         check(saved != nullptr && saved->status == "accepted",
               "the accepted appeal survives a restart");
-        const rblx::web::UserRecord* account = reloaded.findUserByName("Outsider");
+        const linear::web::UserRecord* account = reloaded.findUserByName("Outsider");
         check(account != nullptr && !account->banned && account->suspendedUntilMs == 0,
               "the pardon survives a restart");
         check(account != nullptr && account->infractions.size() >= 3,
@@ -988,11 +988,11 @@ void testHttp() {
     checkContains(body, "\"stage\":\"anticheat\"", "the detection is listed for the dashboard");
 
     {
-        rblx::web::Store reloaded(config.dataPath);
+        linear::web::Store reloaded(config.dataPath);
         openSealed(reloaded, config);
         std::string loadError;
         check(reloaded.load(&loadError), "the detection count reaches the data file");
-        const rblx::web::UserRecord* saved = reloaded.findUserByName("TestPilot");
+        const linear::web::UserRecord* saved = reloaded.findUserByName("TestPilot");
         check(saved != nullptr && saved->clientDetections == 1,
               "the detection count survives a restart");
         check(saved != nullptr && saved->cheatStrikes == 1,
@@ -1006,7 +1006,7 @@ void testHttp() {
                     machineCaptcha(app) + "}",
                 std::string(), 201, "an account for the detection ladder signs up", &body);
     const std::string cheaterToken =
-        rblx::web::Json::parse(body, &error).member("token").asString();
+        linear::web::Json::parse(body, &error).member("token").asString();
 
     checkStatus(app, "POST", "/api/client-detections",
                 "{\"flag\":\"anticheat\",\"detail\":\"Debugger attached\"}", cheaterToken, 200,
@@ -1047,7 +1047,7 @@ void testHttp() {
 
     // The stored document must survive a restart.
     {
-        rblx::web::Store reloaded(config.dataPath);
+        linear::web::Store reloaded(config.dataPath);
         openSealed(reloaded, config);
         std::string loadError;
         check(reloaded.load(&loadError), "the app persisted its data file");
@@ -1062,7 +1062,7 @@ void testHttp() {
 void testStarterSeeding() {
     const auto stamp = std::chrono::high_resolution_clock::now().time_since_epoch().count();
     const auto root = std::filesystem::temp_directory_path() /
-                      ("rblx-starter-seed-" + std::to_string(stamp));
+                      ("linear-starter-seed-" + std::to_string(stamp));
     std::filesystem::create_directories(root / "games");
 
     const std::string worldText = "1\n" + validWorldLine() + "\n";
@@ -1076,7 +1076,7 @@ void testStarterSeeding() {
     auto platformerWorld = [&root]() { return (root / "games" / "sky-platformer.world").string(); };
     auto platformerScript = [&root]() { return (root / "games" / "sky-platformer.rbx").string(); };
 
-    rblx::web::Config config;
+    linear::web::Config config;
     config.nodeEnv = "test";
     config.passwordIterations = 800;
     config.gameInstanceEmptyGraceMs = 0;
@@ -1086,18 +1086,18 @@ void testStarterSeeding() {
     config.repoRoot = root.string();
     config.gameWorldsDir = (root / "data" / "game-worlds").string();
 
-    auto findByTitle = [](rblx::web::Store& store, const std::string& title) {
-        for (const rblx::web::GameRecord* game : store.allGames()) {
+    auto findByTitle = [](linear::web::Store& store, const std::string& title) {
+        for (const linear::web::GameRecord* game : store.allGames()) {
             if (game->title == title) {
                 return game;
             }
         }
-        return static_cast<const rblx::web::GameRecord*>(nullptr);
+        return static_cast<const linear::web::GameRecord*>(nullptr);
     };
 
     // An install that predates the platformer: only the baseplate was shipped.
     {
-        rblx::web::WebsiteApp app(config);
+        linear::web::WebsiteApp app(config);
         std::string error;
         check(app.initialize(&error), "seeding: an old install initialises: " + error);
         check(findByTitle(app.store(), "Starter Baseplate") != nullptr,
@@ -1115,10 +1115,10 @@ void testStarterSeeding() {
     }
 
     {
-        rblx::web::WebsiteApp app(config);
+        linear::web::WebsiteApp app(config);
         std::string error;
         check(app.initialize(&error), "seeding: the existing install restarts: " + error);
-        const rblx::web::GameRecord* platformer = findByTitle(app.store(), "Sky Platformer");
+        const linear::web::GameRecord* platformer = findByTitle(app.store(), "Sky Platformer");
         check(platformer != nullptr, "seeding: an existing install gains the new starter game");
         check(platformer != nullptr && !platformer->scriptPath.empty(),
               "seeding: the starter script is copied next to the world");
@@ -1134,11 +1134,11 @@ void testStarterSeeding() {
 
     // Restarting again must not duplicate what is already published.
     {
-        rblx::web::WebsiteApp app(config);
+        linear::web::WebsiteApp app(config);
         std::string error;
         check(app.initialize(&error), "seeding: a third start succeeds: " + error);
         int platformers = 0;
-        for (const rblx::web::GameRecord* game : app.store().allGames()) {
+        for (const linear::web::GameRecord* game : app.store().allGames()) {
             if (game->title == "Sky Platformer") {
                 ++platformers;
             }
@@ -1156,7 +1156,7 @@ void testStarterSeeding() {
 void testBanWaves() {
     const std::string webRoot = testWebRoot();
 
-    rblx::web::Config config;
+    linear::web::Config config;
     config.nodeEnv = "test";
     config.passwordIterations = 800;
     config.authRateLimitMax = 1000;
@@ -1176,19 +1176,19 @@ void testBanWaves() {
     // is to create it, then configure the name, so the start below resolves it.
     std::string error;
     {
-        rblx::web::Store store(config.dataPath);
+        linear::web::Store store(config.dataPath);
         openSealed(store, config);
         check(store.load(&error), "ban wave: the data file loads: " + error);
         if (store.findUserByName("WavePilot") == nullptr) {
             store.createUser("WavePilot",
-                             rblx::web::hashPassword("long-enough-password",
+                             linear::web::hashPassword("long-enough-password",
                                                      config.passwordIterations),
                              "2026-01-01T00:00:00Z");
             check(store.save(&error), "ban wave: the admin account is written: " + error);
         }
     }
 
-    rblx::web::WebsiteApp app(config);
+    linear::web::WebsiteApp app(config);
     check(app.initialize(&error), "ban wave: app initialises: " + error);
     app.installRoutes();
     check(app.start(&error), "ban wave: app listens: " + error);
@@ -1201,7 +1201,7 @@ void testBanWaves() {
                 "{\"username\":\"WavePilot\",\"password\":\"long-enough-password\"," +
                     machineCaptcha(app) + "}",
                 std::string(), 200, "ban wave: the admin signs in", &body);
-    const std::string token = rblx::web::Json::parse(body, &error).member("token").asString();
+    const std::string token = linear::web::Json::parse(body, &error).member("token").asString();
 
     checkStatus(app, "POST", "/api/client-detections",
                 "{\"flag\":\"anticheat\",\"detail\":\"Debugger attached\"}", token, 200,
@@ -1240,7 +1240,7 @@ void testBanWaves() {
 void testAdminReplay() {
     const std::string webRoot = testWebRoot();
 
-    rblx::web::Config config;
+    linear::web::Config config;
     config.nodeEnv = "test";
     config.passwordIterations = 800;
     config.authRateLimitMax = 1000;
@@ -1266,13 +1266,13 @@ void testAdminReplay() {
         "1000:10.0,5.0,-2.0:10.0,5.0,-2.0|1016:60.0,5.0,-2.0:10.6,5.0,-2.0";
     int actionId = 0;
     {
-        rblx::web::Store store(config.dataPath);
+        linear::web::Store store(config.dataPath);
         openSealed(store, config);
         check(store.load(&error), "replay: the data file loads: " + error);
-        const rblx::web::UserRecord* pilot = store.findUserByName("ReplayPilot");
+        const linear::web::UserRecord* pilot = store.findUserByName("ReplayPilot");
         if (pilot == nullptr) {
             store.createUser("ReplayPilot",
-                             rblx::web::hashPassword("long-enough-password", 800),
+                             linear::web::hashPassword("long-enough-password", 800),
                              "2026-01-01T00:00:00Z");
             pilot = store.findUserByName("ReplayPilot");
         }
@@ -1288,7 +1288,7 @@ void testAdminReplay() {
         }
     }
 
-    rblx::web::WebsiteApp restarted(config);
+    linear::web::WebsiteApp restarted(config);
     check(restarted.initialize(&error), "replay: the app restarts: " + error);
     restarted.installRoutes();
     check(restarted.start(&error), "replay: the restarted app listens: " + error);
@@ -1300,7 +1300,7 @@ void testAdminReplay() {
                 "{\"username\":\"ReplayPilot\",\"password\":\"long-enough-password\"," +
                     machineCaptcha(restarted) + "}",
                 std::string(), 200, "replay: the admin signs in", &body);
-    const std::string token = rblx::web::Json::parse(body, &error).member("token").asString();
+    const std::string token = linear::web::Json::parse(body, &error).member("token").asString();
     check(!token.empty(), "replay: the login returns a token");
 
     const std::string route = "/api/admin/infractions/" + std::to_string(actionId) + "/replay";
@@ -1326,7 +1326,7 @@ void testAdminReplay() {
 void testDevTokens() {
     const std::string webRoot = testWebRoot();
 
-    rblx::web::Config config;
+    linear::web::Config config;
     config.nodeEnv = "test";
     config.passwordIterations = 800;
     config.authRateLimitMax = 1000;
@@ -1339,7 +1339,7 @@ void testDevTokens() {
     config.gameInstanceEmptyGraceMs = 0;
     config.publicBaseUrl = "http://127.0.0.1:3000";
 
-    rblx::web::WebsiteApp app(config);
+    linear::web::WebsiteApp app(config);
     std::string error;
     check(app.initialize(&error), "developer tokens: app initialises: " + error);
     app.installRoutes();
@@ -1353,7 +1353,7 @@ void testDevTokens() {
                 "{\"username\":\"TokenPilot\",\"password\":\"long-enough-password\"," +
                     machineCaptcha(app) + "}",
                 std::string(), 201, "developer tokens: the account signs up", &body);
-    const std::string token = rblx::web::Json::parse(body, &error).member("token").asString();
+    const std::string token = linear::web::Json::parse(body, &error).member("token").asString();
 
     checkStatus(app, "GET", "/api/dev/tokens", std::string(), token, 200,
                 "developer tokens: the list loads", &body);
@@ -1361,8 +1361,8 @@ void testDevTokens() {
 
     checkStatus(app, "POST", "/api/dev/tokens", "{\"label\":\"Ci\"}", token, 201,
                 "developer tokens: a token is created", &body);
-    const std::string secret = rblx::web::Json::parse(body, &error).member("token").asString();
-    check(secret.rfind("rblxai_", 0) == 0, "developer tokens: the secret names what it is");
+    const std::string secret = linear::web::Json::parse(body, &error).member("token").asString();
+    check(secret.rfind("linearai_", 0) == 0, "developer tokens: the secret names what it is");
     check(secret.size() > 32, "developer tokens: the secret has enough entropy to guess-proof it");
 
     checkStatus(app, "GET", "/api/dev/tokens", std::string(), token, 200,
@@ -1375,7 +1375,7 @@ void testDevTokens() {
                 "{\"title\":\"Token World\",\"worldText\":\"" + validWorldLine() + "\"}", token, 201,
                 "developer tokens: a game is published", &body);
     const int gameId = static_cast<int>(
-        rblx::web::Json::parse(body, &error).member("game").member("id").asInteger(0));
+        linear::web::Json::parse(body, &error).member("game").member("id").asInteger(0));
     check(gameId > 0, "developer tokens: the game has an id");
     const std::string gameBody = "{\"gameId\":" + std::to_string(gameId) + "}";
 
@@ -1401,7 +1401,7 @@ void testDevTokens() {
     int devTokenId = 0;
     checkStatus(app, "GET", "/api/dev/tokens", std::string(), token, 200,
                 "developer tokens: the list is read before revoking", &body);
-    const rblx::web::Json listed = rblx::web::Json::parse(body, &error);
+    const linear::web::Json listed = linear::web::Json::parse(body, &error);
     if (!listed.member("tokens").elements().empty()) {
         devTokenId = static_cast<int>(listed.member("tokens").elements().front().member("id").asInteger(0));
     }
@@ -1471,7 +1471,7 @@ void testDevTokens() {
 void testRateLimit() {
     const std::string webRoot = testWebRoot();
 
-    rblx::web::Config config;
+    linear::web::Config config;
     config.nodeEnv = "test";
     config.passwordIterations = 800;
     config.authRateLimitMax = 1000;
@@ -1485,7 +1485,7 @@ void testRateLimit() {
     config.gameInstanceEmptyGraceMs = 0;
     config.publicBaseUrl = "http://127.0.0.1:3000";
 
-    rblx::web::WebsiteApp app(config);
+    linear::web::WebsiteApp app(config);
     std::string error;
     check(app.initialize(&error), "rate limit: app initialises: " + error);
     app.installRoutes();

@@ -18,7 +18,7 @@
 #include <vector>
 
 namespace fs = std::filesystem;
-namespace git = rblx::git;
+namespace git = linear::git;
 
 namespace {
 
@@ -88,7 +88,7 @@ void testCompression() {
 }
 
 void testIndex() {
-    const fs::path dir = fs::temp_directory_path() / "rblx-git-tests-index";
+    const fs::path dir = fs::temp_directory_path() / "linear-git-tests-index";
     fs::remove_all(dir);
     fs::create_directories(dir);
 
@@ -132,7 +132,7 @@ void testIndex() {
 }
 
 void testRepository() {
-    const fs::path dir = fs::temp_directory_path() / "rblx-git-tests-repo";
+    const fs::path dir = fs::temp_directory_path() / "linear-git-tests-repo";
     fs::remove_all(dir);
     fs::create_directories(dir);
 

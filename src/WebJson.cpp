@@ -5,7 +5,7 @@
 #include <cstdlib>
 #include <cstring>
 
-namespace rblx {
+namespace linear {
 namespace web {
 namespace {
 
@@ -555,4 +555,4 @@ std::string formatJsonNumber(double value) {
 }
 
 }  // namespace web
-}  // namespace rblx
+}  // namespace linear

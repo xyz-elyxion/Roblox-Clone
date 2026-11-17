@@ -1,0 +1,7 @@
+# Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
+# file LICENSE.rst or https://linearbuild.org/licensing for details.
+
+set(LINEARBUILD_Fortran_VERBOSE_FLAG "-X -v") # Runs gcc under the hood.
+
+set(LINEARBUILD_Fortran_OSX_COMPATIBILITY_VERSION_FLAG "-compatibility_version ")
+set(LINEARBUILD_Fortran_OSX_CURRENT_VERSION_FLAG "-current_version ")

@@ -18,7 +18,7 @@
 // anti-cheat and to learn the process names it accepts; anything that actually
 // has to be trusted is checked on the server, which the player cannot read.
 
-namespace rblx::obf {
+namespace linear::obf {
 
     // One byte per string position, so repeating characters do not produce
     // repeating ciphertext and the mask cannot be guessed from a single known
@@ -67,13 +67,13 @@ namespace rblx::obf {
 // and only the decode runs at runtime.
 #define LINEAR_OBF(text)                                                                 \
     ([] {                                                                              \
-        static constexpr ::rblx::obf::Literal<char, sizeof(text)> literal(text);        \
+        static constexpr ::linear::obf::Literal<char, sizeof(text)> literal(text);        \
         return literal.str();                                                          \
     }())
 
 #define LINEAR_OBF_W(text)                                                               \
     ([] {                                                                              \
-        static constexpr ::rblx::obf::Literal<wchar_t, sizeof(text) / sizeof(wchar_t)>  \
+        static constexpr ::linear::obf::Literal<wchar_t, sizeof(text) / sizeof(wchar_t)>  \
             literal(text);                                                             \
         return literal.str();                                                          \
     }())

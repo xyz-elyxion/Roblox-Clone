@@ -1,0 +1,16 @@
+# Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
+# file LICENSE.rst or https://linearbuild.org/licensing for details.
+
+include_guard()
+
+macro(__freebsd_compiler_gnu lang)
+  # linker selection
+  set(LINEARBUILD_${lang}_USING_LINKER_SYSTEM "")
+  set(LINEARBUILD_${lang}_USING_LINKER_LLD "-fuse-ld=lld")
+  set(LINEARBUILD_${lang}_USING_LINKER_BFD "-fuse-ld=bfd")
+  set(LINEARBUILD_${lang}_USING_LINKER_GOLD "-fuse-ld=gold")
+  if(NOT LINEARBUILD_${lang}_COMPILER_ID STREQUAL "GNU"
+      OR LINEARBUILD_${lang}_COMPILER_VERSION VERSION_GREATER_EQUAL "12.1")
+    set(LINEARBUILD_${lang}_USING_LINKER_MOLD "-fuse-ld=mold")
+  endif()
+endmacro()

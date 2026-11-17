@@ -5,7 +5,7 @@
 #include <utility>
 #include <vector>
 
-namespace rblx {
+namespace linear {
 namespace web {
 
 // Minimal JSON value used by the native website backend. Objects keep their
@@ -74,4 +74,4 @@ std::string jsonEscape(const std::string& value);
 std::string formatJsonNumber(double value);
 
 }  // namespace web
-}  // namespace rblx
+}  // namespace linear

@@ -1,0 +1,4 @@
+include(Compiler/Clang-ASM)
+include(Compiler/EMBTClang)
+
+string(APPEND LINEARBUILD_ASM_FLAGS_INIT " -q")

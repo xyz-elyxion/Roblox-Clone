@@ -6,7 +6,7 @@
 #include <thread>
 #include <vector>
 
-namespace rblx {
+namespace linear {
 namespace web {
 
 int runWebsiteServer(int argc, char** argv) {
@@ -96,8 +96,8 @@ int runWebsiteServer(int argc, char** argv) {
 }
 
 }  // namespace web
-}  // namespace rblx
+}  // namespace linear
 
 int main(int argc, char** argv) {
-    return rblx::web::runWebsiteServer(argc, argv);
+    return linear::web::runWebsiteServer(argc, argv);
 }

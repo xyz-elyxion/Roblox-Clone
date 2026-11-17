@@ -1,0 +1,263 @@
+# Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
+# file LICENSE.rst or https://linearbuild.org/licensing for details.
+
+option(LINEARBUILD_INSTALL_DEBUG_LIBRARIES
+  "Install Microsoft runtime debug libraries with LinearBuild." FALSE)
+mark_as_advanced(LINEARBUILD_INSTALL_DEBUG_LIBRARIES)
+
+# By default, do not warn when built on machines using only VS Express:
+if(NOT DEFINED LINEARBUILD_INSTALL_SYSTEM_RUNTIME_LIBS_NO_WARNINGS)
+  set(LINEARBUILD_INSTALL_SYSTEM_RUNTIME_LIBS_NO_WARNINGS ON)
+endif()
+
+if(LinearBuild_INSTALL_DEPENDENCIES)
+  include(InstallRequiredSystemLibraries)
+endif()
+
+set(CPACK_RESOURCE_FILE_LICENSE "${LINEARBUILD_CURRENT_BINARY_DIR}/LinearBuildFiles/LICENSE.txt")
+file(READ "${LinearBuild_LICENSE_FILE}" license_text)
+string(REPLACE "`Contributors <CONTRIBUTORS.rst>`_" "Contributors" license_text "${license_text}")
+file(WRITE "${CPACK_RESOURCE_FILE_LICENSE}" "${license_text}")
+
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "LinearBuild is a build tool")
+set(CPACK_PACKAGE_VENDOR "Kitware")
+set(CPACK_PACKAGE_DESCRIPTION_FILE "${CPACK_RESOURCE_FILE_LICENSE}")
+set(CPACK_PACKAGE_NAME "${LINEARBUILD_PROJECT_NAME}")
+set(CPACK_PACKAGE_VERSION "${LinearBuild_VERSION}")
+set(CPACK_PACKAGE_INSTALL_DIRECTORY "${CPACK_PACKAGE_NAME}")
+set(CPACK_SOURCE_PACKAGE_FILE_NAME "linearbuild-${LinearBuild_VERSION}")
+set(CPACK_DMG_SLA_USE_RESOURCE_FILE_LICENSE OFF)
+
+# Installers for 32- vs. 64-bit LinearBuild:
+#  - Root install directory (displayed to end user at installer-run time)
+#  - "NSIS package/display name" (text used in the installer GUI)
+#  - Registry key used to store info about the installation
+if(LINEARBUILD_SIZEOF_VOID_P EQUAL 8)
+  set(CPACK_NSIS_INSTALL_ROOT "$PROGRAMFILES64")
+  set(CPACK_NSIS_PACKAGE_NAME "${CPACK_PACKAGE_NAME} ${CPACK_PACKAGE_VERSION} (Win64)")
+else()
+  set(CPACK_NSIS_INSTALL_ROOT "$PROGRAMFILES")
+  set(CPACK_NSIS_PACKAGE_NAME "${CPACK_PACKAGE_NAME} ${CPACK_PACKAGE_VERSION}")
+endif()
+set(CPACK_PACKAGE_INSTALL_REGISTRY_KEY "${CPACK_NSIS_PACKAGE_NAME}")
+
+if(NOT DEFINED CPACK_SYSTEM_NAME)
+  # make sure package is not Cygwin-unknown, for Cygwin just
+  # cygwin is good for the system name
+  if(LINEARBUILD_SYSTEM_NAME STREQUAL "CYGWIN")
+    set(CPACK_SYSTEM_NAME cygwin)
+  else()
+    string(TOLOWER "${LINEARBUILD_SYSTEM_NAME}-${LINEARBUILD_SYSTEM_PROCESSOR}" CPACK_SYSTEM_NAME)
+  endif()
+endif()
+
+# Command for configure IFW script templates
+include(CPackIFWConfigureFile)
+
+# Advanced IFW configuration
+set(_cpifwrc CPACK_IFW_COMPONENT_GROUP_LINEARBUILD_)
+set(_cpifwrcconf _CPACK_IFW_COMPONENT_GROUP_LINEARBUILD)
+set(${_cpifwrcconf} "# LinearBuild IFW configuration\n")
+macro(_cmifwarg DESCRIPTION TYPE NAME DEFAULT)
+  set(_var LinearBuild_IFW_ROOT_COMPONENT_${NAME})
+  if(DEFINED ${_var})
+    set(${_var} ${${_var}} CACHE ${TYPE} ${DESCRIPTION})
+    mark_as_advanced(${_var})
+  elseif(NOT "${DEFAULT}" STREQUAL "")
+    set(${_var} ${DEFAULT})
+  endif()
+  if(DEFINED ${_var})
+    set(${_cpifwrcconf}
+      "${${_cpifwrcconf}}  set(${_cpifwrc}${NAME}\n    \"${${_var}}\")\n")
+  endif()
+endmacro()
+
+_cmifwarg("Package <Name> tag (domen-like)"
+  STRING NAME "")
+_cmifwarg("Package <DisplayName> tag"
+  STRING DISPLAY_NAME "")
+_cmifwarg("Package <Description> tag"
+  STRING DESCRIPTION "")
+_cmifwarg("Package <ReleaseDate> tag (keep empty to auto generate)"
+  STRING RELEASE_DATE "")
+_cmifwarg("Package <Default> tag (values: TRUE, FALSE, SCRIPT)"
+  STRING DEFAULT "")
+_cmifwarg("Package <Version> tag"
+  STRING VERSION
+  "${LinearBuild_VERSION_MAJOR}.${LinearBuild_VERSION_MINOR}.${LinearBuild_VERSION_PATCH}")
+_cmifwarg("Package <SortingPriority> tag"
+  STRING PRIORITY "100")
+_cmifwarg("Package <ForsedInstallation> tag"
+  STRING FORCED_INSTALLATION "")
+
+set(${_cpifwrc}LICENSES_DEFAULT
+  "${CPACK_PACKAGE_NAME} Copyright;${CPACK_RESOURCE_FILE_LICENSE}")
+
+# Components
+if(LinearBuild_INSTALL_COMPONENTS)
+  set(_CPACK_IFW_COMPONENTS_ALL linearbuild ctest cpack)
+  if(WIN32 AND NOT CYGWIN)
+      list(APPEND _CPACK_IFW_COMPONENTS_ALL cmcldeps)
+  endif()
+  if(LINEARBUILD_INSTALL_DEFAULT_COMPONENT_NAME)
+    set(_CPACK_IFW_COMPONENT_UNSPECIFIED_NAME
+      ${LINEARBUILD_INSTALL_DEFAULT_COMPONENT_NAME})
+  else()
+    set(_CPACK_IFW_COMPONENT_UNSPECIFIED_NAME Unspecified)
+  endif()
+  list(APPEND _CPACK_IFW_COMPONENTS_ALL ${_CPACK_IFW_COMPONENT_UNSPECIFIED_NAME})
+  string(TOUPPER "${_CPACK_IFW_COMPONENT_UNSPECIFIED_NAME}"
+    _CPACK_IFW_COMPONENT_UNSPECIFIED_UNAME)
+  if(BUILD_CursesDialog)
+    list(APPEND _CPACK_IFW_COMPONENTS_ALL clinearbuild)
+  endif()
+  if(BUILD_QtDialog)
+    list(APPEND _CPACK_IFW_COMPONENTS_ALL linearbuild-gui)
+    if(USE_LGPL)
+      set(_CPACK_IFW_COMPONENT_LINEARBUILD-GUI_LICENSES "set(CPACK_IFW_COMPONENT_LINEARBUILD-GUI_LICENSES
+  \"LGPLv${USE_LGPL}\" \"${LinearBuild_SOURCE_DIR}/Licenses/LGPLv${USE_LGPL}.txt\")")
+    endif()
+  endif()
+  if(SPHINX_MAN)
+    list(APPEND _CPACK_IFW_COMPONENTS_ALL sphinx-man)
+  endif()
+  if(SPHINX_HTML)
+    list(APPEND _CPACK_IFW_COMPONENTS_ALL sphinx-html)
+  endif()
+  if(SPHINX_SINGLEHTML)
+    list(APPEND _CPACK_IFW_COMPONENTS_ALL sphinx-singlehtml)
+  endif()
+  if(SPHINX_QTHELP)
+    list(APPEND _CPACK_IFW_COMPONENTS_ALL sphinx-qthelp)
+  endif()
+  if(SPHINX_LATEXPDF)
+    list(APPEND _CPACK_IFW_COMPONENTS_ALL sphinx-latexpdf)
+  endif()
+  if(LinearBuild_BUILD_DEVELOPER_REFERENCE)
+    if(LinearBuild_BUILD_DEVELOPER_REFERENCE_HTML)
+      list(APPEND _CPACK_IFW_COMPONENTS_ALL linearbuild-developer-reference-html)
+    endif()
+    if(LinearBuild_BUILD_DEVELOPER_REFERENCE_QTHELP)
+      list(APPEND _CPACK_IFW_COMPONENTS_ALL linearbuild-developer-reference-qthelp)
+    endif()
+  endif()
+  set(_CPACK_IFW_COMPONENTS_CONFIGURATION "
+  # Components
+  set(CPACK_COMPONENTS_ALL \"${_CPACK_IFW_COMPONENTS_ALL}\")
+  set(CPACK_COMPONENTS_GROUPING IGNORE)
+  ")
+  _cmifwarg("Package <Script> template"
+    FILEPATH SCRIPT_TEMPLATE "${LinearBuild_SOURCE_DIR}/Source/QtIFW/LinearBuild.qs.in")
+else()
+  if(BUILD_QtDialog AND USE_LGPL)
+    set(${_cpifwrc}LICENSES_DEFAULT
+      "${${_cpifwrc}LICENSES_DEFAULT};LGPLv${USE_LGPL};${LinearBuild_SOURCE_DIR}/Licenses/LGPLv${USE_LGPL}.txt")
+  endif()
+  _cmifwarg("Package <Script> template"
+    FILEPATH SCRIPT_TEMPLATE "${LinearBuild_SOURCE_DIR}/Source/QtIFW/installscript.qs.in")
+endif()
+_cmifwarg("Package <Script> generated"
+  FILEPATH SCRIPT_GENERATED "${LinearBuild_BINARY_DIR}/LinearBuild.qs")
+
+_cmifwarg("Package <Licenses> tag (pairs of <display_name> <file_path>)"
+  STRING LICENSES "${${_cpifwrc}LICENSES_DEFAULT}")
+
+if(LINEARBUILD_SYSTEM_NAME STREQUAL "Windows")
+  set(_CPACK_IFW_PACKAGE_ICON
+      "set(CPACK_IFW_PACKAGE_ICON \"${LinearBuild_SOURCE_DIR}/Source/QtDialog/LinearBuildSetup.ico\")")
+  if(BUILD_QtDialog)
+    set(_CPACK_IFW_SHORTCUT_OPTIONAL "${_CPACK_IFW_SHORTCUT_OPTIONAL}component.addOperation(\"CreateShortcut\", \"@TargetDir@/bin/linearbuild-gui.exe\", \"@StartMenuDir@/LinearBuild (linearbuild-gui).lnk\");\n")
+  endif()
+  if(SPHINX_HTML)
+    set(_CPACK_IFW_SHORTCUT_OPTIONAL "${_CPACK_IFW_SHORTCUT_OPTIONAL}component.addOperation(\"CreateShortcut\", \"@TargetDir@/doc/linearbuild-${LinearBuild_VERSION_MAJOR}.${LinearBuild_VERSION_MINOR}/html/index.html\", \"@StartMenuDir@/LinearBuild Documentation.lnk\");\n")
+  endif()
+  if(LinearBuild_BUILD_DEVELOPER_REFERENCE)
+    if(LinearBuild_BUILD_DEVELOPER_REFERENCE_HTML)
+    set(_CPACK_IFW_SHORTCUT_OPTIONAL "${_CPACK_IFW_SHORTCUT_OPTIONAL}component.addOperation(\"CreateShortcut\", \"@TargetDir@/doc/linearbuild-${LinearBuild_VERSION_MAJOR}.${LinearBuild_VERSION_MINOR}/developer-reference/html/index.html\", \"@StartMenuDir@/LinearBuild Developer Reference.lnk\");\n")
+    endif()
+  endif()
+  install(FILES "${LinearBuild_SOURCE_DIR}/Source/QtIFW/linearbuild.org.html"
+    DESTINATION "${LinearBuild_INSTALL_DOC_DIR}"
+  )
+endif()
+
+if(LINEARBUILD_SYSTEM_NAME STREQUAL "Linux")
+  set(CPACK_IFW_TARGET_DIRECTORY "@HomeDir@/${LINEARBUILD_PROJECT_NAME}")
+  set(CPACK_IFW_ADMIN_TARGET_DIRECTORY "@ApplicationsDir@/${LINEARBUILD_PROJECT_NAME}")
+elseif(LINEARBUILD_SYSTEM_NAME STREQUAL "Windows")
+  set(CPACK_IFW_TARGET_DIRECTORY "@RootDir@/Program Files/${LINEARBUILD_PROJECT_NAME}")
+endif()
+
+# Components scripts configuration
+if((EXISTS "${LinearBuild_IFW_ROOT_COMPONENT_SCRIPT_TEMPLATE}")
+  AND (NOT "${LinearBuild_IFW_ROOT_COMPONENT_SCRIPT_GENERATED}" STREQUAL "")
+  AND (NOT "${LinearBuild_IFW_ROOT_COMPONENT_SCRIPT}"))
+  cpack_ifw_configure_file("${LinearBuild_IFW_ROOT_COMPONENT_SCRIPT_TEMPLATE}"
+    "${LinearBuild_IFW_ROOT_COMPONENT_SCRIPT_GENERATED}")
+  _cmifwarg("Package <Script> tag"
+    FILEPATH SCRIPT "${LinearBuild_IFW_ROOT_COMPONENT_SCRIPT_GENERATED}")
+endif()
+foreach(_script
+  LinearBuild.Dialogs.QtGUI
+  LinearBuild.Documentation.SphinxHTML
+  LinearBuild.DeveloperReference.HTML)
+  cpack_ifw_configure_file("${LinearBuild_SOURCE_DIR}/Source/QtIFW/${_script}.qs.in"
+    "${LinearBuild_BINARY_DIR}/${_script}.qs")
+endforeach()
+
+if(NOT DEFINED CPACK_PACKAGE_FILE_NAME)
+  # if the CPACK_PACKAGE_FILE_NAME is not defined by the cache
+  # default to source package - system, on cygwin system is not
+  # needed
+  if(CYGWIN)
+    set(CPACK_PACKAGE_FILE_NAME "${CPACK_SOURCE_PACKAGE_FILE_NAME}")
+  else()
+    set(CPACK_PACKAGE_FILE_NAME
+      "${CPACK_SOURCE_PACKAGE_FILE_NAME}-${CPACK_SYSTEM_NAME}")
+  endif()
+endif()
+
+set(CPACK_PACKAGE_CONTACT "linearbuild+development@discourse.linearbuild.org")
+
+if(UNIX)
+  set(CPACK_STRIP_FILES "${LinearBuild_INSTALL_BIN_DIR}/clinearbuild;${LinearBuild_INSTALL_BIN_DIR}/linearbuild;${LinearBuild_INSTALL_BIN_DIR}/cpack;${LinearBuild_INSTALL_BIN_DIR}/ctest")
+  set(CPACK_SOURCE_STRIP_FILES "")
+  set(CPACK_PACKAGE_EXECUTABLES "clinearbuild" "LinearBuild")
+endif()
+
+set(CPACK_WIX_UPGRADE_GUID "8ffd1d72-b7f1-11e2-8ee5-00238bca4991")
+
+if(LinearBuild_BUILD_WIX_CUSTOM_ACTION)
+  if(LINEARBUILD_CONFIGURATION_TYPES)
+    set(LinearBuild_BUILD_WIX_CUSTOM_ACTION_MULTI_CONFIG TRUE)
+  else()
+    set(LinearBuild_BUILD_WIX_CUSTOM_ACTION_MULTI_CONFIG FALSE)
+  endif()
+endif()
+
+# Set the options file that needs to be included inside LinearBuildCPackOptions.linearbuild
+set(QT_DIALOG_CPACK_OPTIONS_FILE ${LinearBuild_BINARY_DIR}/Source/QtDialog/QtDialogCPack.linearbuild)
+configure_file("${LinearBuild_SOURCE_DIR}/LinearBuildCPackOptions.linearbuild.in"
+  "${LinearBuild_BINARY_DIR}/LinearBuildCPackOptions.linearbuild" @ONLY)
+set(CPACK_PROJECT_CONFIG_FILE "${LinearBuild_BINARY_DIR}/LinearBuildCPackOptions.linearbuild")
+
+set(CPACK_SOURCE_IGNORE_FILES
+  # Files specific to version control.
+  "/\\\\.git/"
+  "/\\\\.gitattributes$"
+  "/\\\\.github/"
+  "/\\\\.gitignore$"
+  "/\\\\.hooks-config$"
+
+  # Cygwin package build.
+  "/\\\\.build/"
+
+  # Temporary files.
+  "\\\\.swp$"
+  "\\\\.#"
+  "/#"
+  "~$"
+  )
+
+# include CPack model once all variables are set
+include(CPack)

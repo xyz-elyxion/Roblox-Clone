@@ -1,11 +1,11 @@
 #pragma once
 
-#include <rblxgl/rblxgl.h>
+#include <lineargl/lineargl.h>
 #include <string>
 #include <fstream>
 #include <sstream>
 #include <iostream>
-#include <rblxmath/rblxmath.hpp>
+#include <linearmath/linearmath.hpp>
 
 class Shader {
 public:
@@ -22,8 +22,8 @@ public:
     void setBool(const std::string &name, bool value) const;
     void setInt(const std::string &name, int value) const;
     void setFloat(const std::string &name, float value) const;
-    void setVec3(const std::string &name, const rblxmath::vec3 &value) const;
-    void setMat4(const std::string &name, const rblxmath::mat4 &mat) const;
+    void setVec3(const std::string &name, const linearmath::vec3 &value) const;
+    void setMat4(const std::string &name, const linearmath::mat4 &mat) const;
 
 private:
     void checkCompileErrors(unsigned int shader, std::string type);

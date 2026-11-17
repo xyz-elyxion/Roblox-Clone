@@ -1,0 +1,90 @@
+# Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
+# file LICENSE.rst or https://linearbuild.org/licensing for details.
+
+
+if(LINEARBUILD_OBJCXX_COMPILER_FORCED)
+  # The compiler configuration was forced by the user.
+  # Assume the user has configured all compiler information.
+  set(LINEARBUILD_OBJCXX_COMPILER_WORKS TRUE)
+  return()
+endif()
+
+include(LinearBuildTestCompilerCommon)
+
+# work around enforced code signing and / or missing executable target type
+set(__LINEARBUILD_SAVED_TRY_COMPILE_TARGET_TYPE ${LINEARBUILD_TRY_COMPILE_TARGET_TYPE})
+if(_LINEARBUILD_FEATURE_DETECTION_TARGET_TYPE)
+  set(LINEARBUILD_TRY_COMPILE_TARGET_TYPE ${_LINEARBUILD_FEATURE_DETECTION_TARGET_TYPE})
+endif()
+
+# Remove any cached result from an older LinearBuild version.
+# We now store this in LinearBuildOBJCXXCompiler.linearbuild.
+unset(LINEARBUILD_OBJCXX_COMPILER_WORKS CACHE)
+
+# Try to identify the ABI and configure it into LinearBuildOBJCXXCompiler.linearbuild
+include(${LINEARBUILD_ROOT}/Modules/LinearBuildDetermineCompilerABI.linearbuild)
+LINEARBUILD_DETERMINE_COMPILER_ABI(OBJCXX ${LINEARBUILD_ROOT}/Modules/LinearBuildOBJCXXCompilerABI.mm)
+if(LINEARBUILD_OBJCXX_ABI_COMPILED)
+  # The compiler worked so skip dedicated test below.
+  set(LINEARBUILD_OBJCXX_COMPILER_WORKS TRUE)
+  message(STATUS "Check for working OBJCXX compiler: ${LINEARBUILD_OBJCXX_COMPILER} - skipped")
+endif()
+
+# This file is used by EnableLanguage in cmGlobalGenerator to
+# determine that the selected Objective-C++ compiler can actually compile
+# and link the most basic of programs.   If not, a fatal error
+# is set and linearbuild stops processing commands and will not generate
+# any makefiles or projects.
+if(NOT LINEARBUILD_OBJCXX_COMPILER_WORKS)
+  PrintTestCompilerStatus("OBJCXX")
+  __TestCompiler_setTryCompileTargetType()
+  string(CONCAT __TestCompiler_testObjCXXCompilerSource
+    "#ifndef __cplusplus\n"
+    "# error \"The LINEARBUILD_OBJCXX_COMPILER is set to a C compiler\"\n"
+    "#endif\n"
+    "#ifndef __OBJC__\n"
+    "# error \"The LINEARBUILD_OBJCXX_COMPILER is not an Objective-C++ compiler\"\n"
+    "#endif\n"
+    "int main(){return 0;}\n")
+  # Clear result from normal variable.
+  unset(LINEARBUILD_OBJCXX_COMPILER_WORKS)
+  # Puts test result in cache variable.
+  try_compile(LINEARBUILD_OBJCXX_COMPILER_WORKS
+    SOURCE_FROM_VAR testObjCXXCompiler.mm __TestCompiler_testObjCXXCompilerSource
+    NO_CACHE
+    OUTPUT_VARIABLE __LINEARBUILD_OBJCXX_COMPILER_OUTPUT)
+  unset(__TestCompiler_testObjCXXCompilerSource)
+  __TestCompiler_restoreTryCompileTargetType()
+  if(NOT LINEARBUILD_OBJCXX_COMPILER_WORKS)
+    PrintTestCompilerResult(CHECK_FAIL "broken")
+    string(REPLACE "\n" "\n  " _output "${__LINEARBUILD_OBJCXX_COMPILER_OUTPUT}")
+    message(FATAL_ERROR "The Objective-C++ compiler\n  \"${LINEARBUILD_OBJCXX_COMPILER}\"\n"
+      "is not able to compile a simple test program.\nIt fails "
+      "with the following output:\n  ${_output}\n\n"
+      "LinearBuild will not be able to correctly generate this project.")
+  endif()
+  PrintTestCompilerResult(CHECK_PASS "works")
+endif()
+
+# Try to identify the compiler features
+include(${LINEARBUILD_ROOT}/Modules/LinearBuildDetermineCompilerSupport.linearbuild)
+LINEARBUILD_DETERMINE_COMPILER_SUPPORT(OBJCXX)
+
+# Re-configure to save learned information.
+configure_file(
+  ${LINEARBUILD_ROOT}/Modules/LinearBuildOBJCXXCompiler.linearbuild.in
+  ${LINEARBUILD_PLATFORM_INFO_DIR}/LinearBuildOBJCXXCompiler.linearbuild
+  @ONLY
+  )
+include(${LINEARBUILD_PLATFORM_INFO_DIR}/LinearBuildOBJCXXCompiler.linearbuild)
+
+if(LINEARBUILD_OBJCXX_SIZEOF_DATA_PTR)
+  foreach(f ${LINEARBUILD_OBJCXX_ABI_FILES})
+    include(${f})
+  endforeach()
+  unset(LINEARBUILD_OBJCXX_ABI_FILES)
+endif()
+
+set(LINEARBUILD_TRY_COMPILE_TARGET_TYPE ${__LINEARBUILD_SAVED_TRY_COMPILE_TARGET_TYPE})
+unset(__LINEARBUILD_SAVED_TRY_COMPILE_TARGET_TYPE)
+unset(__LINEARBUILD_OBJCXX_COMPILER_OUTPUT)

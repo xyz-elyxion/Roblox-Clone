@@ -29,21 +29,21 @@ namespace {
     // literal inside a std::list<std::wstring> initializer, and a narrow one
     // passed to a parameter that takes a std::string by value.
     void takeSettingsLogName(const std::string logFileName) {
-        check(logFileName == std::string("RBLXAntiCheat.log"),
+        check(logFileName == std::string("LinearAntiCheat.log"),
               "a decoded literal converts into a by-value std::string parameter");
     }
 
 }
 
 int main() {
-    check(LINEAR_OBF("RBLXAntiCheat.log") == std::string("RBLXAntiCheat.log"),
+    check(LINEAR_OBF("LinearAntiCheat.log") == std::string("LinearAntiCheat.log"),
           "a narrow literal decodes back to itself");
     check(LINEAR_OBF("") == std::string(""), "an empty literal decodes to an empty string");
     check(LINEAR_OBF("Client.exe") == std::string("Client.exe"),
           "a second literal decodes independently");
 
-    const std::string decoded = LINEAR_OBF("RBLXAntiCheat did not start: ");
-    check(decoded == std::string("RBLXAntiCheat did not start: "),
+    const std::string decoded = LINEAR_OBF("LinearAntiCheat did not start: ");
+    check(decoded == std::string("LinearAntiCheat did not start: "),
           "a longer sentence decodes exactly");
     check(decoded.back() == ' ', "trailing whitespace survives the round trip");
 
@@ -65,7 +65,7 @@ int main() {
               allowedParents.back() == std::wstring(L"powershell.exe"),
           "wide literals populate the allowed-parent list in order");
 
-    takeSettingsLogName(LINEAR_OBF("RBLXAntiCheat.log"));
+    takeSettingsLogName(LINEAR_OBF("LinearAntiCheat.log"));
 
     if (failures != 0) {
         std::printf("%d obfuscation check(s) failed.\n", failures);

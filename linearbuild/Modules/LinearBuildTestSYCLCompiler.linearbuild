@@ -1,0 +1,86 @@
+# Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
+# file LICENSE.rst or https://linearbuild.org/licensing for details.
+
+
+if(LINEARBUILD_SYCL_COMPILER_FORCED)
+  set(LINEARBUILD_SYCL_COMPILER_WORKS TRUE)
+  return()
+endif()
+
+include(LinearBuildTestCompilerCommon)
+
+set(__LINEARBUILD_SAVED_TRY_COMPILE_TARGET_TYPE ${LINEARBUILD_TRY_COMPILE_TARGET_TYPE})
+if(_LINEARBUILD_FEATURE_DETECTION_TARGET_TYPE)
+  set(LINEARBUILD_TRY_COMPILE_TARGET_TYPE ${_LINEARBUILD_FEATURE_DETECTION_TARGET_TYPE})
+endif()
+
+unset(LINEARBUILD_SYCL_COMPILER_WORKS CACHE)
+
+include(${LINEARBUILD_ROOT}/Modules/LinearBuildDetermineCompilerABI.linearbuild)
+LINEARBUILD_DETERMINE_COMPILER_ABI(SYCL ${LINEARBUILD_ROOT}/Modules/LinearBuildSYCLCompilerABI.sycl)
+
+if(LINEARBUILD_SYCL_ABI_COMPILED)
+  set(LINEARBUILD_SYCL_COMPILER_WORKS TRUE)
+  message(STATUS "Check for working SYCL compiler: ${LINEARBUILD_SYCL_COMPILER} - skipped")
+endif()
+
+if(NOT LINEARBUILD_SYCL_COMPILER_WORKS)
+  PrintTestCompilerStatus("SYCL")
+  __TestCompiler_setTryCompileTargetType()
+  string(CONCAT __TestCompiler_testSYCLCompilerSource
+    "#ifndef __cplusplus\n"
+    "# error \"The LINEARBUILD_SYCL_COMPILER is not compiling as C++\"\n"
+    "#endif\n"
+    "#include <sycl/sycl.hpp>\n"
+    "class LinearBuildSYCLCompilerTest;\n"
+    "int main() {\n"
+    "  sycl::queue queue;\n"
+    "  queue.single_task<LinearBuildSYCLCompilerTest>([] {}).wait();\n"
+    "  return 0;\n"
+    "}\n")
+  unset(LINEARBUILD_SYCL_COMPILER_WORKS)
+  try_compile(LINEARBUILD_SYCL_COMPILER_WORKS
+    SOURCE_FROM_VAR testSYCLCompiler.sycl __TestCompiler_testSYCLCompilerSource
+    NO_CACHE
+    OUTPUT_VARIABLE __LINEARBUILD_SYCL_COMPILER_OUTPUT)
+  __TestCompiler_restoreTryCompileTargetType()
+  unset(__TestCompiler_testSYCLCompilerSource)
+  if(NOT LINEARBUILD_SYCL_COMPILER_WORKS)
+    PrintTestCompilerResult(CHECK_FAIL "broken")
+    string(REPLACE "\n" "\n  " _output "${__LINEARBUILD_SYCL_COMPILER_OUTPUT}")
+    message(FATAL_ERROR "The SYCL compiler\n  \"${LINEARBUILD_SYCL_COMPILER}\"\n"
+      "is not able to compile a SYCL test program.\nIt fails "
+      "with the following output:\n  ${_output}\n\n"
+      "LinearBuild will not be able to correctly generate this project.")
+  endif()
+  PrintTestCompilerResult(CHECK_PASS "works")
+endif()
+
+if(NOT LINEARBUILD_SYCL_IMPLICIT_LINK_LIBRARIES)
+  set(LINEARBUILD_SYCL_IMPLICIT_LINK_LIBRARIES "${LINEARBUILD_SYCL_HOST_IMPLICIT_LINK_LIBRARIES}")
+  set(LINEARBUILD_SYCL_IMPLICIT_LINK_DIRECTORIES "${LINEARBUILD_SYCL_HOST_IMPLICIT_LINK_DIRECTORIES}")
+  set(LINEARBUILD_SYCL_IMPLICIT_LINK_FRAMEWORK_DIRECTORIES "${LINEARBUILD_SYCL_HOST_IMPLICIT_LINK_FRAMEWORK_DIRECTORIES}")
+endif()
+include(Internal/LinearBuildSYCLFilterImplicitLibs)
+linearbuild_sycl_filter_implicit_libs(LINEARBUILD_SYCL_IMPLICIT_LINK_LIBRARIES)
+
+include(${LINEARBUILD_ROOT}/Modules/LinearBuildDetermineCompilerSupport.linearbuild)
+LINEARBUILD_DETERMINE_COMPILER_SUPPORT(SYCL)
+
+configure_file(
+  ${LINEARBUILD_ROOT}/Modules/LinearBuildSYCLCompiler.linearbuild.in
+  ${LINEARBUILD_PLATFORM_INFO_DIR}/LinearBuildSYCLCompiler.linearbuild
+  @ONLY
+  )
+include(${LINEARBUILD_PLATFORM_INFO_DIR}/LinearBuildSYCLCompiler.linearbuild)
+
+if(LINEARBUILD_SYCL_SIZEOF_DATA_PTR)
+  foreach(f ${LINEARBUILD_SYCL_ABI_FILES})
+    include(${f})
+  endforeach()
+  unset(LINEARBUILD_SYCL_ABI_FILES)
+endif()
+
+set(LINEARBUILD_TRY_COMPILE_TARGET_TYPE ${__LINEARBUILD_SAVED_TRY_COMPILE_TARGET_TYPE})
+unset(__LINEARBUILD_SAVED_TRY_COMPILE_TARGET_TYPE)
+unset(__LINEARBUILD_SYCL_COMPILER_OUTPUT)

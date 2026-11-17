@@ -1,6 +1,6 @@
 name: Build
 
-# One workflow, two stages: build the vendored build tool out of rblxbuild/, then
+# One workflow, two stages: build the vendored build tool out of linearbuild/, then
 # use that tool - not an installed CMake on the runner - to configure, build, test and
 # package the game. If the tool cannot build the project, that is the failure this
 # workflow exists to report.
@@ -29,10 +29,10 @@ concurrency:
 env:
   # The tree does not vendor OpenSSL (no TLS needed to build the tool) and its
   # Tests/ directory was pruned, so neither belongs in a bootstrap.
-  RBLXBUILD_TOOL_FLAGS: -DRBLXBUILD_USE_OPENSSL=OFF -DBUILD_TESTING=OFF
+  LINEARBUILD_TOOL_FLAGS: -DLINEARBUILD_USE_OPENSSL=OFF -DBUILD_TESTING=OFF
   # GLFW and the other fetched dependencies declare minimum versions below 3.5,
-  # which RBLXBuild - like the tool it was forked from - refuses outright.
-  RBLXBUILD_POLICY_VERSION_MINIMUM: "3.5"
+  # which LinearBuild - like the tool it was forked from - refuses outright.
+  LINEARBUILD_POLICY_VERSION_MINIMUM: "3.5"
 
 jobs:
   windows:
@@ -62,20 +62,20 @@ jobs:
             mingw-w64-x86_64-gcc
 
       # The tool is vendored and changes rarely, so it is kept between runs: the
-      # key is the contents of rblxbuild/ itself, which is what "the compiler code
+      # key is the contents of linearbuild/ itself, which is what "the compiler code
       # has not changed" means, plus a token bumped by hand when the flags below
       # change. Hashing this workflow file instead would mean every edit here - a
       # comment, a concurrency group - threw the tool away. Only an exact key
       # hits: a near match would hand back a tool built from different sources,
       # which is worse than rebuilding.
       #
-      # bin alone is not a working tool. A build-tree rblxbuild finds its Modules
-      # by reading the source directory from RBLXBuildFiles/RBLXBuildSourceDir.txt
-      # beside it (FindRBLXBuildResourcesInBuildTree in
-      # rblxbuild/Source/cmSystemTools.cxx), and only an *installed* tool looks in
+      # bin alone is not a working tool. A build-tree linearbuild finds its Modules
+      # by reading the source directory from LinearBuildFiles/LinearBuildSourceDir.txt
+      # beside it (FindLinearBuildResourcesInBuildTree in
+      # linearbuild/Source/cmSystemTools.cxx), and only an *installed* tool looks in
       # share/<name>-<version>/. Caching bin and share without that pointer file is
       # what produced a restored tool that failed with "Could not find
-      # RBLXBUILD_ROOT" before it could configure anything, so the pointer file's
+      # LINEARBUILD_ROOT" before it could configure anything, so the pointer file's
       # directory is cached too, and the check below validates it.
       #
       # Restore and save are separate actions on purpose. actions/cache saves in a
@@ -87,12 +87,12 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: |
-            build/rblxbuild-tool/bin
-            build/rblxbuild-tool/share
-            build/rblxbuild-tool/RBLXBuildFiles
+            build/linearbuild-tool/bin
+            build/linearbuild-tool/share
+            build/linearbuild-tool/LinearBuildFiles
           # flags2: the key changed with the cached layout, so a cache written
-          # before RBLXBuildFiles was kept cannot be restored and skipped past.
-          key: rblxbuild-tool-${{ runner.os }}-flags2-${{ hashFiles('rblxbuild/**') }}
+          # before LinearBuildFiles was kept cannot be restored and skipped past.
+          key: linearbuild-tool-${{ runner.os }}-flags2-${{ hashFiles('linearbuild/**') }}
 
       - name: Look for a build tool
         id: tool
@@ -103,31 +103,31 @@ jobs:
           # this tree: the bootstrap only builds, it does not install, so share
           # never appeared and every run bootstrapped the tool again.
           root=""
-          if [ -f build/rblxbuild-tool/RBLXBuildFiles/RBLXBuildSourceDir.txt ]; then
-            root="$(cat build/rblxbuild-tool/RBLXBuildFiles/RBLXBuildSourceDir.txt)"
+          if [ -f build/linearbuild-tool/LinearBuildFiles/LinearBuildSourceDir.txt ]; then
+            root="$(cat build/linearbuild-tool/LinearBuildFiles/LinearBuildSourceDir.txt)"
           fi
-          if [ -f build/rblxbuild-tool/bin/rblxbuild.exe ] &&
-             [ -n "$root" ] && [ -f "$root/Modules/RBLXBuild.rblxbuild" ]; then
+          if [ -f build/linearbuild-tool/bin/linearbuild.exe ] &&
+             [ -n "$root" ] && [ -f "$root/Modules/LinearBuild.linearbuild" ]; then
             echo "reusing the build tool from the cache"
             # A restored archive can lose the executable bit, and the steps below
-            # run the tool as ./build/rblxbuild-tool/bin/rblxbuild.exe.
-            chmod +x build/rblxbuild-tool/bin/*.exe 2>/dev/null || true
+            # run the tool as ./build/linearbuild-tool/bin/linearbuild.exe.
+            chmod +x build/linearbuild-tool/bin/*.exe 2>/dev/null || true
             echo "reused=true" >> "$GITHUB_OUTPUT"
           else
             echo "no usable build tool cached; bootstrapping one"
             echo "reused=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Build RBLXBuild
+      - name: Build LinearBuild
         if: steps.tool.outputs.reused != 'true'
         # No --generator: bootstrap's MinGW default is "MSYS Makefiles", the
         # configuration whose POSIX paths MSYS make translates for native g++.
         run: |
-          mkdir -p build/rblxbuild-tool
-          cd build/rblxbuild-tool
-          ../../rblxbuild/bootstrap \
+          mkdir -p build/linearbuild-tool
+          cd build/linearbuild-tool
+          ../../linearbuild/bootstrap \
             --parallel=$(nproc) \
-            -- $RBLXBUILD_TOOL_FLAGS
+            -- $LINEARBUILD_TOOL_FLAGS
           make -j$(nproc)
 
       # Saved here rather than by a post step, so a build that fails later still
@@ -140,28 +140,28 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: |
-            build/rblxbuild-tool/bin
-            build/rblxbuild-tool/share
-            build/rblxbuild-tool/RBLXBuildFiles
+            build/linearbuild-tool/bin
+            build/linearbuild-tool/share
+            build/linearbuild-tool/LinearBuildFiles
           key: ${{ steps.tool-cache.outputs.cache-primary-key }}
 
       # Printed either way, so the log says which tool configured the build.
       - name: Report the build tool
-        run: ./build/rblxbuild-tool/bin/rblxbuild --version
+        run: ./build/linearbuild-tool/bin/linearbuild --version
 
-      - name: Configure the game with RBLXBuild
+      - name: Configure the game with LinearBuild
         run: >-
-          ./build/rblxbuild-tool/bin/rblxbuild -S . -B build/windows-release
+          ./build/linearbuild-tool/bin/linearbuild -S . -B build/windows-release
           -G "Visual Studio 17 2022" -A x64
-          -DRBLXBUILD_BUILD_TYPE=Release
+          -DLINEARBUILD_BUILD_TYPE=Release
 
-      - name: Build the game with RBLXBuild
+      - name: Build the game with LinearBuild
         run: >-
-          ./build/rblxbuild-tool/bin/rblxbuild --build build/windows-release
+          ./build/linearbuild-tool/bin/linearbuild --build build/windows-release
           --config Release --parallel $(nproc)
 
       - name: Test
-        # There is no rblxtest binary to run here. The Visual Studio generator
+        # There is no lineartest binary to run here. The Visual Studio generator
         # drops the executables in Release\, and the working directory stays the
         # build directory ctest used.
         run: |

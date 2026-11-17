@@ -1,0 +1,11 @@
+include(Compiler/Clang-CXX)
+include(Compiler/ARMClang)
+__compiler_armclang(CXX)
+
+if((NOT DEFINED LINEARBUILD_DEPENDS_USE_COMPILER OR LINEARBUILD_DEPENDS_USE_COMPILER)
+    AND LINEARBUILD_GENERATOR MATCHES "Makefiles|WMake"
+    AND LINEARBUILD_DEPFILE_FLAGS_CXX)
+  # dependencies are computed by the compiler itself
+  set(LINEARBUILD_CXX_DEPFILE_FORMAT gcc)
+  set(LINEARBUILD_CXX_DEPENDS_USE_COMPILER TRUE)
+endif()

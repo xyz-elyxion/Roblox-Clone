@@ -7,7 +7,7 @@
 
 #include "WebJson.h"
 
-namespace rblx {
+namespace linear {
 namespace web {
 
 // Avatar slots in the order the six RGB triplets are stored and rendered.
@@ -677,4 +677,4 @@ private:
 std::string dataKeyFromText(const std::string& text);
 
 }  // namespace web
-}  // namespace rblx
+}  // namespace linear

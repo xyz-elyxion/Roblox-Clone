@@ -13,7 +13,7 @@
 // waveOut is the OS mixer every Windows copy has; the build lists link winmm.
 #pragma comment(lib, "winmm.lib")
 
-namespace rblx {
+namespace linear {
 namespace audio {
 namespace {
 
@@ -246,4 +246,4 @@ void setMasterVolume(float volume) {
 float masterVolume() { return gain.load(); }
 
 }  // namespace audio
-}  // namespace rblx
+}  // namespace linear

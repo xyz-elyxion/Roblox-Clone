@@ -18,12 +18,12 @@ void check(bool condition, const char* what) {
 }  // namespace
 
 int main() {
-    using rblx::health::State;
+    using linear::health::State;
 
     {
         State state;
-        check(state.health == rblx::health::kMaxHealth, "a fresh player starts at full health");
-        check(state.maxHealth == rblx::health::kMaxHealth, "max health defaults to the constant");
+        check(state.health == linear::health::kMaxHealth, "a fresh player starts at full health");
+        check(state.maxHealth == linear::health::kMaxHealth, "max health defaults to the constant");
         check(!state.isDead(), "a fresh player is alive");
         check(state.respawnSecondsRemaining(0) == 0, "no respawn countdown while alive");
     }
@@ -48,7 +48,7 @@ int main() {
         check(!state.update(7000), "the player stays dead before the timer ends");
         check(state.isDead(), "still dead inside the respawn delay");
         check(state.update(8000), "the player respawns when the timer ends");
-        check(state.health == rblx::health::kMaxHealth, "respawn restores full health");
+        check(state.health == linear::health::kMaxHealth, "respawn restores full health");
         check(!state.isDead(), "the player is alive again");
         check(state.respawnSecondsRemaining(8000) == 0, "the countdown clears on respawn");
         check(state.deaths == 1, "respawning does not count as a death");
@@ -67,7 +67,7 @@ int main() {
         state.damage(100.0f, 0);
         check(!state.damage(100.0f, 10), "damage while dead is ignored");
         check(state.deaths == 1, "a dead player only counts one death");
-        check(state.respawnAtMs == rblx::health::kRespawnDelayMs,
+        check(state.respawnAtMs == linear::health::kRespawnDelayMs,
               "the death sets one respawn deadline and later damage does not push it back");
     }
 
@@ -76,7 +76,7 @@ int main() {
         check(!state.damage(std::nanf(""), 0), "NaN damage is ignored");
         check(!state.damage(std::numeric_limits<float>::infinity(), 0),
               "infinite damage is ignored");
-        check(state.health == rblx::health::kMaxHealth, "invalid damage leaves health untouched");
+        check(state.health == linear::health::kMaxHealth, "invalid damage leaves health untouched");
         check(!state.isDead(), "invalid damage cannot kill a player");
     }
 
@@ -99,12 +99,12 @@ int main() {
         state.health = 12.0f;
         state.dead = true;
         state.reset();
-        check(state.health == rblx::health::kMaxHealth, "reset restores full health");
+        check(state.health == linear::health::kMaxHealth, "reset restores full health");
         check(!state.isDead(), "reset clears the death flag");
     }
 
     {
-        check(rblx::health::kFallDeathHeight < 0.0f, "the fall death plane is below the world");
+        check(linear::health::kFallDeathHeight < 0.0f, "the fall death plane is below the world");
     }
 
     if (failures != 0) {

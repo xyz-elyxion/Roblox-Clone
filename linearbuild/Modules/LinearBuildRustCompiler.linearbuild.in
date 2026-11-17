@@ -1,0 +1,10 @@
+set(LINEARBUILD_Rust_COMPILER "@LINEARBUILD_Rust_COMPILER@")
+set(LINEARBUILD_Rust_COMPILER_ENV_VAR "RUSTC")
+set(LINEARBUILD_Rust_SOURCE_FILE_EXTENSIONS rs)
+set(LINEARBUILD_Rust_COMPILER_LOADED 1)
+set(LINEARBUILD_Rust_COMPILER_WORKS @LINEARBUILD_Rust_COMPILER_WORKS@)
+
+# Make sure LinearBuild prefers to link with Rust when Rust source files are present
+set(LINEARBUILD_Rust_LINKER_PREFERENCE 60)
+# Once compiled by Rust, static libraries can be linked by anyone.
+set(LINEARBUILD_Rust_LINKER_PREFERENCE_PROPAGATES 0)

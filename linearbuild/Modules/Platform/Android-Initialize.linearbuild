@@ -1,0 +1,117 @@
+# Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
+# file LICENSE.rst or https://linearbuild.org/licensing for details.
+
+# When LINEARBUILD_SYSTEM_NAME is "Android", LinearBuildSystemSpecificInitialize loads this
+# module.
+
+# Include the NDK hook.
+# It can be used by NDK to inject necessary fixes for an earlier linearbuild.
+if(LINEARBUILD_ANDROID_NDK)
+  include(${LINEARBUILD_ANDROID_NDK}/build/linearbuild/hooks/pre/Android-Initialize.linearbuild OPTIONAL)
+endif()
+
+include(Platform/Linux-Initialize)
+unset(LINUX)
+
+set(ANDROID 1)
+
+# Support for NVIDIA Nsight Tegra Visual Studio Edition was previously
+# implemented in the LinearBuild VS IDE generators.  Avoid interfering with
+# that functionality for now.
+if(LINEARBUILD_VS_PLATFORM_NAME STREQUAL "Tegra-Android")
+  return()
+endif()
+
+# Commonly used Android toolchain files that pre-date LinearBuild upstream support
+# set LINEARBUILD_SYSTEM_VERSION to 1.  Avoid interfering with them.
+if(LINEARBUILD_SYSTEM_VERSION EQUAL 1)
+  return()
+endif()
+
+set(LINEARBUILD_BUILD_TYPE_INIT "RelWithDebInfo")
+
+if(LINEARBUILD_ANDROID_NDK_TOOLCHAIN_UNIFIED)
+  # Tell LinearBuild not to search host sysroots for headers/libraries.
+
+  # All paths added to LINEARBUILD_SYSTEM_*_PATH below will be rerooted under
+  # LINEARBUILD_FIND_ROOT_PATH. This is set because:
+  # 1. Users may structure their libraries in a way similar to NDK. When they do that,
+  #    they can simply append another path to LINEARBUILD_FIND_ROOT_PATH.
+  # 2. LINEARBUILD_FIND_ROOT_PATH must be non-empty for LINEARBUILD_FIND_ROOT_PATH_MODE_* == ONLY
+  #    to be meaningful. https://github.com/android-ndk/ndk/issues/890
+  list(APPEND LINEARBUILD_FIND_ROOT_PATH "${LINEARBUILD_ANDROID_NDK_TOOLCHAIN_UNIFIED}/sysroot")
+
+  # Allow users to override these values in case they want more strict behaviors.
+  # For example, they may want to prevent the NDK's libz from being picked up so
+  # they can use their own.
+  # https://github.com/android-ndk/ndk/issues/517
+  if(NOT DEFINED LINEARBUILD_FIND_ROOT_PATH_MODE_PROGRAM)
+    set(LINEARBUILD_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
+  endif()
+
+  if(NOT DEFINED LINEARBUILD_FIND_ROOT_PATH_MODE_LIBRARY)
+    set(LINEARBUILD_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
+  endif()
+
+  if(NOT DEFINED LINEARBUILD_FIND_ROOT_PATH_MODE_INCLUDE)
+    set(LINEARBUILD_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
+  endif()
+
+  if(NOT DEFINED LINEARBUILD_FIND_ROOT_PATH_MODE_PACKAGE)
+    set(LINEARBUILD_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
+  endif()
+
+  # Allows LinearBuild to find headers in the architecture-specific include directories.
+  set(LINEARBUILD_LIBRARY_ARCHITECTURE "${LINEARBUILD_ANDROID_ARCH_TRIPLE}")
+
+  # Instructs LinearBuild to search the correct API level for libraries.
+  # Besides the paths like <root>/<prefix>/lib/<arch>, linearbuild also searches <root>/<prefix>.
+  # So we can add the API level specific directory directly.
+  # https://github.com/android/ndk/issues/929
+  list(PREPEND LINEARBUILD_SYSTEM_PREFIX_PATH
+    "/usr/lib/${LINEARBUILD_LIBRARY_ARCHITECTURE}/${LINEARBUILD_SYSTEM_VERSION}"
+    )
+
+  list(APPEND LINEARBUILD_SYSTEM_PROGRAM_PATH "${LINEARBUILD_ANDROID_NDK_TOOLCHAIN_UNIFIED}/bin")
+endif()
+
+# Skip sysroot selection if the NDK has a unified toolchain.
+if(LINEARBUILD_ANDROID_NDK_TOOLCHAIN_UNIFIED)
+  return()
+endif()
+
+# Natively compiling on an Android host doesn't use the NDK cross-compilation
+# tools.
+if(LINEARBUILD_HOST_SYSTEM_NAME STREQUAL "Android")
+  return()
+endif()
+
+if(NOT LINEARBUILD_SYSROOT)
+  if(LINEARBUILD_ANDROID_NDK)
+    set(LINEARBUILD_SYSROOT "${LINEARBUILD_ANDROID_NDK}/platforms/android-${LINEARBUILD_SYSTEM_VERSION}/arch-${LINEARBUILD_ANDROID_ARCH}")
+    if(NOT LINEARBUILD_ANDROID_NDK_DEPRECATED_HEADERS)
+      set(LINEARBUILD_SYSROOT_COMPILE "${LINEARBUILD_ANDROID_NDK}/sysroot")
+    endif()
+  elseif(LINEARBUILD_ANDROID_STANDALONE_TOOLCHAIN)
+    set(LINEARBUILD_SYSROOT "${LINEARBUILD_ANDROID_STANDALONE_TOOLCHAIN}/sysroot")
+  endif()
+endif()
+
+if(LINEARBUILD_SYSROOT)
+  if(NOT IS_DIRECTORY "${LINEARBUILD_SYSROOT}")
+    message(FATAL_ERROR
+      "Android: The system root directory needed for the selected Android version and architecture does not exist:\n"
+      "  ${LINEARBUILD_SYSROOT}\n"
+      )
+  endif()
+else()
+  message(FATAL_ERROR
+    "Android: No LINEARBUILD_SYSROOT was selected."
+    )
+endif()
+
+# Include the NDK hook.
+# It can be used by NDK to inject necessary fixes for an earlier linearbuild.
+if(LINEARBUILD_ANDROID_NDK)
+  include(${LINEARBUILD_ANDROID_NDK}/build/linearbuild/hooks/post/Android-Initialize.linearbuild OPTIONAL)
+endif()

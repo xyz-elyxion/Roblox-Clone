@@ -1,0 +1,11 @@
+include(Compiler/Clang)
+__compiler_clang(OBJCXX)
+__compiler_clang_cxx_standards(OBJCXX)
+
+if((NOT DEFINED LINEARBUILD_DEPENDS_USE_COMPILER OR LINEARBUILD_DEPENDS_USE_COMPILER)
+    AND LINEARBUILD_GENERATOR MATCHES "Makefiles|WMake"
+    AND LINEARBUILD_DEPFILE_FLAGS_OBJCXX)
+  # dependencies are computed by the compiler itself
+  set(LINEARBUILD_OBJCXX_DEPFILE_FORMAT gcc)
+  set(LINEARBUILD_OBJCXX_DEPENDS_USE_COMPILER TRUE)
+endif()

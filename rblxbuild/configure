@@ -1,3 +1,0 @@
-#!/bin/sh
-rblxbuild_source_dir=`cd "\`dirname \"$0\"\`";pwd`
-exec "${rblxbuild_source_dir}/bootstrap" "$@"

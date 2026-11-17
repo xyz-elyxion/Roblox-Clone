@@ -340,11 +340,11 @@ void uninitializeCom() { CoUninitialize(); }
 
 bool copyFile(const fs::path& from, const fs::path& to, std::string* error) {
     std::string data;
-    if (!rblx::update::readTextFile(from.string(), &data)) {
+    if (!linear::update::readTextFile(from.string(), &data)) {
         if (error) *error = "could not read " + from.string();
         return false;
     }
-    if (!rblx::update::writeFileAtomically(to.string(), data, error)) return false;
+    if (!linear::update::writeFileAtomically(to.string(), data, error)) return false;
 
     // A copied binary keeps the permissions of the one it came from, because
     // writeFileAtomically creates an ordinary file.
@@ -360,7 +360,7 @@ bool copyFile(const fs::path& from, const fs::path& to, std::string* error) {
 bool copyPayload(const std::string& source, const std::string& target, int* copied, int* skipped,
                  std::string* error) {
     std::vector<std::string> files;
-    if (!rblx::update::collectPayloadFiles(source, &files, error)) return false;
+    if (!linear::update::collectPayloadFiles(source, &files, error)) return false;
 
     // The window's bar counts the bytes it is about to write, so an install
     // shows how far through the folder it is rather than only that work is
@@ -398,8 +398,8 @@ bool copyPayload(const std::string& source, const std::string& target, int* copi
             const auto toSize = fs::file_size(to, code);
             if (!code && fromSize == toSize) {
                 std::string ignored;
-                identical = rblx::update::sha256File(from.string(), &ignored) ==
-                            rblx::update::sha256File(to.string(), &ignored);
+                identical = linear::update::sha256File(from.string(), &ignored) ==
+                            linear::update::sha256File(to.string(), &ignored);
             }
         }
 
@@ -416,10 +416,10 @@ bool copyPayload(const std::string& source, const std::string& target, int* copi
 }
 
 std::string readVersion(const std::string& directory) {
-    rblx::update::Manifest manifest;
+    linear::update::Manifest manifest;
     std::string error;
     const fs::path path = fs::path(directory) / "manifest.json";
-    if (rblx::update::readManifestFile(path.string(), &manifest, &error) && !manifest.version.empty()) {
+    if (linear::update::readManifestFile(path.string(), &manifest, &error) && !manifest.version.empty()) {
         return manifest.version;
     }
     return "0.0.0";
@@ -443,7 +443,7 @@ int install(const Options& options, const std::string& source) {
         return 1;
     }
 
-    if (!rblx::update::collectPayloadFiles(source, nullptr, nullptr)) {
+    if (!linear::update::collectPayloadFiles(source, nullptr, nullptr)) {
         printError("there is nothing to install in " + source);
         return 1;
     }
@@ -477,14 +477,14 @@ int install(const Options& options, const std::string& source) {
         // Keep whatever release key this copy already trusts. Writing a fresh
         // update.json from just the URL would silently unpin the signature and
         // leave the install accepting any manifest the network hands it.
-        rblx::update::Config config;
+        linear::update::Config config;
         std::string ignored;
-        if (!rblx::update::readConfigFile(targetConfig.string(), &config, &ignored)) {
-            rblx::update::readConfigFile((fs::path(source) / "update.json").string(), &config,
+        if (!linear::update::readConfigFile(targetConfig.string(), &config, &ignored)) {
+            linear::update::readConfigFile((fs::path(source) / "update.json").string(), &config,
                                          &ignored);
         }
         config.manifestUrl = options.updateUrl;
-        if (!rblx::update::writeConfigFile(targetConfig.string(), config, &error)) {
+        if (!linear::update::writeConfigFile(targetConfig.string(), config, &error)) {
             printError(error);
             return 1;
         }
@@ -505,15 +505,15 @@ int install(const Options& options, const std::string& source) {
     // uninstaller removes from. The package ships one; a folder built by hand does
     // not, so it is generated here from what was actually copied.
     const fs::path targetManifest = fs::path(target) / "manifest.json";
-    rblx::update::Manifest manifest;
-    const bool packaged = rblx::update::readManifestFile((fs::path(source) / "manifest.json").string(),
+    linear::update::Manifest manifest;
+    const bool packaged = linear::update::readManifestFile((fs::path(source) / "manifest.json").string(),
                                                          &manifest, &error);
     if (!packaged &&
-        !rblx::update::buildManifestFromDirectory(source, version, "stable", &manifest, &error)) {
+        !linear::update::buildManifestFromDirectory(source, version, "stable", &manifest, &error)) {
         printError(error);
         return 1;
     }
-    if (!rblx::update::writeManifestFile(targetManifest.string(), manifest, &error)) {
+    if (!linear::update::writeManifestFile(targetManifest.string(), manifest, &error)) {
         printError(error);
         return 1;
     }
@@ -565,10 +565,10 @@ int uninstall(const Options& options, const char* argv0) {
         return 1;
     }
 
-    rblx::update::Manifest manifest;
+    linear::update::Manifest manifest;
     std::string error;
     const fs::path manifestPath = fs::path(target) / "manifest.json";
-    if (!rblx::update::readManifestFile(manifestPath.string(), &manifest, &error)) {
+    if (!linear::update::readManifestFile(manifestPath.string(), &manifest, &error)) {
         printError(error);
         return 1;
     }
@@ -577,9 +577,9 @@ int uninstall(const Options& options, const char* argv0) {
 
     int removed = 0;
     std::error_code code;
-    for (const rblx::update::FileEntry& entry : manifest.files) {
+    for (const linear::update::FileEntry& entry : manifest.files) {
         std::string resolved;
-        if (!rblx::update::resolveUnder(target, entry.path, &resolved)) continue;
+        if (!linear::update::resolveUnder(target, entry.path, &resolved)) continue;
         if (fs::remove(resolved, code)) ++removed;
     }
 
@@ -677,7 +677,7 @@ int windowed(Options& options, const std::string& source, const char* argv0) {
     const std::string defaultFolder =
         options.directory.empty() ? defaultInstallDirectory() : options.directory;
 
-    rblx::ui::Options window;
+    linear::ui::Options window;
     window.title = "Linear Setup";
     window.heading = options.uninstall ? "Remove Linear" : "Install Linear";
     window.detail = options.uninstall
@@ -695,7 +695,7 @@ int windowed(Options& options, const std::string& source, const char* argv0) {
         options.uninstall ? std::vector<std::string>{"Close"}
                           : std::vector<std::string>{"Play", "Close"};
 
-    const rblx::ui::Result result = rblx::ui::run(window, actions, [&](rblx::ui::Report& report) {
+    const linear::ui::Result result = linear::ui::run(window, actions, [&](linear::ui::Report& report) {
         // The window owns the folder field and the checkbox, so the copy that
         // runs takes its settings from there rather than from the arguments.
         Options run = options;

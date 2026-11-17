@@ -10,7 +10,7 @@
 #include <iterator>
 #include <sstream>
 
-namespace rblx {
+namespace linear {
 namespace code {
 namespace {
 
@@ -113,18 +113,18 @@ const char* lineCommentPrefix(Language language) {
 bool isIgnoredDirectory(const std::string& name) {
     const std::string key = lowered(name);
     // Generated trees and the vendored libraries. `vendor` is the site's pinned
-    // three.js, `rblxwin` and the seven trees beside it are the C++ libraries this
+    // three.js, `linearwin` and the seven trees beside it are the C++ libraries this
     // project vendored, and `GameRelease` is a packaged build, so none of them is
     // source anybody edits here.
     static const char* const ignored[] = {
         ".git",      ".vs",        "build",       "node_modules", "vendor",
         "artifacts", "__pycache__", ".cache",     "dist",         "out",
         "cmake-build-debug",        "cmake-build-release",          ".idea",
-        "rblxbuild-build-debug",    "rblxbuild-build-release",
-        "gamerelease",              "data",                         "rblxwin",
-        "rblxmath",                 "rblxui",                       "rblxgizmo",
-        "rblxtextedit",             "rblxphysics",                  "rblxstb",
-        "rblxgl"
+        "linearbuild-build-debug",    "linearbuild-build-release",
+        "gamerelease",              "data",                         "linearwin",
+        "linearmath",                 "linearui",                       "lineargizmo",
+        "lineartextedit",             "linearphysics",                  "linearstb",
+        "lineargl"
     };
     for (const char* entry : ignored) {
         if (key == entry) {
@@ -138,7 +138,7 @@ bool isEditableFile(const std::string& name) {
     const std::string key = lowered(name);
     // Files the tree should show even though their name carries no extension.
     static const char* const named[] = {
-        "cmakelists.txt", "rblxbuildlists.txt", "makefile", "dockerfile",
+        "cmakelists.txt", "linearbuildlists.txt", "makefile", "dockerfile",
         ".gitignore", ".gitattributes",
         "license",        "readme",   ".clang-format"
     };
@@ -153,7 +153,7 @@ bool isEditableFile(const std::string& name) {
         ".inl",  ".ipp",  ".glsl", ".vert", ".frag", ".geom", ".comp", ".tesc",
         ".tese", ".rbx",  ".lua",  ".js",   ".mjs",  ".cjs",  ".json", ".html",
         ".htm",  ".css",  ".md",   ".markdown", ".txt", ".ps1", ".bat", ".sh",
-        ".cmake", ".rblxbuild", ".yml", ".yaml", ".toml", ".ini", ".world"
+        ".cmake", ".linearbuild", ".yml", ".yaml", ".toml", ".ini", ".world"
     };
     const std::string extension = extensionOf(name);
     for (const char* entry : extensions) {
@@ -1336,12 +1336,12 @@ std::string fileStamp(const std::string& path) {
 }
 
 }  // namespace code
-}  // namespace rblx
+}  // namespace linear
 // ---------------------------------------------------------------------------
 // Documentation
 // ---------------------------------------------------------------------------
 
-namespace rblx {
+namespace linear {
 namespace code {
 namespace {
 
@@ -2212,4 +2212,4 @@ CompletionList completionsAt(const std::string& text, Language language, std::si
 }
 
 }  // namespace code
-}  // namespace rblx
+}  // namespace linear

@@ -24,7 +24,7 @@ void AvatarConfig::saveToFile(const std::string& filename) {
         file << leftLegColor.x << " " << leftLegColor.y << " " << leftLegColor.z << "\n";
         file << rightLegColor.x << " " << rightLegColor.y << " " << rightLegColor.z << "\n";
         file << (isKnownFaceId(faceId) ? faceId : "classic") << "\n";
-        file << (rblx::items::findAvatarItem(hatId) != nullptr ? hatId : std::string("none"))
+        file << (linear::items::findAvatarItem(hatId) != nullptr ? hatId : std::string("none"))
              << "\n";
         file.close();
         std::cout << "Avatar saved to " << filename << std::endl;
@@ -49,7 +49,7 @@ void AvatarConfig::loadFromFile(const std::string& filename) {
         // Files written before hats existed end at the face line, so a failed
         // read here means "no hat" rather than a broken avatar.
         std::string loadedHatId;
-        if (file >> loadedHatId && rblx::items::findAvatarItem(loadedHatId) != nullptr) {
+        if (file >> loadedHatId && linear::items::findAvatarItem(loadedHatId) != nullptr) {
             hatId = loadedHatId;
         } else {
             hatId.clear();

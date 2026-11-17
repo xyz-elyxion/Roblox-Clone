@@ -14,7 +14,7 @@
 // The decisions live here, behind a launcher interface, so they can be checked
 // with a fake clock and a fake launcher (ServerHostTests) instead of by waiting
 // on real processes. src/HostMain.cpp is the thin console program on top.
-namespace rblx {
+namespace linear {
 namespace hosting {
 
 struct Config {
@@ -129,4 +129,4 @@ private:
 };
 
 }  // namespace hosting
-}  // namespace rblx
+}  // namespace linear

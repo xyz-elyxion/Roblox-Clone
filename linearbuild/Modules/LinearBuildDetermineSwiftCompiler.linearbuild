@@ -1,0 +1,160 @@
+# Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
+# file LICENSE.rst or https://linearbuild.org/licensing for details.
+
+include(${LINEARBUILD_ROOT}/Modules/LinearBuildDetermineCompiler.linearbuild)
+
+# Local system-specific compiler preferences for this language.
+include(Platform/${LINEARBUILD_SYSTEM_NAME}-Determine-Swift OPTIONAL)
+include(Platform/${LINEARBUILD_SYSTEM_NAME}-Swift OPTIONAL)
+if(NOT LINEARBUILD_Swift_COMPILER_NAMES)
+  set(LINEARBUILD_Swift_COMPILER_NAMES swiftc)
+endif()
+
+if("${LINEARBUILD_GENERATOR}" STREQUAL "Xcode")
+  if(XCODE_VERSION VERSION_LESS 6.1)
+    message(FATAL_ERROR "Swift language not supported by Xcode ${XCODE_VERSION}")
+  endif()
+  set(LINEARBUILD_Swift_COMPILER_XCODE_TYPE sourcecode.swift)
+  execute_process(COMMAND xcrun --find swiftc
+    OUTPUT_VARIABLE _xcrun_out OUTPUT_STRIP_TRAILING_WHITESPACE
+    ERROR_VARIABLE _xcrun_err RESULT_VARIABLE _xcrun_result)
+  if(_xcrun_result EQUAL 0 AND EXISTS "${_xcrun_out}")
+    set(LINEARBUILD_Swift_COMPILER "${_xcrun_out}")
+  else()
+    _linearbuild_find_compiler_path(Swift)
+  endif()
+elseif("${LINEARBUILD_GENERATOR}" MATCHES "^Ninja")
+  if(LINEARBUILD_Swift_COMPILER)
+    _linearbuild_find_compiler_path(Swift)
+  else()
+    set(LINEARBUILD_Swift_COMPILER_INIT NOTFOUND)
+
+    if(NOT $ENV{SWIFTC} STREQUAL "")
+      get_filename_component(LINEARBUILD_Swift_COMPILER_INIT $ENV{SWIFTC} PROGRAM
+        PROGRAM_ARGS LINEARBUILD_Swift_FLAGS_ENV_INIT)
+      if(LINEARBUILD_Swift_FLAGS_ENV_INIT)
+        set(LINEARBUILD_Swift_COMPILER_ARG1 "${LINEARBUILD_Swift_FLAGS_ENV_INIT}" CACHE
+          STRING "Arguments to the Swift compiler")
+      endif()
+      if(NOT EXISTS ${LINEARBUILD_Swift_COMPILER_INIT})
+        message(FATAL_ERROR "Could not find the compiler specified in the environment variable SWIFTC\n$ENV{SWIFTC}.\n${LINEARBUILD_Swift_COMPILER_INIT}")
+      endif()
+    endif()
+
+    if(NOT LINEARBUILD_Swift_COMPILER_INIT)
+      set(LINEARBUILD_Swift_COMPILER_LIST swiftc ${_LINEARBUILD_TOOLCHAIN_PREFIX}swiftc)
+    endif()
+
+    _linearbuild_find_compiler(Swift)
+  endif()
+  mark_as_advanced(LINEARBUILD_Swift_COMPILER)
+else()
+  message(FATAL_ERROR "Swift language not supported by \"${LINEARBUILD_GENERATOR}\" generator")
+endif()
+
+# Build a small source file to identify the compiler.
+if(NOT LINEARBUILD_Swift_COMPILER_ID_RUN)
+  set(LINEARBUILD_Swift_COMPILER_ID_RUN 1)
+
+  if("${LINEARBUILD_GENERATOR}" STREQUAL "Xcode")
+    list(APPEND LINEARBUILD_Swift_COMPILER_ID_MATCH_VENDORS Apple)
+    set(LINEARBUILD_Swift_COMPILER_ID_MATCH_VENDOR_REGEX_Apple "com.apple.xcode.tools.swift.compiler")
+  endif()
+
+  # Try to identify the compiler.
+  set(LINEARBUILD_Swift_COMPILER_ID)
+  include(${LINEARBUILD_ROOT}/Modules/LinearBuildDetermineCompilerId.linearbuild)
+  LINEARBUILD_DETERMINE_COMPILER_ID(Swift "" CompilerId/main.swift)
+endif()
+
+# Check if we are using the old compiler driver.
+if(LINEARBUILD_GENERATOR STREQUAL "Xcode")
+  # For Xcode, we can decide driver kind simply by Swift version.
+  if(LINEARBUILD_Swift_COMPILER_VERSION VERSION_GREATER_EQUAL 5.5)
+    set(LINEARBUILD_Swift_COMPILER_USE_OLD_DRIVER FALSE)
+  else()
+    set(LINEARBUILD_Swift_COMPILER_USE_OLD_DRIVER TRUE)
+  endif()
+elseif(NOT DEFINED LINEARBUILD_Swift_COMPILER_USE_OLD_DRIVER)
+  # Dry-run a WMO build to identify the compiler driver.
+
+  # Create a clean directory in which to run the test.
+  set(LINEARBUILD_Swift_COMPILER_DRIVER_TEST_DIR ${LINEARBUILD_PLATFORM_INFO_DIR}/SwiftCompilerDriver)
+  file(REMOVE_RECURSE "${LINEARBUILD_Swift_COMPILER_DRIVER_TEST_DIR}")
+  file(MAKE_DIRECTORY "${LINEARBUILD_Swift_COMPILER_DRIVER_TEST_DIR}")
+
+  # Create a Swift file and an arbitrary linker resource.
+  file(WRITE ${LINEARBUILD_Swift_COMPILER_DRIVER_TEST_DIR}/main.swift "print(\"Hello\")\n")
+  file(WRITE ${LINEARBUILD_Swift_COMPILER_DRIVER_TEST_DIR}/lib.in "\n")
+
+  # Honor user-specified compiler flags.
+  if(DEFINED LINEARBUILD_Swift_FLAGS)
+    separate_arguments(_LINEARBUILD_Swift_COMPILER_FLAGS_LIST NATIVE_COMMAND "${LINEARBUILD_Swift_FLAGS}")
+  else()
+    separate_arguments(_LINEARBUILD_Swift_COMPILER_FLAGS_LIST NATIVE_COMMAND "${LINEARBUILD_Swift_FLAGS_INIT}")
+  endif()
+  set(_LINEARBUILD_Swift_COMPILER_CHECK_COMMAND "${LINEARBUILD_Swift_COMPILER}" ${_LINEARBUILD_Swift_COMPILER_FLAGS_LIST} -wmo main.swift lib.in "-###")
+  unset(_LINEARBUILD_Swift_COMPILER_FLAGS_LIST)
+
+  # Execute in dry-run mode so no compilation will be actually performed.
+  execute_process(COMMAND ${_LINEARBUILD_Swift_COMPILER_CHECK_COMMAND}
+    WORKING_DIRECTORY "${LINEARBUILD_Swift_COMPILER_DRIVER_TEST_DIR}"
+    OUTPUT_VARIABLE _LINEARBUILD_Swift_COMPILER_CHECK_OUTPUT
+    RESULT_VARIABLE _result_LINEARBUILD_Swift_COMPILER)
+
+  # Check the first frontend execution.  It is on the first line of output.
+  # The old driver treats all inputs as Swift sources while the new driver
+  # can identify "lib.in" as a linker resource.
+  if("${_LINEARBUILD_Swift_COMPILER_CHECK_OUTPUT}" MATCHES "^[^\n]* lib\\.in")
+    set(LINEARBUILD_Swift_COMPILER_USE_OLD_DRIVER TRUE)
+  else()
+    set(LINEARBUILD_Swift_COMPILER_USE_OLD_DRIVER FALSE)
+  endif()
+
+  # Record the check results in the configure log.
+  list(TRANSFORM _LINEARBUILD_Swift_COMPILER_CHECK_COMMAND PREPEND "\"")
+  list(TRANSFORM _LINEARBUILD_Swift_COMPILER_CHECK_COMMAND APPEND "\"")
+  list(JOIN _LINEARBUILD_Swift_COMPILER_CHECK_COMMAND " " _LINEARBUILD_Swift_COMPILER_CHECK_COMMAND)
+  string(REPLACE "\n" "\n  " _LINEARBUILD_Swift_COMPILER_CHECK_OUTPUT "  ${_LINEARBUILD_Swift_COMPILER_CHECK_OUTPUT}")
+  message(CONFIGURE_LOG
+    "Detected LINEARBUILD_Swift_COMPILER_USE_OLD_DRIVER=\"${LINEARBUILD_Swift_COMPILER_USE_OLD_DRIVER}\" from:\n"
+    "  ${_LINEARBUILD_Swift_COMPILER_CHECK_COMMAND}\n"
+    "with output:\n"
+    "${_LINEARBUILD_Swift_COMPILER_CHECK_OUTPUT}"
+    )
+
+  unset(_LINEARBUILD_Swift_COMPILER_CHECK_COMMAND)
+  unset(_LINEARBUILD_Swift_COMPILER_CHECK_OUTPUT)
+endif()
+
+if(LINEARBUILD_Swift_COMPILER_VERSION VERSION_GREATER_EQUAL 5.2)
+  set(target_info_command "${LINEARBUILD_Swift_COMPILER}" -print-target-info)
+  if(LINEARBUILD_Swift_COMPILER_TARGET)
+    list(APPEND target_info_command -target ${LINEARBUILD_Swift_COMPILER_TARGET})
+  endif()
+  execute_process(
+    COMMAND ${target_info_command}
+    OUTPUT_VARIABLE swift_target_info
+    RESULT_VARIABLE _result_swift_target_info)
+  message(CONFIGURE_LOG "Swift target info:\n" "${swift_target_info}")
+  string(JSON module_triple GET "${swift_target_info}" "target" "moduleTriple")
+  set(LINEARBUILD_Swift_MODULE_TRIPLE ${module_triple})
+
+  if(LINEARBUILD_Swift_COMPILER_VERSION VERSION_GREATER_EQUAL 6.2)
+    string(JSON LINEARBUILD_Swift_SIZEOF_DATA_PTR GET "${swift_target_info}" "target" "pointerWidthInBytes")
+  endif()
+endif()
+
+if (NOT _LINEARBUILD_TOOLCHAIN_LOCATION)
+  get_filename_component(_LINEARBUILD_TOOLCHAIN_LOCATION "${LINEARBUILD_Swift_COMPILER}" PATH)
+endif ()
+
+set(_LINEARBUILD_PROCESSING_LANGUAGE "Swift")
+include(LinearBuildFindBinUtils)
+unset(_LINEARBUILD_PROCESSING_LANGUAGE)
+
+# configure variables set in this file for fast reload later on
+configure_file(${LINEARBUILD_ROOT}/Modules/LinearBuildSwiftCompiler.linearbuild.in
+               ${LINEARBUILD_PLATFORM_INFO_DIR}/LinearBuildSwiftCompiler.linearbuild @ONLY)
+
+set(LINEARBUILD_Swift_COMPILER_ENV_VAR "SWIFTC")

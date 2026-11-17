@@ -1,0 +1,25 @@
+LINEARBUILD_BUILD_TYPE:STRING=Release
+
+# Link C++ library statically.
+LINEARBUILD_EXE_LINKER_FLAGS:STRING=-static-libstdc++ -static-libgcc -Wl,-z,noexecstack
+
+# Enable ssl support in curl
+LINEARBUILD_USE_OPENSSL:BOOL=ON
+OPENSSL_USE_STATIC_LIBS:BOOL=ON
+OpenSSL_ROOT:PATH=/opt/cross/openssl/sparc64-sun-solaris2.10
+
+# Enable clinearbuild
+BUILD_CursesDialog:BOOL=ON
+
+# Disable linearbuild-gui
+BUILD_QtDialog:BOOL=OFF
+
+# Disable tests.
+BUILD_TESTING:BOOL=OFF
+LinearBuild_TEST_INSTALL:BOOL=OFF
+
+# Disable unnecessary dependency.
+LINEARBUILD_SKIP_INSTALL_ALL_DEPENDENCY:BOOL=ON
+
+# CPack package file name component for this platform.
+CPACK_SYSTEM_NAME:STRING=sunos-sparc64

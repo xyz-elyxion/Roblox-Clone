@@ -15,7 +15,7 @@
 #include <sstream>
 #include <utility>
 
-namespace rblx {
+namespace linear {
 namespace web {
 namespace {
 
@@ -214,7 +214,7 @@ bool Store::load(std::string* error) {
     // older one has the same fields in the clear. A sealed file without the key
     // that made it is refused outright: half-reading it would leave every account
     // with no password hash, which looks exactly like a file nobody can sign into.
-    const bool sealedFile = document.member("format").asString() == "rblx-store/2";
+    const bool sealedFile = document.member("format").asString() == "linear-store/2";
     if (sealedFile && !hasDataKey()) {
         if (error) {
             *error = "Data file " + path_ +
@@ -230,7 +230,7 @@ bool Store::load(std::string* error) {
         user.createdAt = entry.member("createdAt").asString();
         // An id this build does not know is read back as the default role: a
         // stored string no page can interpret is worse than no role at all.
-        user.role = rblx::roles::find(entry.member("role").asString()).id;
+        user.role = linear::roles::find(entry.member("role").asString()).id;
         user.lastSeenAtMs = entry.member("lastSeenAtMs").asInteger(0);
         user.tokenVersion = static_cast<int>(entry.member("tokenVersion").asInteger(0));
         user.cheatStrikes = static_cast<int>(entry.member("cheatStrikes").asInteger(0));
@@ -250,7 +250,7 @@ bool Store::load(std::string* error) {
         if (user.secretsOpen) {
             user.passwordHash = entry.member("passwordHash").asString();
             user.recoveryHash = entry.member("recoveryHash").asString();
-            user.lastHardwareId = rblx::hwid::normalize(entry.member("lastHardwareId").asString());
+            user.lastHardwareId = linear::hwid::normalize(entry.member("lastHardwareId").asString());
             user.hardwareIdSeenAt = entry.member("hardwareIdSeenAt").asString();
             readPending(entry.member("pendingDetections"), &user.pendingDetections);
             readInfractions(entry.member("infractions"), &user.infractions, &nextInfractionId_);
@@ -271,14 +271,14 @@ bool Store::load(std::string* error) {
 
     for (const Json& entry : document.member("hardwareBans").elements()) {
         HardwareBanRecord record;
-        record.hardwareId = rblx::hwid::normalize(entry.member("hardwareId").asString());
+        record.hardwareId = linear::hwid::normalize(entry.member("hardwareId").asString());
         record.userId = static_cast<int>(entry.member("userId").asInteger(0));
         record.username = entry.member("username").asString();
         record.reason = entry.member("reason").asString();
         record.createdAt = entry.member("createdAt").asString();
         record.active = entry.member("active").asBool(true);
         record.liftedAt = entry.member("liftedAt").asString();
-        if (!rblx::hwid::valid(record.hardwareId)) {
+        if (!linear::hwid::valid(record.hardwareId)) {
             continue;
         }
         hardwareBans_.push_back(record);
@@ -528,7 +528,7 @@ bool Store::save(std::string* error) const {
     // Names the layout and the cipher: a sealed file must not be mistaken for one
     // written before records were sealed, and a second cipher can appear beside
     // this one instead of replacing it.
-    document.set("format", hasDataKey() ? "rblx-store/2" : "rblx-store/1");
+    document.set("format", hasDataKey() ? "linear-store/2" : "linear-store/1");
     if (hasDataKey()) {
         document.set("cipher", "aes-256-gcm");
     }
@@ -858,10 +858,10 @@ bool Store::setModeration(int id, int strikeCount, long long suspendedUntilMs, b
 }
 
 bool Store::setRole(int id, const std::string& roleId) {
-    if (!rblx::roles::isKnown(roleId)) {
+    if (!linear::roles::isKnown(roleId)) {
         return false;
     }
-    const std::string normalized = rblx::roles::find(roleId).id;
+    const std::string normalized = linear::roles::find(roleId).id;
     for (UserRecord& user : users_) {
         if (user.id != id) {
             continue;
@@ -1424,8 +1424,8 @@ void Store::clearPendingDetections(int userId) {
 
 bool Store::setLastHardwareId(int userId, const std::string& hardwareId,
                               const std::string& nowIso) {
-    const std::string normalized = rblx::hwid::normalize(hardwareId);
-    if (!rblx::hwid::valid(normalized)) {
+    const std::string normalized = linear::hwid::normalize(hardwareId);
+    if (!linear::hwid::valid(normalized)) {
         return false;
     }
     for (UserRecord& user : users_) {
@@ -1446,8 +1446,8 @@ bool Store::setLastHardwareId(int userId, const std::string& hardwareId,
 
 bool Store::banHardware(const std::string& hardwareId, int userId, const std::string& username,
                         const std::string& reason, const std::string& nowIso) {
-    const std::string normalized = rblx::hwid::normalize(hardwareId);
-    if (!rblx::hwid::valid(normalized)) {
+    const std::string normalized = linear::hwid::normalize(hardwareId);
+    if (!linear::hwid::valid(normalized)) {
         return false;
     }
     for (HardwareBanRecord& ban : hardwareBans_) {
@@ -1481,8 +1481,8 @@ bool Store::banHardware(const std::string& hardwareId, int userId, const std::st
 }
 
 const HardwareBanRecord* Store::activeHardwareBan(const std::string& hardwareId) const {
-    const std::string normalized = rblx::hwid::normalize(hardwareId);
-    if (!rblx::hwid::valid(normalized)) {
+    const std::string normalized = linear::hwid::normalize(hardwareId);
+    if (!linear::hwid::valid(normalized)) {
         return nullptr;
     }
     for (const HardwareBanRecord& ban : hardwareBans_) {
@@ -1494,7 +1494,7 @@ const HardwareBanRecord* Store::activeHardwareBan(const std::string& hardwareId)
 }
 
 bool Store::liftHardwareBan(const std::string& hardwareId, const std::string& nowIso) {
-    const std::string normalized = rblx::hwid::normalize(hardwareId);
+    const std::string normalized = linear::hwid::normalize(hardwareId);
     for (HardwareBanRecord& ban : hardwareBans_) {
         if (ban.active && ban.hardwareId == normalized) {
             ban.active = false;
@@ -2158,7 +2158,7 @@ void Store::resolveOwnerNames() {
 }
 
 std::string Store::userAad(int userId) {
-    return "rblx-store-user:" + std::to_string(userId);
+    return "linear-store-user:" + std::to_string(userId);
 }
 
 bool Store::openSecrets(UserRecord& user) const {
@@ -2175,7 +2175,7 @@ bool Store::openSecrets(UserRecord& user) const {
         // half-filled. An empty password hash refuses every sign-in, so the
         // failure is a lockout with a reason in the log, not a way in.
         std::fprintf(stderr,
-                     "rblx-web: could not open the sealed record for account %d "
+                     "linear-web: could not open the sealed record for account %d "
                      "(wrong DATA_KEY or a damaged data file)\n",
                      user.id);
         return false;
@@ -2184,14 +2184,14 @@ bool Store::openSecrets(UserRecord& user) const {
     std::string parseError;
     const Json secret = Json::parse(plaintext, &parseError);
     if (!secret.isObject()) {
-        std::fprintf(stderr, "rblx-web: the sealed record for account %d is not readable\n",
+        std::fprintf(stderr, "linear-web: the sealed record for account %d is not readable\n",
                      user.id);
         return false;
     }
 
     user.passwordHash = secret.member("passwordHash").asString();
     user.recoveryHash = secret.member("recoveryHash").asString();
-    user.lastHardwareId = rblx::hwid::normalize(secret.member("lastHardwareId").asString());
+    user.lastHardwareId = linear::hwid::normalize(secret.member("lastHardwareId").asString());
     user.hardwareIdSeenAt = secret.member("hardwareIdSeenAt").asString();
 
     user.infractions.clear();
@@ -2274,9 +2274,9 @@ std::string dataKeyFromText(const std::string& text) {
     // Anything else is key material, not a key: hashing it keeps a passphrase from
     // being stretched into 32 bytes by padding, which would make it far weaker
     // than it looks.
-    const Digest digest = sha256("rblx-store-key:v1:" + text);
+    const Digest digest = sha256("linear-store-key:v1:" + text);
     return std::string(reinterpret_cast<const char*>(digest.data()), digest.size());
 }
 
 }  // namespace web
-}  // namespace rblx
+}  // namespace linear

@@ -1,0 +1,322 @@
+# Minimum cmake version required
+linearbuild_minimum_required(VERSION 3.8)
+
+# Project configuration
+project(LinearPhysics VERSION 0.9.0 LANGUAGES CXX)
+
+# In order to install libraries into correct locations on all platforms.
+include(GNUInstallDirs)
+
+# Set default build type
+set(default_build_type "Release")
+if(NOT LINEARBUILD_BUILD_TYPE AND NOT LINEARBUILD_CONFIGURATION_TYPES)
+  message(STATUS "Setting build type to '${default_build_type}' as none was specified.")
+  set(LINEARBUILD_BUILD_TYPE "${default_build_type}" CACHE
+      STRING "Choose the type of build." FORCE)
+  # Set the possible values of build type for cmake-gui
+  set_property(CACHE LINEARBUILD_BUILD_TYPE PROPERTY STRINGS
+    "Debug" "Release" "MinSizeRel" "RelWithDebInfo")
+endif()
+
+# CMake modules path
+set(LINEARBUILD_MODULE_PATH ${PROJECT_SOURCE_DIR}/CMakeModules)
+
+# Enable testing
+enable_testing()
+
+# Options
+option(LINEARPHYSICS_COMPILE_TESTBED "Select this if you want to build the testbed application with demos" OFF)
+option(LINEARPHYSICS_COMPILE_TESTS "Select this if you want to build the unit tests" OFF)
+option(LINEARPHYSICS_PROFILING_ENABLED "Select this if you want to compile for performanace profiling" OFF)
+option(LINEARPHYSICS_CODE_COVERAGE_ENABLED "Select this if you need to build for code coverage calculation" OFF)
+option(LINEARPHYSICS_DOUBLE_PRECISION_ENABLED "Select this if you want to compile using double precision floating values" OFF)
+
+# Code Coverage
+if(LINEARPHYSICS_CODE_COVERAGE_ENABLED)
+    INCLUDE(CodeCoverage)
+    SETUP_TARGET_FOR_COVERAGE_LCOV(NAME coverage EXECUTABLE test/tests)
+    APPEND_COVERAGE_COMPILER_FLAGS()
+    # set(LINEARBUILD_CXX_FLAGS "${LINEARBUILD_CXX_FLAGS} -g -O0 -fprofile-arcs -ftest-coverage")
+endif()
+
+# Headers files
+set (LINEARPHYSICS_HEADERS
+    "include/linearphysics/configuration.h"
+    "include/linearphysics/decimal.h"
+    "include/linearphysics/linearphysics.h"
+    "include/linearphysics/body/CollisionBody.h"
+    "include/linearphysics/body/RigidBody.h"
+    "include/linearphysics/collision/ContactPointInfo.h"
+    "include/linearphysics/collision/ContactManifoldInfo.h"
+    "include/linearphysics/collision/ContactPair.h"
+    "include/linearphysics/collision/broadphase/DynamicAABBTree.h"
+    "include/linearphysics/collision/narrowphase/CollisionDispatch.h"
+    "include/linearphysics/collision/narrowphase/GJK/VoronoiSimplex.h"
+    "include/linearphysics/collision/narrowphase/GJK/GJKAlgorithm.h"
+    "include/linearphysics/collision/narrowphase/SAT/SATAlgorithm.h"
+    "include/linearphysics/collision/narrowphase/NarrowPhaseAlgorithm.h"
+    "include/linearphysics/collision/narrowphase/SphereVsSphereAlgorithm.h"
+    "include/linearphysics/collision/narrowphase/CapsuleVsCapsuleAlgorithm.h"
+    "include/linearphysics/collision/narrowphase/SphereVsCapsuleAlgorithm.h"
+    "include/linearphysics/collision/narrowphase/SphereVsConvexPolyhedronAlgorithm.h"
+    "include/linearphysics/collision/narrowphase/CapsuleVsConvexPolyhedronAlgorithm.h"
+    "include/linearphysics/collision/narrowphase/ConvexPolyhedronVsConvexPolyhedronAlgorithm.h"
+    "include/linearphysics/collision/narrowphase/NarrowPhaseInput.h"
+    "include/linearphysics/collision/narrowphase/NarrowPhaseInfoBatch.h"
+    "include/linearphysics/collision/shapes/AABB.h"
+    "include/linearphysics/collision/shapes/ConvexShape.h"
+    "include/linearphysics/collision/shapes/ConvexPolyhedronShape.h"
+    "include/linearphysics/collision/shapes/ConcaveShape.h"
+    "include/linearphysics/collision/shapes/BoxShape.h"
+    "include/linearphysics/collision/shapes/CapsuleShape.h"
+    "include/linearphysics/collision/shapes/CollisionShape.h"
+    "include/linearphysics/collision/shapes/ConvexMeshShape.h"
+    "include/linearphysics/collision/shapes/SphereShape.h"
+    "include/linearphysics/collision/shapes/TriangleShape.h"
+    "include/linearphysics/collision/shapes/ConcaveMeshShape.h"
+    "include/linearphysics/collision/shapes/HeightFieldShape.h"
+    "include/linearphysics/collision/RaycastInfo.h"
+    "include/linearphysics/collision/Collider.h"
+    "include/linearphysics/collision/TriangleVertexArray.h"
+    "include/linearphysics/collision/PolygonVertexArray.h"
+    "include/linearphysics/collision/TriangleMesh.h"
+    "include/linearphysics/collision/PolyhedronMesh.h"
+    "include/linearphysics/collision/HalfEdgeStructure.h"
+    "include/linearphysics/collision/ContactManifold.h"
+    "include/linearphysics/constraint/BallAndSocketJoint.h"
+    "include/linearphysics/constraint/ContactPoint.h"
+    "include/linearphysics/constraint/FixedJoint.h"
+    "include/linearphysics/constraint/HingeJoint.h"
+    "include/linearphysics/constraint/Joint.h"
+    "include/linearphysics/constraint/SliderJoint.h"
+    "include/linearphysics/engine/Entity.h"
+    "include/linearphysics/engine/EntityManager.h"
+    "include/linearphysics/engine/PhysicsCommon.h"
+    "include/linearphysics/systems/ConstraintSolverSystem.h"
+    "include/linearphysics/systems/ContactSolverSystem.h"
+    "include/linearphysics/systems/DynamicsSystem.h"
+    "include/linearphysics/systems/CollisionDetectionSystem.h"
+    "include/linearphysics/systems/SolveBallAndSocketJointSystem.h"
+    "include/linearphysics/systems/SolveFixedJointSystem.h"
+    "include/linearphysics/systems/SolveHingeJointSystem.h"
+    "include/linearphysics/systems/SolveSliderJointSystem.h"
+    "include/linearphysics/engine/PhysicsWorld.h"
+    "include/linearphysics/engine/EventListener.h"
+    "include/linearphysics/engine/Island.h"
+    "include/linearphysics/engine/Islands.h"
+    "include/linearphysics/engine/Material.h"
+    "include/linearphysics/engine/OverlappingPairs.h"
+    "include/linearphysics/systems/BroadPhaseSystem.h"
+    "include/linearphysics/components/Components.h"
+    "include/linearphysics/components/CollisionBodyComponents.h"
+    "include/linearphysics/components/RigidBodyComponents.h"
+    "include/linearphysics/components/TransformComponents.h"
+    "include/linearphysics/components/ColliderComponents.h"
+    "include/linearphysics/components/JointComponents.h"
+    "include/linearphysics/components/BallAndSocketJointComponents.h"
+    "include/linearphysics/components/FixedJointComponents.h"
+    "include/linearphysics/components/HingeJointComponents.h"
+    "include/linearphysics/components/SliderJointComponents.h"
+    "include/linearphysics/collision/CollisionCallback.h"
+    "include/linearphysics/collision/OverlapCallback.h"
+    "include/linearphysics/mathematics/mathematics.h"
+    "include/linearphysics/mathematics/mathematics_common.h"
+    "include/linearphysics/mathematics/mathematics_functions.h"
+    "include/linearphysics/mathematics/Matrix2x2.h"
+    "include/linearphysics/mathematics/Matrix3x3.h"
+    "include/linearphysics/mathematics/Quaternion.h"
+    "include/linearphysics/mathematics/Transform.h"
+    "include/linearphysics/mathematics/Vector2.h"
+    "include/linearphysics/mathematics/Vector3.h"
+    "include/linearphysics/mathematics/Ray.h"
+    "include/linearphysics/memory/MemoryAllocator.h"
+    "include/linearphysics/memory/PoolAllocator.h"
+    "include/linearphysics/memory/SingleFrameAllocator.h"
+    "include/linearphysics/memory/HeapAllocator.h"
+    "include/linearphysics/memory/DefaultAllocator.h"
+    "include/linearphysics/memory/MemoryManager.h"
+    "include/linearphysics/containers/Stack.h"
+    "include/linearphysics/containers/LinkedList.h"
+    "include/linearphysics/containers/Array.h"
+    "include/linearphysics/containers/Map.h"
+    "include/linearphysics/containers/Set.h"
+    "include/linearphysics/containers/Pair.h"
+    "include/linearphysics/containers/Deque.h"
+    "include/linearphysics/utils/Profiler.h"
+    "include/linearphysics/utils/Logger.h"
+    "include/linearphysics/utils/DefaultLogger.h"
+    "include/linearphysics/utils/DebugRenderer.h"
+)
+
+# Source files
+set (LINEARPHYSICS_SOURCES
+    "src/body/CollisionBody.cpp"
+    "src/body/RigidBody.cpp"
+    "src/collision/broadphase/DynamicAABBTree.cpp"
+    "src/collision/narrowphase/CollisionDispatch.cpp"
+    "src/collision/narrowphase/GJK/VoronoiSimplex.cpp"
+    "src/collision/narrowphase/GJK/GJKAlgorithm.cpp"
+    "src/collision/narrowphase/SAT/SATAlgorithm.cpp"
+    "src/collision/narrowphase/SphereVsSphereAlgorithm.cpp"
+    "src/collision/narrowphase/CapsuleVsCapsuleAlgorithm.cpp"
+    "src/collision/narrowphase/SphereVsCapsuleAlgorithm.cpp"
+    "src/collision/narrowphase/SphereVsConvexPolyhedronAlgorithm.cpp"
+    "src/collision/narrowphase/CapsuleVsConvexPolyhedronAlgorithm.cpp"
+    "src/collision/narrowphase/ConvexPolyhedronVsConvexPolyhedronAlgorithm.cpp"
+    "src/collision/narrowphase/NarrowPhaseInput.cpp"
+    "src/collision/narrowphase/NarrowPhaseInfoBatch.cpp"
+    "src/collision/shapes/AABB.cpp"
+    "src/collision/shapes/ConvexShape.cpp"
+    "src/collision/shapes/ConvexPolyhedronShape.cpp"
+    "src/collision/shapes/ConcaveShape.cpp"
+    "src/collision/shapes/BoxShape.cpp"
+    "src/collision/shapes/CapsuleShape.cpp"
+    "src/collision/shapes/CollisionShape.cpp"
+    "src/collision/shapes/ConvexMeshShape.cpp"
+    "src/collision/shapes/SphereShape.cpp"
+    "src/collision/shapes/TriangleShape.cpp"
+    "src/collision/shapes/ConcaveMeshShape.cpp"
+    "src/collision/shapes/HeightFieldShape.cpp"
+    "src/collision/RaycastInfo.cpp"
+    "src/collision/Collider.cpp"
+    "src/collision/TriangleVertexArray.cpp"
+    "src/collision/PolygonVertexArray.cpp"
+    "src/collision/TriangleMesh.cpp"
+    "src/collision/PolyhedronMesh.cpp"
+    "src/collision/HalfEdgeStructure.cpp"
+    "src/collision/ContactManifold.cpp"
+    "src/constraint/BallAndSocketJoint.cpp"
+    "src/constraint/ContactPoint.cpp"
+    "src/constraint/FixedJoint.cpp"
+    "src/constraint/HingeJoint.cpp"
+    "src/constraint/Joint.cpp"
+    "src/constraint/SliderJoint.cpp"
+    "src/engine/PhysicsCommon.cpp"
+    "src/systems/ConstraintSolverSystem.cpp"
+    "src/systems/ContactSolverSystem.cpp"
+    "src/systems/DynamicsSystem.cpp"
+    "src/systems/CollisionDetectionSystem.cpp"
+    "src/systems/SolveBallAndSocketJointSystem.cpp"
+    "src/systems/SolveFixedJointSystem.cpp"
+    "src/systems/SolveHingeJointSystem.cpp"
+    "src/systems/SolveSliderJointSystem.cpp"
+    "src/engine/PhysicsWorld.cpp"
+    "src/engine/Island.cpp"
+    "src/engine/Material.cpp"
+    "src/engine/OverlappingPairs.cpp"
+    "src/engine/Entity.cpp"
+    "src/engine/EntityManager.cpp"
+    "src/systems/BroadPhaseSystem.cpp"
+    "src/components/Components.cpp"
+    "src/components/CollisionBodyComponents.cpp"
+    "src/components/RigidBodyComponents.cpp"
+    "src/components/TransformComponents.cpp"
+    "src/components/ColliderComponents.cpp"
+    "src/components/JointComponents.cpp"
+    "src/components/BallAndSocketJointComponents.cpp"
+    "src/components/FixedJointComponents.cpp"
+    "src/components/HingeJointComponents.cpp"
+    "src/components/SliderJointComponents.cpp"
+    "src/collision/CollisionCallback.cpp"
+    "src/collision/OverlapCallback.cpp"
+    "src/mathematics/Matrix2x2.cpp"
+    "src/mathematics/Matrix3x3.cpp"
+    "src/mathematics/Quaternion.cpp"
+    "src/mathematics/Transform.cpp"
+    "src/mathematics/Vector2.cpp"
+    "src/mathematics/Vector3.cpp"
+    "src/memory/PoolAllocator.cpp"
+    "src/memory/SingleFrameAllocator.cpp"
+    "src/memory/HeapAllocator.cpp"
+    "src/memory/MemoryManager.cpp"
+    "src/utils/Profiler.cpp"
+    "src/utils/DefaultLogger.cpp"
+    "src/utils/DebugRenderer.cpp"
+)
+
+# Create the library
+add_library(linearphysics ${LINEARPHYSICS_HEADERS} ${LINEARPHYSICS_SOURCES})
+
+# Creates an Alias Target, such that "LinearPhysics::linearphysics" can be used
+# to refer to "linearphysics" in subsequent commands
+add_library(LinearPhysics::linearphysics ALIAS linearphysics)
+
+# C++11 compiler features
+target_compile_features(linearphysics PUBLIC cxx_std_11)
+set_target_properties(linearphysics PROPERTIES CXX_EXTENSIONS OFF)
+
+# Library headers
+target_include_directories(linearphysics PUBLIC
+              $<BUILD_INTERFACE:${LINEARBUILD_CURRENT_SOURCE_DIR}/include>
+              $<INSTALL_INTERFACE:include>
+)
+
+# If we need to compile the testbed application
+if(LINEARPHYSICS_COMPILE_TESTBED)
+   add_subdirectory(testbed/)
+endif()
+
+# If we need to compile the tests
+if(LINEARPHYSICS_COMPILE_TESTS)
+   add_subdirectory(test/)
+endif()
+
+# Enable profiling if necessary
+if(LINEARPHYSICS_PROFILING_ENABLED)
+    target_compile_definitions(linearphysics PUBLIC IS_RP3D_PROFILING_ENABLED)
+endif()
+
+# Enable double precision if necessary
+if(LINEARPHYSICS_DOUBLE_PRECISION_ENABLED)
+    target_compile_definitions(linearphysics PUBLIC IS_RP3D_DOUBLE_PRECISION_ENABLED)
+endif()
+
+# Version number and soname for the library
+set_target_properties(linearphysics  PROPERTIES
+          VERSION "0.9.0" 
+          SOVERSION "0.9"
+)
+
+# Install target (install library only, not headers)
+install(TARGETS linearphysics
+        EXPORT linearphysics-targets
+        ARCHIVE DESTINATION ${LINEARBUILD_INSTALL_LIBDIR}
+        LIBRARY DESTINATION ${LINEARBUILD_INSTALL_LIBDIR}
+        RUNTIME DESTINATION ${LINEARBUILD_INSTALL_BINDIR}
+)
+
+# Install the headers separately (because INSTALL(TARGETS ... PUBLIC_HEADER DESTINATION ...) does
+# not support subfolders
+install(DIRECTORY include/ DESTINATION ${LINEARBUILD_INSTALL_INCLUDEDIR})
+
+# This is required so that the exported target has the name JSONUtils and not jsonutils
+set_target_properties(linearphysics PROPERTIES EXPORT_NAME LinearPhysics)
+
+# Give CMake access to the version number of the library so that the user is able to use the find_package() function
+# with a given version number to select the version of the library he/she wants to use. This will create a
+# "LinearPhysicsConfigVersion.linearbuild" file that will later be copied into the install destination folder (see below)
+include(CMakePackageConfigHelpers)
+write_basic_package_version_file(
+    ${LINEARBUILD_CURRENT_BINARY_DIR}/LinearPhysicsConfigVersion.linearbuild
+    VERSION ${PROJECT_VERSION}
+    COMPATIBILITY AnyNewerVersion
+)
+
+# When the user runs "make install", this will export the targets into
+# a "LinearPhysicsConfig.linearbuild" file in the install destination
+install(EXPORT linearphysics-targets
+    FILE
+        LinearPhysicsConfig.linearbuild
+    NAMESPACE
+        LinearPhysics::
+    DESTINATION
+        ${LINEARBUILD_INSTALL_LIBDIR}/cmake/LinearPhysics
+)
+
+# When the user runs "make install", this will copy the "LinearPhysicsConfigVersion.linearbuild" file
+# we have previously created into the install destination
+install(FILES
+    ${LINEARBUILD_CURRENT_BINARY_DIR}/LinearPhysicsConfigVersion.linearbuild
+    DESTINATION lib/cmake/LinearPhysics
+)
+

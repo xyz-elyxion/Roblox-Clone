@@ -2,7 +2,7 @@
 
 #include <cstring>
 
-namespace rblx {
+namespace linear {
 namespace git {
 namespace {
 
@@ -148,4 +148,4 @@ std::string sha1Hex(const std::string& data) {
 }
 
 }  // namespace git
-}  // namespace rblx
+}  // namespace linear

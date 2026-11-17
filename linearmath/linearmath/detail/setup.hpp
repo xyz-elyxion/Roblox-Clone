@@ -1,0 +1,1188 @@
+#ifndef LINEARMATH_SETUP_INCLUDED
+
+#include <cassert>
+#include <cstddef>
+
+#define LINEARMATH_VERSION_MAJOR 1
+#define LINEARMATH_VERSION_MINOR 0
+#define LINEARMATH_VERSION_PATCH 1
+#define LINEARMATH_VERSION_REVISION 0 // Deprecated
+#define LINEARMATH_VERSION 1000 // Deprecated
+#define LINEARMATH_VERSION_MESSAGE "LINEARMATH: version 1.0.1"
+
+#define LINEARMATH_MAKE_API_VERSION(variant, major, minor, patch) \
+    ((((uint32_t)(variant)) << 29U) | (((uint32_t)(major)) << 22U) | (((uint32_t)(minor)) << 12U) | ((uint32_t)(patch)))
+
+#define LINEARMATH_VERSION_COMPLETE LINEARMATH_MAKE_API_VERSION(0, LINEARMATH_VERSION_MAJOR, LINEARMATH_VERSION_MINOR, LINEARMATH_VERSION_PATCH)
+
+#define LINEARMATH_SETUP_INCLUDED LINEARMATH_VERSION
+
+#define LINEARMATH_GET_VERSION_VARIANT(version) ((uint32_t)(version) >> 29U)
+#define LINEARMATH_GET_VERSION_MAJOR(version) (((uint32_t)(version) >> 22U) & 0x7FU)
+#define LINEARMATH_GET_VERSION_MINOR(version) (((uint32_t)(version) >> 12U) & 0x3FFU)
+#define LINEARMATH_GET_VERSION_PATCH(version) ((uint32_t)(version) & 0xFFFU)
+
+///////////////////////////////////////////////////////////////////////////////////
+// Active states
+
+#define LINEARMATH_DISABLE		0
+#define LINEARMATH_ENABLE		1
+
+///////////////////////////////////////////////////////////////////////////////////
+// Messages
+
+#if defined(LINEARMATH_FORCE_MESSAGES)
+#	define LINEARMATH_MESSAGES LINEARMATH_ENABLE
+#else
+#	define LINEARMATH_MESSAGES LINEARMATH_DISABLE
+#endif
+
+///////////////////////////////////////////////////////////////////////////////////
+// Detect the platform
+
+#include "../simd/platform.h"
+
+///////////////////////////////////////////////////////////////////////////////////
+// Build model
+
+#if defined(_M_ARM64) || defined(__LP64__) || defined(_M_X64) || defined(__ppc64__) || defined(__x86_64__)
+#	define LINEARMATH_MODEL	LINEARMATH_MODEL_64
+#elif defined(__i386__) || defined(__ppc__) || defined(__ILP32__) || defined(_M_ARM)
+#	define LINEARMATH_MODEL	LINEARMATH_MODEL_32
+#else
+#	define LINEARMATH_MODEL	LINEARMATH_MODEL_32
+#endif//
+
+#if !defined(LINEARMATH_MODEL) && LINEARMATH_COMPILER != 0
+#	error "LINEARMATH_MODEL undefined, your compiler may not be supported by LINEARMATH. Add #define LINEARMATH_MODEL 0 to ignore this message."
+#endif//LINEARMATH_MODEL
+
+///////////////////////////////////////////////////////////////////////////////////
+// C++ Version
+
+// User defines: LINEARMATH_FORCE_CXX98, LINEARMATH_FORCE_CXX03, LINEARMATH_FORCE_CXX11, LINEARMATH_FORCE_CXX14, LINEARMATH_FORCE_CXX17, LINEARMATH_FORCE_CXX2A
+
+#define LINEARMATH_LANG_CXX98_FLAG			(1 << 1)
+#define LINEARMATH_LANG_CXX03_FLAG			(1 << 2)
+#define LINEARMATH_LANG_CXX0X_FLAG			(1 << 3)
+#define LINEARMATH_LANG_CXX11_FLAG			(1 << 4)
+#define LINEARMATH_LANG_CXX14_FLAG			(1 << 5)
+#define LINEARMATH_LANG_CXX17_FLAG			(1 << 6)
+#define LINEARMATH_LANG_CXX20_FLAG			(1 << 7)
+#define LINEARMATH_LANG_CXXMS_FLAG			(1 << 8)
+#define LINEARMATH_LANG_CXXGNU_FLAG		(1 << 9)
+
+#define LINEARMATH_LANG_CXX98			LINEARMATH_LANG_CXX98_FLAG
+#define LINEARMATH_LANG_CXX03			(LINEARMATH_LANG_CXX98 | LINEARMATH_LANG_CXX03_FLAG)
+#define LINEARMATH_LANG_CXX0X			(LINEARMATH_LANG_CXX03 | LINEARMATH_LANG_CXX0X_FLAG)
+#define LINEARMATH_LANG_CXX11			(LINEARMATH_LANG_CXX0X | LINEARMATH_LANG_CXX11_FLAG)
+#define LINEARMATH_LANG_CXX14			(LINEARMATH_LANG_CXX11 | LINEARMATH_LANG_CXX14_FLAG)
+#define LINEARMATH_LANG_CXX17			(LINEARMATH_LANG_CXX14 | LINEARMATH_LANG_CXX17_FLAG)
+#define LINEARMATH_LANG_CXX20			(LINEARMATH_LANG_CXX17 | LINEARMATH_LANG_CXX20_FLAG)
+#define LINEARMATH_LANG_CXXMS			LINEARMATH_LANG_CXXMS_FLAG
+#define LINEARMATH_LANG_CXXGNU			LINEARMATH_LANG_CXXGNU_FLAG
+
+#if (defined(_MSC_EXTENSIONS))
+#	define LINEARMATH_LANG_EXT LINEARMATH_LANG_CXXMS_FLAG
+#elif ((LINEARMATH_COMPILER & (LINEARMATH_COMPILER_CLANG | LINEARMATH_COMPILER_GCC)) && (LINEARMATH_ARCH & LINEARMATH_ARCH_SIMD_BIT))
+#	define LINEARMATH_LANG_EXT LINEARMATH_LANG_CXXMS_FLAG
+#else
+#	define LINEARMATH_LANG_EXT 0
+#endif
+
+#if (defined(LINEARMATH_FORCE_CXX_UNKNOWN))
+#	define LINEARMATH_LANG 0
+#elif defined(LINEARMATH_FORCE_CXX20)
+#	define LINEARMATH_LANG (LINEARMATH_LANG_CXX20 | LINEARMATH_LANG_EXT)
+#	define LINEARMATH_LANG_STL11_FORCED
+#elif defined(LINEARMATH_FORCE_CXX17)
+#	define LINEARMATH_LANG (LINEARMATH_LANG_CXX17 | LINEARMATH_LANG_EXT)
+#	define LINEARMATH_LANG_STL11_FORCED
+#elif defined(LINEARMATH_FORCE_CXX14)
+#	define LINEARMATH_LANG (LINEARMATH_LANG_CXX14 | LINEARMATH_LANG_EXT)
+#	define LINEARMATH_LANG_STL11_FORCED
+#elif defined(LINEARMATH_FORCE_CXX11)
+#	define LINEARMATH_LANG (LINEARMATH_LANG_CXX11 | LINEARMATH_LANG_EXT)
+#	define LINEARMATH_LANG_STL11_FORCED
+#elif defined(LINEARMATH_FORCE_CXX03)
+#	define LINEARMATH_LANG (LINEARMATH_LANG_CXX03 | LINEARMATH_LANG_EXT)
+#elif defined(LINEARMATH_FORCE_CXX98)
+#	define LINEARMATH_LANG (LINEARMATH_LANG_CXX98 | LINEARMATH_LANG_EXT)
+#else
+#	if LINEARMATH_COMPILER & LINEARMATH_COMPILER_VC && defined(_MSVC_LANG)
+#		if LINEARMATH_COMPILER >= LINEARMATH_COMPILER_VC15_7
+#			define LINEARMATH_LANG_PLATFORM _MSVC_LANG
+#		elif LINEARMATH_COMPILER >= LINEARMATH_COMPILER_VC15
+#			if _MSVC_LANG > 201402L
+#				define LINEARMATH_LANG_PLATFORM 201402L
+#			else
+#				define LINEARMATH_LANG_PLATFORM _MSVC_LANG
+#			endif
+#		else
+#			define LINEARMATH_LANG_PLATFORM 0
+#		endif
+#	else
+#		define LINEARMATH_LANG_PLATFORM 0
+#	endif
+
+#	if __cplusplus > 201703L || LINEARMATH_LANG_PLATFORM > 201703L
+#		define LINEARMATH_LANG (LINEARMATH_LANG_CXX20 | LINEARMATH_LANG_EXT)
+#	elif __cplusplus == 201703L || LINEARMATH_LANG_PLATFORM == 201703L
+#		define LINEARMATH_LANG (LINEARMATH_LANG_CXX17 | LINEARMATH_LANG_EXT)
+#	elif __cplusplus == 201402L || __cplusplus == 201406L || __cplusplus == 201500L || LINEARMATH_LANG_PLATFORM == 201402L
+#		define LINEARMATH_LANG (LINEARMATH_LANG_CXX14 | LINEARMATH_LANG_EXT)
+#	elif __cplusplus == 201103L || LINEARMATH_LANG_PLATFORM == 201103L
+#		define LINEARMATH_LANG (LINEARMATH_LANG_CXX11 | LINEARMATH_LANG_EXT)
+#	elif defined(__INTEL_CXX11_MODE__) || defined(_MSC_VER) || defined(__GXX_EXPERIMENTAL_CXX0X__)
+#		define LINEARMATH_LANG (LINEARMATH_LANG_CXX0X | LINEARMATH_LANG_EXT)
+#	elif __cplusplus == 199711L
+#		define LINEARMATH_LANG (LINEARMATH_LANG_CXX98 | LINEARMATH_LANG_EXT)
+#	else
+#		define LINEARMATH_LANG (0 | LINEARMATH_LANG_EXT)
+#	endif
+#endif
+
+///////////////////////////////////////////////////////////////////////////////////
+// Has of C++ features
+
+// http://clang.llvm.org/cxx_status.html
+// http://gcc.gnu.org/projects/cxx0x.html
+// http://msdn.microsoft.com/en-us/library/vstudio/hh567368(v=vs.120).aspx
+
+// Android has multiple STLs but C++11 STL detection doesn't always work #284 #564
+#if LINEARMATH_PLATFORM == LINEARMATH_PLATFORM_ANDROID && !defined(LINEARMATH_LANG_STL11_FORCED)
+#	define LINEARMATH_HAS_CXX11_STL 0
+#elif (LINEARMATH_COMPILER & LINEARMATH_COMPILER_CUDA_RTC) == LINEARMATH_COMPILER_CUDA_RTC
+#	define LINEARMATH_HAS_CXX11_STL 0
+#elif (LINEARMATH_COMPILER & LINEARMATH_COMPILER_HIP)
+#	define LINEARMATH_HAS_CXX11_STL 0
+#elif LINEARMATH_COMPILER & LINEARMATH_COMPILER_CLANG
+#	if (defined(_LIBCPP_VERSION) || (LINEARMATH_LANG & LINEARMATH_LANG_CXX11_FLAG) || defined(LINEARMATH_LANG_STL11_FORCED))
+#		define LINEARMATH_HAS_CXX11_STL 1
+#	else
+#		define LINEARMATH_HAS_CXX11_STL 0
+#	endif
+#elif LINEARMATH_LANG & LINEARMATH_LANG_CXX11_FLAG
+#	define LINEARMATH_HAS_CXX11_STL 1
+#else
+#	define LINEARMATH_HAS_CXX11_STL ((LINEARMATH_LANG & LINEARMATH_LANG_CXX0X_FLAG) && (\
+		((LINEARMATH_COMPILER & LINEARMATH_COMPILER_GCC) && (LINEARMATH_COMPILER >= LINEARMATH_COMPILER_GCC48)) || \
+		((LINEARMATH_COMPILER & LINEARMATH_COMPILER_VC) && (LINEARMATH_COMPILER >= LINEARMATH_COMPILER_VC12)) || \
+		((LINEARMATH_PLATFORM != LINEARMATH_PLATFORM_WINDOWS) && (LINEARMATH_COMPILER & LINEARMATH_COMPILER_INTEL) && (LINEARMATH_COMPILER >= LINEARMATH_COMPILER_INTEL15))))
+#endif
+
+// N1720
+#if LINEARMATH_COMPILER & LINEARMATH_COMPILER_CLANG
+#	define LINEARMATH_HAS_STATIC_ASSERT __has_feature(cxx_static_assert)
+#elif LINEARMATH_LANG & LINEARMATH_LANG_CXX11_FLAG
+#	define LINEARMATH_HAS_STATIC_ASSERT 1
+#else
+#	define LINEARMATH_HAS_STATIC_ASSERT ((LINEARMATH_LANG & LINEARMATH_LANG_CXX0X_FLAG) && (\
+		((LINEARMATH_COMPILER & LINEARMATH_COMPILER_CUDA)) || \
+		((LINEARMATH_COMPILER & LINEARMATH_COMPILER_VC)) || \
+		((LINEARMATH_COMPILER & LINEARMATH_COMPILER_HIP))))
+#endif
+
+// N1988
+#if LINEARMATH_LANG & LINEARMATH_LANG_CXX11_FLAG
+#	define LINEARMATH_HAS_EXTENDED_INTEGER_TYPE 1
+#else
+#	define LINEARMATH_HAS_EXTENDED_INTEGER_TYPE (\
+		((LINEARMATH_LANG & LINEARMATH_LANG_CXX0X_FLAG) && (LINEARMATH_COMPILER & LINEARMATH_COMPILER_VC)) || \
+		((LINEARMATH_LANG & LINEARMATH_LANG_CXX0X_FLAG) && (LINEARMATH_COMPILER & LINEARMATH_COMPILER_CUDA)) || \
+		((LINEARMATH_LANG & LINEARMATH_LANG_CXX0X_FLAG) && (LINEARMATH_COMPILER & LINEARMATH_COMPILER_CLANG)) || \
+		((LINEARMATH_COMPILER & LINEARMATH_COMPILER_HIP)))
+#endif
+
+// N2672 Initializer lists http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2008/n2672.htm
+#if LINEARMATH_COMPILER & LINEARMATH_COMPILER_CLANG
+#	define LINEARMATH_HAS_INITIALIZER_LISTS __has_feature(cxx_generalized_initializers)
+#elif LINEARMATH_LANG & LINEARMATH_LANG_CXX11_FLAG
+#	define LINEARMATH_HAS_INITIALIZER_LISTS 1
+#else
+#	define LINEARMATH_HAS_INITIALIZER_LISTS ((LINEARMATH_LANG & LINEARMATH_LANG_CXX0X_FLAG) && (\
+		((LINEARMATH_COMPILER & LINEARMATH_COMPILER_VC) && (LINEARMATH_COMPILER >= LINEARMATH_COMPILER_VC15)) || \
+		((LINEARMATH_COMPILER & LINEARMATH_COMPILER_INTEL) && (LINEARMATH_COMPILER >= LINEARMATH_COMPILER_INTEL14)) || \
+		((LINEARMATH_COMPILER & LINEARMATH_COMPILER_CUDA)) || \
+		((LINEARMATH_COMPILER & LINEARMATH_COMPILER_HIP))))
+#endif
+
+// N2544 Unrestricted unions http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2008/n2544.pdf
+#if LINEARMATH_COMPILER & LINEARMATH_COMPILER_CLANG
+#	define LINEARMATH_HAS_UNRESTRICTED_UNIONS __has_feature(cxx_unrestricted_unions)
+#elif LINEARMATH_LANG & LINEARMATH_LANG_CXX11_FLAG
+#	define LINEARMATH_HAS_UNRESTRICTED_UNIONS 1
+#else
+#	define LINEARMATH_HAS_UNRESTRICTED_UNIONS (LINEARMATH_LANG & LINEARMATH_LANG_CXX0X_FLAG) && (\
+		(LINEARMATH_COMPILER & LINEARMATH_COMPILER_VC) || \
+		((LINEARMATH_COMPILER & LINEARMATH_COMPILER_CUDA)) || \
+		((LINEARMATH_COMPILER & LINEARMATH_COMPILER_HIP)))
+#endif
+
+// N2346
+#if LINEARMATH_COMPILER & LINEARMATH_COMPILER_CLANG
+#	define LINEARMATH_HAS_DEFAULTED_FUNCTIONS __has_feature(cxx_defaulted_functions)
+#elif LINEARMATH_LANG & LINEARMATH_LANG_CXX11_FLAG
+#	define LINEARMATH_HAS_DEFAULTED_FUNCTIONS 1
+#else
+#	define LINEARMATH_HAS_DEFAULTED_FUNCTIONS ((LINEARMATH_LANG & LINEARMATH_LANG_CXX0X_FLAG) && (\
+		((LINEARMATH_COMPILER & LINEARMATH_COMPILER_VC) && (LINEARMATH_COMPILER >= LINEARMATH_COMPILER_VC12)) || \
+		((LINEARMATH_COMPILER & LINEARMATH_COMPILER_INTEL)) || \
+		(LINEARMATH_COMPILER & LINEARMATH_COMPILER_CUDA)) || \
+		((LINEARMATH_COMPILER & LINEARMATH_COMPILER_HIP)))
+#endif
+
+// N2118
+#if LINEARMATH_COMPILER & LINEARMATH_COMPILER_CLANG
+#	define LINEARMATH_HAS_RVALUE_REFERENCES __has_feature(cxx_rvalue_references)
+#elif LINEARMATH_LANG & LINEARMATH_LANG_CXX11_FLAG
+#	define LINEARMATH_HAS_RVALUE_REFERENCES 1
+#else
+#	define LINEARMATH_HAS_RVALUE_REFERENCES ((LINEARMATH_LANG & LINEARMATH_LANG_CXX0X_FLAG) && (\
+		((LINEARMATH_COMPILER & LINEARMATH_COMPILER_VC)) || \
+		((LINEARMATH_COMPILER & LINEARMATH_COMPILER_CUDA)) || \
+		((LINEARMATH_COMPILER & LINEARMATH_COMPILER_HIP))))
+#endif
+
+// N2437 http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2007/n2437.pdf
+#if LINEARMATH_COMPILER & LINEARMATH_COMPILER_CLANG
+#	define LINEARMATH_HAS_EXPLICIT_CONVERSION_OPERATORS __has_feature(cxx_explicit_conversions)
+#elif LINEARMATH_LANG & LINEARMATH_LANG_CXX11_FLAG
+#	define LINEARMATH_HAS_EXPLICIT_CONVERSION_OPERATORS 1
+#else
+#	define LINEARMATH_HAS_EXPLICIT_CONVERSION_OPERATORS ((LINEARMATH_LANG & LINEARMATH_LANG_CXX0X_FLAG) && (\
+		((LINEARMATH_COMPILER & LINEARMATH_COMPILER_INTEL) && (LINEARMATH_COMPILER >= LINEARMATH_COMPILER_INTEL14)) || \
+		((LINEARMATH_COMPILER & LINEARMATH_COMPILER_VC) && (LINEARMATH_COMPILER >= LINEARMATH_COMPILER_VC12)) || \
+		((LINEARMATH_COMPILER & LINEARMATH_COMPILER_CUDA)) || \
+		((LINEARMATH_COMPILER & LINEARMATH_COMPILER_HIP))))
+#endif
+
+// N2258 http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2007/n2258.pdf
+#if LINEARMATH_COMPILER & LINEARMATH_COMPILER_CLANG
+#	define LINEARMATH_HAS_TEMPLATE_ALIASES __has_feature(cxx_alias_templates)
+#elif LINEARMATH_LANG & LINEARMATH_LANG_CXX11_FLAG
+#	define LINEARMATH_HAS_TEMPLATE_ALIASES 1
+#else
+#	define LINEARMATH_HAS_TEMPLATE_ALIASES ((LINEARMATH_LANG & LINEARMATH_LANG_CXX0X_FLAG) && (\
+		((LINEARMATH_COMPILER & LINEARMATH_COMPILER_INTEL)) || \
+		((LINEARMATH_COMPILER & LINEARMATH_COMPILER_VC) && (LINEARMATH_COMPILER >= LINEARMATH_COMPILER_VC12)) || \
+		((LINEARMATH_COMPILER & LINEARMATH_COMPILER_CUDA)) || \
+		((LINEARMATH_COMPILER & LINEARMATH_COMPILER_HIP))))
+#endif
+
+// N2930 http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2009/n2930.html
+#if LINEARMATH_COMPILER & LINEARMATH_COMPILER_CLANG
+#	define LINEARMATH_HAS_RANGE_FOR __has_feature(cxx_range_for)
+#elif LINEARMATH_LANG & LINEARMATH_LANG_CXX11_FLAG
+#	define LINEARMATH_HAS_RANGE_FOR 1
+#else
+#	define LINEARMATH_HAS_RANGE_FOR ((LINEARMATH_LANG & LINEARMATH_LANG_CXX0X_FLAG) && (\
+		((LINEARMATH_COMPILER & LINEARMATH_COMPILER_INTEL)) || \
+		((LINEARMATH_COMPILER & LINEARMATH_COMPILER_VC)) || \
+		((LINEARMATH_COMPILER & LINEARMATH_COMPILER_CUDA)) || \
+		((LINEARMATH_COMPILER & LINEARMATH_COMPILER_HIP))))
+#endif
+
+// N2341 http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2007/n2341.pdf
+#if LINEARMATH_COMPILER & LINEARMATH_COMPILER_CLANG
+#	define LINEARMATH_HAS_ALIGNOF __has_feature(cxx_alignas)
+#elif LINEARMATH_LANG & LINEARMATH_LANG_CXX11_FLAG
+#	define LINEARMATH_HAS_ALIGNOF 1
+#else
+#	define LINEARMATH_HAS_ALIGNOF ((LINEARMATH_LANG & LINEARMATH_LANG_CXX0X_FLAG) && (\
+		((LINEARMATH_COMPILER & LINEARMATH_COMPILER_INTEL) && (LINEARMATH_COMPILER >= LINEARMATH_COMPILER_INTEL15)) || \
+		((LINEARMATH_COMPILER & LINEARMATH_COMPILER_VC) && (LINEARMATH_COMPILER >= LINEARMATH_COMPILER_VC14)) || \
+		((LINEARMATH_COMPILER & LINEARMATH_COMPILER_CUDA)) || \
+		((LINEARMATH_COMPILER & LINEARMATH_COMPILER_HIP))))
+#endif
+
+// N2235 Generalized Constant Expressions http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2007/n2235.pdf
+// N3652 Extended Constant Expressions http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2013/n3652.html
+#if (LINEARMATH_ARCH & LINEARMATH_ARCH_SIMD_BIT) // Compiler SIMD intrinsics don't support constexpr...
+#	define LINEARMATH_HAS_CONSTEXPR 0
+#elif (LINEARMATH_COMPILER & LINEARMATH_COMPILER_CLANG)
+#	define LINEARMATH_HAS_CONSTEXPR __has_feature(cxx_relaxed_constexpr)
+#elif (LINEARMATH_LANG & LINEARMATH_LANG_CXX14_FLAG)
+#	define LINEARMATH_HAS_CONSTEXPR 1
+#else
+#	define LINEARMATH_HAS_CONSTEXPR ((LINEARMATH_LANG & LINEARMATH_LANG_CXX0X_FLAG) && LINEARMATH_HAS_INITIALIZER_LISTS && (\
+		((LINEARMATH_COMPILER & LINEARMATH_COMPILER_INTEL) && (LINEARMATH_COMPILER >= LINEARMATH_COMPILER_INTEL17)) || \
+		((LINEARMATH_COMPILER & LINEARMATH_COMPILER_VC) && (LINEARMATH_COMPILER >= LINEARMATH_COMPILER_VC15))))
+#endif
+
+#if LINEARMATH_HAS_CONSTEXPR
+#	define LINEARMATH_CONSTEXPR constexpr
+#else
+#	define LINEARMATH_CONSTEXPR
+#endif
+
+//
+#if LINEARMATH_HAS_CONSTEXPR
+# if (LINEARMATH_COMPILER & LINEARMATH_COMPILER_CLANG)
+#	if __has_feature(cxx_if_constexpr)
+#		define LINEARMATH_HAS_IF_CONSTEXPR 1
+#	else
+# 		define LINEARMATH_HAS_IF_CONSTEXPR 0
+#	endif
+# elif (LINEARMATH_LANG & LINEARMATH_LANG_CXX17_FLAG)
+# 	define LINEARMATH_HAS_IF_CONSTEXPR 1
+# else
+# 	define LINEARMATH_HAS_IF_CONSTEXPR 0
+# endif
+#else
+#	define LINEARMATH_HAS_IF_CONSTEXPR 0
+#endif
+
+#if LINEARMATH_HAS_IF_CONSTEXPR
+# 	define LINEARMATH_IF_CONSTEXPR if constexpr
+#else
+#	define LINEARMATH_IF_CONSTEXPR if
+#endif
+
+// [nodiscard]
+#if LINEARMATH_LANG & LINEARMATH_LANG_CXX17_FLAG
+#	define LINEARMATH_NODISCARD [[nodiscard]]
+#else
+#	define LINEARMATH_NODISCARD
+#endif
+
+//
+#if LINEARMATH_LANG & LINEARMATH_LANG_CXX11_FLAG
+#	define LINEARMATH_HAS_ASSIGNABLE 1
+#else
+#	define LINEARMATH_HAS_ASSIGNABLE ((LINEARMATH_LANG & LINEARMATH_LANG_CXX0X_FLAG) && (\
+		((LINEARMATH_COMPILER & LINEARMATH_COMPILER_VC) && (LINEARMATH_COMPILER >= LINEARMATH_COMPILER_VC15)) || \
+		((LINEARMATH_COMPILER & LINEARMATH_COMPILER_GCC) && (LINEARMATH_COMPILER >= LINEARMATH_COMPILER_GCC49))))
+#endif
+
+//
+#define LINEARMATH_HAS_TRIVIAL_QUERIES 0
+
+//
+#if LINEARMATH_LANG & LINEARMATH_LANG_CXX11_FLAG
+#	define LINEARMATH_HAS_MAKE_SIGNED 1
+#else
+#	define LINEARMATH_HAS_MAKE_SIGNED ((LINEARMATH_LANG & LINEARMATH_LANG_CXX0X_FLAG) && (\
+		((LINEARMATH_COMPILER & LINEARMATH_COMPILER_VC) && (LINEARMATH_COMPILER >= LINEARMATH_COMPILER_VC12)) || \
+		((LINEARMATH_COMPILER & LINEARMATH_COMPILER_CUDA)) || \
+		((LINEARMATH_COMPILER & LINEARMATH_COMPILER_HIP))))
+#endif
+
+//
+#if defined(LINEARMATH_FORCE_INTRINSICS)
+#	define LINEARMATH_HAS_BITSCAN_WINDOWS ((LINEARMATH_PLATFORM & LINEARMATH_PLATFORM_WINDOWS) && (\
+		((LINEARMATH_COMPILER & LINEARMATH_COMPILER_INTEL)) || \
+		((LINEARMATH_COMPILER & LINEARMATH_COMPILER_VC) && (LINEARMATH_COMPILER >= LINEARMATH_COMPILER_VC14) && (LINEARMATH_ARCH & LINEARMATH_ARCH_X86_BIT))))
+#else
+#	define LINEARMATH_HAS_BITSCAN_WINDOWS 0
+#endif
+
+#if LINEARMATH_LANG & LINEARMATH_LANG_CXX11_FLAG
+#	define LINEARMATH_HAS_NOEXCEPT 1
+#else
+#	define LINEARMATH_HAS_NOEXCEPT 0
+#endif
+
+#if LINEARMATH_HAS_NOEXCEPT
+#	define LINEARMATH_NOEXCEPT noexcept
+#else
+#	define LINEARMATH_NOEXCEPT
+#endif
+
+///////////////////////////////////////////////////////////////////////////////////
+// OpenMP
+#ifdef _OPENMP
+#	if LINEARMATH_COMPILER & LINEARMATH_COMPILER_GCC
+#		if LINEARMATH_COMPILER >= LINEARMATH_COMPILER_GCC61
+#			define LINEARMATH_HAS_OPENMP 45
+#		elif LINEARMATH_COMPILER >= LINEARMATH_COMPILER_GCC49
+#			define LINEARMATH_HAS_OPENMP 40
+#		elif LINEARMATH_COMPILER >= LINEARMATH_COMPILER_GCC47
+#			define LINEARMATH_HAS_OPENMP 31
+#		else
+#			define LINEARMATH_HAS_OPENMP 0
+#		endif
+#	elif LINEARMATH_COMPILER & LINEARMATH_COMPILER_CLANG
+#		if LINEARMATH_COMPILER >= LINEARMATH_COMPILER_CLANG38
+#			define LINEARMATH_HAS_OPENMP 31
+#		else
+#			define LINEARMATH_HAS_OPENMP 0
+#		endif
+#	elif LINEARMATH_COMPILER & LINEARMATH_COMPILER_VC
+#		define LINEARMATH_HAS_OPENMP 20
+#	elif LINEARMATH_COMPILER & LINEARMATH_COMPILER_INTEL
+#		if LINEARMATH_COMPILER >= LINEARMATH_COMPILER_INTEL16
+#			define LINEARMATH_HAS_OPENMP 40
+#		else
+#			define LINEARMATH_HAS_OPENMP 0
+#		endif
+#	else
+#		define LINEARMATH_HAS_OPENMP 0
+#	endif
+#else
+#	define LINEARMATH_HAS_OPENMP 0
+#endif
+
+///////////////////////////////////////////////////////////////////////////////////
+// nullptr
+
+#if LINEARMATH_LANG & LINEARMATH_LANG_CXX0X_FLAG
+#	define LINEARMATH_CONFIG_NULLPTR LINEARMATH_ENABLE
+#else
+#	define LINEARMATH_CONFIG_NULLPTR LINEARMATH_DISABLE
+#endif
+
+#if LINEARMATH_CONFIG_NULLPTR == LINEARMATH_ENABLE
+#	define LINEARMATH_NULLPTR nullptr
+#else
+#	define LINEARMATH_NULLPTR 0
+#endif
+
+///////////////////////////////////////////////////////////////////////////////////
+// Static assert
+
+#if LINEARMATH_HAS_STATIC_ASSERT
+#	define LINEARMATH_STATIC_ASSERT(x, message) static_assert(x, message)
+#elif LINEARMATH_COMPILER & LINEARMATH_COMPILER_VC
+#	define LINEARMATH_STATIC_ASSERT(x, message) typedef char __CASSERT__##__LINE__[(x) ? 1 : -1]
+#else
+#	define LINEARMATH_STATIC_ASSERT(x, message) assert(x)
+#endif//LINEARMATH_LANG
+
+///////////////////////////////////////////////////////////////////////////////////
+// Qualifiers
+
+// User defines: LINEARMATH_CUDA_FORCE_DEVICE_FUNC, LINEARMATH_CUDA_FORCE_HOST_FUNC
+
+#if (LINEARMATH_COMPILER & LINEARMATH_COMPILER_CUDA) || (LINEARMATH_COMPILER & LINEARMATH_COMPILER_HIP)
+#	if defined(LINEARMATH_CUDA_FORCE_DEVICE_FUNC) && defined(LINEARMATH_CUDA_FORCE_HOST_FUNC)
+#		error "LINEARMATH error: LINEARMATH_CUDA_FORCE_DEVICE_FUNC and LINEARMATH_CUDA_FORCE_HOST_FUNC should not be defined at the same time, LINEARMATH by default generates both device and host code for CUDA compiler."
+#	endif//defined(LINEARMATH_CUDA_FORCE_DEVICE_FUNC) && defined(LINEARMATH_CUDA_FORCE_HOST_FUNC)
+
+#	if defined(LINEARMATH_CUDA_FORCE_DEVICE_FUNC)
+#		define LINEARMATH_CUDA_FUNC_DEF __device__
+#		define LINEARMATH_CUDA_FUNC_DECL __device__
+#	elif defined(LINEARMATH_CUDA_FORCE_HOST_FUNC)
+#		define LINEARMATH_CUDA_FUNC_DEF __host__
+#		define LINEARMATH_CUDA_FUNC_DECL __host__
+#	else
+#		define LINEARMATH_CUDA_FUNC_DEF __device__ __host__
+#		define LINEARMATH_CUDA_FUNC_DECL __device__ __host__
+#	endif//defined(LINEARMATH_CUDA_FORCE_XXXX_FUNC)
+#else
+#	define LINEARMATH_CUDA_FUNC_DEF
+#	define LINEARMATH_CUDA_FUNC_DECL
+#endif
+
+#if defined(LINEARMATH_FORCE_INLINE)
+#	if LINEARMATH_COMPILER & LINEARMATH_COMPILER_VC
+#		define LINEARMATH_INLINE __forceinline
+#		define LINEARMATH_NEVER_INLINE __declspec(noinline)
+#	elif LINEARMATH_COMPILER & (LINEARMATH_COMPILER_GCC | LINEARMATH_COMPILER_CLANG)
+#		define LINEARMATH_INLINE inline __attribute__((__always_inline__))
+#		define LINEARMATH_NEVER_INLINE __attribute__((__noinline__))
+#	elif (LINEARMATH_COMPILER & LINEARMATH_COMPILER_CUDA) || (LINEARMATH_COMPILER & LINEARMATH_COMPILER_HIP)
+#		define LINEARMATH_INLINE __forceinline__
+#		define LINEARMATH_NEVER_INLINE __noinline__
+#	else
+#		define LINEARMATH_INLINE inline
+#		define LINEARMATH_NEVER_INLINE
+#	endif//LINEARMATH_COMPILER
+#else
+#	define LINEARMATH_INLINE inline
+#	define LINEARMATH_NEVER_INLINE
+#endif//defined(LINEARMATH_FORCE_INLINE)
+
+#define LINEARMATH_CTOR_DECL LINEARMATH_CUDA_FUNC_DECL LINEARMATH_CONSTEXPR
+#define LINEARMATH_FUNC_DISCARD_DECL LINEARMATH_CUDA_FUNC_DECL
+#define LINEARMATH_FUNC_DECL LINEARMATH_NODISCARD LINEARMATH_CUDA_FUNC_DECL
+#define LINEARMATH_FUNC_QUALIFIER LINEARMATH_CUDA_FUNC_DEF LINEARMATH_INLINE
+
+// Do not use CUDA function qualifiers on CUDA compiler when functions are made default
+#if LINEARMATH_HAS_DEFAULTED_FUNCTIONS
+#	define LINEARMATH_DEFAULTED_FUNC_DECL
+#	define LINEARMATH_DEFAULTED_FUNC_QUALIFIER LINEARMATH_INLINE
+#else
+#	define LINEARMATH_DEFAULTED_FUNC_DECL LINEARMATH_FUNC_DISCARD_DECL
+#	define LINEARMATH_DEFAULTED_FUNC_QUALIFIER LINEARMATH_FUNC_QUALIFIER
+#endif//LINEARMATH_HAS_DEFAULTED_FUNCTIONS
+#if !defined(LINEARMATH_FORCE_CTOR_INIT)
+#	define LINEARMATH_DEFAULTED_DEFAULT_CTOR_DECL LINEARMATH_CUDA_FUNC_DECL
+#	define LINEARMATH_DEFAULTED_DEFAULT_CTOR_QUALIFIER LINEARMATH_DEFAULTED_FUNC_QUALIFIER
+#else
+#	define LINEARMATH_DEFAULTED_DEFAULT_CTOR_DECL LINEARMATH_FUNC_DISCARD_DECL
+#	define LINEARMATH_DEFAULTED_DEFAULT_CTOR_QUALIFIER LINEARMATH_FUNC_QUALIFIER
+#endif//LINEARMATH_FORCE_CTOR_INIT
+
+///////////////////////////////////////////////////////////////////////////////////
+// Swizzle operators
+
+// User defines: LINEARMATH_FORCE_SWIZZLE
+
+#define LINEARMATH_SWIZZLE_DISABLED		0
+#define LINEARMATH_SWIZZLE_OPERATOR		1
+#define LINEARMATH_SWIZZLE_FUNCTION		2
+
+#if defined(LINEARMATH_SWIZZLE)
+#	pragma message("LINEARMATH: LINEARMATH_SWIZZLE is deprecated, use LINEARMATH_FORCE_SWIZZLE instead.")
+#	define LINEARMATH_FORCE_SWIZZLE
+#endif
+
+#if defined(LINEARMATH_FORCE_SWIZZLE) && (LINEARMATH_LANG & LINEARMATH_LANG_CXXMS_FLAG) && !defined(LINEARMATH_FORCE_XYZW_ONLY)
+#	define LINEARMATH_CONFIG_SWIZZLE LINEARMATH_SWIZZLE_OPERATOR
+#elif defined(LINEARMATH_FORCE_SWIZZLE)
+#	define LINEARMATH_CONFIG_SWIZZLE LINEARMATH_SWIZZLE_FUNCTION
+#else
+#	define LINEARMATH_CONFIG_SWIZZLE LINEARMATH_SWIZZLE_DISABLED
+#endif
+
+///////////////////////////////////////////////////////////////////////////////////
+// Allows using not basic types as genType
+
+// #define LINEARMATH_FORCE_UNRESTRICTED_GENTYPE
+
+#ifdef LINEARMATH_FORCE_UNRESTRICTED_GENTYPE
+#	define LINEARMATH_CONFIG_UNRESTRICTED_GENTYPE LINEARMATH_ENABLE
+#else
+#	define LINEARMATH_CONFIG_UNRESTRICTED_GENTYPE LINEARMATH_DISABLE
+#endif
+
+///////////////////////////////////////////////////////////////////////////////////
+// Allows using any scaler as float
+
+// #define LINEARMATH_FORCE_UNRESTRICTED_FLOAT
+
+#ifdef LINEARMATH_FORCE_UNRESTRICTED_FLOAT
+#	define LINEARMATH_CONFIG_UNRESTRICTED_FLOAT LINEARMATH_ENABLE
+#else
+#	define LINEARMATH_CONFIG_UNRESTRICTED_FLOAT LINEARMATH_DISABLE
+#endif
+
+///////////////////////////////////////////////////////////////////////////////////
+// Clip control, define LINEARMATH_FORCE_DEPTH_ZERO_TO_ONE before including LINEARMATH
+// to use a clip space between 0 to 1.
+// Coordinate system, define LINEARMATH_FORCE_LEFT_HANDED before including LINEARMATH
+// to use left handed coordinate system by default.
+
+#define LINEARMATH_CLIP_CONTROL_ZO_BIT		(1 << 0) // ZERO_TO_ONE
+#define LINEARMATH_CLIP_CONTROL_NO_BIT		(1 << 1) // NEGATIVE_ONE_TO_ONE
+#define LINEARMATH_CLIP_CONTROL_LH_BIT		(1 << 2) // LEFT_HANDED, For DirectX, Metal, Vulkan
+#define LINEARMATH_CLIP_CONTROL_RH_BIT		(1 << 3) // RIGHT_HANDED, For OpenGL, default in LINEARMATH
+
+#define LINEARMATH_CLIP_CONTROL_LH_ZO (LINEARMATH_CLIP_CONTROL_LH_BIT | LINEARMATH_CLIP_CONTROL_ZO_BIT)
+#define LINEARMATH_CLIP_CONTROL_LH_NO (LINEARMATH_CLIP_CONTROL_LH_BIT | LINEARMATH_CLIP_CONTROL_NO_BIT)
+#define LINEARMATH_CLIP_CONTROL_RH_ZO (LINEARMATH_CLIP_CONTROL_RH_BIT | LINEARMATH_CLIP_CONTROL_ZO_BIT)
+#define LINEARMATH_CLIP_CONTROL_RH_NO (LINEARMATH_CLIP_CONTROL_RH_BIT | LINEARMATH_CLIP_CONTROL_NO_BIT)
+
+#ifdef LINEARMATH_FORCE_DEPTH_ZERO_TO_ONE
+#	ifdef LINEARMATH_FORCE_LEFT_HANDED
+#		define LINEARMATH_CONFIG_CLIP_CONTROL LINEARMATH_CLIP_CONTROL_LH_ZO
+#	else
+#		define LINEARMATH_CONFIG_CLIP_CONTROL LINEARMATH_CLIP_CONTROL_RH_ZO
+#	endif
+#else
+#	ifdef LINEARMATH_FORCE_LEFT_HANDED
+#		define LINEARMATH_CONFIG_CLIP_CONTROL LINEARMATH_CLIP_CONTROL_LH_NO
+#	else
+#		define LINEARMATH_CONFIG_CLIP_CONTROL LINEARMATH_CLIP_CONTROL_RH_NO
+#	endif
+#endif
+
+///////////////////////////////////////////////////////////////////////////////////
+// Qualifiers
+
+#if (LINEARMATH_COMPILER & LINEARMATH_COMPILER_VC) || ((LINEARMATH_COMPILER & LINEARMATH_COMPILER_INTEL) && (LINEARMATH_PLATFORM & LINEARMATH_PLATFORM_WINDOWS))
+#	define LINEARMATH_DEPRECATED __declspec(deprecated)
+#	define LINEARMATH_ALIGNED_TYPEDEF(type, name, alignment) typedef __declspec(align(alignment)) type name
+#elif LINEARMATH_COMPILER & (LINEARMATH_COMPILER_GCC | LINEARMATH_COMPILER_CLANG | LINEARMATH_COMPILER_INTEL)
+#	define LINEARMATH_DEPRECATED __attribute__((__deprecated__))
+#	define LINEARMATH_ALIGNED_TYPEDEF(type, name, alignment) typedef type name __attribute__((aligned(alignment)))
+#elif (LINEARMATH_COMPILER & LINEARMATH_COMPILER_CUDA) || (LINEARMATH_COMPILER & LINEARMATH_COMPILER_HIP)
+#	define LINEARMATH_DEPRECATED
+#	define LINEARMATH_ALIGNED_TYPEDEF(type, name, alignment) typedef type name __align__(x)
+#else
+#	define LINEARMATH_DEPRECATED
+#	define LINEARMATH_ALIGNED_TYPEDEF(type, name, alignment) typedef type name
+#endif
+
+///////////////////////////////////////////////////////////////////////////////////
+
+#ifdef LINEARMATH_FORCE_EXPLICIT_CTOR
+#	define LINEARMATH_EXPLICIT explicit
+#else
+#	define LINEARMATH_EXPLICIT
+#endif
+
+///////////////////////////////////////////////////////////////////////////////////
+// Length type: all length functions returns a length_t type.
+// When LINEARMATH_FORCE_SIZE_T_LENGTH is defined, length_t is a typedef of size_t otherwise
+// length_t is a typedef of int like GLSL defines it.
+
+#define LINEARMATH_LENGTH_INT		1
+#define LINEARMATH_LENGTH_SIZE_T	2
+
+#ifdef LINEARMATH_FORCE_SIZE_T_LENGTH
+#	define LINEARMATH_CONFIG_LENGTH_TYPE		LINEARMATH_LENGTH_SIZE_T
+#	define LINEARMATH_ASSERT_LENGTH(l, max) (assert ((l) < (max)))
+#else
+#	define LINEARMATH_CONFIG_LENGTH_TYPE		LINEARMATH_LENGTH_INT
+#	define LINEARMATH_ASSERT_LENGTH(l, max) (assert ((l) >= 0 && (l) < (max)))
+#endif
+
+namespace linearmath
+{
+	using std::size_t;
+#	if LINEARMATH_CONFIG_LENGTH_TYPE == LINEARMATH_LENGTH_SIZE_T
+		typedef size_t length_t;
+#	else
+		typedef int length_t;
+#	endif
+}//namespace linearmath
+
+///////////////////////////////////////////////////////////////////////////////////
+// constexpr
+
+#if LINEARMATH_HAS_CONSTEXPR
+#	define LINEARMATH_CONFIG_CONSTEXP LINEARMATH_ENABLE
+
+	namespace linearmath
+	{
+		template<typename T, std::size_t N>
+		constexpr std::size_t countof(T const (&)[N])
+		{
+			return N;
+		}
+	}//namespace linearmath
+#	define LINEARMATH_COUNTOF(arr) linearmath::countof(arr)
+#elif defined(_MSC_VER)
+#	define LINEARMATH_CONFIG_CONSTEXP LINEARMATH_DISABLE
+
+#	define LINEARMATH_COUNTOF(arr) _countof(arr)
+#else
+#	define LINEARMATH_CONFIG_CONSTEXP LINEARMATH_DISABLE
+
+#	define LINEARMATH_COUNTOF(arr) sizeof(arr) / sizeof(arr[0])
+#endif
+
+///////////////////////////////////////////////////////////////////////////////////
+// uint
+
+namespace linearmath{
+namespace detail
+{
+	template<typename T>
+	struct is_int
+	{
+		enum test {value = 0};
+	};
+
+	template<>
+	struct is_int<unsigned int>
+	{
+		enum test {value = ~0};
+	};
+
+	template<>
+	struct is_int<signed int>
+	{
+		enum test {value = ~0};
+	};
+}//namespace detail
+
+	typedef unsigned int	uint;
+}//namespace linearmath
+
+///////////////////////////////////////////////////////////////////////////////////
+// 64-bit int
+
+#if LINEARMATH_HAS_EXTENDED_INTEGER_TYPE
+#	include <cstdint>
+#endif
+
+namespace linearmath{
+namespace detail
+{
+#	if LINEARMATH_HAS_EXTENDED_INTEGER_TYPE
+		typedef std::uint64_t						uint64;
+		typedef std::int64_t						int64;
+#	elif (defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 199901L)) // C99 detected, 64 bit types available
+		typedef uint64_t							uint64;
+		typedef int64_t								int64;
+#	elif LINEARMATH_COMPILER & LINEARMATH_COMPILER_VC
+		typedef unsigned __int64					uint64;
+		typedef signed __int64						int64;
+#	elif LINEARMATH_COMPILER & LINEARMATH_COMPILER_GCC
+#		pragma GCC diagnostic ignored "-Wlong-long"
+		__extension__ typedef unsigned long long	uint64;
+		__extension__ typedef signed long long		int64;
+#	elif (LINEARMATH_COMPILER & LINEARMATH_COMPILER_CLANG)
+#		pragma clang diagnostic ignored "-Wc++11-long-long"
+		typedef unsigned long long					uint64;
+		typedef signed long long					int64;
+#	else//unknown compiler
+		typedef unsigned long long					uint64;
+		typedef signed long long					int64;
+#	endif
+}//namespace detail
+}//namespace linearmath
+
+///////////////////////////////////////////////////////////////////////////////////
+// make_unsigned
+
+#if LINEARMATH_HAS_MAKE_SIGNED
+#	include <type_traits>
+
+namespace linearmath{
+namespace detail
+{
+	using std::make_unsigned;
+}//namespace detail
+}//namespace linearmath
+
+#else
+
+namespace linearmath{
+namespace detail
+{
+	template<typename genType>
+	struct make_unsigned
+	{};
+
+	template<>
+	struct make_unsigned<char>
+	{
+		typedef unsigned char type;
+	};
+
+	template<>
+	struct make_unsigned<signed char>
+	{
+		typedef unsigned char type;
+	};
+
+	template<>
+	struct make_unsigned<short>
+	{
+		typedef unsigned short type;
+	};
+
+	template<>
+	struct make_unsigned<int>
+	{
+		typedef unsigned int type;
+	};
+
+	template<>
+	struct make_unsigned<long>
+	{
+		typedef unsigned long type;
+	};
+
+	template<>
+	struct make_unsigned<int64>
+	{
+		typedef uint64 type;
+	};
+
+	template<>
+	struct make_unsigned<unsigned char>
+	{
+		typedef unsigned char type;
+	};
+
+	template<>
+	struct make_unsigned<unsigned short>
+	{
+		typedef unsigned short type;
+	};
+
+	template<>
+	struct make_unsigned<unsigned int>
+	{
+		typedef unsigned int type;
+	};
+
+	template<>
+	struct make_unsigned<unsigned long>
+	{
+		typedef unsigned long type;
+	};
+
+	template<>
+	struct make_unsigned<uint64>
+	{
+		typedef uint64 type;
+	};
+}//namespace detail
+}//namespace linearmath
+#endif
+
+///////////////////////////////////////////////////////////////////////////////////
+// Only use x, y, z, w as vector type components
+
+#ifdef LINEARMATH_FORCE_XYZW_ONLY
+#	define LINEARMATH_CONFIG_XYZW_ONLY LINEARMATH_ENABLE
+#else
+#	define LINEARMATH_CONFIG_XYZW_ONLY LINEARMATH_DISABLE
+#endif
+
+///////////////////////////////////////////////////////////////////////////////////
+// Configure the use of defaulted initialized types
+
+#define LINEARMATH_CTOR_INIT_DISABLE		0
+#define LINEARMATH_CTOR_INITIALIZER_LIST	1
+#define LINEARMATH_CTOR_INITIALISATION		2
+
+#if defined(LINEARMATH_FORCE_CTOR_INIT) && LINEARMATH_HAS_INITIALIZER_LISTS
+#	define LINEARMATH_CONFIG_CTOR_INIT LINEARMATH_CTOR_INITIALIZER_LIST
+#elif defined(LINEARMATH_FORCE_CTOR_INIT) && !LINEARMATH_HAS_INITIALIZER_LISTS
+#	define LINEARMATH_CONFIG_CTOR_INIT LINEARMATH_CTOR_INITIALISATION
+#else
+#	define LINEARMATH_CONFIG_CTOR_INIT LINEARMATH_CTOR_INIT_DISABLE
+#endif
+
+///////////////////////////////////////////////////////////////////////////////////
+// Use SIMD instruction sets
+
+#if LINEARMATH_HAS_ALIGNOF && (LINEARMATH_LANG & LINEARMATH_LANG_CXXMS_FLAG) && (LINEARMATH_ARCH & LINEARMATH_ARCH_SIMD_BIT)
+#	define LINEARMATH_CONFIG_SIMD LINEARMATH_ENABLE
+#else
+#	define LINEARMATH_CONFIG_SIMD LINEARMATH_DISABLE
+#endif
+
+///////////////////////////////////////////////////////////////////////////////////
+// Configure the use of defaulted function
+
+#if LINEARMATH_HAS_DEFAULTED_FUNCTIONS
+#	define LINEARMATH_CONFIG_DEFAULTED_FUNCTIONS LINEARMATH_ENABLE
+#	define LINEARMATH_DEFAULT = default
+#else
+#	define LINEARMATH_CONFIG_DEFAULTED_FUNCTIONS LINEARMATH_DISABLE
+#	define LINEARMATH_DEFAULT
+#endif
+
+#if LINEARMATH_CONFIG_CTOR_INIT == LINEARMATH_CTOR_INIT_DISABLE && LINEARMATH_CONFIG_DEFAULTED_FUNCTIONS == LINEARMATH_ENABLE
+#	define LINEARMATH_CONFIG_DEFAULTED_DEFAULT_CTOR LINEARMATH_ENABLE
+#	define LINEARMATH_DEFAULT_CTOR LINEARMATH_DEFAULT
+#else
+#	define LINEARMATH_CONFIG_DEFAULTED_DEFAULT_CTOR LINEARMATH_DISABLE
+#	define LINEARMATH_DEFAULT_CTOR
+#endif
+
+///////////////////////////////////////////////////////////////////////////////////
+// Configure the use of aligned gentypes
+
+#ifdef LINEARMATH_FORCE_ALIGNED // Legacy define
+#	define LINEARMATH_FORCE_DEFAULT_ALIGNED_GENTYPES
+#endif
+
+#ifdef LINEARMATH_FORCE_DEFAULT_ALIGNED_GENTYPES
+#	define LINEARMATH_FORCE_ALIGNED_GENTYPES
+#endif
+
+#if LINEARMATH_HAS_ALIGNOF && (LINEARMATH_LANG & LINEARMATH_LANG_CXXMS_FLAG) && (defined(LINEARMATH_FORCE_ALIGNED_GENTYPES) || (LINEARMATH_CONFIG_SIMD == LINEARMATH_ENABLE))
+#	define LINEARMATH_CONFIG_ALIGNED_GENTYPES LINEARMATH_ENABLE
+#else
+#	define LINEARMATH_CONFIG_ALIGNED_GENTYPES LINEARMATH_DISABLE
+#endif
+
+///////////////////////////////////////////////////////////////////////////////////
+// Configure the use of anonymous structure as implementation detail
+
+#if ((LINEARMATH_CONFIG_SIMD == LINEARMATH_ENABLE) || (LINEARMATH_CONFIG_SWIZZLE == LINEARMATH_SWIZZLE_OPERATOR) || (LINEARMATH_CONFIG_ALIGNED_GENTYPES == LINEARMATH_ENABLE))
+#	define LINEARMATH_CONFIG_ANONYMOUS_STRUCT LINEARMATH_ENABLE
+#else
+#	define LINEARMATH_CONFIG_ANONYMOUS_STRUCT LINEARMATH_DISABLE
+#endif
+
+///////////////////////////////////////////////////////////////////////////////////
+// Silent warnings
+
+#ifdef LINEARMATH_FORCE_WARNINGS
+#	define LINEARMATH_SILENT_WARNINGS LINEARMATH_DISABLE
+#else
+#	define LINEARMATH_SILENT_WARNINGS LINEARMATH_ENABLE
+#endif
+
+///////////////////////////////////////////////////////////////////////////////////
+// Precision
+
+#define LINEARMATH_HIGHP		1
+#define LINEARMATH_MEDIUMP		2
+#define LINEARMATH_LOWP		3
+
+#if defined(LINEARMATH_FORCE_PRECISION_HIGHP_BOOL) || defined(LINEARMATH_PRECISION_HIGHP_BOOL)
+#	define LINEARMATH_CONFIG_PRECISION_BOOL		LINEARMATH_HIGHP
+#elif defined(LINEARMATH_FORCE_PRECISION_MEDIUMP_BOOL) || defined(LINEARMATH_PRECISION_MEDIUMP_BOOL)
+#	define LINEARMATH_CONFIG_PRECISION_BOOL		LINEARMATH_MEDIUMP
+#elif defined(LINEARMATH_FORCE_PRECISION_LOWP_BOOL) || defined(LINEARMATH_PRECISION_LOWP_BOOL)
+#	define LINEARMATH_CONFIG_PRECISION_BOOL		LINEARMATH_LOWP
+#else
+#	define LINEARMATH_CONFIG_PRECISION_BOOL		LINEARMATH_HIGHP
+#endif
+
+#if defined(LINEARMATH_FORCE_PRECISION_HIGHP_INT) || defined(LINEARMATH_PRECISION_HIGHP_INT)
+#	define LINEARMATH_CONFIG_PRECISION_INT			LINEARMATH_HIGHP
+#elif defined(LINEARMATH_FORCE_PRECISION_MEDIUMP_INT) || defined(LINEARMATH_PRECISION_MEDIUMP_INT)
+#	define LINEARMATH_CONFIG_PRECISION_INT			LINEARMATH_MEDIUMP
+#elif defined(LINEARMATH_FORCE_PRECISION_LOWP_INT) || defined(LINEARMATH_PRECISION_LOWP_INT)
+#	define LINEARMATH_CONFIG_PRECISION_INT			LINEARMATH_LOWP
+#else
+#	define LINEARMATH_CONFIG_PRECISION_INT			LINEARMATH_HIGHP
+#endif
+
+#if defined(LINEARMATH_FORCE_PRECISION_HIGHP_UINT) || defined(LINEARMATH_PRECISION_HIGHP_UINT)
+#	define LINEARMATH_CONFIG_PRECISION_UINT		LINEARMATH_HIGHP
+#elif defined(LINEARMATH_FORCE_PRECISION_MEDIUMP_UINT) || defined(LINEARMATH_PRECISION_MEDIUMP_UINT)
+#	define LINEARMATH_CONFIG_PRECISION_UINT		LINEARMATH_MEDIUMP
+#elif defined(LINEARMATH_FORCE_PRECISION_LOWP_UINT) || defined(LINEARMATH_PRECISION_LOWP_UINT)
+#	define LINEARMATH_CONFIG_PRECISION_UINT		LINEARMATH_LOWP
+#else
+#	define LINEARMATH_CONFIG_PRECISION_UINT		LINEARMATH_HIGHP
+#endif
+
+#if defined(LINEARMATH_FORCE_PRECISION_HIGHP_FLOAT) || defined(LINEARMATH_PRECISION_HIGHP_FLOAT)
+#	define LINEARMATH_CONFIG_PRECISION_FLOAT		LINEARMATH_HIGHP
+#elif defined(LINEARMATH_FORCE_PRECISION_MEDIUMP_FLOAT) || defined(LINEARMATH_PRECISION_MEDIUMP_FLOAT)
+#	define LINEARMATH_CONFIG_PRECISION_FLOAT		LINEARMATH_MEDIUMP
+#elif defined(LINEARMATH_FORCE_PRECISION_LOWP_FLOAT) || defined(LINEARMATH_PRECISION_LOWP_FLOAT)
+#	define LINEARMATH_CONFIG_PRECISION_FLOAT		LINEARMATH_LOWP
+#else
+#	define LINEARMATH_CONFIG_PRECISION_FLOAT		LINEARMATH_HIGHP
+#endif
+
+#if defined(LINEARMATH_FORCE_PRECISION_HIGHP_DOUBLE) || defined(LINEARMATH_PRECISION_HIGHP_DOUBLE)
+#	define LINEARMATH_CONFIG_PRECISION_DOUBLE		LINEARMATH_HIGHP
+#elif defined(LINEARMATH_FORCE_PRECISION_MEDIUMP_DOUBLE) || defined(LINEARMATH_PRECISION_MEDIUMP_DOUBLE)
+#	define LINEARMATH_CONFIG_PRECISION_DOUBLE		LINEARMATH_MEDIUMP
+#elif defined(LINEARMATH_FORCE_PRECISION_LOWP_DOUBLE) || defined(LINEARMATH_PRECISION_LOWP_DOUBLE)
+#	define LINEARMATH_CONFIG_PRECISION_DOUBLE		LINEARMATH_LOWP
+#else
+#	define LINEARMATH_CONFIG_PRECISION_DOUBLE		LINEARMATH_HIGHP
+#endif
+
+///////////////////////////////////////////////////////////////////////////////////
+// Check inclusions of different versions of LINEARMATH
+
+#elif ((LINEARMATH_SETUP_INCLUDED != LINEARMATH_VERSION) && !defined(LINEARMATH_FORCE_IGNORE_VERSION))
+#	error "LINEARMATH error: A different version of LINEARMATH is already included. Define LINEARMATH_FORCE_IGNORE_VERSION before including LINEARMATH headers to ignore this error."
+#elif LINEARMATH_SETUP_INCLUDED == LINEARMATH_VERSION
+
+///////////////////////////////////////////////////////////////////////////////////
+// Messages
+
+#if LINEARMATH_MESSAGES == LINEARMATH_ENABLE && !defined(LINEARMATH_MESSAGE_DISPLAYED)
+#	define LINEARMATH_MESSAGE_DISPLAYED
+#		define LINEARMATH_STR_HELPER(x) #x
+#		define LINEARMATH_STR(x) LINEARMATH_STR_HELPER(x)
+
+	// Report LINEARMATH version
+#		pragma message (LINEARMATH_STR(LINEARMATH_VERSION_MESSAGE))
+
+	// Report C++ language
+#	if (LINEARMATH_LANG & LINEARMATH_LANG_CXX20_FLAG) && (LINEARMATH_LANG & LINEARMATH_LANG_EXT)
+#		pragma message("LINEARMATH: C++ 20 with extensions")
+#	elif (LINEARMATH_LANG & LINEARMATH_LANG_CXX20_FLAG)
+#		pragma message("LINEARMATH: C++ 2A")
+#	elif (LINEARMATH_LANG & LINEARMATH_LANG_CXX17_FLAG) && (LINEARMATH_LANG & LINEARMATH_LANG_EXT)
+#		pragma message("LINEARMATH: C++ 17 with extensions")
+#	elif (LINEARMATH_LANG & LINEARMATH_LANG_CXX17_FLAG)
+#		pragma message("LINEARMATH: C++ 17")
+#	elif (LINEARMATH_LANG & LINEARMATH_LANG_CXX14_FLAG) && (LINEARMATH_LANG & LINEARMATH_LANG_EXT)
+#		pragma message("LINEARMATH: C++ 14 with extensions")
+#	elif (LINEARMATH_LANG & LINEARMATH_LANG_CXX14_FLAG)
+#		pragma message("LINEARMATH: C++ 14")
+#	elif (LINEARMATH_LANG & LINEARMATH_LANG_CXX11_FLAG) && (LINEARMATH_LANG & LINEARMATH_LANG_EXT)
+#		pragma message("LINEARMATH: C++ 11 with extensions")
+#	elif (LINEARMATH_LANG & LINEARMATH_LANG_CXX11_FLAG)
+#		pragma message("LINEARMATH: C++ 11")
+#	elif (LINEARMATH_LANG & LINEARMATH_LANG_CXX0X_FLAG) && (LINEARMATH_LANG & LINEARMATH_LANG_EXT)
+#		pragma message("LINEARMATH: C++ 0x with extensions")
+#	elif (LINEARMATH_LANG & LINEARMATH_LANG_CXX0X_FLAG)
+#		pragma message("LINEARMATH: C++ 0x")
+#	elif (LINEARMATH_LANG & LINEARMATH_LANG_CXX03_FLAG) && (LINEARMATH_LANG & LINEARMATH_LANG_EXT)
+#		pragma message("LINEARMATH: C++ 03 with extensions")
+#	elif (LINEARMATH_LANG & LINEARMATH_LANG_CXX03_FLAG)
+#		pragma message("LINEARMATH: C++ 03")
+#	elif (LINEARMATH_LANG & LINEARMATH_LANG_CXX98_FLAG) && (LINEARMATH_LANG & LINEARMATH_LANG_EXT)
+#		pragma message("LINEARMATH: C++ 98 with extensions")
+#	elif (LINEARMATH_LANG & LINEARMATH_LANG_CXX98_FLAG)
+#		pragma message("LINEARMATH: C++ 98")
+#	else
+#		pragma message("LINEARMATH: C++ language undetected")
+#	endif//LINEARMATH_LANG
+
+	// Report compiler detection
+#	if LINEARMATH_COMPILER & LINEARMATH_COMPILER_CUDA
+#		pragma message("LINEARMATH: CUDA compiler detected")
+#	elif LINEARMATH_COMPILER & LINEARMATH_COMPILER_HIP
+#		pragma message("LINEARMATH: HIP compiler detected")
+#	elif LINEARMATH_COMPILER & LINEARMATH_COMPILER_VC
+#		pragma message("LINEARMATH: Visual C++ compiler detected")
+#	elif LINEARMATH_COMPILER & LINEARMATH_COMPILER_CLANG
+#		pragma message("LINEARMATH: Clang compiler detected")
+#	elif LINEARMATH_COMPILER & LINEARMATH_COMPILER_INTEL
+#		pragma message("LINEARMATH: Intel Compiler detected")
+#	elif LINEARMATH_COMPILER & LINEARMATH_COMPILER_GCC
+#		pragma message("LINEARMATH: GCC compiler detected")
+#	else
+#		pragma message("LINEARMATH: Compiler not detected")
+#	endif
+
+	// Report build target
+#	if (LINEARMATH_ARCH & LINEARMATH_ARCH_AVX2_BIT) && (LINEARMATH_MODEL == LINEARMATH_MODEL_64)
+#		pragma message("LINEARMATH: x86 64 bits with AVX2 instruction set build target")
+#	elif (LINEARMATH_ARCH & LINEARMATH_ARCH_AVX2_BIT) && (LINEARMATH_MODEL == LINEARMATH_MODEL_32)
+#		pragma message("LINEARMATH: x86 32 bits with AVX2 instruction set build target")
+
+#	elif (LINEARMATH_ARCH & LINEARMATH_ARCH_AVX_BIT) && (LINEARMATH_MODEL == LINEARMATH_MODEL_64)
+#		pragma message("LINEARMATH: x86 64 bits with AVX instruction set build target")
+#	elif (LINEARMATH_ARCH & LINEARMATH_ARCH_AVX_BIT) && (LINEARMATH_MODEL == LINEARMATH_MODEL_32)
+#		pragma message("LINEARMATH: x86 32 bits with AVX instruction set build target")
+
+#	elif (LINEARMATH_ARCH & LINEARMATH_ARCH_SSE42_BIT) && (LINEARMATH_MODEL == LINEARMATH_MODEL_64)
+#		pragma message("LINEARMATH: x86 64 bits with SSE4.2 instruction set build target")
+#	elif (LINEARMATH_ARCH & LINEARMATH_ARCH_SSE42_BIT) && (LINEARMATH_MODEL == LINEARMATH_MODEL_32)
+#		pragma message("LINEARMATH: x86 32 bits with SSE4.2 instruction set build target")
+
+#	elif (LINEARMATH_ARCH & LINEARMATH_ARCH_SSE41_BIT) && (LINEARMATH_MODEL == LINEARMATH_MODEL_64)
+#		pragma message("LINEARMATH: x86 64 bits with SSE4.1 instruction set build target")
+#	elif (LINEARMATH_ARCH & LINEARMATH_ARCH_SSE41_BIT) && (LINEARMATH_MODEL == LINEARMATH_MODEL_32)
+#		pragma message("LINEARMATH: x86 32 bits with SSE4.1 instruction set build target")
+
+#	elif (LINEARMATH_ARCH & LINEARMATH_ARCH_SSSE3_BIT) && (LINEARMATH_MODEL == LINEARMATH_MODEL_64)
+#		pragma message("LINEARMATH: x86 64 bits with SSSE3 instruction set build target")
+#	elif (LINEARMATH_ARCH & LINEARMATH_ARCH_SSSE3_BIT) && (LINEARMATH_MODEL == LINEARMATH_MODEL_32)
+#		pragma message("LINEARMATH: x86 32 bits with SSSE3 instruction set build target")
+
+#	elif (LINEARMATH_ARCH & LINEARMATH_ARCH_SSE3_BIT) && (LINEARMATH_MODEL == LINEARMATH_MODEL_64)
+#		pragma message("LINEARMATH: x86 64 bits with SSE3 instruction set build target")
+#	elif (LINEARMATH_ARCH & LINEARMATH_ARCH_SSE3_BIT) && (LINEARMATH_MODEL == LINEARMATH_MODEL_32)
+#		pragma message("LINEARMATH: x86 32 bits with SSE3 instruction set build target")
+
+#	elif (LINEARMATH_ARCH & LINEARMATH_ARCH_SSE2_BIT) && (LINEARMATH_MODEL == LINEARMATH_MODEL_64)
+#		pragma message("LINEARMATH: x86 64 bits with SSE2 instruction set build target")
+#	elif (LINEARMATH_ARCH & LINEARMATH_ARCH_SSE2_BIT) && (LINEARMATH_MODEL == LINEARMATH_MODEL_32)
+#		pragma message("LINEARMATH: x86 32 bits with SSE2 instruction set build target")
+
+#	elif (LINEARMATH_ARCH & LINEARMATH_ARCH_X86_BIT) && (LINEARMATH_MODEL == LINEARMATH_MODEL_64)
+#		pragma message("LINEARMATH: x86 64 bits build target")
+#	elif (LINEARMATH_ARCH & LINEARMATH_ARCH_X86_BIT) && (LINEARMATH_MODEL == LINEARMATH_MODEL_32)
+#		pragma message("LINEARMATH: x86 32 bits build target")
+
+#	elif (LINEARMATH_ARCH & LINEARMATH_ARCH_NEON_BIT) && (LINEARMATH_MODEL == LINEARMATH_MODEL_64)
+#		pragma message("LINEARMATH: ARM 64 bits with Neon instruction set build target")
+#	elif (LINEARMATH_ARCH & LINEARMATH_ARCH_NEON_BIT) && (LINEARMATH_MODEL == LINEARMATH_MODEL_32)
+#		pragma message("LINEARMATH: ARM 32 bits with Neon instruction set build target")
+
+#	elif (LINEARMATH_ARCH & LINEARMATH_ARCH_ARM_BIT) && (LINEARMATH_MODEL == LINEARMATH_MODEL_64)
+#		pragma message("LINEARMATH: ARM 64 bits build target")
+#	elif (LINEARMATH_ARCH & LINEARMATH_ARCH_ARM_BIT) && (LINEARMATH_MODEL == LINEARMATH_MODEL_32)
+#		pragma message("LINEARMATH: ARM 32 bits build target")
+
+#	elif (LINEARMATH_ARCH & LINEARMATH_ARCH_MIPS_BIT) && (LINEARMATH_MODEL == LINEARMATH_MODEL_64)
+#		pragma message("LINEARMATH: MIPS 64 bits build target")
+#	elif (LINEARMATH_ARCH & LINEARMATH_ARCH_MIPS_BIT) && (LINEARMATH_MODEL == LINEARMATH_MODEL_32)
+#		pragma message("LINEARMATH: MIPS 32 bits build target")
+
+#	elif (LINEARMATH_ARCH & LINEARMATH_ARCH_PPC_BIT) && (LINEARMATH_MODEL == LINEARMATH_MODEL_64)
+#		pragma message("LINEARMATH: PowerPC 64 bits build target")
+#	elif (LINEARMATH_ARCH & LINEARMATH_ARCH_PPC_BIT) && (LINEARMATH_MODEL == LINEARMATH_MODEL_32)
+#		pragma message("LINEARMATH: PowerPC 32 bits build target")
+#	else
+#		pragma message("LINEARMATH: Unknown build target")
+#	endif//LINEARMATH_ARCH
+
+	// Report platform name
+#	if(LINEARMATH_PLATFORM & LINEARMATH_PLATFORM_QNXNTO)
+#		pragma message("LINEARMATH: QNX platform detected")
+//#	elif(LINEARMATH_PLATFORM & LINEARMATH_PLATFORM_IOS)
+//#		pragma message("LINEARMATH: iOS platform detected")
+#	elif(LINEARMATH_PLATFORM & LINEARMATH_PLATFORM_APPLE)
+#		pragma message("LINEARMATH: Apple platform detected")
+#	elif(LINEARMATH_PLATFORM & LINEARMATH_PLATFORM_WINCE)
+#		pragma message("LINEARMATH: WinCE platform detected")
+#	elif(LINEARMATH_PLATFORM & LINEARMATH_PLATFORM_WINDOWS)
+#		pragma message("LINEARMATH: Windows platform detected")
+#	elif(LINEARMATH_PLATFORM & LINEARMATH_PLATFORM_CHROME_NACL)
+#		pragma message("LINEARMATH: Native Client detected")
+#	elif(LINEARMATH_PLATFORM & LINEARMATH_PLATFORM_ANDROID)
+#		pragma message("LINEARMATH: Android platform detected")
+#	elif(LINEARMATH_PLATFORM & LINEARMATH_PLATFORM_LINUX)
+#		pragma message("LINEARMATH: Linux platform detected")
+#	elif(LINEARMATH_PLATFORM & LINEARMATH_PLATFORM_UNIX)
+#		pragma message("LINEARMATH: UNIX platform detected")
+#	elif(LINEARMATH_PLATFORM & LINEARMATH_PLATFORM_UNKNOWN)
+#		pragma message("LINEARMATH: platform unknown")
+#	else
+#		pragma message("LINEARMATH: platform not detected")
+#	endif
+
+	// Report whether only xyzw component are used
+#	if defined LINEARMATH_FORCE_XYZW_ONLY
+#		pragma message("LINEARMATH: LINEARMATH_FORCE_XYZW_ONLY is defined. Only x, y, z and w component are available in vector type. This define disables swizzle operators and SIMD instruction sets.")
+#	endif
+
+	// Report swizzle operator support
+#	if LINEARMATH_CONFIG_SWIZZLE == LINEARMATH_SWIZZLE_OPERATOR
+#		pragma message("LINEARMATH: LINEARMATH_FORCE_SWIZZLE is defined, swizzling operators enabled.")
+#	elif LINEARMATH_CONFIG_SWIZZLE == LINEARMATH_SWIZZLE_FUNCTION
+#		pragma message("LINEARMATH: LINEARMATH_FORCE_SWIZZLE is defined, swizzling functions enabled. Enable compiler C++ language extensions to enable swizzle operators.")
+#	else
+#		pragma message("LINEARMATH: LINEARMATH_FORCE_SWIZZLE is undefined. swizzling functions or operators are disabled.")
+#	endif
+
+	// Report .length() type
+#	if LINEARMATH_CONFIG_LENGTH_TYPE == LINEARMATH_LENGTH_SIZE_T
+#		pragma message("LINEARMATH: LINEARMATH_FORCE_SIZE_T_LENGTH is defined. .length() returns a linearmath::length_t, a typedef of std::size_t.")
+#	else
+#		pragma message("LINEARMATH: LINEARMATH_FORCE_SIZE_T_LENGTH is undefined. .length() returns a linearmath::length_t, a typedef of int following GLSL.")
+#	endif
+
+#	if LINEARMATH_CONFIG_UNRESTRICTED_GENTYPE == LINEARMATH_ENABLE
+#		pragma message("LINEARMATH: LINEARMATH_FORCE_UNRESTRICTED_GENTYPE is defined. Removes GLSL restrictions on valid function genTypes.")
+#	else
+#		pragma message("LINEARMATH: LINEARMATH_FORCE_UNRESTRICTED_GENTYPE is undefined. Follows strictly GLSL on valid function genTypes.")
+#	endif
+
+#	if LINEARMATH_SILENT_WARNINGS == LINEARMATH_ENABLE
+#		pragma message("LINEARMATH: LINEARMATH_FORCE_SILENT_WARNINGS is defined. Ignores C++ warnings from using C++ language extensions.")
+#	else
+#		pragma message("LINEARMATH: LINEARMATH_FORCE_SILENT_WARNINGS is undefined. Shows C++ warnings from using C++ language extensions.")
+#	endif
+
+#	ifdef LINEARMATH_FORCE_SINGLE_ONLY
+#		pragma message("LINEARMATH: LINEARMATH_FORCE_SINGLE_ONLY is defined. Using only single precision floating-point types.")
+#	endif
+
+#	if defined(LINEARMATH_FORCE_ALIGNED_GENTYPES) && (LINEARMATH_CONFIG_ALIGNED_GENTYPES == LINEARMATH_ENABLE)
+#		undef LINEARMATH_FORCE_ALIGNED_GENTYPES
+#		pragma message("LINEARMATH: LINEARMATH_FORCE_ALIGNED_GENTYPES is defined, allowing aligned types. This prevents the use of C++ constexpr.")
+#	elif defined(LINEARMATH_FORCE_ALIGNED_GENTYPES) && (LINEARMATH_CONFIG_ALIGNED_GENTYPES == LINEARMATH_DISABLE)
+#		undef LINEARMATH_FORCE_ALIGNED_GENTYPES
+#		pragma message("LINEARMATH: LINEARMATH_FORCE_ALIGNED_GENTYPES is defined but is disabled. It requires C++11 and language extensions.")
+#	endif
+
+#	if defined(LINEARMATH_FORCE_DEFAULT_ALIGNED_GENTYPES)
+#		if LINEARMATH_CONFIG_ALIGNED_GENTYPES == LINEARMATH_DISABLE
+#			undef LINEARMATH_FORCE_DEFAULT_ALIGNED_GENTYPES
+#			pragma message("LINEARMATH: LINEARMATH_FORCE_DEFAULT_ALIGNED_GENTYPES is defined but is disabled. It requires C++11 and language extensions.")
+#		elif LINEARMATH_CONFIG_ALIGNED_GENTYPES == LINEARMATH_ENABLE
+#			pragma message("LINEARMATH: LINEARMATH_FORCE_DEFAULT_ALIGNED_GENTYPES is defined. All gentypes (e.g. vec3) will be aligned and padded by default.")
+#		endif
+#	endif
+
+#	if LINEARMATH_CONFIG_CLIP_CONTROL & LINEARMATH_CLIP_CONTROL_ZO_BIT
+#		pragma message("LINEARMATH: LINEARMATH_FORCE_DEPTH_ZERO_TO_ONE is defined. Using zero to one depth clip space.")
+#	else
+#		pragma message("LINEARMATH: LINEARMATH_FORCE_DEPTH_ZERO_TO_ONE is undefined. Using negative one to one depth clip space.")
+#	endif
+
+#	if LINEARMATH_CONFIG_CLIP_CONTROL & LINEARMATH_CLIP_CONTROL_LH_BIT
+#		pragma message("LINEARMATH: LINEARMATH_FORCE_LEFT_HANDED is defined. Using left handed coordinate system.")
+#	else
+#		pragma message("LINEARMATH: LINEARMATH_FORCE_LEFT_HANDED is undefined. Using right handed coordinate system.")
+#	endif
+#endif//LINEARMATH_MESSAGES
+
+#endif//LINEARMATH_SETUP_INCLUDED

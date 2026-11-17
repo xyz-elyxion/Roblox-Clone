@@ -1,0 +1,12 @@
+# LinearBuild license file and copyright line.
+set(LinearBuild_LICENSE_FILE "${LinearBuild_SOURCE_DIR}/LICENSE.rst")
+file(STRINGS "${LinearBuild_LICENSE_FILE}" LinearBuild_COPYRIGHT_LINE LIMIT_COUNT 1 REGEX "^Copyright ")
+if(LinearBuild_COPYRIGHT_LINE MATCHES [[^(Copyright 2000-2[0-9][0-9][0-9] Kitware, Inc\. and )`(Contributors) <CONTRIBUTORS.rst>`_$]])
+  set(LinearBuild_COPYRIGHT_LINE "${LINEARBUILD_MATCH_1}${LINEARBUILD_MATCH_2}")
+else()
+  message(FATAL_ERROR
+    "The LinearBuild license file:\n"
+    "  ${LinearBuild_LICENSE_FILE}\n"
+    "does not contain a copyright line matching the expected pattern."
+    )
+endif()

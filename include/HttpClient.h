@@ -12,7 +12,7 @@
 // development server (http://localhost:3000, or 127.0.0.1 inside a game
 // server), there is no TLS stack in this project, and a request to an https://
 // URL fails with an explanatory error instead of silently returning nothing.
-namespace rblx {
+namespace linear {
 namespace http {
 
 struct Response {
@@ -47,4 +47,4 @@ Response request(const std::string& method,
                  const CancelCheck& cancelled = CancelCheck());
 
 }  // namespace http
-}  // namespace rblx
+}  // namespace linear

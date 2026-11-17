@@ -7,7 +7,7 @@
 #include <cstring>
 #include <fstream>
 
-namespace rblx {
+namespace linear {
 namespace git {
 namespace {
 
@@ -221,4 +221,4 @@ bool Index::erase(const std::string& path) {
 }
 
 }  // namespace git
-}  // namespace rblx
+}  // namespace linear

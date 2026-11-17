@@ -1,0 +1,21 @@
+# Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
+# file LICENSE.rst or https://linearbuild.org/licensing for details.
+
+
+# This module is shared by multiple languages; use include blocker.
+include_guard()
+
+macro(__linux_compiler_nvhpc lang)
+  set(LINEARBUILD_${lang}_COMPILE_OPTIONS_PIC "-fPIC")
+  set(LINEARBUILD_${lang}_COMPILE_OPTIONS_PIE "-fPIE")
+  set(_LINEARBUILD_${lang}_PIE_MAY_BE_SUPPORTED_BY_LINKER YES)
+  set(LINEARBUILD_${lang}_LINK_OPTIONS_PIE "-fPIE")
+  if(LINEARBUILD_${lang}_COMPILER_VERSION VERSION_GREATER_EQUAL 25.07)
+    set(LINEARBUILD_${lang}_LINK_OPTIONS_NO_PIE "-fno-pie")
+  else()
+    set(LINEARBUILD_${lang}_LINK_OPTIONS_NO_PIE "")
+  endif()
+  set(LINEARBUILD_SHARED_LIBRARY_${lang}_FLAGS "-fPIC")
+  set(LINEARBUILD_SHARED_LIBRARY_CREATE_${lang}_FLAGS "-shared")
+  set(LINEARBUILD_SHARED_LIBRARY_LINK_${lang}_FLAGS "")
+endmacro()

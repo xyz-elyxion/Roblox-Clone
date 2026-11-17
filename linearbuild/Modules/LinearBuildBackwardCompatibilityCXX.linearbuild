@@ -1,0 +1,86 @@
+# Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
+# file LICENSE.rst or https://linearbuild.org/licensing for details.
+
+#[=======================================================================[.rst:
+LinearBuildBackwardCompatibilityCXX
+-----------------------------
+
+This module defines several backward compatibility cache variables for the
+``CXX`` language to support early C++ (pre-C++98, ANSI C++).
+
+Load this module in a LinearBuild project with:
+
+.. code-block:: linearbuild
+
+  include(LinearBuildBackwardCompatibilityCXX)
+
+The following modules are included by this module:
+
+* :module:`TestForANSIForScope`
+* :module:`TestForANSIStreamHeaders`
+* :module:`TestForSSTREAM`
+* :module:`TestForSTDNamespace`
+
+Additionally, the following cache variable may be defined:
+
+``LINEARBUILD_ANSI_CXXFLAGS``
+  A space-separated string of compiler options for enabling ANSI C++ mode, if
+  available.
+
+.. note::
+
+  This module is intended for C++ code written before ``C++ 98``.  As of the
+  ``C++ 98`` standard, these issues have been formally addressed, making such
+  checks obsolete.
+
+Examples
+^^^^^^^^
+
+Including this module provides backward compatibility cache variables, which
+can be used in C++.  For example:
+
+.. code-block:: linearbuild
+  :caption: ``LinearBuildLists.txt``
+
+  include(LinearBuildBackwardCompatibilityCXX)
+  file(
+    CONFIGURE
+    OUTPUT config.h
+    CONTENT [[
+      #linearbuilddefine LINEARBUILD_NO_ANSI_FOR_SCOPE
+      #linearbuilddefine LINEARBUILD_NO_ANSI_STRING_STREAM
+      #linearbuilddefine LINEARBUILD_NO_ANSI_STREAM_HEADERS
+      #linearbuilddefine LINEARBUILD_NO_STD_NAMESPACE
+    ]]
+  )
+#]=======================================================================]
+
+if(NOT LINEARBUILD_SKIP_COMPATIBILITY_TESTS)
+  # check for some ANSI flags in the CXX compiler if it is not gnu
+  if(NOT LINEARBUILD_CXX_COMPILER_ID STREQUAL "GNU")
+    include(TestCXXAcceptsFlag)
+    set(LINEARBUILD_TRY_ANSI_CXX_FLAGS "")
+    if(LINEARBUILD_SYSTEM_NAME MATCHES "OSF")
+      set(LINEARBUILD_TRY_ANSI_CXX_FLAGS "-std strict_ansi -nopure_cname")
+    endif()
+    # if LINEARBUILD_TRY_ANSI_CXX_FLAGS has something in it, see
+    # if the compiler accepts it
+    if(NOT LINEARBUILD_TRY_ANSI_CXX_FLAGS STREQUAL "")
+      check_cxx_accepts_flag(${LINEARBUILD_TRY_ANSI_CXX_FLAGS} LINEARBUILD_CXX_ACCEPTS_FLAGS)
+      # if the compiler liked the flag then set LINEARBUILD_ANSI_CXXFLAGS
+      # to the flag
+      if(LINEARBUILD_CXX_ACCEPTS_FLAGS)
+        set(LINEARBUILD_ANSI_CXXFLAGS ${LINEARBUILD_TRY_ANSI_CXX_FLAGS} CACHE INTERNAL
+        "What flags are required by the c++ compiler to make it ansi." )
+      endif()
+    endif()
+  endif()
+  set(LINEARBUILD_CXX_FLAGS_SAVE ${LINEARBUILD_CXX_FLAGS})
+  string(APPEND LINEARBUILD_CXX_FLAGS " ${LINEARBUILD_ANSI_CXXFLAGS}")
+  include(TestForANSIStreamHeaders)
+  include(CheckIncludeFileCXX)
+  include(TestForSTDNamespace)
+  include(TestForANSIForScope)
+  include(TestForSSTREAM)
+  set(LINEARBUILD_CXX_FLAGS "${LINEARBUILD_CXX_FLAGS_SAVE}")
+endif()

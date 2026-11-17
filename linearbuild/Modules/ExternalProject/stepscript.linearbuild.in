@@ -1,0 +1,9 @@
+linearbuild_minimum_required(VERSION ${LINEARBUILD_VERSION}) # this file comes with linearbuild
+
+message(VERBOSE "Executing @step_name@ step for @name@")
+
+block(SCOPE_FOR VARIABLES)
+
+@step_script_contents@
+
+endblock()

@@ -1,0 +1,33 @@
+# Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
+# file LICENSE.rst or https://linearbuild.org/licensing for details.
+
+# This module is shared by multiple languages; use include blocker.
+include_guard()
+
+set(LINEARBUILD_BUILD_TYPE_INIT Debug)
+
+if(DEFINED LINEARBUILD_SYSTEM_PROCESSOR AND LINEARBUILD_SYSTEM_PROCESSOR STREQUAL "I86")
+  string(APPEND LINEARBUILD_EXE_LINKER_FLAGS_INIT " system windows")
+  string(APPEND LINEARBUILD_SHARED_LINKER_FLAGS_INIT " system windows_dll")
+  string(APPEND LINEARBUILD_MODULE_LINKER_FLAGS_INIT " system windows_dll")
+else()
+  string(APPEND LINEARBUILD_EXE_LINKER_FLAGS_INIT " system win386")
+  string(APPEND LINEARBUILD_SHARED_LINKER_FLAGS_INIT " system win386")
+  string(APPEND LINEARBUILD_MODULE_LINKER_FLAGS_INIT " system win386")
+endif()
+
+set(LINEARBUILD_C_COMPILE_OPTIONS_DLL "-bd") # Note: This variable is a ';' separated list
+set(LINEARBUILD_SHARED_LIBRARY_C_FLAGS "-bd") # ... while this is a space separated string.
+
+set(LINEARBUILD_RC_COMPILER "rc")
+
+set(LINEARBUILD_WATCOM_RUNTIME_LIBRARY_DEFAULT "")
+
+string(APPEND LINEARBUILD_C_FLAGS_INIT " -bt=windows")
+string(APPEND LINEARBUILD_CXX_FLAGS_INIT " -bt=windows -xs")
+
+macro(__windows3x_open_watcom lang)
+  if(NOT LINEARBUILD_${lang}_STANDARD_INCLUDE_DIRECTORIES)
+    set(LINEARBUILD_${lang}_STANDARD_INCLUDE_DIRECTORIES $ENV{WATCOM}/h $ENV{WATCOM}/h/win)
+  endif()
+endmacro()

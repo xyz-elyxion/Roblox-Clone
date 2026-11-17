@@ -24,10 +24,10 @@ void checkEqual(const std::string& actual, const std::string& expected, const ch
 }  // namespace
 
 int main() {
-    using rblx::client_menu::findUserId;
-    using rblx::client_menu::handle;
-    using rblx::client_menu::inviteUrl;
-    using rblx::client_menu::profileUrl;
+    using linear::client_menu::findUserId;
+    using linear::client_menu::handle;
+    using linear::client_menu::inviteUrl;
+    using linear::client_menu::profileUrl;
 
     {
         checkEqual(profileUrl("http://localhost:3000", 42), "http://localhost:3000/profile/42",

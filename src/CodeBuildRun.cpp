@@ -14,7 +14,7 @@
 #endif
 #include <windows.h>
 
-namespace rblx {
+namespace linear {
 namespace code {
 namespace {
 
@@ -183,4 +183,4 @@ std::size_t BuildRun::lineCount() const {
 
 
 }  // namespace code
-}  // namespace rblx
+}  // namespace linear

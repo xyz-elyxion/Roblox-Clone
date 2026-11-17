@@ -44,7 +44,7 @@
 namespace {
 
 namespace fs = std::filesystem;
-namespace server = rblx::server;
+namespace server = linear::server;
 
 struct Options {
     std::string folder;
@@ -201,7 +201,7 @@ enum FieldIndex { kPort, kPublicUrl, kAdmin, kPassword, kSigningSecret, kDataKey
 
 std::string secretOrNew(const std::string& existing) {
     if (!trim(existing).empty()) return existing;
-    return rblx::web::randomHex(32);
+    return linear::web::randomHex(32);
 }
 
 // What the folder already runs with, so a second run keeps it.
@@ -316,7 +316,7 @@ int windowed(Options& options) {
     if (options.folder.empty()) options.folder = executableDirectory();
     const server::Settings existing = existingSettings(options.folder);
 
-    rblx::ui::Options window;
+    linear::ui::Options window;
     window.title = "Linear server setup";
     window.heading = "Set up this server";
     window.detail =
@@ -353,11 +353,11 @@ int windowed(Options& options) {
     const std::vector<std::string> actions = {"Open the website", "Close"};
     server::Settings settings;
 
-    const rblx::ui::Result result = rblx::ui::run(window, actions, [&](rblx::ui::Report& report) {
+    const linear::ui::Result result = linear::ui::run(window, actions, [&](linear::ui::Report& report) {
         Options run = options;
         if (!window.folder.empty()) run.folder = window.folder;
         std::vector<std::string> values;
-        for (const rblx::ui::Options::Field& field : window.fields) {
+        for (const linear::ui::Options::Field& field : window.fields) {
             values.push_back(field.value);
         }
         collectFields(values, &run);

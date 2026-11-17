@@ -1,0 +1,31 @@
+# Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
+# file LICENSE.rst or https://linearbuild.org/licensing for details.
+
+
+include(Compiler/GNU)
+
+macro(__compiler_qcc lang)
+  __compiler_gnu(${lang})
+
+  # http://www.qnx.com/developers/docs/6.4.0/neutrino/utilities/q/qcc.html#examples
+  set(LINEARBUILD_${lang}_COMPILE_OPTIONS_TARGET "-V")
+
+  set(LINEARBUILD_PREFIX_LIBRARY_ARCHITECTURE "ON")
+
+  set(LINEARBUILD_${lang}_COMPILE_OPTIONS_SYSROOT "-Wc,-isysroot,")
+  set(LINEARBUILD_INCLUDE_SYSTEM_FLAG_${lang} "-isystem ")
+  set(LINEARBUILD_DEPFILE_FLAGS_${lang} "-Wp,-MD,<DEP_FILE> -Wp,-MT,<DEP_TARGET> -Wp,-MF,<DEP_FILE>")
+
+  set(LINEARBUILD_${lang}_LINKER_WRAPPER_FLAG "-Wl,")
+  set(LINEARBUILD_${lang}_LINKER_WRAPPER_FLAG_SEP ",")
+
+  if("${lang}" STREQUAL "CXX")
+    set(LINEARBUILD_${lang}_COMPILER_PREDEFINES_COMMAND "${LINEARBUILD_${lang}_COMPILER}")
+    if(LINEARBUILD_${lang}_COMPILER_ARG1)
+      separate_arguments(_COMPILER_ARGS NATIVE_COMMAND "${LINEARBUILD_${lang}_COMPILER_ARG1}")
+      list(APPEND LINEARBUILD_${lang}_COMPILER_PREDEFINES_COMMAND ${_COMPILER_ARGS})
+      unset(_COMPILER_ARGS)
+    endif()
+    list(APPEND LINEARBUILD_${lang}_COMPILER_PREDEFINES_COMMAND "-Wp,-dM" "-E" "-c" "${LINEARBUILD_ROOT}/Modules/LinearBuildCXXCompilerABI.cpp")
+  endif()
+endmacro()

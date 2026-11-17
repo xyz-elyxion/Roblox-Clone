@@ -2,7 +2,7 @@
 
 #include <algorithm>
 
-namespace rblx {
+namespace linear {
 namespace chat {
 namespace {
 
@@ -128,4 +128,4 @@ bool normalizeBody(const std::string& input, std::string* out, std::string* erro
 }
 
 }  // namespace chat
-}  // namespace rblx
+}  // namespace linear

@@ -1,0 +1,10 @@
+include(Platform/Windows-Clang)
+__windows_compiler_clang(C)
+
+if((NOT DEFINED LINEARBUILD_DEPENDS_USE_COMPILER OR LINEARBUILD_DEPENDS_USE_COMPILER)
+    AND LINEARBUILD_GENERATOR MATCHES "Makefiles|WMake"
+    AND LINEARBUILD_DEPFILE_FLAGS_C)
+  # dependencies are computed by the compiler itself
+  set(LINEARBUILD_C_DEPFILE_FORMAT gcc)
+  set(LINEARBUILD_C_DEPENDS_USE_COMPILER TRUE)
+endif()

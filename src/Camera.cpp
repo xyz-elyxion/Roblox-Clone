@@ -1,7 +1,7 @@
 #include "Camera.h"
 
-Camera::Camera(rblxmath::vec3 position, rblxmath::vec3 up, float yaw, float pitch) 
-    : Front(rblxmath::vec3(0.0f, 0.0f, -1.0f)), MovementSpeed(SPEED), MouseSensitivity(SENSITIVITY), Zoom(ZOOM) {
+Camera::Camera(linearmath::vec3 position, linearmath::vec3 up, float yaw, float pitch) 
+    : Front(linearmath::vec3(0.0f, 0.0f, -1.0f)), MovementSpeed(SPEED), MouseSensitivity(SENSITIVITY), Zoom(ZOOM) {
     Position = position;
     WorldUp = up;
     Yaw = yaw;
@@ -9,12 +9,12 @@ Camera::Camera(rblxmath::vec3 position, rblxmath::vec3 up, float yaw, float pitc
     updateCameraVectors();
 }
 
-rblxmath::mat4 Camera::GetViewMatrix() const {
-    return rblxmath::lookAt(Position, Position + Front, Up);
+linearmath::mat4 Camera::GetViewMatrix() const {
+    return linearmath::lookAt(Position, Position + Front, Up);
 }
 
-rblxmath::mat4 Camera::GetProjectionMatrix(float width, float height) const {
-    return rblxmath::perspective(rblxmath::radians(Zoom), width / height, 0.1f, 1000.0f);
+linearmath::mat4 Camera::GetProjectionMatrix(float width, float height) const {
+    return linearmath::perspective(linearmath::radians(Zoom), width / height, 0.1f, 1000.0f);
 }
 
 void Camera::ProcessKeyboard(Camera_Movement direction, float deltaTime, bool isSprinting) {
@@ -61,20 +61,20 @@ void Camera::ProcessMouseScroll(float yoffset) {
 }
 
 void Camera::updateCameraVectors() {
-    rblxmath::vec3 front;
-    front.x = cos(rblxmath::radians(Yaw)) * cos(rblxmath::radians(Pitch));
-    front.y = sin(rblxmath::radians(Pitch));
-    front.z = sin(rblxmath::radians(Yaw)) * cos(rblxmath::radians(Pitch));
-    Front = rblxmath::normalize(front);
-    Right = rblxmath::normalize(rblxmath::cross(Front, WorldUp));
-    Up    = rblxmath::normalize(rblxmath::cross(Right, Front));
+    linearmath::vec3 front;
+    front.x = cos(linearmath::radians(Yaw)) * cos(linearmath::radians(Pitch));
+    front.y = sin(linearmath::radians(Pitch));
+    front.z = sin(linearmath::radians(Yaw)) * cos(linearmath::radians(Pitch));
+    Front = linearmath::normalize(front);
+    Right = linearmath::normalize(linearmath::cross(Front, WorldUp));
+    Up    = linearmath::normalize(linearmath::cross(Right, Front));
 }
 
-void Camera::LookAt(rblxmath::vec3 target) {
-    Front = rblxmath::normalize(target - Position);
+void Camera::LookAt(linearmath::vec3 target) {
+    Front = linearmath::normalize(target - Position);
     // Extract pitch and yaw from Front vector
-    Pitch = rblxmath::degrees(asin(Front.y));
-    Yaw   = rblxmath::degrees(atan2(Front.z, Front.x));
+    Pitch = linearmath::degrees(asin(Front.y));
+    Yaw   = linearmath::degrees(atan2(Front.z, Front.x));
     updateCameraVectors();
 }
 

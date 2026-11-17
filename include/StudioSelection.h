@@ -7,7 +7,7 @@
 
 #include "Part.h"
 
-namespace rblx {
+namespace linear {
 namespace studio {
 
 // The parts Studio has selected, as indices into the world.
@@ -89,4 +89,4 @@ inline std::vector<int> withFolderContents(const std::deque<Part>& parts,
 }
 
 }  // namespace studio
-}  // namespace rblx
+}  // namespace linear

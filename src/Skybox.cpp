@@ -1,7 +1,7 @@
 #include "Skybox.h"
 
-#define RBLXSTB_IMAGE_IMPLEMENTATION
-#include <rblxstb_image.h>
+#define LINEARSTB_IMAGE_IMPLEMENTATION
+#include <linearstb_image.h>
 
 #include <fstream>
 
@@ -93,13 +93,13 @@ void Skybox::init() {
     shader->setInt("skybox", 0);
 }
 
-void Skybox::draw(const rblxmath::mat4& view, const rblxmath::mat4& projection) {
+void Skybox::draw(const linearmath::mat4& view, const linearmath::mat4& projection) {
     glDepthFunc(GL_LEQUAL);  
     glDisable(GL_CULL_FACE); // Disable culling for skybox (we are inside)
     shader->use();
     
     // Remove translation from view matrix
-    rblxmath::mat4 viewNoTrans = rblxmath::mat4(rblxmath::mat3(view));
+    linearmath::mat4 viewNoTrans = linearmath::mat4(linearmath::mat3(view));
     shader->setMat4("view", viewNoTrans);
     shader->setMat4("projection", projection);
 
@@ -124,10 +124,10 @@ unsigned int Skybox::loadCubemap(std::vector<std::string> faces) {
     unsigned char defaultColor[] = { 135, 206, 235 }; // Sky Blue
 
     for (unsigned int i = 0; i < faces.size(); i++) {
-        unsigned char *data = rblxstbi_load(faces[i].c_str(), &width, &height, &nrChannels, 0);
+        unsigned char *data = linearstbi_load(faces[i].c_str(), &width, &height, &nrChannels, 0);
         if (data) {
             glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
-            rblxstbi_image_free(data);
+            linearstbi_image_free(data);
         } else {
             // Fallback: Generate simple texture
             glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB, 1, 1, 0, GL_RGB, GL_UNSIGNED_BYTE, defaultColor);

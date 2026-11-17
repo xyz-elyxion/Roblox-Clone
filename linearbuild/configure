@@ -1,0 +1,3 @@
+#!/bin/sh
+linearbuild_source_dir=`cd "\`dirname \"$0\"\`";pwd`
+exec "${linearbuild_source_dir}/bootstrap" "$@"

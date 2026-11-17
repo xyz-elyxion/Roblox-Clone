@@ -1,0 +1,7 @@
+linearbuild_minimum_required(VERSION ${LINEARBUILD_VERSION})
+project(IntelFortranImplicit Fortran)
+add_custom_command(
+  OUTPUT output.linearbuild
+  COMMAND ${LINEARBUILD_COMMAND} -P ${IntelFortranImplicit_SOURCE_DIR}/detect.linearbuild
+  )
+add_library(FortranLib hello.f output.linearbuild)

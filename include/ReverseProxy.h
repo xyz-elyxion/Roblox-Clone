@@ -5,7 +5,7 @@
 
 #include "WebHttp.h"
 
-namespace rblx {
+namespace linear {
 namespace proxy {
 
 // The backend every request is sent to, and how long one may take.
@@ -62,4 +62,4 @@ private:
 };
 
 }  // namespace proxy
-}  // namespace rblx
+}  // namespace linear

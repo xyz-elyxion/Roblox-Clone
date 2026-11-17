@@ -1,0 +1,4 @@
+# CrayLinuxEnvironment: loaded by users cross-compiling on a Cray front-end
+# node by specifying "-DLINEARBUILD_SYSTEM_NAME=CrayLinuxEnvironment" to linearbuild
+
+set(UNIX 1)

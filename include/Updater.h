@@ -14,7 +14,7 @@
 // written until a download has been checked against its hash, and every
 // replacement goes through a rename so an interrupted update cannot leave a
 // half-written executable that the game would then try to run.
-namespace rblx {
+namespace linear {
 namespace update {
 
 struct FileEntry {
@@ -126,4 +126,4 @@ bool buildManifestFromDirectory(const std::string& directory, const std::string&
                                 const std::string& channel, Manifest* out, std::string* error);
 
 }  // namespace update
-}  // namespace rblx
+}  // namespace linear

@@ -1,0 +1,154 @@
+# Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
+# file LICENSE.rst or https://linearbuild.org/licensing for details.
+
+
+macro(_linearbuild_find_compiler lang)
+  # Use already-enabled languages for reference.
+  if(DEFINED _LINEARBUILD_CHECK_ENABLED_LANGUAGES)
+    set(_languages "${_LINEARBUILD_CHECK_ENABLED_LANGUAGES}")
+  else()
+    get_property(_languages GLOBAL PROPERTY ENABLED_LANGUAGES)
+  endif()
+  list(REMOVE_ITEM _languages "${lang}")
+
+  if(LINEARBUILD_${lang}_COMPILER_INIT)
+    # Search only for the specified compiler.
+    set(LINEARBUILD_${lang}_COMPILER_LIST "${LINEARBUILD_${lang}_COMPILER_INIT}")
+  else()
+    # Re-order the compiler list with preferred vendors first.
+    set(_${lang}_COMPILER_LIST "${LINEARBUILD_${lang}_COMPILER_LIST}")
+    set(LINEARBUILD_${lang}_COMPILER_LIST "")
+    # Prefer vendors of compilers from reference languages.
+    foreach(l IN LISTS _languages)
+      list(APPEND LINEARBUILD_${lang}_COMPILER_LIST
+        ${_${lang}_COMPILER_NAMES_${LINEARBUILD_${l}_COMPILER_ID}})
+    endforeach()
+    # Prefer vendors based on the platform.
+    list(APPEND LINEARBUILD_${lang}_COMPILER_LIST ${LINEARBUILD_${lang}_COMPILER_NAMES})
+    # Append the rest of the list and remove duplicates.
+    list(APPEND LINEARBUILD_${lang}_COMPILER_LIST ${_${lang}_COMPILER_LIST})
+    unset(_${lang}_COMPILER_LIST)
+    list(REMOVE_DUPLICATES LINEARBUILD_${lang}_COMPILER_LIST)
+    if(LINEARBUILD_${lang}_COMPILER_EXCLUDE)
+      list(REMOVE_ITEM LINEARBUILD_${lang}_COMPILER_LIST
+        ${LINEARBUILD_${lang}_COMPILER_EXCLUDE})
+    endif()
+  endif()
+
+  # Look for directories containing compilers of reference languages.
+  set(_${lang}_COMPILER_HINTS "${LINEARBUILD_${lang}_COMPILER_HINTS}")
+  foreach(l IN LISTS _languages)
+    if(LINEARBUILD_${l}_COMPILER AND IS_ABSOLUTE "${LINEARBUILD_${l}_COMPILER}")
+      get_filename_component(_hint "${LINEARBUILD_${l}_COMPILER}" PATH)
+      if(IS_DIRECTORY "${_hint}")
+        list(APPEND _${lang}_COMPILER_HINTS "${_hint}")
+      endif()
+      unset(_hint)
+    endif()
+  endforeach()
+
+  # Find the compiler.
+  if(_${lang}_COMPILER_HINTS)
+    # Prefer directories containing compilers of reference languages.
+    list(REMOVE_DUPLICATES _${lang}_COMPILER_HINTS)
+    find_program(LINEARBUILD_${lang}_COMPILER
+      NAMES ${LINEARBUILD_${lang}_COMPILER_LIST}
+      PATHS ${_${lang}_COMPILER_HINTS}
+      NO_DEFAULT_PATH
+      DOC "${lang} compiler")
+  endif()
+  if(LINEARBUILD_HOST_WIN32 AND LINEARBUILD_GENERATOR MATCHES "Ninja|MSYS Makefiles|MinGW Makefiles|FASTBuild")
+    # On Windows command-line builds, some generators imply a preferred compiler tool.
+    # These generators do not, so use the compiler that occurs first in PATH.
+    find_program(LINEARBUILD_${lang}_COMPILER
+      NAMES ${LINEARBUILD_${lang}_COMPILER_LIST}
+      NAMES_PER_DIR
+      DOC "${lang} compiler"
+      NO_PACKAGE_ROOT_PATH
+      NO_LINEARBUILD_PATH
+      NO_LINEARBUILD_ENVIRONMENT_PATH
+      NO_LINEARBUILD_SYSTEM_PATH
+      )
+  endif()
+  find_program(LINEARBUILD_${lang}_COMPILER NAMES ${LINEARBUILD_${lang}_COMPILER_LIST} DOC "${lang} compiler")
+  if(_LINEARBUILD_${lang}_COMPILER_PATHS)
+    # As a last fall-back, search in language-specific paths
+    find_program(LINEARBUILD_${lang}_COMPILER
+      NAMES ${LINEARBUILD_${lang}_COMPILER_LIST}
+      NAMES_PER_DIR
+      PATHS ${_LINEARBUILD_${lang}_COMPILER_PATHS}
+      DOC "${lang} compiler"
+      NO_DEFAULT_PATH
+      )
+  endif()
+  if(LINEARBUILD_${lang}_COMPILER_INIT AND NOT LINEARBUILD_${lang}_COMPILER)
+    set_property(CACHE LINEARBUILD_${lang}_COMPILER PROPERTY VALUE "${LINEARBUILD_${lang}_COMPILER_INIT}")
+  endif()
+  unset(_${lang}_COMPILER_HINTS)
+  unset(_languages)
+endmacro()
+
+macro(_linearbuild_find_compiler_path lang)
+  if(LINEARBUILD_${lang}_COMPILER)
+    # we only get here if LINEARBUILD_${lang}_COMPILER was specified using -D or a pre-made LinearBuildCache.txt
+    # (e.g. via ctest) or set in LINEARBUILD_TOOLCHAIN_FILE
+    # if LINEARBUILD_${lang}_COMPILER is a list, use the first item as
+    # LINEARBUILD_${lang}_COMPILER and the rest as LINEARBUILD_${lang}_COMPILER_ARG1
+    # Otherwise, preserve any existing LINEARBUILD_${lang}_COMPILER_ARG1 that might
+    # have been saved by LinearBuildDetermine${lang}Compiler in a previous run.
+
+    # Necessary for Windows paths to avoid improper escaping of backslashes
+    linearbuild_path(CONVERT "${LINEARBUILD_${lang}_COMPILER}" TO_LINEARBUILD_PATH_LIST LINEARBUILD_${lang}_COMPILER NORMALIZE)
+
+    list(LENGTH LINEARBUILD_${lang}_COMPILER _LINEARBUILD_${lang}_COMPILER_LENGTH)
+    if(_LINEARBUILD_${lang}_COMPILER_LENGTH GREATER 1)
+      set(LINEARBUILD_${lang}_COMPILER_ARG1 "${LINEARBUILD_${lang}_COMPILER}")
+      list(POP_FRONT LINEARBUILD_${lang}_COMPILER_ARG1 LINEARBUILD_${lang}_COMPILER)
+      list(JOIN LINEARBUILD_${lang}_COMPILER_ARG1 " " LINEARBUILD_${lang}_COMPILER_ARG1)
+    endif()
+    unset(_LINEARBUILD_${lang}_COMPILER_LENGTH)
+
+    # find the compiler in the PATH if necessary
+    # if compiler (and arguments) comes from cache then synchronize cache with updated LINEARBUILD_<LANG>_COMPILER
+    get_filename_component(_LINEARBUILD_USER_${lang}_COMPILER_PATH "${LINEARBUILD_${lang}_COMPILER}" PATH)
+    if(NOT _LINEARBUILD_USER_${lang}_COMPILER_PATH)
+      find_program(LINEARBUILD_${lang}_COMPILER_WITH_PATH NO_CACHE NAMES ${LINEARBUILD_${lang}_COMPILER})
+      if(LINEARBUILD_${lang}_COMPILER_WITH_PATH)
+        set(LINEARBUILD_${lang}_COMPILER ${LINEARBUILD_${lang}_COMPILER_WITH_PATH})
+        get_property(_LINEARBUILD_${lang}_COMPILER_CACHED CACHE LINEARBUILD_${lang}_COMPILER PROPERTY TYPE)
+        if(_LINEARBUILD_${lang}_COMPILER_CACHED)
+          set(LINEARBUILD_${lang}_COMPILER "${LINEARBUILD_${lang}_COMPILER}" CACHE STRING "${lang} compiler" FORCE)
+        endif()
+        unset(_LINEARBUILD_${lang}_COMPILER_CACHED)
+      endif()
+    elseif (EXISTS ${LINEARBUILD_${lang}_COMPILER})
+      get_property(_LINEARBUILD_${lang}_COMPILER_CACHED CACHE LINEARBUILD_${lang}_COMPILER PROPERTY TYPE)
+      if(_LINEARBUILD_${lang}_COMPILER_CACHED)
+        set(LINEARBUILD_${lang}_COMPILER "${LINEARBUILD_${lang}_COMPILER}" CACHE STRING "${lang} compiler" FORCE)
+      endif()
+      unset(_LINEARBUILD_${lang}_COMPILER_CACHED)
+    endif()
+  endif()
+endmacro()
+
+function(_linearbuild_find_compiler_sysroot lang)
+  if(LINEARBUILD_${lang}_COMPILER_ID STREQUAL "GNU" OR LINEARBUILD_${lang}_COMPILER_ID STREQUAL "LCC")
+    execute_process(COMMAND "${LINEARBUILD_${lang}_COMPILER}" -print-sysroot
+      OUTPUT_STRIP_TRAILING_WHITESPACE
+      OUTPUT_VARIABLE _linearbuild_sysroot_run_out
+      ERROR_VARIABLE _linearbuild_sysroot_run_err
+      RESULT_VARIABLE _linearbuild_sysroot_run_res
+    )
+
+    if(_linearbuild_sysroot_run_res EQUAL 0
+        AND _linearbuild_sysroot_run_out
+        AND NOT _linearbuild_sysroot_run_err
+        AND NOT _linearbuild_sysroot_run_out STREQUAL "/"
+        AND IS_DIRECTORY "${_linearbuild_sysroot_run_out}/usr")
+      file(TO_LINEARBUILD_PATH "${_linearbuild_sysroot_run_out}/usr" _linearbuild_sysroot_run_out_usr)
+      set(LINEARBUILD_${lang}_COMPILER_SYSROOT "${_linearbuild_sysroot_run_out_usr}" PARENT_SCOPE)
+    else()
+      set(LINEARBUILD_${lang}_COMPILER_SYSROOT "" PARENT_SCOPE)
+    endif()
+  endif()
+endfunction()

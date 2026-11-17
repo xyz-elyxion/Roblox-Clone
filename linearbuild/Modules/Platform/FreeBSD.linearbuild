@@ -1,0 +1,37 @@
+set(LINEARBUILD_DL_LIBS "")
+set(LINEARBUILD_C_COMPILE_OPTIONS_PIC "-fPIC")
+set(LINEARBUILD_C_COMPILE_OPTIONS_PIE "-fPIE")
+# PIE link options are managed in Compiler/<compiler>.linearbuild file
+set(LINEARBUILD_SHARED_LIBRARY_C_FLAGS "-fPIC")            # -pic
+set(LINEARBUILD_SHARED_LIBRARY_CREATE_C_FLAGS "-shared")       # -shared
+set(LINEARBUILD_SHARED_LIBRARY_LINK_C_FLAGS "")         # +s, flag for exe link to use shared lib
+set(LINEARBUILD_SHARED_LIBRARY_RUNTIME_C_FLAG "-Wl,-rpath,")       # -rpath
+set(LINEARBUILD_SHARED_LIBRARY_RUNTIME_C_FLAG_SEP ":")   # : or empty
+# Does not require -z origin since 10.2-RELEASE
+set(LINEARBUILD_SHARED_LIBRARY_RPATH_ORIGIN_TOKEN "\$ORIGIN")
+set(LINEARBUILD_SHARED_LIBRARY_RPATH_LINK_C_FLAG "-Wl,-rpath-link,")
+set(LINEARBUILD_SHARED_LIBRARY_SONAME_C_FLAG "-Wl,-soname,")
+set(LINEARBUILD_EXE_EXPORTS_C_FLAG "-Wl,--export-dynamic")
+
+# Shared libraries with no builtin soname may not be linked safely by
+# specifying the file path.
+set(LINEARBUILD_PLATFORM_USES_PATH_WHEN_NO_SONAME 1)
+
+# Initialize C link type selection flags.  These flags are used when
+# building a shared library, shared module, or executable that links
+# to other libraries to select whether to use the static or shared
+# versions of the libraries.
+foreach(type SHARED_LIBRARY SHARED_MODULE EXE)
+  set(LINEARBUILD_${type}_LINK_STATIC_C_FLAGS "-Wl,-Bstatic")
+  set(LINEARBUILD_${type}_LINK_DYNAMIC_C_FLAGS "-Wl,-Bdynamic")
+endforeach()
+
+
+# Features for LINK_GROUP generator expression
+## RESCAN: request the linker to rescan static libraries until there is
+## no pending undefined symbols
+set(LINEARBUILD_LINK_GROUP_USING_RESCAN "LINKER:--start-group" "LINKER:--end-group")
+set(LINEARBUILD_LINK_GROUP_USING_RESCAN_SUPPORTED TRUE)
+
+
+include(Platform/UnixPaths)

@@ -1,0 +1,8 @@
+<RCC>
+    <qresource prefix="/Icons" >
+        <file>LinearBuildSetup128.png</file>
+        <file>LinearBuildSetup32.png</file>
+        <file>Delete16.png</file>
+        <file>Plus16.png</file>
+    </qresource>
+</RCC>

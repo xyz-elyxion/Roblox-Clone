@@ -1,15 +1,15 @@
 #pragma once
 
-#include <rblxgl/rblxgl.h>
-#include <RBLXWIN/rblxwin.h>
-#include "rblxui.h"
-#include "rblxui_impl_rblxwin.h"
-#include "rblxui_impl_opengl3.h"
-#include "RblxGizmo.h"
+#include <lineargl/lineargl.h>
+#include <LINEARWIN/linearwin.h>
+#include "linearui.h"
+#include "linearui_impl_linearwin.h"
+#include "linearui_impl_opengl3.h"
+#include "LinearGizmo.h"
 
 class Editor {
 public:
-    Editor(RBLXWINwindow* window);
+    Editor(LINEARWINwindow* window);
     ~Editor();
 
     void init();
@@ -20,6 +20,6 @@ public:
     void setupDockSpace();
 
 private:
-    RBLXWINwindow* window;
+    LINEARWINwindow* window;
 };
 

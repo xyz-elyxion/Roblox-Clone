@@ -17,7 +17,7 @@
 #include <string>
 #include <vector>
 
-#include <rblxmath/rblxmath.hpp>
+#include <linearmath/linearmath.hpp>
 
 #include "Avatar.h"
 #include "Camera.h"
@@ -40,8 +40,8 @@ enum GameState {
 
 // Where a remote player was and where it is heading, for position smoothing.
 struct NetworkTransform {
-    rblxmath::vec3 position;
-    rblxmath::vec3 rotation;  // Euler
+    linearmath::vec3 position;
+    linearmath::vec3 rotation;  // Euler
     float timestamp;
 };
 
@@ -76,7 +76,7 @@ extern GameState currentState;
 
 // Connection state owned by ClientNet.cpp.
 extern SOCKET clientSocket;
-extern std::unique_ptr<rblx::net::UdpSession> clientSession;
+extern std::unique_ptr<linear::net::UdpSession> clientSession;
 extern bool gameConnectionLost;
 extern bool clientProblemReported;
 extern bool awaitingWelcome;
@@ -176,10 +176,10 @@ void toggleVehicle();
 void sendVehicleInput(float throttle, float steer);
 
 // Defined in Client.cpp, called from ClientNet.cpp and ClientUi.cpp.
-struct RBLXWINwindow;
+struct LINEARWINwindow;
 std::string automaticWebServerUrl();
 bool startAuthCallback(std::string& loginUrl, std::string& error);
-std::string openFileDialog(RBLXWINwindow* window);
+std::string openFileDialog(LINEARWINwindow* window);
 void addChatLine(const std::string& username, const std::string& message, bool system = false);
 void reportClientProblem(const std::string& stage, const std::string& reason);
 const char* automaticGameServerIp();

@@ -1,0 +1,27 @@
+
+# This module is shared by multiple languages; use include blocker.
+include_guard()
+
+set(LINEARBUILD_BUILD_TYPE_INIT Debug)
+
+if(DEFINED LINEARBUILD_SYSTEM_PROCESSOR AND LINEARBUILD_SYSTEM_PROCESSOR STREQUAL "I86")
+  string(APPEND LINEARBUILD_EXE_LINKER_FLAGS_INIT " system dos")
+  string(APPEND LINEARBUILD_SHARED_LINKER_FLAGS_INIT " system dos")
+  string(APPEND LINEARBUILD_MODULE_LINKER_FLAGS_INIT " system dos")
+else()
+  string(APPEND LINEARBUILD_EXE_LINKER_FLAGS_INIT " system dos4g")
+  string(APPEND LINEARBUILD_SHARED_LINKER_FLAGS_INIT " system dos4g")
+  string(APPEND LINEARBUILD_MODULE_LINKER_FLAGS_INIT " system dos4g")
+endif()
+
+set(LINEARBUILD_C_COMPILE_OPTIONS_DLL "-bd") # Note: This variable is a ';' separated list
+set(LINEARBUILD_SHARED_LIBRARY_C_FLAGS "-bd") # ... while this is a space separated string.
+
+string(APPEND LINEARBUILD_C_FLAGS_INIT " -bt=dos")
+string(APPEND LINEARBUILD_CXX_FLAGS_INIT " -bt=dos -xs")
+
+macro(__dos_open_watcom lang)
+  if(NOT LINEARBUILD_${lang}_STANDARD_INCLUDE_DIRECTORIES)
+    set(LINEARBUILD_${lang}_STANDARD_INCLUDE_DIRECTORIES $ENV{WATCOM}/h)
+  endif()
+endmacro()

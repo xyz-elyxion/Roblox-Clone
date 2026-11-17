@@ -17,12 +17,12 @@ void check(bool condition, const std::string& name) {
     std::printf("FAIL %s\n", name.c_str());
 }
 
-int addAccount(rblx::web::Store& store, const std::string& name) {
+int addAccount(linear::web::Store& store, const std::string& name) {
     return store.createUser(name, "hash", "2026-01-01T00:00:00Z");
 }
 
-int addGame(rblx::web::Store& store, int ownerId, const std::string& title) {
-    rblx::web::GameRecord game;
+int addGame(linear::web::Store& store, int ownerId, const std::string& title) {
+    linear::web::GameRecord game;
     game.ownerId = ownerId;
     game.title = title;
     game.isPublic = true;
@@ -30,7 +30,7 @@ int addGame(rblx::web::Store& store, int ownerId, const std::string& title) {
 }
 
 void testTheSameAccountCannotLikeTwice() {
-    rblx::web::Store store("game-likes-test.json");
+    linear::web::Store store("game-likes-test.json");
     const int owner = addAccount(store, "likes-owner");
     const int fan = addAccount(store, "likes-fan");
     const int game = addGame(store, owner, "Liked Game");
@@ -60,7 +60,7 @@ void testTheSameAccountCannotLikeTwice() {
 }
 
 void testTwoAccountsCountTwice() {
-    rblx::web::Store store("game-likes-two.json");
+    linear::web::Store store("game-likes-two.json");
     const int owner = addAccount(store, "likes-owner-two");
     const int first = addAccount(store, "likes-first");
     const int second = addAccount(store, "likes-second");
@@ -81,7 +81,7 @@ void testLikesSurviveARestart() {
     int game = 0;
     int fan = 0;
     {
-        rblx::web::Store store(path);
+        linear::web::Store store(path);
         const int owner = addAccount(store, "likes-saved-owner");
         fan = addAccount(store, "likes-saved-fan");
         game = addGame(store, owner, "Saved Game");
@@ -91,7 +91,7 @@ void testLikesSurviveARestart() {
         check(store.save(&error), "the store writes the like to the data file");
     }
 
-    rblx::web::Store reopened(path);
+    linear::web::Store reopened(path);
     std::string error;
     check(reopened.load(&error), "the data file loads again");
     check(reopened.gameLikeCount(game) == 1, "the like came back");
@@ -100,7 +100,7 @@ void testLikesSurviveARestart() {
 }
 
 void testDeletingTakesTheLikesWithIt() {
-    rblx::web::Store store("game-likes-delete.json");
+    linear::web::Store store("game-likes-delete.json");
     const int owner = addAccount(store, "likes-delete-owner");
     const int fan = addAccount(store, "likes-delete-fan");
     const int game = addGame(store, owner, "Doomed Game");

@@ -1,0 +1,43 @@
+# Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
+# file LICENSE.rst or https://linearbuild.org/licensing for details.
+
+
+
+if(LINEARBUILD_ISPC_COMPILER_FORCED)
+  # The compiler configuration was forced by the user.
+  # Assume the user has configured all compiler information.
+  set(LINEARBUILD_ISPC_COMPILER_WORKS TRUE)
+  return()
+endif()
+
+include(LinearBuildTestCompilerCommon)
+
+# Make sure we try to compile as a STATIC_LIBRARY
+set(__LINEARBUILD_SAVED_TRY_COMPILE_TARGET_TYPE ${LINEARBUILD_TRY_COMPILE_TARGET_TYPE})
+set(LINEARBUILD_TRY_COMPILE_TARGET_TYPE STATIC_LIBRARY)
+
+# # Try to identify the ABI and configure it into LinearBuildISPCCompiler.linearbuild
+include(${LINEARBUILD_ROOT}/Modules/LinearBuildDetermineCompilerABI.linearbuild)
+LINEARBUILD_DETERMINE_COMPILER_ABI(ISPC ${LINEARBUILD_ROOT}/Modules/LinearBuildISPCCompilerABI.ispc)
+if(LINEARBUILD_ISPC_ABI_COMPILED)
+#   # The compiler worked so skip dedicated test below.
+  set(LINEARBUILD_ISPC_COMPILER_WORKS TRUE)
+  message(STATUS "Check for working ISPC compiler: ${LINEARBUILD_ISPC_COMPILER} - skipped")
+endif()
+
+# Re-configure to save learned information.
+configure_file(
+  ${LINEARBUILD_ROOT}/Modules/LinearBuildISPCCompiler.linearbuild.in
+  ${LINEARBUILD_PLATFORM_INFO_DIR}/LinearBuildISPCCompiler.linearbuild
+  @ONLY
+  )
+include(${LINEARBUILD_PLATFORM_INFO_DIR}/LinearBuildISPCCompiler.linearbuild)
+
+if(LINEARBUILD_ISPC_SIZEOF_DATA_PTR)
+  foreach(f ${LINEARBUILD_ISPC_ABI_FILES})
+    include(${f})
+  endforeach()
+  unset(LINEARBUILD_ISPC_ABI_FILES)
+endif()
+
+set(LINEARBUILD_TRY_COMPILE_TARGET_TYPE ${__LINEARBUILD_SAVED_TRY_COMPILE_TARGET_TYPE})

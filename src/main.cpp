@@ -2,24 +2,24 @@
 #include "Renderer.h"
 #include "Camera.h"
 #include "Editor.h"
-#include "RblxTextEditor.h"
+#include "LinearTextEditor.h"
 #include "Part.h"
 #include "PhysicsWorld.h"
 #include "Raycaster.h"
 #include "ShadowMap.h"
 #include "WorldLoader.h"
-#include "RblxScript.h"
+#include "LinearScript.h"
 #include "WorldScript.h"
 #include "StudioHistory.h"
 #include "StudioSelection.h"
 #include "Auth.h"
 
-#include <rblxgl/rblxgl.h>
-#include <RBLXWIN/rblxwin.h>
-#include <rblxmath/gtc/matrix_transform.hpp>
-#include <rblxmath/gtc/type_ptr.hpp>
-#include <rblxmath/gtx/euler_angles.hpp>
-#include <rblxmath/gtx/quaternion.hpp>
+#include <lineargl/lineargl.h>
+#include <LINEARWIN/linearwin.h>
+#include <linearmath/gtc/matrix_transform.hpp>
+#include <linearmath/gtc/type_ptr.hpp>
+#include <linearmath/gtx/euler_angles.hpp>
+#include <linearmath/gtx/quaternion.hpp>
 
 #include <algorithm>
 #include <cstdio>
@@ -44,11 +44,11 @@ namespace {
         parts.clear();
         physicsWorld.reset();
 
-        parts.emplace_back(rblxmath::vec3(0.0f, -1.0f, 0.0f), rblxmath::vec3(40.0f, 1.0f, 40.0f), rblxmath::vec3(0.35f, 0.8f, 0.35f), ShapeType::Cube, "Baseplate");
+        parts.emplace_back(linearmath::vec3(0.0f, -1.0f, 0.0f), linearmath::vec3(40.0f, 1.0f, 40.0f), linearmath::vec3(0.35f, 0.8f, 0.35f), ShapeType::Cube, "Baseplate");
         parts.back().anchored = true;
         physicsWorld.addPart(&parts.back());
 
-        parts.emplace_back(rblxmath::vec3(0.0f, 1.0f, 0.0f), rblxmath::vec3(4.0f, 4.0f, 4.0f), rblxmath::vec3(0.8f, 0.25f, 0.2f), ShapeType::Cube, "Part");
+        parts.emplace_back(linearmath::vec3(0.0f, 1.0f, 0.0f), linearmath::vec3(4.0f, 4.0f, 4.0f), linearmath::vec3(0.8f, 0.25f, 0.2f), ShapeType::Cube, "Part");
         parts.back().anchored = true;
         physicsWorld.addPart(&parts.back());
     }
@@ -204,33 +204,33 @@ namespace {
         return !response.empty() && response.find("\"success\":true") != std::string::npos;
     }
 
-    rblxmath::mat4 partToMatrix(const Part& part) {
-        rblxmath::mat4 model(1.0f);
-        model = rblxmath::translate(model, part.position);
-        model *= rblxmath::toMat4(rblxmath::quat(rblxmath::radians(part.rotation)));
-        model = rblxmath::scale(model, part.size);
+    linearmath::mat4 partToMatrix(const Part& part) {
+        linearmath::mat4 model(1.0f);
+        model = linearmath::translate(model, part.position);
+        model *= linearmath::toMat4(linearmath::quat(linearmath::radians(part.rotation)));
+        model = linearmath::scale(model, part.size);
         return model;
     }
 
-    rblxmath::vec3 clampScale(const rblxmath::vec3& value) {
-        return rblxmath::vec3(
+    linearmath::vec3 clampScale(const linearmath::vec3& value) {
+        return linearmath::vec3(
             std::clamp(value.x, MIN_PART_SCALE, MAX_PART_SCALE),
             std::clamp(value.y, MIN_PART_SCALE, MAX_PART_SCALE),
             std::clamp(value.z, MIN_PART_SCALE, MAX_PART_SCALE)
         );
     }
 
-    void applyMatrixToPart(const rblxmath::mat4& model, Part& part, PhysicsWorld& physicsWorld, bool rebuildShape) {
+    void applyMatrixToPart(const linearmath::mat4& model, Part& part, PhysicsWorld& physicsWorld, bool rebuildShape) {
         float translation[3];
         float rotation[3];
         float scale[3];
-        RblxGizmo::DecomposeMatrixToComponents(rblxmath::value_ptr(model), translation, rotation, scale);
+        LinearGizmo::DecomposeMatrixToComponents(linearmath::value_ptr(model), translation, rotation, scale);
 
-        part.position = rblxmath::vec3(translation[0], translation[1], translation[2]);
-        part.rotation = rblxmath::vec3(rotation[0], rotation[1], rotation[2]);
+        part.position = linearmath::vec3(translation[0], translation[1], translation[2]);
+        part.rotation = linearmath::vec3(rotation[0], rotation[1], rotation[2]);
 
         if (rebuildShape) {
-            part.size = clampScale(rblxmath::vec3(scale[0], scale[1], scale[2]));
+            part.size = clampScale(linearmath::vec3(scale[0], scale[1], scale[2]));
             if (part.physicsBody) {
                 physicsWorld.removePart(&part);
                 physicsWorld.addPart(&part);
@@ -243,12 +243,12 @@ namespace {
     // Puts a snapshot back into the world. The deque is rebuilt from scratch and
     // then the physics bodies and the welds, because every Part the old deque held
     // is gone the moment the first part is pushed into it.
-    void applySnapshot(const rblx::studio::WorldSnapshot& snapshot, std::deque<Part>& parts,
+    void applySnapshot(const linear::studio::WorldSnapshot& snapshot, std::deque<Part>& parts,
                        PhysicsWorld& physicsWorld) {
         parts.clear();
         physicsWorld.reset();
 
-        for (const rblx::studio::PartSnapshot& saved : snapshot) {
+        for (const linear::studio::PartSnapshot& saved : snapshot) {
             Part part(saved.position, saved.size, saved.color, saved.shape, saved.name);
             part.parentIndex = saved.parentIndex;
             part.isFolder = saved.isFolder;
@@ -302,7 +302,7 @@ namespace {
     // what keeps every other index - and every weld naming one - valid.
     void deleteSelection(std::vector<int>& selection, std::deque<Part>& parts,
                          PhysicsWorld& physicsWorld) {
-        const std::vector<int> doomed = rblx::studio::withFolderContents(parts, selection);
+        const std::vector<int> doomed = linear::studio::withFolderContents(parts, selection);
 
         for (const int index : doomed) {
             if (index < 0 || index >= static_cast<int>(parts.size())) {
@@ -325,7 +325,7 @@ namespace {
             part.welds.erase(
                 std::remove_if(part.welds.begin(), part.welds.end(),
                                [&parts, &doomed](const Weld& weld) {
-                                   return rblx::studio::isSelected(doomed, partIndex(parts, weld.part1));
+                                   return linear::studio::isSelected(doomed, partIndex(parts, weld.part1));
                                }),
                 part.welds.end());
         }
@@ -353,7 +353,7 @@ namespace {
             return;
         }
 
-        const int primary = rblx::studio::primarySelection(selection);
+        const int primary = linear::studio::primarySelection(selection);
         const float offsetX = primary >= 0 && primary < static_cast<int>(parts.size())
             ? parts[static_cast<std::size_t>(primary)].size.x + 0.5f
             : 1.0f;
@@ -422,14 +422,14 @@ namespace {
     }
 
     void processCameraInput(Window& window, Camera& camera, float deltaTime) {
-        RBLXWINwindow* nativeWindow = window.getNativeWindow();
-        const bool sprint = rblxwinGetKey(nativeWindow, RBLXWIN_KEY_LEFT_SHIFT) == RBLXWIN_PRESS;
-        if (rblxwinGetKey(nativeWindow, RBLXWIN_KEY_W) == RBLXWIN_PRESS) camera.ProcessKeyboard(FORWARD, deltaTime, sprint);
-        if (rblxwinGetKey(nativeWindow, RBLXWIN_KEY_S) == RBLXWIN_PRESS) camera.ProcessKeyboard(BACKWARD, deltaTime, sprint);
-        if (rblxwinGetKey(nativeWindow, RBLXWIN_KEY_A) == RBLXWIN_PRESS) camera.ProcessKeyboard(LEFT, deltaTime, sprint);
-        if (rblxwinGetKey(nativeWindow, RBLXWIN_KEY_D) == RBLXWIN_PRESS) camera.ProcessKeyboard(RIGHT, deltaTime, sprint);
-        if (rblxwinGetKey(nativeWindow, RBLXWIN_KEY_E) == RBLXWIN_PRESS) camera.ProcessKeyboard(UP, deltaTime, sprint);
-        if (rblxwinGetKey(nativeWindow, RBLXWIN_KEY_Q) == RBLXWIN_PRESS) camera.ProcessKeyboard(DOWN, deltaTime, sprint);
+        LINEARWINwindow* nativeWindow = window.getNativeWindow();
+        const bool sprint = linearwinGetKey(nativeWindow, LINEARWIN_KEY_LEFT_SHIFT) == LINEARWIN_PRESS;
+        if (linearwinGetKey(nativeWindow, LINEARWIN_KEY_W) == LINEARWIN_PRESS) camera.ProcessKeyboard(FORWARD, deltaTime, sprint);
+        if (linearwinGetKey(nativeWindow, LINEARWIN_KEY_S) == LINEARWIN_PRESS) camera.ProcessKeyboard(BACKWARD, deltaTime, sprint);
+        if (linearwinGetKey(nativeWindow, LINEARWIN_KEY_A) == LINEARWIN_PRESS) camera.ProcessKeyboard(LEFT, deltaTime, sprint);
+        if (linearwinGetKey(nativeWindow, LINEARWIN_KEY_D) == LINEARWIN_PRESS) camera.ProcessKeyboard(RIGHT, deltaTime, sprint);
+        if (linearwinGetKey(nativeWindow, LINEARWIN_KEY_E) == LINEARWIN_PRESS) camera.ProcessKeyboard(UP, deltaTime, sprint);
+        if (linearwinGetKey(nativeWindow, LINEARWIN_KEY_Q) == LINEARWIN_PRESS) camera.ProcessKeyboard(DOWN, deltaTime, sprint);
     }
 }
 
@@ -439,8 +439,8 @@ int main() {
         glEnable(GL_DEPTH_TEST);
         glEnable(GL_CULL_FACE);
 
-        Camera camera(rblxmath::vec3(8.0f, 8.0f, 12.0f));
-        camera.LookAt(rblxmath::vec3(0.0f, 0.0f, 0.0f));
+        Camera camera(linearmath::vec3(8.0f, 8.0f, 12.0f));
+        camera.LookAt(linearmath::vec3(0.0f, 0.0f, 0.0f));
 
         PhysicsWorld physicsWorld;
         physicsWorld.init();
@@ -461,9 +461,9 @@ int main() {
         editor.init();
 
         std::vector<int> selection;
-        rblx::studio::selectOnly(selection, parts.size() > 1 ? 1 : 0);
-        RblxGizmo::OPERATION operation = RblxGizmo::TRANSLATE;
-        RblxGizmo::MODE mode = RblxGizmo::LOCAL;
+        linear::studio::selectOnly(selection, parts.size() > 1 ? 1 : 0);
+        LinearGizmo::OPERATION operation = LinearGizmo::TRANSLATE;
+        LinearGizmo::MODE mode = LinearGizmo::LOCAL;
         bool snapEnabled = false;
         float snap[3] = { 1.0f, 1.0f, 1.0f };
         char worldPath[260] = "ServerWorld.world";
@@ -478,19 +478,19 @@ int main() {
 
         char scriptPath[260] = "games/sky-platformer.rbx";
         std::string scriptStatus = "No script running";
-        std::unique_ptr<rblx::script::Interpreter> scriptInterpreter;
-        std::unique_ptr<rblx::worldscript::WorldRuntime> scriptRuntime;
+        std::unique_ptr<linear::script::Interpreter> scriptInterpreter;
+        std::unique_ptr<linear::worldscript::WorldRuntime> scriptRuntime;
         bool scriptRunning = false;
 
-        float lastFrame = static_cast<float>(rblxwinGetTime());
+        float lastFrame = static_cast<float>(linearwinGetTime());
         double lastMouseX = WINDOW_WIDTH / 2.0;
         double lastMouseY = WINDOW_HEIGHT / 2.0;
         bool firstMouse = true;
         bool wasLeftPressed = false;
-        rblx::studio::History history;
+        linear::studio::History history;
 
         while (!window.shouldClose()) {
-            float currentFrame = static_cast<float>(rblxwinGetTime());
+            float currentFrame = static_cast<float>(linearwinGetTime());
             float deltaTime = currentFrame - lastFrame;
             lastFrame = currentFrame;
 
@@ -508,128 +508,128 @@ int main() {
             }
 
             editor.newFrame();
-            RBLXWINwindow* nativeWindow = window.getNativeWindow();
+            LINEARWINwindow* nativeWindow = window.getNativeWindow();
 
-            if (RblxUI::BeginMainMenuBar()) {
-                if (RblxUI::BeginMenu("File")) {
-                    if (RblxUI::MenuItem("New")) {
+            if (LinearUI::BeginMainMenuBar()) {
+                if (LinearUI::BeginMenu("File")) {
+                    if (LinearUI::MenuItem("New")) {
                         addDefaultWorld(parts, physicsWorld);
-                        rblx::studio::selectOnly(selection, parts.size() > 1 ? 1 : 0);
+                        linear::studio::selectOnly(selection, parts.size() > 1 ? 1 : 0);
                         // A world that was just created has no steps behind it.
                         history.clear();
                         statusMessage = "Created a new default world";
                     }
-                    if (RblxUI::MenuItem("Load")) {
+                    if (LinearUI::MenuItem("Load")) {
                         WorldLoader::loadWorld(worldPath, parts, physicsWorld);
                         if (parts.empty()) {
                             addDefaultWorld(parts, physicsWorld);
-                            rblx::studio::selectOnly(selection, parts.size() > 1 ? 1 : 0);
+                            linear::studio::selectOnly(selection, parts.size() > 1 ? 1 : 0);
                             history.clear();
                             statusMessage = "Load failed; restored default world";
                         } else {
-                            rblx::studio::selectOnly(selection, 0);
+                            linear::studio::selectOnly(selection, 0);
                             // A step taken in another world cannot be undone into
                             // this one, so loading starts the history again.
                             history.clear();
                             statusMessage = std::string("Loaded ") + worldPath;
                         }
                     }
-                    if (RblxUI::MenuItem("Save")) {
+                    if (LinearUI::MenuItem("Save")) {
                         statusMessage = saveWorld(worldPath, parts) ? std::string("Saved ") + worldPath : std::string("Failed to save ") + worldPath;
                     }
-                    if (RblxUI::MenuItem("Exit")) {
-                        rblxwinSetWindowShouldClose(nativeWindow, true);
+                    if (LinearUI::MenuItem("Exit")) {
+                        linearwinSetWindowShouldClose(nativeWindow, true);
                     }
-                    RblxUI::EndMenu();
+                    LinearUI::EndMenu();
                 }
-                if (RblxUI::BeginMenu("Edit")) {
-                    if (RblxUI::MenuItem("Undo", "Ctrl+Z", false, history.canUndo())) {
+                if (LinearUI::BeginMenu("Edit")) {
+                    if (LinearUI::MenuItem("Undo", "Ctrl+Z", false, history.canUndo())) {
                         undoRequested = true;
                     }
-                    if (RblxUI::MenuItem("Redo", "Ctrl+Y", false, history.canRedo())) {
+                    if (LinearUI::MenuItem("Redo", "Ctrl+Y", false, history.canRedo())) {
                         redoRequested = true;
                     }
-                    RblxUI::Separator();
-                    if (RblxUI::MenuItem("Duplicate", "Ctrl+D", false, !selection.empty())) {
+                    LinearUI::Separator();
+                    if (LinearUI::MenuItem("Duplicate", "Ctrl+D", false, !selection.empty())) {
                         duplicateRequested = true;
                     }
-                    if (RblxUI::MenuItem("Delete", "Del", false, !selection.empty())) {
+                    if (LinearUI::MenuItem("Delete", "Del", false, !selection.empty())) {
                         deleteRequested = true;
                     }
-                    RblxUI::EndMenu();
+                    LinearUI::EndMenu();
                 }
-                RblxUI::EndMainMenuBar();
+                LinearUI::EndMainMenuBar();
             }
 
             // The shortcuts belong to Studio only while nothing else has the
             // keyboard: Ctrl+Z inside the script editor is the editor's own undo.
-            RblxUIIO& io = RblxUI::GetIO();
+            LinearUIIO& io = LinearUI::GetIO();
             if (!io.WantCaptureKeyboard) {
-                if (io.KeyCtrl && RblxUI::IsKeyPressed(RblxUIKey_Z)) {
+                if (io.KeyCtrl && LinearUI::IsKeyPressed(LinearUIKey_Z)) {
                     if (io.KeyShift) {
                         redoRequested = true;
                     } else {
                         undoRequested = true;
                     }
                 }
-                if (io.KeyCtrl && RblxUI::IsKeyPressed(RblxUIKey_Y)) {
+                if (io.KeyCtrl && LinearUI::IsKeyPressed(LinearUIKey_Y)) {
                     redoRequested = true;
                 }
-                if (RblxUI::IsKeyPressed(RblxUIKey_Delete) || RblxUI::IsKeyPressed(RblxUIKey_Backspace)) {
+                if (LinearUI::IsKeyPressed(LinearUIKey_Delete) || LinearUI::IsKeyPressed(LinearUIKey_Backspace)) {
                     deleteRequested = true;
                 }
-                if (io.KeyCtrl && RblxUI::IsKeyPressed(RblxUIKey_D)) {
+                if (io.KeyCtrl && LinearUI::IsKeyPressed(LinearUIKey_D)) {
                     duplicateRequested = true;
                 }
             }
 
-            RblxUI::Begin("Toolbox");
-            RblxUI::InputText("World file", worldPath, sizeof(worldPath));
-            if (RblxUI::Button("Add Part")) {
-                parts.emplace_back(rblxmath::vec3(0.0f, 3.0f, 0.0f), rblxmath::vec3(2.0f), rblxmath::vec3(0.7f, 0.7f, 0.9f), ShapeType::Cube, "Part");
+            LinearUI::Begin("Toolbox");
+            LinearUI::InputText("World file", worldPath, sizeof(worldPath));
+            if (LinearUI::Button("Add Part")) {
+                parts.emplace_back(linearmath::vec3(0.0f, 3.0f, 0.0f), linearmath::vec3(2.0f), linearmath::vec3(0.7f, 0.7f, 0.9f), ShapeType::Cube, "Part");
                 parts.back().anchored = true;
                 physicsWorld.addPart(&parts.back());
-                rblx::studio::selectOnly(selection, static_cast<int>(parts.size() - 1));
+                linear::studio::selectOnly(selection, static_cast<int>(parts.size() - 1));
             }
-            RblxUI::SameLine();
-            RblxUI::BeginDisabled(selection.empty());
-            if (RblxUI::Button("Duplicate")) {
+            LinearUI::SameLine();
+            LinearUI::BeginDisabled(selection.empty());
+            if (LinearUI::Button("Duplicate")) {
                 duplicateRequested = true;
             }
-            RblxUI::SameLine();
-            if (RblxUI::Button("Delete")) {
+            LinearUI::SameLine();
+            if (LinearUI::Button("Delete")) {
                 deleteRequested = true;
             }
-            RblxUI::EndDisabled();
-            RblxUI::SameLine();
-            RblxUI::TextDisabled("%zu selected", selection.size());
-            RblxUI::BeginDisabled(!history.canUndo());
-            if (RblxUI::Button("Undo")) {
+            LinearUI::EndDisabled();
+            LinearUI::SameLine();
+            LinearUI::TextDisabled("%zu selected", selection.size());
+            LinearUI::BeginDisabled(!history.canUndo());
+            if (LinearUI::Button("Undo")) {
                 undoRequested = true;
             }
-            RblxUI::EndDisabled();
-            RblxUI::SameLine();
-            RblxUI::BeginDisabled(!history.canRedo());
-            if (RblxUI::Button("Redo")) {
+            LinearUI::EndDisabled();
+            LinearUI::SameLine();
+            LinearUI::BeginDisabled(!history.canRedo());
+            if (LinearUI::Button("Redo")) {
                 redoRequested = true;
             }
-            RblxUI::EndDisabled();
-            RblxUI::SameLine();
-            RblxUI::TextDisabled("%zu step(s) back", history.undoDepth());
-            RblxUI::Separator();
-            if (RblxUI::RadioButton("Move", operation == RblxGizmo::TRANSLATE)) operation = RblxGizmo::TRANSLATE;
-            if (RblxUI::RadioButton("Rotate", operation == RblxGizmo::ROTATE)) operation = RblxGizmo::ROTATE;
-            if (RblxUI::RadioButton("Scale", operation == RblxGizmo::SCALE)) operation = RblxGizmo::SCALE;
-            RblxUI::Checkbox("Snap", &snapEnabled);
-            RblxUI::InputFloat3("Snap values", snap);
-            RblxUI::TextWrapped("%s", statusMessage.c_str());
-            RblxUI::End();
+            LinearUI::EndDisabled();
+            LinearUI::SameLine();
+            LinearUI::TextDisabled("%zu step(s) back", history.undoDepth());
+            LinearUI::Separator();
+            if (LinearUI::RadioButton("Move", operation == LinearGizmo::TRANSLATE)) operation = LinearGizmo::TRANSLATE;
+            if (LinearUI::RadioButton("Rotate", operation == LinearGizmo::ROTATE)) operation = LinearGizmo::ROTATE;
+            if (LinearUI::RadioButton("Scale", operation == LinearGizmo::SCALE)) operation = LinearGizmo::SCALE;
+            LinearUI::Checkbox("Snap", &snapEnabled);
+            LinearUI::InputFloat3("Snap values", snap);
+            LinearUI::TextWrapped("%s", statusMessage.c_str());
+            LinearUI::End();
 
-            RblxUI::Begin("Publish");
-            RblxUI::InputText("Web URL", publishWebUrl, sizeof(publishWebUrl));
-            RblxUI::InputText("Username", publishUsername, sizeof(publishUsername));
-            RblxUI::InputText("Password", publishPassword, sizeof(publishPassword), RblxUIInputTextFlags_Password);
-            if (RblxUI::Button("Login")) {
+            LinearUI::Begin("Publish");
+            LinearUI::InputText("Web URL", publishWebUrl, sizeof(publishWebUrl));
+            LinearUI::InputText("Username", publishUsername, sizeof(publishUsername));
+            LinearUI::InputText("Password", publishPassword, sizeof(publishPassword), LinearUIInputTextFlags_Password);
+            if (LinearUI::Button("Login")) {
                 const std::string token = loginForPublish(publishWebUrl, publishUsername, publishPassword);
                 if (token.empty()) {
                     publishStatus = "Login failed";
@@ -638,11 +638,11 @@ int main() {
                     publishStatus = "Logged in for publishing";
                 }
             }
-            RblxUI::Separator();
-            RblxUI::InputText("Game title", publishTitle, sizeof(publishTitle));
-            RblxUI::InputTextMultiline("Description", publishDescription, sizeof(publishDescription), RblxVec2(0.0f, 72.0f));
-            RblxUI::Checkbox("Public", &publishPublic);
-            if (RblxUI::Button("Publish current world")) {
+            LinearUI::Separator();
+            LinearUI::InputText("Game title", publishTitle, sizeof(publishTitle));
+            LinearUI::InputTextMultiline("Description", publishDescription, sizeof(publishDescription), LinearVec2(0.0f, 72.0f));
+            LinearUI::Checkbox("Public", &publishPublic);
+            if (LinearUI::Button("Publish current world")) {
                 if (!saveWorld(worldPath, parts)) {
                     publishStatus = std::string("Could not save ") + worldPath;
                 } else {
@@ -658,39 +658,39 @@ int main() {
                     }
                 }
             }
-            RblxUI::SameLine();
-            if (RblxUI::Button("Open site")) {
+            LinearUI::SameLine();
+            if (LinearUI::Button("Open site")) {
                 Auth::openBrowser(std::string(publishWebUrl) + "/create");
             }
-            RblxUI::TextWrapped("%s", publishStatus.c_str());
-            RblxUI::End();
+            LinearUI::TextWrapped("%s", publishStatus.c_str());
+            LinearUI::End();
 
-            RblxUI::Begin("Script");
+            LinearUI::Begin("Script");
 
             // Studio's script panel is a code editor rather than a text box: line
             // numbers, syntax highlighting, selection, undo and the dark palette
             // VS Code uses. Linear Script is Lua-shaped, so the Lua definition is
             // the one that colours it correctly. It is created on first use, once
-            // the RblxUI context exists, and it holds the script itself - Save and
+            // the LinearUI context exists, and it holds the script itself - Save and
             // Run read it back instead of a fixed buffer that would cut a long
             // script short.
-            static std::unique_ptr<RblxTextEditor> codeEditor;
+            static std::unique_ptr<LinearTextEditor> codeEditor;
             if (!codeEditor) {
-                codeEditor = std::make_unique<RblxTextEditor>();
-                codeEditor->SetLanguageDefinition(RblxTextEditor::LanguageDefinition::Lua());
-                codeEditor->SetPalette(RblxTextEditor::GetDarkPalette());
+                codeEditor = std::make_unique<LinearTextEditor>();
+                codeEditor->SetLanguageDefinition(LinearTextEditor::LanguageDefinition::Lua());
+                codeEditor->SetPalette(LinearTextEditor::GetDarkPalette());
                 codeEditor->SetTabSize(4);
                 codeEditor->SetShowWhitespaces(false);
                 codeEditor->SetText("-- Press Load to open a .rbx script, or write one here.\n");
             }
 
-            RblxUI::InputText("Script file", scriptPath, sizeof(scriptPath));
+            LinearUI::InputText("Script file", scriptPath, sizeof(scriptPath));
 
             // Everything the panel has, apart from the button row and the status
             // bar under it, belongs to the code.
-            const float footerHeight = RblxUI::GetFrameHeightWithSpacing() * 2.0f;
-            codeEditor->Render("##scriptEditor", RblxVec2(0.0f, -footerHeight), true);
-            if (RblxUI::Button("Load")) {
+            const float footerHeight = LinearUI::GetFrameHeightWithSpacing() * 2.0f;
+            codeEditor->Render("##scriptEditor", LinearVec2(0.0f, -footerHeight), true);
+            if (LinearUI::Button("Load")) {
                 const std::string text = readTextFile(scriptPath);
                 if (text.empty()) {
                     scriptStatus = std::string("Could not read ") + scriptPath;
@@ -699,8 +699,8 @@ int main() {
                     scriptStatus = std::string("Loaded ") + scriptPath;
                 }
             }
-            RblxUI::SameLine();
-            if (RblxUI::Button("Save")) {
+            LinearUI::SameLine();
+            if (LinearUI::Button("Save")) {
                 std::ofstream out(scriptPath, std::ios::binary);
                 if (out.is_open()) {
                     out << codeEditor->GetText();
@@ -709,17 +709,17 @@ int main() {
                     scriptStatus = std::string("Could not save ") + scriptPath;
                 }
             }
-            RblxUI::SameLine();
-            if (RblxUI::Button("Run")) {
+            LinearUI::SameLine();
+            if (LinearUI::Button("Run")) {
                 scriptRunning = false;
                 scriptRuntime.reset();
                 scriptInterpreter.reset();
-                scriptInterpreter = std::make_unique<rblx::script::Interpreter>();
+                scriptInterpreter = std::make_unique<linear::script::Interpreter>();
                 scriptInterpreter->setPrintHandler(
                     [&scriptStatus](const std::string& message, bool isError) {
                         scriptStatus = (isError ? "[script error] " : "[script] ") + message;
                     });
-                scriptRuntime = std::make_unique<rblx::worldscript::WorldRuntime>(
+                scriptRuntime = std::make_unique<linear::worldscript::WorldRuntime>(
                     parts, &physicsWorld, *scriptInterpreter);
                 std::string scriptError;
                 if (scriptRuntime->runScript(codeEditor->GetText(), scriptPath, scriptError)) {
@@ -729,50 +729,50 @@ int main() {
                     scriptStatus = scriptError;
                 }
             }
-            RblxUI::SameLine();
-            if (RblxUI::Button("Stop")) {
+            LinearUI::SameLine();
+            if (LinearUI::Button("Stop")) {
                 scriptRunning = false;
                 if (scriptRuntime) scriptRuntime->stop();
                 scriptStatus = "Stopped";
             }
-            const RblxTextEditor::Coordinates cursor = codeEditor->GetCursorPosition();
-            RblxUI::TextDisabled("%s   Ln %d, Col %d   Lua   |   %s", scriptPath,
+            const LinearTextEditor::Coordinates cursor = codeEditor->GetCursorPosition();
+            LinearUI::TextDisabled("%s   Ln %d, Col %d   Lua   |   %s", scriptPath,
                                 cursor.mLine + 1, cursor.mColumn + 1, scriptStatus.c_str());
-            RblxUI::End();
+            LinearUI::End();
 
-            RblxUI::Begin("Explorer");
+            LinearUI::Begin("Explorer");
             for (size_t i = 0; i < parts.size(); ++i) {
                 if (parts[i].deleted) continue;
-                if (RblxUI::Selectable(parts[i].name.c_str(),
-                                      rblx::studio::isSelected(selection, static_cast<int>(i)))) {
+                if (LinearUI::Selectable(parts[i].name.c_str(),
+                                      linear::studio::isSelected(selection, static_cast<int>(i)))) {
                     if (io.KeyCtrl) {
-                        rblx::studio::toggleSelected(selection, static_cast<int>(i));
+                        linear::studio::toggleSelected(selection, static_cast<int>(i));
                     } else {
-                        rblx::studio::selectOnly(selection, static_cast<int>(i));
+                        linear::studio::selectOnly(selection, static_cast<int>(i));
                     }
                 }
             }
-            RblxUI::TextDisabled("Ctrl+click adds or removes a part");
-            RblxUI::End();
+            LinearUI::TextDisabled("Ctrl+click adds or removes a part");
+            LinearUI::End();
 
-            RblxUI::Begin("Properties");
-            const int primaryPart = rblx::studio::primarySelection(selection);
+            LinearUI::Begin("Properties");
+            const int primaryPart = linear::studio::primarySelection(selection);
             if (selection.size() > 1 && primaryPart >= 0 &&
                 primaryPart < static_cast<int>(parts.size())) {
-                RblxUI::TextDisabled("%zu parts selected; editing %s. The gizmo moves all of them.",
+                LinearUI::TextDisabled("%zu parts selected; editing %s. The gizmo moves all of them.",
                                     selection.size(), parts[static_cast<std::size_t>(primaryPart)].name.c_str());
             }
             if (primaryPart >= 0 && primaryPart < static_cast<int>(parts.size())) {
                 Part& part = parts[static_cast<std::size_t>(primaryPart)];
                 char name[64] = {};
                 std::snprintf(name, sizeof(name), "%s", part.name.c_str());
-                if (RblxUI::InputText("Name", name, sizeof(name))) {
+                if (LinearUI::InputText("Name", name, sizeof(name))) {
                     part.name = name;
                 }
                 bool transformChanged = false;
-                transformChanged |= RblxUI::DragFloat3("Position", rblxmath::value_ptr(part.position), 0.1f);
-                transformChanged |= RblxUI::DragFloat3("Rotation", rblxmath::value_ptr(part.rotation), 0.5f);
-                if (RblxUI::DragFloat3("Size", rblxmath::value_ptr(part.size), 0.1f, MIN_PART_SCALE, MAX_PART_SCALE)) {
+                transformChanged |= LinearUI::DragFloat3("Position", linearmath::value_ptr(part.position), 0.1f);
+                transformChanged |= LinearUI::DragFloat3("Rotation", linearmath::value_ptr(part.rotation), 0.5f);
+                if (LinearUI::DragFloat3("Size", linearmath::value_ptr(part.size), 0.1f, MIN_PART_SCALE, MAX_PART_SCALE)) {
                     part.size = clampScale(part.size);
                     if (part.physicsBody) {
                         physicsWorld.removePart(&part);
@@ -781,30 +781,30 @@ int main() {
                 } else if (transformChanged) {
                     physicsWorld.updatePartBody(&part);
                 }
-                RblxUI::ColorEdit3("Color", rblxmath::value_ptr(part.color));
+                LinearUI::ColorEdit3("Color", linearmath::value_ptr(part.color));
 
                 static const char* materialLabels[kMaterialCount] = {
                     "Plastic", "Smooth plastic", "Neon", "Metal",
                     "Wood", "Grass", "Concrete", "Brick"
                 };
                 int materialIndex = static_cast<int>(part.material);
-                if (RblxUI::Combo("Material", &materialIndex, materialLabels, kMaterialCount)) {
+                if (LinearUI::Combo("Material", &materialIndex, materialLabels, kMaterialCount)) {
                     part.material = static_cast<Material>(materialIndex);
                 }
 
                 char texturePath[128] = {};
                 std::snprintf(texturePath, sizeof(texturePath), "%s", part.texture.c_str());
-                if (RblxUI::InputText("Texture", texturePath, sizeof(texturePath))) {
+                if (LinearUI::InputText("Texture", texturePath, sizeof(texturePath))) {
                     part.texture = texturePath;
                 }
-                RblxUI::TextDisabled("Tiles over the part; image goes in textures/.");
+                LinearUI::TextDisabled("Tiles over the part; image goes in textures/.");
 
-                RblxUI::Checkbox("Anchored", &part.anchored);
-                RblxUI::Checkbox("Can collide", &part.canCollide);
+                LinearUI::Checkbox("Anchored", &part.anchored);
+                LinearUI::Checkbox("Can collide", &part.canCollide);
             } else {
-                RblxUI::Text("No part selected");
+                LinearUI::Text("No part selected");
             }
-            RblxUI::End();
+            LinearUI::End();
 
             // Edits that add or remove parts land after the panels and before the
             // undo block, so the world the history settles on at the end of the
@@ -825,30 +825,30 @@ int main() {
             // Undo is applied here, after every panel that can set a request, so a
             // menu item and a button both take effect in the frame they were used.
             if (undoRequested || redoRequested) {
-                const rblx::studio::WorldSnapshot current = rblx::studio::captureWorld(parts);
-                rblx::studio::WorldSnapshot restored;
+                const linear::studio::WorldSnapshot current = linear::studio::captureWorld(parts);
+                linear::studio::WorldSnapshot restored;
                 const bool stepped = undoRequested ? history.undo(current, &restored)
                                                    : history.redo(current, &restored);
                 if (stepped) {
                     applySnapshot(restored, parts, physicsWorld);
                     // A step can add or remove parts, so what was selected may no
                     // longer be there.
-                    rblx::studio::pruneSelection(selection, parts);
+                    linear::studio::pruneSelection(selection, parts);
                     statusMessage = undoRequested ? "Undo" : "Redo";
                 } else {
                     statusMessage = undoRequested ? "Nothing to undo" : "Nothing to redo";
                 }
             }
 
-            const bool gizmoInUse = RblxGizmo::IsUsing();
+            const bool gizmoInUse = LinearGizmo::IsUsing();
             if (!gizmoInUse && !io.WantCaptureKeyboard) {
                 processCameraInput(window, camera, deltaTime);
             }
 
-            if (!gizmoInUse && !io.WantCaptureMouse && rblxwinGetMouseButton(nativeWindow, RBLXWIN_MOUSE_BUTTON_RIGHT) == RBLXWIN_PRESS) {
+            if (!gizmoInUse && !io.WantCaptureMouse && linearwinGetMouseButton(nativeWindow, LINEARWIN_MOUSE_BUTTON_RIGHT) == LINEARWIN_PRESS) {
                 double mouseX = 0.0;
                 double mouseY = 0.0;
-                rblxwinGetCursorPos(nativeWindow, &mouseX, &mouseY);
+                linearwinGetCursorPos(nativeWindow, &mouseX, &mouseY);
                 if (firstMouse) {
                     lastMouseX = mouseX;
                     lastMouseY = mouseY;
@@ -861,10 +861,10 @@ int main() {
                 firstMouse = true;
             }
 
-            bool leftPressed = rblxwinGetMouseButton(nativeWindow, RBLXWIN_MOUSE_BUTTON_LEFT) == RBLXWIN_PRESS;
+            bool leftPressed = linearwinGetMouseButton(nativeWindow, LINEARWIN_MOUSE_BUTTON_LEFT) == LINEARWIN_PRESS;
 
-            rblxmath::vec3 lightPos(20.0f, 50.0f, 20.0f);
-            rblxmath::mat4 lightSpaceMatrix = shadowMap.getLightSpaceMatrix(lightPos);
+            linearmath::vec3 lightPos(20.0f, 50.0f, 20.0f);
+            linearmath::mat4 lightSpaceMatrix = shadowMap.getLightSpaceMatrix(lightPos);
 
             shadowMap.bindForWriting();
             for (const Part& part : parts) {
@@ -878,8 +878,8 @@ int main() {
             glClearColor(0.53f, 0.81f, 0.92f, 1.0f);
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-            rblxmath::mat4 view = camera.GetViewMatrix();
-            rblxmath::mat4 projection = camera.GetProjectionMatrix(static_cast<float>(window.getWidth()), static_cast<float>(window.getHeight()));
+            linearmath::mat4 view = camera.GetViewMatrix();
+            linearmath::mat4 projection = camera.GetProjectionMatrix(static_cast<float>(window.getWidth()), static_cast<float>(window.getHeight()));
 
             if (renderer.shader) {
                 renderer.shader->use();
@@ -892,34 +892,34 @@ int main() {
                 }
             }
 
-            const int gizmoPart = rblx::studio::primarySelection(selection);
+            const int gizmoPart = linear::studio::primarySelection(selection);
             if (gizmoPart >= 0 && gizmoPart < static_cast<int>(parts.size()) &&
                 !parts[static_cast<std::size_t>(gizmoPart)].isFolder) {
                 Part& part = parts[static_cast<std::size_t>(gizmoPart)];
-                rblxmath::mat4 model = partToMatrix(part);
-                const rblxmath::mat4 before = model;
+                linearmath::mat4 model = partToMatrix(part);
+                const linearmath::mat4 before = model;
 
-                RblxGizmo::SetOrthographic(false);
-                const RblxUIViewport* mainViewport = RblxUI::GetMainViewport();
-                RblxGizmo::SetRect(mainViewport->Pos.x, mainViewport->Pos.y, mainViewport->Size.x, mainViewport->Size.y);
+                LinearGizmo::SetOrthographic(false);
+                const LinearUIViewport* mainViewport = LinearUI::GetMainViewport();
+                LinearGizmo::SetRect(mainViewport->Pos.x, mainViewport->Pos.y, mainViewport->Size.x, mainViewport->Size.y);
 
                 const float* snapValues = snapEnabled ? snap : nullptr;
-                if (RblxGizmo::Manipulate(
-                        rblxmath::value_ptr(view),
-                        rblxmath::value_ptr(projection),
+                if (LinearGizmo::Manipulate(
+                        linearmath::value_ptr(view),
+                        linearmath::value_ptr(projection),
                         operation,
                         mode,
-                        rblxmath::value_ptr(model),
+                        linearmath::value_ptr(model),
                         nullptr,
                         snapValues)) {
-                    // RblxGizmo returns the full model matrix. Assign the decomposed size directly;
+                    // LinearGizmo returns the full model matrix. Assign the decomposed size directly;
                     // multiplying by the returned scale each frame causes runaway scale growth.
                     //
                     // The rest of the selection moves by what the gizmo did to the
                     // part it drew: the step is that matrix against the one it
                     // started from, applied to each of them, so a group turns about
                     // the primary and keeps its shape.
-                    const rblxmath::mat4 delta = model * rblxmath::inverse(before);
+                    const linearmath::mat4 delta = model * linearmath::inverse(before);
                     for (const int index : selection) {
                         if (index < 0 || index >= static_cast<int>(parts.size())) {
                             continue;
@@ -929,25 +929,25 @@ int main() {
                             continue;
                         }
                         if (index == gizmoPart) {
-                            applyMatrixToPart(model, target, physicsWorld, operation == RblxGizmo::SCALE);
+                            applyMatrixToPart(model, target, physicsWorld, operation == LinearGizmo::SCALE);
                         } else {
                             applyMatrixToPart(delta * partToMatrix(target), target, physicsWorld,
-                                              operation == RblxGizmo::SCALE);
+                                              operation == LinearGizmo::SCALE);
                         }
                     }
                 }
             }
 
-            if (leftPressed && !wasLeftPressed && !io.WantCaptureMouse && !RblxGizmo::IsUsing() && !RblxGizmo::IsOver()) {
+            if (leftPressed && !wasLeftPressed && !io.WantCaptureMouse && !LinearGizmo::IsUsing() && !LinearGizmo::IsOver()) {
                 double mouseX = 0.0;
                 double mouseY = 0.0;
-                rblxwinGetCursorPos(nativeWindow, &mouseX, &mouseY);
+                linearwinGetCursorPos(nativeWindow, &mouseX, &mouseY);
                 int picked = Raycaster::GetPartFromMouse(parts, camera, static_cast<float>(mouseX), static_cast<float>(mouseY), static_cast<float>(window.getWidth()), static_cast<float>(window.getHeight()));
                 if (picked >= 0 && picked < static_cast<int>(parts.size())) {
                     if (io.KeyCtrl) {
-                        rblx::studio::toggleSelected(selection, picked);
+                        linear::studio::toggleSelected(selection, picked);
                     } else {
-                        rblx::studio::selectOnly(selection, picked);
+                        linear::studio::selectOnly(selection, picked);
                     }
                 } else if (!io.KeyCtrl) {
                     // A click on nothing lets go of the whole selection, which is
@@ -958,10 +958,10 @@ int main() {
             wasLeftPressed = leftPressed;
 
             // One step is one finished interaction: IsAnyItemActive covers a slider
-            // being dragged and a name being typed, and the gizmo is not an RblxUI
+            // being dragged and a name being typed, and the gizmo is not an LinearUI
             // item, so it is asked separately.
-            const bool interacting = RblxUI::IsAnyItemActive() || RblxGizmo::IsUsing();
-            history.note(rblx::studio::captureWorld(parts), interacting);
+            const bool interacting = LinearUI::IsAnyItemActive() || LinearGizmo::IsUsing();
+            history.note(linear::studio::captureWorld(parts), interacting);
 
             editor.render();
             window.swapBuffers();

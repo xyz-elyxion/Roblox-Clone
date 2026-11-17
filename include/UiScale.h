@@ -1,20 +1,20 @@
 #pragma once
 
-#include "rblxui.h"
-#include <RBLXWIN/rblxwin.h>
+#include "linearui.h"
+#include <LINEARWIN/linearwin.h>
 
 #include <algorithm>
 #include <cmath>
 
 namespace UiScale {
-    inline float Compute(RBLXWINwindow* window) {
+    inline float Compute(LINEARWINwindow* window) {
         int framebufferWidth = 1280;
         int framebufferHeight = 720;
-        rblxwinGetFramebufferSize(window, &framebufferWidth, &framebufferHeight);
+        linearwinGetFramebufferSize(window, &framebufferWidth, &framebufferHeight);
 
         float contentScaleX = 1.0f;
         float contentScaleY = 1.0f;
-        rblxwinGetWindowContentScale(window, &contentScaleX, &contentScaleY);
+        linearwinGetWindowContentScale(window, &contentScaleX, &contentScaleY);
 
         const float resolutionScale = std::sqrt(std::max(
             static_cast<float>(std::max(framebufferWidth, 1)) / 1280.0f,
@@ -24,10 +24,10 @@ namespace UiScale {
         return std::clamp(std::max(resolutionScale, dpiScale), 1.0f, 1.85f);
     }
 
-    inline float Apply(RBLXWINwindow* window) {
+    inline float Apply(LINEARWINwindow* window) {
         const float scale = Compute(window);
-        RblxUIIO& io = RblxUI::GetIO();
-        RblxUIStyle& style = RblxUI::GetStyle();
+        LinearUIIO& io = LinearUI::GetIO();
+        LinearUIStyle& style = LinearUI::GetStyle();
         style.ScaleAllSizes(scale);
         io.FontGlobalScale = scale;
         return scale;
@@ -37,15 +37,15 @@ namespace UiScale {
         return value * scale;
     }
 
-    inline RblxVec2 Size(float width, float height, float scale) {
-        return RblxVec2(Px(width, scale), Px(height, scale));
+    inline LinearVec2 Size(float width, float height, float scale) {
+        return LinearVec2(Px(width, scale), Px(height, scale));
     }
 
-    inline RblxVec2 CenteredWindowPos(float width, float height, float scale, float yOffset = 0.0f) {
-        const RblxVec2 displaySize = RblxUI::GetIO().DisplaySize;
+    inline LinearVec2 CenteredWindowPos(float width, float height, float scale, float yOffset = 0.0f) {
+        const LinearVec2 displaySize = LinearUI::GetIO().DisplaySize;
         const float scaledWidth = Px(width, scale);
         const float scaledHeight = Px(height, scale);
-        return RblxVec2(
+        return LinearVec2(
             std::max(0.0f, (displaySize.x - scaledWidth) * 0.5f),
             std::max(0.0f, (displaySize.y - scaledHeight) * 0.5f + Px(yOffset, scale))
         );

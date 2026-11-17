@@ -6,7 +6,7 @@
 #include <cstring>
 #include <vector>
 
-namespace rblx {
+namespace linear {
 namespace update {
 namespace {
 
@@ -486,4 +486,4 @@ bool signRsaSha256(const void* message, std::size_t length,
 }
 
 }  // namespace update
-}  // namespace rblx
+}  // namespace linear

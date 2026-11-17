@@ -12,7 +12,7 @@
 #include <set>
 #include <system_error>
 
-namespace rblx {
+namespace linear {
 namespace update {
 namespace {
 
@@ -193,7 +193,7 @@ bool isPackagedFile(const std::string& relativePath) {
 
     if (name == "manifest.json" || name == "update.json") return false;
     // The updater cannot replace the copy that is running it.
-    if (name == "rblxupdater" || name == "rblxupdater.exe") return false;
+    if (name == "linearupdater" || name == "linearupdater.exe") return false;
     if (name.size() > 4 && name.compare(name.size() - 4, 4, ".old") == 0) return false;
     if (name.size() > 4 && name.compare(name.size() - 4, 4, ".tmp") == 0) return false;
     return true;
@@ -360,7 +360,7 @@ std::string manifestSigningPayload(const Manifest& manifest) {
     // tie the signature to a writer's key order and spacing, so the same release
     // packaged twice would need signing twice and a hand-edited manifest could
     // keep a signature that no longer describes it.
-    std::string out = "rblx-manifest-v1\n";
+    std::string out = "linear-manifest-v1\n";
     out += manifest.version + "\n";
     out += manifest.channel + "\n";
     for (const FileEntry& file : manifest.files) {
@@ -597,4 +597,4 @@ bool writeConfigFile(const std::string& path, const Config& config, std::string*
 }
 
 }  // namespace update
-}  // namespace rblx
+}  // namespace linear

@@ -1,0 +1,6 @@
+set(LINEARBUILD_SYSTEM_NAME SunOS)
+set(LINEARBUILD_SYSTEM_VERSION 5.10)
+set(LINEARBUILD_SYSTEM_PROCESSOR sparc64)
+set(LINEARBUILD_SYSROOT /opt/cross/sysroot/sparc64-sun-solaris2.10)
+set(LINEARBUILD_C_COMPILER /opt/cross/bin/sparc64-sun-solaris2.10-gcc)
+set(LINEARBUILD_CXX_COMPILER /opt/cross/bin/sparc64-sun-solaris2.10-g++)

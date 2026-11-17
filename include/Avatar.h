@@ -1,15 +1,15 @@
 #pragma once
 
-#include <rblxmath/rblxmath.hpp>
+#include <linearmath/linearmath.hpp>
 #include <string>
 
 struct AvatarConfig {
-    rblxmath::vec3 headColor = rblxmath::vec3(0.8f, 0.6f, 0.4f);      // Skin color
-    rblxmath::vec3 torsoColor = rblxmath::vec3(0.2f, 0.4f, 0.8f);    // Blue shirt
-    rblxmath::vec3 leftArmColor = rblxmath::vec3(0.8f, 0.6f, 0.4f);  // Skin color
-    rblxmath::vec3 rightArmColor = rblxmath::vec3(0.8f, 0.6f, 0.4f); // Skin color
-    rblxmath::vec3 leftLegColor = rblxmath::vec3(0.2f, 0.6f, 0.2f);  // Green pants
-    rblxmath::vec3 rightLegColor = rblxmath::vec3(0.2f, 0.6f, 0.2f); // Green pants
+    linearmath::vec3 headColor = linearmath::vec3(0.8f, 0.6f, 0.4f);      // Skin color
+    linearmath::vec3 torsoColor = linearmath::vec3(0.2f, 0.4f, 0.8f);    // Blue shirt
+    linearmath::vec3 leftArmColor = linearmath::vec3(0.8f, 0.6f, 0.4f);  // Skin color
+    linearmath::vec3 rightArmColor = linearmath::vec3(0.8f, 0.6f, 0.4f); // Skin color
+    linearmath::vec3 leftLegColor = linearmath::vec3(0.2f, 0.6f, 0.2f);  // Green pants
+    linearmath::vec3 rightLegColor = linearmath::vec3(0.2f, 0.6f, 0.2f); // Green pants
     std::string faceId = "classic";
     // Equipped hat item id; empty when the character wears none.
     std::string hatId;

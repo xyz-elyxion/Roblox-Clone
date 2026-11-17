@@ -22,7 +22,7 @@
 #include <cstddef>
 #include <string>
 
-namespace rblx {
+namespace linear {
 namespace hwid {
 
 // Hex characters kept from the digest: 128 bits tells two machines apart and fits
@@ -72,4 +72,4 @@ std::string hashInputs(const std::string& inputs);
 std::string machineId();
 
 }  // namespace hwid
-}  // namespace rblx
+}  // namespace linear

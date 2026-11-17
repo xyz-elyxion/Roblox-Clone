@@ -1,6 +1,6 @@
 #include "WebCrypto.h"
 
-// NOMINMAX is defined for every target in RBLXBuildLists.txt; defining it here
+// NOMINMAX is defined for every target in LinearBuildLists.txt; defining it here
 // again is what MSVC reports as a macro redefinition.
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
@@ -12,7 +12,7 @@
 #include <cstring>
 #include <ctime>
 
-namespace rblx {
+namespace linear {
 namespace web {
 namespace {
 
@@ -798,4 +798,4 @@ bool aes256GcmOpen(const std::string& key, const std::string& sealed, const std:
 }
 
 }  // namespace web
-}  // namespace rblx
+}  // namespace linear

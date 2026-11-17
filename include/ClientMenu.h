@@ -9,7 +9,7 @@
 // how a username is shown under a display name, and which account id a search
 // answer names. They live in a header rather than in ClientUi.cpp so the tests
 // can reach them without a window, a socket or a signed-in session.
-namespace rblx {
+namespace linear {
 namespace client_menu {
 
 // The site names a profile by account id, so the id has to come out of the
@@ -50,11 +50,11 @@ inline std::string handle(const std::string& username) {
 inline int findUserId(const std::string& usersJson, const std::string& username) {
     if (usersJson.empty() || username.empty()) return 0;
     std::string error;
-    const rblx::web::Json root = rblx::web::Json::parse(usersJson, &error);
+    const linear::web::Json root = linear::web::Json::parse(usersJson, &error);
     if (!root.isObject()) return 0;
-    const rblx::web::Json& users = root.member("users");
+    const linear::web::Json& users = root.member("users");
     if (!users.isArray()) return 0;
-    for (const rblx::web::Json& user : users.elements()) {
+    for (const linear::web::Json& user : users.elements()) {
         if (user.member("username").asString() != username) continue;
         const int id = static_cast<int>(user.member("id").asInteger(0));
         if (id > 0) return id;
@@ -63,4 +63,4 @@ inline int findUserId(const std::string& usersJson, const std::string& username)
 }
 
 }  // namespace client_menu
-}  // namespace rblx
+}  // namespace linear

@@ -1,0 +1,7 @@
+/* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
+   file LICENSE.rst or https://linearbuild.org/licensing for details.  */
+#pragma once
+
+#linearbuilddefine01 ENABLE_BUILD_WIX_GENERATOR
+#linearbuilddefine01 ENABLE_BUILD_FREEBSD_PKG
+#linearbuilddefine01 HAVE_CoreServices

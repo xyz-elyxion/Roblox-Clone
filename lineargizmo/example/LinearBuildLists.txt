@@ -1,0 +1,31 @@
+include(FetchContent)
+
+FetchContent_Declare(
+    linearstb
+    GIT_REPOSITORY https://github.com/nothings/linearstb.git
+    GIT_TAG master
+    GIT_SHALLOW TRUE
+)
+FetchContent_MakeAvailable(linearstb)
+target_include_directories(linearui PUBLIC ${linearstb_SOURCE_DIR})
+
+add_executable(example-app main.cpp)
+target_link_libraries(example-app PRIVATE lineargizmo)
+target_include_directories(example-app PRIVATE ${LINEARBUILD_CURRENT_SOURCE_DIR})
+
+if(WIN32)
+    target_link_libraries(example-app PRIVATE opengl32 imm32 gdi32)
+elseif(APPLE)
+    target_compile_definitions(example-app PRIVATE GL_SILENCE_DEPRECATION)
+    target_compile_definitions(linearui PRIVATE GL_SILENCE_DEPRECATION)
+    target_link_libraries(example-app PRIVATE
+        "-framework Cocoa"
+        "-framework OpenGL"
+        "-framework Carbon"
+        "-framework IOKit"
+    )
+elseif(UNIX)
+    find_package(X11 REQUIRED)
+    find_package(OpenGL REQUIRED)
+    target_link_libraries(example-app PRIVATE X11::X11 OpenGL::GL ${LINEARBUILD_DL_LIBS})
+endif()

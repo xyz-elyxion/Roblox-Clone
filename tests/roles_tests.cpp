@@ -17,7 +17,7 @@ void check(bool ok, const std::string& what) {
 } // namespace
 
 int main() {
-    using namespace rblx::roles;
+    using namespace linear::roles;
 
     // The table is the whole language of roles: anything not in it cannot be
     // stored, so the ids have to be unique and the ranks have to order the ladder.

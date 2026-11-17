@@ -9,7 +9,7 @@
 #include <string>
 #include <vector>
 
-namespace hub = rblx::hub;
+namespace hub = linear::hub;
 
 namespace {
 

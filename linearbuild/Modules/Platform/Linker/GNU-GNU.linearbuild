@@ -1,0 +1,17 @@
+# Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
+# file LICENSE.rst or https://linearbuild.org/licensing for details.
+
+
+# This module is shared by multiple languages; use include blocker.
+include_guard()
+
+include(Platform/Linker/GNU)
+
+macro(__gnu_linker_gnu lang)
+  set(LINEARBUILD_${lang}_PLATFORM_LINKER_ID GNU)
+  if(LINEARBUILD_${lang}_COMPILER_LINKER)
+    __linearbuild_set_whole_archive_feature("${LINEARBUILD_${lang}_COMPILER_LINKER}"
+                                      "${LINEARBUILD_${lang}_COMPILER_LINKER_ARCHITECTURE_FLAGS}"
+                                      "${lang}")
+  endif()
+endmacro()

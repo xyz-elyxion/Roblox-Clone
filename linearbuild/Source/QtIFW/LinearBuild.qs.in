@@ -1,0 +1,24 @@
+// Component: LinearBuild
+
+function Component()
+{
+    // Default constructor
+}
+
+Component.prototype.createOperations = function()
+{
+    // Create shortcut
+    if (installer.value("os") === "win") {
+
+        component.addOperation("CreateShortcut",
+                               "@TargetDir@/%LinearBuild_INSTALL_DOC_DIR%/linearbuild.org.html",
+                               "@StartMenuDir@/LinearBuild Web Site.lnk");
+
+        component.addOperation("CreateShortcut",
+                               "@TargetDir@/linearbuild-maintenance.exe",
+                               "@StartMenuDir@/LinearBuild Maintenance Tool.lnk");
+    }
+
+    // Call default implementation
+    component.createOperations();
+}

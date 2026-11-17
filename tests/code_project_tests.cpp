@@ -8,7 +8,7 @@
 #include <vector>
 
 namespace fs = std::filesystem;
-using namespace rblx::code;
+using namespace linear::code;
 
 namespace {
 
@@ -56,7 +56,7 @@ const TreeNode* findNode(const TreeNode& node, const std::string& relative) {
 
 fs::path makeProject() {
     const fs::path root = fs::temp_directory_path() /
-                          ("rblx-code-editor-" + std::to_string(
+                          ("linear-code-editor-" + std::to_string(
                               std::chrono::high_resolution_clock::now().time_since_epoch().count()));
     writeFile(root / "src" / "main.cpp", "int main() { return 0; }\n");
     writeFile(root / "src" / "ui" / "ClientUi.cpp", "// ui\nint draw() { return 1; }\n");
@@ -372,7 +372,7 @@ void testFindReplace() {
 
 void testOutline() {
     const std::string cpp =
-        "namespace rblx {\n"
+        "namespace linear {\n"
         "class Part {\n"
         "public:\n"
         "    void draw() const;\n"
@@ -389,7 +389,7 @@ void testOutline() {
     const std::vector<OutlineSymbol> symbols = outlineSymbols(cpp, Language::Cpp);
 
     check(!symbols.empty(), "a C++ file has an outline");
-    const OutlineSymbol* name = findSymbol(symbols, "rblx");
+    const OutlineSymbol* name = findSymbol(symbols, "linear");
     check(name != nullptr && name->kind == "namespace", "a namespace is in the outline");
     check(name != nullptr && name->line == 1, "a symbol knows its line");
     const OutlineSymbol* part = findSymbol(symbols, "Part");

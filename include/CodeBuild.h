@@ -15,7 +15,7 @@
 #include <string>
 #include <vector>
 
-namespace rblx {
+namespace linear {
 namespace code {
 
 // One line the toolchain printed that names a place in a file. Everything else it
@@ -31,24 +31,24 @@ struct Diagnostic {
     std::string text;      // the whole line, for the panel
 };
 
-// The default preset is the one RBLXBuildPresets.json ships.
+// The default preset is the one LinearBuildPresets.json ships.
 constexpr const char* kDefaultPreset = "windows-release";
 
 // The folder the build belongs to. LinearCode starts in whatever folder it was
 // launched from, and the usual one is build\windows-release\Release, which has
 // neither the sources nor the tool: walk up until a folder looks like this
-// checkout (RBLXBuildPresets.json or RBLXBuildLists.txt), and use that. A folder
+// checkout (LinearBuildPresets.json or LinearBuildLists.txt), and use that. A folder
 // with no checkout above it is returned unchanged, so the error is about the
 // folder that was actually opened.
 std::string findBuildRoot(const std::string& start);
 
-// The build tool of this checkout: the vendored one under build/rblxbuild-tool,
+// The build tool of this checkout: the vendored one under build/linearbuild-tool,
 // because that is what the bootstrap builds and what CI and the packaging script
-// run. `RBLXBUILD` overrides it for a tool somewhere else. The error carries the
+// run. `LINEARBUILD` overrides it for a tool somewhere else. The error carries the
 // bootstrap line, which is what a fresh clone needs to read.
 bool findBuildTool(const std::string& projectRoot, std::string* program, std::string* error);
 
-// `"C:\...\rblxbuild.exe" --build --preset windows-release`
+// `"C:\...\linearbuild.exe" --build --preset windows-release`
 // One step of the release pipeline: a program and the arguments it is started
 // with, in the order the Windows workflow runs them.
 struct Stage {
@@ -89,4 +89,4 @@ std::vector<Diagnostic> parseDiagnostics(const std::vector<std::string>& lines);
 std::string resolveDiagnosticPath(const std::string& projectRoot, const std::string& printed);
 
 }  // namespace code
-}  // namespace rblx
+}  // namespace linear

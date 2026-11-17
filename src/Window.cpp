@@ -7,48 +7,48 @@ Window::Window(int width, int height, const std::string& title)
 }
 
 Window::~Window() {
-    rblxwinDestroyWindow(window);
-    rblxwinTerminate();
+    linearwinDestroyWindow(window);
+    linearwinTerminate();
 }
 
 void Window::init() {
-    if (!rblxwinInit()) {
-        throw std::runtime_error("Failed to initialize RBLXWIN");
+    if (!linearwinInit()) {
+        throw std::runtime_error("Failed to initialize LINEARWIN");
     }
 
-    rblxwinWindowHint(RBLXWIN_CONTEXT_VERSION_MAJOR, 3);
-    rblxwinWindowHint(RBLXWIN_CONTEXT_VERSION_MINOR, 3);
-    rblxwinWindowHint(RBLXWIN_OPENGL_PROFILE, RBLXWIN_OPENGL_CORE_PROFILE);
+    linearwinWindowHint(LINEARWIN_CONTEXT_VERSION_MAJOR, 3);
+    linearwinWindowHint(LINEARWIN_CONTEXT_VERSION_MINOR, 3);
+    linearwinWindowHint(LINEARWIN_OPENGL_PROFILE, LINEARWIN_OPENGL_CORE_PROFILE);
 
-    window = rblxwinCreateWindow(width, height, title.c_str(), nullptr, nullptr);
+    window = linearwinCreateWindow(width, height, title.c_str(), nullptr, nullptr);
     if (!window) {
-        rblxwinTerminate();
-        throw std::runtime_error("Failed to create RBLXWIN window");
+        linearwinTerminate();
+        throw std::runtime_error("Failed to create LINEARWIN window");
     }
 
-    rblxwinMakeContextCurrent(window);
+    linearwinMakeContextCurrent(window);
 
-    if (!rblxglLoadGLLoader((RBLXGLloadproc)rblxwinGetProcAddress)) {
-        throw std::runtime_error("Failed to initialize RBLXGL");
+    if (!linearglLoadGLLoader((LINEARGLloadproc)linearwinGetProcAddress)) {
+        throw std::runtime_error("Failed to initialize LINEARGL");
     }
 
     glViewport(0, 0, width, height);
     
-    rblxwinSetFramebufferSizeCallback(window, [](RBLXWINwindow*, int w, int h) {
+    linearwinSetFramebufferSizeCallback(window, [](LINEARWINwindow*, int w, int h) {
         glViewport(0, 0, w, h);
     });
 }
 
 bool Window::shouldClose() const {
-    return rblxwinWindowShouldClose(window);
+    return linearwinWindowShouldClose(window);
 }
 
 void Window::swapBuffers() {
-    rblxwinSwapBuffers(window);
+    linearwinSwapBuffers(window);
 }
 
 void Window::pollEvents() {
-    rblxwinPollEvents();
+    linearwinPollEvents();
 }
 
 

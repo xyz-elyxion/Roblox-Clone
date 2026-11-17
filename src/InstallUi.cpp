@@ -14,15 +14,15 @@
     #endif
     #include <windows.h>
 
-#include <rblxgl/rblxgl.h>
-#include <RBLXWIN/rblxwin.h>
+#include <lineargl/lineargl.h>
+#include <LINEARWIN/linearwin.h>
 
-#include "rblxui.h"
-#include "rblxui_impl_rblxwin.h"
-#include "rblxui_impl_opengl3.h"
+#include "linearui.h"
+#include "linearui_impl_linearwin.h"
+#include "linearui_impl_opengl3.h"
 #include "UiTheme.h"
 
-namespace rblx {
+namespace linear {
 namespace ui {
 namespace {
 
@@ -32,20 +32,20 @@ constexpr std::size_t kMaxLines = 400;
 
 // The palette itself lives in UiTheme.h, because every window of this project
 // reads it from there and a change in one place should reach all of them.
-const RblxVec4 kAccent = theme::accent();
-const RblxVec4 kText = theme::text();
-const RblxVec4 kMuted = theme::muted();
-const RblxVec4 kError = theme::error();
-const RblxVec4 kOk = theme::ok();
+const LinearVec4 kAccent = theme::accent();
+const LinearVec4 kText = theme::text();
+const LinearVec4 kMuted = theme::muted();
+const LinearVec4 kError = theme::error();
+const LinearVec4 kOk = theme::ok();
 
 void applyTheme() { theme::apply(); }
 
 // The system's own proportional font, because the built-in bitmap font looks
 // wrong in a window this size. Falls back to it when there is no font file,
 // which is a cosmetic problem and not a reason to refuse to install.
-void loadFonts(RblxFont** body, RblxFont** heading) {
-    RblxUIIO& io = RblxUI::GetIO();
-    RblxFontConfig config;
+void loadFonts(LinearFont** body, LinearFont** heading) {
+    LinearUIIO& io = LinearUI::GetIO();
+    LinearFontConfig config;
     config.OversampleH = 2;
     config.OversampleV = 2;
 
@@ -89,22 +89,22 @@ std::string formatBytes(long long bytes) {
 }
 
 std::string waitingDots() {
-    const int count = static_cast<int>(RblxUI::GetTime() * 2.0) % 4;
+    const int count = static_cast<int>(LinearUI::GetTime() * 2.0) % 4;
     return std::string(static_cast<std::size_t>(count), '.');
 }
 
-void drawButton(const char* label, const RblxVec4& color) {
+void drawButton(const char* label, const LinearVec4& color) {
     // Toward the light on the dark palette, toward the dark on the light one:
     // a hover that washes a pale button out reads as disabled.
     const float step = theme::isLight() ? -0.07f : 0.08f;
-    RblxUI::PushStyleColor(RblxUICol_Button, color);
-    RblxUI::PushStyleColor(RblxUICol_ButtonHovered,
-                          RblxVec4(std::min(std::max(color.x + step, 0.0f), 1.0f),
+    LinearUI::PushStyleColor(LinearUICol_Button, color);
+    LinearUI::PushStyleColor(LinearUICol_ButtonHovered,
+                          LinearVec4(std::min(std::max(color.x + step, 0.0f), 1.0f),
                                  std::min(std::max(color.y + step, 0.0f), 1.0f),
                                  std::min(std::max(color.z + step, 0.0f), 1.0f), 1.00f));
-    RblxUI::PushStyleColor(RblxUICol_ButtonActive, color);
-    RblxUI::Button(label, RblxVec2(132.0f, 0.0f));
-    RblxUI::PopStyleColor(3);
+    LinearUI::PushStyleColor(LinearUICol_ButtonActive, color);
+    LinearUI::Button(label, LinearVec2(132.0f, 0.0f));
+    LinearUI::PopStyleColor(3);
 }
 
 }  // namespace
@@ -202,46 +202,46 @@ Result run(Options& options, const std::vector<std::string>& actions,
     Result result;
     Report report;
 
-    rblxwinSetErrorCallback([](int, const char* description) {
+    linearwinSetErrorCallback([](int, const char* description) {
         std::fprintf(stderr, "Linear window: %s\n", description == nullptr ? "unknown" : description);
     });
-    if (rblxwinInit() == 0) return result;
+    if (linearwinInit() == 0) return result;
 
-    rblxwinWindowHint(RBLXWIN_CONTEXT_VERSION_MAJOR, 3);
-    rblxwinWindowHint(RBLXWIN_CONTEXT_VERSION_MINOR, 3);
-    rblxwinWindowHint(RBLXWIN_OPENGL_PROFILE, RBLXWIN_OPENGL_CORE_PROFILE);
+    linearwinWindowHint(LINEARWIN_CONTEXT_VERSION_MAJOR, 3);
+    linearwinWindowHint(LINEARWIN_CONTEXT_VERSION_MINOR, 3);
+    linearwinWindowHint(LINEARWIN_OPENGL_PROFILE, LINEARWIN_OPENGL_CORE_PROFILE);
 
     // A window with inputs in it needs room for them instead of clipping the
     // buttons off the bottom, so it grows with the field count up to a sane limit.
     const int height = std::min(kWindowHeight + static_cast<int>(options.fields.size()) * 54, 900);
-    RBLXWINwindow* window =
-        rblxwinCreateWindow(kWindowWidth, height, options.title.c_str(), nullptr, nullptr);
+    LINEARWINwindow* window =
+        linearwinCreateWindow(kWindowWidth, height, options.title.c_str(), nullptr, nullptr);
     if (window == nullptr) {
-        rblxwinTerminate();
+        linearwinTerminate();
         return result;
     }
-    rblxwinSetWindowSizeLimits(window, 560, 380, RBLXWIN_DONT_CARE, RBLXWIN_DONT_CARE);
-    rblxwinMakeContextCurrent(window);
-    rblxwinSwapInterval(1);
+    linearwinSetWindowSizeLimits(window, 560, 380, LINEARWIN_DONT_CARE, LINEARWIN_DONT_CARE);
+    linearwinMakeContextCurrent(window);
+    linearwinSwapInterval(1);
 
-    if (rblxglLoadGLLoader((RBLXGLloadproc)rblxwinGetProcAddress) == 0) {
-        rblxwinDestroyWindow(window);
-        rblxwinTerminate();
+    if (linearglLoadGLLoader((LINEARGLloadproc)linearwinGetProcAddress) == 0) {
+        linearwinDestroyWindow(window);
+        linearwinTerminate();
         return result;
     }
 
-    RBLXUI_CHECKVERSION();
-    RblxUI::CreateContext();
-    RblxUIIO& io = RblxUI::GetIO();
+    LINEARUI_CHECKVERSION();
+    LinearUI::CreateContext();
+    LinearUIIO& io = LinearUI::GetIO();
     io.IniFilename = nullptr;
-    io.ConfigFlags |= RblxUIConfigFlags_NavEnableKeyboard;
+    io.ConfigFlags |= LinearUIConfigFlags_NavEnableKeyboard;
     applyTheme();
-    RblxFont* body = nullptr;
-    RblxFont* heading = nullptr;
+    LinearFont* body = nullptr;
+    LinearFont* heading = nullptr;
     loadFonts(&body, &heading);
 
-    RblxUI_ImplRblxWin_InitForOpenGL(window, true);
-    RblxUI_ImplOpenGL3_Init("#version 330");
+    LinearUI_ImplLinearWin_InitForOpenGL(window, true);
+    LinearUI_ImplOpenGL3_Init("#version 330");
 
     // The window owns the output from here, so the console it was started from
     // has nothing left to say. A shell that launched this keeps its own window.
@@ -286,85 +286,85 @@ Result run(Options& options, const std::vector<std::string>& actions,
     if (options.autoStart) startJob();
 
     while (!closeRequested) {
-        rblxwinPollEvents();
+        linearwinPollEvents();
 
         const Report::Snapshot state = report.snapshot();
-        if (rblxwinWindowShouldClose(window) != 0) {
+        if (linearwinWindowShouldClose(window) != 0) {
             // A job in flight must finish: a half-written install with no window
             // left to explain it is the worst outcome here.
             if (state.done || !started) {
                 closeRequested = true;
             } else {
-                rblxwinSetWindowShouldClose(window, RBLXWIN_FALSE);
+                linearwinSetWindowShouldClose(window, LINEARWIN_FALSE);
             }
         }
         if (closeRequested) break;
 
-        RblxUI_ImplOpenGL3_NewFrame();
-        RblxUI_ImplRblxWin_NewFrame();
-        RblxUI::NewFrame();
+        LinearUI_ImplOpenGL3_NewFrame();
+        LinearUI_ImplLinearWin_NewFrame();
+        LinearUI::NewFrame();
 
-        RblxUI::SetNextWindowPos(RblxVec2(0.0f, 0.0f));
-        RblxUI::SetNextWindowSize(io.DisplaySize);
-        RblxUI::PushStyleVar(RblxUIStyleVar_WindowPadding, RblxVec2(24.0f, 20.0f));
-        RblxUI::Begin("##rblx-install", nullptr,
-                     RblxUIWindowFlags_NoTitleBar | RblxUIWindowFlags_NoResize |
-                         RblxUIWindowFlags_NoMove | RblxUIWindowFlags_NoCollapse |
-                         RblxUIWindowFlags_NoSavedSettings |
-                         RblxUIWindowFlags_NoBringToFrontOnFocus);
-        RblxUI::PopStyleVar();
+        LinearUI::SetNextWindowPos(LinearVec2(0.0f, 0.0f));
+        LinearUI::SetNextWindowSize(io.DisplaySize);
+        LinearUI::PushStyleVar(LinearUIStyleVar_WindowPadding, LinearVec2(24.0f, 20.0f));
+        LinearUI::Begin("##linear-install", nullptr,
+                     LinearUIWindowFlags_NoTitleBar | LinearUIWindowFlags_NoResize |
+                         LinearUIWindowFlags_NoMove | LinearUIWindowFlags_NoCollapse |
+                         LinearUIWindowFlags_NoSavedSettings |
+                         LinearUIWindowFlags_NoBringToFrontOnFocus);
+        LinearUI::PopStyleVar();
 
-        RblxUI::PushFont(heading);
-        RblxUI::TextUnformatted(options.heading.c_str());
-        RblxUI::PopFont();
+        LinearUI::PushFont(heading);
+        LinearUI::TextUnformatted(options.heading.c_str());
+        LinearUI::PopFont();
 
         if (!options.detail.empty()) {
-            RblxUI::PushTextWrapPos(RblxUI::GetContentRegionAvail().x);
-            RblxUI::TextColored(kMuted, "%s", options.detail.c_str());
-            RblxUI::PopTextWrapPos();
+            LinearUI::PushTextWrapPos(LinearUI::GetContentRegionAvail().x);
+            LinearUI::TextColored(kMuted, "%s", options.detail.c_str());
+            LinearUI::PopTextWrapPos();
         }
-        RblxUI::Spacing();
-        RblxUI::Separator();
-        RblxUI::Spacing();
+        LinearUI::Spacing();
+        LinearUI::Separator();
+        LinearUI::Spacing();
 
         if (!started) {
             if (options.showFolder) {
-                RblxUI::TextColored(kMuted, "%s", options.folderLabel.c_str());
-                RblxUI::SetNextItemWidth(-1.0f);
-                RblxUI::InputText("##folder", folderBuffer, sizeof(folderBuffer));
-                RblxUI::Spacing();
+                LinearUI::TextColored(kMuted, "%s", options.folderLabel.c_str());
+                LinearUI::SetNextItemWidth(-1.0f);
+                LinearUI::InputText("##folder", folderBuffer, sizeof(folderBuffer));
+                LinearUI::Spacing();
                 if (options.showShortcuts) {
-                    RblxUI::Checkbox("Add Play to the Start menu and the desktop", &shortcuts);
-                    RblxUI::Spacing();
+                    LinearUI::Checkbox("Add Play to the Start menu and the desktop", &shortcuts);
+                    LinearUI::Spacing();
                 }
-                RblxUI::Spacing();
+                LinearUI::Spacing();
             }
 
             for (std::size_t index = 0; index < options.fields.size(); ++index) {
                 const Options::Field& field = options.fields[index];
-                RblxUI::TextColored(kMuted, "%s", field.label.c_str());
-                RblxUI::SetNextItemWidth(-1.0f);
+                LinearUI::TextColored(kMuted, "%s", field.label.c_str());
+                LinearUI::SetNextItemWidth(-1.0f);
                 char id[32] = {};
                 std::snprintf(id, sizeof(id), "##field%zu", index);
-                RblxUI::InputText(id, fieldBuffers[index].data(), fieldBuffers[index].size(),
-                                  field.secret ? RblxUIInputTextFlags_Password : 0);
-                RblxUI::Spacing();
+                LinearUI::InputText(id, fieldBuffers[index].data(), fieldBuffers[index].size(),
+                                  field.secret ? LinearUIInputTextFlags_Password : 0);
+                LinearUI::Spacing();
             }
-            if (!options.fields.empty()) RblxUI::Spacing();
+            if (!options.fields.empty()) LinearUI::Spacing();
 
             const std::string startLabel = options.startLabel;
-            if (RblxUI::Button(startLabel.c_str(), RblxVec2(132.0f, 0.0f))) {
+            if (LinearUI::Button(startLabel.c_str(), LinearVec2(132.0f, 0.0f))) {
                 startJob();
             }
-            RblxUI::SameLine();
-            if (RblxUI::Button(options.cancelLabel.c_str())) {
+            LinearUI::SameLine();
+            if (LinearUI::Button(options.cancelLabel.c_str())) {
                 result.cancelled = true;
                 closeRequested = true;
             }
-            RblxUI::Spacing();
-            RblxUI::TextColored(kMuted, "This window closes when the work is done.");
+            LinearUI::Spacing();
+            LinearUI::TextColored(kMuted, "This window closes when the work is done.");
         } else {
-            const double now = RblxUI::GetTime();
+            const double now = LinearUI::GetTime();
             const float fraction =
                 state.fraction < 0.0f ? -1.0f * static_cast<float>(now) : state.fraction;
             char overlay[32] = {};
@@ -372,8 +372,8 @@ Result run(Options& options, const std::vector<std::string>& actions,
                 std::snprintf(overlay, sizeof(overlay), "%.0f%%",
                               static_cast<double>(fraction) * 100.0);
             }
-            RblxUI::ProgressBar(fraction, RblxVec2(-1.0f, 0.0f), overlay);
-            RblxUI::Spacing();
+            LinearUI::ProgressBar(fraction, LinearVec2(-1.0f, 0.0f), overlay);
+            LinearUI::Spacing();
 
             // A download that knows its size says how far in it is and how fast,
             // smoothed so the number does not flicker with every frame.
@@ -397,7 +397,7 @@ Result run(Options& options, const std::vector<std::string>& actions,
             }
 
             std::string status;
-            RblxVec4 statusColor = kMuted;
+            LinearVec4 statusColor = kMuted;
             if (!state.done) {
                 // The click is answered at once even when the file in flight has
                 // to finish, so the button never looks dead.
@@ -412,36 +412,36 @@ Result run(Options& options, const std::vector<std::string>& actions,
                 status = "That did not finish.";
                 statusColor = kError;
             }
-            RblxUI::TextColored(statusColor, "%s", status.c_str());
+            LinearUI::TextColored(statusColor, "%s", status.c_str());
             if (!state.done && !state.cancelled) {
-                RblxUI::SameLine();
-                if (RblxUI::SmallButton("Cancel")) report.cancel();
+                LinearUI::SameLine();
+                if (LinearUI::SmallButton("Cancel")) report.cancel();
             }
 
-            RblxUI::Spacing();
+            LinearUI::Spacing();
             const float buttonsHeight =
-                state.done ? RblxUI::GetFrameHeightWithSpacing() + 6.0f : 0.0f;
-            RblxUI::BeginChild("##log", RblxVec2(0.0f, -buttonsHeight), 0,
-                              RblxUIWindowFlags_HorizontalScrollbar);
+                state.done ? LinearUI::GetFrameHeightWithSpacing() + 6.0f : 0.0f;
+            LinearUI::BeginChild("##log", LinearVec2(0.0f, -buttonsHeight), 0,
+                              LinearUIWindowFlags_HorizontalScrollbar);
             if (state.lines.empty()) {
-                RblxUI::TextColored(kMuted, "Nothing yet.");
+                LinearUI::TextColored(kMuted, "Nothing yet.");
             }
             for (std::size_t index = 0; index < state.lines.size(); ++index) {
                 const bool problem = index < state.problems.size() && state.problems[index];
-                RblxUI::TextColored(problem ? kError : kText, "%s", state.lines[index].c_str());
+                LinearUI::TextColored(problem ? kError : kText, "%s", state.lines[index].c_str());
             }
-            RblxUI::SetScrollHereY(1.0f);
-            RblxUI::EndChild();
+            LinearUI::SetScrollHereY(1.0f);
+            LinearUI::EndChild();
 
             if (state.done) {
                 for (std::size_t index = 0; index < actions.size(); ++index) {
-                    if (index > 0) RblxUI::SameLine();
+                    if (index > 0) LinearUI::SameLine();
                     if (index == 0) {
                         drawButton(actions[index].c_str(), theme::primaryButton());
                     } else {
-                        RblxUI::Button(actions[index].c_str(), RblxVec2(132.0f, 0.0f));
+                        LinearUI::Button(actions[index].c_str(), LinearVec2(132.0f, 0.0f));
                     }
-                    if (RblxUI::IsItemClicked()) {
+                    if (LinearUI::IsItemClicked()) {
                         result.action = actions[index];
                         closeRequested = true;
                     }
@@ -449,26 +449,26 @@ Result run(Options& options, const std::vector<std::string>& actions,
             }
         }
 
-        RblxUI::End();
+        LinearUI::End();
 
-        RblxUI::Render();
+        LinearUI::Render();
         int displayWidth = 0;
         int displayHeight = 0;
-        rblxwinGetFramebufferSize(window, &displayWidth, &displayHeight);
+        linearwinGetFramebufferSize(window, &displayWidth, &displayHeight);
         glViewport(0, 0, displayWidth, displayHeight);
         glClearColor(0.07f, 0.08f, 0.10f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
-        RblxUI_ImplOpenGL3_RenderDrawData(RblxUI::GetDrawData());
-        rblxwinSwapBuffers(window);
+        LinearUI_ImplOpenGL3_RenderDrawData(LinearUI::GetDrawData());
+        linearwinSwapBuffers(window);
     }
 
     if (worker.joinable()) worker.join();
 
-    RblxUI_ImplOpenGL3_Shutdown();
-    RblxUI_ImplRblxWin_Shutdown();
-    RblxUI::DestroyContext();
-    rblxwinDestroyWindow(window);
-    rblxwinTerminate();
+    LinearUI_ImplOpenGL3_Shutdown();
+    LinearUI_ImplLinearWin_Shutdown();
+    LinearUI::DestroyContext();
+    linearwinDestroyWindow(window);
+    linearwinTerminate();
 
     result.shown = true;
     result.ok = report.ok();
@@ -484,4 +484,4 @@ Result run(Options& options, const std::vector<std::string>& actions,
 }
 
 }  // namespace ui
-}  // namespace rblx
+}  // namespace linear

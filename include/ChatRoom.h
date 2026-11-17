@@ -4,7 +4,7 @@
 #include <string>
 #include <vector>
 
-namespace rblx {
+namespace linear {
 namespace chat {
 
 // A message longer than this is a paste, not a message. The website enforces it
@@ -53,4 +53,4 @@ const Channel* findChannel(const std::string& id);
 bool normalizeBody(const std::string& input, std::string* out, std::string* error);
 
 }  // namespace chat
-}  // namespace rblx
+}  // namespace linear

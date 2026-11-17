@@ -28,7 +28,7 @@ void usage() {
 }
 
 std::string envOr(const char* name, const std::string& fallback) {
-    const std::string value = rblx::environment::get(name);
+    const std::string value = linear::environment::get(name);
     return value.empty() ? fallback : value;
 }
 
@@ -93,8 +93,8 @@ int fail(const std::string& message) {
     return 1;
 }
 
-int showStatus(rblx::git::Repo& repo) {
-    std::vector<rblx::git::StatusEntry> rows;
+int showStatus(linear::git::Repo& repo) {
+    std::vector<linear::git::StatusEntry> rows;
     std::string error;
     if (!repo.status(&rows, &error)) {
         return fail(error);
@@ -163,7 +163,7 @@ int main(int argc, char** argv) {
     const std::string name = envOr("LINEAR_GIT_NAME", "Linear Git");
     const std::string email = envOr("LINEAR_GIT_EMAIL", "git@linear.local");
 
-    rblx::git::Repo repo;
+    linear::git::Repo repo;
     std::string error;
 
     if (command == "init") {
@@ -213,7 +213,7 @@ int main(int argc, char** argv) {
             return fail("a commit needs a message: LinearGit commit -m \"what changed\"");
         }
 
-        std::vector<rblx::git::StatusEntry> rows;
+        std::vector<linear::git::StatusEntry> rows;
         if (!repo.status(&rows, &error)) {
             return fail(error);
         }
@@ -243,7 +243,7 @@ int main(int argc, char** argv) {
                 limit = static_cast<std::size_t>(std::stoul(args[i].substr(2)));
             }
         }
-        std::vector<rblx::git::Commit> commits;
+        std::vector<linear::git::Commit> commits;
         if (!repo.log(&commits, limit, &error)) {
             return fail(error);
         }

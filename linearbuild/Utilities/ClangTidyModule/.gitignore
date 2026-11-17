@@ -1,0 +1,8 @@
+/LinearBuildUserPresets.json
+
+# Common build directories
+/build*/
+
+# Visual Studio Code
+/.vscode/
+/.cache/

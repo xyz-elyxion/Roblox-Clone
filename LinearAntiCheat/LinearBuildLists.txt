@@ -1,0 +1,117 @@
+# LinearAntiCheat - vendored from https://github.com/AlSch092/UltimateAntiCheat
+# and renamed. Licensed under the GNU AGPL v3; see LICENSE in this folder.
+#
+# Upstream ships two ways to build the same code: a standalone console program
+# (main.cpp + SplashScreen.cpp) and a library flavour guarded by _LIB_ that
+# exposes the PIMPL class in Core/AntiCheatLib.hpp. The game uses the library
+# flavour and links it into Client, so the checks inspect the process they are
+# meant to protect instead of running beside it - which is also what upstream
+# recommends over shipping the anti-cheat as its own DLL.
+#
+# LibTest/ is a manual harness with its own main(), so it is not built here.
+
+if(NOT WIN32)
+    message(STATUS "LinearAntiCheat is Windows-only; skipping the anti-cheat library.")
+    return()
+endif()
+
+set(LINEAR_ANTICHEAT_DIR "${LINEARBUILD_CURRENT_SOURCE_DIR}")
+
+# Core/AntiCheatLib.cpp is the _LIB_ flavour of Core/AntiCheat.cpp: only one of
+# the two is ever compiled, and the _LIB_ guard in each picks the matching one.
+
+add_library(LinearAntiCheat STATIC
+    AntiDebug/AntiDebugger.cpp
+    AntiDebug/DebuggerDetections.cpp
+    AntiTamper/Integrity.cpp
+    AntiTamper/NAuthenticode.cpp
+    AntiTamper/remap.cpp
+    Common/EvidenceLocker.cpp
+    Common/Logger.cpp
+    Common/SHA256.cpp
+    Common/Utility.cpp
+    Core/AntiCheatLib.cpp
+    Core/Detections.cpp
+    Core/Preventions.cpp
+    Environment/Services.cpp
+    GameEvents/EventLogger.cpp
+    Network/HttpClient.cpp
+    Network/NetClient.cpp
+    Network/Packets/Packets.cpp
+    Process/Exports.cpp
+    Process/Handles.cpp
+    Process/PEB.cpp
+    Process/Process.cpp
+    Process/Thread.cpp
+)
+
+# Upstream targets C++14 while the game builds as C++17, so pin this target's
+# standard rather than letting the project default change its meaning.
+set_target_properties(LinearAntiCheat PROPERTIES
+    CXX_STANDARD 14
+    CXX_STANDARD_REQUIRED ON
+    CXX_EXTENSIONS OFF
+)
+
+target_include_directories(LinearAntiCheat PUBLIC "${LINEAR_ANTICHEAT_DIR}")
+
+target_compile_definitions(LinearAntiCheat PRIVATE
+    # Selects the library flavour of the core class (see Core/AntiCheat.hpp).
+    _LIB_
+    _WIN32_WINNT=0x0A00
+    NOMINMAX
+    _CRT_SECURE_NO_WARNINGS
+    _WINSOCK_DEPRECATED_NO_WARNINGS
+)
+
+# The wide/narrow Win32 mapping and the module-name macros are not optional.
+# The sources pass std::wstring to the TCHAR-mapped APIs (GetFullPathName,
+# CreateService, GetModuleFileNameEx) and read the module name at compile time,
+# so without these the build fails with conversion errors at every TCHAR call
+# site -- exactly what the Windows CI job reported.
+target_compile_definitions(LinearAntiCheat PRIVATE
+    "UNICODE"
+    "_UNICODE"
+    "_MAIN_MODULE_NAME=\"Client.exe\""
+    "_MAIN_MODULE_NAME_W=L\"Client.exe\""
+)
+
+if(MSVC)
+    target_compile_options(LinearAntiCheat PRIVATE /W3)
+endif()
+
+# Off by default: see the note on the option in the top-level build list. It selects the two
+# steps that make anti-virus engines treat the executable as malware.
+if(LINEAR_ANTICHEAT_INVASIVE)
+    target_compile_definitions(LinearAntiCheat PRIVATE LINEAR_ANTICHEAT_INVASIVE)
+endif()
+
+# Prebuilt dependencies that ship with the vendored source: curl (used by the
+# optional anti-cheat server link), brotli and zlib. They are checked in under
+# Libs/ because the project has no package manager for them, and they must
+# stay with the source for the link to succeed.
+target_link_libraries(LinearAntiCheat PUBLIC
+    ntdll
+    imagehlp
+    psapi
+    ws2_32
+    # Signature verification (AntiTamper/NAuthenticode.cpp) and the adapter
+    # query in Network/NetClient.cpp. Without these the library archives fine
+    # and only fails at link time in whoever embeds it.
+    crypt32
+    wintrust
+    iphlpapi
+    "${LINEAR_ANTICHEAT_DIR}/Libs/brotlicommon.lib"
+    "${LINEAR_ANTICHEAT_DIR}/Libs/brotlidec.lib"
+    "${LINEAR_ANTICHEAT_DIR}/Libs/brotlienc.lib"
+    "$<$<CONFIG:Debug>:${LINEAR_ANTICHEAT_DIR}/Libs/libcurl-d.lib>"
+    "$<$<NOT:$<CONFIG:Debug>>:${LINEAR_ANTICHEAT_DIR}/Libs/libcurl.lib>"
+    "$<$<CONFIG:Debug>:${LINEAR_ANTICHEAT_DIR}/Libs/zlibd.lib>"
+    "$<$<NOT:$<CONFIG:Debug>>:${LINEAR_ANTICHEAT_DIR}/Libs/zlib.lib>"
+)
+
+# The libraries above are built for x64; a 32-bit build would fail at link time
+# with confusing unresolved externals.
+if(LINEARBUILD_SIZEOF_VOID_P EQUAL 4)
+    message(WARNING "LinearAntiCheat ships x64-only prebuilt libraries; build the game for x64.")
+endif()

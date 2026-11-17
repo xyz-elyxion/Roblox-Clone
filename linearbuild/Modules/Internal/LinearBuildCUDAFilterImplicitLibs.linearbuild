@@ -1,0 +1,20 @@
+# Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
+# file LICENSE.rst or https://linearbuild.org/licensing for details.
+
+# In LinearBuildDetermineCUDACompiler and LinearBuildTestCUDACompiler we detect
+# libraries that the CUDA compiler implicitly passes to the host linker.
+# LinearBuild invokes the host linker directly and so needs to pass these libraries.
+# Filter out implicit link libraries that should not be passed unconditionally.
+macro(linearbuild_cuda_filter_implicit_libs _var_LINEARBUILD_CUDA_IMPLICIT_LINK_LIBRARIES)
+  list(REMOVE_ITEM "${_var_LINEARBUILD_CUDA_IMPLICIT_LINK_LIBRARIES}"
+    # The CUDA runtime libraries are controlled by LINEARBUILD_CUDA_RUNTIME_LIBRARY.
+    cudart        cudart.lib
+    cudart_static cudart_static.lib
+    cudadevrt     cudadevrt.lib
+
+    # Dependencies of the CUDA static runtime library on Linux hosts.
+    rt
+    pthread
+    dl
+    )
+endmacro()

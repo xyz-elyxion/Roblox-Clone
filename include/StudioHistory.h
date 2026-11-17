@@ -5,11 +5,11 @@
 #include <string>
 #include <vector>
 
-#include <rblxmath/rblxmath.hpp>
+#include <linearmath/linearmath.hpp>
 
 #include "Part.h"
 
-namespace rblx {
+namespace linear {
 namespace studio {
 
 // One part as an undo step remembers it. The values are copied out of the Part
@@ -22,10 +22,10 @@ struct PartSnapshot {
     bool isCamera = false;
     bool isSpawn = false;
     bool deleted = false;
-    rblxmath::vec3 position{0.0f};
-    rblxmath::vec3 size{1.0f};
-    rblxmath::vec3 color{0.6f};
-    rblxmath::vec3 rotation{0.0f};
+    linearmath::vec3 position{0.0f};
+    linearmath::vec3 size{1.0f};
+    linearmath::vec3 color{0.6f};
+    linearmath::vec3 rotation{0.0f};
     float transparency = 0.0f;
     float reflectance = 0.0f;
     bool anchored = true;
@@ -45,7 +45,7 @@ bool sameWorld(const WorldSnapshot& first, const WorldSnapshot& second);
 // Undo and redo for Studio, held as whole-world snapshots.
 //
 // A step is recorded when an interaction finishes rather than when a value
-// changes: RblxUI keeps a widget active for the whole of a drag, so dragging a part
+// changes: LinearUI keeps a widget active for the whole of a drag, so dragging a part
 // across the map is one step instead of one per frame, and typing a name is one
 // step instead of one per keystroke.
 class History {
@@ -82,4 +82,4 @@ private:
 };
 
 }  // namespace studio
-}  // namespace rblx
+}  // namespace linear

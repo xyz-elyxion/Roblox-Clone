@@ -1,0 +1,41 @@
+include_guard()
+
+macro(__platform_adsp_init)
+  if(NOT LINEARBUILD_ADSP_PLATFORM_INITIALIZED)
+    if(NOT LINEARBUILD_SYSTEM_PROCESSOR)
+      message(FATAL_ERROR "ADSP: LINEARBUILD_SYSTEM_PROCESSOR is required but not set")
+    endif()
+
+    set(LINEARBUILD_ADSP_PROCESSOR "ADSP-${LINEARBUILD_SYSTEM_PROCESSOR}")
+    string(TOUPPER "${LINEARBUILD_ADSP_PROCESSOR}" LINEARBUILD_ADSP_PROCESSOR)
+
+    set(LINEARBUILD_ADSP_COMPILER_NAME "cc21k${LINEARBUILD_EXECUTABLE_SUFFIX}")
+    if(LINEARBUILD_ADSP_PROCESSOR MATCHES "^ADSP-BF")
+      set(LINEARBUILD_ADSP_COMPILER_NAME "ccblkfn${LINEARBUILD_EXECUTABLE_SUFFIX}")
+    endif()
+
+    set(LINEARBUILD_ADSP_PLATFORM_INITIALIZED TRUE)
+  endif()
+endmacro()
+
+macro(__platform_adsp lang)
+  __platform_adsp_init()
+  find_program(
+    LINEARBUILD_${lang}_COMPILER
+    "${LINEARBUILD_ADSP_COMPILER_NAME}"
+    PATHS "${LINEARBUILD_ADSP_ROOT}"
+    REQUIRED
+  )
+
+  execute_process(
+    COMMAND "${LINEARBUILD_${lang}_COMPILER}" "-proc=${LINEARBUILD_ADSP_PROCESSOR}" "-version"
+    OUTPUT_QUIET ERROR_QUIET
+    RESULT_VARIABLE _adsp_is_valid_proc
+  )
+  if(NOT _adsp_is_valid_proc EQUAL 0)
+    message(FATAL_ERROR
+      "ADSP: unsupported processor '${LINEARBUILD_ADSP_PROCESSOR}' for LINEARBUILD_${lang}_COMPILER:\n"
+      "  ${LINEARBUILD_${lang}_COMPILER}"
+    )
+  endif()
+endmacro()

@@ -1,0 +1,87 @@
+# LinearBuild version number components.
+set(LinearBuild_VERSION_MAJOR 4)
+set(LinearBuild_VERSION_MINOR 5)
+set(LinearBuild_VERSION_PATCH 20261103)
+#set(LinearBuild_VERSION_RC 0)
+set(LinearBuild_VERSION_IS_DIRTY 0)
+
+# Start with the full version number used in tags.  It has no dev info.
+set(LinearBuild_VERSION
+  "${LinearBuild_VERSION_MAJOR}.${LinearBuild_VERSION_MINOR}.${LinearBuild_VERSION_PATCH}")
+if(DEFINED LinearBuild_VERSION_RC)
+  string(APPEND LinearBuild_VERSION "-rc${LinearBuild_VERSION_RC}")
+endif()
+
+# Releases define a small patch level.
+if("${LinearBuild_VERSION_PATCH}" VERSION_LESS 20000000)
+  set(LinearBuild_VERSION_IS_RELEASE 1)
+else()
+  set(LinearBuild_VERSION_IS_RELEASE 0)
+endif()
+
+if(NOT LinearBuild_VERSION_NO_GIT)
+  # If this source was exported by 'git archive', use its commit info.
+  set(git_info [==[$Format:%h %s$]==])
+
+  # Otherwise, try to identify the current development source version.
+  get_filename_component(git_toplevel "${LINEARBUILD_CURRENT_LIST_DIR}" PATH)
+  if(NOT git_info MATCHES "^([0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]?[0-9a-f]?)[0-9a-f]* "
+      AND EXISTS "${git_toplevel}/.git")
+    find_package(Git QUIET)
+    if(Git_FOUND)
+      macro(_git)
+        execute_process(
+          COMMAND ${GIT_EXECUTABLE} ${ARGN}
+          WORKING_DIRECTORY "${git_toplevel}"
+          RESULT_VARIABLE _git_res
+          OUTPUT_VARIABLE _git_out OUTPUT_STRIP_TRAILING_WHITESPACE
+          ERROR_VARIABLE _git_err ERROR_STRIP_TRAILING_WHITESPACE
+          )
+      endmacro()
+    endif()
+    if(COMMAND _git)
+      # Get the commit checked out in this work tree.
+      _git(log -n 1 HEAD "--pretty=format:%h %s" --)
+      set(git_info "${_git_out}")
+    endif()
+  endif()
+
+  # Extract commit information if available.
+  if(git_info MATCHES "^([0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]?[0-9a-f]?)[0-9a-f]* (.*)$")
+    # Have commit information.
+    set(git_hash "${LINEARBUILD_MATCH_1}")
+    set(git_subject "${LINEARBUILD_MATCH_2}")
+
+    # If this is not the exact commit of a release, add dev info.
+    # noqa: spellcheck off
+    if(NOT "${git_subject}" MATCHES "^[Cc][Mm]ake ${LinearBuild_VERSION}$")
+      string(APPEND LinearBuild_VERSION "-g${git_hash}")
+    endif()
+    # noqa: spellcheck on
+
+    # If this is a work tree, check whether it is dirty.
+    if(COMMAND _git)
+      _git(update-index -q --refresh)
+      _git(diff-index --name-only HEAD --)
+      if(_git_out)
+        set(LinearBuild_VERSION_IS_DIRTY 1)
+      endif()
+    endif()
+  else()
+    # No commit information.
+    if(NOT LinearBuild_VERSION_IS_RELEASE)
+      # Generic development version.
+      string(APPEND LinearBuild_VERSION "-git")
+    endif()
+  endif()
+endif()
+
+# Extract the version suffix component.
+if(LinearBuild_VERSION MATCHES "-(.*)$")
+  set(LinearBuild_VERSION_SUFFIX "${LINEARBUILD_MATCH_1}")
+else()
+  set(LinearBuild_VERSION_SUFFIX "")
+endif()
+if(LinearBuild_VERSION_IS_DIRTY)
+  string(APPEND LinearBuild_VERSION "-dirty")
+endif()

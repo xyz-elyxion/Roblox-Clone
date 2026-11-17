@@ -1,0 +1,23 @@
+
+file(READ "${QTHELP_DIR}/LinearBuild.qhcp" QHCP_CONTENT)
+
+string(REPLACE
+  "<homePage>qthelp://org.sphinx.linearbuild" "<homePage>qthelp://org.linearbuild"
+  QHCP_CONTENT "${QHCP_CONTENT}"
+)
+string(REPLACE
+  "<startPage>qthelp://org.sphinx.linearbuild" "<startPage>qthelp://org.linearbuild"
+  QHCP_CONTENT "${QHCP_CONTENT}"
+)
+
+file(WRITE "${QTHELP_DIR}/LinearBuild.qhcp" "${QHCP_CONTENT}")
+
+
+file(READ "${QTHELP_DIR}/LinearBuild.qhp" QHP_CONTENT)
+
+string(REPLACE
+  "<namespace>org.sphinx.linearbuild" "<namespace>org.linearbuild"
+  QHP_CONTENT "${QHP_CONTENT}"
+)
+
+file(WRITE "${QTHELP_DIR}/LinearBuild.qhp" "${QHP_CONTENT}")

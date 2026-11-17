@@ -26,7 +26,7 @@ long long presenceMillis() {
 
 // An account is online while its last authenticated request is recent. The
 // window is short on purpose: this is presence, not a last-seen record.
-bool userIsOnline(const rblx::web::UserRecord* user, long long nowMs) {
+bool userIsOnline(const linear::web::UserRecord* user, long long nowMs) {
     return user != nullptr && user->lastSeenAtMs > 0 &&
            nowMs - user->lastSeenAtMs < 2 * 60 * 1000;
 }
@@ -34,7 +34,7 @@ bool userIsOnline(const rblx::web::UserRecord* user, long long nowMs) {
 // Recovery codes are 20 hex characters shown in groups of five so they can be
 // read off a screen, and compared after stripping the dashes and the case.
 std::string makeRecoveryCode() {
-    return rblx::web::randomHex(10);
+    return linear::web::randomHex(10);
 }
 
 std::string normalizeRecoveryCode(const std::string& input) {
@@ -84,7 +84,7 @@ std::string formatRecoveryCode(const std::string& code) {
 
 #include "WebCrypto.h"
 
-namespace rblx {
+namespace linear {
 namespace web {
 namespace {
 
@@ -697,7 +697,7 @@ std::vector<std::string> splitCsv(const std::string& value) {
 }
 
 std::string envString(const char* name) {
-    return rblx::environment::get(name);
+    return linear::environment::get(name);
 }
 
 int parsePositiveInt(const std::string& text, int fallback) {
@@ -1096,7 +1096,7 @@ std::string singleLineCopy(const std::string& input) {
 // a checkout has none, and the environment alone is the documented way to
 // configure the site - and every value in it is a fallback, so a service or a
 // build script still overrides one of them for one run without editing the file.
-bool loadInstallSettings(rblx::server::Settings* settings, std::string* path,
+bool loadInstallSettings(linear::server::Settings* settings, std::string* path,
                          std::string* error) {
     if (error) error->clear();
     std::vector<std::string> candidates;
@@ -1104,14 +1104,14 @@ bool loadInstallSettings(rblx::server::Settings* settings, std::string* path,
     if (!requested.empty()) {
         candidates.push_back(resolvePath(currentDirectory(), requested));
     } else {
-        candidates.push_back(rblx::server::settingsPathFor(executableDirectory()));
-        candidates.push_back(rblx::server::settingsPathFor(currentDirectory()));
+        candidates.push_back(linear::server::settingsPathFor(executableDirectory()));
+        candidates.push_back(linear::server::settingsPathFor(currentDirectory()));
     }
 
     for (const std::string& candidate : candidates) {
         if (!fileExists(candidate)) continue;
         if (path != nullptr) *path = candidate;
-        return rblx::server::loadSettings(candidate, settings, error);
+        return linear::server::loadSettings(candidate, settings, error);
     }
     if (path != nullptr) path->clear();
     return false;
@@ -1123,7 +1123,7 @@ bool loadConfigFromEnvironment(Config* config, std::string* error) {
     }
     Config loaded;
 
-    rblx::server::Settings installSettings;
+    linear::server::Settings installSettings;
     std::string installSettingsPath;
     std::string installSettingsError;
     const bool haveInstallSettings =
@@ -1414,7 +1414,7 @@ bool WebsiteApp::initialize(std::string* error) {
         return false;
     }
 
-    // Earlier builds seeded the starter account as RBLXCreator. It owns the
+    // Earlier builds seeded the starter account under its original product name. It owns the
     // starter games and is the default admin, so an install that still has it
     // is renamed in place: the id, password hash and games all stay with the
     // account, and it can be signed into under the documented starter name.
@@ -1440,7 +1440,7 @@ bool WebsiteApp::initialize(std::string* error) {
     // here; a checkout without a repository is not an error, because a packaged
     // install ships the site without the git tree it was built from, and /hub
     // says so on the page instead of failing the server.
-    hub_ = std::make_unique<rblx::hub::HubSite>();
+    hub_ = std::make_unique<linear::hub::HubSite>();
     std::string hubError;
     if (!hub_->open(config_.hubRepo, config_.webRoot, "/hub", &hubError)) {
         std::cout << "Repository browser off: " << hubError << " (set LINEAR_HUB_REPO to a checkout)"
@@ -1892,12 +1892,12 @@ bool WebsiteApp::isReservedAdminName(const std::string& username) const {
     return false;
 }
 
-const rblx::roles::Role& WebsiteApp::roleOf(const AuthUser& user) const {
+const linear::roles::Role& WebsiteApp::roleOf(const AuthUser& user) const {
     if (user.id <= 0) {
-        return rblx::roles::player();
+        return linear::roles::player();
     }
     if (std::find(adminUserIds_.begin(), adminUserIds_.end(), user.id) != adminUserIds_.end()) {
-        return rblx::roles::find("owner");
+        return linear::roles::find("owner");
     }
     // The account that owns the install is always the Owner, whether or not
     // ADMIN_USERNAMES was set. Matching the owner instead of a literal name keeps
@@ -1905,17 +1905,17 @@ const rblx::roles::Role& WebsiteApp::roleOf(const AuthUser& user) const {
     // another spelling, since usernames are compared case-sensitively.
     const UserRecord* owner = store_.firstUser();
     if (owner != nullptr && owner->id == user.id) {
-        return rblx::roles::find("owner");
+        return linear::roles::find("owner");
     }
     const UserRecord* record = store_.findUserById(user.id);
-    return rblx::roles::find(record == nullptr ? std::string() : record->role);
+    return linear::roles::find(record == nullptr ? std::string() : record->role);
 }
 
-bool WebsiteApp::can(const AuthUser& user, rblx::roles::Permission permission) const {
-    return rblx::roles::has(roleOf(user).permissions, permission);
+bool WebsiteApp::can(const AuthUser& user, linear::roles::Permission permission) const {
+    return linear::roles::has(roleOf(user).permissions, permission);
 }
 
-bool WebsiteApp::requirePermission(const AuthUser& user, rblx::roles::Permission permission,
+bool WebsiteApp::requirePermission(const AuthUser& user, linear::roles::Permission permission,
                                    const std::string& action, Response& response) const {
     if (can(user, permission)) {
         return true;
@@ -1924,14 +1924,14 @@ bool WebsiteApp::requirePermission(const AuthUser& user, rblx::roles::Permission
     return false;
 }
 
-Json WebsiteApp::roleJson(const rblx::roles::Role& role) const {
+Json WebsiteApp::roleJson(const linear::roles::Role& role) const {
     Json entry = Json::makeObject();
     entry.set("id", role.id);
     entry.set("name", role.name);
     entry.set("rank", role.rank);
     entry.set("staff", role.staff);
     Json permissions = Json::makeArray();
-    for (const std::string& permission : rblx::roles::permissionNames(role.permissions)) {
+    for (const std::string& permission : linear::roles::permissionNames(role.permissions)) {
         permissions.push(Json(permission));
     }
     entry.set("permissions", permissions);
@@ -2022,7 +2022,7 @@ Json WebsiteApp::profileJson(int userId, int viewerId) {
     AuthUser profileOwner;
     profileOwner.id = user->id;
     profileOwner.username = user->username;
-    const rblx::roles::Role& profileRole = roleOf(profileOwner);
+    const linear::roles::Role& profileRole = roleOf(profileOwner);
     profile.set("role", profileRole.id);
     profile.set("roleName", profileRole.name);
     profile.set("isStaff", profileRole.staff);
@@ -2186,7 +2186,7 @@ bool WebsiteApp::handleUpload(Request& request, Response& response) {
 
     const std::string name = request.header("x-upload-name");
     std::string nameError;
-    if (!rblx::scan::nameAllowed(name, &nameError)) {
+    if (!linear::scan::nameAllowed(name, &nameError)) {
         errorJson(response, 400, nameError);
         return true;
     }
@@ -2198,8 +2198,8 @@ bool WebsiteApp::handleUpload(Request& request, Response& response) {
     // The bytes are read before anything is written: a file the scanner blocks
     // never reaches the disk, so there is nothing to clean up and nothing that can
     // be served by mistake.
-    const rblx::scan::Result scan = rblx::scan::inspect(name, request.body);
-    if (scan.verdict == rblx::scan::Verdict::Blocked) {
+    const linear::scan::Result scan = linear::scan::inspect(name, request.body);
+    if (scan.verdict == linear::scan::Verdict::Blocked) {
         Json body = Json::makeObject();
         body.set("success", false);
         body.set("error", scan.detail);
@@ -2221,10 +2221,10 @@ bool WebsiteApp::handleUpload(Request& request, Response& response) {
     record.userId = user.id;
     record.gameId = game->id;
     record.name = name;
-    record.mime = rblx::scan::mimeForName(name);
+    record.mime = linear::scan::mimeForName(name);
     record.bytes = static_cast<long long>(request.body.size());
     record.sha256 = hexEncode(sha256(request.body));
-    record.verdict = scan.verdict == rblx::scan::Verdict::Suspicious ? "suspicious" : "clean";
+    record.verdict = scan.verdict == linear::scan::Verdict::Suspicious ? "suspicious" : "clean";
     record.detection = scan.detection;
     record.token = randomHex(16);
     record.createdAt = nowIso();
@@ -2238,7 +2238,7 @@ bool WebsiteApp::handleUpload(Request& request, Response& response) {
     // The name on disk is the record's id and the extension, never the uploaded
     // text, so nothing a sender writes can shape a path.
     const std::string directory = uploadDirectory();
-    const std::string path = std::to_string(record.id) + rblx::scan::extensionOf(name);
+    const std::string path = std::to_string(record.id) + linear::scan::extensionOf(name);
     if (!makeDirectories(directory) || !writeWholeFile(joinPath(directory, path), request.body)) {
         store_.removeUpload(record.id);
         errorJson(response, 500, "The file could not be written.");
@@ -2631,8 +2631,8 @@ bool WebsiteApp::consumeCaptcha(const Json& body, std::string* error) {
 
 // Fills the ladder state from the stored account. The account keeps the strikes
 // and the outcome; the rule that turns one into the other is in Moderation.h.
-static rblx::moderation::State moderationStateOf(const UserRecord& record) {
-    rblx::moderation::State state;
+static linear::moderation::State moderationStateOf(const UserRecord& record) {
+    linear::moderation::State state;
     state.strikes = record.cheatStrikes;
     state.suspendedUntilMs = record.suspendedUntilMs;
     state.banned = record.banned;
@@ -2658,8 +2658,8 @@ static std::string hardwareBanMessage(const HardwareBanRecord& ban) {
 // second account on the same computer is refused at the join.
 static bool banHardwareForAccount(Store& store, const UserRecord& record,
                                   const std::string& reason, const std::string& nowIso) {
-    const std::string hardwareId = rblx::hwid::normalize(record.lastHardwareId);
-    if (!rblx::hwid::valid(hardwareId)) {
+    const std::string hardwareId = linear::hwid::normalize(record.lastHardwareId);
+    if (!linear::hwid::valid(hardwareId)) {
         // No machine on record: the account was never seen joining from a client
         // that sends one, so there is nothing to copy the ban onto.
         return false;
@@ -2672,29 +2672,29 @@ static bool banHardwareForAccount(Store& store, const UserRecord& record,
 // of a flag nobody checks. An expired suspension is not a restriction, so it
 // never needs an admin to clear it.
 static bool refuseRestrictedAccount(const UserRecord& record, Response& response) {
-    const rblx::moderation::State state = moderationStateOf(record);
+    const linear::moderation::State state = moderationStateOf(record);
     const long long now = nowMilliseconds();
-    if (!rblx::moderation::isRestricted(state, now)) {
+    if (!linear::moderation::isRestricted(state, now)) {
         return false;
     }
-    errorJson(response, 403, rblx::moderation::restrictionMessage(state, now));
+    errorJson(response, 403, linear::moderation::restrictionMessage(state, now));
     return true;
 }
 
 // The stored word for one step of the ladder, matching what the site shows the
 // account in Settings.
-static std::string infractionKindOf(rblx::moderation::Action action) {
+static std::string infractionKindOf(linear::moderation::Action action) {
     switch (action) {
-        case rblx::moderation::Action::Warned: return "warning";
-        case rblx::moderation::Action::Suspended: return "suspension";
-        case rblx::moderation::Action::Banned: return "ban";
-        case rblx::moderation::Action::None:
+        case linear::moderation::Action::Warned: return "warning";
+        case linear::moderation::Action::Suspended: return "suspension";
+        case linear::moderation::Action::Banned: return "ban";
+        case linear::moderation::Action::None:
         default: return "note";
     }
 }
 
 // When the suspension this state describes runs out, or empty when there is none.
-static std::string suspensionExpiry(const rblx::moderation::State& state, long long now) {
+static std::string suspensionExpiry(const linear::moderation::State& state, long long now) {
     if (state.suspendedUntilMs <= now) {
         return std::string();
     }
@@ -2861,7 +2861,7 @@ bool WebsiteApp::handleLogin(Request& request, Response& response) {
     // the record of what happened and out of any way to say it was wrong. The site
     // now shows the restriction on every page and in Settings, and playing is
     // stopped separately by the game server's login check.
-    if (rblx::moderation::isRestricted(moderationStateOf(*user), nowMilliseconds())) {
+    if (linear::moderation::isRestricted(moderationStateOf(*user), nowMilliseconds())) {
         std::fprintf(stdout, "  %s signed in while restricted\n", user->username.c_str());
     }
 
@@ -2917,8 +2917,8 @@ bool WebsiteApp::handleVerify(Request& request, Response& response) {
     // The machine this join comes from, hashed by the client (see HardwareId.h).
     // It is recorded on every join rather than only when a ban lands, so the ban
     // reaches the machine the account actually played on.
-    const std::string hardwareId = rblx::hwid::normalize(body.member("hardwareId").asString());
-    if (rblx::hwid::valid(hardwareId)) {
+    const std::string hardwareId = linear::hwid::normalize(body.member("hardwareId").asString());
+    if (linear::hwid::valid(hardwareId)) {
         if (store_.setLastHardwareId(user->id, hardwareId, nowIso())) {
             std::string machineSaveError;
             store_.save(&machineSaveError);
@@ -2937,7 +2937,7 @@ bool WebsiteApp::handleVerify(Request& request, Response& response) {
     // A restricted account is signed in here, not refused: the site has to show
     // it what happened and take its appeal. The answer carries the standing and
     // the reason, and the game server reads both - it is the door that stays shut.
-    const rblx::moderation::State standing = moderationStateOf(*user);
+    const linear::moderation::State standing = moderationStateOf(*user);
     const long long standingNow = nowMilliseconds();
 
     AuthUser authUser;
@@ -2956,19 +2956,19 @@ bool WebsiteApp::handleVerify(Request& request, Response& response) {
     result.set("userId", user->id);
     result.set("username", user->username);
     result.set("coins", store_.coinsFor(user->id));
-    const rblx::roles::Role& sessionRole = roleOf(authUser);
-    result.set("isAdmin", rblx::roles::has(sessionRole.permissions, rblx::roles::kViewDashboard));
+    const linear::roles::Role& sessionRole = roleOf(authUser);
+    result.set("isAdmin", linear::roles::has(sessionRole.permissions, linear::roles::kViewDashboard));
     result.set("role", sessionRole.id);
     result.set("roleName", sessionRole.name);
     result.set("isStaff", sessionRole.staff);
     result.set("canAssignRoles",
-               rblx::roles::has(sessionRole.permissions, rblx::roles::kAssignRoles));
+               linear::roles::has(sessionRole.permissions, linear::roles::kAssignRoles));
     result.set("standing",
-               rblx::moderation::standingName(rblx::moderation::standingOf(standing, standingNow)));
-    result.set("restricted", rblx::moderation::isRestricted(standing, standingNow));
+               linear::moderation::standingName(linear::moderation::standingOf(standing, standingNow)));
+    result.set("restricted", linear::moderation::isRestricted(standing, standingNow));
     result.set("banned", standing.banned);
     result.set("strikes", standing.strikes);
-    result.set("message", rblx::moderation::restrictionMessage(standing, standingNow));
+    result.set("message", linear::moderation::restrictionMessage(standing, standingNow));
     if (standing.suspendedUntilMs > standingNow) {
         result.set("suspendedUntil",
                    isoFromTime(static_cast<std::time_t>(standing.suspendedUntilMs / 1000)));
@@ -3303,7 +3303,7 @@ bool WebsiteApp::handleExportData(Request& request, Response& response) {
     moderation.set("strikes", record->cheatStrikes);
     moderation.set("banned", record->banned);
     moderation.set("suspendedUntilMs", record->suspendedUntilMs);
-    moderation.set("standing", rblx::moderation::standingName(rblx::moderation::standingOf(
+    moderation.set("standing", linear::moderation::standingName(linear::moderation::standingOf(
                                   moderationStateOf(*record), nowMilliseconds())));
     Json infractions = Json::makeArray();
     for (const InfractionRecord& entry : store_.infractionsFor(user.id)) {
@@ -3509,13 +3509,13 @@ bool WebsiteApp::handleSocial(Request& request, Response& response) {
     const long long presenceNow = presenceMillis();
     Json result = Json::makeObject();
     result.set("success", true);
-    const rblx::roles::Role& sessionRole = roleOf(user);
-    result.set("isAdmin", rblx::roles::has(sessionRole.permissions, rblx::roles::kViewDashboard));
+    const linear::roles::Role& sessionRole = roleOf(user);
+    result.set("isAdmin", linear::roles::has(sessionRole.permissions, linear::roles::kViewDashboard));
     result.set("role", sessionRole.id);
     result.set("roleName", sessionRole.name);
     result.set("isStaff", sessionRole.staff);
     result.set("canAssignRoles",
-               rblx::roles::has(sessionRole.permissions, rblx::roles::kAssignRoles));
+               linear::roles::has(sessionRole.permissions, linear::roles::kAssignRoles));
     result.set("profile", profileJson(user.id, user.id));
 
     Json friends = Json::makeArray();
@@ -4458,7 +4458,7 @@ int WebsiteApp::applyBanWaves() {
 
         // A banned account has nothing left to take. Its evidence is dropped so a
         // later pardon does not start life with a queue of old detections.
-        rblx::moderation::State state = moderationStateOf(*record);
+        linear::moderation::State state = moderationStateOf(*record);
         if (state.banned) {
             store_.clearPendingDetections(userId);
             continue;
@@ -4469,12 +4469,12 @@ int WebsiteApp::applyBanWaves() {
         const PendingDetection& newest = record->pendingDetections.back();
         const std::string reason = newest.reason;
         const int held = static_cast<int>(record->pendingDetections.size());
-        const rblx::moderation::Decision decision =
-            rblx::moderation::applyStrike(&state, config_.moderation, now, reason);
+        const linear::moderation::Decision decision =
+            linear::moderation::applyStrike(&state, config_.moderation, now, reason);
         const std::string createdAt = nowIso();
         store_.setModeration(userId, state.strikes, state.suspendedUntilMs, state.banned,
                              reason, createdAt);
-        if (decision.action != rblx::moderation::Action::None) {
+        if (decision.action != linear::moderation::Action::None) {
             // The account keeps its session: it is told what happened, reads the
             // action in Settings and appeals that action there.
             store_.addInfraction(userId, infractionKindOf(decision.action), reason, true,
@@ -4483,14 +4483,14 @@ int WebsiteApp::applyBanWaves() {
         }
         // A ban that stopped at the account would be worth one free account, so
         // it is copied onto the machine it was earned on.
-        if (decision.action == rblx::moderation::Action::Banned) {
+        if (decision.action == linear::moderation::Action::Banned) {
             banHardwareForAccount(store_, *record, reason, createdAt);
         }
         store_.clearPendingDetections(userId);
         ++acted;
 
         std::fprintf(stdout, "  ban wave [%s] %s, %d detection(s) held\n",
-                     record->username.c_str(), rblx::moderation::actionName(decision.action),
+                     record->username.c_str(), linear::moderation::actionName(decision.action),
                      held);
     }
 
@@ -4556,7 +4556,7 @@ bool WebsiteApp::handleClientDetection(Request& request, Response& response) {
     // act here: the detection is held for the next wave, which is what keeps one
     // noisy launch from climbing the ladder and the timing from telling a cheat
     // which check it failed.
-    rblx::moderation::State state = moderationStateOf(*record);
+    linear::moderation::State state = moderationStateOf(*record);
     const long long now = nowMilliseconds();
     const std::string createdAt = nowIso();
     store_.recordClientDetection(record->id, createdAt);
@@ -4581,8 +4581,8 @@ bool WebsiteApp::handleClientDetection(Request& request, Response& response) {
     result.set("clientDetections", updated != nullptr ? updated->clientDetections : 0);
     // The answer still carries the standing the account is under right now, so a
     // client that an earlier wave suspended stops playing.
-    result.set("restricted", rblx::moderation::isRestricted(state, now));
-    result.set("message", rblx::moderation::restrictionMessage(state, now));
+    result.set("restricted", linear::moderation::isRestricted(state, now));
+    result.set("message", linear::moderation::restrictionMessage(state, now));
     sendJson(response, 200, result);
     return true;
 }
@@ -4642,12 +4642,12 @@ bool WebsiteApp::handleInstanceModeration(Request& request, Response& response) 
     // The machine the detection came from, when the instance sends one. Recorded
     // the way a join records it, so the ban that follows lands on the machine the
     // cheating happened on even if the account has moved since.
-    const std::string hardwareId = rblx::hwid::normalize(body.member("hardwareId").asString());
-    if (rblx::hwid::valid(hardwareId)) {
+    const std::string hardwareId = linear::hwid::normalize(body.member("hardwareId").asString());
+    if (linear::hwid::valid(hardwareId)) {
         store_.setLastHardwareId(record->id, hardwareId, nowIso());
     }
 
-    rblx::moderation::State state = moderationStateOf(*record);
+    linear::moderation::State state = moderationStateOf(*record);
     const long long now = nowMilliseconds();
     // Held for the wave like a client report: the game server is told the
     // detection was accepted, and the account is answered along with everyone else
@@ -4669,7 +4669,7 @@ bool WebsiteApp::handleInstanceModeration(Request& request, Response& response) 
     result.set("action", "none");
     result.set("strikes", state.strikes);
     result.set("banned", state.banned);
-    result.set("message", rblx::moderation::restrictionMessage(state, now));
+    result.set("message", linear::moderation::restrictionMessage(state, now));
     if (state.suspendedUntilMs > now) {
         result.set("suspendedUntil",
                    isoFromTime(static_cast<std::time_t>(state.suspendedUntilMs / 1000)));
@@ -4678,7 +4678,7 @@ bool WebsiteApp::handleInstanceModeration(Request& request, Response& response) 
     }
     // What the game server acts on: a restricted account is dropped, a warning
     // is read out in chat and the player keeps playing.
-    result.set("restricted", rblx::moderation::isRestricted(state, now));
+    result.set("restricted", linear::moderation::isRestricted(state, now));
     sendJson(response, 200, result);
     return true;
 }
@@ -4692,7 +4692,7 @@ bool WebsiteApp::handleAdminInfractionReplay(Request& request, Response& respons
     if (!requireAuth(request, response, &user)) {
         return true;
     }
-    if (!requirePermission(user, rblx::roles::kModerateUsers, "read a moderation replay",
+    if (!requirePermission(user, linear::roles::kModerateUsers, "read a moderation replay",
                            response)) {
         return true;
     }
@@ -4710,7 +4710,7 @@ bool WebsiteApp::handleAdminInfractionReplay(Request& request, Response& respons
     // without depending on how the JSON writer formats a float, and `scale` says
     // what to divide by.
     Json frames = Json::makeArray();
-    for (const rblx::replay::Frame& frame : rblx::replay::decode(entry->replay)) {
+    for (const linear::replay::Frame& frame : linear::replay::decode(entry->replay)) {
         Json point = Json::makeObject();
         point.set("atMs", static_cast<long long>(frame.atMs));
         point.set("x", static_cast<long long>(std::lround(frame.claimed.x * 100.0f)));
@@ -4743,7 +4743,7 @@ bool WebsiteApp::handleAdminModerateUser(Request& request, Response& response) {
     if (!requireAuth(request, response, &user)) {
         return true;
     }
-    if (!requirePermission(user, rblx::roles::kModerateUsers,
+    if (!requirePermission(user, linear::roles::kModerateUsers,
                            "change an account's moderation", response)) {
         return true;
     }
@@ -4767,8 +4767,8 @@ bool WebsiteApp::handleAdminModerateUser(Request& request, Response& response) {
     AuthUser subject;
     subject.id = record->id;
     subject.username = record->username;
-    const rblx::roles::Role& subjectRole = roleOf(subject);
-    const rblx::roles::Role& actorRole = roleOf(user);
+    const linear::roles::Role& subjectRole = roleOf(subject);
+    const linear::roles::Role& actorRole = roleOf(user);
     if (subjectRole.rank >= actorRole.rank) {
         errorJson(response, 403, "That account is on the " + subjectRole.name +
                                      " role, which your role cannot act on.");
@@ -4789,15 +4789,15 @@ bool WebsiteApp::handleAdminModerateUser(Request& request, Response& response) {
     }
 
     const long long now = nowMilliseconds();
-    rblx::moderation::State state = moderationStateOf(*record);
+    linear::moderation::State state = moderationStateOf(*record);
     std::string message;
     if (action == "pardon") {
         // The way back for a false positive: everything a strike added is cleared.
-        message = rblx::moderation::liftRestriction(&state).message;
+        message = linear::moderation::liftRestriction(&state).message;
     } else if (action == "warn") {
         // A manual warning is a strike, so it climbs the same ladder an
         // automatic detection does rather than sitting beside it.
-        message = rblx::moderation::applyStrike(&state, config_.moderation, now, reason).message;
+        message = linear::moderation::applyStrike(&state, config_.moderation, now, reason).message;
     } else if (action == "suspend") {
         long long hours = body.member("hours").asInteger(0);
         if (hours <= 0 || hours > 24 * 365) {
@@ -4806,10 +4806,10 @@ bool WebsiteApp::handleAdminModerateUser(Request& request, Response& response) {
                         : config_.moderation.suspensionHours.front();
         }
         state.suspendedUntilMs = now + hours * 3600000;
-        message = rblx::moderation::restrictionMessage(state, now);
+        message = linear::moderation::restrictionMessage(state, now);
     } else if (action == "ban") {
         state.banned = true;
-        message = rblx::moderation::restrictionMessage(state, now);
+        message = linear::moderation::restrictionMessage(state, now);
     } else {
         errorJson(response, 400, "Action must be warn, suspend, ban or pardon.");
         return true;
@@ -4869,7 +4869,7 @@ bool WebsiteApp::handleAdminHardwareBans(Request& request, Response& response) {
     if (!requireAuth(request, response, &user)) {
         return true;
     }
-    if (!requirePermission(user, rblx::roles::kHardwareBans, "see the hardware bans", response)) {
+    if (!requirePermission(user, linear::roles::kHardwareBans, "see the hardware bans", response)) {
         return true;
     }
 
@@ -4902,7 +4902,7 @@ bool WebsiteApp::handleAdminLiftHardwareBan(Request& request, Response& response
     if (!requireAuth(request, response, &user)) {
         return true;
     }
-    if (!requirePermission(user, rblx::roles::kHardwareBans, "lift a hardware ban", response)) {
+    if (!requirePermission(user, linear::roles::kHardwareBans, "lift a hardware ban", response)) {
         return true;
     }
 
@@ -4910,8 +4910,8 @@ bool WebsiteApp::handleAdminLiftHardwareBan(Request& request, Response& response
     if (!parseJsonBody(request, &body, response)) {
         return true;
     }
-    const std::string hardwareId = rblx::hwid::normalize(body.member("hardwareId").asString());
-    if (!rblx::hwid::valid(hardwareId)) {
+    const std::string hardwareId = linear::hwid::normalize(body.member("hardwareId").asString());
+    if (!linear::hwid::valid(hardwareId)) {
         errorJson(response, 400, "A hardware id is required.");
         return true;
     }
@@ -4945,7 +4945,7 @@ bool WebsiteApp::handleHardwareCheck(Request& request, Response& response) {
         return true;
     }
 
-    const std::string hardwareId = rblx::hwid::normalize(body.member("hardwareId").asString());
+    const std::string hardwareId = linear::hwid::normalize(body.member("hardwareId").asString());
     Json result = Json::makeObject();
     result.set("success", true);
     result.set("banned", false);
@@ -4953,7 +4953,7 @@ bool WebsiteApp::handleHardwareCheck(Request& request, Response& response) {
     // A client that cannot name its machine is not refused here: the join already
     // carries the account's standing, and refusing every machine whose hash this
     // build does not recognise would lock out the players it is meant to protect.
-    if (rblx::hwid::valid(hardwareId)) {
+    if (linear::hwid::valid(hardwareId)) {
         if (const HardwareBanRecord* ban = store_.activeHardwareBan(hardwareId)) {
             result.set("banned", true);
             result.set("message", hardwareBanMessage(*ban));
@@ -4974,7 +4974,7 @@ bool WebsiteApp::handleAdminGrantCoins(Request& request, Response& response) {
     if (!requireAuth(request, response, &user)) {
         return true;
     }
-    if (!requirePermission(user, rblx::roles::kGrantCoins, "hand out coins", response)) {
+    if (!requirePermission(user, linear::roles::kGrantCoins, "hand out coins", response)) {
         return true;
     }
 
@@ -5037,23 +5037,23 @@ bool WebsiteApp::handleAccountStanding(Request& request, Response& response) {
     }
 
     const long long now = nowMilliseconds();
-    const rblx::moderation::State state = moderationStateOf(*record);
-    const bool restricted = rblx::moderation::isRestricted(state, now);
+    const linear::moderation::State state = moderationStateOf(*record);
+    const bool restricted = linear::moderation::isRestricted(state, now);
     const AppealRecord* openAppeal = store_.openAppealFor(user.id);
 
     Json result = Json::makeObject();
     result.set("success", true);
     result.set("standing",
-               rblx::moderation::standingName(rblx::moderation::standingOf(state, now)));
+               linear::moderation::standingName(linear::moderation::standingOf(state, now)));
     result.set("restricted", restricted);
     result.set("banned", state.banned);
     result.set("strikes", state.strikes);
     result.set("warnings", config_.moderation.warnings);
-    result.set("message", rblx::moderation::restrictionMessage(state, now));
+    result.set("message", linear::moderation::restrictionMessage(state, now));
     if (state.suspendedUntilMs > now) {
         result.set("suspendedUntil",
                    isoFromTime(static_cast<std::time_t>(state.suspendedUntilMs / 1000)));
-        result.set("suspendedHoursRemaining", rblx::moderation::remainingHours(state, now));
+        result.set("suspendedHoursRemaining", linear::moderation::remainingHours(state, now));
     } else {
         result.setNull("suspendedUntil");
         result.set("suspendedHoursRemaining", 0);
@@ -5174,7 +5174,7 @@ bool WebsiteApp::handleAdminAppeals(Request& request, Response& response) {
     if (!requireAuth(request, response, &user)) {
         return true;
     }
-    if (!requirePermission(user, rblx::roles::kReviewAppeals, "review appeals", response)) {
+    if (!requirePermission(user, linear::roles::kReviewAppeals, "review appeals", response)) {
         return true;
     }
 
@@ -5223,8 +5223,8 @@ bool WebsiteApp::handleAdminAppeals(Request& request, Response& response) {
         // Accepting is a pardon: everything the ladder added is cleared and the
         // record says who cleared it. Tokens already issued stay valid, so the
         // player is not signed out of the page showing the answer.
-        rblx::moderation::State state = moderationStateOf(*record);
-        message = rblx::moderation::liftRestriction(&state).message;
+        linear::moderation::State state = moderationStateOf(*record);
+        message = linear::moderation::liftRestriction(&state).message;
         store_.setModeration(record->id, state.strikes, 0, false,
                              "appeal accepted by " + user.username, createdAt);
         store_.addInfraction(record->id, "pardon",
@@ -5248,12 +5248,12 @@ bool WebsiteApp::handleAdminAppeals(Request& request, Response& response) {
                  action == "accept" ? "accepted" : "denied", user.username.c_str());
 
     const UserRecord* refreshed = store_.findUserById(appeal.userId);
-    const rblx::moderation::State state = moderationStateOf(*refreshed);
+    const linear::moderation::State state = moderationStateOf(*refreshed);
     Json result = Json::makeObject();
     result.set("success", true);
     result.set("status", action == "accept" ? "accepted" : "denied");
     result.set("standing",
-               rblx::moderation::standingName(rblx::moderation::standingOf(state, now)));
+               linear::moderation::standingName(linear::moderation::standingOf(state, now)));
     result.set("banned", state.banned);
     if (state.suspendedUntilMs > now) {
         result.set("suspendedUntil",
@@ -5271,7 +5271,7 @@ bool WebsiteApp::handleAdminAppeals(Request& request, Response& response) {
 // exists says nothing about who holds it.
 bool WebsiteApp::handleRoles(Request&, Response& response) {
     Json roles = Json::makeArray();
-    for (const rblx::roles::Role& role : rblx::roles::all()) {
+    for (const linear::roles::Role& role : linear::roles::all()) {
         roles.push(roleJson(role));
     }
     Json result = Json::makeObject();
@@ -5287,7 +5287,7 @@ bool WebsiteApp::handleAdminSetRole(Request& request, Response& response) {
     if (!requireAuth(request, response, &user)) {
         return true;
     }
-    if (!requirePermission(user, rblx::roles::kAssignRoles, "change roles", response)) {
+    if (!requirePermission(user, linear::roles::kAssignRoles, "change roles", response)) {
         return true;
     }
 
@@ -5296,7 +5296,7 @@ bool WebsiteApp::handleAdminSetRole(Request& request, Response& response) {
         return true;
     }
     const std::string wantedId = trimCopy(body.member("role").asString());
-    if (!rblx::roles::isKnown(wantedId)) {
+    if (!linear::roles::isKnown(wantedId)) {
         errorJson(response, 400, "Unknown role.");
         return true;
     }
@@ -5316,8 +5316,8 @@ bool WebsiteApp::handleAdminSetRole(Request& request, Response& response) {
     AuthUser subject;
     subject.id = record->id;
     subject.username = record->username;
-    const rblx::roles::Role& wanted = rblx::roles::find(wantedId);
-    if (!rblx::roles::mayAssign(roleOf(user), roleOf(subject), wanted)) {
+    const linear::roles::Role& wanted = linear::roles::find(wantedId);
+    if (!linear::roles::mayAssign(roleOf(user), roleOf(subject), wanted)) {
         errorJson(response, 403,
                   "Your role (" + roleOf(user).name + ") cannot put an account on " +
                       wanted.name + ".");
@@ -5351,7 +5351,7 @@ bool WebsiteApp::handleAdminOverview(Request& request, Response& response) {
     if (!requireAuth(request, response, &user)) {
         return true;
     }
-    if (!can(user, rblx::roles::kViewDashboard)) {
+    if (!can(user, linear::roles::kViewDashboard)) {
         errorJson(response, 403, adminDeniedMessage(user));
         return true;
     }
@@ -5385,9 +5385,9 @@ bool WebsiteApp::handleAdminOverview(Request& request, Response& response) {
         entry.set("coins", store_.coinsFor(record.id));
         entry.set("friendCount", store_.countAcceptedFriends(record.id));
         entry.set("gameCount", static_cast<long long>(store_.gamesOwnedBy(record.id).size()));
-        const rblx::roles::Role& listedRole = roleOf(listed);
+        const linear::roles::Role& listedRole = roleOf(listed);
         entry.set("isAdmin",
-                  rblx::roles::has(listedRole.permissions, rblx::roles::kViewDashboard));
+                  linear::roles::has(listedRole.permissions, linear::roles::kViewDashboard));
         entry.set("role", listedRole.id);
         entry.set("roleName", listedRole.name);
         entry.set("roleRank", listedRole.rank);
@@ -5396,7 +5396,7 @@ bool WebsiteApp::handleAdminOverview(Request& request, Response& response) {
         entry.set("clientDetections", record.clientDetections);
         entry.set("banned", record.banned);
         entry.set("moderationReason", record.moderationReason);
-        entry.set("standing", rblx::moderation::standingName(rblx::moderation::standingOf(
+        entry.set("standing", linear::moderation::standingName(linear::moderation::standingOf(
                                   moderationStateOf(record), nowMilliseconds())));
         // The account's whole record with the reasons it is not shown, so an admin
         // can read what a wave acted on and on how much evidence.
@@ -5499,16 +5499,16 @@ bool WebsiteApp::handleAdminOverview(Request& request, Response& response) {
     // The table rides along with the overview so the picker and the legend are
     // built from the same answer that lists the accounts.
     Json roleList = Json::makeArray();
-    for (const rblx::roles::Role& role : rblx::roles::all()) {
+    for (const linear::roles::Role& role : linear::roles::all()) {
         roleList.push(roleJson(role));
     }
     result.set("roles", roleList);
-    const rblx::roles::Role& callerRole = roleOf(user);
+    const linear::roles::Role& callerRole = roleOf(user);
     result.set("yourRole", callerRole.id);
     result.set("yourRoleName", callerRole.name);
     result.set("yourRoleRank", callerRole.rank);
     result.set("canAssignRoles",
-               rblx::roles::has(callerRole.permissions, rblx::roles::kAssignRoles));
+               linear::roles::has(callerRole.permissions, linear::roles::kAssignRoles));
     sendJson(response, 200, result);
     return true;
 }
@@ -5519,7 +5519,7 @@ bool WebsiteApp::handleAdminDeleteGame(Request& request, Response& response) {
     if (!requireAuth(request, response, &user)) {
         return true;
     }
-    if (!requirePermission(user, rblx::roles::kDeleteContent, "delete games", response)) {
+    if (!requirePermission(user, linear::roles::kDeleteContent, "delete games", response)) {
         return true;
     }
 
@@ -5900,7 +5900,7 @@ bool WebsiteApp::handleCreateDevToken(Request& request, Response& response) {
     // and cannot be read back out of the data file. The prefix names what the
     // string is to anyone who finds it in a log; the 192 bits after it are what
     // makes guessing hopeless.
-    const std::string secret = "rblxai_" + randomHex(24);
+    const std::string secret = "linearai_" + randomHex(24);
 
     DevTokenRecord record;
     record.userId = user.id;
@@ -6046,7 +6046,7 @@ bool WebsiteApp::handleAiLogin(Request& request, Response& response) {
     }
     const UserRecord* owner = store_.findUserById(token->userId);
     if (owner == nullptr ||
-        rblx::moderation::isRestricted(moderationStateOf(*owner), nowMilliseconds())) {
+        linear::moderation::isRestricted(moderationStateOf(*owner), nowMilliseconds())) {
         errorJson(response, 403, "This account cannot run AI training right now.");
         return true;
     }
@@ -6673,4 +6673,4 @@ void WebsiteApp::tickInstances() {
 }
 
 }  // namespace web
-}  // namespace rblx
+}  // namespace linear

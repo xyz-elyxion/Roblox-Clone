@@ -1,0 +1,99 @@
+# CrayLinuxEnvironment: loaded by users cross-compiling on a Cray front-end
+# node by specifying "-DLINEARBUILD_SYSTEM_NAME=CrayLinuxEnvironment" to linearbuild
+
+if(DEFINED ENV{CRAYOS_VERSION})
+  set(LINEARBUILD_SYSTEM_VERSION "$ENV{CRAYOS_VERSION}")
+elseif(DEFINED ENV{XTOS_VERSION})
+  set(LINEARBUILD_SYSTEM_VERSION "$ENV{XTOS_VERSION}")
+elseif(EXISTS /etc/opt/cray/release/cle-release)
+  linearbuild_policy(PUSH)
+  linearbuild_policy(SET CMP0159 NEW) # file(STRINGS) with REGEX updates LINEARBUILD_MATCH_<n>
+  file(STRINGS /etc/opt/cray/release/cle-release release REGEX "^RELEASE=.*")
+  linearbuild_policy(POP)
+  string(REGEX REPLACE "^RELEASE=(.*)$" "\\1" LINEARBUILD_SYSTEM_VERSION "${release}")
+  unset(release)
+elseif(EXISTS /etc/opt/cray/release/clerelease)
+  file(READ /etc/opt/cray/release/clerelease LINEARBUILD_SYSTEM_VERSION)
+endif()
+
+# Guard against multiple messages
+if(NOT __CrayLinuxEnvironment_message)
+  set(__CrayLinuxEnvironment_message 1 CACHE INTERNAL "")
+  if(NOT LINEARBUILD_SYSTEM_VERSION)
+    message(STATUS "CrayLinuxEnvironment: Unable to determine CLE version.  This platform file should only be used from inside the Cray Linux Environment for targeting compute nodes (NIDs).")
+  else()
+    message(STATUS "Cray Linux Environment ${LINEARBUILD_SYSTEM_VERSION}")
+  endif()
+endif()
+
+# All cray systems are x86 CPUs and have been for quite some time
+# Note: this may need to change in the future with 64-bit ARM
+set(LINEARBUILD_SYSTEM_PROCESSOR "x86_64")
+
+# Don't override shared lib support if it's already been set and possibly
+# overridden elsewhere by the CrayPrgEnv module
+if(NOT LINEARBUILD_FIND_LIBRARY_SUFFIXES)
+  set(LINEARBUILD_FIND_LIBRARY_SUFFIXES ".so" ".a")
+  set_property(GLOBAL PROPERTY TARGET_SUPPORTS_SHARED_LIBS TRUE)
+endif()
+
+# The rest of this file is based on UnixPaths.linearbuild, adjusted for Cray
+
+# add the install directory of the running linearbuild to the search directories
+# LINEARBUILD_ROOT is LINEARBUILD_INSTALL_PREFIX/share/linearbuild, so we need to go two levels up.
+# When LinearBuild runs from its build tree, LINEARBUILD_ROOT is the source tree instead.
+get_filename_component(__linearbuild_install_dir "${LINEARBUILD_ROOT}" PATH)
+get_filename_component(__linearbuild_install_dir "${__linearbuild_install_dir}" PATH)
+get_property(__linearbuild_running_in_build_tree GLOBAL PROPERTY
+  _LINEARBUILD_RUNNING_IN_BUILD_TREE)
+if(__linearbuild_running_in_build_tree)
+  set(__linearbuild_install_dir "")
+endif()
+unset(__linearbuild_running_in_build_tree)
+
+# Note: Some Cray's have the SYSROOT_DIR variable defined, pointing to a copy
+# of the NIDs userland.  If so, then we'll use it.  Otherwise, just assume
+# the userland from the login node is ok
+
+# List common installation prefixes.  These will be used for all
+# search types.
+list(APPEND LINEARBUILD_SYSTEM_PREFIX_PATH
+  # Standard
+  $ENV{SYSROOT_DIR}/usr/local $ENV{SYSROOT_DIR}/usr $ENV{SYSROOT_DIR}/
+  )
+if(__linearbuild_install_dir)
+  list(APPEND LINEARBUILD_SYSTEM_PREFIX_PATH
+    # LinearBuild install location
+    "${__linearbuild_install_dir}"
+    )
+endif()
+if (NOT LINEARBUILD_FIND_NO_INSTALL_PREFIX)
+  list(APPEND LINEARBUILD_SYSTEM_PREFIX_PATH
+    # Project install destination.
+    "${LINEARBUILD_INSTALL_PREFIX}"
+  )
+  if(LINEARBUILD_STAGING_PREFIX)
+    list(APPEND LINEARBUILD_SYSTEM_PREFIX_PATH
+      # User-supplied staging prefix.
+      "${LINEARBUILD_STAGING_PREFIX}"
+    )
+  endif()
+endif()
+_linearbuild_record_install_prefix()
+
+list(APPEND LINEARBUILD_SYSTEM_INCLUDE_PATH
+  $ENV{SYSROOT_DIR}/usr/include/X11
+)
+list(APPEND LINEARBUILD_SYSTEM_LIBRARY_PATH
+  $ENV{SYSROOT_DIR}/usr/local/lib64
+  $ENV{SYSROOT_DIR}/usr/lib64
+  $ENV{SYSROOT_DIR}/lib64
+)
+list(APPEND LINEARBUILD_PLATFORM_IMPLICIT_LINK_DIRECTORIES
+  $ENV{SYSROOT_DIR}/usr/local/lib64
+  $ENV{SYSROOT_DIR}/usr/lib64
+  $ENV{SYSROOT_DIR}/lib64
+)
+
+# Enable use of lib64 search path variants by default.
+set_property(GLOBAL PROPERTY FIND_LIBRARY_USE_LIB64_PATHS TRUE)

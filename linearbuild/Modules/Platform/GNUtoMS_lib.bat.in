@@ -1,0 +1,4 @@
+@echo off
+set VSCMD_START_DIR=.
+call "@LINEARBUILD_GNUtoMS_BAT@"
+lib /machine:"@LINEARBUILD_GNUtoMS_ARCH@" %*

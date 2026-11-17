@@ -11,7 +11,7 @@
 #  include <winsock2.h>
 #  include <windows.h>
 
-namespace rblx {
+namespace linear {
 namespace hwid {
 namespace {
 
@@ -59,7 +59,7 @@ std::string machineInputs() {
 std::string hashInputs(const std::string& inputs) {
     // The prefix versions the scheme: changing how the inputs are gathered can
     // then change the digest instead of silently matching an old ban.
-    const std::string digest = rblx::web::hexEncode(rblx::web::sha256("rblx-hwid:v1:" + inputs));
+    const std::string digest = linear::web::hexEncode(linear::web::sha256("linear-hwid:v1:" + inputs));
     return digest.substr(0, kHardwareIdLength);
 }
 
@@ -69,4 +69,4 @@ std::string machineId() {
 }
 
 }  // namespace hwid
-}  // namespace rblx
+}  // namespace linear

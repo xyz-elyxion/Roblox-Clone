@@ -1,0 +1,3 @@
+set(LINEARBUILD_DL_LIBS "")
+set(LINEARBUILD_SHARED_LIBRARY_SONAME_C_FLAG "-h,")
+include(Platform/UnixPaths)

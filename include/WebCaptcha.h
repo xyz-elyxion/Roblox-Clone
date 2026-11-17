@@ -21,7 +21,7 @@
 
 #include "WebCrypto.h"
 
-namespace rblx {
+namespace linear {
 namespace web {
 
 inline constexpr int kCaptchaDigits = 4;
@@ -220,4 +220,4 @@ inline bool solveCaptchaPow(const std::string& challenge, int difficulty, std::s
 }
 
 }  // namespace web
-}  // namespace rblx
+}  // namespace linear

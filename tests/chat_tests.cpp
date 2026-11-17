@@ -30,7 +30,7 @@ void check(bool condition, const std::string& what) {
 bool normalizesTo(const std::string& input, const std::string& expected) {
     std::string output;
     std::string error;
-    if (!rblx::chat::normalizeBody(input, &output, &error)) {
+    if (!linear::chat::normalizeBody(input, &output, &error)) {
         std::printf("FAIL: %s was refused: %s\n", input.c_str(), error.c_str());
         ++failures;
         return false;
@@ -45,11 +45,11 @@ bool normalizesTo(const std::string& input, const std::string& expected) {
 }
 
 void testChannels() {
-    const std::vector<rblx::chat::Channel>& channels = rblx::chat::channels();
+    const std::vector<linear::chat::Channel>& channels = linear::chat::channels();
     check(!channels.empty(), "there is at least one channel");
 
     std::set<std::string> seen;
-    for (const rblx::chat::Channel& channel : channels) {
+    for (const linear::chat::Channel& channel : channels) {
         const std::string id = channel.id;
         check(!id.empty(), "a channel has an id");
         check(seen.insert(id).second, id + " is not a duplicate");
@@ -61,13 +61,13 @@ void testChannels() {
             const bool ok = (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-';
             check(ok, id + " is URL-safe");
         }
-        check(rblx::chat::findChannel(id) != nullptr, id + " is found by name");
+        check(linear::chat::findChannel(id) != nullptr, id + " is found by name");
     }
 
-    check(rblx::chat::findChannel("") == nullptr, "an empty channel is not a channel");
-    check(rblx::chat::findChannel("General") == nullptr, "channel names are case sensitive");
-    check(rblx::chat::findChannel("nope") == nullptr, "an invented channel is refused");
-    check(rblx::chat::channels().front().id == std::string("general"),
+    check(linear::chat::findChannel("") == nullptr, "an empty channel is not a channel");
+    check(linear::chat::findChannel("General") == nullptr, "channel names are case sensitive");
+    check(linear::chat::findChannel("nope") == nullptr, "an invented channel is refused");
+    check(linear::chat::channels().front().id == std::string("general"),
           "general is the channel a room opens on");
 }
 
@@ -86,31 +86,31 @@ void testNormalize() {
 
     std::string output;
     std::string error;
-    check(!rblx::chat::normalizeBody("", &output, &error), "an empty message is refused");
+    check(!linear::chat::normalizeBody("", &output, &error), "an empty message is refused");
     check(!error.empty(), "an empty message comes with a reason");
-    check(!rblx::chat::normalizeBody(" \t\r\n ", &output, &error),
+    check(!linear::chat::normalizeBody(" \t\r\n ", &output, &error),
           "whitespace alone is not a message");
 
-    const std::string limit(rblx::chat::kMaxMessageLength, 'x');
-    check(rblx::chat::normalizeBody(limit, &output, &error),
+    const std::string limit(linear::chat::kMaxMessageLength, 'x');
+    check(linear::chat::normalizeBody(limit, &output, &error),
           "a message at the limit is accepted");
-    check(!rblx::chat::normalizeBody(limit + "x", &output, &error),
+    check(!linear::chat::normalizeBody(limit + "x", &output, &error),
           "a message over the limit is refused");
-    check(error.find(std::to_string(rblx::chat::kMaxMessageLength)) != std::string::npos,
+    check(error.find(std::to_string(linear::chat::kMaxMessageLength)) != std::string::npos,
           "the refusal names the limit");
 
     // Trimming must not quietly shorten something that only looked long.
-    check(rblx::chat::normalizeBody(" " + limit + " ", &output, &error),
+    check(linear::chat::normalizeBody(" " + limit + " ", &output, &error),
           "padding does not count against the limit");
 }
 
 struct Harness {
-    rblx::web::Store store{"chat-tests-data.json"};
+    linear::web::Store store{"chat-tests-data.json"};
     int nextId = 1;
     long long nowMs = 1000;
 
     int post(int gameId, const std::string& channel, int userId, const std::string& text) {
-        rblx::web::ChatMessageRecord record;
+        linear::web::ChatMessageRecord record;
         record.gameId = gameId;
         record.channel = channel;
         record.userId = userId;
@@ -154,15 +154,15 @@ void testStore() {
     check(page.size() == 1 && page[0]->id == second, "a page is the newest messages");
 
     // Bounding one channel must leave the newest messages, not the first ones.
-    for (int i = 0; i < static_cast<int>(rblx::chat::kMaxMessagesPerChannel) + 10; ++i) {
+    for (int i = 0; i < static_cast<int>(linear::chat::kMaxMessagesPerChannel) + 10; ++i) {
         harness.post(1, "general", 1, "filler " + std::to_string(i));
     }
     const auto trimmed = harness.store.chatMessages(1, "general", 0, 1000);
-    check(trimmed.size() == rblx::chat::kMaxMessagesPerChannel,
+    check(trimmed.size() == linear::chat::kMaxMessagesPerChannel,
           "a channel keeps its allowance of messages");
     check(!trimmed.empty() && trimmed.back()->body == "filler " +
                                                         std::to_string(
-                                                            rblx::chat::kMaxMessagesPerChannel + 9),
+                                                            linear::chat::kMaxMessagesPerChannel + 9),
           "the newest message survives the trim");
     check(!trimmed.empty() && trimmed.front()->body != "first", "the oldest messages go first");
 
@@ -176,7 +176,7 @@ void testStore() {
     harness.store.removeChatMessagesForUser(2);
     const auto afterUser = harness.store.chatMessages(1, "general", 0, 1000);
     bool anyLeft = false;
-    for (const rblx::web::ChatMessageRecord* message : afterUser) {
+    for (const linear::web::ChatMessageRecord* message : afterUser) {
         anyLeft = anyLeft || message->userId == 2;
     }
     check(!anyLeft, "an account's messages go with the account");
@@ -185,7 +185,7 @@ void testStore() {
     check(harness.store.chatMessages(2, "general", 0, 100).empty(),
           "a game's rooms go with the game");
     check(harness.store.chatMessages(1, "general", 0, 1000).size() ==
-              rblx::chat::kMaxMessagesPerChannel,
+              linear::chat::kMaxMessagesPerChannel,
           "deleting one game spares the other");
 }
 
@@ -228,7 +228,7 @@ void testUnread() {
     check(harness.store.chatReadMark(2, 1, "general") == 0,
           "a deleted account takes its read marks with it");
     bool anyFromDeleted = false;
-    for (const rblx::web::ChatMessageRecord* message :
+    for (const linear::web::ChatMessageRecord* message :
          harness.store.chatMessages(1, "general", 0, 100)) {
         anyFromDeleted = anyFromDeleted || message->userId == 2;
     }
@@ -260,7 +260,7 @@ void testPersistence() {
     }
 
     {
-        rblx::web::Store reloaded{path};
+        linear::web::Store reloaded{path};
         std::string error;
         check(reloaded.load(&error), "the data file is read back: " + error);
         check(reloaded.chatMessageCount() == 3, "every message comes back");
@@ -277,7 +277,7 @@ void testPersistence() {
               "and the reloaded room agrees it was read");
 
         // The id counter continues rather than restarting over live ids.
-        rblx::web::ChatMessageRecord record;
+        linear::web::ChatMessageRecord record;
         record.gameId = 1;
         record.channel = "general";
         record.userId = 1;

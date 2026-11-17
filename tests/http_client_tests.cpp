@@ -23,7 +23,7 @@
 
 namespace {
     // Winsock refuses socket(), bind() and listen() until WSAStartup has run.
-    // The client does that lazily inside rblx::http::request, but the stub
+    // The client does that lazily inside linear::http::request, but the stub
     // servers below create their listening socket before any request is made,
     // so the test has to initialise Winsock itself. A file-scope object is the
     // earliest point at which that can happen.
@@ -165,7 +165,7 @@ int main() {
                           1);
         check(server.start(), "stub server listens on an ephemeral port");
 
-        const rblx::http::Response response = rblx::http::request("GET", baseUrl(server) + "/api/games");
+        const linear::http::Response response = linear::http::request("GET", baseUrl(server) + "/api/games");
         check(response.ok(), "GET returns a 2xx status");
         check(response.status == 200, "status code is parsed from the status line");
         check(response.body == "{\"success\":true,\"n\":1}", "body is read in full");
@@ -184,8 +184,8 @@ int main() {
         StubServer server("HTTP/1.1 201 Created\r\nContent-Length: 2\r\n\r\n{}", 1);
         check(server.start(), "second stub server listens");
 
-        const rblx::http::Response response =
-            rblx::http::request("POST", baseUrl(server) + "/api/login", "{\"username\":\"a\"}", "token-123");
+        const linear::http::Response response =
+            linear::http::request("POST", baseUrl(server) + "/api/login", "{\"username\":\"a\"}", "token-123");
         check(response.status == 201, "non-200 success codes are reported as they arrived");
         check(response.ok(), "201 counts as success");
 
@@ -204,7 +204,7 @@ int main() {
         StubServer server("HTTP/1.1 404 Not Found\r\nContent-Length: 2\r\n\r\n{}", 1);
         check(server.start(), "third stub server listens");
 
-        const rblx::http::Response response = rblx::http::request("GET", baseUrl(server) + "/missing");
+        const linear::http::Response response = linear::http::request("GET", baseUrl(server) + "/missing");
         check(response.status == 404, "error status is reported");
         check(!response.ok(), "404 is not a success");
 
@@ -222,7 +222,7 @@ int main() {
         long long lastReceived = -1;
         long long lastTotal = -1;
         int calls = 0;
-        const rblx::http::Response response = rblx::http::request(
+        const linear::http::Response response = linear::http::request(
             "GET", baseUrl(server) + "/api/games", "", "", 5000,
             [&](long long received, long long total) {
                 ++calls;
@@ -245,8 +245,8 @@ int main() {
         check(server.start(), "slow stub server listens");
 
         const auto began = std::chrono::steady_clock::now();
-        const rblx::http::Response response = rblx::http::request(
-            "GET", baseUrl(server) + "/slow", "", "", 30000, rblx::http::ProgressCallback(),
+        const linear::http::Response response = linear::http::request(
+            "GET", baseUrl(server) + "/slow", "", "", 30000, linear::http::ProgressCallback(),
             [&began]() {
                 return std::chrono::steady_clock::now() - began > std::chrono::milliseconds(200);
             });
@@ -260,7 +260,7 @@ int main() {
     }
 
     {
-        const rblx::http::Response response = rblx::http::request("GET", "https://example.com/");
+        const linear::http::Response response = linear::http::request("GET", "https://example.com/");
         check(response.networkError(), "https URLs fail instead of pretending to work");
         check(response.error.find("TLS") != std::string::npos, "https failure explains the missing TLS support");
     }
@@ -269,8 +269,8 @@ int main() {
         // Port 1 on loopback: nothing listens there, so the connect must fail
         // rather than hang.
         const auto started = std::chrono::steady_clock::now();
-        const rblx::http::Response response =
-            rblx::http::request("GET", "http://127.0.0.1:1/", "", "", 1000);
+        const linear::http::Response response =
+            linear::http::request("GET", "http://127.0.0.1:1/", "", "", 1000);
         const auto elapsed = std::chrono::steady_clock::now() - started;
 
         check(response.networkError(), "an unreachable server is a network error");

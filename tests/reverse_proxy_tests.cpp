@@ -152,16 +152,16 @@ std::string backendAddress(const StubBackend& backend) {
     return "127.0.0.1:" + std::to_string(backend.port());
 }
 
-rblx::proxy::Upstream upstreamFor(const StubBackend& backend) {
-    rblx::proxy::Upstream upstream;
+linear::proxy::Upstream upstreamFor(const StubBackend& backend) {
+    linear::proxy::Upstream upstream;
     upstream.host = "127.0.0.1";
     upstream.port = backend.port();
     upstream.timeoutMs = 2000;
     return upstream;
 }
 
-rblx::web::Request browserRequest() {
-    rblx::web::Request request;
+linear::web::Request browserRequest() {
+    linear::web::Request request;
     request.method = "GET";
     request.path = "/index.html";
     request.httpVersion = "HTTP/1.1";
@@ -175,7 +175,7 @@ rblx::web::Request browserRequest() {
 }
 
 void testHeaderRules() {
-    using rblx::proxy::isHopByHop;
+    using linear::proxy::isHopByHop;
     check(isHopByHop("connection"), "connection belongs to one connection");
     check(isHopByHop("Keep-Alive"), "a keep-alive header is hop-by-hop whatever its case");
     check(isHopByHop("transfer-encoding"), "transfer-encoding is hop-by-hop");
@@ -186,7 +186,7 @@ void testHeaderRules() {
 }
 
 void testForwardedFor() {
-    using rblx::proxy::forwardedFor;
+    using linear::proxy::forwardedFor;
     check(forwardedFor("", "10.1.2.3") == "10.1.2.3", "the first address stands alone");
     check(forwardedFor("1.2.3.4", "10.1.2.3") == "1.2.3.4, 10.1.2.3",
           "an earlier proxy's address is kept in front");
@@ -196,7 +196,7 @@ void testForwardedFor() {
 }
 
 void testTargetEncoding() {
-    using rblx::proxy::encodeTarget;
+    using linear::proxy::encodeTarget;
     check(encodeTarget("/index.html", "") == "/index.html", "a plain path is unchanged");
     check(encodeTarget("/games/My Game.html", "") == "/games/My%20Game.html",
           "a space in a file name is escaped again");
@@ -208,7 +208,7 @@ void testTargetEncoding() {
 }
 
 void testAddressParsing() {
-    using rblx::proxy::parseHostPort;
+    using linear::proxy::parseHostPort;
 
     std::string host;
     int port = 0;
@@ -231,7 +231,7 @@ void testAddressParsing() {
 }
 
 void testForwarding() {
-    using namespace rblx::proxy;
+    using namespace linear::proxy;
 
     StubBackend backend(
         "HTTP/1.1 200 OK\r\n"
@@ -273,7 +273,7 @@ void testForwarding() {
 }
 
 void testBodyIsForwarded() {
-    using namespace rblx::proxy;
+    using namespace linear::proxy;
 
     StubBackend backend(
         "HTTP/1.1 201 Created\r\n"
@@ -283,7 +283,7 @@ void testBodyIsForwarded() {
         "{}");
     check(backend.start(), "the stub backend listens for a POST");
 
-    rblx::web::Request request = browserRequest();
+    linear::web::Request request = browserRequest();
     request.method = "POST";
     request.path = "/api/login";
     request.body = "{\"name\":\"p\"}";
@@ -303,7 +303,7 @@ void testBodyIsForwarded() {
 }
 
 void testCookiesSurvive() {
-    using namespace rblx::proxy;
+    using namespace linear::proxy;
 
     StubBackend backend(
         "HTTP/1.1 200 OK\r\n"
@@ -332,7 +332,7 @@ void testCookiesSurvive() {
 }
 
 void testChunkedIsRefused() {
-    using namespace rblx::proxy;
+    using namespace linear::proxy;
 
     StubBackend backend(
         "HTTP/1.1 200 OK\r\n"
@@ -352,7 +352,7 @@ void testChunkedIsRefused() {
 }
 
 void testUnreachableBackend() {
-    using namespace rblx::proxy;
+    using namespace linear::proxy;
 
     Upstream upstream;
     upstream.host = "127.0.0.1";
@@ -365,8 +365,8 @@ void testUnreachableBackend() {
     check(!error.empty(), "the failure carries a reason");
 
     ReverseProxy front(upstream, false);
-    rblx::web::Request request = browserRequest();
-    rblx::web::Response response;
+    linear::web::Request request = browserRequest();
+    linear::web::Response response;
     check(front.handle(request, response), "the proxy still answers the browser");
     check(response.status == 502, "the browser is told the site is not answering");
     check(response.body.find("10.1.2.3") == std::string::npos,
@@ -374,7 +374,7 @@ void testUnreachableBackend() {
 }
 
 void testHandlerAnswer() {
-    using namespace rblx::proxy;
+    using namespace linear::proxy;
 
     StubBackend backend(
         "HTTP/1.1 200 OK\r\n"
@@ -388,8 +388,8 @@ void testHandlerAnswer() {
     check(backend.start(), "the stub backend listens for the handler");
 
     ReverseProxy front(upstreamFor(backend), false);
-    rblx::web::Request request = browserRequest();
-    rblx::web::Response response;
+    linear::web::Request request = browserRequest();
+    linear::web::Response response;
     check(front.handle(request, response), "the handler answers");
     backend.finish();
 

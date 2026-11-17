@@ -1,0 +1,10 @@
+/* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
+   file LICENSE.rst or https://linearbuild.org/licensing for details.  */
+#pragma once
+
+#define LinearBuild_VERSION_MAJOR @LinearBuild_VERSION_MAJOR@
+#define LinearBuild_VERSION_MINOR @LinearBuild_VERSION_MINOR@
+#define LinearBuild_VERSION_PATCH @LinearBuild_VERSION_PATCH@
+#define LinearBuild_VERSION_SUFFIX "@LinearBuild_VERSION_SUFFIX@"
+#define LinearBuild_VERSION_IS_DIRTY @LinearBuild_VERSION_IS_DIRTY@
+#define LinearBuild_VERSION "@LinearBuild_VERSION@"

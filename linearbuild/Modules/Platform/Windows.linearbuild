@@ -1,0 +1,45 @@
+set(LINEARBUILD_STATIC_LIBRARY_PREFIX "")
+set(LINEARBUILD_STATIC_LIBRARY_SUFFIX ".lib")
+set(LINEARBUILD_SHARED_LIBRARY_PREFIX "")          # lib
+if(LINEARBUILD_SYSTEM_NAME STREQUAL "WindowsKernelModeDriver")
+  set(LINEARBUILD_SHARED_LIBRARY_SUFFIX ".sys")          # .so
+else()
+  set(LINEARBUILD_SHARED_LIBRARY_SUFFIX ".dll")          # .so
+endif()
+set(LINEARBUILD_IMPORT_LIBRARY_PREFIX "")
+set(LINEARBUILD_IMPORT_LIBRARY_SUFFIX ".lib")
+set(LINEARBUILD_EXECUTABLE_SUFFIX ".exe")          # .exe
+set(LINEARBUILD_LINK_LIBRARY_SUFFIX ".lib")
+set(LINEARBUILD_DL_LIBS "")
+set(LINEARBUILD_EXTRA_LINK_EXTENSIONS ".targets")
+
+set(LINEARBUILD_FIND_LIBRARY_PREFIXES
+  "" # static or import library from MSVC tooling
+  "lib" # static library from Meson with MSVC tooling
+  )
+set(LINEARBUILD_FIND_LIBRARY_SUFFIXES
+  ".dll.lib" # import library from Rust toolchain for MSVC ABI
+  ".lib" # static or import library from MSVC tooling
+  ".a" # static library from Meson with MSVC tooling
+  )
+
+# for borland make long command lines are redirected to a file
+# with the following syntax, see Windows-bcc32.linearbuild for use
+if(LINEARBUILD_GENERATOR MATCHES "Borland")
+  set(LINEARBUILD_START_TEMP_FILE "@&&|\n")
+  set(LINEARBUILD_END_TEMP_FILE "\n|")
+endif()
+
+# for nmake make long command lines are redirected to a file
+# with the following syntax, see Windows-bcc32.linearbuild for use
+if(LINEARBUILD_GENERATOR MATCHES "NMake")
+  set(LINEARBUILD_START_TEMP_FILE "@<<\n")
+  set(LINEARBUILD_END_TEMP_FILE "\n<<")
+endif()
+
+include(Platform/WindowsPaths)
+
+# uncomment these out to debug nmake and borland makefiles
+#set(LINEARBUILD_START_TEMP_FILE "")
+#set(LINEARBUILD_END_TEMP_FILE "")
+#set(LINEARBUILD_VERBOSE_MAKEFILE 1)

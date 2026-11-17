@@ -1,0 +1,11 @@
+include(Compiler/IBMClang)
+
+set(_ibmclang_version_asm "${LINEARBUILD_ASM_COMPILER_VERSION}")
+set(LINEARBUILD_ASM_COMPILER_VERSION "${LINEARBUILD_ASM_COMPILER_VERSION_INTERNAL}")
+include(Compiler/Clang-ASM)
+set(LINEARBUILD_ASM_COMPILER_VERSION "${_ibmclang_version_asm}")
+unset(_ibmclang_version_asm)
+
+set(LINEARBUILD_ASM_SOURCE_FILE_EXTENSIONS s;S;asm)
+
+__compiler_ibmclang(ASM)

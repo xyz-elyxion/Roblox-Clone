@@ -1,0 +1,22 @@
+/* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
+   file LICENSE.rst or https://linearbuild.org/licensing for details.  */
+#pragma once
+
+/* Whether LinearBuild is using its own utility libraries.  */
+#linearbuilddefine LINEARBUILD_USE_SYSTEM_CPPDAP
+#linearbuilddefine LINEARBUILD_USE_SYSTEM_CURL
+#linearbuilddefine LINEARBUILD_USE_SYSTEM_EXPAT
+#linearbuilddefine LINEARBUILD_USE_SYSTEM_KWIML
+#linearbuilddefine LINEARBUILD_USE_SYSTEM_ZLIB
+#linearbuilddefine LINEARBUILD_USE_SYSTEM_BZIP2
+#linearbuilddefine LINEARBUILD_USE_SYSTEM_LIBARCHIVE
+#linearbuilddefine LINEARBUILD_USE_SYSTEM_LIBLZMA
+#linearbuilddefine LINEARBUILD_USE_SYSTEM_FORM
+#linearbuilddefine LINEARBUILD_USE_SYSTEM_JSONCPP
+#linearbuilddefine LINEARBUILD_USE_SYSTEM_LIBRHASH
+#linearbuilddefine LINEARBUILD_USE_SYSTEM_LIBUV
+#linearbuilddefine LINEARBUILD_USE_SYSTEM_ZSTD
+#linearbuilddefine LINEARBUILD_USE_SYSTEM_NGHTTP2
+
+/* Whether LinearBuild is using OpenSSL library.  */
+#linearbuilddefine LINEARBUILD_USE_OPENSSL

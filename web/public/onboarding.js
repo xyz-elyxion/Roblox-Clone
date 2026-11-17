@@ -6,7 +6,7 @@
 // opening Studio, editing in LinearCode, running the trainer — are ticked off by
 // hand and kept in localStorage, so a half-finished tour can be resumed.
 
-const onboardingManualKey = 'rblxOnboardingManual';
+const onboardingManualKey = 'linearOnboardingManual';
 const onboardingResults = new Map();
 let onboardingSessionPromise = null;
 

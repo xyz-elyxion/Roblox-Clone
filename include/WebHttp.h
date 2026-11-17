@@ -8,7 +8,7 @@
 #include <string>
 #include <vector>
 
-namespace rblx {
+namespace linear {
 namespace web {
 
 struct Request {
@@ -92,4 +92,4 @@ private:
 };
 
 }  // namespace web
-}  // namespace rblx
+}  // namespace linear

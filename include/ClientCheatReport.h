@@ -2,7 +2,7 @@
 
 // Getting the client's anti-cheat detections somewhere that survives the client.
 //
-// RBLXAntiCheat is linked into the client on purpose, but its own transport is
+// LinearAntiCheat is linked into the client on purpose, but its own transport is
 // switched off (nothing here speaks its protocol) and a detection is written
 // only to its log file on the player's machine. The client tails that file and
 // files what it finds against the signed-in account, so tampering costs the
@@ -19,7 +19,7 @@
 #include <string>
 #include <vector>
 
-namespace rblx::anticheat {
+namespace linear::anticheat {
 
 // The library logs "[timestamp] [DETECTION] message". Everything else in the
 // file is info, warning or error noise - including the errors its own disabled
@@ -232,4 +232,4 @@ private:
     std::size_t offset_ = 0;
 };
 
-}  // namespace rblx::anticheat
+}  // namespace linear::anticheat

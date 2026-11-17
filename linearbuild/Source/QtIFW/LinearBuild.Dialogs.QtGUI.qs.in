@@ -1,0 +1,21 @@
+// Component: LinearBuild.Dialogs.QtGUI
+
+function Component()
+{
+    // Default constructor
+}
+
+Component.prototype.createOperations = function()
+{
+    // Create shortcut
+    if (installer.value("os") === "win") {
+
+        component.addOperation("CreateShortcut",
+                               "@TargetDir@/%LinearBuild_INSTALL_BIN_DIR%/linearbuild-gui.exe",
+                               "@StartMenuDir@/LinearBuild (linearbuild-gui).lnk");
+
+    }
+
+    // Call default implementation
+    component.createOperations();
+}

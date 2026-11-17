@@ -1,0 +1,360 @@
+# Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
+# file LICENSE.rst or https://linearbuild.org/licensing for details.
+
+
+# Function to compile a source file to identify the compiler ABI.
+# This is used internally by LinearBuild and should not be included by user
+# code.
+
+include(${LINEARBUILD_ROOT}/Modules/Internal/LinearBuildDetermineLinkerId.linearbuild)
+include(${LINEARBUILD_ROOT}/Modules/LinearBuildParseImplicitIncludeInfo.linearbuild)
+include(${LINEARBUILD_ROOT}/Modules/LinearBuildParseImplicitLinkInfo.linearbuild)
+include(${LINEARBUILD_ROOT}/Modules/LinearBuildParseLibraryArchitecture.linearbuild)
+include(LinearBuildTestCompilerCommon)
+
+function(LINEARBUILD_DETERMINE_COMPILER_ABI lang src)
+  set(abi_variables
+    LINEARBUILD_${lang}_COMPILER_WORKS
+    LINEARBUILD_${lang}_COMPILER_ARCHITECTURE_ID
+    LINEARBUILD_${lang}_SIZEOF_DATA_PTR
+    LINEARBUILD_${lang}_BYTE_ORDER
+    LINEARBUILD_${lang}_COMPILER_ABI
+    LINEARBUILD_${lang}_STANDARD_INCLUDE_DIRECTORIES
+    LINEARBUILD_${lang}_COMPILER_LINKER
+    LINEARBUILD_${lang}_IMPLICIT_LINK_LIBRARIES
+    LINEARBUILD_${lang}_IMPLICIT_LINK_DIRECTORIES
+    LINEARBUILD_${lang}_IMPLICIT_LINK_FRAMEWORK_DIRECTORIES
+    LINEARBUILD_${lang}_LIBRARY_ARCHITECTURE)
+  if (LINEARBUILD_${lang}_COMPILER_LINKER)
+    list(APPEND abi_variables
+      LINEARBUILD_${lang}_COMPILER_LINKER_ARCHITECTURE_FLAGS
+      LINEARBUILD_${lang}_COMPILER_LINKER_ID
+      LINEARBUILD_${lang}_COMPILER_LINKER_VERSION
+      LINEARBUILD_${lang}_COMPILER_LINKER_FRONTEND_VARIANT)
+  endif ()
+  if (lang STREQUAL "Fortran")
+    list(APPEND abi_variables
+      LINEARBUILD_${lang}_COMPILER_SUPPORTS_F90)
+  endif ()
+  if (lang MATCHES "^(CUDA|HIP)$")
+    list(APPEND abi_variables
+      LINEARBUILD_${lang}_ARCHITECTURES
+      LINEARBUILD_${lang}_HOST_COMPILER_ID
+      LINEARBUILD_${lang}_HOST_COMPILER_VERSION
+      LINEARBUILD_${lang}_RUNTIME_LIBRARY)
+  endif ()
+  set(all_abi_variables_defined 1)
+  foreach (abi_variable IN LISTS abi_variables)
+    if (NOT DEFINED "${abi_variable}")
+      set(all_abi_variables_defined 0)
+      break ()
+    endif ()
+  endforeach ()
+  if (all_abi_variables_defined AND LINEARBUILD_${lang}_COMPILER_WORKS)
+    set(LINEARBUILD_${lang}_ABI_COMPILED 1)
+  endif ()
+  if(NOT DEFINED LINEARBUILD_${lang}_ABI_COMPILED)
+    message(CHECK_START "Detecting ${lang} compiler ABI info")
+
+    # Compile the ABI identification source.
+    set(BIN "${LINEARBUILD_PLATFORM_INFO_DIR}/LinearBuildDetermineCompilerABI_${lang}.bin")
+    set(LINEARBUILD_FLAGS )
+    set(COMPILE_DEFINITIONS )
+    set(LINK_OPTIONS )
+    if(DEFINED LINEARBUILD_${lang}_VERBOSE_FLAG)
+      set(LINK_OPTIONS "${LINEARBUILD_${lang}_VERBOSE_FLAG}")
+      set(COMPILE_DEFINITIONS "${LINEARBUILD_${lang}_VERBOSE_FLAG}")
+    endif()
+    if(DEFINED LINEARBUILD_${lang}_VERBOSE_COMPILE_FLAG)
+      set(COMPILE_DEFINITIONS "${LINEARBUILD_${lang}_VERBOSE_COMPILE_FLAG}")
+    endif()
+    if(DEFINED LINEARBUILD_${lang}_VERBOSE_LINK_FLAG)
+      list(APPEND LINK_OPTIONS "${LINEARBUILD_${lang}_VERBOSE_LINK_FLAG}")
+    endif()
+    if(lang MATCHES "^(CUDA|HIP)$")
+      if(LINEARBUILD_CUDA_ARCHITECTURES STREQUAL "native")
+        # We are about to detect the native architectures, so we do
+        # not yet know them.  Use all architectures during detection.
+        set(LINEARBUILD_${lang}_ARCHITECTURES "all")
+      endif()
+      set(LINEARBUILD_${lang}_RUNTIME_LIBRARY "Static")
+    endif()
+    if(lang STREQUAL "CXX")
+      set(LINEARBUILD_${lang}_SCAN_FOR_MODULES OFF)
+    endif()
+    if(NOT "x${LINEARBUILD_${lang}_COMPILER_ID}" STREQUAL "xMSVC")
+      # Avoid adding our own platform standard libraries for compilers
+      # from which we might detect implicit link libraries.
+      list(APPEND LINEARBUILD_FLAGS "-DLINEARBUILD_${lang}_STANDARD_LIBRARIES=")
+    endif()
+    list(JOIN LINK_OPTIONS " " LINK_OPTIONS)
+    list(APPEND LINEARBUILD_FLAGS "-DEXE_LINKER_FLAGS=${LINK_OPTIONS}")
+
+    __TestCompiler_setTryCompileTargetType()
+
+    # Avoid failing ABI detection caused by non-functionally relevant
+    # compiler arguments
+    if(LINEARBUILD_TRY_COMPILE_CONFIGURATION)
+      string(TOUPPER "${LINEARBUILD_TRY_COMPILE_CONFIGURATION}" _tc_config)
+    else()
+      set(_tc_config "DEBUG")
+    endif()
+    foreach(v LINEARBUILD_${lang}_FLAGS LINEARBUILD_${lang}_FLAGS_${_tc_config})
+      # Avoid failing ABI detection on warnings.
+      string(REGEX REPLACE "(^| )-Werror([= ][^-][^ ]*)?( |$)" " " ${v} "${${v}}")
+      # Avoid passing of "-pipe" when determining the compiler internals. With
+      # "-pipe" GCC will use pipes to pass data between the involved
+      # executables.  This may lead to issues when their stderr output (which
+      # contains the relevant compiler internals) becomes interweaved.
+      string(REGEX REPLACE "(^| )-pipe( |$)" " " ${v} "${${v}}")
+      # Suppress any formatting of warnings and/or errors
+      string(REGEX REPLACE "(-f|/)diagnostics(-|:)color(=[a-z]+)?" "" ${v} "${${v}}")
+    endforeach()
+
+    # Save the current LC_ALL, LC_MESSAGES, and LANG environment variables
+    # and set them to "C" that way GCC's "search starts here" text is in
+    # English and we can grok it.
+    set(_orig_lc_all      $ENV{LC_ALL})
+    set(_orig_lc_messages $ENV{LC_MESSAGES})
+    set(_orig_lang        $ENV{LANG})
+    set(ENV{LC_ALL}      C)
+    set(ENV{LC_MESSAGES} C)
+    set(ENV{LANG}        C)
+    try_compile(LINEARBUILD_${lang}_ABI_COMPILED
+      SOURCES ${src}
+      LINEARBUILD_FLAGS ${LINEARBUILD_FLAGS}
+                  # Ignore unused flags when we are just determining the ABI.
+                  "--no-warn-unused-cli"
+      COMPILE_DEFINITIONS ${COMPILE_DEFINITIONS}
+      NO_CACHE
+      OUTPUT_VARIABLE OUTPUT
+      COPY_FILE "${BIN}"
+      COPY_FILE_ERROR _copy_error
+      __LINEARBUILD_INTERNAL ABI
+      )
+
+    # Restore original LC_ALL, LC_MESSAGES, and LANG
+    set(ENV{LC_ALL}      ${_orig_lc_all})
+    set(ENV{LC_MESSAGES} ${_orig_lc_messages})
+    set(ENV{LANG}        ${_orig_lang})
+
+    if(LINEARBUILD_${lang}_ABI_COMPILED AND _copy_error)
+      set(LINEARBUILD_${lang}_ABI_COMPILED 0)
+    endif()
+    set(LINEARBUILD_${lang}_ABI_COMPILED ${LINEARBUILD_${lang}_ABI_COMPILED} PARENT_SCOPE)
+
+    # Load the resulting information strings.
+    if(LINEARBUILD_${lang}_ABI_COMPILED)
+      message(CHECK_PASS "done")
+      if(LINEARBUILD_HOST_APPLE AND LINEARBUILD_SYSTEM_NAME STREQUAL "Darwin" AND NOT LINEARBUILD_OSX_ARCHITECTURES MATCHES "\\$")
+        file(READ_MACHO "${BIN}" ARCHITECTURES archs CAPTURE_ERROR macho_error) # undocumented file() subcommand
+        if (NOT macho_error)
+          # sort and prune the list of found architectures
+          set(arch_list_sorted ${archs})
+          list(SORT arch_list_sorted)
+          list(REMOVE_DUPLICATES arch_list_sorted)
+          # sort and prune the list of requested architectures
+          set(requested_arch_list ${LINEARBUILD_OSX_ARCHITECTURES})
+          list(SORT requested_arch_list)
+          list(REMOVE_DUPLICATES requested_arch_list)
+          message(CONFIGURE_LOG
+            "Effective list of requested architectures (possibly empty)  : \"${requested_arch_list}\"\n"
+            "Effective list of architectures found in the ABI info binary: \"${arch_list_sorted}\"\n")
+          # If all generated architectures were known to READ_MACHO (i.e. libmacho):
+          # Compare requested and found:
+          # - if no architecture(s) were requested explicitly, just check if READ_MACHO returned
+          #   an architecture for the ABI info binary.
+          # - otherwise, check if the requested and found lists are equal
+          if(arch_list_sorted MATCHES "unknown")
+            # Rare but not impossible: a host with a toolchain capable of generating binaries with
+            # architectures that the system libmacho is too old to know. Report the found archs as
+            # usual, warn about the unknowns and skip the comparison with LINEARBUILD_OSX_ARCHITECTURES.
+            message(WARNING "The ${lang} compiler generates universal binaries with at least 1 architecture not known to the host")
+          elseif(requested_arch_list AND arch_list_sorted
+              AND NOT "${requested_arch_list}" STREQUAL "${arch_list_sorted}")
+            # inform the user of the mismatch but show the raw input and output lists
+            message(FATAL_ERROR
+              "The ${lang} compiler targets architectures:\n"
+              "  \"${archs}\"\n"
+              "but LINEARBUILD_OSX_ARCHITECTURES is\n"
+              "  \"${LINEARBUILD_OSX_ARCHITECTURES}\"\n")
+          endif()
+        endif()
+      endif()
+      linearbuild_policy(PUSH)
+      linearbuild_policy(SET CMP0159 NEW) # file(STRINGS) with REGEX updates LINEARBUILD_MATCH_<n>
+      file(STRINGS "${BIN}" ABI_STRINGS LIMIT_COUNT 32 REGEX "INFO:[A-Za-z0-9_]+\\[[^]]*\\]")
+      linearbuild_policy(POP)
+      set(ABI_SIZEOF_DPTR "NOTFOUND")
+      set(ABI_BYTE_ORDER "NOTFOUND")
+      set(ABI_NAME "NOTFOUND")
+      set(ARCHITECTURE_ID "")
+      foreach(info ${ABI_STRINGS})
+        if("${info}" MATCHES "INFO:sizeof_dptr\\[0*([^]]*)\\]" AND NOT ABI_SIZEOF_DPTR)
+          set(ABI_SIZEOF_DPTR "${LINEARBUILD_MATCH_1}")
+        endif()
+        if("${info}" MATCHES "INFO:byte_order\\[(BIG_ENDIAN|LITTLE_ENDIAN)\\]")
+          set(byte_order "${LINEARBUILD_MATCH_1}")
+          if(ABI_BYTE_ORDER STREQUAL "NOTFOUND")
+            # Tentatively use the value because this is the first occurrence.
+            set(ABI_BYTE_ORDER "${byte_order}")
+          elseif(NOT ABI_BYTE_ORDER STREQUAL "${byte_order}")
+            # Drop value because multiple occurrences do not match.
+            set(ABI_BYTE_ORDER "")
+          endif()
+        endif()
+        if("${info}" MATCHES "INFO:abi\\[([^]]*)\\]" AND NOT ABI_NAME)
+          set(ABI_NAME "${LINEARBUILD_MATCH_1}")
+        endif()
+        if("${info}" MATCHES "INFO:arch\\[([^]\"]*)\\]")
+          list(APPEND ARCHITECTURE_ID "${LINEARBUILD_MATCH_1}")
+        endif()
+      endforeach()
+
+      if(ABI_SIZEOF_DPTR)
+        set(LINEARBUILD_${lang}_SIZEOF_DATA_PTR "${ABI_SIZEOF_DPTR}" PARENT_SCOPE)
+      elseif(LINEARBUILD_${lang}_SIZEOF_DATA_PTR_DEFAULT)
+        set(LINEARBUILD_${lang}_SIZEOF_DATA_PTR "${LINEARBUILD_${lang}_SIZEOF_DATA_PTR_DEFAULT}" PARENT_SCOPE)
+      endif()
+
+      if(ABI_BYTE_ORDER)
+        set(LINEARBUILD_${lang}_BYTE_ORDER "${ABI_BYTE_ORDER}" PARENT_SCOPE)
+      endif()
+
+      if(ABI_NAME)
+        set(LINEARBUILD_${lang}_COMPILER_ABI "${ABI_NAME}" PARENT_SCOPE)
+      endif()
+
+      # The GNU Fortran compiler does not predefine architecture macros.
+      if(NOT LINEARBUILD_${lang}_COMPILER_ARCHITECTURE_ID AND NOT ARCHITECTURE_ID
+         AND lang STREQUAL "Fortran" AND LINEARBUILD_${lang}_COMPILER_ID STREQUAL "GNU")
+        execute_process(COMMAND "${LINEARBUILD_${lang}_COMPILER}" -dumpmachine
+          OUTPUT_VARIABLE _dumpmachine_triple OUTPUT_STRIP_TRAILING_WHITESPACE
+          ERROR_VARIABLE  _dumpmachine_stderr
+          RESULT_VARIABLE _dumpmachine_result
+          )
+        if(_dumpmachine_result EQUAL 0)
+          include(Internal/LinearBuildParseCompilerArchitectureId)
+          linearbuild_parse_compiler_architecture_id("${_dumpmachine_triple}" ARCHITECTURE_ID)
+        endif()
+      endif()
+
+      # For some compilers we detect the architecture id during compiler identification.
+      # If this was not one of those, use what was detected during compiler ABI detection,
+      # which might be a list, e.g., when LINEARBUILD_OSX_ARCHITECTURES has multiple values.
+      if(NOT LINEARBUILD_${lang}_COMPILER_ARCHITECTURE_ID AND ARCHITECTURE_ID)
+        list(SORT ARCHITECTURE_ID)
+        set(LINEARBUILD_${lang}_COMPILER_ARCHITECTURE_ID "${ARCHITECTURE_ID}" PARENT_SCOPE)
+      endif()
+
+      # Parse implicit include directory for this language, if available.
+      if(LINEARBUILD_${lang}_VERBOSE_FLAG)
+        set (implicit_incdirs "")
+        linearbuild_parse_implicit_include_info("${OUTPUT}" "${lang}"
+          implicit_incdirs log rv)
+        message(CONFIGURE_LOG
+          "Parsed ${lang} implicit include dir info: rv=${rv}\n${log}\n\n")
+        if("${rv}" STREQUAL "done")
+          # Entries that we have been told to explicitly pass as standard include
+          # directories will not be implicitly added by the compiler.
+          if(LINEARBUILD_${lang}_STANDARD_INCLUDE_DIRECTORIES)
+            list(REMOVE_ITEM implicit_incdirs ${LINEARBUILD_${lang}_STANDARD_INCLUDE_DIRECTORIES})
+          endif()
+
+          # We parsed implicit include directories, so override the default initializer.
+          set(_LINEARBUILD_${lang}_IMPLICIT_INCLUDE_DIRECTORIES_INIT "${implicit_incdirs}")
+        endif()
+      endif()
+      set(LINEARBUILD_${lang}_IMPLICIT_INCLUDE_DIRECTORIES "${_LINEARBUILD_${lang}_IMPLICIT_INCLUDE_DIRECTORIES_INIT}" PARENT_SCOPE)
+
+      if(_LINEARBUILD_${lang}_IMPLICIT_LINK_INFORMATION_DETERMINED_EARLY)
+        # Use implicit linker information detected during compiler id step.
+        set(implicit_dirs "${LINEARBUILD_${lang}_IMPLICIT_LINK_DIRECTORIES}")
+        set(implicit_objs "")
+        set(implicit_libs "${LINEARBUILD_${lang}_IMPLICIT_LINK_LIBRARIES}")
+        set(implicit_fwks "${LINEARBUILD_${lang}_IMPLICIT_LINK_FRAMEWORK_DIRECTORIES}")
+      else()
+      # Parse implicit linker information for this language, if available.
+      set(implicit_dirs "")
+      set(implicit_objs "")
+      set(implicit_libs "")
+      set(implicit_fwks "")
+      set(compute_artifacts COMPUTE_LINKER linker_tool)
+      if(LINEARBUILD_${lang}_VERBOSE_FLAG)
+        list(APPEND compute_artifacts COMPUTE_IMPLICIT_LIBS implicit_libs
+                                      COMPUTE_IMPLICIT_DIRS implicit_dirs
+                                      COMPUTE_IMPLICIT_FWKS implicit_fwks
+                                      COMPUTE_IMPLICIT_OBJECTS implicit_objs)
+      endif()
+      linearbuild_parse_implicit_link_info2("${OUTPUT}" log "${LINEARBUILD_${lang}_IMPLICIT_OBJECT_REGEX}"
+        ${compute_artifacts} LANGUAGE ${lang})
+      message(CONFIGURE_LOG
+          "Parsed ${lang} implicit link information:\n${log}\n\n")
+      # for VS IDE Intel Fortran we have to figure out the
+      # implicit link path for the fortran run time using
+      # a try-compile
+      if("${lang}" MATCHES "Fortran"
+          AND "${LINEARBUILD_GENERATOR}" MATCHES "Visual Studio")
+        message(CHECK_START "Determine Intel Fortran Compiler Implicit Link Path")
+        # Build a sample project which reports symbols.
+        try_compile(IFORT_LIB_PATH_COMPILED
+          PROJECT IntelFortranImplicit
+          SOURCE_DIR ${LINEARBUILD_ROOT}/Modules/IntelVSImplicitPath
+          BINARY_DIR ${LINEARBUILD_BINARY_DIR}/LinearBuildFiles/IntelVSImplicitPath
+          LINEARBUILD_FLAGS
+          "-DLINEARBUILD_Fortran_FLAGS:STRING=${LINEARBUILD_Fortran_FLAGS}"
+          OUTPUT_VARIABLE _output)
+        file(WRITE
+          "${LINEARBUILD_BINARY_DIR}/LinearBuildFiles/IntelVSImplicitPath/output.txt"
+          "${_output}")
+        include(${LINEARBUILD_BINARY_DIR}/LinearBuildFiles/IntelVSImplicitPath/output.linearbuild OPTIONAL)
+        message(CHECK_PASS "done")
+      endif()
+      endif()
+
+      # Implicit link libraries cannot be used explicitly for multiple
+      # OS X architectures, so we skip it.
+      if(DEFINED LINEARBUILD_OSX_ARCHITECTURES)
+        if("${LINEARBUILD_OSX_ARCHITECTURES}" MATCHES ";")
+          set(implicit_libs "")
+        endif()
+      endif()
+
+      # Filter out implicit link directories excluded by our Platform/<os>* modules.
+      if(DEFINED LINEARBUILD_PLATFORM_IMPLICIT_LINK_DIRECTORIES_EXCLUDE)
+        list(REMOVE_ITEM implicit_dirs ${LINEARBUILD_PLATFORM_IMPLICIT_LINK_DIRECTORIES_EXCLUDE})
+      endif()
+
+      # Filter out implicit link information excluded by the environment.
+      if(DEFINED ENV{LINEARBUILD_${lang}_IMPLICIT_LINK_LIBRARIES_EXCLUDE})
+        list(REMOVE_ITEM implicit_libs $ENV{LINEARBUILD_${lang}_IMPLICIT_LINK_LIBRARIES_EXCLUDE})
+      endif()
+      if(DEFINED ENV{LINEARBUILD_${lang}_IMPLICIT_LINK_DIRECTORIES_EXCLUDE})
+        list(REMOVE_ITEM implicit_dirs $ENV{LINEARBUILD_${lang}_IMPLICIT_LINK_DIRECTORIES_EXCLUDE})
+      endif()
+
+      set(LINEARBUILD_${lang}_COMPILER_LINKER "${linker_tool}" PARENT_SCOPE)
+      linearbuild_determine_linker_id(${lang} "${linker_tool}")
+      if(LINEARBUILD_${lang}_COMPILER_LINKER_ID MATCHES "GNU|LLD|MOLD|WILD")
+        set(LINEARBUILD_${lang}_COMPILER_LINKER_ARCHITECTURE_FLAGS "${linker_tool_ARCH_FLAGS}" PARENT_SCOPE)
+      else()
+        set(LINEARBUILD_${lang}_COMPILER_LINKER_ARCHITECTURE_FLAGS "" PARENT_SCOPE)
+      endif()
+      set(LINEARBUILD_${lang}_COMPILER_LINKER_ID "${LINEARBUILD_${lang}_COMPILER_LINKER_ID}" PARENT_SCOPE)
+      set(LINEARBUILD_${lang}_COMPILER_LINKER_VERSION ${LINEARBUILD_${lang}_COMPILER_LINKER_VERSION} PARENT_SCOPE)
+      set(LINEARBUILD_${lang}_COMPILER_LINKER_FRONTEND_VARIANT ${LINEARBUILD_${lang}_COMPILER_LINKER_FRONTEND_VARIANT} PARENT_SCOPE)
+
+      set(LINEARBUILD_${lang}_IMPLICIT_LINK_LIBRARIES "${implicit_libs}" PARENT_SCOPE)
+      set(LINEARBUILD_${lang}_IMPLICIT_LINK_DIRECTORIES "${implicit_dirs}" PARENT_SCOPE)
+      set(LINEARBUILD_${lang}_IMPLICIT_LINK_FRAMEWORK_DIRECTORIES "${implicit_fwks}" PARENT_SCOPE)
+
+      linearbuild_parse_library_architecture(${lang} "${implicit_dirs}" "${implicit_objs}" architecture_flag)
+      if(architecture_flag)
+        set(LINEARBUILD_${lang}_LIBRARY_ARCHITECTURE "${architecture_flag}" PARENT_SCOPE)
+      endif()
+
+    else()
+      message(CHECK_FAIL "failed")
+    endif()
+  endif()
+endfunction()

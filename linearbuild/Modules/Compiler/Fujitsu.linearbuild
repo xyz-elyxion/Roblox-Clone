@@ -1,0 +1,46 @@
+# Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
+# file LICENSE.rst or https://linearbuild.org/licensing for details.
+
+# This module is shared by multiple languages; use include blocker.
+if(__COMPILER_FUJITSU)
+  return()
+endif()
+set(__COMPILER_FUJITSU 1)
+
+include(Compiler/LinearBuildCommonCompilerMacros)
+
+macro(__compiler_fujitsu lang)
+  set(LINEARBUILD_${lang}_VERBOSE_FLAG "-###")
+  set(LINEARBUILD_${lang}_COMPILE_OPTIONS_WARNING_AS_ERROR "-cwno")
+
+  # Initial configuration flags
+  string(APPEND LINEARBUILD_${lang}_FLAGS_INIT " ")
+  string(APPEND LINEARBUILD_${lang}_FLAGS_DEBUG_INIT " -g -O0")
+  string(APPEND LINEARBUILD_${lang}_FLAGS_RELEASE_INIT " -O3 -DNDEBUG")
+  string(APPEND LINEARBUILD_${lang}_FLAGS_RELWITHDEBINFO_INIT " -O2 -g -DNDEBUG")
+
+  # PIC flags
+  set(LINEARBUILD_${lang}_COMPILE_OPTIONS_PIC "-fPIC")
+  set(LINEARBUILD_${lang}_COMPILE_OPTIONS_PIE "-fPIE")
+
+  # Passing link options to the compiler
+  set(LINEARBUILD_${lang}_LINKER_WRAPPER_FLAG "-Wl,")
+  set(LINEARBUILD_${lang}_LINKER_WRAPPER_FLAG_SEP ",")
+
+  set(LINEARBUILD_${lang}_LINK_MODE DRIVER)
+
+  # IPO flag
+  set(_LINEARBUILD_${lang}_IPO_SUPPORTED_BY_LINEARBUILD YES)
+  if ("${lang}" STREQUAL "Fortran")
+    # Supported by Fortran compiler only
+    set(_LINEARBUILD_${lang}_IPO_MAY_BE_SUPPORTED_BY_COMPILER YES)
+    set(LINEARBUILD_${lang}_COMPILE_OPTIONS_IPO "-Klto")
+  else()
+    set(_LINEARBUILD_${lang}_IPO_MAY_BE_SUPPORTED_BY_COMPILER NO)
+  endif()
+
+  # How to actually call the compiler
+  set(LINEARBUILD_${lang}_CREATE_PREPROCESSED_SOURCE
+  "<LINEARBUILD_${lang}_COMPILER> <DEFINES> <INCLUDES> <FLAGS> -E $<$<COMPILE_LANGUAGE:Fortran>:-Cpp> <SOURCE> > <PREPROCESSED_SOURCE>")
+  set(LINEARBUILD_${lang}_CREATE_ASSEMBLY_SOURCE "<LINEARBUILD_${lang}_COMPILER> <DEFINES> <INCLUDES> <FLAGS> -S <SOURCE> -o <ASSEMBLY_SOURCE>")
+endmacro()

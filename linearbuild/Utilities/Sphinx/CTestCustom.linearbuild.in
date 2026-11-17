@@ -1,0 +1,5 @@
+list(APPEND CTEST_CUSTOM_WARNING_EXCEPTION
+  "linearbuild.texi:[0-9]+: warning: .definfoenclose is obsolete"
+  "linearbuild.texi:[0-9]+: warning: @itemize has text but no @item"
+  "linearbuild.texi:[0-9]+: warning: @ref should not appear on @item line"
+  )

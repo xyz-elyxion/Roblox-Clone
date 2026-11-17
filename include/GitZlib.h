@@ -4,7 +4,7 @@
 #include <cstdint>
 #include <string>
 
-namespace rblx {
+namespace linear {
 namespace git {
 
 // Loose objects are zlib streams, so a repository cannot be read - or written in
@@ -25,4 +25,4 @@ bool deflateZlibStored(const std::string& input, std::string* output, std::strin
 std::uint32_t adler32(const void* data, std::size_t size);
 
 }  // namespace git
-}  // namespace rblx
+}  // namespace linear

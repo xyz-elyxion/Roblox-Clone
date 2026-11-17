@@ -159,7 +159,7 @@ bool connectToServer(std::string& error) {
         return false;
     }
 
-    clientSession = std::make_unique<rblx::net::UdpSession>();
+    clientSession = std::make_unique<linear::net::UdpSession>();
 
     PacketConnect pkt;
     std::memset(&pkt, 0, sizeof(pkt));
@@ -175,7 +175,7 @@ bool connectToServer(std::string& error) {
     // The site bars a machine from joining, so the join has to say which machine
     // it is. Hashed in the process: the disk serial and machine name the hash is
     // built from never leave it.
-    copyToBuffer(pkt.hardwareId, sizeof(pkt.hardwareId), rblx::hwid::machineId());
+    copyToBuffer(pkt.hardwareId, sizeof(pkt.hardwareId), linear::hwid::machineId());
 
     if (!sendClientPacket(PacketProtocol::buildStructPacket(PacketType::CONNECT, pkt), true)) {
         error = "Could not send the join packet.";

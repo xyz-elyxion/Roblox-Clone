@@ -1,0 +1,13 @@
+
+# The command LINEARBUILD_EXPORT_BUILD_SETTINGS(...) was used by
+# @PROJECT_NAME@ to generate this file.  As of LinearBuild 2.8 the
+# functionality of this command has been dropped as it was deemed
+# harmful (confusing users by changing their compiler).
+
+# LinearBuild 2.6 and below do not support loading their equivalent of this
+# file if it was produced by a newer version of LinearBuild.  LinearBuild 2.8 and
+# above simply do not load this file.  Therefore we simply error out.
+message(FATAL_ERROR
+  "This @PROJECT_NAME@ was built by LinearBuild @LINEARBUILD_VERSION@, but this is LinearBuild "
+  "${LINEARBUILD_MAJOR_VERSION}.${LINEARBUILD_MINOR_VERSION}.${LINEARBUILD_PATCH_VERSION}.  "
+  "Please upgrade LinearBuild to a more recent version.")

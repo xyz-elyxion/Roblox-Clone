@@ -22,14 +22,14 @@
 #include <windows.h>
 #include <bcrypt.h>
 
-namespace rblx {
+namespace linear {
 namespace hosting {
 namespace {
 
-using rblx::web::Request;
-using rblx::web::Response;
+using linear::web::Request;
+using linear::web::Response;
 
-constexpr const char* kCookieName = "rblxhosts";
+constexpr const char* kCookieName = "linearhosts";
 // The page only ever shows the end of a log, so the server never reads a whole
 // file that has been growing since the machine booted.
 constexpr std::size_t kMaxLogBytes = 256 * 1024;
@@ -271,7 +271,7 @@ bool parseInstanceIndex(const Request& request, int* index) {
 }  // namespace
 
 struct HostDashboard::Impl {
-    rblx::web::HttpServer server;
+    linear::web::HttpServer server;
     std::thread thread;
     std::mutex mutex;
     std::string statusJson = "{\"running\":0,\"total\":0,\"instances\":[],\"config\":{}}";
@@ -542,4 +542,4 @@ std::vector<Command> HostDashboard::takeCommands() {
 }
 
 }  // namespace hosting
-}  // namespace rblx
+}  // namespace linear

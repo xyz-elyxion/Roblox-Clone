@@ -1,0 +1,117 @@
+/********************************************************************************
+* LinearPhysics physics library, http://www.linearphysics.com                 *
+* Copyright (c) 2010-2016 Daniel Chappuis                                       *
+*********************************************************************************
+*                                                                               *
+* This software is provided 'as-is', without any express or implied warranty.   *
+* In no event will the authors be held liable for any damages arising from the  *
+* use of this software.                                                         *
+*                                                                               *
+* Permission is granted to anyone to use this software for any purpose,         *
+* including commercial applications, and to alter it and redistribute it        *
+* freely, subject to the following restrictions:                                *
+*                                                                               *
+* 1. The origin of this software must not be misrepresented; you must not claim *
+*    that you wrote the original software. If you use this software in a        *
+*    product, an acknowledgment in the product documentation would be           *
+*    appreciated but is not required.                                           *
+*                                                                               *
+* 2. Altered source versions must be plainly marked as such, and must not be    *
+*    misrepresented as being the original software.                             *
+*                                                                               *
+* 3. This notice may not be removed or altered from any source distribution.    *
+*                                                                               *
+********************************************************************************/
+
+#ifndef CONVEX_MESH_H
+#define CONVEX_MESH_H
+
+// Libraries
+#include "openglframework.h"
+#include <linearphysics/linearphysics.h>
+#include "PhysicsObject.h"
+
+// Class ConvexMesh
+class ConvexMesh : public PhysicsObject {
+
+    private :
+
+        // -------------------- Attributes -------------------- //
+
+        linearphysics::PolygonVertexArray::PolygonFace* mPolygonFaces;
+
+        linearphysics::PolygonVertexArray* mPolygonVertexArray;
+
+        linearphysics::PolyhedronMesh* mPolyhedronMesh;
+
+        /// Collision shape
+        linearphysics::ConvexMeshShape* mConvexShape;
+        linearphysics::Collider* mCollider;
+
+        linearphysics::PhysicsWorld* mPhysicsWorld;
+
+        /// Scaling matrix
+        openglframework::Matrix4 mScalingMatrix;
+
+        /// Vertex Buffer Object for the vertices data
+        openglframework::VertexBufferObject mVBOVertices;
+
+        /// Vertex Buffer Object for the normals data
+        openglframework::VertexBufferObject mVBONormals;
+
+        /// Vertex Buffer Object for the texture coords
+        openglframework::VertexBufferObject mVBOTextureCoords;
+
+        /// Vertex Buffer Object for the indices
+        openglframework::VertexBufferObject mVBOIndices;
+
+        /// Vertex Array Object for the vertex data
+        openglframework::VertexArrayObject mVAO;
+
+		/// Array with the vertices of the convex mesh
+		/// (only the vertices used for the physics shape, not duplicate vertices used for rendering)
+		std::vector<openglframework::Vector3> mConvexMeshVertices;
+
+		/// Array with the vertex indices of the convex mesh (used for the physics shape)
+		std::vector<int> mConvexMeshIndices;
+
+        // -------------------- Methods -------------------- //
+
+        /// Create the Vertex Buffer Objects used to render with OpenGL.
+        void createVBOAndVAO();
+
+		/// Return the index of a given vertex in the mesh
+		int findVertexIndex(const std::vector<openglframework::Vector3>& vertices, const openglframework::Vector3& vertex);
+
+    public :
+
+        // -------------------- Methods -------------------- //
+
+        /// Constructor
+        ConvexMesh(bool createRigidBody, linearphysics::PhysicsCommon& physicsCommon, linearphysics::PhysicsWorld* physicsWorld,
+                   const std::string& meshPath, const linearphysics::Vector3& scaling = linearphysics::Vector3(1, 1, 1));
+
+        /// Destructor
+        virtual ~ConvexMesh() override;
+
+        /// Render the mesh at the correct position and with the correct orientation
+        virtual void render(openglframework::Shader& shader, const openglframework::Matrix4& worldToCameraMatrix) override;
+
+        /// Update the transform matrix of the object
+        virtual void updateTransform(float interpolationFactor) override;
+
+        /// Return the collider
+        linearphysics::Collider* getCollider();
+};
+
+// Update the transform matrix of the object
+inline void ConvexMesh::updateTransform(float interpolationFactor) {
+    mTransformMatrix = computeTransform(interpolationFactor, mScalingMatrix);
+}
+
+// Return the collider
+inline linearphysics::Collider* ConvexMesh::getCollider() {
+    return mCollider;
+}
+
+#endif

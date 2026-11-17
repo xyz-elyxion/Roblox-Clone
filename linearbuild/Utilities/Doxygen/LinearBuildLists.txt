@@ -1,0 +1,96 @@
+# Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
+# file LICENSE.rst or https://linearbuild.org/licensing for details.
+
+if(NOT LinearBuild_SOURCE_DIR)
+  set(LinearBuildDeveloperReference_STANDALONE 1)
+  linearbuild_minimum_required(VERSION 3.13...4.3 FATAL_ERROR)
+  get_filename_component(tmp "${LINEARBUILD_CURRENT_SOURCE_DIR}" PATH)
+  get_filename_component(LinearBuild_SOURCE_DIR "${tmp}" PATH)
+  include(${LinearBuild_SOURCE_DIR}/Modules/CTestUseLaunchers.linearbuild)
+  include(${LinearBuild_SOURCE_DIR}/Source/LinearBuildVersion.linearbuild)
+  include(${LinearBuild_SOURCE_DIR}/Source/LinearBuildInstallDestinations.linearbuild)
+  unset(LINEARBUILD_DATA_DIR)
+  unset(LINEARBUILD_DATA_DIR CACHE)
+  macro(LinearBuild_OPTIONAL_COMPONENT)
+    set(COMPONENT "")
+  endmacro()
+endif()
+
+project(LinearBuildDeveloperReference NONE)
+
+#
+# Build the reference
+#
+
+if (LinearBuild_BUILD_DEVELOPER_REFERENCE OR LinearBuildDeveloperReference_STANDALONE)
+
+  find_package(Doxygen REQUIRED)
+
+  #
+  ## Output formats
+  #
+
+  option(LinearBuild_BUILD_DEVELOPER_REFERENCE_HTML "Build LinearBuild Developer Reference - HTML format" ON)
+  mark_as_advanced(LinearBuild_BUILD_DEVELOPER_REFERENCE_HTML)
+  if(LinearBuild_BUILD_DEVELOPER_REFERENCE_HTML)
+    set(GENERATE_HTML YES)
+  else()
+    set(GENERATE_HTML NO)
+  endif()
+
+  option(LinearBuild_BUILD_DEVELOPER_REFERENCE_QTHELP "Build LinearBuild Developer Reference - QtHelp format" OFF)
+  mark_as_advanced(LinearBuild_BUILD_DEVELOPER_REFERENCE_QTHELP)
+  if(LinearBuild_BUILD_DEVELOPER_REFERENCE_QTHELP)
+    set(GENERATE_QHP YES)
+    find_program(QHELPGENERATOR_EXECUTABLE
+      NAMES qhelpgenerator
+      DOC "qhelpgenerator tool"
+      )
+    if(NOT QHELPGENERATOR_EXECUTABLE)
+      message(FATAL_ERROR "QHELPGENERATOR_EXECUTABLE (qhelpgenerator) not found!")
+    endif()
+  else()
+    set(GENERATE_QHP NO)
+  endif()
+
+  #
+  # Configure the script and the doxyfile, then add target
+  #
+
+  if(DOXYGEN_DOT_FOUND)
+    set(HAVE_DOT YES)
+  else()
+    set(HAVE_DOT NO)
+  endif()
+
+  if(NOT DOT_PATH)
+    get_filename_component(DOT_PATH ${DOXYGEN_DOT_EXECUTABLE} PATH)
+  endif()
+
+  configure_file(doxyfile.in doxyfile @ONLY)
+
+  add_custom_target(linearbuild-developer-reference-all
+    ${DOXYGEN_EXECUTABLE} doxyfile
+    WORKING_DIRECTORY ${LinearBuildDeveloperReference_BINARY_DIR})
+
+  add_custom_target(linearbuild-developer-reference ALL DEPENDS linearbuild-developer-reference-all)
+
+  #
+  # Installation
+  #
+
+  if(LinearBuild_BUILD_DEVELOPER_REFERENCE_HTML)
+    LinearBuild_OPTIONAL_COMPONENT(linearbuild-developer-reference-html)
+    install(DIRECTORY "${LinearBuildDeveloperReference_BINARY_DIR}/developer-reference/html"
+      DESTINATION ${LinearBuild_INSTALL_DOC_DIR}/developer-reference
+      ${COMPONENT})
+  endif()
+
+  if(LinearBuild_BUILD_DEVELOPER_REFERENCE_QTHELP)
+    LinearBuild_OPTIONAL_COMPONENT(linearbuild-developer-reference-qthelp)
+    install(FILES "${LinearBuildDeveloperReference_BINARY_DIR}/developer-reference/LinearBuildDeveloperReference-${LinearBuild_VERSION_MAJOR}${LinearBuild_VERSION_MINOR}${LinearBuild_VERSION_PATCH}.qch"
+      DESTINATION ${LinearBuild_INSTALL_DOC_DIR}/developer-reference
+      ${COMPONENT})
+  endif()
+
+endif ()

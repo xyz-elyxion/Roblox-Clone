@@ -14,8 +14,8 @@
 #include <string>
 #include <vector>
 
-namespace code = rblx::code;
-namespace git = rblx::git;
+namespace code = linear::code;
+namespace git = linear::git;
 namespace fs = std::filesystem;
 
 namespace {
@@ -37,7 +37,7 @@ void writeFile(const fs::path& path, const std::string& text) {
 }  // namespace
 
 int main() {
-    const fs::path root = fs::temp_directory_path() / "rblx-code-git-tests";
+    const fs::path root = fs::temp_directory_path() / "linear-code-git-tests";
     std::error_code error;
     fs::remove_all(root, error);
     fs::create_directories(root, error);

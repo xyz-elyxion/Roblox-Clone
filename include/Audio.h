@@ -10,7 +10,7 @@
 // clips are synthesised (see SoundBank.h), which keeps the package a folder of
 // executables rather than an asset bundle, and keeps a sound from ever shipping
 // out of step with the code that names it.
-namespace rblx {
+namespace linear {
 namespace audio {
 
 // Every clip is mono 16-bit at this rate. One fixed format means mixing is a
@@ -57,4 +57,4 @@ void setMasterVolume(float volume);
 float masterVolume();
 
 }  // namespace audio
-}  // namespace rblx
+}  // namespace linear

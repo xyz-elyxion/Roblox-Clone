@@ -3,7 +3,7 @@
 #include <string>
 #include <vector>
 
-namespace rblx {
+namespace linear {
 namespace items {
 
 // A wearable hat. Sizes and offsets are in studs relative to the 1.2-stud head
@@ -46,4 +46,4 @@ inline const AvatarItem* findAvatarItem(const std::string& id) {
 }
 
 }  // namespace items
-}  // namespace rblx
+}  // namespace linear

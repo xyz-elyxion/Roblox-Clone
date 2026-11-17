@@ -1,0 +1,23 @@
+# To include compiler feature detection
+include(Compiler/GNU-CXX)
+
+include(Compiler/QCC)
+__compiler_qcc(CXX)
+
+# If the toolchain uses qcc for LINEARBUILD_CXX_COMPILER instead of QCC, the
+# default for the driver is not c++.
+if (LINEARBUILD_CXX_COMPILER_VERSION VERSION_LESS "12.2.0") # QNX 8.0 toolchain
+  set(_linearbuild_qcc_cxx_lang_compile_flag "-lang-c++")
+  set(_linearbuild_qcc_cxx_lang_link_flag "-lang-c++")
+else ()
+  set(_linearbuild_qcc_cxx_lang_compile_flag "-x c++")
+  set(_linearbuild_qcc_cxx_lang_link_flag "")
+endif ()
+set(LINEARBUILD_CXX_COMPILE_OBJECT
+  "<LINEARBUILD_CXX_COMPILER> ${_linearbuild_qcc_cxx_lang_compile_flag} <DEFINES> <INCLUDES> <FLAGS> -o <OBJECT> -c <SOURCE>")
+set(LINEARBUILD_CXX_LINK_EXECUTABLE
+  "<LINEARBUILD_CXX_COMPILER> ${_linearbuild_qcc_cxx_lang_link_flag} <FLAGS> <LINK_FLAGS> <OBJECTS> -o <TARGET> <LINK_LIBRARIES>")
+unset(_linearbuild_qcc_cxx_lang_compile_flag)
+unset(_linearbuild_qcc_cxx_lang_link_flag)
+
+set(LINEARBUILD_CXX_COMPILE_OPTIONS_VISIBILITY_INLINES_HIDDEN "-fvisibility-inlines-hidden")

@@ -12,7 +12,7 @@
 #include <fstream>
 #include <string>
 
-namespace server = rblx::server;
+namespace server = linear::server;
 namespace fs = std::filesystem;
 
 namespace {
@@ -53,7 +53,7 @@ std::string readFile(const fs::path& path) {
 }  // namespace
 
 int main() {
-    const fs::path root = fs::temp_directory_path() / "rblx-server-config-tests";
+    const fs::path root = fs::temp_directory_path() / "linear-server-config-tests";
     std::error_code code;
     fs::remove_all(root, code);
     fs::create_directories(root, code);

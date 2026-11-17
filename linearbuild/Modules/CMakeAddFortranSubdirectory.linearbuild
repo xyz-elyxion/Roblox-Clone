@@ -1,0 +1,12 @@
+# Requirements: none
+#
+# Compatibility module: forwards to the renamed implementation and re-exposes
+# its function. Unlike the macros this module has no cmake_ prefix upstream, so
+# the old spelling is add_fortran_subdirectory.
+include(LinearBuildAddFortranSubdirectory)
+
+if(COMMAND linearbuild_add_fortran_subdirectory AND NOT COMMAND add_fortran_subdirectory)
+  function(add_fortran_subdirectory)
+    linearbuild_add_fortran_subdirectory(${ARGV})
+  endfunction()
+endif()

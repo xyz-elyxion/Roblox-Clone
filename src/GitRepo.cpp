@@ -13,7 +13,7 @@
 
 namespace fs = std::filesystem;
 
-namespace rblx {
+namespace linear {
 namespace git {
 namespace {
 
@@ -835,4 +835,4 @@ bool Repo::status(std::vector<StatusEntry>* entries, std::string* error) {
 }
 
 }  // namespace git
-}  // namespace rblx
+}  // namespace linear

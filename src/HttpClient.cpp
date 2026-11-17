@@ -18,7 +18,7 @@
     #define LINEAR_CLOSE_SOCKET(s) closesocket(s)
     #define LINEAR_LAST_ERROR() WSAGetLastError()
 
-namespace rblx {
+namespace linear {
 namespace http {
 namespace {
 
@@ -333,4 +333,4 @@ Response request(const std::string& method,
 }
 
 }  // namespace http
-}  // namespace rblx
+}  // namespace linear

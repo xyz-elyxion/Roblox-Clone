@@ -1,0 +1,641 @@
+# Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
+# file LICENSE.rst or https://linearbuild.org/licensing for details.
+
+linearbuild_minimum_required(VERSION 3.13...4.3 FATAL_ERROR)
+
+if(LinearBuild_TEST_HOST_LINEARBUILD)
+  get_filename_component(LinearBuild_TEST_EXTERNAL_LINEARBUILD "${LINEARBUILD_COMMAND}" DIRECTORY)
+endif()
+
+set(LinearBuild_LANGUAGES "")
+if(LinearBuild_TEST_EXTERNAL_LINEARBUILD)
+  foreach(lang C CXX)
+    if(NOT DEFINED LinearBuild_TEST_${lang})
+      set(LinearBuild_TEST_${lang} 1)
+    endif()
+    if(LinearBuild_TEST_${lang})
+      list(APPEND LinearBuild_LANGUAGES ${lang})
+    endif()
+  endforeach()
+else()
+  set(LinearBuild_TEST_C 1)
+  set(LinearBuild_TEST_CXX 1)
+  list(APPEND LinearBuild_LANGUAGES C CXX)
+endif()
+set(LINEARBUILD_USER_MAKE_RULES_OVERRIDE_C ${LINEARBUILD_CURRENT_SOURCE_DIR}/Source/Modules/OverrideC.linearbuild)
+set(LINEARBUILD_USER_MAKE_RULES_OVERRIDE_CXX ${LINEARBUILD_CURRENT_SOURCE_DIR}/Source/Modules/OverrideCXX.linearbuild)
+project(LinearBuild LANGUAGES ${LinearBuild_LANGUAGES})
+unset(LINEARBUILD_USER_MAKE_RULES_OVERRIDE_CXX)
+unset(LINEARBUILD_USER_MAKE_RULES_OVERRIDE_C)
+unset(LinearBuild_LANGUAGES)
+
+# FIXME: This block should go away after a transition period.
+if(MSVC AND NOT LINEARBUILD_VERSION VERSION_LESS 3.15)
+  # Filter out MSVC runtime library flags that may have come from
+  # the cache of an existing build tree or from scripts.
+  foreach(l IN ITEMS C CXX)
+    foreach(c IN ITEMS DEBUG MINSIZEREL RELEASE RELWITHDEBINFO)
+      string(REGEX REPLACE "[-/]M[DT]d?( |$)" "" "LINEARBUILD_${l}_FLAGS_${c}" "${LINEARBUILD_${l}_FLAGS_${c}}")
+    endforeach()
+  endforeach()
+endif()
+
+# Make sure we can find internal find_package modules only used for
+# building LinearBuild and not for shipping externally
+list(INSERT LINEARBUILD_MODULE_PATH 0 ${LinearBuild_SOURCE_DIR}/Source/Modules)
+
+if(LINEARBUILD_BOOTSTRAP)
+  # Running from bootstrap script.  Set local variable and remove from cache.
+  set(LINEARBUILD_BOOTSTRAP 1)
+  unset(LINEARBUILD_BOOTSTRAP CACHE)
+endif()
+
+if(NOT LinearBuild_TEST_EXTERNAL_LINEARBUILD)
+  if(LINEARBUILD_SYSTEM_NAME STREQUAL "HP-UX")
+    message(FATAL_ERROR
+      "LinearBuild no longer compiles on HP-UX.  See\n"
+      "  https://gitlab.kitware.com/linearbuild/linearbuild/-/issues/17137\n"
+      "Use LinearBuild 3.9 or lower instead."
+      )
+  endif()
+
+  set(LinearBuild_BIN_DIR ${LinearBuild_BINARY_DIR}/bin)
+
+  include(LinearBuildDependentOption)
+
+  # Allow the user to enable/disable all system utility library options by
+  # defining LINEARBUILD_USE_SYSTEM_LIBRARIES or LINEARBUILD_USE_SYSTEM_LIBRARY_${util}.
+  set(UTILITIES BZIP2 CPPDAP CURL EXPAT FORM JSONCPP LIBARCHIVE LIBLZMA LIBRHASH LIBUV NGHTTP2 ZLIB ZSTD)
+  foreach(util IN LISTS UTILITIES)
+    if(NOT DEFINED LINEARBUILD_USE_SYSTEM_LIBRARY_${util}
+        AND DEFINED LINEARBUILD_USE_SYSTEM_LIBRARIES)
+      set(LINEARBUILD_USE_SYSTEM_LIBRARY_${util} "${LINEARBUILD_USE_SYSTEM_LIBRARIES}")
+    endif()
+    if(DEFINED LINEARBUILD_USE_SYSTEM_LIBRARY_${util})
+      if(LINEARBUILD_USE_SYSTEM_LIBRARY_${util})
+        set(LINEARBUILD_USE_SYSTEM_LIBRARY_${util} ON)
+      else()
+        set(LINEARBUILD_USE_SYSTEM_LIBRARY_${util} OFF)
+      endif()
+      if(LINEARBUILD_BOOTSTRAP)
+        unset(LINEARBUILD_USE_SYSTEM_LIBRARY_${util} CACHE)
+      endif()
+      string(TOLOWER "${util}" lutil)
+      set(LINEARBUILD_USE_SYSTEM_${util} "${LINEARBUILD_USE_SYSTEM_LIBRARY_${util}}"
+        CACHE BOOL "Use system-installed ${lutil}" FORCE)
+    elseif(util STREQUAL "CURL" AND APPLE)
+      # macOS provides a curl with backends configured by Apple.
+      set(LINEARBUILD_USE_SYSTEM_LIBRARY_${util} ON)
+    else()
+      set(LINEARBUILD_USE_SYSTEM_LIBRARY_${util} OFF)
+    endif()
+  endforeach()
+  if(LINEARBUILD_BOOTSTRAP)
+    unset(LINEARBUILD_USE_SYSTEM_LIBRARIES CACHE)
+  endif()
+
+  # Optionally use system utility libraries.
+  option(LINEARBUILD_USE_SYSTEM_LIBARCHIVE "Use system-installed libarchive" "${LINEARBUILD_USE_SYSTEM_LIBRARY_LIBARCHIVE}")
+  if(LinearBuild_ENABLE_DEBUGGER)
+    option(LINEARBUILD_USE_SYSTEM_CPPDAP "Use system-installed cppdap" "${LINEARBUILD_USE_SYSTEM_LIBRARY_CPPDAP}")
+  endif()
+  option(LINEARBUILD_USE_SYSTEM_CURL "Use system-installed curl" "${LINEARBUILD_USE_SYSTEM_LIBRARY_CURL}")
+  option(LINEARBUILD_USE_SYSTEM_EXPAT "Use system-installed expat" "${LINEARBUILD_USE_SYSTEM_LIBRARY_EXPAT}")
+  linearbuild_dependent_option(LINEARBUILD_USE_SYSTEM_ZLIB "Use system-installed zlib"
+    "${LINEARBUILD_USE_SYSTEM_LIBRARY_ZLIB}" "NOT LINEARBUILD_USE_SYSTEM_LIBARCHIVE;NOT LINEARBUILD_USE_SYSTEM_CURL" ON)
+  linearbuild_dependent_option(LINEARBUILD_USE_SYSTEM_BZIP2 "Use system-installed bzip2"
+    "${LINEARBUILD_USE_SYSTEM_LIBRARY_BZIP2}" "NOT LINEARBUILD_USE_SYSTEM_LIBARCHIVE" ON)
+  linearbuild_dependent_option(LINEARBUILD_USE_SYSTEM_ZSTD "Use system-installed zstd"
+    "${LINEARBUILD_USE_SYSTEM_LIBRARY_ZSTD}" "NOT LINEARBUILD_USE_SYSTEM_LIBARCHIVE" ON)
+  linearbuild_dependent_option(LINEARBUILD_USE_SYSTEM_LIBLZMA "Use system-installed liblzma"
+    "${LINEARBUILD_USE_SYSTEM_LIBRARY_LIBLZMA}" "NOT LINEARBUILD_USE_SYSTEM_LIBARCHIVE" ON)
+  linearbuild_dependent_option(LINEARBUILD_USE_SYSTEM_NGHTTP2 "Use system-installed nghttp2"
+    "${LINEARBUILD_USE_SYSTEM_LIBRARY_NGHTTP2}" "NOT LINEARBUILD_USE_SYSTEM_CURL" ON)
+  option(LINEARBUILD_USE_SYSTEM_FORM "Use system-installed libform" "${LINEARBUILD_USE_SYSTEM_LIBRARY_FORM}")
+  linearbuild_dependent_option(LINEARBUILD_USE_SYSTEM_JSONCPP "Use system-installed jsoncpp"
+    "${LINEARBUILD_USE_SYSTEM_LIBRARY_JSONCPP}" "NOT LINEARBUILD_USE_SYSTEM_CPPDAP" ON)
+  option(LINEARBUILD_USE_SYSTEM_LIBRHASH "Use system-installed librhash" "${LINEARBUILD_USE_SYSTEM_LIBRARY_LIBRHASH}")
+  option(LINEARBUILD_USE_SYSTEM_LIBUV "Use system-installed libuv" "${LINEARBUILD_USE_SYSTEM_LIBRARY_LIBUV}")
+
+  # For now use system KWIML only if explicitly requested rather
+  # than activating via the general system libs options.
+  option(LINEARBUILD_USE_SYSTEM_KWIML "Use system-installed KWIML" OFF)
+  mark_as_advanced(LINEARBUILD_USE_SYSTEM_KWIML)
+
+  # Mention to the user what system libraries are being used.
+  if(LINEARBUILD_USE_SYSTEM_CURL)
+    # Avoid messaging about curl-only dependencies.
+    list(REMOVE_ITEM UTILITIES NGHTTP2)
+  endif()
+
+  set(DEPS_SYSTEM "")
+  set(DEPS_BUNDLED "")
+  foreach(util IN LISTS UTILITIES ITEMS KWIML)
+    if(LINEARBUILD_USE_SYSTEM_${util})
+      string(APPEND DEPS_SYSTEM " ${util}")
+    else()
+      string(APPEND DEPS_BUNDLED " ${util}")
+    endif()
+  endforeach()
+
+  # OpenSSL is not included in the UTILITIES list,
+  # but it is a system dependency, if used
+  if(LINEARBUILD_USE_OPENSSL)
+    string(APPEND DEPS_SYSTEM " OPENSSL")
+  endif()
+
+  if(DEPS_SYSTEM)
+    message(STATUS "Using system-installed:${DEPS_SYSTEM}")
+  endif()
+  if(DEPS_BUNDLED)
+    message(STATUS "Using bundled:${DEPS_BUNDLED}")
+  endif()
+  unset(DEPS_SYSTEM)
+  unset(DEPS_BUNDLED)
+
+  # Inform utility library header wrappers whether to use system versions.
+  configure_file(Utilities/cmThirdParty.h.in Utilities/cmThirdParty.h @ONLY)
+endif()
+
+if(LinearBuild_GUI_DISTRIBUTE_WITH_Qt_LGPL)
+  if(LinearBuild_GUI_DISTRIBUTE_WITH_Qt_LGPL MATCHES "^3|2\\.1$")
+    set(USE_LGPL "${LinearBuild_GUI_DISTRIBUTE_WITH_Qt_LGPL}")
+  else()
+    set(USE_LGPL "2.1")
+  endif()
+else()
+  set(USE_LGPL "")
+endif()
+
+# Use most-recent available language dialects with GNU and Clang
+if(NOT DEFINED LINEARBUILD_C_STANDARD AND NOT LinearBuild_NO_C_STANDARD)
+  include(${LinearBuild_SOURCE_DIR}/Source/Checks/cm_c11_thread_local.linearbuild)
+  if(NOT LinearBuild_C11_THREAD_LOCAL_BROKEN)
+    set(LINEARBUILD_C_STANDARD 11)
+  else()
+    set(LINEARBUILD_C_STANDARD 99)
+  endif()
+endif()
+if(NOT DEFINED LINEARBUILD_CXX_STANDARD AND NOT LinearBuild_NO_CXX_STANDARD)
+  if(LINEARBUILD_CXX_COMPILER_ID STREQUAL SunPro AND LINEARBUILD_CXX_COMPILER_VERSION VERSION_LESS 5.14)
+    set(LINEARBUILD_CXX_STANDARD 98)
+  else()
+    include(${LinearBuild_SOURCE_DIR}/Source/Checks/cm_cxx17_check.linearbuild)
+    if(NOT LinearBuild_CXX17_BROKEN)
+      set(LINEARBUILD_CXX_STANDARD 17)
+    else()
+      include(${LinearBuild_SOURCE_DIR}/Source/Checks/cm_cxx14_check.linearbuild)
+      if(NOT LinearBuild_CXX14_BROKEN)
+        set(LINEARBUILD_CXX_STANDARD 14)
+      else()
+        set(LINEARBUILD_CXX_STANDARD 11)
+      endif()
+    endif()
+  endif()
+endif()
+if(NOT LinearBuild_TEST_EXTERNAL_LINEARBUILD)
+  # include special compile flags for some compilers
+  include(CompileFlags.linearbuild)
+
+  # check for available C++ features
+  include(${LinearBuild_SOURCE_DIR}/Source/Checks/cm_cxx_features.linearbuild)
+
+  if(NOT LinearBuild_HAVE_CXX_UNIQUE_PTR)
+    message(FATAL_ERROR "The C++ compiler does not support C++11 (e.g. std::unique_ptr).")
+  endif()
+
+  if(LinearBuild_ENABLE_INSTRUMENTATION)
+    linearbuild_instrumentation(
+        API_VERSION 1
+        DATA_VERSION 1
+        OPTIONS cdashSubmit cdashVerbose trace processMetrics
+    )
+  endif()
+endif()
+
+# Inform STL library header wrappers whether to use system versions.
+configure_file(Utilities/std/cmSTL.hxx.in Utilities/cmSTL.hxx @ONLY)
+
+# set the internal encoding of LinearBuild to UTF-8
+set(KWSYS_ENCODING_DEFAULT_CODEPAGE CP_UTF8)
+
+# enable parallel install
+set_property(GLOBAL PROPERTY INSTALL_PARALLEL ON)
+
+# option to use COMPONENT with install command
+option(LinearBuild_INSTALL_COMPONENTS "Using components when installing" OFF)
+mark_as_advanced(LinearBuild_INSTALL_COMPONENTS)
+macro(LinearBuild_OPTIONAL_COMPONENT NAME)
+  if(LinearBuild_INSTALL_COMPONENTS)
+    set(COMPONENT COMPONENT ${NAME})
+  else()
+    set(COMPONENT)
+  endif()
+endmacro()
+
+# option to disable installing 3rd-party dependencies
+option(LinearBuild_INSTALL_DEPENDENCIES
+  "Whether to install 3rd-party runtime dependencies" OFF)
+mark_as_advanced(LinearBuild_INSTALL_DEPENDENCIES)
+
+# option to build reference for LinearBuild developers
+option(LinearBuild_BUILD_DEVELOPER_REFERENCE
+  "Build LinearBuild Developer Reference" OFF)
+mark_as_advanced(LinearBuild_BUILD_DEVELOPER_REFERENCE)
+
+# option to build using interprocedural optimizations (IPO/LTO)
+option(LinearBuild_BUILD_LTO "Compile LinearBuild with link-time optimization if supported" OFF)
+if(LinearBuild_BUILD_LTO)
+  include(CheckIPOSupported)
+  check_ipo_supported(RESULT HAVE_IPO)
+  if(HAVE_IPO)
+    set(LINEARBUILD_INTERPROCEDURAL_OPTIMIZATION TRUE)
+  endif()
+endif()
+
+option(LinearBuild_BUILD_PCH "Compile LinearBuild with precompiled headers" OFF)
+
+option(LinearBuild_BUILD_FUZZING "Build fuzz testing targets" OFF)
+mark_as_advanced(LinearBuild_BUILD_FUZZING)
+
+# Check whether to build support for the debugger mode.
+if(NOT LinearBuild_TEST_EXTERNAL_LINEARBUILD)
+  if(NOT DEFINED LinearBuild_ENABLE_DEBUGGER)
+    # The debugger uses cppdap, which does not compile everywhere.
+    if(LINEARBUILD_SYSTEM_NAME MATCHES "Windows|Darwin|Linux|BSD|DragonFly|CYGWIN|MSYS"
+        AND NOT (LINEARBUILD_CXX_COMPILER_ID STREQUAL "MSVC" AND LINEARBUILD_CXX_COMPILER_VERSION VERSION_LESS 19.16)
+        AND NOT (LINEARBUILD_CXX_COMPILER_ID STREQUAL "XLClang" AND LINEARBUILD_CXX_COMPILER_VERSION VERSION_LESS 16.1)
+        AND NOT (LINEARBUILD_CXX_COMPILER_ID STREQUAL "LCC" AND LINEARBUILD_CXX_COMPILER_VERSION VERSION_LESS 1.23)
+        )
+      set(LinearBuild_ENABLE_DEBUGGER 1)
+    else()
+      set(LinearBuild_ENABLE_DEBUGGER 0)
+    endif()
+  endif()
+else()
+  set(LinearBuild_ENABLE_DEBUGGER 0)
+endif()
+
+#-----------------------------------------------------------------------
+# a macro to determine the generator and ctest executable to use
+# for testing. Simply to improve readability of the main script.
+#-----------------------------------------------------------------------
+macro(LINEARBUILD_SETUP_TESTING)
+  if(BUILD_TESTING)
+    set(LINEARBUILD_TEST_SYSTEM_LIBRARIES 0)
+    foreach(util IN ITEMS CURL EXPAT ZLIB)
+      if(LINEARBUILD_USE_SYSTEM_${util})
+        set(LINEARBUILD_TEST_SYSTEM_LIBRARIES 1)
+      endif()
+    endforeach()
+
+    # This variable is set by linearbuild, however to
+    # test linearbuild we want to make sure that
+    # the ctest from this linearbuild is used for testing
+    # and not the ctest from the linearbuild building and testing
+    # linearbuild.
+    if(LinearBuild_TEST_EXTERNAL_LINEARBUILD)
+      set(LINEARBUILD_CTEST_COMMAND "${LinearBuild_TEST_EXTERNAL_LINEARBUILD}/ctest")
+      set(LINEARBUILD_LINEARBUILD_COMMAND "${LinearBuild_TEST_EXTERNAL_LINEARBUILD}/linearbuild")
+      set(LINEARBUILD_CPACK_COMMAND "${LinearBuild_TEST_EXTERNAL_LINEARBUILD}/cpack")
+      foreach(exe IN ITEMS linearbuild ctest cpack)
+        add_executable(${exe} IMPORTED)
+        set_property(TARGET ${exe} PROPERTY IMPORTED_LOCATION ${LinearBuild_TEST_EXTERNAL_LINEARBUILD}/${exe})
+      endforeach()
+    else()
+      set(LINEARBUILD_CTEST_COMMAND "${LinearBuild_BIN_DIR}/ctest")
+      set(LINEARBUILD_LINEARBUILD_COMMAND "${LinearBuild_BIN_DIR}/linearbuild")
+      set(LINEARBUILD_CPACK_COMMAND "${LinearBuild_BIN_DIR}/cpack")
+    endif()
+  endif()
+
+  # configure some files for testing. Tests/ is not carried by this tree, so the
+  # NoDartCoverage marker is only configured when that directory exists.
+  if(EXISTS ${LinearBuild_SOURCE_DIR}/Tests/.NoDartCoverage)
+    configure_file(Tests/.NoDartCoverage Tests/.NoDartCoverage)
+  endif()
+  configure_file(CTestCustom.linearbuild.in CTestCustom.linearbuild @ONLY)
+endmacro()
+
+
+# Provide a way for Visual Studio Express users to turn OFF the new FOLDER
+# organization feature. Default to ON for non-Express users. Express users must
+# explicitly turn off this option to build LinearBuild in the Express IDE...
+#
+option(LINEARBUILD_USE_FOLDERS "Enable folder grouping of projects in IDEs." ON)
+mark_as_advanced(LINEARBUILD_USE_FOLDERS)
+
+
+option(LinearBuild_RUN_CLANG_TIDY "Run clang-tidy with the compiler." OFF)
+if(LinearBuild_RUN_CLANG_TIDY)
+  if(LinearBuild_SOURCE_DIR STREQUAL LinearBuild_BINARY_DIR)
+    message(FATAL_ERROR "LinearBuild_RUN_CLANG_TIDY requires an out-of-source build!")
+  endif()
+  find_program(CLANG_TIDY_COMMAND NAMES clang-tidy)
+  if(NOT CLANG_TIDY_COMMAND)
+    message(FATAL_ERROR "LinearBuild_RUN_CLANG_TIDY is ON but clang-tidy is not found!")
+  endif()
+  set(LINEARBUILD_CXX_CLANG_TIDY "${CLANG_TIDY_COMMAND}")
+
+  option(LinearBuild_USE_CLANG_TIDY_MODULE "Use LinearBuild's clang-tidy module." OFF)
+  if(LinearBuild_USE_CLANG_TIDY_MODULE)
+    find_library(LinearBuild_CLANG_TIDY_MODULE NAMES linearbuild-clang-tidy-module DOC "Location of the clang-tidy module")
+    if(NOT LinearBuild_CLANG_TIDY_MODULE)
+      message(FATAL_ERROR "LinearBuild_USE_CLANG_TIDY_MODULE is ON but linearbuild-clang-tidy-module is not found!")
+    endif()
+    list(APPEND LINEARBUILD_CXX_CLANG_TIDY "--load=${LinearBuild_CLANG_TIDY_MODULE}")
+    set_property(DIRECTORY APPEND PROPERTY LINEARBUILD_CONFIGURE_DEPENDS "${LinearBuild_CLANG_TIDY_MODULE}")
+  endif()
+
+  set(LinearBuild_CLANG_TIDY_EXPORT_FIXES_DIR "" CACHE PATH "Directory to put clang-tidy fix files in.")
+  mark_as_advanced(LinearBuild_CLANG_TIDY_EXPORT_FIXES_DIR)
+  if(LinearBuild_CLANG_TIDY_EXPORT_FIXES_DIR)
+    if(NOT IS_ABSOLUTE "${LinearBuild_CLANG_TIDY_EXPORT_FIXES_DIR}")
+      message(FATAL_ERROR "LinearBuild_CLANG_TIDY_EXPORT_FIXES_DIR must be an absolute path!")
+    endif()
+    set(LINEARBUILD_CXX_CLANG_TIDY_EXPORT_FIXES_DIR "${LinearBuild_CLANG_TIDY_EXPORT_FIXES_DIR}")
+  endif()
+
+  # Create a preprocessor definition that depends on .clang-tidy content so
+  # the compile command will change when .clang-tidy changes.  This ensures
+  # that a subsequent build re-runs clang-tidy on all sources even if they
+  # do not otherwise need to be recompiled.  Nothing actually uses this
+  # definition.  We add it to targets on which we run clang-tidy just to
+  # get the build dependency on the .clang-tidy file.
+  file(SHA1 ${LINEARBUILD_CURRENT_SOURCE_DIR}/.clang-tidy clang_tidy_sha1)
+  set(CLANG_TIDY_DEFINITIONS "CLANG_TIDY_SHA1=${clang_tidy_sha1}")
+  unset(clang_tidy_sha1)
+  if(LinearBuild_USE_CLANG_TIDY_MODULE)
+    file(SHA1 "${LinearBuild_CLANG_TIDY_MODULE}" clang_tidy_module_sha1)
+    list(APPEND CLANG_TIDY_DEFINITIONS "CLANG_TIDY_MODULE_SHA1=${clang_tidy_module_sha1}")
+    unset(clang_tidy_module_sha1)
+  endif()
+
+  configure_file(.clang-tidy .clang-tidy COPYONLY)
+endif()
+
+
+option(LinearBuild_RUN_IWYU "Run include-what-you-use with the compiler." OFF)
+if(LinearBuild_RUN_IWYU)
+  if(LinearBuild_BUILD_PCH)
+    message(FATAL_ERROR "LinearBuild_RUN_IWYU and LinearBuild_BUILD_PCH are ON, but they are incompatible!")
+  endif()
+  find_program(IWYU_COMMAND NAMES include-what-you-use iwyu)
+  if(NOT IWYU_COMMAND)
+    message(FATAL_ERROR "LinearBuild_RUN_IWYU is ON but include-what-you-use is not found!")
+  endif()
+  set(LINEARBUILD_CXX_INCLUDE_WHAT_YOU_USE
+    "${IWYU_COMMAND};-Xiwyu;--mapping_file=${LinearBuild_SOURCE_DIR}/Utilities/IWYU/mapping.imp;-w")
+  option(LinearBuild_IWYU_VERBOSE "Run include-what-you-use in verbose mode" OFF)
+  if (LinearBuild_IWYU_VERBOSE)
+    list(APPEND LINEARBUILD_CXX_INCLUDE_WHAT_YOU_USE
+      -Xiwyu -v7)
+  endif ()
+  list(APPEND LINEARBUILD_CXX_INCLUDE_WHAT_YOU_USE ${LinearBuild_IWYU_OPTIONS})
+endif()
+
+option(LinearBuild_RUN_PVS_STUDIO "Run pvs-studio-analyzer with the compiler." OFF)
+if(LinearBuild_RUN_PVS_STUDIO)
+  if(LinearBuild_SOURCE_DIR STREQUAL LinearBuild_BINARY_DIR)
+    message(FATAL_ERROR "LinearBuild_RUN_PVS_STUDIO requires an out-of-source build!")
+  endif()
+  find_program(PVS_STUDIO_COMMAND NAMES pvs-studio-analyzer)
+  if(NOT PVS_STUDIO_COMMAND)
+    message(FATAL_ERROR "LinearBuild_RUN_PVS_STUDIO is ON but pvs-studio-analyzer is not found!")
+  endif()
+  set(LINEARBUILD_CXX_PVS_STUDIO
+    "${PVS_STUDIO_COMMAND}" analyze
+      -a GA
+      --apply-pvs-configs
+      --project-root "${LINEARBUILD_SOURCE_DIR}"
+  )
+endif()
+
+#-----------------------------------------------------------------------
+# a macro that only sets the FOLDER target property if it's
+# "appropriate"
+#-----------------------------------------------------------------------
+macro(LINEARBUILD_SET_TARGET_FOLDER tgt folder)
+  if(LINEARBUILD_USE_FOLDERS)
+    set_property(GLOBAL PROPERTY USE_FOLDERS ON)
+    if(MSVC AND TARGET ${tgt})
+      set_property(TARGET "${tgt}" PROPERTY FOLDER "${folder}")
+    endif()
+  else()
+    set_property(GLOBAL PROPERTY USE_FOLDERS OFF)
+  endif()
+endmacro()
+
+#-----------------------------------------------------------------------
+if(NOT LinearBuild_TEST_EXTERNAL_LINEARBUILD)
+  if(LINEARBUILD_CXX_PLATFORM_ID MATCHES "OpenBSD")
+    execute_process(COMMAND ${LINEARBUILD_CXX_COMPILER}
+      ${LINEARBUILD_CXX_COMPILER_ARG1} -dumpversion
+      OUTPUT_VARIABLE _GXX_VERSION
+      RESULT_VARIABLE _GXX_VERSION_RESULT
+    )
+    string(REGEX REPLACE "([0-9])\\.([0-9])(\\.[0-9])?" "\\1\\2"
+      _GXX_VERSION_SHORT ${_GXX_VERSION})
+    if(_GXX_VERSION_SHORT EQUAL 33)
+      message(FATAL_ERROR
+        "GXX 3.3 on OpenBSD is known to cause CPack to Crash.\n"
+        "Please use GXX 4.2 or greater to build LinearBuild on OpenBSD\n"
+        "${LINEARBUILD_CXX_COMPILER} version is: ${_GXX_VERSION}")
+    endif()
+  endif()
+endif()
+
+if(EXISTS "${LINEARBUILD_CURRENT_LIST_DIR}/.git")
+  option(LinearBuild_VERSION_NO_GIT "Do not attempt to determine LinearBuild version from Git" OFF)
+endif()
+
+#-----------------------------------------------------------------------
+# The main section of the LinearBuildLists file
+#
+#-----------------------------------------------------------------------
+include(Source/LinearBuildCopyright.linearbuild)
+include(Source/LinearBuildVersion.linearbuild)
+
+include(CTest)
+
+# Set up test-time configuration.
+set_property(DIRECTORY APPEND PROPERTY
+  TEST_INCLUDE_FILES "${LinearBuild_BINARY_DIR}/Tests/EnforceConfig.linearbuild")
+
+if(NOT LinearBuild_TEST_EXTERNAL_LINEARBUILD)
+  # where to write the resulting executables and libraries
+  set(BUILD_SHARED_LIBS OFF)
+  set(EXECUTABLE_OUTPUT_PATH "" CACHE INTERNAL "No configurable exe dir.")
+  set(LIBRARY_OUTPUT_PATH "" CACHE INTERNAL
+    "Where to put the libraries for LinearBuild")
+
+  # Load install destinations.
+  include(Source/LinearBuildInstallDestinations.linearbuild)
+
+  if(BUILD_TESTING)
+    include(${LinearBuild_SOURCE_DIR}/Tests/LinearBuildInstall.linearbuild)
+  endif()
+
+  # Checks for cmSystemTools.
+  if(WIN32)
+    set(HAVE_UNSETENV 0)
+    set(HAVE_ENVIRON_NOT_REQUIRE_PROTOTYPE 1)
+  else()
+    include(CheckSymbolExists)
+    check_symbol_exists(unsetenv "stdlib.h" HAVE_UNSETENV)
+    check_symbol_exists(environ "stdlib.h" HAVE_ENVIRON_NOT_REQUIRE_PROTOTYPE)
+  endif()
+endif()
+
+# LINEARBUILD_TESTS_CDASH_SERVER: CDash server used by LinearBuild/Tests.
+#
+# If not defined or "", this variable defaults to the server at
+# "http://open.cdash.org".
+#
+# If set explicitly to "NOTFOUND", curl tests and ctest tests that use
+# the network are skipped.
+#
+# If set to something starting with "http://localhost/", the CDash is
+# expected to be an instance of CDash used for CDash testing, pointing
+# to a cdash4simpletest database. In these cases, the CDash dashboards
+# should be run first.
+#
+if("x${LINEARBUILD_TESTS_CDASH_SERVER}" STREQUAL "x" AND NOT LinearBuild_TEST_NO_NETWORK)
+  set(LINEARBUILD_TESTS_CDASH_SERVER "http://open.cdash.org")
+endif()
+
+if(LinearBuild_TEST_EXTERNAL_LINEARBUILD)
+  set(KWIML_TEST_ENABLE 1)
+  set(KWIML_TEST_LABELS "PellesC")
+  add_subdirectory(Utilities/KWIML)
+endif()
+
+if(NOT LinearBuild_TEST_EXTERNAL_LINEARBUILD)
+  find_package(Threads)
+  # build the utilities
+  include(LinearBuildBuildUtilities)
+
+  if(UNIX)
+    # Install executables with the RPATH set for libraries outside the build tree.
+    # This is also suitable for binaries in the build tree.  Avoid re-link on install.
+    set(LINEARBUILD_INSTALL_RPATH_USE_LINK_PATH ON CACHE BOOL "Install with RPATH set to find custom-built libraries.")
+    set(LINEARBUILD_BUILD_WITH_INSTALL_RPATH ON CACHE BOOL "Build with RPATH set to match install-tree RPATH.")
+    mark_as_advanced(LINEARBUILD_INSTALL_RPATH_USE_LINK_PATH LINEARBUILD_BUILD_WITH_INSTALL_RPATH)
+  endif()
+
+  # add the uninstall support
+  configure_file(linearbuild_uninstall.linearbuild.in linearbuild_uninstall.linearbuild @ONLY)
+  add_custom_target(uninstall
+    "${LINEARBUILD_COMMAND}" -P "${LINEARBUILD_CURRENT_BINARY_DIR}/linearbuild_uninstall.linearbuild")
+
+  include(LinearBuildCPack.linearbuild)
+
+endif()
+
+# setup some Testing support (a macro defined in this file)
+LINEARBUILD_SETUP_TESTING()
+
+if(NOT LinearBuild_TEST_EXTERNAL_LINEARBUILD)
+  if(NOT LinearBuild_VERSION_IS_RELEASE)
+    if((LINEARBUILD_C_COMPILER_ID STREQUAL "GNU" AND
+        NOT "${LINEARBUILD_C_COMPILER_VERSION}" VERSION_LESS 4.2) OR
+       (LINEARBUILD_C_COMPILER_ID STREQUAL "Clang" AND
+        NOT "${LINEARBUILD_C_COMPILER_VERSION}" VERSION_LESS 3.0 AND
+        NOT "x${LINEARBUILD_C_SIMULATE_ID}" STREQUAL "xMSVC") OR
+       LINEARBUILD_C_COMPILER_ID STREQUAL "AppleClang" OR
+       LINEARBUILD_C_COMPILER_ID STREQUAL "LCC")
+      set(C_FLAGS_LIST -Wcast-align -Wchar-subscripts
+                       -Wall -W -Wpointer-arith -Wwrite-strings -Wformat-security
+                       -Wmissing-format-attribute -fno-common -Wundef
+                       -Werror=implicit-function-declaration
+                       -Wstrict-prototypes
+      )
+      set(CXX_FLAGS_LIST -Wnon-virtual-dtor -Wcast-align -Wchar-subscripts -Wall -W
+                         -Wshadow -Wpointer-arith -Wformat-security -Wundef
+      )
+      if(LINEARBUILD_CXX_COMPILER_ID MATCHES "Clang" AND
+          NOT (LINEARBUILD_CXX_COMPILER_ID STREQUAL "AppleClang" AND LINEARBUILD_CXX_COMPILER_VERSION VERSION_LESS 11))
+        list(APPEND CXX_FLAGS_LIST
+          -Wundefined-func-template
+        )
+      endif()
+
+      foreach(FLAG_LANG IN ITEMS C CXX)
+        foreach(FLAG IN LISTS ${FLAG_LANG}_FLAGS_LIST)
+          if(NOT " ${LINEARBUILD_${FLAG_LANG}_FLAGS} " MATCHES " ${FLAG} ")
+            string(APPEND LINEARBUILD_${FLAG_LANG}_FLAGS " ${FLAG}")
+          endif()
+        endforeach()
+      endforeach()
+
+      unset(C_FLAGS_LIST)
+      unset(CXX_FLAGS_LIST)
+    endif()
+  endif()
+
+  # build the remaining subdirectories
+  add_subdirectory(Source)
+  add_subdirectory(Utilities)
+endif()
+
+# This tree does not carry Tests/, so the test tree is optional rather than
+# required. The target-folder and add_test blocks below are already gated on
+# BUILD_TESTING.
+if(EXISTS ${LINEARBUILD_SOURCE_DIR}/Tests)
+  add_subdirectory(Tests)
+endif()
+
+if(NOT LinearBuild_TEST_EXTERNAL_LINEARBUILD)
+  if(BUILD_TESTING)
+    LINEARBUILD_SET_TARGET_FOLDER(LinearBuildLibTests "Tests")
+  endif()
+  if(TARGET documentation)
+    LINEARBUILD_SET_TARGET_FOLDER(documentation "Documentation")
+  endif()
+endif()
+
+if(BUILD_TESTING)
+  add_test(SystemInformationNew "${LINEARBUILD_LINEARBUILD_COMMAND}"
+    --system-information  -G "${LINEARBUILD_GENERATOR}"
+  )
+endif()
+
+if(NOT LinearBuild_TEST_EXTERNAL_LINEARBUILD)
+  # Install license file as it requires.
+  install(FILES
+    "${LinearBuild_LICENSE_FILE}"
+    "${LinearBuild_SOURCE_DIR}/CONTRIBUTORS.rst"
+    DESTINATION ${LinearBuild_INSTALL_DOC_DIR})
+
+  # Install script directories.
+  install(
+    DIRECTORY Help Modules Templates
+    DESTINATION ${LinearBuild_INSTALL_DATA_DIR}
+    FILE_PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ
+    DIRECTORY_PERMISSIONS OWNER_READ OWNER_EXECUTE OWNER_WRITE
+                          GROUP_READ GROUP_EXECUTE
+                          WORLD_READ WORLD_EXECUTE
+    PATTERN "*.sh*" PERMISSIONS OWNER_READ OWNER_EXECUTE OWNER_WRITE
+                                GROUP_READ GROUP_EXECUTE
+                                WORLD_READ WORLD_EXECUTE
+    REGEX "/(ExportImportList|cpp)$"
+      PERMISSIONS OWNER_READ OWNER_EXECUTE OWNER_WRITE
+                  GROUP_READ GROUP_EXECUTE
+                  WORLD_READ WORLD_EXECUTE
+    REGEX "Help/(dev|guide)($|/)" EXCLUDE
+    PATTERN ".git*" EXCLUDE
+    )
+
+  # Install auxiliary files integrating with other tools. This tree does not
+  # carry Auxiliary/ - it was pruned along with Tests/, Help/ and Packaging/ -
+  # so the directory is optional here instead of required.
+  if(EXISTS ${LINEARBUILD_SOURCE_DIR}/Auxiliary)
+    add_subdirectory(Auxiliary)
+  endif()
+
+  # Optionally sign installed binaries.
+  if(LinearBuild_INSTALL_SIGNTOOL)
+    configure_file(Source/LinearBuildInstallSignTool.linearbuild.in Source/LinearBuildInstallSignTool.linearbuild @ONLY)
+    install(SCRIPT ${LINEARBUILD_CURRENT_BINARY_DIR}/Source/LinearBuildInstallSignTool.linearbuild)
+  endif()
+endif()

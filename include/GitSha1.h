@@ -4,7 +4,7 @@
 #include <cstdint>
 #include <string>
 
-namespace rblx {
+namespace linear {
 namespace git {
 
 // A git object name is the SHA-1 of the object header and its bytes, so the
@@ -36,4 +36,4 @@ std::string sha1Hex(const void* data, std::size_t size);
 std::string sha1Hex(const std::string& data);
 
 }  // namespace git
-}  // namespace rblx
+}  // namespace linear

@@ -1,0 +1,4 @@
+LinearBuildVersion.linearbuild    export-subst
+
+# Do not format third-party sources.
+/kwsys/**                                  -format.clang-format

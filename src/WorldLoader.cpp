@@ -51,7 +51,7 @@ void WorldLoader::loadWorld(const std::string& filename, std::deque<Part>& parts
     }
 
     std::size_t count = 0;
-    rblxmath::vec3 headerFogColor(0.0f);
+    linearmath::vec3 headerFogColor(0.0f);
     float headerFogDensity = 0.0f;
     {
         std::istringstream headerStream(headerLine);
@@ -67,10 +67,10 @@ void WorldLoader::loadWorld(const std::string& filename, std::deque<Part>& parts
                 headerFogDensity) {
             if (std::isfinite(headerFogColor.x) && std::isfinite(headerFogColor.y) &&
                 std::isfinite(headerFogColor.z) && std::isfinite(headerFogDensity)) {
-                headerFogColor = rblxmath::clamp(headerFogColor, rblxmath::vec3(0.0f), rblxmath::vec3(1.0f));
+                headerFogColor = linearmath::clamp(headerFogColor, linearmath::vec3(0.0f), linearmath::vec3(1.0f));
                 headerFogDensity = std::clamp(headerFogDensity, 0.0f, 0.2f);
             } else {
-                headerFogColor = rblxmath::vec3(0.0f);
+                headerFogColor = linearmath::vec3(0.0f);
                 headerFogDensity = 0.0f;
             }
         }
@@ -149,7 +149,7 @@ void WorldLoader::loadWorld(const std::string& filename, std::deque<Part>& parts
             return;
         }
 
-        auto finiteVec3 = [](const rblxmath::vec3& value) {
+        auto finiteVec3 = [](const linearmath::vec3& value) {
             return std::isfinite(value.x) && std::isfinite(value.y) && std::isfinite(value.z);
         };
 

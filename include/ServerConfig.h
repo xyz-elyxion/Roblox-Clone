@@ -17,7 +17,7 @@
 #include <utility>
 #include <vector>
 
-namespace rblx {
+namespace linear {
 namespace server {
 
 // The file lives beside the web folder, which is the folder the programs run
@@ -79,4 +79,4 @@ std::vector<std::pair<std::string, std::string>> settingsAsEnvironment(const Set
 std::string settingsPathFor(const std::string& directory);
 
 }  // namespace server
-}  // namespace rblx
+}  // namespace linear

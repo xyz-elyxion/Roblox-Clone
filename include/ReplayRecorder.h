@@ -9,7 +9,7 @@
 // half of packets lets a report carry the run-up, and lets the dashboard draw the
 // path an admin needs to judge an appeal.
 //
-// Deliberately free of rblxmath: the game server has vectors to spare, but the website
+// Deliberately free of linearmath: the game server has vectors to spare, but the website
 // reads these clips too and has no business linking a renderer to do it.
 
 #include <cstddef>
@@ -19,7 +19,7 @@
 #include <string>
 #include <vector>
 
-namespace rblx::replay {
+namespace linear::replay {
 
 // The three numbers of a position, kept apart from any vector type so both sides
 // can hand one over without agreeing on a maths library.
@@ -150,4 +150,4 @@ inline std::vector<Frame> decode(const std::string& text) {
     return frames;
 }
 
-} // namespace rblx::replay
+} // namespace linear::replay

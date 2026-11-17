@@ -23,10 +23,10 @@ void appendTo(const std::string& path, const std::string& text) {
 }  // namespace
 
 int main() {
-    using rblx::anticheat::detectionDetail;
-    using rblx::anticheat::detectionDetails;
-    using rblx::anticheat::isDetectionLine;
-    using rblx::anticheat::LogTail;
+    using linear::anticheat::detectionDetail;
+    using linear::anticheat::detectionDetails;
+    using linear::anticheat::isDetectionLine;
+    using linear::anticheat::LogTail;
 
     // The shape the library writes: "[stamp] [DETECTION] message".
     const std::string detection = "[2026-11-01 10:00:00] [DETECTION] Module 'ntdll.dll' was modified";
@@ -51,8 +51,8 @@ int main() {
     check(details.size() == 2 && details[0] == "first" && details[1] == "second",
           "the details keep their order and lose the line ending");
 
-    using rblx::anticheat::canonicalDetection;
-    using rblx::anticheat::namesOurOwnProcesses;
+    using linear::anticheat::canonicalDetection;
+    using linear::anticheat::namesOurOwnProcesses;
 
     // One open-handle scan writes three lines about the same handle. The site
     // launcher is one of the processes it names, and launching the client is not
@@ -79,7 +79,7 @@ int main() {
           "a handle from anybody else is still reported");
     check(!namesOurOwnProcesses("[t] [DETECTION] Module 'Client.exe' was modified"),
           "tampering with our own module is still reported");
-    using rblx::anticheat::namesOverlayModules;
+    using linear::anticheat::namesOverlayModules;
     const std::string discordHook =
         "[t] [DETECTION] Module 'C:\\Users\\player\\AppData\\Local\\Discord\\app-1.0.9266"
         "\\modules\\discord_hook-1\\discord_hook\\ff98341dfafc82\\DiscordHook64.dll' was modified";
@@ -117,7 +117,7 @@ int main() {
 
     // Tail reading: only new, whole lines are reported, once.
     const std::filesystem::path path =
-        std::filesystem::temp_directory_path() / "rblx-client-cheat-report-test.log";
+        std::filesystem::temp_directory_path() / "linear-client-cheat-report-test.log";
     {
         std::ofstream file(path.string().c_str(), std::ios::binary | std::ios::trunc);
         file << "[t] [DETECTION] one\n";
@@ -155,7 +155,7 @@ int main() {
           "a log that shrank is read again from the start");
 
     const std::string missing =
-        (std::filesystem::temp_directory_path() / "rblx-client-cheat-report-missing.log").string();
+        (std::filesystem::temp_directory_path() / "linear-client-cheat-report-missing.log").string();
     lines.clear();
     check(!tail.poll(missing, &lines), "a log that does not exist is reported as unreadable");
     check(lines.empty(), "an unreadable log produces no lines");

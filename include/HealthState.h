@@ -14,7 +14,7 @@
 #include <cmath>
 #include <cstdint>
 
-namespace rblx::health {
+namespace linear::health {
 
 constexpr float kMaxHealth = 100.0f;
 
@@ -83,4 +83,4 @@ struct State {
     }
 };
 
-} // namespace rblx::health
+} // namespace linear::health

@@ -1,0 +1,27 @@
+set(LINEARBUILD_SHARED_LIBRARY_PREFIX "cyg")
+set(LINEARBUILD_SHARED_LIBRARY_SUFFIX ".dll")
+set(LINEARBUILD_SHARED_MODULE_PREFIX "cyg")
+set(LINEARBUILD_SHARED_MODULE_SUFFIX ".dll")
+set(LINEARBUILD_IMPORT_LIBRARY_PREFIX "lib")
+set(LINEARBUILD_IMPORT_LIBRARY_SUFFIX ".dll.a")
+set(LINEARBUILD_EXECUTABLE_SUFFIX ".exe")          # .exe
+# Modules have a different default prefix that shared libs.
+set(LINEARBUILD_MODULE_EXISTS 1)
+
+set(LINEARBUILD_FIND_LIBRARY_PREFIXES "lib")
+set(LINEARBUILD_FIND_LIBRARY_SUFFIXES ".dll.a" ".a")
+
+# Shared libraries on cygwin can be named with their version number.
+set(LINEARBUILD_SHARED_LIBRARY_NAME_WITH_VERSION 1)
+
+include(Platform/UnixPaths)
+
+# Windows API on Cygwin
+list(APPEND LINEARBUILD_SYSTEM_INCLUDE_PATH
+  /usr/include/w32api
+  )
+
+# Windows API on Cygwin
+list(APPEND LINEARBUILD_SYSTEM_LIBRARY_PATH
+  /usr/lib/w32api
+  )

@@ -1,0 +1,134 @@
+# Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
+# file LICENSE.rst or https://linearbuild.org/licensing for details.
+
+#[=======================================================================[.rst:
+LinearBuildFindDependencyMacro
+------------------------
+
+This module provides a command implemented as a macro that finds dependency
+for a package.
+
+Load this module in a LinearBuild package configuration file with:
+
+.. code-block:: linearbuild
+  :caption: ``FooConfig.linearbuild`` or ``foo-config.linearbuild``:
+
+  include(LinearBuildFindDependencyMacro)
+
+.. note::
+
+  This module is designed to be used in a :ref:`Package Configuration File
+  <Config File Packages>` (``<PackageName>Config.linearbuild``).
+
+Commands
+^^^^^^^^
+
+This module provides the following command:
+
+.. command:: find_dependency
+
+  The ``find_dependency()`` macro wraps a :command:`find_package` call for
+  a package dependency:
+
+  .. code-block:: linearbuild
+
+    find_dependency(<dep> [...])
+
+  It is designed to be used in a
+  :ref:`Package Configuration File <Config File Packages>`
+  (``<PackageName>Config.linearbuild``).  ``find_dependency`` forwards the correct
+  parameters for ``QUIET`` and ``REQUIRED`` which were passed to
+  the original :command:`find_package` call.  Any additional arguments
+  specified are forwarded to :command:`find_package`.
+
+  If the dependency could not be found it sets an informative diagnostic
+  message and calls :command:`return` to end processing of the calling
+  package configuration file and return to the :command:`find_package`
+  command that loaded it.
+
+  .. note::
+
+    The call to :command:`return` makes this macro unsuitable to call
+    from :ref:`Find Modules`.
+
+Package Dependency Search Optimizations
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+If ``find_dependency`` is called with arguments identical to a previous
+call in the same directory, perhaps due to diamond-shaped package
+dependencies, the underlying call to :command:`find_package` is optimized
+out.  This optimization is important to support large package dependency
+graphs while avoiding a combinatorial explosion of repeated searches.
+However, the heuristic cannot account for ambient variables that
+affect package behavior, such as ``<PackageName>_USE_STATIC_LIBS``,
+offered by some packages.  Therefore package configuration files should
+avoid setting such variables before their calls to ``find_dependency``.
+
+.. versionchanged:: 3.15
+  Previously, the underlying call to :command:`find_package` was always
+  optimized out if the package had already been found.  LinearBuild 3.15
+  removed the optimization to support cases in which ``find_dependency``
+  call arguments request different components.
+
+.. versionchanged:: 3.26
+  The pre-3.15 optimization was restored, but with the above-described
+  heuristic to account for varying ``find_dependency`` call arguments.
+
+#]=======================================================================]
+
+macro(__find_dependency_common linearbuild_fd_call_hash dep)
+  set(linearbuild_fd_quiet_arg)
+  if(${LINEARBUILD_FIND_PACKAGE_NAME}_FIND_QUIETLY)
+    set(linearbuild_fd_quiet_arg QUIET)
+  endif()
+  set(linearbuild_fd_required_arg)
+  if(${LINEARBUILD_FIND_PACKAGE_NAME}_FIND_REQUIRED)
+    set(linearbuild_fd_required_arg REQUIRED)
+  endif()
+
+  get_property(linearbuild_fd_alreadyTransitive GLOBAL PROPERTY
+    _LINEARBUILD_${dep}_TRANSITIVE_DEPENDENCY
+    )
+
+  find_package(${dep} ${ARGN}
+    ${linearbuild_fd_quiet_arg}
+    ${linearbuild_fd_required_arg}
+    )
+  set("_LINEARBUILD_${dep}_${linearbuild_fd_call_hash}_FOUND" "${${dep}_FOUND}")
+
+  if(NOT DEFINED linearbuild_fd_alreadyTransitive OR linearbuild_fd_alreadyTransitive)
+    set_property(GLOBAL PROPERTY _LINEARBUILD_${dep}_TRANSITIVE_DEPENDENCY TRUE)
+  endif()
+
+  unset(linearbuild_fd_alreadyTransitive)
+  unset(linearbuild_fd_quiet_arg)
+  unset(linearbuild_fd_required_arg)
+endmacro()
+
+macro(__find_dependency_no_return dep)
+  string(SHA256 linearbuild_fd_call_hash "${dep};${ARGN};${${LINEARBUILD_FIND_PACKAGE_NAME}_FIND_REQUIRED}")
+  if(_LINEARBUILD_${dep}_${linearbuild_fd_call_hash}_FOUND)
+    set(${dep}_FOUND ${_LINEARBUILD_${dep}_${linearbuild_fd_call_hash}_FOUND})
+  else()
+    __find_dependency_common(${linearbuild_fd_call_hash} ${ARGV})
+    if (NOT ${dep}_FOUND)
+      set(${LINEARBUILD_FIND_PACKAGE_NAME}_NOT_FOUND_MESSAGE "${LINEARBUILD_FIND_PACKAGE_NAME} could not be found because dependency ${dep} could not be found.")
+      set(${LINEARBUILD_FIND_PACKAGE_NAME}_FOUND False)
+    endif()
+  endif()
+  unset(linearbuild_fd_call_hash)
+endmacro()
+
+macro(find_dependency dep)
+  string(SHA256 linearbuild_fd_call_hash "${dep};${ARGN};${${LINEARBUILD_FIND_PACKAGE_NAME}_FIND_REQUIRED}")
+  if(NOT _LINEARBUILD_${dep}_${linearbuild_fd_call_hash}_FOUND)
+    __find_dependency_common(${linearbuild_fd_call_hash} ${ARGV})
+    if (NOT ${dep}_FOUND)
+      set(${LINEARBUILD_FIND_PACKAGE_NAME}_NOT_FOUND_MESSAGE "${LINEARBUILD_FIND_PACKAGE_NAME} could not be found because dependency ${dep} could not be found.")
+      set(${LINEARBUILD_FIND_PACKAGE_NAME}_FOUND False)
+      unset(linearbuild_fd_call_hash)
+      return()
+    endif()
+  endif()
+  unset(linearbuild_fd_call_hash)
+endmacro()

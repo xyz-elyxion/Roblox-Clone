@@ -1,0 +1,53 @@
+linearbuild_minimum_required(VERSION 3.16)
+project(LinearGizmo LANGUAGES CXX)
+
+set(LINEARBUILD_CXX_STANDARD 17)
+set(LINEARBUILD_CXX_STANDARD_REQUIRED ON)
+
+if(LINEARBUILD_SOURCE_DIR STREQUAL LINEARBUILD_CURRENT_SOURCE_DIR)
+    set(LINEARGIZMO_STANDALONE TRUE)
+else()
+    set(LINEARGIZMO_STANDALONE FALSE)
+endif()
+
+option(LINEARGIZMO_BUILD_EXAMPLE "Build the example application" ${LINEARGIZMO_STANDALONE})
+
+add_library(lineargizmo STATIC
+    src/LinearGizmo.cpp
+    src/GraphEditor.cpp
+    src/LinearCurveEdit.cpp
+    src/LinearGradient.cpp
+    src/LinearSequencer.cpp
+    src/LinearVectorEditor.cpp
+)
+
+add_library(lineargizmo::lineargizmo ALIAS lineargizmo)
+
+target_include_directories(lineargizmo PUBLIC
+    $<BUILD_INTERFACE:${LINEARBUILD_CURRENT_SOURCE_DIR}/src>
+    $<INSTALL_INTERFACE:include>
+)
+
+if(LINEARGIZMO_BUILD_EXAMPLE)
+    include(FetchContent)
+    FetchContent_Declare(
+        linearui
+        GIT_REPOSITORY https://github.com/ocornut/linearui.git
+        GIT_TAG master
+        GIT_SHALLOW TRUE
+    )
+    FetchContent_MakeAvailable(linearui)
+    add_library(linearui STATIC
+        ${linearui_SOURCE_DIR}/linearui.cpp
+        ${linearui_SOURCE_DIR}/linearui_draw.cpp
+        ${linearui_SOURCE_DIR}/linearui_tables.cpp
+        ${linearui_SOURCE_DIR}/linearui_widgets.cpp
+        ${linearui_SOURCE_DIR}/linearui_demo.cpp
+    )
+    target_include_directories(linearui PUBLIC ${linearui_SOURCE_DIR})
+    target_link_libraries(lineargizmo PUBLIC linearui)
+endif()
+
+if(LINEARGIZMO_BUILD_EXAMPLE)
+    add_subdirectory(example)
+endif()

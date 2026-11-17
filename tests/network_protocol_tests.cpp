@@ -79,7 +79,7 @@ int main() {
     PacketVehicleState car{};
     car.partIndex = 3;
     car.driverId = 7;
-    car.position = rblxmath::vec3(1.0f, 2.0f, 3.0f);
+    car.position = linearmath::vec3(1.0f, 2.0f, 3.0f);
     car.yaw = 45.0f;
     car.speed = 12.5f;
     std::vector<char> carPacket = PacketProtocol::buildStructPacket(PacketType::VEHICLE_STATE, car);
@@ -114,7 +114,7 @@ int main() {
     PacketPartState partState{};
     partState.partIndex = 1512;
     partState.data.flags = 8;
-    partState.data.size = rblxmath::vec3(1.0f, 2.0f, 3.0f);
+    partState.data.size = linearmath::vec3(1.0f, 2.0f, 3.0f);
     std::vector<char> partStatePacket =
         PacketProtocol::buildStructPacket(PacketType::PART_STATE, partState);
     assert(PacketProtocol::tryReadFrame(partStatePacket, parsed) == PacketProtocol::ParseStatus::Complete);
@@ -134,7 +134,7 @@ int main() {
     // The world's air, which the client cannot read from a .world file because
     // it is only ever given the parts, so the server sends it on join.
     PacketWorldEnvironment environment{};
-    environment.fogColor = rblxmath::vec3(0.04f, 0.04f, 0.05f);
+    environment.fogColor = linearmath::vec3(0.04f, 0.04f, 0.05f);
     environment.fogDensity = 0.032f;
     std::vector<char> environmentPacket =
         PacketProtocol::buildStructPacket(PacketType::WORLD_ENVIRONMENT, environment);
@@ -149,7 +149,7 @@ int main() {
     // it. A script that builds a hundred rooms sends a few hundred parts' worth
     // of data in one go, so a frame the size of a single datagram is not enough.
     // Nothing carries a frame larger than the transport's message limit either.
-    static_assert(PacketProtocol::MAX_PAYLOAD_SIZE <= rblx::net::kMaxMessageSize,
+    static_assert(PacketProtocol::MAX_PAYLOAD_SIZE <= linear::net::kMaxMessageSize,
                   "a frame has to fit in one transport message");
 
     std::vector<char> snapshot(sizeof(uint32_t) + PacketProtocol::MAX_WORLD_PARTS * sizeof(PartData), 0);

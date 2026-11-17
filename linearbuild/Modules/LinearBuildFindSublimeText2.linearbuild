@@ -1,0 +1,23 @@
+# Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
+# file LICENSE.rst or https://linearbuild.org/licensing for details.
+
+
+# This file is included in LinearBuildSystemSpecificInformation.linearbuild if
+# the Sublime Text 2 extra generator has been selected.
+
+find_program(LINEARBUILD_SUBLIMETEXT_EXECUTABLE
+    NAMES subl3 subl sublime_text
+    PATHS
+        "/Applications/Sublime Text.app/Contents/SharedSupport/bin"
+        "/Applications/Sublime Text 3.app/Contents/SharedSupport/bin"
+        "/Applications/Sublime Text 2.app/Contents/SharedSupport/bin"
+        "$ENV{HOME}/Applications/Sublime Text.app/Contents/SharedSupport/bin"
+        "$ENV{HOME}/Applications/Sublime Text 3.app/Contents/SharedSupport/bin"
+        "$ENV{HOME}/Applications/Sublime Text 2.app/Contents/SharedSupport/bin"
+        "/opt/sublime_text"
+        "/opt/sublime_text_3"
+    DOC "The Sublime Text executable")
+
+if(LINEARBUILD_SUBLIMETEXT_EXECUTABLE)
+  set(LINEARBUILD_OPEN_PROJECT_COMMAND "${LINEARBUILD_SUBLIMETEXT_EXECUTABLE} --project <PROJECT_FILE>" )
+endif()

@@ -17,7 +17,7 @@
 #include <string>
 #include <vector>
 
-namespace rblx::moderation {
+namespace linear::moderation {
 
 struct Policy {
     // Strikes answered with a warning alone before the first suspension. Two
@@ -216,4 +216,4 @@ inline Decision liftRestriction(State* state) {
     return decision;
 }
 
-}  // namespace rblx::moderation
+}  // namespace linear::moderation

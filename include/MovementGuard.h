@@ -9,7 +9,7 @@
 // cannot physically have made: a horizontal hop faster than the walk speed, or
 // a climb the client never fell back from.
 //
-// It is header-only and depends on nothing but rblxmath so tests can run it without
+// It is header-only and depends on nothing but linearmath so tests can run it without
 // a socket, a physics world or a running server.
 
 #include <algorithm>
@@ -18,9 +18,9 @@
 #include <cstdio>
 #include <string>
 
-#include <rblxmath/rblxmath.hpp>
+#include <linearmath/linearmath.hpp>
 
-namespace rblx::movement {
+namespace linear::movement {
 
 struct Limits {
     // The client walks at 20 units/s; anything much faster is a speed hack.
@@ -52,9 +52,9 @@ struct Limits {
 struct Evidence {
     float frameSeconds = 0.0f;
     // The last position the server accepted.
-    rblxmath::vec3 from{0.0f};
+    linearmath::vec3 from{0.0f};
     // Where the client said it was.
-    rblxmath::vec3 claimed{0.0f};
+    linearmath::vec3 claimed{0.0f};
     // Claimed horizontal travel this frame and the most the speed limit allows.
     float horizontal = 0.0f;
     float allowedHorizontal = 0.0f;
@@ -71,7 +71,7 @@ struct Correction {
     // True when the step was rejected because the client climbed without ever
     // coming down, which is a fly hack rather than a fast one.
     bool flight = false;
-    rblxmath::vec3 position{0.0f};
+    linearmath::vec3 position{0.0f};
     // Filled for every step, corrected or not, so a caller records what was
     // accepted as easily as what was rejected.
     Evidence evidence;
@@ -111,7 +111,7 @@ class Guard {
 public:
     // Start from a trusted position, such as the spawn or the state a client
     // sent with its first packet.
-    void reset(const rblxmath::vec3& position, uint64_t nowMs) {
+    void reset(const linearmath::vec3& position, uint64_t nowMs) {
         position_ = position;
         atMs_ = nowMs;
         clientMs_ = 0;
@@ -122,20 +122,20 @@ public:
 
     // A position the server itself placed the player at (a script teleport, a
     // respawn). Later packets are measured from there.
-    void teleport(const rblxmath::vec3& position, uint64_t nowMs) { reset(position, nowMs); }
+    void teleport(const linearmath::vec3& position, uint64_t nowMs) { reset(position, nowMs); }
 
     bool primed() const { return primed_; }
     int corrections() const { return corrections_; }
 
     // Without a client stamp, the gap is the server's own arrival time.
-    Correction validate(const rblxmath::vec3& proposed, uint64_t nowMs) {
+    Correction validate(const linearmath::vec3& proposed, uint64_t nowMs) {
         return validate(proposed, nowMs, 0);
     }
 
     // With the client's clock (monotonic milliseconds). The stamp is what makes
     // bursty UDP harmless: several packets that land in one server tick are
     // still measured over the time the player actually moved.
-    Correction validate(const rblxmath::vec3& proposed, uint64_t arrivalMs, uint32_t clientMs) {
+    Correction validate(const linearmath::vec3& proposed, uint64_t arrivalMs, uint32_t clientMs) {
         Correction result;
         result.position = proposed;
         if (!primed_) {
@@ -146,7 +146,7 @@ public:
         }
 
         const float dt = frameSeconds(arrivalMs, clientMs);
-        const rblxmath::vec3 delta = proposed - position_;
+        const linearmath::vec3 delta = proposed - position_;
         const float maxHorizontal = limits_.maxHorizontalSpeed * dt + limits_.horizontalSlack;
         const float maxRise = limits_.maxRiseSpeed * dt + limits_.riseSlack;
 
@@ -156,7 +156,7 @@ public:
         evidence.frameSeconds = dt;
         evidence.from = position_;
         evidence.claimed = proposed;
-        evidence.horizontal = rblxmath::length(rblxmath::vec2(delta.x, delta.z));
+        evidence.horizontal = linearmath::length(linearmath::vec2(delta.x, delta.z));
         evidence.allowedHorizontal = maxHorizontal;
         evidence.rise = delta.y;
         evidence.allowedRise = maxRise;
@@ -252,7 +252,7 @@ private:
     }
 
     bool primed_ = false;
-    rblxmath::vec3 position_{0.0f};
+    linearmath::vec3 position_{0.0f};
     uint64_t atMs_ = 0;
     uint32_t clientMs_ = 0;
     bool haveClient_ = false;
@@ -262,4 +262,4 @@ private:
     Limits limits_{};
 };
 
-} // namespace rblx::movement
+} // namespace linear::movement

@@ -16,8 +16,8 @@ void check(bool ok, const std::string& what) {
 }  // namespace
 
 int main() {
-    using namespace rblx::hwid;
-    using rblx::web::Store;
+    using namespace linear::hwid;
+    using linear::web::Store;
 
     // The digest is stable, the right shape and different for a different machine.
     const std::string desk = hashInputs("vol=1234;host=desk");
@@ -58,7 +58,7 @@ int main() {
 
     check(store.banHardware(desk, 7, "cheater", "flying", "2026-01-01T00:00:00Z"),
           "banning a machine records it");
-    const rblx::web::HardwareBanRecord* ban = store.activeHardwareBan(desk);
+    const linear::web::HardwareBanRecord* ban = store.activeHardwareBan(desk);
     check(ban != nullptr, "the banned machine is found");
     check(ban != nullptr && ban->userId == 7, "the ban names the account it came from");
     check(ban != nullptr && ban->reason == "flying", "the ban keeps its reason for the record");

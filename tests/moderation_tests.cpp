@@ -19,7 +19,7 @@ bool contains(const std::string& haystack, const std::string& needle) {
 }  // namespace
 
 int main() {
-    using namespace rblx::moderation;
+    using namespace linear::moderation;
 
     const Policy policy;
     const long long now = 1700000000000LL;

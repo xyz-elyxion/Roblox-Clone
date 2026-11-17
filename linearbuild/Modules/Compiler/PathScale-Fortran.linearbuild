@@ -1,0 +1,9 @@
+include(Compiler/PathScale)
+__compiler_pathscale(Fortran)
+
+set(LINEARBUILD_Fortran_MODDIR_FLAG "-module ")
+set(LINEARBUILD_Fortran_FORMAT_FIXED_FLAG "-fixedform")
+set(LINEARBUILD_Fortran_FORMAT_FREE_FLAG "-freeform")
+
+set(LINEARBUILD_Fortran_COMPILE_OPTIONS_PREPROCESS_ON "-cpp")
+set(LINEARBUILD_Fortran_COMPILE_OPTIONS_PREPROCESS_OFF "-nocpp")

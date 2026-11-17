@@ -1,0 +1,11 @@
+include(Platform/Windows-Clang)
+set(_COMPILE_HIP_MSVC " -x hip")
+__windows_compiler_clang(HIP)
+
+if((NOT DEFINED LINEARBUILD_DEPENDS_USE_COMPILER OR LINEARBUILD_DEPENDS_USE_COMPILER)
+    AND LINEARBUILD_GENERATOR MATCHES "Makefiles|WMake"
+    AND LINEARBUILD_DEPFILE_FLAGS_HIP)
+  # dependencies are computed by the compiler itself
+  set(LINEARBUILD_HIP_DEPFILE_FORMAT gcc)
+  set(LINEARBUILD_HIP_DEPENDS_USE_COMPILER TRUE)
+endif()

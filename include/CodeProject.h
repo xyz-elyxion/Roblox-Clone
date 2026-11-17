@@ -9,10 +9,10 @@
 // a search finds the line it names, and the small pieces of editor behaviour
 // that are worth testing on their own. They live here so a headless test can
 // exercise them; `src/CodeMain.cpp` is only the drawing.
-namespace rblx {
+namespace linear {
 namespace code {
 
-// What the editor colours a file as. The pinned RblxTextEditor widget carries a
+// What the editor colours a file as. The pinned LinearTextEditor widget carries a
 // definition per language family, so this is the choice of which one to hand it.
 enum class Language {
     Plain,
@@ -256,4 +256,4 @@ CompletionList completionsAt(const std::string& text, Language language, std::si
                              std::size_t maxItems = 200);
 
 }  // namespace code
-}  // namespace rblx
+}  // namespace linear

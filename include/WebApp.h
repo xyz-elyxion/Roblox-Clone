@@ -16,7 +16,7 @@
 #include "WebJson.h"
 #include "WebStore.h"
 
-namespace rblx {
+namespace linear {
 
 namespace hub {
 class HubSite;
@@ -91,7 +91,7 @@ struct Config {
     std::vector<std::string> adminUsernames = {"defaultuser0"};
     // What a confirmed anti-cheat detection costs. The ladder is in Moderation.h;
     // this is the one place an install can tune it.
-    rblx::moderation::Policy moderation;
+    linear::moderation::Policy moderation;
 };
 
 struct WorldAnalysis {
@@ -234,12 +234,12 @@ private:
     // The role an account holds. The account that owns the install is always the
     // Owner, whatever its stored role says, so editing the data file cannot lock
     // the install out of its own dashboard.
-    const rblx::roles::Role& roleOf(const AuthUser& user) const;
-    bool can(const AuthUser& user, rblx::roles::Permission permission) const;
+    const linear::roles::Role& roleOf(const AuthUser& user) const;
+    bool can(const AuthUser& user, linear::roles::Permission permission) const;
     // Writes the 403 naming the caller's role; true when the permission is held.
-    bool requirePermission(const AuthUser& user, rblx::roles::Permission permission,
+    bool requirePermission(const AuthUser& user, linear::roles::Permission permission,
                            const std::string& action, Response& response) const;
-    Json roleJson(const rblx::roles::Role& role) const;
+    Json roleJson(const linear::roles::Role& role) const;
     // Names are resolved to ids once, at start-up, so a name that is given up
     // later cannot carry admin rights to whoever claims it next.
     void resolveAdminIds();
@@ -418,7 +418,7 @@ private:
 
     Config config_;
     Store store_;
-    std::unique_ptr<rblx::hub::HubSite> hub_;
+    std::unique_ptr<linear::hub::HubSite> hub_;
     HttpServer server_;
     std::mutex mutex_;
     std::map<std::string, GameInstance> instances_;
@@ -441,4 +441,4 @@ private:
 int runWebsiteServer(int argc, char** argv);
 
 }  // namespace web
-}  // namespace rblx
+}  // namespace linear

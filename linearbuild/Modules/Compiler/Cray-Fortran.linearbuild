@@ -1,0 +1,25 @@
+# Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
+# file LICENSE.rst or https://linearbuild.org/licensing for details.
+
+include(Compiler/Cray)
+__compiler_cray(Fortran)
+
+set(LINEARBUILD_Fortran_SUBMODULE_SEP "")
+set(LINEARBUILD_Fortran_SUBMODULE_EXT ".mod")
+set(LINEARBUILD_Fortran_MODOUT_FLAG -em)
+set(LINEARBUILD_Fortran_MODDIR_FLAG -J)
+set(LINEARBUILD_Fortran_MODDIR_DEFAULT .)
+set(LINEARBUILD_Fortran_FORMAT_FIXED_FLAG "-f fixed")
+set(LINEARBUILD_Fortran_FORMAT_FREE_FLAG "-f free")
+
+if (NOT LINEARBUILD_Fortran_COMPILER_VERSION VERSION_LESS 8.5)
+  set(LINEARBUILD_Fortran_COMPILE_OPTIONS_PREPROCESS_ON "-eT")
+  set(LINEARBUILD_Fortran_COMPILE_OPTIONS_PREPROCESS_OFF "-dT")
+else()
+  set(LINEARBUILD_Fortran_COMPILE_OPTIONS_PREPROCESS_ON "-eZ")
+  set(LINEARBUILD_Fortran_COMPILE_OPTIONS_PREPROCESS_OFF "-dZ")
+endif()
+
+if (NOT LINEARBUILD_Fortran_COMPILER_VERSION VERSION_LESS 11.0)
+  set(LINEARBUILD_Fortran_PREPROCESS_SOURCE "<LINEARBUILD_Fortran_COMPILER> -o <PREPROCESSED_SOURCE> <DEFINES> <INCLUDES> <FLAGS> -eP <SOURCE>")
+endif()

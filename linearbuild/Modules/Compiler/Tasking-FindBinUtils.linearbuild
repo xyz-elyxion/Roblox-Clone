@@ -1,0 +1,26 @@
+# Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
+# file LICENSE.rst or https://linearbuild.org/licensing for details.
+
+# Find the archiver for the compiler architecture, which is always in the same
+# directory as the compiler.
+if(NOT DEFINED _LINEARBUILD_PROCESSING_LANGUAGE OR _LINEARBUILD_PROCESSING_LANGUAGE STREQUAL "")
+  message(FATAL_ERROR "Internal error: _LINEARBUILD_PROCESSING_LANGUAGE is not set")
+endif()
+
+get_filename_component(__tasking_hints "${LINEARBUILD_${_LINEARBUILD_PROCESSING_LANGUAGE}_COMPILER}" DIRECTORY)
+
+find_program(LINEARBUILD_${_LINEARBUILD_PROCESSING_LANGUAGE}_COMPILER_AR
+  NAMES
+    artc
+    ararm
+    armcs
+    ar51
+    ararc
+    arpcp
+  HINTS ${__tasking_hints}
+  NAMES_PER_DIR
+  NO_LINEARBUILD_PATH
+  NO_LINEARBUILD_ENVIRONMENT_PATH
+  DOC "Tasking Archiver"
+)
+mark_as_advanced(LINEARBUILD_${_LINEARBUILD_PROCESSING_LANGUAGE}_COMPILER_AR)

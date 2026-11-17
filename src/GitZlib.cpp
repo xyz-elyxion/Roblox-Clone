@@ -4,7 +4,7 @@
 #include <cstring>
 #include <vector>
 
-namespace rblx {
+namespace linear {
 namespace git {
 namespace {
 
@@ -384,4 +384,4 @@ std::uint32_t adler32(const void* data, std::size_t size) {
 }
 
 }  // namespace git
-}  // namespace rblx
+}  // namespace linear

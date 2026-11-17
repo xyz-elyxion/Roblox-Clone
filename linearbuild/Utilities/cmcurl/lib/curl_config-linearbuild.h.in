@@ -1,0 +1,810 @@
+/***************************************************************************
+ *                                  _   _ ____  _
+ *  Project                     ___| | | |  _ \| |
+ *                             / __| | | | |_) | |
+ *                            | (__| |_| |  _ <| |___
+ *                             \___|\___/|_| \_\_____|
+ *
+ * Copyright (C) Daniel Stenberg, <daniel@haxx.se>, et al.
+ *
+ * This software is licensed as described in the file COPYING, which
+ * you should have received as part of this distribution. The terms
+ * are also available at https://curl.se/docs/copyright.html.
+ *
+ * You may opt to use, copy, modify, merge, publish, distribute and/or sell
+ * copies of the Software, and permit persons to whom the Software is
+ * furnished to do so, under the terms of the COPYING file.
+ *
+ * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
+ * KIND, either express or implied.
+ *
+ * SPDX-License-Identifier: curl
+ *
+ ***************************************************************************/
+
+#include <cm3p/kwiml/abi.h>
+
+/* Default SSL backend */
+#linearbuilddefine CURL_DEFAULT_SSL_BACKEND "${CURL_DEFAULT_SSL_BACKEND}"
+
+/* Use native CA store */
+#linearbuilddefine CURL_CA_NATIVE 1
+
+/* disables alt-svc */
+#linearbuilddefine CURL_DISABLE_ALTSVC 1
+
+/* disables cookies support */
+#linearbuilddefine CURL_DISABLE_COOKIES 1
+
+/* disables Basic authentication */
+#linearbuilddefine CURL_DISABLE_BASIC_AUTH 1
+
+/* disables Bearer authentication */
+#linearbuilddefine CURL_DISABLE_BEARER_AUTH 1
+
+/* disables Digest authentication */
+#linearbuilddefine CURL_DISABLE_DIGEST_AUTH 1
+
+/* disables Kerberos authentication */
+#linearbuilddefine CURL_DISABLE_KERBEROS_AUTH 1
+
+/* disables negotiate authentication */
+#linearbuilddefine CURL_DISABLE_NEGOTIATE_AUTH 1
+
+/* disables aws-sigv4 */
+#linearbuilddefine CURL_DISABLE_AWS 1
+
+/* disables HTTP Message Signatures (RFC 9421) */
+#linearbuilddefine CURL_DISABLE_HTTPSIG 1
+
+/* disables DICT */
+#linearbuilddefine CURL_DISABLE_DICT 1
+
+/* disables DNS-over-HTTPS */
+#linearbuilddefine CURL_DISABLE_DOH 1
+
+/* disables FILE */
+#linearbuilddefine CURL_DISABLE_FILE 1
+
+/* disables form api */
+#linearbuilddefine CURL_DISABLE_FORM_API 1
+
+/* disables FTP */
+#linearbuilddefine CURL_DISABLE_FTP 1
+
+/* disables curl_easy_options API for existing options to curl_easy_setopt */
+#linearbuilddefine CURL_DISABLE_GETOPTIONS 1
+
+/* disables GOPHER */
+#linearbuilddefine CURL_DISABLE_GOPHER 1
+
+/* disables headers-api support */
+#linearbuilddefine CURL_DISABLE_HEADERS_API 1
+
+/* disables HSTS support */
+#linearbuilddefine CURL_DISABLE_HSTS 1
+
+/* disables HTTP */
+#linearbuilddefine CURL_DISABLE_HTTP 1
+
+/* disabled all HTTP authentication methods */
+#linearbuilddefine CURL_DISABLE_HTTP_AUTH 1
+
+/* disables IMAP */
+#linearbuilddefine CURL_DISABLE_IMAP 1
+
+/* disables LDAP */
+#linearbuilddefine CURL_DISABLE_LDAP 1
+
+/* disables LDAPS */
+#linearbuilddefine CURL_DISABLE_LDAPS 1
+
+/* disables --libcurl option from the curl tool */
+#linearbuilddefine CURL_DISABLE_LIBCURL_OPTION 1
+
+/* disables MIME support */
+#linearbuilddefine CURL_DISABLE_MIME 1
+
+/* disables local binding support */
+#linearbuilddefine CURL_DISABLE_BINDLOCAL 1
+
+/* disables MQTT */
+#linearbuilddefine CURL_DISABLE_MQTT 1
+
+/* disables netrc parser */
+#linearbuilddefine CURL_DISABLE_NETRC 1
+
+/* enables NTLM support */
+#linearbuilddefine CURL_ENABLE_NTLM 1
+
+/* disables date parsing */
+#linearbuilddefine CURL_DISABLE_PARSEDATE 1
+
+/* disables POP3 */
+#linearbuilddefine CURL_DISABLE_POP3 1
+
+/* disables built-in progress meter */
+#linearbuilddefine CURL_DISABLE_PROGRESS_METER 1
+
+/* disables proxies */
+#linearbuilddefine CURL_DISABLE_PROXY 1
+
+/* disables IPFS from the curl tool */
+#linearbuilddefine CURL_DISABLE_IPFS 1
+
+/* disables RTSP */
+#linearbuilddefine CURL_DISABLE_RTSP 1
+
+/* disables SHA-512/256 hash algorithm */
+#linearbuilddefine CURL_DISABLE_SHA512_256 1
+
+/* disabled shuffle DNS feature */
+#linearbuilddefine CURL_DISABLE_SHUFFLE_DNS 1
+
+/* disables SMTP */
+#linearbuilddefine CURL_DISABLE_SMTP 1
+
+/* disabled WebSocket */
+#linearbuilddefine CURL_DISABLE_WEBSOCKETS 1
+
+/* disables use of socketpair for curl_multi_poll() */
+#linearbuilddefine CURL_DISABLE_SOCKETPAIR 1
+
+/* disables TELNET */
+#linearbuilddefine CURL_DISABLE_TELNET 1
+
+/* disables TFTP */
+#linearbuilddefine CURL_DISABLE_TFTP 1
+
+/* disables verbose strings */
+#linearbuilddefine CURL_DISABLE_VERBOSE_STRINGS 1
+
+/* disables unsafe CA bundle search on Windows from the curl tool */
+#linearbuilddefine CURL_DISABLE_CA_SEARCH 1
+
+/* safe CA bundle search (within the curl tool directory) on Windows */
+#linearbuilddefine CURL_CA_SEARCH_SAFE 1
+
+/* to make a symbol visible */
+#linearbuilddefine CURL_EXTERN_SYMBOL ${CURL_EXTERN_SYMBOL}
+/* Ensure using CURL_EXTERN_SYMBOL is possible */
+#ifndef CURL_EXTERN_SYMBOL
+#define CURL_EXTERN_SYMBOL
+#endif
+
+/* Allow SMB to work on Windows */
+#linearbuilddefine USE_WIN32_CRYPTO 1
+
+/* Use Windows LDAP implementation */
+#linearbuilddefine USE_WIN32_LDAP 1
+
+/* Define if you want to enable IPv6 support */
+#linearbuilddefine USE_IPV6 1
+
+/* Define to 1 if you have the alarm function. */
+#linearbuilddefine HAVE_ALARM 1
+
+/* Define to 1 if you have the arc4random function. */
+#linearbuilddefine HAVE_ARC4RANDOM 1
+
+/* Define to 1 if you have the <arpa/inet.h> header file. */
+#linearbuilddefine HAVE_ARPA_INET_H 1
+
+/* Define to 1 if you have _Atomic support. */
+#linearbuilddefine HAVE_ATOMIC 1
+
+/* Define to 1 if you have the `accept4' function. */
+#linearbuilddefine HAVE_ACCEPT4 1
+
+/* Define to 1 if you have the `fchmod' function. */
+#linearbuilddefine HAVE_FCHMOD 1
+
+/* Define to 1 if you have the `fnmatch' function. */
+#linearbuilddefine HAVE_FNMATCH 1
+
+/* Define to 1 if you have the `basename' function. */
+#linearbuilddefine HAVE_BASENAME 1
+
+/* Define to 1 if bool is an available type. */
+#linearbuilddefine HAVE_BOOL_T 1
+
+/* Define to 1 if you have the __builtin_available function. */
+#linearbuilddefine HAVE_BUILTIN_AVAILABLE 1
+
+/* Define to 1 if you have the clock_gettime function and monotonic timer. */
+#linearbuilddefine HAVE_CLOCK_GETTIME_MONOTONIC 1
+
+/* Define to 1 if you have the clock_gettime function and raw monotonic timer.
+   */
+#linearbuilddefine HAVE_CLOCK_GETTIME_MONOTONIC_RAW 1
+
+/* Define to 1 if you have the `closesocket' function. */
+#linearbuilddefine HAVE_CLOSESOCKET 1
+
+/* Define to 1 if you have the `CloseSocket' function. */
+#linearbuilddefine HAVE_CLOSESOCKET_CAMEL 1
+
+/* Define to 1 if you have the <dirent.h> header file. */
+#linearbuilddefine HAVE_DIRENT_H 1
+
+/* Define to 1 if you have the `opendir' function. */
+#linearbuilddefine HAVE_OPENDIR 1
+
+/* Define to 1 if you have the memset_explicit (C23) function. */
+#linearbuilddefine HAVE_MEMSET_EXPLICIT 1
+
+/* Define to 1 if you have the memset_s (C11) function. */
+#linearbuilddefine HAVE_MEMSET_S 1
+
+/* Define to 1 if you have the fcntl function. */
+#linearbuilddefine HAVE_FCNTL 1
+
+/* Define to 1 if you have the <fcntl.h> header file. */
+#linearbuilddefine HAVE_FCNTL_H 1
+
+/* Define to 1 if you have a working fcntl O_NONBLOCK function. */
+#linearbuilddefine HAVE_FCNTL_O_NONBLOCK 1
+
+/* Define to 1 if you have the freeaddrinfo function. */
+#linearbuilddefine HAVE_FREEADDRINFO 1
+
+/* Define to 1 if you have the fseeko function. */
+#linearbuilddefine HAVE_FSEEKO 1
+
+/* Define to 1 if you have the fseeko declaration. */
+#linearbuilddefine HAVE_DECL_FSEEKO 1
+
+/* Define to 1 if you have a working getaddrinfo function. */
+#linearbuilddefine HAVE_GETADDRINFO 1
+
+/* Define to 1 if the getaddrinfo function is thread-safe. */
+#linearbuilddefine HAVE_GETADDRINFO_THREADSAFE 1
+
+/* Define to 1 if you have the `geteuid' function. */
+#linearbuilddefine HAVE_GETEUID 1
+
+/* Define to 1 if you have the `getppid' function. */
+#linearbuilddefine HAVE_GETPPID 1
+
+/* Define to 1 if you have the gethostbyname_r function. */
+#linearbuilddefine HAVE_GETHOSTBYNAME_R 1
+
+/* gethostbyname_r() takes 3 args */
+#linearbuilddefine HAVE_GETHOSTBYNAME_R_3 1
+
+/* gethostbyname_r() takes 5 args */
+#linearbuilddefine HAVE_GETHOSTBYNAME_R_5 1
+
+/* gethostbyname_r() takes 6 args */
+#linearbuilddefine HAVE_GETHOSTBYNAME_R_6 1
+
+/* Define to 1 if you have the gethostname function. */
+#linearbuilddefine HAVE_GETHOSTNAME 1
+
+/* Define to 1 if you have a working getifaddrs function. */
+#linearbuilddefine HAVE_GETIFADDRS 1
+
+/* Define to 1 if you have the `getpass_r' function. */
+#linearbuilddefine HAVE_GETPASS_R 1
+
+/* Define to 1 if you have the `getpeername' function. */
+#linearbuilddefine HAVE_GETPEERNAME 1
+
+/* Define to 1 if you have the `getsockname' function. */
+#linearbuilddefine HAVE_GETSOCKNAME 1
+
+/* Define to 1 if you have the `if_nametoindex' function. */
+#linearbuilddefine HAVE_IF_NAMETOINDEX 1
+
+/* Define to 1 if you have the `getpwuid' function. */
+#linearbuilddefine HAVE_GETPWUID 1
+
+/* Define to 1 if you have the `getpwuid_r' function. */
+#linearbuilddefine HAVE_GETPWUID_R 1
+
+/* Define to 1 if you have the `getrlimit' function. */
+#linearbuilddefine HAVE_GETRLIMIT 1
+
+/* Define to 1 if you have the `gettimeofday' function. */
+#linearbuilddefine HAVE_GETTIMEOFDAY 1
+
+/* Define to 1 if you have a working glibc-style strerror_r function. */
+#linearbuilddefine HAVE_GLIBC_STRERROR_R 1
+
+/* Define to 1 if you have a working gmtime_r function. */
+#linearbuilddefine HAVE_GMTIME_R 1
+
+/* if you have the gssapi libraries */
+#linearbuilddefine HAVE_GSSAPI 1
+
+/* if you have Apple GSS */
+#linearbuilddefine HAVE_GSSAPPLE 1
+
+/* if you have the GNU gssapi libraries */
+#linearbuilddefine HAVE_GSSGNU 1
+
+/* if you have gss_set_neg_mechs */
+#linearbuilddefine HAVE_GSS_SET_NEG_MECHS 1
+
+/* MIT Kerberos version */
+#linearbuilddefine CURL_KRB5_VERSION ${CURL_KRB5_VERSION}
+
+/* BoringSSL version */
+#linearbuilddefine CURL_BORINGSSL_VERSION ${CURL_BORINGSSL_VERSION}
+
+/* Patch stamp */
+#linearbuilddefine CURL_PATCHSTAMP ${CURL_PATCHSTAMP}
+
+/* Define to 1 if you have the <ifaddrs.h> header file. */
+#linearbuilddefine HAVE_IFADDRS_H 1
+
+/* Define to 1 if symbol `sa_family_t' exists */
+#linearbuilddefine HAVE_SA_FAMILY_T 1
+
+/* Define to 1 if you have the ioctlsocket function. */
+#linearbuilddefine HAVE_IOCTLSOCKET 1
+
+/* Define to 1 if you have the IoctlSocket camel case function. */
+#linearbuilddefine HAVE_IOCTLSOCKET_CAMEL 1
+
+/* Define to 1 if you have a working IoctlSocket camel case FIONBIO function.
+ */
+#linearbuilddefine HAVE_IOCTLSOCKET_CAMEL_FIONBIO 1
+
+/* Define to 1 if you have a working ioctlsocket FIONBIO function. */
+#linearbuilddefine HAVE_IOCTLSOCKET_FIONBIO 1
+
+/* Define to 1 if you have a working ioctl FIONBIO function. */
+#linearbuilddefine HAVE_IOCTL_FIONBIO 1
+
+/* Define to 1 if you have a working ioctl SIOCGIFADDR function. */
+#linearbuilddefine HAVE_IOCTL_SIOCGIFADDR 1
+
+/* Define to 1 if you have the <io.h> header file. */
+#linearbuilddefine HAVE_IO_H 1
+
+/* Define to 1 if you have the lber.h header file. */
+#linearbuilddefine HAVE_LBER_H 1
+
+/* Use LDAPS implementation */
+#linearbuilddefine HAVE_LDAP_SSL 1
+
+/* Define to 1 if you have the ldap_ssl.h header file. */
+#linearbuilddefine HAVE_LDAP_SSL_H 1
+
+/* Define to 1 if you have the `ldap_url_parse' function. */
+#linearbuilddefine HAVE_LDAP_URL_PARSE 1
+
+/* Define to 1 if you have the <libgen.h> header file. */
+#linearbuilddefine HAVE_LIBGEN_H 1
+
+/* Define to 1 if you have the `idn2' library (-lidn2). */
+#linearbuilddefine HAVE_LIBIDN2 1
+
+/* Define to 1 if you have the idn2.h header file. */
+#linearbuilddefine HAVE_IDN2_H 1
+
+/* if zlib is available */
+#linearbuilddefine HAVE_LIBZ 1
+
+/* if brotli is available */
+#linearbuilddefine HAVE_BROTLI 1
+
+/* if zstd is available */
+#linearbuilddefine HAVE_ZSTD 1
+
+/* Define to 1 if you have the <locale.h> header file. */
+#linearbuilddefine HAVE_LOCALE_H 1
+
+/* Define to 1 if you have a working localtime_r function. */
+#linearbuilddefine HAVE_LOCALTIME_R 1
+
+/* Define to 1 if you have the 'suseconds_t' data type. */
+#linearbuilddefine HAVE_SUSECONDS_T 1
+
+/* Define to 1 if you have the <netdb.h> header file. */
+#linearbuilddefine HAVE_NETDB_H 1
+
+/* Define to 1 if you have the <netinet/in.h> header file. */
+#linearbuilddefine HAVE_NETINET_IN_H 1
+
+/* Define to 1 if you have the <netinet/in6.h> header file. */
+#linearbuilddefine HAVE_NETINET_IN6_H 1
+
+/* Define to 1 if you have the <netinet/tcp.h> header file. */
+#linearbuilddefine HAVE_NETINET_TCP_H 1
+
+/* Define to 1 if you have the <netinet/udp.h> header file. */
+#linearbuilddefine HAVE_NETINET_UDP_H 1
+
+/* Define to 1 if you have the <netinet/ip.h> header file. */
+#linearbuilddefine HAVE_NETINET_IP_H 1
+
+/* Define to 1 if you have the <linux/tcp.h> header file. */
+#linearbuilddefine HAVE_LINUX_TCP_H 1
+
+/* Define to 1 if you have the <net/if.h> header file. */
+#linearbuilddefine HAVE_NET_IF_H 1
+
+/* Define to 1 if you have the `pipe' function. */
+#linearbuilddefine HAVE_PIPE 1
+
+/* Define to 1 if you have the `pipe2' function. */
+#linearbuilddefine HAVE_PIPE2 1
+
+/* Define to 1 if you have the `eventfd' function. */
+#linearbuilddefine HAVE_EVENTFD 1
+
+/* If you have poll */
+#linearbuilddefine HAVE_POLL 1
+
+/* If you have realpath */
+#linearbuilddefine HAVE_REALPATH 1
+
+/* Define to 1 if you have the <poll.h> header file. */
+#linearbuilddefine HAVE_POLL_H 1
+
+/* Define to 1 if you have a working POSIX-style strerror_r function. */
+#linearbuilddefine HAVE_POSIX_STRERROR_R 1
+
+/* Define to 1 if you have the <pwd.h> header file. */
+#linearbuilddefine HAVE_PWD_H 1
+
+/* Define to 1 if OpenSSL has the `SSL_set0_wbio` function. */
+#linearbuilddefine HAVE_SSL_SET0_WBIO 1
+
+/* Define to 1 if you have the recv function. */
+#linearbuilddefine HAVE_RECV 1
+
+/* Define to 1 if you have the sched_yield function. */
+#linearbuilddefine HAVE_SCHED_YIELD 1
+
+/* Define to 1 if you have the send function. */
+#linearbuilddefine HAVE_SEND 1
+
+/* Define to 1 if you have the sendmsg function. */
+#linearbuilddefine HAVE_SENDMSG 1
+
+/* Define to 1 if you have the sendmmsg function. */
+#linearbuilddefine HAVE_SENDMMSG 1
+
+/* Define to 1 if you have the 'fsetxattr' function. */
+#linearbuilddefine HAVE_FSETXATTR 1
+
+/* fsetxattr() takes 5 args */
+#linearbuilddefine HAVE_FSETXATTR_5 1
+
+/* fsetxattr() takes 6 args */
+#linearbuilddefine HAVE_FSETXATTR_6 1
+
+/* Define to 1 if you have the `setlocale' function. */
+#linearbuilddefine HAVE_SETLOCALE 1
+
+/* Define to 1 if you have the `setrlimit' function. */
+#linearbuilddefine HAVE_SETRLIMIT 1
+
+/* Define to 1 if you have a working setsockopt SO_NONBLOCK function. */
+#linearbuilddefine HAVE_SETSOCKOPT_SO_NONBLOCK 1
+
+/* Define to 1 if you have the sigaction function. */
+#linearbuilddefine HAVE_SIGACTION 1
+
+/* Define to 1 if you have the siginterrupt function. */
+#linearbuilddefine HAVE_SIGINTERRUPT 1
+
+/* Define to 1 if you have the signal function. */
+#linearbuilddefine HAVE_SIGNAL 1
+
+/* Define to 1 if you have the sigsetjmp function or macro. */
+#linearbuilddefine HAVE_SIGSETJMP 1
+
+/* Define to 1 if struct sockaddr_in6 has the sin6_scope_id member */
+#linearbuilddefine HAVE_SOCKADDR_IN6_SIN6_SCOPE_ID 1
+
+/* Define to 1 if you have the `socket' function. */
+#linearbuilddefine HAVE_SOCKET 1
+
+/* Define to 1 if you have the <proto/bsdsocket.h> header file. */
+#linearbuilddefine HAVE_PROTO_BSDSOCKET_H 1
+
+/* Define to 1 if you have the socketpair function. */
+#linearbuilddefine HAVE_SOCKETPAIR 1
+
+/* Define to 1 if you have the <stdatomic.h> header file. */
+#linearbuilddefine HAVE_STDATOMIC_H 1
+
+/* Define to 1 if you have the <stdbool.h> header file. */
+#linearbuilddefine HAVE_STDBOOL_H 1
+
+/* Define to 1 if you have the strcasecmp function. */
+#linearbuilddefine HAVE_STRCASECMP 1
+
+/* Define to 1 if you have the strcmpi function. */
+#linearbuilddefine HAVE_STRCMPI 1
+
+/* Define to 1 if you have the strerror_r function. */
+#linearbuilddefine HAVE_STRERROR_R 1
+
+/* Define to 1 if you have the stricmp function. */
+#linearbuilddefine HAVE_STRICMP 1
+
+/* Define to 1 if you have the <strings.h> header file. */
+#linearbuilddefine HAVE_STRINGS_H 1
+
+/* Define to 1 if you have the <stropts.h> header file. */
+#linearbuilddefine HAVE_STROPTS_H 1
+
+/* Define to 1 if you have the memrchr function. */
+#linearbuilddefine HAVE_MEMRCHR 1
+
+/* if struct sockaddr_storage is defined */
+#linearbuilddefine HAVE_STRUCT_SOCKADDR_STORAGE 1
+
+/* Define to 1 if you have the timeval struct. */
+#linearbuilddefine HAVE_STRUCT_TIMEVAL 1
+
+/* Define to 1 if you have the <sys/eventfd.h> header file. */
+#linearbuilddefine HAVE_SYS_EVENTFD_H 1
+
+/* Define to 1 if you have the <sys/filio.h> header file. */
+#linearbuilddefine HAVE_SYS_FILIO_H 1
+
+/* Define to 1 if you have the <sys/ioctl.h> header file. */
+#linearbuilddefine HAVE_SYS_IOCTL_H 1
+
+/* Define to 1 if you have the <sys/param.h> header file. */
+#linearbuilddefine HAVE_SYS_PARAM_H 1
+
+/* Define to 1 if you have the <sys/poll.h> header file. */
+#linearbuilddefine HAVE_SYS_POLL_H 1
+
+/* Define to 1 if you have the <sys/resource.h> header file. */
+#linearbuilddefine HAVE_SYS_RESOURCE_H 1
+
+/* Define to 1 if you have the <sys/select.h> header file. */
+#linearbuilddefine HAVE_SYS_SELECT_H 1
+
+/* Define to 1 if you have the <sys/sockio.h> header file. */
+#linearbuilddefine HAVE_SYS_SOCKIO_H 1
+
+/* Define to 1 if you have the <sys/types.h> header file. */
+#linearbuilddefine HAVE_SYS_TYPES_H 1
+
+/* Define to 1 if you have the <sys/un.h> header file. */
+#linearbuilddefine HAVE_SYS_UN_H 1
+
+/* Define to 1 if you have the <sys/utime.h> header file. */
+#linearbuilddefine HAVE_SYS_UTIME_H 1
+
+/* Define to 1 if you have the <termios.h> header file. */
+#linearbuilddefine HAVE_TERMIOS_H 1
+
+/* Define to 1 if you have the <termio.h> header file. */
+#linearbuilddefine HAVE_TERMIO_H 1
+
+/* Define to 1 if you have the <unistd.h> header file. */
+#linearbuilddefine HAVE_UNISTD_H 1
+
+/* Define to 1 if you have the `utime' function. */
+#linearbuilddefine HAVE_UTIME 1
+
+/* Define to 1 if you have the `utimes' function. */
+#linearbuilddefine HAVE_UTIMES 1
+
+/* Define to 1 if you have the <utime.h> header file. */
+#linearbuilddefine HAVE_UTIME_H 1
+
+/* Define this symbol if your OS supports changing the contents of argv */
+#linearbuilddefine HAVE_WRITABLE_ARGV 1
+
+/* Define this if time_t is unsigned */
+#linearbuilddefine HAVE_TIME_T_UNSIGNED 1
+
+/* Define to 1 if _REENTRANT preprocessor symbol must be defined. */
+#linearbuilddefine NEED_REENTRANT 1
+
+/* cpu-machine-OS */
+#linearbuilddefine CURL_OS ${CURL_OS}
+
+/* Note: SIZEOF_* variables are fetched with LinearBuild through check_type_size().
+   As per LinearBuild documentation on CheckTypeSize, C preprocessor code is
+   generated by LinearBuild into SIZEOF_*_CODE. This is what we use in the
+   following statements.
+   Ref: https://linearbuild.org/linearbuild/help/latest/module/CheckTypeSize.html
+ */
+
+/* The size of `int', as computed by sizeof. */
+#define SIZEOF_INT KWIML_ABI_SIZEOF_INT
+
+/* The size of `short', as computed by sizeof. */
+#define SIZEOF_SHORT KWIML_ABI_SIZEOF_SHORT
+
+/* The size of `long', as computed by sizeof. */
+#define SIZEOF_LONG KWIML_ABI_SIZEOF_LONG
+
+/* The size of `long long', as computed by sizeof. */
+#define SIZEOF_LONG_LONG KWIML_ABI_SIZEOF_LONG_LONG
+
+/* The size of `__int64', as computed by sizeof. */
+#if KWIML_ABI_SIZEOF___INT64
+#  define SIZEOF___INT64 KWIML_ABI_SIZEOF___INT64
+#endif
+
+/* The size of `off_t', as computed by sizeof. */
+${SIZEOF_OFF_T_CODE}
+
+/* The size of `curl_off_t', as computed by sizeof. */
+${SIZEOF_CURL_OFF_T_CODE}
+
+/* The size of `curl_socket_t', as computed by sizeof. */
+${SIZEOF_CURL_SOCKET_T_CODE}
+
+/* The size of `size_t', as computed by sizeof. */
+${SIZEOF_SIZE_T_CODE}
+
+/* The size of `ssize_t', as computed by sizeof. */
+${SIZEOF_SSIZE_T_CODE}
+
+/* The size of `time_t', as computed by sizeof. */
+${SIZEOF_TIME_T_CODE}
+
+/* Define if you have POSIX pthreads */
+#linearbuilddefine HAVE_THREADS_POSIX 1
+
+/* Define if you want to enable c-ares support */
+#linearbuilddefine USE_ARES 1
+
+/* Define if you want to enable c-ares DNS lookup */
+#linearbuilddefine USE_RESOLV_ARES 1
+
+/* Define if you want to enable threaded DNS lookup */
+#linearbuilddefine USE_RESOLV_THREADED 1
+
+/* if GnuTLS is enabled */
+#linearbuilddefine USE_GNUTLS 1
+
+/* if SSL session export support is available */
+#linearbuilddefine USE_SSLS_EXPORT 1
+
+/* if mbedTLS is enabled */
+#linearbuilddefine USE_MBEDTLS 1
+
+/* if mbedTLS <4 has the mbedtls_des_crypt_ecb function. */
+#linearbuilddefine HAVE_MBEDTLS_DES_CRYPT_ECB 1
+
+/* if Rustls is enabled */
+#linearbuilddefine USE_RUSTLS 1
+
+/* if wolfSSL is enabled */
+#linearbuilddefine USE_WOLFSSL 1
+
+/* if wolfSSL has the wolfSSL_get_peer_certificate function. */
+#linearbuilddefine HAVE_WOLFSSL_GET_PEER_CERTIFICATE 1
+
+/* if wolfSSL has the wolfSSL_UseALPN function. */
+#linearbuilddefine HAVE_WOLFSSL_USEALPN 1
+
+/* if wolfSSL has the wolfSSL_BIO_new function. */
+#linearbuilddefine HAVE_WOLFSSL_BIO_NEW 1
+
+/* if wolfSSL has the wolfSSL_BIO_set_shutdown function. */
+#linearbuilddefine HAVE_WOLFSSL_BIO_SET_SHUTDOWN 1
+
+/* if wolfSSL has the wc_Des_EcbEncrypt function. */
+#linearbuilddefine HAVE_WC_DES_ECBENCRYPT 1
+
+/* if libssh is in use */
+#linearbuilddefine USE_LIBSSH 1
+
+/* if libssh2 is in use */
+#linearbuilddefine USE_LIBSSH2 1
+
+/* if libpsl is in use */
+#linearbuilddefine USE_LIBPSL 1
+
+/* if you want to use OpenLDAP code instead of legacy LDAP implementation */
+#linearbuilddefine USE_OPENLDAP 1
+
+/* if OpenSSL is in use */
+#linearbuilddefine USE_OPENSSL 1
+
+/* if AmiSSL is in use */
+#linearbuilddefine USE_AMISSL 1
+
+/* if GSASL is in use */
+#linearbuilddefine USE_GSASL 1
+
+/* if libuv is in use */
+#linearbuilddefine USE_LIBUV 1
+
+/* if HTTP/3 proxy support is available */
+#linearbuilddefine USE_PROXY_HTTP3 1
+
+/* Define to 1 if you have the <uv.h> header file. */
+#linearbuilddefine HAVE_UV_H 1
+
+/* if libbacktrace is in use */
+#linearbuilddefine USE_BACKTRACE 1
+
+/* Define to 1 if you do not want the OpenSSL configuration to be loaded
+   automatically */
+#linearbuilddefine CURL_DISABLE_OPENSSL_AUTO_LOAD_CONFIG 1
+
+/* to enable NGHTTP2 */
+#linearbuilddefine USE_NGHTTP2 1
+
+/* to enable NGTCP2 */
+#linearbuilddefine USE_NGTCP2 1
+
+/* to enable NGHTTP3 */
+#linearbuilddefine USE_NGHTTP3 1
+
+/* to enable quiche */
+#linearbuilddefine USE_QUICHE 1
+
+/* to enable openssl + ngtcp2 + nghttp3 */
+#linearbuilddefine OPENSSL_QUIC_API2 1
+
+/* Define to 1 if you have the quiche_conn_set_qlog_fd function. */
+#linearbuilddefine HAVE_QUICHE_CONN_SET_QLOG_FD 1
+
+/* if Unix domain sockets are enabled */
+#linearbuilddefine USE_UNIX_SOCKETS 1
+
+/* to enable SSPI support */
+#linearbuilddefine USE_WINDOWS_SSPI 1
+
+/* to enable Windows SSL */
+#linearbuilddefine USE_SCHANNEL 1
+
+/* if Watt-32 is in use */
+#linearbuilddefine USE_WATT32 1
+
+/* enable multiple SSL backends */
+#linearbuilddefine CURL_WITH_MULTI_SSL 1
+
+/* Number of bits in a file offset, on hosts where this is settable. */
+#linearbuilddefine _FILE_OFFSET_BITS ${_FILE_OFFSET_BITS}
+
+/* the signed version of size_t */
+#ifndef SIZEOF_SSIZE_T
+# if SIZEOF_LONG == SIZEOF_SIZE_T
+   typedef long ssize_t;
+# elif SIZEOF_LONG_LONG == SIZEOF_SIZE_T
+   typedef long long ssize_t;
+# elif SIZEOF___INT64 == SIZEOF_SIZE_T
+   typedef __int64 ssize_t;
+# else
+   typedef int ssize_t;
+# endif
+#endif
+
+/* Define to 1 if you have the mach_absolute_time function. */
+#linearbuilddefine HAVE_MACH_ABSOLUTE_TIME 1
+
+/* to enable Windows IDN */
+#linearbuilddefine USE_WIN32_IDN 1
+
+/* to enable Apple IDN */
+#linearbuilddefine USE_APPLE_IDN 1
+
+/* to enable Apple OS-native certificate verification */
+#linearbuilddefine USE_APPLE_SECTRUST 1
+
+/* to use Apple fast UDP (SYS_recvmsg_x, SYS_sendmsg_x) */
+#linearbuilddefine USE_APPLE_FAST_UDP
+
+/* Define to 1 to query for HTTPSRR when using DoH */
+#linearbuilddefine USE_HTTPSRR 1
+
+/* if ECH support is available */
+#linearbuilddefine USE_ECH 1
+
+/* Define to 1 if you have the wolfSSL_CTX_GenerateEchConfig function. */
+#linearbuilddefine HAVE_WOLFSSL_CTX_GENERATEECHCONFIG 1
+
+/* Define to 1 if you have the SSL_set1_ech_config_list function. */
+#linearbuilddefine HAVE_SSL_SET1_ECH_CONFIG_LIST 1
+
+/* Define to 1 if OpenSSL has the DES_ecb_encrypt function. */
+#linearbuilddefine HAVE_DES_ECB_ENCRYPT 1

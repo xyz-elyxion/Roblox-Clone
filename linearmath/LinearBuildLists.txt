@@ -1,0 +1,290 @@
+linearbuild_minimum_required(VERSION 3.6 FATAL_ERROR)
+linearbuild_policy(VERSION 3.6)
+
+file(READ "linearmath/detail/setup.hpp" LINEARMATH_SETUP_FILE)
+string(REGEX MATCH "#define[ ]+LINEARMATH_VERSION_MAJOR[ ]+([0-9]+)" _ ${LINEARMATH_SETUP_FILE})
+set(LINEARMATH_VERSION_MAJOR "${LINEARBUILD_MATCH_1}")
+string(REGEX MATCH "#define[ ]+LINEARMATH_VERSION_MINOR[ ]+([0-9]+)" _ ${LINEARMATH_SETUP_FILE})
+set(LINEARMATH_VERSION_MINOR "${LINEARBUILD_MATCH_1}")
+string(REGEX MATCH "#define[ ]+LINEARMATH_VERSION_PATCH[ ]+([0-9]+)" _ ${LINEARMATH_SETUP_FILE})
+set(LINEARMATH_VERSION_PATCH "${LINEARBUILD_MATCH_1}")
+string(REGEX MATCH "#define[ ]+LINEARMATH_VERSION_REVISION[ ]+([0-9]+)" _ ${LINEARMATH_SETUP_FILE})
+set(LINEARMATH_VERSION_REVISION "${LINEARBUILD_MATCH_1}")
+
+set(LINEARMATH_VERSION ${LINEARMATH_VERSION_MAJOR}.${LINEARMATH_VERSION_MINOR}.${LINEARMATH_VERSION_PATCH})
+project(linearmath VERSION ${LINEARMATH_VERSION} LANGUAGES CXX)
+message(STATUS "LINEARMATH: Version " ${LINEARMATH_VERSION})
+
+set(LINEARMATH_IS_MASTER_PROJECT OFF)
+if (${LINEARBUILD_SOURCE_DIR} STREQUAL ${LINEARBUILD_CURRENT_SOURCE_DIR})
+	set(LINEARMATH_IS_MASTER_PROJECT ON)
+endif()
+
+option(LINEARMATH_BUILD_LIBRARY "Build dynamic/static library" ON)
+option(LINEARMATH_BUILD_TESTS "Build the test programs" ${LINEARMATH_IS_MASTER_PROJECT})
+option(LINEARMATH_BUILD_INSTALL "Generate the install target" ${LINEARMATH_IS_MASTER_PROJECT})
+
+include(GNUInstallDirs)
+
+option(LINEARMATH_ENABLE_CXX_98 "Enable C++ 98" OFF)
+option(LINEARMATH_ENABLE_CXX_11 "Enable C++ 11" OFF)
+option(LINEARMATH_ENABLE_CXX_14 "Enable C++ 14" OFF)
+option(LINEARMATH_ENABLE_CXX_17 "Enable C++ 17" OFF)
+option(LINEARMATH_ENABLE_CXX_20 "Enable C++ 20" OFF)
+
+set(LINEARBUILD_CXX_STANDARD_REQUIRED ON)
+
+if(LINEARMATH_ENABLE_CXX_20)
+	set(LINEARBUILD_CXX_STANDARD 20)
+	add_definitions(-DGLM_FORCE_CXX20)
+	if(LINEARBUILD_CXX_COMPILER_ID MATCHES "Clang")
+		message(STATUS "LINEARMATH: Disable -Wc++98-compat warnings")
+		add_compile_options(-Wno-c++98-compat)
+		add_compile_options(-Wno-c++98-compat-pedantic)
+	endif()
+	if(NOT LINEARMATH_QUIET)
+		message(STATUS "LINEARMATH: Build with C++20 features")
+	endif()
+
+elseif(LINEARMATH_ENABLE_CXX_17)
+	set(LINEARBUILD_CXX_STANDARD 17)
+	add_definitions(-DGLM_FORCE_CXX17)
+	if(LINEARBUILD_CXX_COMPILER_ID MATCHES "Clang")
+		message(STATUS "LINEARMATH: Disable -Wc++98-compat warnings")
+		add_compile_options(-Wno-c++98-compat)
+		add_compile_options(-Wno-c++98-compat-pedantic)
+	endif()
+	if(NOT LINEARMATH_QUIET)
+		message(STATUS "LINEARMATH: Build with C++17 features")
+	endif()
+
+elseif(LINEARMATH_ENABLE_CXX_14)
+	set(LINEARBUILD_CXX_STANDARD 14)
+	add_definitions(-DGLM_FORCE_CXX14)
+	if(LINEARBUILD_CXX_COMPILER_ID MATCHES "Clang")
+		message(STATUS "LINEARMATH: Disable -Wc++98-compat warnings")
+		add_compile_options(-Wno-c++98-compat)
+		add_compile_options(-Wno-c++98-compat-pedantic)
+	endif()
+	if(NOT LINEARMATH_QUIET)
+		message(STATUS "LINEARMATH: Build with C++14 features")
+	endif()
+
+elseif(LINEARMATH_ENABLE_CXX_11)
+	set(LINEARBUILD_CXX_STANDARD 11)
+	add_definitions(-DGLM_FORCE_CXX11)
+	if(LINEARBUILD_CXX_COMPILER_ID MATCHES "Clang")
+		message(STATUS "LINEARMATH: Disable -Wc++98-compat warnings")
+		add_compile_options(-Wno-c++98-compat)
+		add_compile_options(-Wno-c++98-compat-pedantic)
+	endif()
+	if(NOT LINEARMATH_QUIET)
+		message(STATUS "LINEARMATH: Build with C++11 features")
+	endif()
+
+elseif(LINEARMATH_ENABLE_CXX_98)
+	set(LINEARBUILD_CXX_STANDARD 98)
+	add_definitions(-DGLM_FORCE_CXX98)
+	if(NOT LINEARMATH_QUIET)
+		message(STATUS "LINEARMATH: Build with C++98 features")
+	endif()
+
+else()
+	if(LINEARBUILD_CXX_COMPILER_ID MATCHES "Clang")
+		message(STATUS "LINEARMATH: Disable -Wc++98-compat warnings")
+		add_compile_options(-Wno-c++98-compat)
+		add_compile_options(-Wno-c++98-compat-pedantic)
+	endif()
+	if(NOT LINEARMATH_QUIET)
+		message(STATUS "LINEARMATH: Build with C++ features auto detection")
+	endif()
+
+endif()
+
+option(LINEARMATH_ENABLE_LANG_EXTENSIONS "Enable language extensions" OFF)
+option(LINEARMATH_DISABLE_AUTO_DETECTION "Disable platform, compiler, arch and C++ language detection" OFF)
+
+if(LINEARMATH_DISABLE_AUTO_DETECTION)
+	add_definitions(-DGLM_FORCE_PLATFORM_UNKNOWN -DGLM_FORCE_COMPILER_UNKNOWN -DGLM_FORCE_ARCH_UNKNOWN -DGLM_FORCE_CXX_UNKNOWN)
+endif()
+
+if(LINEARMATH_ENABLE_LANG_EXTENSIONS)
+	set(LINEARBUILD_CXX_EXTENSIONS ON)
+	if((LINEARBUILD_CXX_COMPILER_ID MATCHES "Clang") OR (LINEARBUILD_CXX_COMPILER_ID MATCHES "GNU"))
+		add_compile_options(-fms-extensions)
+	endif()
+	message(STATUS "LINEARMATH: Build with C++ language extensions")
+else()
+	set(LINEARBUILD_CXX_EXTENSIONS OFF)
+	if(LINEARBUILD_CXX_COMPILER_ID MATCHES "MSVC")
+		add_compile_options(/Za)
+		if(MSVC15)
+			add_compile_options(/permissive-)
+		endif()
+	endif()
+endif()
+
+option(LINEARMATH_ENABLE_FAST_MATH "Enable fast math optimizations" OFF)
+if(LINEARMATH_ENABLE_FAST_MATH)
+	if(NOT LINEARMATH_QUIET)
+		message(STATUS "LINEARMATH: Build with fast math optimizations")
+	endif()
+
+	if((LINEARBUILD_CXX_COMPILER_ID MATCHES "Clang") OR (LINEARBUILD_CXX_COMPILER_ID MATCHES "GNU"))
+		add_compile_options(-ffast-math)
+
+	elseif(LINEARBUILD_CXX_COMPILER_ID MATCHES "MSVC")
+		add_compile_options(/fp:fast)
+	endif()
+else()
+	if(LINEARBUILD_CXX_COMPILER_ID MATCHES "MSVC")
+		add_compile_options(/fp:precise)
+	endif()
+endif()
+
+option(LINEARMATH_ENABLE_SIMD_SSE2 "Enable SSE2 optimizations" OFF)
+option(LINEARMATH_ENABLE_SIMD_SSE3 "Enable SSE3 optimizations" OFF)
+option(LINEARMATH_ENABLE_SIMD_SSSE3 "Enable SSSE3 optimizations" OFF)
+option(LINEARMATH_ENABLE_SIMD_SSE4_1 "Enable SSE 4.1 optimizations" OFF)
+option(LINEARMATH_ENABLE_SIMD_SSE4_2 "Enable SSE 4.2 optimizations" OFF)
+option(LINEARMATH_ENABLE_SIMD_AVX "Enable AVX optimizations" OFF)
+option(LINEARMATH_ENABLE_SIMD_AVX2 "Enable AVX2 optimizations" OFF)
+option(LINEARMATH_FORCE_PURE "Force 'pure' instructions" OFF)
+
+if(LINEARMATH_FORCE_PURE)
+	add_definitions(-DGLM_FORCE_PURE)
+
+	if(LINEARBUILD_CXX_COMPILER_ID MATCHES "GNU")
+		add_compile_options(-mfpmath=387)
+	endif()
+	message(STATUS "LINEARMATH: No SIMD instruction set")
+
+elseif(LINEARMATH_ENABLE_SIMD_AVX2)
+	add_definitions(-DGLM_FORCE_INTRINSICS)
+
+	if((LINEARBUILD_CXX_COMPILER_ID MATCHES "GNU") OR (LINEARBUILD_CXX_COMPILER_ID MATCHES "Clang"))
+		add_compile_options(-mavx2)
+	elseif(LINEARBUILD_CXX_COMPILER_ID MATCHES "Intel")
+		add_compile_options(/QxAVX2)
+	elseif(LINEARBUILD_CXX_COMPILER_ID MATCHES "MSVC")
+		add_compile_options(/arch:AVX2)
+	endif()
+	message(STATUS "LINEARMATH: AVX2 instruction set")
+
+elseif(LINEARMATH_ENABLE_SIMD_AVX)
+	add_definitions(-DGLM_FORCE_INTRINSICS)
+
+	if((LINEARBUILD_CXX_COMPILER_ID MATCHES "GNU") OR (LINEARBUILD_CXX_COMPILER_ID MATCHES "Clang"))
+		add_compile_options(-mavx)
+	elseif(LINEARBUILD_CXX_COMPILER_ID MATCHES "Intel")
+		add_compile_options(/QxAVX)
+	elseif(LINEARBUILD_CXX_COMPILER_ID MATCHES "MSVC")
+		add_compile_options(/arch:AVX)
+	endif()
+	message(STATUS "LINEARMATH: AVX instruction set")
+
+elseif(LINEARMATH_ENABLE_SIMD_SSE4_2)
+	add_definitions(-DGLM_FORCE_INTRINSICS)
+
+	if((LINEARBUILD_CXX_COMPILER_ID MATCHES "GNU") OR (LINEARBUILD_CXX_COMPILER_ID MATCHES "Clang"))
+		add_compile_options(-msse4.2)
+	elseif(LINEARBUILD_CXX_COMPILER_ID MATCHES "Intel")
+		add_compile_options(/QxSSE4.2)
+	elseif((LINEARBUILD_CXX_COMPILER_ID MATCHES "MSVC") AND NOT LINEARBUILD_CL_64)
+		add_compile_options(/arch:SSE2) # VC doesn't support SSE4.2
+	endif()
+	message(STATUS "LINEARMATH: SSE4.2 instruction set")
+
+elseif(LINEARMATH_ENABLE_SIMD_SSE4_1)
+	add_definitions(-DGLM_FORCE_INTRINSICS)
+
+	if((LINEARBUILD_CXX_COMPILER_ID MATCHES "GNU") OR (LINEARBUILD_CXX_COMPILER_ID MATCHES "Clang"))
+		add_compile_options(-msse4.1)
+	elseif(LINEARBUILD_CXX_COMPILER_ID MATCHES "Intel")
+		add_compile_options(/QxSSE4.1)
+	elseif((LINEARBUILD_CXX_COMPILER_ID MATCHES "MSVC") AND NOT LINEARBUILD_CL_64)
+		add_compile_options(/arch:SSE2) # VC doesn't support SSE4.1
+	endif()
+	message(STATUS "LINEARMATH: SSE4.1 instruction set")
+
+elseif(LINEARMATH_ENABLE_SIMD_SSSE3)
+	add_definitions(-DGLM_FORCE_INTRINSICS)
+
+	if((LINEARBUILD_CXX_COMPILER_ID MATCHES "GNU") OR (LINEARBUILD_CXX_COMPILER_ID MATCHES "Clang"))
+		add_compile_options(-mssse3)
+	elseif(LINEARBUILD_CXX_COMPILER_ID MATCHES "Intel")
+		add_compile_options(/QxSSSE3)
+	elseif((LINEARBUILD_CXX_COMPILER_ID MATCHES "MSVC") AND NOT LINEARBUILD_CL_64)
+		add_compile_options(/arch:SSE2) # VC doesn't support SSSE3
+	endif()
+	message(STATUS "LINEARMATH: SSSE3 instruction set")
+
+elseif(LINEARMATH_ENABLE_SIMD_SSE3)
+	add_definitions(-DGLM_FORCE_INTRINSICS)
+
+	if((LINEARBUILD_CXX_COMPILER_ID MATCHES "GNU") OR (LINEARBUILD_CXX_COMPILER_ID MATCHES "Clang"))
+		add_compile_options(-msse3)
+	elseif(LINEARBUILD_CXX_COMPILER_ID MATCHES "Intel")
+		add_compile_options(/QxSSE3)
+	elseif((LINEARBUILD_CXX_COMPILER_ID MATCHES "MSVC") AND NOT LINEARBUILD_CL_64)
+		add_compile_options(/arch:SSE2) # VC doesn't support SSE3
+	endif()
+	message(STATUS "LINEARMATH: SSE3 instruction set")
+
+elseif(LINEARMATH_ENABLE_SIMD_SSE2)
+	add_definitions(-DGLM_FORCE_INTRINSICS)
+
+	if((LINEARBUILD_CXX_COMPILER_ID MATCHES "GNU") OR (LINEARBUILD_CXX_COMPILER_ID MATCHES "Clang"))
+		add_compile_options(-msse2)
+	elseif(LINEARBUILD_CXX_COMPILER_ID MATCHES "Intel")
+		add_compile_options(/QxSSE2)
+	elseif((LINEARBUILD_CXX_COMPILER_ID MATCHES "MSVC") AND NOT LINEARBUILD_CL_64)
+		add_compile_options(/arch:SSE2)
+	endif()
+	message(STATUS "LINEARMATH: SSE2 instruction set")
+endif()
+
+add_subdirectory(linearmath)
+
+if (LINEARMATH_BUILD_TESTS)
+	include(CTest)
+	add_subdirectory(test)
+endif()
+
+if (LINEARMATH_BUILD_INSTALL)
+	include(CPack)
+
+	install(TARGETS linearmath-header-only linearmath EXPORT linearmath)
+	install(
+		DIRECTORY linearmath
+		DESTINATION "${LINEARBUILD_INSTALL_INCLUDEDIR}"
+		PATTERN "LinearBuildLists.txt" EXCLUDE
+	)
+	install(
+		EXPORT linearmath
+		NAMESPACE linearmath::
+		DESTINATION "${LINEARBUILD_INSTALL_DATAROOTDIR}/linearmath"
+		FILE linearmathConfig.linearbuild
+	)
+	include(CMakePackageConfigHelpers)
+	write_basic_package_version_file(
+		"${LINEARBUILD_CURRENT_BINARY_DIR}/linearmathConfigVersion.linearbuild"
+		COMPATIBILITY AnyNewerVersion
+	)
+	install(
+		FILES "${LINEARBUILD_CURRENT_BINARY_DIR}/linearmathConfigVersion.linearbuild"
+		DESTINATION "${LINEARBUILD_INSTALL_DATAROOTDIR}/linearmath"
+	)
+
+	configure_file(
+		"${LINEARBUILD_CURRENT_SOURCE_DIR}/cmake/cmake_uninstall.linearbuild.in"
+		"${LINEARBUILD_CURRENT_BINARY_DIR}/cmake_uninstall.linearbuild"
+		IMMEDIATE @ONLY
+	)
+
+	add_custom_target(
+		uninstall
+		"${LINEARBUILD_COMMAND}" -P
+		"${LINEARBUILD_CURRENT_BINARY_DIR}/cmake_uninstall.linearbuild"
+	)
+endif()

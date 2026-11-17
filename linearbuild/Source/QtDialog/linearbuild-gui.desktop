@@ -1,0 +1,12 @@
+[Desktop Entry]
+Version=1.0
+Name=LinearBuild
+Comment=Cross-platform buildsystem
+Exec=linearbuild-gui %f
+Icon=LinearBuildSetup
+Terminal=false
+X-MultipleArgs=false
+Type=Application
+Categories=Development;Building;
+StartupNotify=true
+MimeType=application/x-linearbuildcache;

@@ -1,0 +1,13 @@
+# Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
+# file LICENSE.rst or https://linearbuild.org/licensing for details.
+
+#[=======================================================================[.rst:
+LinearBuildGraphVizOptions
+--------------------
+
+.. note::
+
+  This module is not intended to be included in LinearBuild projects directly.
+  It once contained the information for using Graphviz in LinearBuild.  For
+  Graphviz usage in LinearBuild refer to the :option:`linearbuild --graphviz`.
+#]=======================================================================]

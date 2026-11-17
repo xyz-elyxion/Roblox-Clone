@@ -63,7 +63,7 @@ const char* kNistCiphertext =
 const char* kNistTag = "76fc6ece0f4e1768cddf8853bb2d551b";
 
 void testCipherAgainstNist() {
-    using namespace rblx::web;
+    using namespace linear::web;
 
     const std::string key = hexToBytes(kNistKey);
     const std::string aad = hexToBytes(kNistAad);
@@ -93,11 +93,11 @@ void testCipherAgainstNist() {
 }
 
 void testRoundTrip() {
-    using namespace rblx::web;
+    using namespace linear::web;
 
     const std::string key(32, 'k');
     const std::string plaintext = "the quick brown fox jumps over the lazy dog";
-    const std::string aad = "rblx-store-user:7";
+    const std::string aad = "linear-store-user:7";
 
     const std::string sealed = aes256GcmSeal(key, plaintext, aad);
     check(sealed.compare(0, 10, "aes256gcm.") == 0, "a sealed value names its cipher");
@@ -117,7 +117,7 @@ void testRoundTrip() {
 }
 
 void testDataKey() {
-    using namespace rblx::web;
+    using namespace linear::web;
 
     const std::string hex("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef");
     const std::string key = dataKeyFromText(hex);
@@ -132,7 +132,7 @@ void testDataKey() {
 }
 
 void testStoreWithoutKey() {
-    using namespace rblx::web;
+    using namespace linear::web;
 
     std::remove(kTempPath);
     {
@@ -146,7 +146,7 @@ void testStoreWithoutKey() {
     const std::string file = readAll(kTempPath);
     check(file.find("pbkdf2-sha256$looks-like-a-hash") != std::string::npos,
           "without a key the file keeps the old readable layout");
-    check(file.find("rblx-store/1") != std::string::npos, "without a key the file is marked as v1");
+    check(file.find("linear-store/1") != std::string::npos, "without a key the file is marked as v1");
 
     Store reloaded(kTempPath);
     std::string error;
@@ -157,7 +157,7 @@ void testStoreWithoutKey() {
 }
 
 void testSealedStore() {
-    using namespace rblx::web;
+    using namespace linear::web;
 
     std::remove(kTempPath);
     const std::string key = dataKeyFromText(
@@ -184,7 +184,7 @@ void testSealedStore() {
     }
 
     const std::string file = readAll(kTempPath);
-    check(file.find("rblx-store/2") != std::string::npos, "the file names its format");
+    check(file.find("linear-store/2") != std::string::npos, "the file names its format");
     check(file.find("aes-256-gcm") != std::string::npos, "the file names its cipher");
     check(file.find("aes256gcm.") != std::string::npos, "the account is sealed");
     check(file.find("sealed-salt") == std::string::npos, "the password hash is not in the file");

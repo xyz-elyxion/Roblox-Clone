@@ -70,9 +70,9 @@ void printUsage(const char* program) {
         program, program);
 }
 
-void applyCommand(rblx::hosting::Supervisor& supervisor,
-                  const rblx::hosting::Command& command) {
-    using rblx::hosting::Command;
+void applyCommand(linear::hosting::Supervisor& supervisor,
+                  const linear::hosting::Command& command) {
+    using linear::hosting::Command;
 
     std::string error;
     bool applied = true;
@@ -109,7 +109,7 @@ bool writeDefaultConfig(const std::string& path, std::string* error) {
         *error = "cannot write " + path;
         return false;
     }
-    file << rblx::hosting::defaultConfigText();
+    file << linear::hosting::defaultConfigText();
     return true;
 }
 
@@ -118,7 +118,7 @@ bool writeDefaultConfig(const std::string& path, std::string* error) {
 int main(int argc, char** argv) {
     std::string command;
     std::string configPath;
-    rblx::hosting::Config overrides;
+    linear::hosting::Config overrides;
     // Which overrides were actually given on the command line: the file is read
     // first, then only these fields replace it.
     bool haveInstances = false;
@@ -187,10 +187,10 @@ int main(int argc, char** argv) {
         return 0;
     }
 
-    rblx::hosting::Config config;
+    linear::hosting::Config config;
     if (!configPath.empty()) {
         std::string error;
-        if (!rblx::hosting::loadConfig(configPath, &config, &error)) {
+        if (!linear::hosting::loadConfig(configPath, &config, &error)) {
             std::fprintf(stderr, "LinearHosts: %s\n", error.c_str());
             return 1;
         }
@@ -220,15 +220,15 @@ int main(int argc, char** argv) {
 
     ::SetConsoleCtrlHandler(consoleHandler, TRUE);
 
-    const std::unique_ptr<rblx::hosting::Launcher> launcher = rblx::hosting::makeSystemLauncher();
-    rblx::hosting::Supervisor supervisor(config, launcher.get());
+    const std::unique_ptr<linear::hosting::Launcher> launcher = linear::hosting::makeSystemLauncher();
+    linear::hosting::Supervisor supervisor(config, launcher.get());
 
     std::printf("LinearHosts: %d server(s) from %d, %s\n", config.instances, config.firstPort,
                 config.server.c_str());
 
-    rblx::hosting::HostDashboard dashboard;
+    linear::hosting::HostDashboard dashboard;
     if (config.dashboardPort > 0) {
-        rblx::hosting::DashboardSettings settings;
+        linear::hosting::DashboardSettings settings;
         settings.host = config.dashboardHost;
         settings.port = config.dashboardPort;
         std::string dashboardError;
@@ -251,7 +251,7 @@ int main(int argc, char** argv) {
 
         // The panel only ever queues a command; applying it here keeps every
         // decision about the pool on this thread.
-        for (const rblx::hosting::Command& queued : dashboard.takeCommands()) {
+        for (const linear::hosting::Command& queued : dashboard.takeCommands()) {
             applyCommand(supervisor, queued);
         }
 

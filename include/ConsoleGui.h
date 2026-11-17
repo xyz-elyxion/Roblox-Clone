@@ -6,7 +6,7 @@
 #include <string>
 #include <vector>
 
-namespace rblx {
+namespace linear {
 namespace console {
 
 enum class Level { Info = 0, Warn = 1, Error = 2 };
@@ -76,4 +76,4 @@ int runConsoleWindow(Host host);
 void openInBrowser(const std::string& url);
 
 }  // namespace console
-}  // namespace rblx
+}  // namespace linear

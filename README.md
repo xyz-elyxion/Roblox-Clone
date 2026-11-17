@@ -20,8 +20,8 @@ before pointing it at the internet.
 | `LinearHosts.exe` | Keeps N game servers running on one machine — ports, logs, restarts, control panel — see [HOSTING.md](HOSTING.md) |
 
 ```powershell
-build\rblxbuild-tool\bin\rblxbuild --preset windows-release
-build\rblxbuild-tool\bin\rblxbuild --build --preset windows-release
+build\linearbuild-tool\bin\linearbuild --preset windows-release
+build\linearbuild-tool\bin\linearbuild --build --preset windows-release
 build\windows-release\Release\WebApp.exe        # then open http://localhost:3000
 ```
 
@@ -38,7 +38,7 @@ The website starts a game server and launches the client for you.
 - [Scripting](#scripting) — Linear Script and the world API
 - [Controls](#controls) — client, Studio, LinearCode
 - [AI Trainer](#ai-trainer) · [Repository layout](#repository-layout)
-- [RBLXBuild and vendored dependencies](#rblxbuild-and-vendored-dependencies)
+- [LinearBuild and vendored dependencies](#linearbuild-and-vendored-dependencies)
 - [CI and prebuilt packages](#ci-and-prebuilt-packages)
 - [Known limitations](#known-limitations) · [Troubleshooting](#troubleshooting) · [Credits](#credits)
 - [SECURITY.md](SECURITY.md) — the security model, and how to report a problem
@@ -158,12 +158,12 @@ files a plan touches, and the rename that replaces a file.
 ### From source
 
 ```bash
-mkdir -p build/rblxbuild-tool && cd build/rblxbuild-tool
-../../rblxbuild/bootstrap --parallel 4       # once; builds the vendored build tool
+mkdir -p build/linearbuild-tool && cd build/linearbuild-tool
+../../linearbuild/bootstrap --parallel 4       # once; builds the vendored build tool
 cd ../..
-build/rblxbuild-tool/bin/rblxbuild --preset windows-release
-build/rblxbuild-tool/bin/rblxbuild --build --preset windows-release
-build/rblxbuild-tool/bin/rblxtest --preset windows-release
+build/linearbuild-tool/bin/linearbuild --preset windows-release
+build/linearbuild-tool/bin/linearbuild --build --preset windows-release
+build/linearbuild-tool/bin/lineartest --preset windows-release
 ```
 
 The MinGW and manual configure forms are under [Building](#building).
@@ -220,7 +220,7 @@ collisions, scripts, damage, spawns — and is the only side whose word counts. 
 file plus an optional `.rbx` script, runs the script's `Heartbeat`, streams part changes to
 clients, and reports detections to the website.
 
-**Studio** uses RBLXWindow/OpenGL/RBLXUI/RblxGizmo and has a basic world editing path: a toolbox of parts,
+**Studio** uses LINEARWindow/OpenGL/LINEARUI/LinearGizmo and has a basic world editing path: a toolbox of parts,
 move/rotate/scale tools with snapping, a properties panel (surface material, optional tiled
 texture), a script panel with a VS Code-style editor, and publish. Scale operations assign the
 decomposed absolute scale from the gizmo and clamp it to a positive range; they do not multiply
@@ -276,9 +276,9 @@ is compiled into the client.
 **Windows**
 
 - Visual Studio 2022 with "Desktop development with C++", or MinGW + Ninja.
-- No CMake install: the build tool is vendored in `rblxbuild/` and bootstrapped from source.
+- No CMake install: the build tool is vendored in `linearbuild/` and bootstrapped from source.
 - An OpenGL-capable GPU and drivers.
-- RBLXWindow, RBLXMath, RBLXUI, RblxGizmo, RBLXTextEdit, RBLXPhysics, RBLXStb and RBLXGL are
+- LINEARWindow, LinearMath, LINEARUI, LinearGizmo, LinearTextEdit, LinearPhysics, LinearStb and LINEARGL are
   vendored in their own trees at the top of the repository, so configuring needs no network. The
   trees carry the code, not the upstream release notes around it: generated API docs, example
   programs, their own test suites, screenshots and CI files are not part of the snapshot because
@@ -286,7 +286,7 @@ is compiled into the client.
 
 **The website** is built from the same tree and needs nothing beyond it: no Node.js, npm or SQLite.
 
-`RBLXAntiCheat` is compiled into the client; `-DLINEAR_BUILD_ANTICHEAT=OFF` leaves it out.
+`LinearAntiCheat` is compiled into the client; `-DLINEAR_BUILD_ANTICHEAT=OFF` leaves it out.
 Two of its steps - writing over a function inside `ntdll.dll` and re-mapping its own
 settings section as read-only - are left out by default, because an unsigned executable
 that does them is quarantined as malware by anti-virus engines; `-DLINEAR_ANTICHEAT_INVASIVE=ON`
@@ -297,35 +297,35 @@ puts them back for a build that is code-signed.
 ### Bootstrap the build tool once
 
 ```bash
-mkdir -p build/rblxbuild-tool
-cd build/rblxbuild-tool
-../../rblxbuild/bootstrap --parallel 4
+mkdir -p build/linearbuild-tool
+cd build/linearbuild-tool
+../../linearbuild/bootstrap --parallel 4
 cd ../..
 ```
 
-That leaves `build/rblxbuild-tool/bin/rblxbuild`, which every command below uses.
+That leaves `build/linearbuild-tool/bin/linearbuild`, which every command below uses.
 
 ### Windows (Developer PowerShell or Command Prompt)
 
 ```powershell
-build\rblxbuild-tool\bin\rblxbuild --preset windows-release
-build\rblxbuild-tool\bin\rblxbuild --build --preset windows-release
-build\rblxbuild-tool\bin\rblxtest --preset windows-release
+build\linearbuild-tool\bin\linearbuild --preset windows-release
+build\linearbuild-tool\bin\linearbuild --build --preset windows-release
+build\linearbuild-tool\bin\lineartest --preset windows-release
 ```
 
 Manual configure works too, with Visual Studio or a portable MinGW/Ninja toolchain:
 
 ```powershell
 # Visual Studio
-build\rblxbuild-tool\bin\rblxbuild -S . -B build/windows-release -G "Visual Studio 17 2022" -DLINEAR_BUILD_TESTS=ON
-build\rblxbuild-tool\bin\rblxbuild --build build/windows-release --config Release
-build\rblxbuild-tool\bin\rblxtest --test-dir build/windows-release -C Release
+build\linearbuild-tool\bin\linearbuild -S . -B build/windows-release -G "Visual Studio 17 2022" -DLINEAR_BUILD_TESTS=ON
+build\linearbuild-tool\bin\linearbuild --build build/windows-release --config Release
+build\linearbuild-tool\bin\lineartest --test-dir build/windows-release -C Release
 
 # MinGW + Ninja
-build\rblxbuild-tool\bin\rblxbuild -S . -B build/ninja -G Ninja `
-  -DRBLXBUILD_C_COMPILER=C:\path\to\gcc.exe -DRBLXBUILD_CXX_COMPILER=C:\path\to\g++.exe -DLINEAR_BUILD_TESTS=ON
-build\rblxbuild-tool\bin\rblxbuild --build build/ninja
-build\rblxbuild-tool\bin\rblxtest --test-dir build/ninja --output-on-failure
+build\linearbuild-tool\bin\linearbuild -S . -B build/ninja -G Ninja `
+  -DLINEARBUILD_C_COMPILER=C:\path\to\gcc.exe -DLINEARBUILD_CXX_COMPILER=C:\path\to\g++.exe -DLINEAR_BUILD_TESTS=ON
+build\linearbuild-tool\bin\linearbuild --build build/ninja
+build\linearbuild-tool\bin\lineartest --test-dir build/ninja --output-on-failure
 ```
 
 ### Build options
@@ -335,15 +335,15 @@ build\rblxbuild-tool\bin\rblxtest --test-dir build/ninja --output-on-failure
 | `LINEAR_BUILD_CLIENT` | Build the game client |
 | `LINEAR_BUILD_SERVER` | Build the game server |
 | `LINEAR_BUILD_STUDIO` | Build the world editor |
-| `LINEAR_BUILD_TESTS` | Build the C++ test suite (`rblxtest` runs it) |
-| `LINEAR_BUILD_ANTICHEAT` | Compile RBLXAntiCheat into the client |
+| `LINEAR_BUILD_TESTS` | Build the C++ test suite (`lineartest` runs it) |
+| `LINEAR_BUILD_ANTICHEAT` | Compile LinearAntiCheat into the client |
 | `LINEAR_ANTICHEAT_INVASIVE` | Let the anti-cheat patch `ntdll` and remap its settings (anti-virus engines flag it; off by default) |
 | `LINEAR_BUILD_HOSTS` | Build the game server supervisor (`LinearHosts`) |
 | `LINEAR_BUILD_GIT` | Build the git command line (`LinearGit`) |
 | `LINEAR_BUILD_HUB` | Build the repository browser (`LinearHub`) |
 | `LINEAR_ENABLE_WARNINGS` | Turn on the warning set |
 
-Windows builds compile the vendored RBLXAntiCheat into the client (see `RBLXAntiCheat/`); on other
+Windows builds compile the vendored LinearAntiCheat into the client (see `LinearAntiCheat/`); on other
 platforms that target is skipped.
 
 ## Running
@@ -404,10 +404,10 @@ Cheating costs the account, not just the packet.
 
 ### What the client can prove
 
-`Client.exe` embeds **RBLXAntiCheat**, a usermode anti-cheat compiled into the client process
+`Client.exe` embeds **LinearAntiCheat**, a usermode anti-cheat compiled into the client process
 (vendored from [UltimateAntiCheat](https://github.com/AlSch092/UltimateAntiCheat) and renamed,
-GNU AGPL v3 — see `RBLXAntiCheat/LICENSE`). It starts with the client, writes
-`RBLXAntiCheat.log`, and a failed start is logged instead of stopping the game.
+GNU AGPL v3 — see `LinearAntiCheat/LICENSE`). It starts with the client, writes
+`LinearAntiCheat.log`, and a failed start is logged instead of stopping the game.
 
 Its identifying strings (log name, startup messages, accepted parent processes) are stored
 XOR-masked at compile time through `include/Obfuscated.h` so they do not show up in `strings`, and
@@ -602,7 +602,7 @@ Passwords are stored as PBKDF2-SHA256 hashes and sessions are HS256 JWTs.
 A fresh install seeds one account, `defaultuser0`, with the password `local-starter-account`. It
 owns the starter games and is the default admin, so `POST /api/login` with
 `{"username":"defaultuser0","password":"local-starter-account"}` signs into it. Installs from
-earlier builds seeded the same account as `RBLXCreator`; it is renamed to `defaultuser0` on startup
+earlier builds seeded the same account as `LINEARCreator`; it is renamed to `defaultuser0` on startup
 with its id, password and games unchanged. That published password is a development convenience:
 with `NODE_ENV=production` the backend refuses to start until `STARTER_PASSWORD` names a different
 one of at least 12 characters, so a public install cannot come up with a known administrator login.
@@ -1297,7 +1297,7 @@ a `Browse...` button that opens the folder picker Explorer uses -- the path can 
 pasted instead, and `Open` decides either way.
 
 It has a project tree on the left, an outline of the file in front on the right, tabs across the top
-(a `*` marks unsaved work), the RBLXUI colour text editor Studio's Script panel uses in the middle,
+(a `*` marks unsaved work), the LINEARUI colour text editor Studio's Script panel uses in the middle,
 and a status bar under it with the line and column, the language, the line count, whether the file
 is saved and the branch of the checkout. C++ and headers are coloured as C++, `.glsl`, `.vert` and
 `.frag` as GLSL, `.rbx` as Linear Script (a Lua-shaped language, so the Lua definition is the right
@@ -1345,17 +1345,17 @@ log, so anything can be repeated in a terminal without guessing.
 
 The panel builds the checkout the open folder belongs to rather than the folder itself, because the
 editor is normally started from `build\windows-release\Release` and that folder holds neither the
-sources nor the tool: it walks up to the folder holding `RBLXBuildPresets.json` and works there. A
+sources nor the tool: it walks up to the folder holding `LinearBuildPresets.json` and works there. A
 checkout with no tool in `build/` gets more than an error: the panel says where it looked, that a
 folder downloaded as a ZIP has never had a tool built in it, and the four bootstrap lines with a
-button that copies them, instead of failing silently. `RBLXBUILD` points the editor at a tool
+button that copies them, instead of failing silently. `LINEARBUILD` points the editor at a tool
 somewhere else.
 
 The editor is one of the programs the checkout builds, and Windows will not replace a program that is
 running, so the link step of `LinearCode.exe` itself cannot finish inside it. That one step is excused --
 the release goes on to the tests and the packager, and the packaged editor is the copy that was
 already there -- rather than failing a build that produced everything else. Close the editor and run
-`build\rblxbuild-tool\bin\rblxbuild --build --preset windows-release` once to update the editor itself.
+`build\linearbuild-tool\bin\linearbuild --build --preset windows-release` once to update the editor itself.
 
 The left panel switches between the tree and **Source control**: the branch, every changed path with
 the two letters git prints (`M ` staged, ` M` unstaged, `??` new), and one button that stages
@@ -1425,11 +1425,11 @@ fresh install seeds them. `WebApp.exe` has to be running, and `--site` points th
 when it is not on `http://127.0.0.1:3000`.
 
 ```
-AiTrainer --token rblxai_... --game 4 --generations 60
-AiTrainer --token rblxai_... --game 4 --replay
-AiTrainer --token rblxai_... --game 4 --replay --watch
-AiTrainer --token rblxai_... --game 4 --gui --agents 4
-AiTrainer --token rblxai_... --game 4 --play --port 7777
+AiTrainer --token linearai_... --game 4 --generations 60
+AiTrainer --token linearai_... --game 4 --replay
+AiTrainer --token linearai_... --game 4 --replay --watch
+AiTrainer --token linearai_... --game 4 --gui --agents 4
+AiTrainer --token linearai_... --game 4 --play --port 7777
 ```
 
 A game's AI course is one of two, set beside the switch in the portal:
@@ -1496,9 +1496,9 @@ about it.
 ## Repository layout
 
 ```
-RBLXBuildLists.txt      C++ build configuration, in RBLXBuild's dialect
-RBLXBuildPresets.json   Visual Studio Release preset (windows-release)
-rblxbuild/              RBLXBuild itself: the vendored build tool's source
+LinearBuildLists.txt      C++ build configuration, in LinearBuild's dialect
+LinearBuildPresets.json   Visual Studio Release preset (windows-release)
+linearbuild/              LinearBuild itself: the vendored build tool's source
 include/                C++ headers
 src/                    Client, Server, Studio, rendering, physics, auth, web app, world loading
 tests/                  C++ protocol, moderation and web tests
@@ -1512,28 +1512,28 @@ ServerWorld.world       Default world file
 server.conf             Settings ServerSetup.exe writes (this machine only, never committed)
 scripts/                package-build.ps1 and other tooling
 GameRelease/            Existing release asset folders (do not commit generated binaries here)
-rblxwin/ … rblxgl/      The eight renamed vendored libraries (see Credits)
-RBLXAntiCheat/          The vendored anti-cheat library (Windows only, AGPL v3)
+linearwin/ … lineargl/      The eight renamed vendored libraries (see Credits)
+LinearAntiCheat/          The vendored anti-cheat library (Windows only, AGPL v3)
 AGENTS.md               How to work in this repository: build, rules, conventions
 SECURITY.md             Security model, known limitations, how to report a problem
 ```
 
-## RBLXBuild and vendored dependencies
+## LinearBuild and vendored dependencies
 
-The project's own C++ compiler is gone: `RBLXCC` (`src/Cxx*.cpp`, `include/CxxCompiler.h`, its test
-suite and `examples/rblxcc/`) has been removed and replaced by RBLXBuild — the CMake source tree,
+The project's own C++ compiler is gone: `LinearCC` (`src/Cxx*.cpp`, `include/CxxCompiler.h`, its test
+suite and `examples/linearcc/`) has been removed and replaced by LinearBuild — the CMake source tree,
 rebranded and vendored as a plain directory.
 
 ```bash
-git clone --depth 1 https://github.com/Kitware/CMake.git rblxbuild
-rm -rf rblxbuild/.git
+git clone --depth 1 https://github.com/Kitware/CMake.git linearbuild
+rm -rf linearbuild/.git
 ```
 
-The directory, the vendored README and every identifier inside it carry the RBLXBuild name: the
-command is `rblxbuild`, build files are `RBLXBuildLists.txt`, modules end in `.rblxbuild`,
-variables are `RBLXBUILD_*`, and the module directory for Fortran interface checks is
-`RBLXBuildAddFortranSubdirectory`. The one place the upstream name survives is
-`rblxbuild/Licenses/`, because the BSD 3-clause terms require the copyright notice and disclaimer
+The directory, the vendored README and every identifier inside it carry the LinearBuild name: the
+command is `linearbuild`, build files are `LinearBuildLists.txt`, modules end in `.linearbuild`,
+variables are `LINEARBUILD_*`, and the module directory for Fortran interface checks is
+`LinearBuildAddFortranSubdirectory`. The one place the upstream name survives is
+`linearbuild/Licenses/`, because the BSD 3-clause terms require the copyright notice and disclaimer
 to travel with the source. Removing its `.git` is what lets the outer repository track the files
 instead of carrying a nested repository.
 
@@ -1547,24 +1547,24 @@ top-level build scripts and the licences. What was pruned, because none of it is
 
 So this is a source snapshot to read, not a tree that configures and builds as upstream CMake:
 `add_subdirectory(Tests)` and the manual both expect the pruned directories back. CI and the build
-instructions here use `rblxbuild/bootstrap`, and the root build file does not add it as a
-subdirectory. See [RBLXBUILD.md](RBLXBUILD.md) for what it is for, what was pruned and the renamed
+instructions here use `linearbuild/bootstrap`, and the root build file does not add it as a
+subdirectory. See [LINEARBUILD.md](LINEARBUILD.md) for what it is for, what was pruned and the renamed
 commands. Commit `62b91b06` still has the complete tree if any of it has to come back.
 
-The libraries the game links are vendored the same way, each in its own tree beside `rblxbuild/`
+The libraries the game links are vendored the same way, each in its own tree beside `linearbuild/`
 rather than in a third-party folder: cloned at the pinned
 commits, `.git` removed, every build file converted to this dialect, and every identifier renamed
-into this project's scheme — one tree each for `rblxwin`, `rblxmath`, `rblxui`, `rblxgizmo`,
-`rblxtextedit`, `rblxphysics`, `rblxstb` and `rblxgl`. Which upstream project each one came from,
+into this project's scheme — one tree each for `linearwin`, `linearmath`, `linearui`, `lineargizmo`,
+`lineartextedit`, `linearphysics`, `linearstb` and `lineargl`. Which upstream project each one came from,
 and its licence file, is in [Credits](#credits). Configuring therefore downloads nothing
-and needs no compatibility mode; `rblxbuild/Source/cmRBLXBuildCompat.h` remains only as a fallback
+and needs no compatibility mode; `linearbuild/Source/cmLinearBuildCompat.h` remains only as a fallback
 for code that has not been converted.
 
 ## CI and prebuilt packages
 
 The `Build` workflow runs on every push: one Windows job with MSVC (its build tool is bootstrapped
 with MinGW) configures, builds and runs the test suite, then packages the Release build into a folder
-you can unzip and run. The tool is cached against the contents of `rblxbuild/` (plus a token bumped
+you can unzip and run. The tool is cached against the contents of `linearbuild/` (plus a token bumped
 when the bootstrap flags change), so a run whose compiler sources are unchanged reuses the tool an
 earlier run built - its executable and the `Modules` tree it reads at startup - instead of
 bootstrapping one. The cache is written as soon as the tool is built rather than when the job ends,
@@ -1701,7 +1701,7 @@ no repository is open rather than failing the server.
   `src/ClientNet.cpp` (game socket, reliable session, joining and leaving) and `src/ClientUi.cpp`
   (menus, HUD, chat, settings), sharing state through `src/ClientShared.h`. The remaining files
   could be split further.
-- The C++ build and test suite are verified with the vendored RBLXBuild using Ninja and MinGW GCC,
+- The C++ build and test suite are verified with the vendored LinearBuild using Ninja and MinGW GCC,
   and the game links with MSVC in CI. Client, Server and Studio runtime behavior still need manual
   testing on a graphics-capable desktop.
 
@@ -1709,7 +1709,7 @@ no repository is open rather than failing the server.
 
 | Symptom | Fix |
 | --- | --- |
-| `rblxbuild is not recognized` | Bootstrap the vendored tool first (see [Building](#building)) |
+| `linearbuild is not recognized` | Bootstrap the vendored tool first (see [Building](#building)) |
 | `cl not found` | Run from a Visual Studio Developer shell, or install the C++ workload |
 | `JWT_SECRET must be set` | Set a strong secret in production, or use development mode locally |
 | Client login fails | Start the web backend first and confirm <http://localhost:3000> is reachable |
@@ -1718,19 +1718,19 @@ no repository is open rather than failing the server.
 
 ## Credits
 
-- **RBLXAntiCheat** is a renamed fork of
+- **LinearAntiCheat** is a renamed fork of
   [UltimateAntiCheat](https://github.com/AlSch092/UltimateAntiCheat), GNU AGPL v3; the terms
-  travel in `RBLXAntiCheat/LICENSE`.
-- **RBLXBuild** is a renamed, pruned snapshot of [CMake](https://github.com/Kitware/CMake), BSD
-  3-clause, with attribution kept in `rblxbuild/Licenses/`.
+  travel in `LinearAntiCheat/LICENSE`.
+- **LinearBuild** is a renamed, pruned snapshot of [CMake](https://github.com/Kitware/CMake), BSD
+  3-clause, with attribution kept in `linearbuild/Licenses/`.
 - The eight library trees at the top of the repository are renamed copies of open-source projects,
   vendored at the pinned upstream commit and renamed into this project's scheme. The code is
   upstream's, the names are this project's, and the licences travel with it:
-  - `rblxwin` — GLFW (zlib), `rblxwin/LICENSE.md`
-  - `rblxmath` — OpenGL Mathematics (Happy Bunny or MIT), `rblxmath/copying.txt`
-  - `rblxui` — Dear ImGui (MIT), `rblxui/LICENSE.txt`
-  - `rblxgizmo` — ImGuizmo (MIT), `rblxgizmo/LICENSE`
-  - `rblxtextedit` — ImGuiColorTextEdit (MIT), `rblxtextedit/LICENSE`
-  - `rblxphysics` — ReactPhysics3D (zlib), `rblxphysics/LICENSE`
-  - `rblxstb` — stb (MIT or public domain), `rblxstb/LICENSE`
-  - `rblxgl` — the generated glad OpenGL loader; that tree carries no separate licence file
+  - `linearwin` — GLFW (zlib), `linearwin/LICENSE.md`
+  - `linearmath` — OpenGL Mathematics (Happy Bunny or MIT), `linearmath/copying.txt`
+  - `linearui` — Dear ImGui (MIT), `linearui/LICENSE.txt`
+  - `lineargizmo` — ImGuizmo (MIT), `lineargizmo/LICENSE`
+  - `lineartextedit` — ImGuiColorTextEdit (MIT), `lineartextedit/LICENSE`
+  - `linearphysics` — ReactPhysics3D (zlib), `linearphysics/LICENSE`
+  - `linearstb` — stb (MIT or public domain), `linearstb/LICENSE`
+  - `lineargl` — the generated glad OpenGL loader; that tree carries no separate licence file

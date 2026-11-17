@@ -13,7 +13,7 @@
 #include <string>
 #include <vector>
 
-namespace code = rblx::code;
+namespace code = linear::code;
 namespace fs = std::filesystem;
 
 namespace {
@@ -35,7 +35,7 @@ void writeFile(const fs::path& path, const std::string& text) {
 }  // namespace
 
 int main() {
-    const fs::path root = fs::temp_directory_path() / "rblx-code-build-tests";
+    const fs::path root = fs::temp_directory_path() / "linear-code-build-tests";
     std::error_code error;
     fs::remove_all(root, error);
     fs::create_directories(root, error);
@@ -47,20 +47,20 @@ int main() {
         std::string message;
         check(!code::findBuildTool(root.string(), &program, &message),
               "a clone with no build tool is reported");
-        check(message.find("rblxbuild/bootstrap") != std::string::npos,
+        check(message.find("linearbuild/bootstrap") != std::string::npos,
               "the error names the bootstrap: " + message);
     }
 
     // The vendored tool, where the bootstrap puts it.
     {
-        const fs::path bin = root / "build" / "rblxbuild-tool" / "bin";
+        const fs::path bin = root / "build" / "linearbuild-tool" / "bin";
         fs::create_directories(bin, error);
-        writeFile(bin / "rblxbuild.exe", "not a program");
+        writeFile(bin / "linearbuild.exe", "not a program");
         std::string program;
         std::string message;
         check(code::findBuildTool(root.string(), &program, &message),
               "the vendored tool is found: " + message);
-        check(program == (bin / "rblxbuild.exe").string(), "the found path is the tool, got " + program);
+        check(program == (bin / "linearbuild.exe").string(), "the found path is the tool, got " + program);
         check(code::buildCommandLine(program, code::kDefaultPreset) ==
                   "\"" + program + "\" --build --preset windows-release",
               "the command line is what the README and CI run");
@@ -139,7 +139,7 @@ int main() {
         const fs::path repo = root / "checkout";
         const fs::path deep = repo / "build" / "windows-release" / "Release";
         fs::create_directories(deep, error);
-        writeFile(repo / "RBLXBuildPresets.json", "[]");
+        writeFile(repo / "LinearBuildPresets.json", "[]");
         check(code::findBuildRoot(deep.string()) == repo.string(),
               "a folder inside the checkout resolves to its root, got " +
                   code::findBuildRoot(deep.string()));
@@ -164,7 +164,7 @@ int main() {
         fs::create_directories(checkout / "scripts", error);
         writeFile(checkout / "scripts" / "package-build.ps1", "# empty");
 
-        const std::string tool = (checkout / "build" / "rblxbuild-tool" / "bin" / "rblxbuild.exe")
+        const std::string tool = (checkout / "build" / "linearbuild-tool" / "bin" / "linearbuild.exe")
                                      .string();
         // No CMakeCache.txt yet: configure first, or --build has nothing to read.
         std::vector<code::Stage> stages = code::releaseStages(checkout.string(), tool, "");

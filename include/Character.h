@@ -1,6 +1,6 @@
 #pragma once
 
-#include <rblxmath/rblxmath.hpp>
+#include <linearmath/linearmath.hpp>
 #include <string>
 #include <vector>
 #include <deque>
@@ -10,19 +10,19 @@
 
 class Character {
 public:
-    Character(rblxmath::vec3 startPos, PhysicsWorld* physicsWorld, std::deque<Part>* partsList, 
-              const rblxmath::vec3& headColor = rblxmath::vec3(0.8f, 0.6f, 0.4f),
-              const rblxmath::vec3& torsoColor = rblxmath::vec3(0.2f, 0.4f, 0.8f),
-              const rblxmath::vec3& leftArmColor = rblxmath::vec3(0.8f, 0.6f, 0.4f),
-              const rblxmath::vec3& rightArmColor = rblxmath::vec3(0.8f, 0.6f, 0.4f),
-              const rblxmath::vec3& leftLegColor = rblxmath::vec3(0.2f, 0.6f, 0.2f),
-              const rblxmath::vec3& rightLegColor = rblxmath::vec3(0.2f, 0.6f, 0.2f));
+    Character(linearmath::vec3 startPos, PhysicsWorld* physicsWorld, std::deque<Part>* partsList, 
+              const linearmath::vec3& headColor = linearmath::vec3(0.8f, 0.6f, 0.4f),
+              const linearmath::vec3& torsoColor = linearmath::vec3(0.2f, 0.4f, 0.8f),
+              const linearmath::vec3& leftArmColor = linearmath::vec3(0.8f, 0.6f, 0.4f),
+              const linearmath::vec3& rightArmColor = linearmath::vec3(0.8f, 0.6f, 0.4f),
+              const linearmath::vec3& leftLegColor = linearmath::vec3(0.2f, 0.6f, 0.2f),
+              const linearmath::vec3& rightLegColor = linearmath::vec3(0.2f, 0.6f, 0.2f));
     ~Character();
 
     void update(float deltaTime, Camera* camera, bool isSprinting); // Camera pointer, optional
     
     // Remote Control
-    void setRemoteState(rblxmath::vec3 pos, float yaw, bool walking, bool jumping);
+    void setRemoteState(linearmath::vec3 pos, float yaw, bool walking, bool jumping);
     void setRemoteControlled(bool remote);
     bool isRemote;
     bool isJumping; // Added member
@@ -34,12 +34,12 @@ public:
 
     void processInput(bool forward, bool backward, bool left, bool right, bool jump, const Camera& camera, float zoomInput, float deltaTime);
 
-    rblxmath::vec3 getPosition() const;
+    linearmath::vec3 getPosition() const;
 
     // Debug
     float debugTargetYaw;
     float debugCurrentYaw;
-    rblxmath::vec3 debugMoveDir;
+    linearmath::vec3 debugMoveDir;
 
     // Health
     float health;
@@ -56,7 +56,7 @@ public:
 
     // Moves the character to a world position and clears its velocity. Used by
     // the server when a script teleports a player (hazards, checkpoints).
-    void teleportTo(const rblxmath::vec3& position);
+    void teleportTo(const linearmath::vec3& position);
     
     // Get the folder index for this character (for cleanup)
     int getFolderIndex() const;
@@ -64,7 +64,7 @@ public:
 private:
     PhysicsWorld* physicsWorld;
     std::deque<Part>* partsList;
-    rblxmath::vec3 spawnPoint; 
+    linearmath::vec3 spawnPoint; 
 
     int headIndex;
     int torsoIndex;

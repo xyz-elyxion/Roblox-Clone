@@ -1,0 +1,11 @@
+/* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
+   file LICENSE.rst or https://linearbuild.org/licensing for details.  */
+#ifndef CMFORMCONFIGURE_H
+#define CMFORMCONFIGURE_H
+
+#linearbuilddefine CURSES_HAVE_CURSES_H
+#linearbuilddefine CURSES_HAVE_NCURSES_H
+#linearbuilddefine CURSES_HAVE_NCURSES_NCURSES_H
+#linearbuilddefine CURSES_HAVE_NCURSES_CURSES_H
+
+#endif

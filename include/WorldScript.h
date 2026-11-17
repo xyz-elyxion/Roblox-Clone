@@ -2,7 +2,7 @@
 
 #include "Part.h"
 #include "PhysicsWorld.h"
-#include "RblxScript.h"
+#include "LinearScript.h"
 
 #include <deque>
 #include <functional>
@@ -10,7 +10,7 @@
 #include <string>
 #include <vector>
 
-namespace rblx {
+namespace linear {
 namespace worldscript {
 
 struct WorldRuntimeState;
@@ -19,7 +19,7 @@ struct WorldRuntimeState;
 // touches and teleport players.
 struct ScriptPlayer {
     std::string name;
-    rblxmath::vec3 position{0.0f};
+    linearmath::vec3 position{0.0f};
 };
 
 // Connects a script interpreter to a world: exposes workspace, part properties,
@@ -27,7 +27,7 @@ struct ScriptPlayer {
 class WorldRuntime {
 public:
     WorldRuntime(std::deque<Part>& parts, PhysicsWorld* physicsWorld,
-                 rblx::script::Interpreter& interpreter);
+                 linear::script::Interpreter& interpreter);
     ~WorldRuntime();
 
     WorldRuntime(const WorldRuntime&) = delete;
@@ -40,7 +40,7 @@ public:
     // can report players and scripts can teleport them.
     void setPlayerSource(std::function<std::vector<ScriptPlayer>()> source);
     void setTeleportHandler(
-        std::function<void(const std::string& name, const rblxmath::vec3& position)> handler);
+        std::function<void(const std::string& name, const linearmath::vec3& position)> handler);
 
     // Script-driven damage. The host owns health, so a script asks for damage
     // (player:TakeDamage(amount)) and the server applies it and decides when the
@@ -50,7 +50,7 @@ public:
     // Script-driven noise. The world a script runs on has no ears, so
     // workspace:PlaySound asks the host to make the sound somewhere else - on the
     // clients, where the listeners are.
-    void setSoundHandler(std::function<void(const std::string& sound, const rblxmath::vec3& position,
+    void setSoundHandler(std::function<void(const std::string& sound, const linearmath::vec3& position,
                                            float volume, bool spatial)> handler);
 
     // Fires RunService.Heartbeat handlers and checks parts for new Touched pairs.
@@ -64,4 +64,4 @@ private:
 };
 
 }  // namespace worldscript
-}  // namespace rblx
+}  // namespace linear

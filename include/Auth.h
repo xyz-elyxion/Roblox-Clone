@@ -44,7 +44,7 @@ public:
     }
 
     static std::string httpPost(const std::string& url, const std::string& jsonData, const std::string& bearerToken = "") {
-        const rblx::http::Response response = rblx::http::request("POST", url, jsonData, bearerToken);
+        const linear::http::Response response = linear::http::request("POST", url, jsonData, bearerToken);
         if (!response.ok()) {
             return "";
         }
@@ -52,7 +52,7 @@ public:
     }
 
     static std::string httpGet(const std::string& url, const std::string& bearerToken = "") {
-        const rblx::http::Response response = rblx::http::request("GET", url, "", bearerToken);
+        const linear::http::Response response = linear::http::request("GET", url, "", bearerToken);
         if (!response.ok()) {
             return "";
         }
@@ -99,7 +99,7 @@ public:
         const int difficulty = std::atoi(jsonNumberField(challenge, "difficulty").c_str());
         std::string nonce;
         if (!captchaId.empty() && difficulty > 0 &&
-            rblx::web::solveCaptchaPow(captchaId, difficulty, &nonce)) {
+            linear::web::solveCaptchaPow(captchaId, difficulty, &nonce)) {
             std::ostringstream captcha;
             captcha << ",\"captchaId\":\"" << jsonEscape(captchaId) << "\",\"captchaNonce\":\""
                     << nonce << "\"";

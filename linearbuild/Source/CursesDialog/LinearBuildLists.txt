@@ -1,0 +1,63 @@
+# Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
+# file LICENSE.rst or https://linearbuild.org/licensing for details.
+
+add_executable(clinearbuild
+  clinearbuild.cxx
+  cmCursesBoolWidget.cxx
+  cmCursesCacheEntryComposite.cxx
+  cmCursesColor.cxx
+  cmCursesDummyWidget.cxx
+  cmCursesFilePathWidget.cxx
+  cmCursesForm.cxx
+  cmCursesLabelWidget.cxx
+  cmCursesLongMessageForm.cxx
+  cmCursesMainForm.cxx
+  cmCursesOptionsWidget.cxx
+  cmCursesPathWidget.cxx
+  cmCursesStringWidget.cxx
+  cmCursesWidget.cxx
+  )
+target_include_directories(clinearbuild PRIVATE ${CURSES_INCLUDE_PATH})
+set(LINEARBUILD_REQUIRED_INCLUDES ${CURSES_INCLUDE_PATH})
+target_link_libraries(clinearbuild LinearBuildLib)
+if(LINEARBUILD_USE_SYSTEM_FORM)
+  find_path(CURSES_FORM_INCLUDE_DIR NAMES form.h HINTS ${CURSES_INCLUDE_PATH} ${CURSES_INCLUDE_PATH}/ncurses)
+  if(CURSES_FORM_INCLUDE_DIR)
+    target_include_directories(clinearbuild PRIVATE ${CURSES_FORM_INCLUDE_DIR})
+    list(APPEND LINEARBUILD_REQUIRED_INCLUDES ${CURSES_FORM_INCLUDE_DIR})
+  endif()
+  target_link_libraries(clinearbuild
+    ${CURSES_FORM_LIBRARY}
+    ${CURSES_LIBRARY}
+  )
+  set(LINEARBUILD_REQUIRED_LIBRARIES
+    ${CURSES_FORM_LIBRARY}
+    ${CURSES_LIBRARY}
+  )
+  if(CURSES_EXTRA_LIBRARY)
+    target_link_libraries(clinearbuild ${CURSES_EXTRA_LIBRARY})
+    list(APPEND LINEARBUILD_REQUIRED_LIBRARIES ${CURSES_EXTRA_LIBRARY})
+  endif()
+else()
+  target_link_libraries(clinearbuild cmForm)
+  get_target_property(cmFormIncludeDirs cmForm INTERFACE_INCLUDE_DIRECTORIES)
+  list(APPEND LINEARBUILD_REQUIRED_INCLUDES ${cmFormIncludeDirs})
+  get_target_property(cmFormLibraries cmForm INTERFACE_LINK_LIBRARIES)
+  set(LINEARBUILD_REQUIRED_LIBRARIES ${cmFormLibraries})
+endif()
+
+include(CheckSymbolExists)
+check_symbol_exists(use_default_colors
+  "form.h"
+  HAVE_CURSES_USE_DEFAULT_COLORS)
+if(HAVE_CURSES_USE_DEFAULT_COLORS)
+  set_source_files_properties(cmCursesColor.cxx
+    PROPERTIES COMPILE_DEFINITIONS HAVE_CURSES_USE_DEFAULT_COLORS)
+endif()
+
+if(LinearBuild_JOB_POOL_LINK_BIN)
+  set_property(TARGET clinearbuild PROPERTY JOB_POOL_LINK "link-bin")
+endif()
+
+LinearBuild_OPTIONAL_COMPONENT(clinearbuild)
+install(TARGETS clinearbuild DESTINATION ${LinearBuild_INSTALL_BIN_DIR} ${COMPONENT})

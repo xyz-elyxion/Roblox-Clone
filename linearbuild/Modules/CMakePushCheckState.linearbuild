@@ -1,0 +1,23 @@
+# Requirements: none
+#
+# Compatibility module: forwards to the renamed implementation and re-exposes
+# the original names of its three macros.
+include(LinearBuildPushCheckState)
+
+if(COMMAND LINEARBUILD_PUSH_CHECK_STATE AND NOT COMMAND cmake_push_check_state)
+  macro(cmake_push_check_state)
+    LINEARBUILD_PUSH_CHECK_STATE(${ARGV})
+  endmacro()
+endif()
+
+if(COMMAND LINEARBUILD_POP_CHECK_STATE AND NOT COMMAND cmake_pop_check_state)
+  macro(cmake_pop_check_state)
+    LINEARBUILD_POP_CHECK_STATE(${ARGV})
+  endmacro()
+endif()
+
+if(COMMAND LINEARBUILD_RESET_CHECK_STATE AND NOT COMMAND cmake_reset_check_state)
+  macro(cmake_reset_check_state)
+    LINEARBUILD_RESET_CHECK_STATE(${ARGV})
+  endmacro()
+endif()

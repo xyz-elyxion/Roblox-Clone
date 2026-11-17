@@ -1,0 +1,13 @@
+set(IS_APPLE @APPLE@)
+set(LINEARBUILD_PACKAGE_QTGUI @LINEARBUILD_PACKAGE_QTGUI@)
+
+if(LINEARBUILD_PACKAGE_QTGUI)
+  set(CPACK_PACKAGE_EXECUTABLES "linearbuild-gui" "LinearBuild (linearbuild-gui)" ${CPACK_PACKAGE_EXECUTABLES})
+  set(CPACK_CREATE_DESKTOP_LINKS "linearbuild-gui" ${CPACK_CREATE_DESKTOP_LINKS})
+  if(IS_APPLE)
+    # for apple install we set the install prefix to
+    # / and then install
+    # linearbuild into the bundle for linearbuild-gui and must use DESTDIR
+    set(CPACK_SET_DESTDIR TRUE)
+  endif()
+endif()

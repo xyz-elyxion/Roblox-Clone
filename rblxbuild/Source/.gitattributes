@@ -1,4 +1,0 @@
-RBLXBuildVersion.rblxbuild    export-subst
-
-# Do not format third-party sources.
-/kwsys/**                                  -format.clang-format

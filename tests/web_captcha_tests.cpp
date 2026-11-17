@@ -17,7 +17,7 @@ void check(bool condition, const char* what) {
 }  // namespace
 
 int main() {
-    using namespace rblx::web;
+    using namespace linear::web;
 
     {
         const std::string code = makeCaptchaCode();

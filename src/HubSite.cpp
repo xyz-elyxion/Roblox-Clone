@@ -18,10 +18,10 @@
 #include <vector>
 
 namespace fs = std::filesystem;
-namespace git = rblx::git;
-namespace web = rblx::web;
+namespace git = linear::git;
+namespace web = linear::web;
 
-namespace rblx {
+namespace linear {
 namespace hub {
 namespace {
 
@@ -484,4 +484,4 @@ void HubSite::route(const std::string& method, const std::string& path, const st
 }
 
 }  // namespace hub
-}  // namespace rblx
+}  // namespace linear

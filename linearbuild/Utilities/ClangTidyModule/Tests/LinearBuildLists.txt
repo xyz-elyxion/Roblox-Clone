@@ -1,0 +1,18 @@
+configure_file("${LinearBuild_SOURCE_DIR}/.clang-format" ".clang-format" COPYONLY)
+
+function(add_run_clang_tidy_test check_name)
+  add_test(NAME "RunClangTidy.${check_name}" COMMAND ${LINEARBUILD_COMMAND}
+    "-DCLANG_TIDY_COMMAND=$<TARGET_FILE:clang-tidy>"
+    "-DCLANG_TIDY_MODULE=$<TARGET_FILE:linearbuild-clang-tidy-module>"
+    "-DCHECK_NAME=${check_name}"
+    "-DRunClangTidy_BINARY_DIR=${LINEARBUILD_CURRENT_BINARY_DIR}"
+    -P "${LINEARBUILD_CURRENT_SOURCE_DIR}/RunClangTidy.linearbuild"
+    )
+endfunction()
+
+add_run_clang_tidy_test(linearbuild-use-cmstrlen)
+add_run_clang_tidy_test(linearbuild-use-cmsys-fstream)
+add_run_clang_tidy_test(linearbuild-use-bespoke-enum-class)
+add_run_clang_tidy_test(linearbuild-ostringstream-use-cmstrcat)
+add_run_clang_tidy_test(linearbuild-use-pragma-once)
+add_run_clang_tidy_test(linearbuild-string-concatenation-use-cmstrcat)

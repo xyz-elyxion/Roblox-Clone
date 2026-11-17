@@ -1,4 +1,0 @@
-LICENSE
-=======
-
-This is an installer created using CPack (https://rblxbuild.org). No license provided.

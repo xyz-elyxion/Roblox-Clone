@@ -1,0 +1,22 @@
+# Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
+# file LICENSE.rst or https://linearbuild.org/licensing for details.
+
+# This script deletes compiled Java class files.
+
+linearbuild_policy(PUSH)
+linearbuild_policy(SET CMP0159 NEW) # file(STRINGS) with REGEX updates LINEARBUILD_MATCH_<n>
+
+if(LINEARBUILD_JAVA_CLASS_OUTPUT_PATH)
+  if(EXISTS "${LINEARBUILD_JAVA_CLASS_OUTPUT_PATH}/java_class_filelist")
+    file(STRINGS "${LINEARBUILD_JAVA_CLASS_OUTPUT_PATH}/java_class_filelist" classes)
+    list(TRANSFORM classes PREPEND "${LINEARBUILD_JAVA_CLASS_OUTPUT_PATH}/")
+    if(classes)
+      file(REMOVE ${classes})
+      message(VERBOSE "Clean class files from previous build")
+    endif()
+  endif()
+else()
+  message(FATAL_ERROR "Can't find LINEARBUILD_JAVA_CLASS_OUTPUT_PATH")
+endif()
+
+linearbuild_policy(POP)

@@ -1,0 +1,380 @@
+# Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
+# file LICENSE.rst or https://linearbuild.org/licensing for details.
+
+include(${LINEARBUILD_ROOT}/Modules/LinearBuildDetermineCompiler.linearbuild)
+include(${LINEARBUILD_ROOT}/Modules/LinearBuildParseImplicitLinkInfo.linearbuild)
+include(${LINEARBUILD_ROOT}/Modules/LinearBuildParseLibraryArchitecture.linearbuild)
+
+if(NOT ((LINEARBUILD_GENERATOR MATCHES "Make") OR
+        (LINEARBUILD_GENERATOR MATCHES "Ninja")))
+  message(FATAL_ERROR "HIP language not currently supported by \"${LINEARBUILD_GENERATOR}\" generator")
+endif()
+
+if(NOT LINEARBUILD_HIP_PLATFORM)
+  execute_process(COMMAND hipconfig --platform
+    OUTPUT_VARIABLE _LINEARBUILD_HIPCONFIG_PLATFORM OUTPUT_STRIP_TRAILING_WHITESPACE
+    RESULT_VARIABLE _LINEARBUILD_HIPCONFIG_RESULT
+    )
+  if(_LINEARBUILD_HIPCONFIG_RESULT EQUAL 0 AND _LINEARBUILD_HIPCONFIG_PLATFORM MATCHES "^(nvidia|nvcc)$")
+    set(LINEARBUILD_HIP_PLATFORM "nvidia" CACHE STRING "HIP platform" FORCE)
+  elseif(_LINEARBUILD_HIPCONFIG_RESULT EQUAL 0 AND _LINEARBUILD_HIPCONFIG_PLATFORM MATCHES "^(spirv)$")
+    set(LINEARBUILD_HIP_PLATFORM "spirv" CACHE STRING "HIP platform" FORCE)
+  else()
+    set(LINEARBUILD_HIP_PLATFORM "amd" CACHE STRING "HIP platform" FORCE)
+  endif()
+endif()
+if(NOT LINEARBUILD_HIP_PLATFORM MATCHES "^(amd|nvidia|spirv)$")
+  message(FATAL_ERROR
+    "The LINEARBUILD_HIP_PLATFORM has unsupported value:\n"
+    " '${LINEARBUILD_HIP_PLATFORM}'\n"
+    "It must be 'amd', 'nvidia', or 'spirv'."
+    )
+endif()
+
+if(NOT LINEARBUILD_HIP_COMPILER)
+  set(LINEARBUILD_HIP_COMPILER_INIT NOTFOUND)
+
+  # prefer the environment variable HIPCXX
+  if(NOT $ENV{HIPCXX} STREQUAL "")
+    if("$ENV{HIPCXX}" MATCHES "hipcc")
+      message(FATAL_ERROR
+        "The HIPCXX environment variable is set to the hipcc wrapper:\n"
+        " $ENV{HIPCXX}\n"
+        "This is not supported.  Use Clang directly, or let LinearBuild pick a default."
+        )
+    endif()
+    get_filename_component(LINEARBUILD_HIP_COMPILER_INIT $ENV{HIPCXX} PROGRAM PROGRAM_ARGS LINEARBUILD_HIP_FLAGS_ENV_INIT)
+    if(LINEARBUILD_HIP_FLAGS_ENV_INIT)
+      set(LINEARBUILD_HIP_COMPILER_ARG1 "${LINEARBUILD_HIP_FLAGS_ENV_INIT}" CACHE STRING "Arguments to CXX compiler")
+    endif()
+    if(NOT EXISTS ${LINEARBUILD_HIP_COMPILER_INIT})
+      message(FATAL_ERROR "Could not find the compiler specified in the environment variable HIPCXX:\n$ENV{HIPCXX}.\n${LINEARBUILD_HIP_COMPILER_INIT}")
+    endif()
+  endif()
+
+  # finally list compilers to try
+  if(NOT LINEARBUILD_HIP_COMPILER_INIT)
+    if(LINEARBUILD_HIP_PLATFORM STREQUAL "nvidia")
+      set(LINEARBUILD_HIP_COMPILER_LIST nvcc)
+    elseif(LINEARBUILD_HIP_PLATFORM STREQUAL "amd" OR LINEARBUILD_HIP_PLATFORM STREQUAL "spirv")
+      set(LINEARBUILD_HIP_COMPILER_LIST clang++)
+
+      # Look for the Clang coming with ROCm or chipStar to support HIP.
+      execute_process(COMMAND hipconfig --hipclangpath
+        OUTPUT_VARIABLE _LINEARBUILD_HIPCONFIG_CLANGPATH
+        RESULT_VARIABLE _LINEARBUILD_HIPCONFIG_RESULT
+      )
+      if(_LINEARBUILD_HIPCONFIG_RESULT EQUAL 0 AND EXISTS "${_LINEARBUILD_HIPCONFIG_CLANGPATH}")
+        set(LINEARBUILD_HIP_COMPILER_HINTS "${_LINEARBUILD_HIPCONFIG_CLANGPATH}")
+      endif()
+    endif()
+  endif()
+
+  _linearbuild_find_compiler(HIP)
+elseif(LINEARBUILD_HIP_COMPILER MATCHES "hipcc")
+  message(FATAL_ERROR
+    "LINEARBUILD_HIP_COMPILER is set to the hipcc wrapper:\n"
+    " ${LINEARBUILD_HIP_COMPILER}\n"
+    "This is not supported.  Use Clang directly, or let LinearBuild pick a default."
+    )
+else()
+  _linearbuild_find_compiler_path(HIP)
+endif()
+
+mark_as_advanced(LINEARBUILD_HIP_COMPILER)
+
+# Build a small source file to identify the compiler.
+if(NOT LINEARBUILD_HIP_COMPILER_ID_RUN)
+  set(LINEARBUILD_HIP_COMPILER_ID_RUN 1)
+
+  include(${LINEARBUILD_ROOT}/Modules/LinearBuildDetermineCompilerId.linearbuild)
+
+  # We determine the vendor to use the right flags for detection right away.
+  # The main compiler identification is still needed below to extract other information.
+  list(APPEND LINEARBUILD_HIP_COMPILER_ID_VENDORS NVIDIA Clang)
+  set(LINEARBUILD_HIP_COMPILER_ID_VENDOR_REGEX_NVIDIA "nvcc: [^\n]+ Cuda compiler driver")
+  set(LINEARBUILD_HIP_COMPILER_ID_VENDOR_REGEX_Clang "(clang version)")
+  LINEARBUILD_DETERMINE_COMPILER_ID_VENDOR(HIP "--version")
+
+  if(LINEARBUILD_HIP_COMPILER_ID STREQUAL "NVIDIA")
+    # Find the CUDA toolkit to get:
+    # - LINEARBUILD_HIP_COMPILER_CUDA_TOOLKIT_VERSION
+    # - LINEARBUILD_HIP_COMPILER_CUDA_TOOLKIT_ROOT
+    # - LINEARBUILD_HIP_COMPILER_CUDA_LIBRARY_ROOT
+    # We save them in LinearBuildHIPCompiler.linearbuild.
+    # Match arguments with linearbuild_cuda_architectures_all call.
+    include(Internal/LinearBuildCUDAFindToolkit)
+    linearbuild_cuda_find_toolkit(HIP LINEARBUILD_HIP_COMPILER_CUDA_)
+
+    # If the user set LINEARBUILD_HIP_ARCHITECTURES, validate its value.
+    include(Internal/LinearBuildCUDAArchitecturesValidate)
+    linearbuild_cuda_architectures_validate(HIP)
+
+    if(NOT LINEARBUILD_HIP_HOST_COMPILER AND NOT $ENV{HIPHOSTCXX} STREQUAL "")
+      get_filename_component(LINEARBUILD_HIP_HOST_COMPILER $ENV{HIPHOSTCXX} PROGRAM)
+      if(NOT EXISTS "${LINEARBUILD_HIP_HOST_COMPILER}")
+        message(FATAL_ERROR "Could not find the compiler specified in the environment variable HIPHOSTCXX:\n$ENV{HIPHOSTCXX}.\n${LINEARBUILD_HIP_HOST_COMPILER}")
+      endif()
+    elseif(LINEARBUILD_HIP_HOST_COMPILER)
+      # We get here if LINEARBUILD_HIP_HOST_COMPILER was specified by the user or toolchain file.
+      if(IS_ABSOLUTE "${LINEARBUILD_HIP_HOST_COMPILER}")
+        # Convert to forward slashes.
+        linearbuild_path(CONVERT "${LINEARBUILD_HIP_HOST_COMPILER}" TO_LINEARBUILD_PATH_LIST LINEARBUILD_HIP_HOST_COMPILER NORMALIZE)
+      else()
+        # Convert to absolute path so changes in `PATH` do not impact HIP compilation.
+        find_program(_LINEARBUILD_HIP_HOST_COMPILER_PATH NO_CACHE NAMES "${LINEARBUILD_HIP_HOST_COMPILER}")
+        if(_LINEARBUILD_HIP_HOST_COMPILER_PATH)
+          set(LINEARBUILD_HIP_HOST_COMPILER "${_LINEARBUILD_HIP_HOST_COMPILER_PATH}")
+        endif()
+        unset(_LINEARBUILD_HIP_HOST_COMPILER_PATH)
+      endif()
+      if(NOT EXISTS "${LINEARBUILD_HIP_HOST_COMPILER}")
+        message(FATAL_ERROR "Could not find the compiler specified in the variable LINEARBUILD_HIP_HOST_COMPILER:\n  ${LINEARBUILD_HIP_HOST_COMPILER}")
+      endif()
+      # If the value was cached, update the cache entry with our modifications.
+      get_property(_LINEARBUILD_HIP_HOST_COMPILER_CACHED CACHE LINEARBUILD_HIP_HOST_COMPILER PROPERTY TYPE)
+      if(_LINEARBUILD_HIP_HOST_COMPILER_CACHED)
+        set_property(CACHE LINEARBUILD_HIP_HOST_COMPILER PROPERTY VALUE "${LINEARBUILD_HIP_HOST_COMPILER}")
+        mark_as_advanced(LINEARBUILD_HIP_HOST_COMPILER)
+      endif()
+      unset(_LINEARBUILD_HIP_HOST_COMPILER_CACHED)
+    endif()
+  endif()
+
+  if(LINEARBUILD_HIP_COMPILER_ID STREQUAL "Clang")
+    # For spirv platform (chipStar), set special flags for compiler identification
+    include(Internal/LinearBuildChipStarHIP)
+    if(LINEARBUILD_HIP_PLATFORM STREQUAL "spirv")
+      _linearbuild_chipstar_set_compiler_id_flags()
+    else()
+      list(APPEND LINEARBUILD_HIP_COMPILER_ID_TEST_FLAGS_FIRST "-v")
+    endif()
+  elseif(LINEARBUILD_HIP_COMPILER_ID STREQUAL "NVIDIA")
+    # Tell nvcc to treat .hip files as CUDA sources.
+    list(APPEND LINEARBUILD_HIP_COMPILER_ID_TEST_FLAGS_FIRST "-x cu -v")
+    if(LINEARBUILD_HIP_HOST_COMPILER)
+      string(APPEND LINEARBUILD_HIP_COMPILER_ID_TEST_FLAGS_FIRST " -ccbin=\"${LINEARBUILD_HIP_HOST_COMPILER}\"")
+    endif()
+  endif()
+
+  # We perform compiler identification for a second time to extract implicit linking info.
+  # We need to unset the compiler ID otherwise LINEARBUILD_DETERMINE_COMPILER_ID() doesn't work.
+  set(LINEARBUILD_HIP_COMPILER_ID)
+  set(LINEARBUILD_HIP_PLATFORM_ID)
+  file(READ ${LINEARBUILD_ROOT}/Modules/LinearBuildPlatformId.h.in
+    LINEARBUILD_HIP_COMPILER_ID_PLATFORM_CONTENT)
+
+  LINEARBUILD_DETERMINE_COMPILER_ID(HIP HIPFLAGS LinearBuildHIPCompilerId.hip)
+
+  if(LINEARBUILD_HIP_COMPILER_ID STREQUAL "NVIDIA")
+    include(Internal/LinearBuildCUDAArchitecturesAll)
+    # From LINEARBUILD_HIP_COMPILER_CUDA_TOOLKIT_VERSION and LINEARBUILD_HIP_COMPILER_{ID,VERSION}, get:
+    # - LINEARBUILD_HIP_ARCHITECTURES_ALL
+    # - LINEARBUILD_HIP_ARCHITECTURES_ALL_MAJOR
+    # Match arguments with linearbuild_cuda_find_toolkit call.
+    linearbuild_cuda_architectures_all(HIP LINEARBUILD_HIP_COMPILER_CUDA_)
+  endif()
+
+  _linearbuild_find_compiler_sysroot(HIP)
+endif()
+
+if(NOT LINEARBUILD_HIP_COMPILER_ROCM_ROOT AND LINEARBUILD_HIP_COMPILER_ID STREQUAL "Clang")
+   execute_process(COMMAND "${LINEARBUILD_HIP_COMPILER}" -v -print-targets
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    RESULT_VARIABLE _LINEARBUILD_HIP_COMPILER_RESULT
+    OUTPUT_VARIABLE _LINEARBUILD_HIP_COMPILER_STDOUT
+    ERROR_VARIABLE _LINEARBUILD_HIP_COMPILER_STDERR
+    )
+
+  if(_LINEARBUILD_HIP_COMPILER_RESULT EQUAL 0 AND _LINEARBUILD_HIP_COMPILER_STDERR MATCHES "Found HIP installation: *([^,]*)[,\n]")
+    set(LINEARBUILD_HIP_COMPILER_ROCM_ROOT "${LINEARBUILD_MATCH_1}")
+    file(TO_LINEARBUILD_PATH "${LINEARBUILD_HIP_COMPILER_ROCM_ROOT}" LINEARBUILD_HIP_COMPILER_ROCM_ROOT)
+  endif()
+endif()
+if(NOT LINEARBUILD_HIP_COMPILER_ROCM_ROOT)
+  execute_process(
+    COMMAND hipconfig --rocmpath
+    OUTPUT_VARIABLE _LINEARBUILD_HIPCONFIG_ROCMPATH
+    RESULT_VARIABLE _LINEARBUILD_HIPCONFIG_RESULT
+    )
+  if(_LINEARBUILD_HIPCONFIG_RESULT EQUAL 0 AND EXISTS "${_LINEARBUILD_HIPCONFIG_ROCMPATH}")
+    set(LINEARBUILD_HIP_COMPILER_ROCM_ROOT "${_LINEARBUILD_HIPCONFIG_ROCMPATH}")
+  endif()
+endif()
+if(NOT LINEARBUILD_HIP_COMPILER_ROCM_ROOT)
+  # For spirv platform (chipStar), fall back to HIP_PATH environment variable
+  if(LINEARBUILD_HIP_PLATFORM STREQUAL "spirv" AND DEFINED ENV{HIP_PATH} AND IS_DIRECTORY "$ENV{HIP_PATH}")
+    set(LINEARBUILD_HIP_COMPILER_ROCM_ROOT "$ENV{HIP_PATH}")
+    file(TO_LINEARBUILD_PATH "${LINEARBUILD_HIP_COMPILER_ROCM_ROOT}" LINEARBUILD_HIP_COMPILER_ROCM_ROOT)
+  else()
+    message(FATAL_ERROR "Failed to find HIP root directory.")
+  endif()
+endif()
+
+
+if(LINEARBUILD_HIP_PLATFORM STREQUAL "amd" OR LINEARBUILD_HIP_PLATFORM STREQUAL "spirv")
+  # For amd and spirv platforms we need the hip-lang linearbuild package.
+
+  # Normally implicit link information is not detected until ABI detection,
+  # but we need to populate LINEARBUILD_HIP_LIBRARY_ARCHITECTURE to find hip-lang.
+  linearbuild_parse_implicit_link_info("${LINEARBUILD_HIP_COMPILER_PRODUCED_OUTPUT}"
+    _LINEARBUILD_HIP_COMPILER_ID_IMPLICIT_LIBS
+    _LINEARBUILD_HIP_COMPILER_ID_IMPLICIT_DIRS
+    _LINEARBUILD_HIP_COMPILER_ID_IMPLICIT_FWKS
+    _LINEARBUILD_HIP_COMPILER_ID_IMPLICIT_LOG
+    "" LANGUAGE HIP)
+  message(CONFIGURE_LOG
+    "Parsed HIP implicit link information from compiler id output:\n${_LINEARBUILD_HIP_COMPILER_ID_IMPLICIT_LOG}\n\n")
+  linearbuild_parse_library_architecture(HIP "${_LINEARBUILD_HIP_COMPILER_ID_IMPLICIT_DIRS}" "" LINEARBUILD_HIP_LIBRARY_ARCHITECTURE)
+  if(LINEARBUILD_HIP_LIBRARY_ARCHITECTURE)
+    message(CONFIGURE_LOG
+      "Parsed HIP library architecture from compiler id output: ${LINEARBUILD_HIP_LIBRARY_ARCHITECTURE}\n")
+  endif()
+  unset(_LINEARBUILD_HIP_COMPILER_ID_IMPLICIT_LIBS)
+  unset(_LINEARBUILD_HIP_COMPILER_ID_IMPLICIT_DIRS)
+  unset(_LINEARBUILD_HIP_COMPILER_ID_IMPLICIT_FWKS)
+  unset(_LINEARBUILD_HIP_COMPILER_ID_IMPLICIT_LOG)
+
+  if(NOT LINEARBUILD_HIP_COMPILER_ROCM_LIB)
+    set(_LINEARBUILD_HIP_COMPILER_ROCM_LIB_DIRS
+      "${LINEARBUILD_HIP_COMPILER_ROCM_ROOT}/lib"
+      "${LINEARBUILD_HIP_COMPILER_ROCM_ROOT}/lib64"
+      )
+    if(LINEARBUILD_HIP_LIBRARY_ARCHITECTURE)
+      list(APPEND _LINEARBUILD_HIP_COMPILER_ROCM_LIB_DIRS "${LINEARBUILD_HIP_COMPILER_ROCM_ROOT}/lib/${LINEARBUILD_HIP_LIBRARY_ARCHITECTURE}")
+    elseif(LINEARBUILD_LIBRARY_ARCHITECTURE)
+      list(APPEND _LINEARBUILD_HIP_COMPILER_ROCM_LIB_DIRS "${LINEARBUILD_HIP_COMPILER_ROCM_ROOT}/lib/${LINEARBUILD_LIBRARY_ARCHITECTURE}")
+    endif()
+    foreach(dir IN LISTS _LINEARBUILD_HIP_COMPILER_ROCM_LIB_DIRS)
+      if(EXISTS "${dir}/linearbuild/hip-lang/hip-lang-config.linearbuild")
+        set(LINEARBUILD_HIP_COMPILER_ROCM_LIB "${dir}")
+        break()
+      endif()
+    endforeach()
+    if(NOT LINEARBUILD_HIP_COMPILER_ROCM_LIB)
+      list(TRANSFORM _LINEARBUILD_HIP_COMPILER_ROCM_LIB_DIRS APPEND "/linearbuild/hip-lang/hip-lang-config.linearbuild")
+      string(REPLACE ";" "\n " _LINEARBUILD_HIP_COMPILER_ROCM_LIB_DIRS "${_LINEARBUILD_HIP_COMPILER_ROCM_LIB_DIRS}")
+      message(FATAL_ERROR
+        "The ROCm root directory:\n"
+        " ${LINEARBUILD_HIP_COMPILER_ROCM_ROOT}\n"
+        "does not contain the HIP runtime LinearBuild package, expected at one of:\n"
+        " ${_LINEARBUILD_HIP_COMPILER_ROCM_LIB_DIRS}\n"
+        )
+    endif()
+    unset(_LINEARBUILD_HIP_COMPILER_ROCM_LIB_DIRS)
+  endif()
+  if(NOT DEFINED LINEARBUILD_SIZEOF_VOID_P)
+    # We have not yet determined the target ABI but we need 'find_package' to
+    # search lib64 directories to find hip-lang LinearBuild package dependencies.
+    # This will be replaced by ABI detection later.
+    set(LINEARBUILD_HIP_SIZEOF_DATA_PTR 8)
+  endif()
+endif()
+
+if (NOT _LINEARBUILD_TOOLCHAIN_LOCATION)
+  get_filename_component(_LINEARBUILD_TOOLCHAIN_LOCATION "${LINEARBUILD_HIP_COMPILER}" PATH)
+endif ()
+
+set(_LINEARBUILD_PROCESSING_LANGUAGE "HIP")
+include(LinearBuildFindBinUtils)
+include(Compiler/${LINEARBUILD_HIP_COMPILER_ID}-FindBinUtils OPTIONAL)
+unset(_LINEARBUILD_PROCESSING_LANGUAGE)
+
+if(LINEARBUILD_HIP_COMPILER_ID STREQUAL "Clang")
+  set(LINEARBUILD_HIP_RUNTIME_LIBRARY_DEFAULT "SHARED")
+elseif(LINEARBUILD_HIP_COMPILER_ID STREQUAL "NVIDIA")
+  include(Internal/LinearBuildNVCCParseImplicitInfo)
+  # Parse LINEARBUILD_HIP_COMPILER_PRODUCED_OUTPUT to get:
+  # - LINEARBUILD_HIP_ARCHITECTURES_DEFAULT
+  # - LINEARBUILD_HIP_HOST_IMPLICIT_LINK_DIRECTORIES
+  # - LINEARBUILD_HIP_HOST_IMPLICIT_LINK_FRAMEWORK_DIRECTORIES
+  # - LINEARBUILD_HIP_HOST_IMPLICIT_LINK_LIBRARIES
+  # - LINEARBUILD_HIP_HOST_LINK_LAUNCHER
+  # - LINEARBUILD_HIP_RUNTIME_LIBRARY_DEFAULT
+  # - LINEARBUILD_HIP_CUDA_TOOLKIT_INCLUDE_DIRECTORIES
+  # Match arguments with linearbuild_nvcc_filter_implicit_info call in LinearBuildTestHIPCompiler.
+  linearbuild_nvcc_parse_implicit_info(HIP LINEARBUILD_HIP_CUDA_)
+
+  include(Internal/LinearBuildCUDAFilterImplicitLibs)
+  # Filter out implicit link libraries that should not be passed unconditionally.
+  linearbuild_cuda_filter_implicit_libs(LINEARBUILD_HIP_HOST_IMPLICIT_LINK_LIBRARIES)
+endif()
+
+if(LINEARBUILD_HIP_COMPILER_SYSROOT)
+  string(CONCAT _SET_LINEARBUILD_HIP_COMPILER_SYSROOT
+    "set(LINEARBUILD_HIP_COMPILER_SYSROOT \"${LINEARBUILD_HIP_COMPILER_SYSROOT}\")\n"
+    "set(LINEARBUILD_COMPILER_SYSROOT \"${LINEARBUILD_HIP_COMPILER_SYSROOT}\")")
+else()
+  set(_SET_LINEARBUILD_HIP_COMPILER_SYSROOT "")
+endif()
+
+if(MSVC_HIP_ARCHITECTURE_ID)
+  set(SET_MSVC_HIP_ARCHITECTURE_ID
+    "set(MSVC_HIP_ARCHITECTURE_ID ${MSVC_HIP_ARCHITECTURE_ID})")
+endif()
+
+if(LINEARBUILD_HIP_COMPILER_ID STREQUAL "NVIDIA")
+  if(NOT "$ENV{CUDAARCHS}" STREQUAL "")
+    set(LINEARBUILD_HIP_ARCHITECTURES "$ENV{CUDAARCHS}" CACHE STRING "CUDA architectures")
+  endif()
+
+  # If the user did not set LINEARBUILD_HIP_ARCHITECTURES, use the compiler's default.
+  if("${LINEARBUILD_HIP_ARCHITECTURES}" STREQUAL "")
+    set(LINEARBUILD_HIP_ARCHITECTURES "${LINEARBUILD_HIP_ARCHITECTURES_DEFAULT}" CACHE STRING "HIP architectures" FORCE)
+    if(NOT LINEARBUILD_HIP_ARCHITECTURES)
+      message(FATAL_ERROR "Failed to detect a default HIP architecture.\n\nCompiler output:\n${LINEARBUILD_HIP_COMPILER_PRODUCED_OUTPUT}")
+    endif()
+  endif()
+  unset(LINEARBUILD_HIP_ARCHITECTURES_DEFAULT)
+elseif(NOT DEFINED LINEARBUILD_HIP_ARCHITECTURES AND LINEARBUILD_HIP_PLATFORM STREQUAL "spirv")
+  # chipStar handles targeting via hip package
+  set(LINEARBUILD_HIP_ARCHITECTURES "OFF" CACHE STRING "HIP architectures")
+elseif(NOT DEFINED LINEARBUILD_HIP_ARCHITECTURES)
+  # Use 'rocm_agent_enumerator' to get the current GPU architecture.
+  set(_LINEARBUILD_HIP_ARCHITECTURES)
+  find_program(_LINEARBUILD_HIP_ROCM_AGENT_ENUMERATOR
+    NAMES rocm_agent_enumerator
+    HINTS "${LINEARBUILD_HIP_COMPILER_ROCM_ROOT}/bin"
+    NO_CACHE)
+  if(_LINEARBUILD_HIP_ROCM_AGENT_ENUMERATOR)
+    execute_process(COMMAND "${_LINEARBUILD_HIP_ROCM_AGENT_ENUMERATOR}" -t GPU
+      RESULT_VARIABLE _LINEARBUILD_ROCM_AGENT_ENUMERATOR_RESULT
+      OUTPUT_VARIABLE _LINEARBUILD_ROCM_AGENT_ENUMERATOR_STDOUT
+      ERROR_VARIABLE  _LINEARBUILD_ROCM_AGENT_ENUMERATOR_STDERR
+    )
+    if(_LINEARBUILD_ROCM_AGENT_ENUMERATOR_RESULT EQUAL 0)
+      separate_arguments(_hip_archs NATIVE_COMMAND "${_LINEARBUILD_ROCM_AGENT_ENUMERATOR_STDOUT}")
+      foreach(_hip_arch ${_hip_archs})
+        if(_hip_arch STREQUAL "gfx000")
+          continue()
+        endif()
+        string(FIND ${_hip_arch} ":" pos)
+        if(NOT pos STREQUAL "-1")
+          string(SUBSTRING ${_hip_arch} 0 ${pos} _hip_arch)
+        endif()
+        list(APPEND _LINEARBUILD_HIP_ARCHITECTURES "${_hip_arch}")
+      endforeach()
+    endif()
+    unset(_LINEARBUILD_ROCM_AGENT_ENUMERATOR_RESULT)
+    unset(_LINEARBUILD_ROCM_AGENT_ENUMERATOR_STDOUT)
+    unset(_LINEARBUILD_ROCM_AGENT_ENUMERATOR_STDERR)
+  endif()
+  unset(_LINEARBUILD_HIP_ROCM_AGENT_ENUMERATOR)
+  if(_LINEARBUILD_HIP_ARCHITECTURES)
+    set(LINEARBUILD_HIP_ARCHITECTURES "${_LINEARBUILD_HIP_ARCHITECTURES}" CACHE STRING "HIP architectures")
+  elseif(LINEARBUILD_HIP_COMPILER_PRODUCED_OUTPUT MATCHES " -target-cpu ([a-z0-9]+) ")
+    set(LINEARBUILD_HIP_ARCHITECTURES "${LINEARBUILD_MATCH_1}" CACHE STRING "HIP architectures")
+  elseif(LINEARBUILD_HIP_COMPILER_PRODUCED_OUTPUT MATCHES " -triple amdgpu([0-9]+)\\.([0-9a-f][0-9a-f])-")
+    set(LINEARBUILD_HIP_ARCHITECTURES "gfx${LINEARBUILD_MATCH_1}${LINEARBUILD_MATCH_2}" CACHE STRING "HIP architectures")
+  else()
+    message(FATAL_ERROR "Failed to find a default HIP architecture.")
+  endif()
+  unset(_LINEARBUILD_HIP_ARCHITECTURES)
+endif()
+
+# configure variables set in this file for fast reload later on
+configure_file(${LINEARBUILD_ROOT}/Modules/LinearBuildHIPCompiler.linearbuild.in
+  ${LINEARBUILD_PLATFORM_INFO_DIR}/LinearBuildHIPCompiler.linearbuild
+  @ONLY
+  )
+set(LINEARBUILD_HIP_COMPILER_ENV_VAR "HIPCXX")

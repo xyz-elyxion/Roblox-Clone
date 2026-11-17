@@ -4,7 +4,7 @@
 #include <string>
 #include <vector>
 
-namespace rblx {
+namespace linear {
 namespace hub {
 
 // The hub is a set of pages over a repository, and every page is assembled from
@@ -78,4 +78,4 @@ std::string newIssuePage(const RepoSummary& repo, const std::string& error);
 std::string missingPage(const RepoSummary& repo, const std::string& what);
 
 }  // namespace hub
-}  // namespace rblx
+}  // namespace linear

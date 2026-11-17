@@ -2,7 +2,7 @@
 
 #include "SoundBank.h"
 
-#include <rblxphysics/rblxphysics.h>
+#include <linearphysics/linearphysics.h>
 
 #include <algorithm>
 #include <cmath>
@@ -13,16 +13,16 @@
 #include <utility>
 #include <vector>
 
-namespace rblx {
+namespace linear {
 namespace worldscript {
 
 namespace {
 
-using rblx::script::Interpreter;
-using rblx::script::ScriptObject;
-using rblx::script::Signal;
-using rblx::script::Table;
-using rblx::script::Value;
+using linear::script::Interpreter;
+using linear::script::ScriptObject;
+using linear::script::Signal;
+using linear::script::Table;
+using linear::script::Value;
 
 Part* partAt(const std::deque<Part>& parts, int index) {
     if (index < 0 || index >= static_cast<int>(parts.size())) return nullptr;
@@ -37,7 +37,7 @@ constexpr std::size_t kMaxScriptParts = 4096;
 
 Value makeVector3(double x, double y, double z);
 
-bool readVector3(const Value& value, rblxmath::vec3& out);
+bool readVector3(const Value& value, linearmath::vec3& out);
 
 class Vector3Object : public ScriptObject {
 public:
@@ -92,14 +92,14 @@ Value makeVector3(double x, double y, double z) {
     return Value::objectValue(std::make_shared<Vector3Object>(x, y, z));
 }
 
-bool readVector3(const Value& value, rblxmath::vec3& out) {
+bool readVector3(const Value& value, linearmath::vec3& out) {
     if (value.isObject() && value.object) {
         Value x;
         Value y;
         Value z;
         if (value.object->get("x", x) && value.object->get("y", y) &&
             value.object->get("z", z) && x.isNumber() && y.isNumber() && z.isNumber()) {
-            out = rblxmath::vec3(static_cast<float>(x.number), static_cast<float>(y.number),
+            out = linearmath::vec3(static_cast<float>(x.number), static_cast<float>(y.number),
                             static_cast<float>(z.number));
             return true;
         }
@@ -110,7 +110,7 @@ bool readVector3(const Value& value, rblxmath::vec3& out) {
         const Value y = value.table->fields.count("y") ? value.table->fields.at("y") : Value::nil();
         const Value z = value.table->fields.count("z") ? value.table->fields.at("z") : Value::nil();
         if (x.isNumber() && y.isNumber() && z.isNumber()) {
-            out = rblxmath::vec3(static_cast<float>(x.number), static_cast<float>(y.number),
+            out = linearmath::vec3(static_cast<float>(x.number), static_cast<float>(y.number),
                             static_cast<float>(z.number));
             return true;
         }
@@ -130,16 +130,16 @@ struct WorldRuntimeState : public std::enable_shared_from_this<WorldRuntimeState
     std::map<int, std::shared_ptr<Signal>> touchedSignals;
     std::set<std::pair<int, std::string>> touching;
     std::function<std::vector<ScriptPlayer>()> playerSource;
-    std::function<void(const std::string&, const rblxmath::vec3&)> teleportHandler;
+    std::function<void(const std::string&, const linearmath::vec3&)> teleportHandler;
     std::function<void(const std::string&, float)> damageHandler;
-    std::function<void(const std::string&, const rblxmath::vec3&, float, bool)> soundHandler;
+    std::function<void(const std::string&, const linearmath::vec3&, float, bool)> soundHandler;
 
     int findPart(const std::string& name) const;
     Value partValue(int index);
     Value playerValue(const std::string& name);
     std::vector<ScriptPlayer> players() const;
     std::shared_ptr<Signal> touchedFor(int index);
-    void movePart(int index, const rblxmath::vec3& position, bool stopMotion);
+    void movePart(int index, const linearmath::vec3& position, bool stopMotion);
     void refreshBody(Part& part);
     void updateTouches();
 };
@@ -160,7 +160,7 @@ std::shared_ptr<Signal> WorldRuntimeState::touchedFor(int index) {
     return signal;
 }
 
-void WorldRuntimeState::movePart(int index, const rblxmath::vec3& position, bool stopMotion) {
+void WorldRuntimeState::movePart(int index, const linearmath::vec3& position, bool stopMotion) {
     Part* part = partAt(*parts, index);
     if (part == nullptr || part->deleted) return;
     if (!std::isfinite(position.x) || !std::isfinite(position.y) || !std::isfinite(position.z)) {
@@ -170,13 +170,13 @@ void WorldRuntimeState::movePart(int index, const rblxmath::vec3& position, bool
     part->position = position;
     if (part->physicsBody == nullptr || physics == nullptr) return;
 
-    auto* body = static_cast<rblxphysics::RigidBody*>(part->physicsBody);
-    const rblxphysics::Transform current = body->getTransform();
-    body->setTransform(rblxphysics::Transform(
-        rblxphysics::Vector3(position.x, position.y, position.z), current.getOrientation()));
+    auto* body = static_cast<linearphysics::RigidBody*>(part->physicsBody);
+    const linearphysics::Transform current = body->getTransform();
+    body->setTransform(linearphysics::Transform(
+        linearphysics::Vector3(position.x, position.y, position.z), current.getOrientation()));
     if (stopMotion) {
-        body->setLinearVelocity(rblxphysics::Vector3(0.0f, 0.0f, 0.0f));
-        body->setAngularVelocity(rblxphysics::Vector3(0.0f, 0.0f, 0.0f));
+        body->setLinearVelocity(linearphysics::Vector3(0.0f, 0.0f, 0.0f));
+        body->setAngularVelocity(linearphysics::Vector3(0.0f, 0.0f, 0.0f));
     }
 }
 
@@ -201,10 +201,10 @@ void WorldRuntimeState::updateTouches() {
         Part* listener = partAt(*parts, entry.first);
         if (listener == nullptr || listener->deleted || listener->isFolder) continue;
 
-        const rblxmath::vec3 listenerHalf = listener->size * 0.5f;
+        const linearmath::vec3 listenerHalf = listener->size * 0.5f;
         for (const ScriptPlayer& player : currentPlayers) {
             // Player characters are roughly a 2 x 5 x 1 box, matching the client.
-            const rblxmath::vec3 playerHalf(1.0f, 2.5f, 0.5f);
+            const linearmath::vec3 playerHalf(1.0f, 2.5f, 0.5f);
             const bool overlaps =
                 std::abs(listener->position.x - player.position.x) <=
                     std::abs(listenerHalf.x) + playerHalf.x &&
@@ -283,13 +283,13 @@ public:
             return true;
         }
         if (name == "Position") {
-            rblxmath::vec3 position;
+            linearmath::vec3 position;
             if (!readVector3(value, position)) return false;
             state_->movePart(index_, position, false);
             return true;
         }
         if (name == "Size") {
-            rblxmath::vec3 size;
+            linearmath::vec3 size;
             if (!readVector3(value, size)) return false;
             part->size.x = std::clamp(size.x, 0.05f, 512.0f);
             part->size.y = std::clamp(size.y, 0.05f, 512.0f);
@@ -298,7 +298,7 @@ public:
             return true;
         }
         if (name == "Color") {
-            rblxmath::vec3 color;
+            linearmath::vec3 color;
             if (!readVector3(value, color)) return false;
             part->color.x = std::clamp(color.x, 0.0f, 1.0f);
             part->color.y = std::clamp(color.y, 0.0f, 1.0f);
@@ -335,7 +335,7 @@ public:
         }
 
         if (method == "Teleport") {
-            rblxmath::vec3 position;
+            linearmath::vec3 position;
             if (args.empty() || !readVector3(args[0], position)) {
                 error = "Teleport expects a Vector3";
                 return false;
@@ -399,7 +399,7 @@ public:
     bool call(Interpreter&, const std::string& method, const std::vector<Value>& args,
               Value& out, std::string& error) override {
         if (method == "Teleport") {
-            rblxmath::vec3 position;
+            linearmath::vec3 position;
             if (args.empty() || !readVector3(args[0], position)) {
                 error = "Teleport expects a Vector3";
                 return false;
@@ -460,7 +460,7 @@ public:
             return true;
         }
         if (method == "GetChildren") {
-            Value children = rblx::script::makeTable();
+            Value children = linear::script::makeTable();
             for (std::size_t i = 0; i < state_->parts->size(); ++i) {
                 const Part& part = (*state_->parts)[i];
                 if (part.deleted || part.isFolder) continue;
@@ -477,9 +477,9 @@ public:
             // Checked on this side of the wire: the same typo would reach the
             // client as a name it cannot resolve, which is a noise that never
             // comes and nothing to look at.
-            if (rblx::audio::soundByName(args[0].string) == nullptr) {
+            if (linear::audio::soundByName(args[0].string) == nullptr) {
                 std::string known;
-                for (const std::string& name : rblx::audio::soundNames()) {
+                for (const std::string& name : linear::audio::soundNames()) {
                     if (!known.empty()) {
                         known += ", ";
                     }
@@ -493,7 +493,7 @@ public:
                 return false;
             }
 
-            rblxmath::vec3 position(0.0f);
+            linearmath::vec3 position(0.0f);
             bool spatial = false;
             if (args.size() >= 2) {
                 if (!readVector3(args[1], position)) {
@@ -526,15 +526,15 @@ public:
                 error = "CreatePart expects a name, a position, a size and a color";
                 return false;
             }
-            rblxmath::vec3 position;
-            rblxmath::vec3 size;
-            rblxmath::vec3 color;
+            linearmath::vec3 position;
+            linearmath::vec3 size;
+            linearmath::vec3 color;
             if (!readVector3(args[1], position) || !readVector3(args[2], size) ||
                 !readVector3(args[3], color)) {
                 error = "CreatePart expects Vector3 values for position, size and color";
                 return false;
             }
-            for (const rblxmath::vec3& value : {position, size, color}) {
+            for (const linearmath::vec3& value : {position, size, color}) {
                 if (!std::isfinite(value.x) || !std::isfinite(value.y) ||
                     !std::isfinite(value.z)) {
                     error = "CreatePart refuses non-finite values";
@@ -547,7 +547,7 @@ public:
                 return false;
             }
 
-            Part part(rblxmath::vec3(0.0f), rblxmath::vec3(1.0f), rblxmath::vec3(0.6f), ShapeType::Cube,
+            Part part(linearmath::vec3(0.0f), linearmath::vec3(1.0f), linearmath::vec3(0.6f), ShapeType::Cube,
                       args[0].string);
             part.position = position;
             part.size.x = std::clamp(size.x, 0.05f, 512.0f);
@@ -582,7 +582,7 @@ public:
 
     bool get(const std::string& name, Value& out) override {
         if (name != "Heartbeat") return false;
-        out = rblx::script::makeSignalValue(*state_->heartbeatSignal);
+        out = linear::script::makeSignalValue(*state_->heartbeatSignal);
         return true;
     }
 
@@ -608,7 +608,7 @@ public:
     bool call(Interpreter&, const std::string& method, const std::vector<Value>&,
               Value& out, std::string& error) override {
         if (method == "GetPlayers") {
-            Value players = rblx::script::makeTable();
+            Value players = linear::script::makeTable();
             for (const ScriptPlayer& player : state_->players()) {
                 players.table->elements.push_back(state_->playerValue(player.name));
             }
@@ -634,7 +634,7 @@ Value WorldRuntimeState::playerValue(const std::string& name) {
 }
 
 WorldRuntime::WorldRuntime(std::deque<Part>& parts, PhysicsWorld* physicsWorld,
-                           rblx::script::Interpreter& interpreter) {
+                           linear::script::Interpreter& interpreter) {
     state_ = std::make_shared<WorldRuntimeState>();
     state_->parts = &parts;
     state_->physics = physicsWorld;
@@ -643,8 +643,8 @@ WorldRuntime::WorldRuntime(std::deque<Part>& parts, PhysicsWorld* physicsWorld,
     const Value workspace = Value::objectValue(std::make_shared<WorkspaceObject>(state_));
     interpreter.setGlobal("workspace", workspace);
 
-    Value vector3 = rblx::script::makeTable();
-    vector3.table->fields["new"] = rblx::script::makeNativeFunction(
+    Value vector3 = linear::script::makeTable();
+    vector3.table->fields["new"] = linear::script::makeNativeFunction(
         [](Interpreter&, const std::vector<Value>& args) {
             const double x = args.size() > 0 ? args[0].asNumber() : 0.0;
             const double y = args.size() > 1 ? args[1].asNumber() : 0.0;
@@ -658,7 +658,7 @@ WorldRuntime::WorldRuntime(std::deque<Part>& parts, PhysicsWorld* physicsWorld,
     interpreter.setGlobal(
         "Players", Value::objectValue(std::make_shared<PlayersObject>(state_)));
 
-    Value game = rblx::script::makeTable();
+    Value game = linear::script::makeTable();
     game.table->fields["Workspace"] = workspace;
     game.table->fields["Name"] = Value::stringValue("Sky Platformer");
     interpreter.setGlobal("game", game);
@@ -671,7 +671,7 @@ void WorldRuntime::setPlayerSource(std::function<std::vector<ScriptPlayer>()> so
 }
 
 void WorldRuntime::setTeleportHandler(
-    std::function<void(const std::string&, const rblxmath::vec3&)> handler) {
+    std::function<void(const std::string&, const linearmath::vec3&)> handler) {
     state_->teleportHandler = std::move(handler);
 }
 
@@ -681,7 +681,7 @@ void WorldRuntime::setDamageHandler(
 }
 
 void WorldRuntime::setSoundHandler(
-    std::function<void(const std::string&, const rblxmath::vec3&, float, bool)> handler) {
+    std::function<void(const std::string&, const linearmath::vec3&, float, bool)> handler) {
     state_->soundHandler = std::move(handler);
 }
 
@@ -707,4 +707,4 @@ bool WorldRuntime::isRunning() const { return state_->running; }
 void WorldRuntime::stop() { state_->running = false; }
 
 }  // namespace worldscript
-}  // namespace rblx
+}  // namespace linear

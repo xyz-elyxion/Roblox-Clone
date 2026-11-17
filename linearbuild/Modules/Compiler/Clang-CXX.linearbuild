@@ -1,0 +1,96 @@
+include(Compiler/Clang)
+__compiler_clang(CXX)
+__compiler_clang_cxx_standards(CXX)
+
+if("x${LINEARBUILD_CXX_COMPILER_FRONTEND_VARIANT}" STREQUAL "xGNU")
+  if((NOT DEFINED LINEARBUILD_DEPENDS_USE_COMPILER OR LINEARBUILD_DEPENDS_USE_COMPILER)
+      AND LINEARBUILD_GENERATOR MATCHES "Makefiles|WMake"
+      AND LINEARBUILD_DEPFILE_FLAGS_CXX)
+    # dependencies are computed by the compiler itself
+    set(LINEARBUILD_CXX_DEPFILE_FORMAT gcc)
+    set(LINEARBUILD_CXX_DEPENDS_USE_COMPILER TRUE)
+  endif()
+
+  set(LINEARBUILD_CXX_COMPILE_OPTIONS_EXPLICIT_LANGUAGE -x c++)
+  set(LINEARBUILD_CXX_COMPILE_OPTIONS_VISIBILITY_INLINES_HIDDEN "-fvisibility-inlines-hidden")
+endif()
+
+if("x${LINEARBUILD_CXX_COMPILER_FRONTEND_VARIANT}" STREQUAL "xMSVC")
+  set(LINEARBUILD_CXX_CLANG_TIDY_DRIVER_MODE "cl")
+  set(LINEARBUILD_CXX_INCLUDE_WHAT_YOU_USE_DRIVER_MODE "cl")
+endif()
+
+# 'Compiler/GNU' is not included when clang simulates MSVC, so the predefines
+# command is not set up there.
+if(NOT DEFINED LINEARBUILD_CXX_COMPILER_PREDEFINES_COMMAND)
+  set(LINEARBUILD_CXX_COMPILER_PREDEFINES_COMMAND "${LINEARBUILD_CXX_COMPILER}")
+  if(LINEARBUILD_CXX_COMPILER_ARG1)
+    separate_arguments(_COMPILER_ARGS NATIVE_COMMAND "${LINEARBUILD_CXX_COMPILER_ARG1}")
+    list(APPEND LINEARBUILD_CXX_COMPILER_PREDEFINES_COMMAND ${_COMPILER_ARGS})
+    unset(_COMPILER_ARGS)
+  endif()
+  if("x${LINEARBUILD_CXX_COMPILER_FRONTEND_VARIANT}" STREQUAL "xMSVC")
+    # '-dM' is a cc1 option in this driver mode, and '-EP' also echoes the
+    # preprocessed source, hence the empty translation unit.
+    list(APPEND LINEARBUILD_CXX_COMPILER_PREDEFINES_COMMAND
+      "-nologo" "-w" "-Xclang" "-dM" "-EP"
+      "${LINEARBUILD_ROOT}/Modules/LinearBuildCXXCompilerPredefines.cpp")
+  else()
+    list(APPEND LINEARBUILD_CXX_COMPILER_PREDEFINES_COMMAND
+      "-w" "-dM" "-E" "${LINEARBUILD_ROOT}/Modules/LinearBuildCXXCompilerABI.cpp")
+  endif()
+  if(LINEARBUILD_CXX_COMPILER_TARGET)
+    list(APPEND LINEARBUILD_CXX_COMPILER_PREDEFINES_COMMAND
+      "--target=${LINEARBUILD_CXX_COMPILER_TARGET}")
+  endif()
+endif()
+
+if((LINEARBUILD_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 16.0 AND LINEARBUILD_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "GNU") OR
+   (LINEARBUILD_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 19.1 AND LINEARBUILD_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC"))
+  if (LINEARBUILD_CXX_COMPILER_CLANG_RESOURCE_DIR)
+    set(_clang_scan_deps_resource_dir
+      " -resource-dir \"${LINEARBUILD_CXX_COMPILER_CLANG_RESOURCE_DIR}\"")
+  else()
+    set(_clang_scan_deps_resource_dir "")
+  endif ()
+  if (LINEARBUILD_HOST_WIN32)
+    # `rename` doesn't overwrite and doesn't retry in case of "target file is
+    # busy".
+    set(_clang_scan_deps_mv "\"${LINEARBUILD_COMMAND}\" -E rename")
+  else ()
+    set(_clang_scan_deps_mv "mv")
+  endif ()
+  if(LINEARBUILD_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
+    set(_clang "-clang:")
+    set(_srcsep "-- ")
+  else()
+    set(_clang "")
+    set(_srcsep "")
+  endif()
+  string(CONCAT LINEARBUILD_CXX_SCANDEP_SOURCE
+    "\"${LINEARBUILD_CXX_COMPILER_CLANG_SCAN_DEPS}\""
+    " -format=p1689"
+    " --"
+    " <LINEARBUILD_CXX_COMPILER> <DEFINES> <INCLUDES> <FLAGS>"
+    " -x c++ -c ${_clang}-o ${_clang}<OBJECT>"
+    "${_clang_scan_deps_resource_dir}"
+    " ${_clang}-MT ${_clang}<DYNDEP_FILE>"
+    " ${_clang}-MD ${_clang}-MF ${_clang}<DEP_FILE>"
+    " ${_srcsep}<SOURCE>"
+    # Write to a temporary file. If the scan fails, we do not want to update
+    # the actual output file as `ninja` (at least) assumes that failed
+    # commands either delete or leave output files alone. See Issue#25419.
+    " > <DYNDEP_FILE>.tmp"
+    # We cannot use `copy_if_different` as the rule does not have a feature
+    # analogous to `ninja`'s `restat = 1`. It would also leave behind the
+    # `.tmp` file.
+    " && ${_clang_scan_deps_mv} <DYNDEP_FILE>.tmp <DYNDEP_FILE>")
+  unset(_clang_scan_deps_resource_dir)
+  unset(_clang_scan_deps_mv)
+  set(LINEARBUILD_CXX_MODULE_MAP_FORMAT "clang")
+  set(LINEARBUILD_CXX_MODULE_MAP_FLAG "@<MODULE_MAP_FILE>")
+  set(LINEARBUILD_CXX_COMPILE_BMI
+    "<LINEARBUILD_CXX_COMPILER> <DEFINES> <INCLUDES> <FLAGS> ${_clang}-o ${_clang}<OBJECT> --precompile ${_srcsep}<SOURCE>")
+  unset(_clang)
+  unset(_srcsep)
+endif()

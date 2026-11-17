@@ -23,7 +23,7 @@
 #include <random>
 #include <vector>
 
-namespace rblx {
+namespace linear {
 namespace net {
 
 // Stay below the smallest MTU we expect (1500 - 20 IP - 8 UDP). Relying on IP
@@ -538,4 +538,4 @@ private:
 };
 
 }  // namespace net
-}  // namespace rblx
+}  // namespace linear

@@ -18,7 +18,7 @@
 // snapshot the main loop publishes and queues commands for the main loop to
 // apply, so every decision about the pool is still made on one thread, in
 // Supervisor, where the tests can reach it.
-namespace rblx {
+namespace linear {
 namespace hosting {
 
 struct DashboardSettings {
@@ -77,4 +77,4 @@ private:
 };
 
 }  // namespace hosting
-}  // namespace rblx
+}  // namespace linear

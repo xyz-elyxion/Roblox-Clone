@@ -1,5 +1,5 @@
 #include "Renderer.h"
-#include <rblxmath/gtx/quaternion.hpp> // Include for quaternion to mat4
+#include <linearmath/gtx/quaternion.hpp> // Include for quaternion to mat4
 
 // ... (rest of includes)
 #include <vector>
@@ -8,7 +8,7 @@
 #include <fstream>
 #include <string>
 
-#include "rblxstb_image.h"
+#include "linearstb_image.h"
 
 namespace {
 // A texture name comes from a world file anybody can publish, so it is held to
@@ -84,7 +84,7 @@ void Renderer::init() {
     std::cout << "Renderer::init() done." << std::endl;
 }
 
-void Renderer::drawPart(const Part& part, const rblxmath::mat4& view, const rblxmath::mat4& projection, const rblxmath::mat4& lightSpaceMatrix, unsigned int shadowMap, unsigned int faceTexture) {
+void Renderer::drawPart(const Part& part, const linearmath::mat4& view, const linearmath::mat4& projection, const linearmath::mat4& lightSpaceMatrix, unsigned int shadowMap, unsigned int faceTexture) {
     shader->use();
     shader->setMat4("view", view);
     shader->setMat4("projection", projection);
@@ -132,18 +132,18 @@ void Renderer::drawPart(const Part& part, const rblxmath::mat4& view, const rblx
     }
     
     // Inverse view matrix to get camera position
-    rblxmath::vec3 viewPos = rblxmath::vec3(rblxmath::inverse(view)[3]);
+    linearmath::vec3 viewPos = linearmath::vec3(linearmath::inverse(view)[3]);
     shader->setVec3("viewPos", viewPos);
 
-    rblxmath::mat4 model = rblxmath::mat4(1.0f);
-    model = rblxmath::translate(model, part.position);
+    linearmath::mat4 model = linearmath::mat4(1.0f);
+    model = linearmath::translate(model, part.position);
     
     // Apply Rotation using Quaternion for consistency with Physics
-    rblxmath::quat q = rblxmath::quat(rblxmath::radians(part.rotation)); 
-    rblxmath::mat4 rotationMatrix = rblxmath::toMat4(q);
+    linearmath::quat q = linearmath::quat(linearmath::radians(part.rotation)); 
+    linearmath::mat4 rotationMatrix = linearmath::toMat4(q);
     model = model * rotationMatrix;
     
-    model = rblxmath::scale(model, part.size);
+    model = linearmath::scale(model, part.size);
     shader->setMat4("model", model);
     shader->setVec3("partSize", part.size); // Pass size for studs
 
@@ -196,18 +196,18 @@ void Renderer::drawPart(const Part& part, const rblxmath::mat4& view, const rblx
     glEnable(GL_CULL_FACE); // Restore defaults
 }
 
-void Renderer::drawPartShadow(const Part& part, const rblxmath::mat4& lightSpaceMatrix) {
+void Renderer::drawPartShadow(const Part& part, const linearmath::mat4& lightSpaceMatrix) {
     depthShader->use();
     depthShader->setMat4("lightSpaceMatrix", lightSpaceMatrix);
     
-    rblxmath::mat4 model = rblxmath::mat4(1.0f);
-    model = rblxmath::translate(model, part.position);
+    linearmath::mat4 model = linearmath::mat4(1.0f);
+    model = linearmath::translate(model, part.position);
     
-    rblxmath::quat q = rblxmath::quat(rblxmath::radians(part.rotation)); 
-    rblxmath::mat4 rotationMatrix = rblxmath::toMat4(q);
+    linearmath::quat q = linearmath::quat(linearmath::radians(part.rotation)); 
+    linearmath::mat4 rotationMatrix = linearmath::toMat4(q);
     model = model * rotationMatrix;
 
-    model = rblxmath::scale(model, part.size);
+    model = linearmath::scale(model, part.size);
     depthShader->setMat4("model", model);
     
     unsigned int vao = cubeVAO;
@@ -258,13 +258,13 @@ unsigned int Renderer::textureForPart(const std::string& path) {
     unsigned char* data = nullptr;
     std::string loadedFrom;
     for (const std::string& candidate : candidates) {
-        data = rblxstbi_load(candidate.c_str(), &width, &height, &channels, 4);
+        data = linearstbi_load(candidate.c_str(), &width, &height, &channels, 4);
         if (data && width > 0 && height > 0) {
             loadedFrom = candidate;
             break;
         }
         if (data) {
-            rblxstbi_image_free(data);
+            linearstbi_image_free(data);
             data = nullptr;
         }
     }
@@ -290,7 +290,7 @@ unsigned int Renderer::textureForPart(const std::string& path) {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
 
-    rblxstbi_image_free(data);
+    linearstbi_image_free(data);
     std::cout << "Loaded part texture " << loadedFrom << " (" << width << "x" << height << ")"
               << std::endl;
 

@@ -2,125 +2,125 @@
 #include "UiScale.h"
 #include "UiTheme.h"
 #include <iostream>
-#include "rblxui_internal.h" // Needed for DockBuilder
+#include "linearui_internal.h" // Needed for DockBuilder
 
-Editor::Editor(RBLXWINwindow* window) : window(window) {}
+Editor::Editor(LINEARWINwindow* window) : window(window) {}
 
 Editor::~Editor() {
     cleanup();
 }
 
 void Editor::init() {
-    // Setup Dear RblxUI context
-    RBLXUI_CHECKVERSION();
-    RblxUI::CreateContext();
-    RblxUIIO& io = RblxUI::GetIO(); (void)io;
-    io.ConfigFlags |= RblxUIConfigFlags_NavEnableKeyboard;       // Enable Keyboard Controls
-    io.ConfigFlags |= RblxUIConfigFlags_DockingEnable;           // Enable Docking
-    io.ConfigFlags |= RblxUIConfigFlags_ViewportsEnable;         // Enable Multi-Viewport / Platform Windows
+    // Setup Dear LinearUI context
+    LINEARUI_CHECKVERSION();
+    LinearUI::CreateContext();
+    LinearUIIO& io = LinearUI::GetIO(); (void)io;
+    io.ConfigFlags |= LinearUIConfigFlags_NavEnableKeyboard;       // Enable Keyboard Controls
+    io.ConfigFlags |= LinearUIConfigFlags_DockingEnable;           // Enable Docking
+    io.ConfigFlags |= LinearUIConfigFlags_ViewportsEnable;         // Enable Multi-Viewport / Platform Windows
 
     // The same palette as the rest of the project, then the window's own
     // resolution scaling on top.
-    rblx::ui::theme::apply();
+    linear::ui::theme::apply();
     UiScale::Apply(window);
 
     // Setup Platform/Renderer backends
-    RblxUI_ImplRblxWin_InitForOpenGL(window, true);
-    RblxUI_ImplOpenGL3_Init("#version 330");
+    LinearUI_ImplLinearWin_InitForOpenGL(window, true);
+    LinearUI_ImplOpenGL3_Init("#version 330");
 }
 
 void Editor::newFrame() {
-    RblxUI_ImplOpenGL3_NewFrame();
-    RblxUI_ImplRblxWin_NewFrame();
-    RblxUI::NewFrame();
-    RblxGizmo::BeginFrame();
+    LinearUI_ImplOpenGL3_NewFrame();
+    LinearUI_ImplLinearWin_NewFrame();
+    LinearUI::NewFrame();
+    LinearGizmo::BeginFrame();
     
     setupDockSpace();
 }
 
 void Editor::render() {
-    RblxUI::Render();
-    RblxUI_ImplOpenGL3_RenderDrawData(RblxUI::GetDrawData());
+    LinearUI::Render();
+    LinearUI_ImplOpenGL3_RenderDrawData(LinearUI::GetDrawData());
 
-    RblxUIIO& io = RblxUI::GetIO();
-    if (io.ConfigFlags & RblxUIConfigFlags_ViewportsEnable)
+    LinearUIIO& io = LinearUI::GetIO();
+    if (io.ConfigFlags & LinearUIConfigFlags_ViewportsEnable)
     {
-        RBLXWINwindow* backup_current_context = rblxwinGetCurrentContext();
-        RblxUI::UpdatePlatformWindows();
-        RblxUI::RenderPlatformWindowsDefault();
-        rblxwinMakeContextCurrent(backup_current_context);
+        LINEARWINwindow* backup_current_context = linearwinGetCurrentContext();
+        LinearUI::UpdatePlatformWindows();
+        LinearUI::RenderPlatformWindowsDefault();
+        linearwinMakeContextCurrent(backup_current_context);
     }
 }
 
 void Editor::cleanup() {
-    RblxUI_ImplOpenGL3_Shutdown();
-    RblxUI_ImplRblxWin_Shutdown();
-    RblxUI::DestroyContext();
+    LinearUI_ImplOpenGL3_Shutdown();
+    LinearUI_ImplLinearWin_Shutdown();
+    LinearUI::DestroyContext();
 }
 
 void Editor::setupDockSpace() {
     static bool opt_fullscreen = true;
     static bool opt_padding = false;
-    static RblxUIDockNodeFlags dockspace_flags = RblxUIDockNodeFlags_None;
+    static LinearUIDockNodeFlags dockspace_flags = LinearUIDockNodeFlags_None;
 
-    // We are using the RblxUIWindowFlags_NoDocking flag to make the parent window not dockable into,
+    // We are using the LinearUIWindowFlags_NoDocking flag to make the parent window not dockable into,
     // because it would be confusing to have two docking targets within each others.
-    RblxUIWindowFlags window_flags = RblxUIWindowFlags_MenuBar | RblxUIWindowFlags_NoDocking;
+    LinearUIWindowFlags window_flags = LinearUIWindowFlags_MenuBar | LinearUIWindowFlags_NoDocking;
     if (opt_fullscreen)
     {
-        const RblxUIViewport* viewport = RblxUI::GetMainViewport();
-        RblxUI::SetNextWindowPos(viewport->WorkPos);
-        RblxUI::SetNextWindowSize(viewport->WorkSize);
-        RblxUI::SetNextWindowViewport(viewport->ID);
-        RblxUI::PushStyleVar(RblxUIStyleVar_WindowRounding, 0.0f);
-        RblxUI::PushStyleVar(RblxUIStyleVar_WindowBorderSize, 0.0f);
-        window_flags |= RblxUIWindowFlags_NoTitleBar | RblxUIWindowFlags_NoCollapse | RblxUIWindowFlags_NoResize | RblxUIWindowFlags_NoMove;
-        window_flags |= RblxUIWindowFlags_NoBringToFrontOnFocus | RblxUIWindowFlags_NoNavFocus;
+        const LinearUIViewport* viewport = LinearUI::GetMainViewport();
+        LinearUI::SetNextWindowPos(viewport->WorkPos);
+        LinearUI::SetNextWindowSize(viewport->WorkSize);
+        LinearUI::SetNextWindowViewport(viewport->ID);
+        LinearUI::PushStyleVar(LinearUIStyleVar_WindowRounding, 0.0f);
+        LinearUI::PushStyleVar(LinearUIStyleVar_WindowBorderSize, 0.0f);
+        window_flags |= LinearUIWindowFlags_NoTitleBar | LinearUIWindowFlags_NoCollapse | LinearUIWindowFlags_NoResize | LinearUIWindowFlags_NoMove;
+        window_flags |= LinearUIWindowFlags_NoBringToFrontOnFocus | LinearUIWindowFlags_NoNavFocus;
     }
 
-    if (dockspace_flags & RblxUIDockNodeFlags_PassthruCentralNode)
-        window_flags |= RblxUIWindowFlags_NoBackground;
+    if (dockspace_flags & LinearUIDockNodeFlags_PassthruCentralNode)
+        window_flags |= LinearUIWindowFlags_NoBackground;
     else
         // Important: If we want to see the 3D scene behind the central node (which is transparent usually)
         // we need to make sure PassthruCentralNode is set!
-        dockspace_flags |= RblxUIDockNodeFlags_PassthruCentralNode;
+        dockspace_flags |= LinearUIDockNodeFlags_PassthruCentralNode;
 
-    RblxUI::PushStyleVar(RblxUIStyleVar_WindowPadding, RblxVec2(0.0f, 0.0f));
-    RblxUI::Begin("DockSpace Demo", nullptr, window_flags);
-    RblxUI::PopStyleVar();
+    LinearUI::PushStyleVar(LinearUIStyleVar_WindowPadding, LinearVec2(0.0f, 0.0f));
+    LinearUI::Begin("DockSpace Demo", nullptr, window_flags);
+    LinearUI::PopStyleVar();
 
     if (opt_fullscreen)
-        RblxUI::PopStyleVar(2);
+        LinearUI::PopStyleVar(2);
 
     // Submit the DockSpace
-    RblxUIIO& io = RblxUI::GetIO();
-    if (io.ConfigFlags & RblxUIConfigFlags_DockingEnable)
+    LinearUIIO& io = LinearUI::GetIO();
+    if (io.ConfigFlags & LinearUIConfigFlags_DockingEnable)
     {
-        RblxUIID dockspace_id = RblxUI::GetID("MyDockSpace");
-        RblxUI::DockSpace(dockspace_id, RblxVec2(0.0f, 0.0f), dockspace_flags);
+        LinearUIID dockspace_id = LinearUI::GetID("MyDockSpace");
+        LinearUI::DockSpace(dockspace_id, LinearVec2(0.0f, 0.0f), dockspace_flags);
 
         static bool first_time = true;
         if (first_time) {
             first_time = false;
 
-            RblxUI::DockBuilderRemoveNode(dockspace_id);
-            RblxUI::DockBuilderAddNode(dockspace_id, dockspace_flags | RblxUIDockNodeFlags_DockSpace);
-            RblxUI::DockBuilderSetNodeSize(dockspace_id, RblxUI::GetMainViewport()->Size);
+            LinearUI::DockBuilderRemoveNode(dockspace_id);
+            LinearUI::DockBuilderAddNode(dockspace_id, dockspace_flags | LinearUIDockNodeFlags_DockSpace);
+            LinearUI::DockBuilderSetNodeSize(dockspace_id, LinearUI::GetMainViewport()->Size);
 
-            RblxUIID dock_main_id = dockspace_id;
-            RblxUIID dock_id_right = RblxUI::DockBuilderSplitNode(dock_main_id, RblxUIDir_Right, 0.25f, nullptr, &dock_main_id);
-            RblxUIID dock_id_left = RblxUI::DockBuilderSplitNode(dock_main_id, RblxUIDir_Left, 0.20f, nullptr, &dock_main_id);
+            LinearUIID dock_main_id = dockspace_id;
+            LinearUIID dock_id_right = LinearUI::DockBuilderSplitNode(dock_main_id, LinearUIDir_Right, 0.25f, nullptr, &dock_main_id);
+            LinearUIID dock_id_left = LinearUI::DockBuilderSplitNode(dock_main_id, LinearUIDir_Left, 0.20f, nullptr, &dock_main_id);
             
-            RblxUI::DockBuilderDockWindow("Explorer", dock_id_right);
-            RblxUI::DockBuilderDockWindow("Properties", dock_id_right); // We will split this below
+            LinearUI::DockBuilderDockWindow("Explorer", dock_id_right);
+            LinearUI::DockBuilderDockWindow("Properties", dock_id_right); // We will split this below
             
             // Split the right dock node into Up/Down for Explorer/Properties
-            RblxUIID dock_id_right_down = RblxUI::DockBuilderSplitNode(dock_id_right, RblxUIDir_Down, 0.50f, nullptr, &dock_id_right);
-            RblxUI::DockBuilderDockWindow("Explorer", dock_id_right);
-            RblxUI::DockBuilderDockWindow("Properties", dock_id_right_down);
+            LinearUIID dock_id_right_down = LinearUI::DockBuilderSplitNode(dock_id_right, LinearUIDir_Down, 0.50f, nullptr, &dock_id_right);
+            LinearUI::DockBuilderDockWindow("Explorer", dock_id_right);
+            LinearUI::DockBuilderDockWindow("Properties", dock_id_right_down);
             
-            RblxUI::DockBuilderDockWindow("Toolbox", dock_id_left);
-            RblxUI::DockBuilderFinish(dockspace_id);
+            LinearUI::DockBuilderDockWindow("Toolbox", dock_id_left);
+            LinearUI::DockBuilderFinish(dockspace_id);
         }
     }
 
@@ -130,17 +130,17 @@ void Editor::setupDockSpace() {
     // Since main.cpp logic depends on the loop (for Play/Stop), let's REMOVE this one.
     
     /* 
-    if (RblxUI::BeginMenuBar())
+    if (LinearUI::BeginMenuBar())
     {
-        if (RblxUI::BeginMenu("File"))
+        if (LinearUI::BeginMenu("File"))
         {
-            if (RblxUI::MenuItem("Exit")) rblxwinSetWindowShouldClose(window, true);
-            RblxUI::EndMenu();
+            if (LinearUI::MenuItem("Exit")) linearwinSetWindowShouldClose(window, true);
+            LinearUI::EndMenu();
         }
-        RblxUI::EndMenuBar();
+        LinearUI::EndMenuBar();
     }
     */
 
-    RblxUI::End();
+    LinearUI::End();
 }
 

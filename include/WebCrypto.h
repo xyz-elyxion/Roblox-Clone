@@ -8,7 +8,7 @@
 
 #include "WebJson.h"
 
-namespace rblx {
+namespace linear {
 namespace web {
 
 using Digest = std::array<std::uint8_t, 32>;
@@ -57,4 +57,4 @@ bool aes256GcmOpen(const std::string& key, const std::string& sealed, const std:
                    std::string* out);
 
 }  // namespace web
-}  // namespace rblx
+}  // namespace linear

@@ -16,7 +16,7 @@
     #endif
     #include <windows.h>
 
-namespace rblx {
+namespace linear {
 namespace hosting {
 namespace {
 
@@ -534,4 +534,4 @@ std::unique_ptr<Launcher> makeSystemLauncher() {
 }
 
 }  // namespace hosting
-}  // namespace rblx
+}  // namespace linear

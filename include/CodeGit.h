@@ -14,7 +14,7 @@
 #include <string>
 #include <vector>
 
-namespace rblx {
+namespace linear {
 
 namespace git {
 class Repo;
@@ -53,4 +53,4 @@ std::string authorEmail();
 std::string changesSummary(const std::vector<ChangeRow>& rows);
 
 }  // namespace code
-}  // namespace rblx
+}  // namespace linear

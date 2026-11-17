@@ -4,7 +4,7 @@ build2/
 build_old/
 build-*/
 cmake-build-*/
-rblxbuild-build-*/
+linearbuild-build-*/
 
 # Packaging output
 /dist/
@@ -29,9 +29,9 @@ server.conf
 CMakeCache.txt
 CMakeFiles/
 cmake_install.cmake
-RBLXBuildCache.txt
-RBLXBuildFiles/
-rblxbuild_install.rblxbuild
+LinearBuildCache.txt
+LinearBuildFiles/
+linearbuild_install.linearbuild
 *.vcxproj
 *.vcxproj.filters
 *.sln
@@ -101,11 +101,11 @@ imgui.ini
 # face_hex.txt
 
 
-# The vendored RBLXAntiCheat links against prebuilt curl/brotli/zlib files that
+# The vendored LinearAntiCheat links against prebuilt curl/brotli/zlib files that
 # ship with its source. They are inputs to the linker, not build output, so they
 # stay tracked even though *.lib and *.dll are ignored above.
-!RBLXAntiCheat/Libs/*.lib
-!RBLXAntiCheat/DLLs/*.dll
+!LinearAntiCheat/Libs/*.lib
+!LinearAntiCheat/DLLs/*.dll
 
 # Policies produced by AiTrainer
 models/

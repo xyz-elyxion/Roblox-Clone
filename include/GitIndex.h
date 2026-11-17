@@ -4,7 +4,7 @@
 #include <string>
 #include <vector>
 
-namespace rblx {
+namespace linear {
 namespace git {
 
 // What the index remembers about one path. The size is kept because it is the
@@ -40,4 +40,4 @@ private:
 };
 
 }  // namespace git
-}  // namespace rblx
+}  // namespace linear

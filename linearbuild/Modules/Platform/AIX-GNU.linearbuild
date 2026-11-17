@@ -1,0 +1,48 @@
+# Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
+# file LICENSE.rst or https://linearbuild.org/licensing for details.
+
+
+# This module is shared by multiple languages; use include blocker.
+if(__AIX_COMPILER_GNU)
+  return()
+endif()
+set(__AIX_COMPILER_GNU 1)
+
+macro(__aix_compiler_gnu lang)
+  set(LINEARBUILD_SHARED_LIBRARY_RUNTIME_${lang}_FLAG "-Wl,-blibpath:")
+  set(LINEARBUILD_SHARED_LIBRARY_RUNTIME_${lang}_FLAG_SEP ":")
+  string(APPEND LINEARBUILD_SHARED_LIBRARY_CREATE_${lang}_FLAGS " -Wl,-bnoipath")
+  set(LINEARBUILD_SHARED_LIBRARY_LINK_${lang}_FLAGS "-Wl,-bexpall")
+  set(LINEARBUILD_${lang}_USE_IMPLICIT_LINK_DIRECTORIES_IN_RUNTIME_PATH 1)
+  set(LINEARBUILD_${lang}_VERBOSE_LINK_FLAG "-Wl,-v")
+
+  set(LINEARBUILD_EXECUTABLE_CREATE_${lang}_FLAGS "-Wl,-bnoipath")
+  linearbuild_policy(GET CMP0210 _CMP0210)
+  if (NOT _CMP0210 STREQUAL "NEW")
+    set(LINEARBUILD_${lang}_LINK_FLAGS "${LINEARBUILD_EXECUTABLE_CREATE_${lang}_FLAGS}")
+  endif()
+  unset(_CMP0210)
+
+  if(LINEARBUILD_${lang}_COMPILER_VERSION VERSION_LESS 7 OR LINEARBUILD_SYSTEM_VERSION VERSION_LESS 7.1)
+    unset(LINEARBUILD_${lang}_COMPILE_OPTIONS_VISIBILITY)
+  endif()
+
+  # Construct the export list ourselves to pass only the object files so
+  # that we export only the symbols actually provided by the sources.
+  set(LINEARBUILD_${lang}_CREATE_SHARED_LIBRARY
+    "\"${LINEARBUILD_ROOT}/Modules/Platform/AIX/ExportImportList\" -o <OBJECT_DIR>/exports.exp -c <LINEARBUILD_${lang}_COMPILER> <AIX_EXPORTS> <OBJECTS>"
+    "<LINEARBUILD_${lang}_COMPILER> <LINEARBUILD_SHARED_LIBRARY_${lang}_FLAGS> -Wl,-bE:<OBJECT_DIR>/exports.exp <LANGUAGE_COMPILE_FLAGS> <LINK_FLAGS> <SONAME_FLAG><TARGET_SONAME> -o <TARGET> <OBJECTS> <LINK_LIBRARIES>"
+    )
+
+  # Create an archive for shared library if LINEARBUILD_AIX_SHARED_LIBRARY_ARCHIVE is used.
+  string(REPLACE " <SONAME_FLAG><TARGET_SONAME> -o <TARGET>" " -o <TARGET_SONAME>"
+    LINEARBUILD_${lang}_CREATE_SHARED_LIBRARY_ARCHIVE "${LINEARBUILD_${lang}_CREATE_SHARED_LIBRARY}")
+  list(APPEND LINEARBUILD_${lang}_CREATE_SHARED_LIBRARY_ARCHIVE
+    "<LINEARBUILD_AR> -X32_64 rc <TARGET> <TARGET_SONAME>"
+    "rm -f <TARGET_SONAME>"
+  )
+
+  set(LINEARBUILD_${lang}_LINK_EXECUTABLE_WITH_EXPORTS
+    "\"${LINEARBUILD_ROOT}/Modules/Platform/AIX/ExportImportList\" -o <TARGET_IMPLIB> -c <LINEARBUILD_${lang}_COMPILER> -l . <AIX_EXPORTS> <OBJECTS>"
+    "<LINEARBUILD_${lang}_COMPILER> <FLAGS> -Wl,-bE:<TARGET_IMPLIB> <LINK_FLAGS> <OBJECTS> -o <TARGET> <LINK_LIBRARIES>")
+endmacro()

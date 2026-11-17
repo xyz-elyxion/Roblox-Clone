@@ -1,0 +1,19 @@
+include(Compiler/Clang)
+__compiler_clang(Fortran)
+
+# No -isystem for Fortran because it will not find .mod files.
+unset(LINEARBUILD_INCLUDE_SYSTEM_FLAG_Fortran)
+
+set(LINEARBUILD_Fortran_SUBMODULE_SEP "-")
+set(LINEARBUILD_Fortran_SUBMODULE_EXT ".mod")
+
+set(LINEARBUILD_Fortran_PREPROCESS_SOURCE
+    "<LINEARBUILD_Fortran_COMPILER> -cpp <DEFINES> <INCLUDES> <FLAGS> -E <SOURCE> > <PREPROCESSED_SOURCE>")
+
+set(LINEARBUILD_Fortran_FORMAT_FIXED_FLAG "-ffixed-form")
+set(LINEARBUILD_Fortran_FORMAT_FREE_FLAG "-ffree-form")
+
+set(LINEARBUILD_Fortran_MODDIR_FLAG "-J")
+
+set(LINEARBUILD_Fortran_COMPILE_OPTIONS_PREPROCESS_ON "-cpp")
+set(LINEARBUILD_Fortran_COMPILE_OPTIONS_PREPROCESS_OFF "-nocpp")

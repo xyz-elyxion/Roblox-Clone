@@ -1,0 +1,68 @@
+# Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
+# file LICENSE.rst or https://linearbuild.org/licensing for details.
+
+#[=======================================================================[.rst:
+LinearBuildPrintSystemInformation
+---------------------------
+
+This module can be used for diagnostics to print system information.
+
+Load this module in a LinearBuild project with:
+
+.. code-block:: linearbuild
+
+  include(LinearBuildPrintSystemInformation)
+
+Examples
+^^^^^^^^
+
+For example, including this module in a project:
+
+.. code-block:: linearbuild
+  :caption: ``LinearBuildLists.txt``
+
+  project(Example)
+
+  # ...
+
+  include(LinearBuildPrintSystemInformation)
+
+prints various LinearBuild variables::
+
+  LINEARBUILD_SYSTEM is Linux-6.11.0-17-generic Linux 6.11.0-17-generic x86_64
+  LINEARBUILD_SYSTEM file is Platform/Linux
+  LINEARBUILD_C_COMPILER is /usr/bin/cc
+  LINEARBUILD_CXX_COMPILER is /usr/bin/c++
+  LINEARBUILD_SHARED_LIBRARY_CREATE_C_FLAGS is -shared
+  LINEARBUILD_SHARED_LIBRARY_CREATE_CXX_FLAGS is -shared
+  ...
+#]=======================================================================]
+
+message("LINEARBUILD_SYSTEM is ${LINEARBUILD_SYSTEM} ${LINEARBUILD_SYSTEM_NAME} ${LINEARBUILD_SYSTEM_VERSION} ${LINEARBUILD_SYSTEM_PROCESSOR}")
+message("LINEARBUILD_SYSTEM file is ${LINEARBUILD_SYSTEM_INFO_FILE}")
+message("LINEARBUILD_C_COMPILER is ${LINEARBUILD_C_COMPILER}")
+message("LINEARBUILD_CXX_COMPILER is ${LINEARBUILD_CXX_COMPILER}")
+
+
+message("LINEARBUILD_SHARED_LIBRARY_CREATE_C_FLAGS is ${LINEARBUILD_SHARED_LIBRARY_CREATE_C_FLAGS}")
+message("LINEARBUILD_SHARED_LIBRARY_CREATE_CXX_FLAGS is ${LINEARBUILD_SHARED_LIBRARY_CREATE_CXX_FLAGS}")
+message("LINEARBUILD_DL_LIBS is ${LINEARBUILD_DL_LIBS}")
+message("LINEARBUILD_SHARED_LIBRARY_PREFIX is ${LINEARBUILD_SHARED_LIBRARY_PREFIX}")
+message("LINEARBUILD_SHARED_LIBRARY_SUFFIX is ${LINEARBUILD_SHARED_LIBRARY_SUFFIX}")
+message("LINEARBUILD_C_COMPILER_ID = ${LINEARBUILD_C_COMPILER_ID}")
+message("LINEARBUILD_CXX_COMPILER_ID = ${LINEARBUILD_CXX_COMPILER_ID}")
+
+message("LINEARBUILD_CXX_CREATE_SHARED_LIBRARY is ${LINEARBUILD_CXX_CREATE_SHARED_LIBRARY}")
+message("LINEARBUILD_CXX_CREATE_SHARED_MODULE is ${LINEARBUILD_CXX_CREATE_SHARED_MODULE}")
+message("LINEARBUILD_CXX_CREATE_STATIC_LIBRARY is ${LINEARBUILD_CXX_CREATE_STATIC_LIBRARY}")
+message("LINEARBUILD_CXX_COMPILE_OBJECT is ${LINEARBUILD_CXX_COMPILE_OBJECT}")
+message("LINEARBUILD_CXX_LINK_EXECUTABLE ${LINEARBUILD_CXX_LINK_EXECUTABLE}")
+
+message("LINEARBUILD_C_CREATE_SHARED_LIBRARY is ${LINEARBUILD_C_CREATE_SHARED_LIBRARY}")
+message("LINEARBUILD_C_CREATE_SHARED_MODULE is ${LINEARBUILD_C_CREATE_SHARED_MODULE}")
+message("LINEARBUILD_C_CREATE_STATIC_LIBRARY is ${LINEARBUILD_C_CREATE_STATIC_LIBRARY}")
+message("LINEARBUILD_C_COMPILE_OBJECT is ${LINEARBUILD_C_COMPILE_OBJECT}")
+message("LINEARBUILD_C_LINK_EXECUTABLE ${LINEARBUILD_C_LINK_EXECUTABLE}")
+
+message("LINEARBUILD_SYSTEM_AND_CXX_COMPILER_INFO_FILE ${LINEARBUILD_SYSTEM_AND_CXX_COMPILER_INFO_FILE}")
+message("LINEARBUILD_SYSTEM_AND_C_COMPILER_INFO_FILE ${LINEARBUILD_SYSTEM_AND_C_COMPILER_INFO_FILE}")

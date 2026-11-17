@@ -30,9 +30,9 @@ bool contains(const std::string& haystack, const std::string& needle) {
 
 // Stands in for the operating system: records launches, answers whether a pid
 // is alive from its own table, and records stops.
-class FakeLauncher : public rblx::hosting::Launcher {
+class FakeLauncher : public linear::hosting::Launcher {
 public:
-    bool launch(const rblx::hosting::Config&, int port, const std::string& logPath, long* pid,
+    bool launch(const linear::hosting::Config&, int port, const std::string& logPath, long* pid,
                 std::string* error) override {
         ++launchCount;
         launchedPorts.push_back(port);
@@ -69,8 +69,8 @@ private:
     long nextPid = 100;
 };
 
-rblx::hosting::Config smallConfig(int instances = 2) {
-    rblx::hosting::Config config;
+linear::hosting::Config smallConfig(int instances = 2) {
+    linear::hosting::Config config;
     config.instances = instances;
     config.firstPort = 7777;
     config.restartDelayMs = 1000;
@@ -80,10 +80,10 @@ rblx::hosting::Config smallConfig(int instances = 2) {
 }
 
 void testConfig() {
-    rblx::hosting::Config config;
+    linear::hosting::Config config;
     std::string error;
 
-    check(rblx::hosting::parseConfig("", &config, &error), "an empty file is the defaults");
+    check(linear::hosting::parseConfig("", &config, &error), "an empty file is the defaults");
     check(config.instances == 2 && config.firstPort == 7777 && config.server == "Server.exe",
           "the defaults are two servers from 7777");
 
@@ -96,7 +96,7 @@ void testConfig() {
         "world = Arena.world\n"
         "max-restarts = 9\n"
         "unknown-key = whatever\n";
-    check(rblx::hosting::parseConfig(text, &config, &error), "a full file is read");
+    check(linear::hosting::parseConfig(text, &config, &error), "a full file is read");
     check(config.server == "bin/Server", "server is read");
     check(config.firstPort == 9000 && config.instances == 4, "port and instances are read");
     check(config.world == "Arena.world", "world is read");
@@ -104,27 +104,27 @@ void testConfig() {
     check(config.restartWindowMs == 60000, "a missing key keeps its default");
 
     error.clear();
-    check(!rblx::hosting::parseConfig("instances = two\n", &config, &error) &&
+    check(!linear::hosting::parseConfig("instances = two\n", &config, &error) &&
               contains(error, "instances"),
           "a word where a number belongs names the key");
     error.clear();
-    check(!rblx::hosting::parseConfig("instances = 0\n", &config, &error), "zero instances is refused");
+    check(!linear::hosting::parseConfig("instances = 0\n", &config, &error), "zero instances is refused");
     error.clear();
-    check(!rblx::hosting::parseConfig("instances = 999\n", &config, &error),
+    check(!linear::hosting::parseConfig("instances = 999\n", &config, &error),
           "an absurd instance count is refused");
     error.clear();
-    check(!rblx::hosting::parseConfig("port = 70000\n", &config, &error), "an out-of-range port is refused");
+    check(!linear::hosting::parseConfig("port = 70000\n", &config, &error), "an out-of-range port is refused");
     error.clear();
-    check(!rblx::hosting::parseConfig("just a line\n", &config, &error) &&
+    check(!linear::hosting::parseConfig("just a line\n", &config, &error) &&
               contains(error, "line 1"),
           "a line that is not a pair is reported by line number");
     error.clear();
-    check(!rblx::hosting::parseConfig("server = \n", &config, &error), "an empty server is refused");
+    check(!linear::hosting::parseConfig("server = \n", &config, &error), "an empty server is refused");
 
-    const std::string defaults = rblx::hosting::defaultConfigText();
-    rblx::hosting::Config fromDefaults;
+    const std::string defaults = linear::hosting::defaultConfigText();
+    linear::hosting::Config fromDefaults;
     error.clear();
-    check(rblx::hosting::parseConfig(defaults, &fromDefaults, &error),
+    check(linear::hosting::parseConfig(defaults, &fromDefaults, &error),
           "the file init writes parses back");
     check(fromDefaults.instances == 2 && fromDefaults.firstPort == 7777,
           "and it round-trips its values");
@@ -132,7 +132,7 @@ void testConfig() {
 
 void testFirstStart() {
     FakeLauncher launcher;
-    rblx::hosting::Supervisor supervisor(smallConfig(3), &launcher);
+    linear::hosting::Supervisor supervisor(smallConfig(3), &launcher);
 
     supervisor.tick(0);
     check(launcher.launchCount == 3, "the first tick starts every slot");
@@ -153,13 +153,13 @@ void testFirstStart() {
 
 void testRestart() {
     FakeLauncher launcher;
-    rblx::hosting::Supervisor supervisor(smallConfig(1), &launcher);
+    linear::hosting::Supervisor supervisor(smallConfig(1), &launcher);
     supervisor.tick(0);
     const long pid = supervisor.instances()[0].pid;
 
     launcher.kill(pid);
     supervisor.tick(1000);
-    check(supervisor.instances()[0].state == rblx::hosting::Instance::State::Backoff,
+    check(supervisor.instances()[0].state == linear::hosting::Instance::State::Backoff,
           "a death puts the slot in backoff, not straight back up");
     check(launcher.launchCount == 1, "and it is not restarted the same instant");
     check(supervisor.instances()[0].restarts == 1, "the death counts as a restart");
@@ -169,20 +169,20 @@ void testRestart() {
 
     supervisor.tick(2000);
     check(launcher.launchCount == 2, "at the delay it is started again");
-    check(supervisor.instances()[0].state == rblx::hosting::Instance::State::Running,
+    check(supervisor.instances()[0].state == linear::hosting::Instance::State::Running,
           "and reports running again");
 }
 
 void testBackoffGrows() {
     FakeLauncher launcher;
-    rblx::hosting::Config config = smallConfig(1);
+    linear::hosting::Config config = smallConfig(1);
     config.maxRestarts = 10;
-    rblx::hosting::Supervisor supervisor(config, &launcher);
+    linear::hosting::Supervisor supervisor(config, &launcher);
 
     supervisor.tick(0);                 // first start
     launcher.kill(supervisor.instances()[0].pid);
     supervisor.tick(1000);              // failure 1: wait 1000
-    check(supervisor.instances()[0].state == rblx::hosting::Instance::State::Backoff,
+    check(supervisor.instances()[0].state == linear::hosting::Instance::State::Backoff,
           "first failure backs off");
     supervisor.tick(2000);              // restarted
     check(launcher.launchCount == 2, "first restart happens after 1s");
@@ -197,16 +197,16 @@ void testBackoffGrows() {
 
 void testGivingUp() {
     FakeLauncher launcher;
-    rblx::hosting::Config config = smallConfig(1);
+    linear::hosting::Config config = smallConfig(1);
     config.maxRestarts = 2;
     config.restartWindowMs = 60000;
     config.restartDelayMs = 100;
-    rblx::hosting::Supervisor supervisor(config, &launcher);
+    linear::hosting::Supervisor supervisor(config, &launcher);
 
     long long now = 0;
     supervisor.tick(now);
     for (int attempt = 0; attempt < 10 && supervisor.instances()[0].state !=
-                                             rblx::hosting::Instance::State::Failed;
+                                             linear::hosting::Instance::State::Failed;
          ++attempt) {
         const long pid = supervisor.instances()[0].pid;
         if (pid != 0) launcher.kill(pid);
@@ -214,7 +214,7 @@ void testGivingUp() {
         supervisor.tick(now);
     }
 
-    check(supervisor.instances()[0].state == rblx::hosting::Instance::State::Failed,
+    check(supervisor.instances()[0].state == linear::hosting::Instance::State::Failed,
           "a slot that keeps dying is given up on");
     check(supervisor.allFailed(), "and the supervisor says every slot failed");
     const int launches = launcher.launchCount;
@@ -228,23 +228,23 @@ void testLaunchFailure() {
     FakeLauncher launcher;
     launcher.failLaunch = true;
     launcher.failReason = "no such file";
-    rblx::hosting::Config config = smallConfig(1);
+    linear::hosting::Config config = smallConfig(1);
     config.maxRestarts = 1;
     config.restartDelayMs = 0;
-    rblx::hosting::Supervisor supervisor(config, &launcher);
+    linear::hosting::Supervisor supervisor(config, &launcher);
 
     supervisor.tick(0);
-    check(supervisor.instances()[0].state == rblx::hosting::Instance::State::Backoff,
+    check(supervisor.instances()[0].state == linear::hosting::Instance::State::Backoff,
           "a server that will not start backs off instead of spinning");
     check(contains(supervisor.table(0), "no such file"), "the launch error is shown");
     supervisor.tick(10);
-    check(supervisor.instances()[0].state == rblx::hosting::Instance::State::Failed,
+    check(supervisor.instances()[0].state == linear::hosting::Instance::State::Failed,
           "and it is given up on once the budget is spent");
 }
 
 void testStopAll() {
     FakeLauncher launcher;
-    rblx::hosting::Supervisor supervisor(smallConfig(2), &launcher);
+    linear::hosting::Supervisor supervisor(smallConfig(2), &launcher);
     supervisor.tick(0);
     check(launcher.launchCount == 2, "two servers up");
 
@@ -257,7 +257,7 @@ void testStopAll() {
 
 void testTable() {
     FakeLauncher launcher;
-    rblx::hosting::Supervisor supervisor(smallConfig(2), &launcher);
+    linear::hosting::Supervisor supervisor(smallConfig(2), &launcher);
     supervisor.tick(0);
     const std::string table = supervisor.table(65000);
     check(contains(table, "instance"), "the table has a header");
@@ -269,13 +269,13 @@ void testTable() {
 
 void testManualControl() {
     FakeLauncher launcher;
-    rblx::hosting::Supervisor supervisor(smallConfig(2), &launcher);
+    linear::hosting::Supervisor supervisor(smallConfig(2), &launcher);
     supervisor.tick(0);
     const long firstPid = supervisor.instances()[0].pid;
 
     std::string error;
     check(supervisor.stopSlot(0, &error), "a slot can be stopped from the panel");
-    check(supervisor.instances()[0].state == rblx::hosting::Instance::State::Stopped,
+    check(supervisor.instances()[0].state == linear::hosting::Instance::State::Stopped,
           "and it reports stopped");
     check(launcher.stopped.size() == 1 && launcher.stopped[0] == firstPid,
           "the process itself is stopped, not just forgotten");
@@ -287,7 +287,7 @@ void testManualControl() {
     check(supervisor.startSlot(0, &error), "it can be started again");
     supervisor.tick(11000);
     check(launcher.launchCount == 3, "and the next tick launches it");
-    check(supervisor.instances()[0].state == rblx::hosting::Instance::State::Running,
+    check(supervisor.instances()[0].state == linear::hosting::Instance::State::Running,
           "back to running");
 
     const long runningPid = supervisor.instances()[0].pid;
@@ -306,27 +306,27 @@ void testManualControl() {
 
 void testStartAfterGivingUp() {
     FakeLauncher launcher;
-    rblx::hosting::Config config = smallConfig(1);
+    linear::hosting::Config config = smallConfig(1);
     config.maxRestarts = 0;
     config.restartDelayMs = 0;
-    rblx::hosting::Supervisor supervisor(config, &launcher);
+    linear::hosting::Supervisor supervisor(config, &launcher);
 
     supervisor.tick(0);
     launcher.kill(supervisor.instances()[0].pid);
     supervisor.tick(1000);
-    check(supervisor.instances()[0].state == rblx::hosting::Instance::State::Failed,
+    check(supervisor.instances()[0].state == linear::hosting::Instance::State::Failed,
           "the slot gives up on itself");
 
     std::string error;
     check(supervisor.startSlot(0, &error), "starting it by hand is allowed after that");
     supervisor.tick(2000);
-    check(supervisor.instances()[0].state == rblx::hosting::Instance::State::Running,
+    check(supervisor.instances()[0].state == linear::hosting::Instance::State::Running,
           "and the manual start gets a fresh failure budget");
 }
 
 void testStopAllThenStartAll() {
     FakeLauncher launcher;
-    rblx::hosting::Supervisor supervisor(smallConfig(2), &launcher);
+    linear::hosting::Supervisor supervisor(smallConfig(2), &launcher);
     supervisor.tick(0);
 
     supervisor.stopAll();

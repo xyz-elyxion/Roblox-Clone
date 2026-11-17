@@ -1,0 +1,23 @@
+<CPackWiXPatch>
+  <CPackWiXFragment Id="CM_DP_bin">
+    <!-- Implement the "LINEARBUILD_IN_PATH" checkbox when installing for all users.  -->
+    <Component Id="LinearBuildSystemPathEntryCMP" KeyPath="yes" Guid="0E782367-5D68-4539-81D1-B9757AE496A1" Condition="LINEARBUILD_IN_PATH AND ALLUSERS">
+      <Environment Id="LinearBuildSystemPathEntryENV" Action="set" Part="last"
+        Name="PATH" Value="[INSTALL_ROOT]bin"
+        System="yes"/>
+    </Component>
+
+    <!-- Implement the "LINEARBUILD_IN_PATH" checkbox when installing per-user.  -->
+    <!-- This is not currently reachable, but is reserved for future use.  -->
+    <Component Id="LinearBuildUserPathEntryCMP" KeyPath="yes" Guid="392E524D-D5BF-4F16-A7AF-A82B07482CB9" Condition="LINEARBUILD_IN_PATH AND NOT ALLUSERS">
+      <Environment Id="LinearBuildUserPathEntryENV" Action="set" Part="last"
+        Name="PATH" Value="[INSTALL_ROOT]bin"
+        System="no"/>
+    </Component>
+  </CPackWiXFragment>
+
+  <CPackWiXFragment Id="#PRODUCTFEATURE">
+    <ComponentRef Id="LinearBuildSystemPathEntryCMP"/>
+    <ComponentRef Id="LinearBuildUserPathEntryCMP"/>
+  </CPackWiXFragment>
+</CPackWiXPatch>

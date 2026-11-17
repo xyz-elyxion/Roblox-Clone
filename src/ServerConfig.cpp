@@ -7,7 +7,7 @@
 #include <fstream>
 #include <sstream>
 
-namespace rblx {
+namespace linear {
 namespace server {
 namespace {
 
@@ -301,4 +301,4 @@ std::string settingsPathFor(const std::string& directory) {
 }
 
 }  // namespace server
-}  // namespace rblx
+}  // namespace linear

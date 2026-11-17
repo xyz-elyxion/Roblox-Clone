@@ -9,32 +9,32 @@ package manager involved.
 
 This file is the short version for anyone (person or agent) making a change. The
 [README](README.md) is the reference for what the project is; [HOSTING.md](HOSTING.md) and
-[RBLXBUILD.md](RBLXBUILD.md) cover hosting and the build tool; [SECURITY.md](SECURITY.md)
+[LINEARBUILD.md](LINEARBUILD.md) cover hosting and the build tool; [SECURITY.md](SECURITY.md)
 covers the security model.
 
 ## Build and test
 
-The build tool is bootstrapped from `rblxbuild/` once:
+The build tool is bootstrapped from `linearbuild/` once:
 
 ```powershell
-mkdir -p build/rblxbuild-tool
-cd build/rblxbuild-tool
-../../rblxbuild/bootstrap --parallel 4
+mkdir -p build/linearbuild-tool
+cd build/linearbuild-tool
+../../linearbuild/bootstrap --parallel 4
 cd ../..
 ```
 
 Then, from the repository root:
 
 ```powershell
-build\rblxbuild-tool\bin\rblxbuild --preset windows-release
-build\rblxbuild-tool\bin\rblxbuild --build --preset windows-release
-build\rblxbuild-tool\bin\rblxtest --preset windows-release
+build\linearbuild-tool\bin\linearbuild --preset windows-release
+build\linearbuild-tool\bin\linearbuild --build --preset windows-release
+build\linearbuild-tool\bin\lineartest --preset windows-release
 ```
 
-`RBLXBuildPresets.json` has one preset, `windows-release` (Visual Studio 17 2022,
+`LinearBuildPresets.json` has one preset, `windows-release` (Visual Studio 17 2022,
 `build/windows-release`, Release). Binaries land in `build\windows-release\Release\`.
 Visual Studio 2022 with the C++ workload, or MinGW + Ninja, is required; the vendored
-`rblxbuild` is the only build tool.
+`linearbuild` is the only build tool.
 
 The release folder is assembled by:
 
@@ -51,19 +51,19 @@ them, and writes `README.txt`, `update.json` and `manifest.json` into `dist/line
    (WinSock), HTTP through `include/HttpClient.h`. Do not reintroduce `#ifdef _WIN32`
    forks or a "portable" path; the project was deliberately cut down to one platform.
 2. **No new dependencies.** Do not add a dependency, a package manager, a submodule or a
-   generated blob. The eight library trees at the top of the repository (`rblxwin`,
-   `rblxmath`, `rblxui`, `rblxgizmo`, `rblxtextedit`, `rblxphysics`, `rblxstb`, `rblxgl`),
-   `rblxbuild/` and `RBLXAntiCheat/` are vendored snapshots at pinned versions, renamed into
+   generated blob. The eight library trees at the top of the repository (`linearwin`,
+   `linearmath`, `linearui`, `lineargizmo`, `lineartextedit`, `linearphysics`, `linearstb`, `lineargl`),
+   `linearbuild/` and `LinearAntiCheat/` are vendored snapshots at pinned versions, renamed into
    this project's scheme. Do not reformat or "clean up" them, keep their licences
-   (`RBLXAntiCheat/LICENSE`, `rblxbuild/Licenses/` and the `LICENSE`/`copying.txt` in each
+   (`LinearAntiCheat/LICENSE`, `linearbuild/Licenses/` and the `LICENSE`/`copying.txt` in each
    tree) intact, and do not rename identifiers piecemeal: a change there is a fork-wide
    rename or nothing, because the trees must stay internally consistent. The one
    exception is a defect the compiler is right about: those have been corrected in
    place rather than silenced - the 64-bit length counter in
-   `RBLXAntiCheat/Common/SHA256.{hpp,cpp}`, the missing return in
-   `rblxphysics/.../containers/Deque.h`, the unsigned `INVALID_INDEX` in its
+   `LinearAntiCheat/Common/SHA256.{hpp,cpp}`, the missing return in
+   `linearphysics/.../containers/Deque.h`, the unsigned `INVALID_INDEX` in its
    `Map.h`/`Set.h`, `toLocalTime` in `DefaultLogger.h`, the safe CRT calls in
-   `rblxui`, the signed sentinels in `rblxgizmo/src/RblxGizmo.cpp`, and the narrowing
+   `linearui`, the signed sentinels in `lineargizmo/src/LinearGizmo.cpp`, and the narrowing
    casts in the anti-cheat's `Detections.cpp` and `Process.cpp`; the TLS callback in
    `Core/AntiCheatLib.cpp`, which scanned threads and logged through the C runtime while the
    loader still held its lock and before the static runtime existed, hanging the client
@@ -102,10 +102,10 @@ them, and writes `README.txt`, `update.json` and `manifest.json` into `dist/line
 | Installer / updater | `src/SetupMain.cpp`, `src/InstallUi.cpp`, `src/UpdaterMain.cpp`, `src/Updater.cpp` |
 | Server setup | `src/ServerSetupMain.cpp`, `src/ServerConfig.cpp` (the `server.conf` the website reads) |
 | Trainer | `src/AiTrainer.cpp` |
-| Scripting | `src/RblxScript.cpp`, `include/RblxScript.h` |
-| Anti-cheat integration | `include/ClientCheatReport.h`, `include/Obfuscated.h`, `RBLXAntiCheat/` |
-| Build | `RBLXBuildLists.txt`, `RBLXBuildPresets.json`, `scripts/package-build.ps1` |
-| Vendored libraries | `rblxwin/`, `rblxmath/`, `rblxui/`, `rblxgizmo/`, `rblxtextedit/`, `rblxphysics/`, `rblxstb/`, `rblxgl/` |
+| Scripting | `src/LinearScript.cpp`, `include/LinearScript.h` |
+| Anti-cheat integration | `include/ClientCheatReport.h`, `include/Obfuscated.h`, `LinearAntiCheat/` |
+| Build | `LinearBuildLists.txt`, `LinearBuildPresets.json`, `scripts/package-build.ps1` |
+| Vendored libraries | `linearwin/`, `linearmath/`, `linearui/`, `lineargizmo/`, `lineartextedit/`, `linearphysics/`, `linearstb/`, `lineargl/` |
 | Tests | `tests/<area>_tests.cpp` |
 
 `include/` mirrors `src/`: a unit lives in a header there so Studio, the client, the
@@ -113,27 +113,27 @@ server and the tests can share it.
 
 ## Adding things
 
-- **A source file** goes into the right `add_executable` in `RBLXBuildLists.txt`. Sources
+- **A source file** goes into the right `add_executable` in `LinearBuildLists.txt`. Sources
   are listed explicitly per target — there is no globbing, so a new file that is not
   listed simply does not compile into anything.
 - **A test** is `tests/<area>_tests.cpp`: a plain `main()` that exercises the unit, prints
   what failed and returns nonzero. There is no test framework and none should be added.
   Register it with `add_executable` + `add_test` inside the `if(LINEAR_BUILD_TESTS)` block
-  of `RBLXBuildLists.txt`. Tests link the source file they cover directly (or a small
+  of `LinearBuildLists.txt`. Tests link the source file they cover directly (or a small
   library target), not the whole game.
 - **Configuration** is an environment variable read with `parsePositiveInt` / `envString`
   in `src/WebApp.cpp`, with a default in the same place and a row in the README's
   configuration table. Never read `getenv` at a call site: `include/Environment.h` has
-  `rblx::environment::get`, which asks Windows rather than the CRT, because MSVC
+  `linear::environment::get`, which asks Windows rather than the CRT, because MSVC
   deprecates `getenv` as C4996.
 - **A feature users can see** gets prose in `README.md` in the relevant section, not a
-  changelog entry. Longer topics get their own file (`HOSTING.md`, `RBLXBUILD.md`) linked
+  changelog entry. Longer topics get their own file (`HOSTING.md`, `LINEARBUILD.md`) linked
   from the README.
 
 ## Style
 
 - C++17, four-space indent, roughly 100 columns, `#pragma once` in headers, namespaces
-  under `rblx::`.
+  under `linear::`.
 - Failures are returned (`bool` plus `std::string* error`) rather than thrown; the console
   programs print the error and return nonzero. Keep new code in that shape.
 - Comments explain *why* a thing is the way it is, especially where a rule looks odd
@@ -146,7 +146,7 @@ server and the tests can share it.
 
 ## Before you call it done
 
-- Build the configuration you changed and run `rblxtest` if a test covers it.
+- Build the configuration you changed and run `lineartest` if a test covers it.
 - Run `./scripts/package-build.ps1 -Configuration Release` if you added an executable, a
   data folder the programs read (such as `textures/`), or a file that must ship.
 - Re-read the README paragraph your change makes wrong. Documentation is part of the

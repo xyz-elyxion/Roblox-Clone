@@ -3,7 +3,7 @@
 #include <string>
 #include <vector>
 
-namespace rblx {
+namespace linear {
 namespace roles {
 
 // What a role lets its holder do on the site. A role carries these as bits, so a
@@ -148,4 +148,4 @@ inline std::vector<std::string> permissionNames(unsigned granted) {
 }
 
 } // namespace roles
-} // namespace rblx
+} // namespace linear

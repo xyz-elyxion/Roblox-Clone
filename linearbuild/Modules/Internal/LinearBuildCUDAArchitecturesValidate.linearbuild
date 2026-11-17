@@ -1,0 +1,24 @@
+# Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
+# file LICENSE.rst or https://linearbuild.org/licensing for details.
+
+function(linearbuild_cuda_architectures_validate lang)
+  if(DEFINED LINEARBUILD_${lang}_ARCHITECTURES)
+    if(LINEARBUILD_${lang}_ARCHITECTURES STREQUAL "")
+      message(FATAL_ERROR "LINEARBUILD_${lang}_ARCHITECTURES must be non-empty if set.")
+    elseif(LINEARBUILD_${lang}_ARCHITECTURES MATCHES [["]])
+      message(FATAL_ERROR
+        "LINEARBUILD_${lang}_ARCHITECTURES contains literal quotes:\n"
+        "  ${LINEARBUILD_${lang}_ARCHITECTURES}\n"
+      )
+    elseif(LINEARBUILD_${lang}_ARCHITECTURES AND NOT LINEARBUILD_${lang}_ARCHITECTURES MATCHES "^([0-9]+(a|f)?(-real|-virtual)?(;[0-9]+(a|f)?(-real|-virtual)?|;)*|all|all-major|native)$")
+      message(FATAL_ERROR
+        "LINEARBUILD_${lang}_ARCHITECTURES:\n"
+        "  ${LINEARBUILD_${lang}_ARCHITECTURES}\n"
+        "is not one of the following:\n"
+        "  * a semicolon-separated list of integers, each optionally\n"
+        "    followed by '-real' or '-virtual'\n"
+        "  * a special value: all, all-major, native\n"
+        )
+    endif()
+  endif()
+endfunction()

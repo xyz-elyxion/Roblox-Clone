@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <cstdio>
 
-namespace rblx {
+namespace linear {
 namespace hub {
 namespace {
 
@@ -355,4 +355,4 @@ std::string missingPage(const RepoSummary& repo, const std::string& what) {
 }
 
 }  // namespace hub
-}  // namespace rblx
+}  // namespace linear

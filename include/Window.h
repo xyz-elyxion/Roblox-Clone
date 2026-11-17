@@ -1,7 +1,7 @@
 #pragma once
 
-#include <rblxgl/rblxgl.h>
-#include <RBLXWIN/rblxwin.h>
+#include <lineargl/lineargl.h>
+#include <LINEARWIN/linearwin.h>
 #include <string>
 
 class Window {
@@ -16,7 +16,7 @@ public:
     int getWidth() const { 
         if (window) {
             int w, h;
-            rblxwinGetFramebufferSize(window, &w, &h);
+            linearwinGetFramebufferSize(window, &w, &h);
             return w;
         }
         return width; 
@@ -24,15 +24,15 @@ public:
     int getHeight() const { 
         if (window) {
             int w, h;
-            rblxwinGetFramebufferSize(window, &w, &h);
+            linearwinGetFramebufferSize(window, &w, &h);
             return h;
         }
         return height; 
     }
-    RBLXWINwindow* getNativeWindow() const { return window; }
+    LINEARWINwindow* getNativeWindow() const { return window; }
 
 private:
-    RBLXWINwindow* window;
+    LINEARWINwindow* window;
     int width;
     int height;
     std::string title;

@@ -334,11 +334,11 @@ const char* kFixturePrivateExponent =
     "81616be4a37d1c58380cd693167bc9ae9fbf5b0ad93c0ed8af7eda3d8c458c71";
 
 const char* kFixtureSignature =
-    "ViCkXi0IK2o//qt9v8BWMPqZrf7YLGH3DAxUBHBW8Jv7PKa8oNQEtD5jNuTNBnNofpKNLCvU"
-    "nthNdKiulgIrB8kQaIIWyw6kyMiqf4m6inanI2RB+ocNSgN8tlCSNthDs4rDJSzfoy8/uWkq"
-    "NgD5IACdrTIKkR0tf5uLHoWgvIVcF58Fv+PPAd6K+1XcQW2Cy+eY8xEoAWp3bZfyRQm0rYmH"
-    "6f3sq3ol9YQBh1GUmAJyJgfyIDE6jgP11Iusnx6w0he6kzjlbNw+NS6OjRphaBR282I+THmx"
-    "drlIW60TcocXWDlLjHyCIg/hmKfoaCyMlL7AFQ+kCdQvFZLE9xbS5A==";
+    "pbQeKYOa6FN3RcC+CtAE+8iN9uwqrRR3xcWlBQ8DuJfiY/rKZexXBwC7QnXgGxliKLOwEc7T"
+    "2+aW78PRDbtXH0vSdZ3sCbk60uuRbl/ANjIEj3PuyiofRqSH66wvZ9UbbXF3TEVrAMDIpG7y"
+    "tIla+D8Ur+eTOsjyheiXM1hnvTtWegqwSwxusJMFL+q4YOSeGkSL/MzSTqsJJK3sbxdRgVxA"
+    "Eg2N/mOwIJK0VUpz0+ECbumIK9LurHfzvIPqIQyO1C3WdncFe0FY+lWrNShUvd9rnS7yirzx"
+    "8mC897kOLvRrIU6+4cBUIN5xhIohXYxh1xemsqocruBm3cDah0AcVA==";
 
 void testReleaseSignature() {
     using namespace linear::update;

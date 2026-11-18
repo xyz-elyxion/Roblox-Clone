@@ -89,6 +89,16 @@ LinearSetup.exe --uninstall                      # keeps worlds and account data
 LinearSetup.exe --uninstall --purge              # removes those too
 ```
 
+Double-clicked, with no arguments, it opens its own window instead of a console: the Linear mark and
+the three passes it is about to make — copying the files, recording them for updates, finalising the
+shortcut and the uninstall entry — down the left, a drawn art panel beside them, and one bar along
+the bottom naming the job, counting the bytes copied and their rate, and showing the percentage. The
+pass that is running has an accent ring, the ones behind it a tick, and a failure is a red line in
+the list underneath them, so a setup that fails still says why. The folder field, the shortcut
+checkbox and the buttons live in the same window. `--no-ui` refuses the window for a script that
+wants the console, and a machine that cannot give the window a graphics context keeps the console it
+always had.
+
 It copies the folder with its layout intact and leaves anything already identical alone, so running
 it over an existing install is an upgrade rather than a clobber. It records what it installed as
 `manifest.json` — the same document the updater diffs against — which means an installed copy can

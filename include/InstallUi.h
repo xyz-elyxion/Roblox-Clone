@@ -9,6 +9,11 @@
 // was pressed. When no window can be created - a headless machine, a build
 // server, a driver that cannot give us a context - run() says so and the caller
 // keeps its console behaviour.
+//
+// The window is laid out like a product page rather than a dialog: the brand,
+// the steps the job is taking and the log in a column on the left, a drawn art
+// panel on the right, and one bar across the bottom that says what is happening,
+// how much has moved and how far through it is.
 
 #include <cstddef>
 #include <functional>
@@ -24,10 +29,10 @@ namespace ui {
 // line() and problem() append to the log; problem() also marks the line as a
 // failure so it is drawn in red. progress() moves the bar, and a negative
 // fraction means "working, no idea how long". progressBytes() is for a download
-// that knows its size, so the bar shows a real percentage and a transfer rate
-// instead of the animation. cancelled() is checked by long download and copy
-// loops - always between files, never inside one, because a half-written file is
-// worse than a slow one.
+// or a copy that knows its size, so the bar shows a real percentage and a
+// transfer rate instead of the animation. cancelled() is checked by long
+// download and copy loops - always between files, never inside one, because a
+// half-written file is worse than a slow one.
 class Report {
 public:
     void line(const std::string& text);
@@ -35,6 +40,10 @@ public:
     void progress(float fraction);
     // `done` bytes of `total`, with a negative total when the size is unknown.
     void progressBytes(long long done, long long total);
+    // Which of Options::steps is being worked on, counted from zero. Everything
+    // before it is ticked off. A job that never calls it keeps the first step
+    // running for as long as it works.
+    void stage(int index);
     void cancel();
     void finish(bool ok);
 
@@ -50,6 +59,7 @@ public:
         float fraction = -1.0f;
         long long doneBytes = 0;
         long long totalBytes = -1;
+        int stage = 0;
         bool done = false;
         bool ok = false;
         bool cancelled = false;
@@ -63,6 +73,7 @@ private:
     float fraction_ = -1.0f;
     long long doneBytes_ = 0;
     long long totalBytes_ = -1;
+    int stage_ = 0;
     bool done_ = false;
     bool ok_ = false;
     bool cancelled_ = false;
@@ -85,6 +96,24 @@ struct Options {
     // Run the job as soon as the window opens, for a tool whose whole purpose is
     // the job rather than a choice.
     bool autoStart = false;
+
+    // The brand block at the top of the left column: a product name, an optional
+    // second word drawn in the accent colour, and a line about the product.
+    std::string product = "Linear";
+    std::string productAccent;
+    std::string tagline = "Play. Build. Create.";
+
+    // What the bottom bar calls the job while it runs. Empty uses `heading`,
+    // which reads as a command; a job wants a sentence ("Installing Linear...").
+    std::string busyLabel;
+
+    // The steps the left column ticks off, in order. Empty leaves the column to
+    // the log, which is what a tool with one indivisible job wants.
+    struct Step {
+        std::string label;
+        std::string detail;
+    };
+    std::vector<Step> steps;
 
     // One-line inputs drawn above the buttons, in order, before the job starts.
     // The installer asks for nothing but a folder; a server setup asks for a port,

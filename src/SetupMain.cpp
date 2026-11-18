@@ -72,6 +72,9 @@ std::function<void(const std::string&)> g_problem;
 std::function<bool()> g_cancelled;
 // Bytes copied and the size of the whole payload, for the window's bar.
 std::function<void(long long, long long)> g_bytes;
+// Which of the window's steps is running, so the column can tick the ones before
+// it off. Only the window sets this.
+std::function<void(int)> g_stage;
 
 bool cancelled() { return g_cancelled && g_cancelled(); }
 
@@ -462,6 +465,7 @@ int install(const Options& options, const std::string& source) {
     std::string error;
     int copied = 0;
     int skipped = 0;
+    if (g_stage) g_stage(0);
     if (!copyPayload(source, target, &copied, &skipped, &error)) {
         printError(error);
         return 1;
@@ -472,6 +476,7 @@ int install(const Options& options, const std::string& source) {
     // The settings that say where this copy looks for updates. An explicit --url
     // wins; otherwise the package's own update.json is carried over, and an
     // existing install keeps the one it has.
+    if (g_stage) g_stage(1);
     const fs::path targetConfig = fs::path(target) / "update.json";
     if (!options.updateUrl.empty()) {
         // Keep whatever release key this copy already trusts. Writing a fresh
@@ -535,6 +540,7 @@ int install(const Options& options, const std::string& source) {
         }
     }
 
+    if (g_stage) g_stage(2);
     if (options.shortcuts) {
         if (createShortcuts(target, options)) {
             print(options, "  added the Play shortcut");
@@ -575,6 +581,7 @@ int uninstall(const Options& options, const char* argv0) {
 
     print(options, "removing " + std::string(kProductName) + " from " + target);
 
+    if (g_stage) g_stage(0);
     int removed = 0;
     std::error_code code;
     for (const linear::update::FileEntry& entry : manifest.files) {
@@ -596,9 +603,11 @@ int uninstall(const Options& options, const char* argv0) {
         }
     }
 
+    if (g_stage) g_stage(1);
     removeShortcuts(options);
     unregisterUninstall();
 
+    if (g_stage) g_stage(2);
     if (options.purge) {
         fs::remove_all(target, code);
         print(options, "removed the folder, including worlds and account data");
@@ -679,12 +688,27 @@ int windowed(Options& options, const std::string& source, const char* argv0) {
 
     linear::ui::Options window;
     window.title = "Linear Setup";
+    window.product = "Linear";
+    window.tagline = "Play. Build. Create.";
     window.heading = options.uninstall ? "Remove Linear" : "Install Linear";
+    window.busyLabel = options.uninstall ? "Removing Linear..." : "Installing Linear...";
     window.detail = options.uninstall
                         ? "Removes the files it installed and the shortcut. Worlds, saves and "
                           "account data are left in place."
                         : "Copies this folder into your account, adds the shortcut, and records "
                           "what it installed so the copy can update and uninstall itself.";
+    // The three passes the install makes, which is what the column ticks off: copy
+    // the payload, record it for updates, then the shortcut and the uninstall entry.
+    window.steps = options.uninstall
+                       ? std::vector<linear::ui::Options::Step>{
+                             {"Removing files", "Deleting what manifest.json lists"},
+                             {"Cleaning up", "Removing the shortcut and the Apps entry"},
+                             {"Finalising", options.purge ? "Deleting the folder and its data"
+                                                         : "Keeping worlds and account data"}}
+                       : std::vector<linear::ui::Options::Step>{
+                             {"Copying files", "Getting the latest version into place"},
+                             {"Setting things up", "Recording what was installed for updates"},
+                             {"Finalising", "Adding the shortcut and the Apps entry"}};
     window.startLabel = options.uninstall ? "Remove" : "Install";
     window.cancelLabel = options.uninstall ? "Keep it" : "Cancel";
     window.folder = options.uninstall ? std::string() : defaultFolder;
@@ -711,6 +735,7 @@ int windowed(Options& options, const std::string& source, const char* argv0) {
         g_bytes = [&report](long long done, long long total) {
             report.progressBytes(done, total);
         };
+        g_stage = [&report](int index) { report.stage(index); };
 
         const bool ok = options.uninstall ? (uninstall(run, argv0) == 0) : (install(run, source) == 0);
 
@@ -718,6 +743,7 @@ int windowed(Options& options, const std::string& source, const char* argv0) {
         g_problem = nullptr;
         g_cancelled = nullptr;
         g_bytes = nullptr;
+        g_stage = nullptr;
         return ok;
     });
 

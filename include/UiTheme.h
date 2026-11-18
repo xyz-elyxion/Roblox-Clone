@@ -91,6 +91,21 @@ struct Colors {
     // Panels that float over the 3D view: the client sets the alpha itself,
     // because how much of the world shows through is its own business.
     LinearVec4 overlayBase;
+
+    // The art panel of the setup window. It is drawn rather than loaded so the
+    // package ships no artwork beside the executable: a sky, a low sun, and
+    // islands with grass and water on them.
+    LinearVec4 heroSkyTop;
+    LinearVec4 heroSkyMid;
+    LinearVec4 heroSkyBottom;
+    LinearVec4 heroLight;
+    LinearVec4 heroIslandFar;
+    LinearVec4 heroIslandNear;
+    LinearVec4 heroGrassFar;
+    LinearVec4 heroGrassNear;
+
+    // The trough of a progress bar, which is neither a frame nor a button.
+    LinearVec4 progressTrack;
 };
 
 namespace detail {
@@ -271,6 +286,17 @@ inline Colors darkColors() {
     c.textSelected = LinearVec4(0.24f, 0.44f, 0.42f, 0.60f);
     c.modalDim = LinearVec4(0.02f, 0.03f, 0.04f, 0.60f);
     c.overlayBase = LinearVec4(0.02f, 0.03f, 0.05f, 1.00f);
+
+    c.heroSkyTop = LinearVec4(0.13f, 0.32f, 0.76f, 1.00f);
+    c.heroSkyMid = LinearVec4(0.40f, 0.63f, 0.92f, 1.00f);
+    c.heroSkyBottom = LinearVec4(0.87f, 0.94f, 1.00f, 1.00f);
+    c.heroLight = LinearVec4(1.00f, 1.00f, 1.00f, 1.00f);
+    c.heroIslandFar = LinearVec4(0.53f, 0.63f, 0.79f, 1.00f);
+    c.heroIslandNear = LinearVec4(0.24f, 0.34f, 0.49f, 1.00f);
+    c.heroGrassFar = LinearVec4(0.45f, 0.63f, 0.57f, 1.00f);
+    c.heroGrassNear = LinearVec4(0.20f, 0.39f, 0.33f, 1.00f);
+
+    c.progressTrack = LinearVec4(0.15f, 0.17f, 0.21f, 1.00f);
     return c;
 }
 
@@ -324,6 +350,17 @@ inline Colors lightColors() {
     c.textSelected = LinearVec4(0.55f, 0.85f, 0.75f, 0.60f);
     c.modalDim = LinearVec4(0.10f, 0.12f, 0.14f, 0.45f);
     c.overlayBase = LinearVec4(0.97f, 0.98f, 0.99f, 1.00f);
+
+    c.heroSkyTop = LinearVec4(0.20f, 0.40f, 0.82f, 1.00f);
+    c.heroSkyMid = LinearVec4(0.48f, 0.69f, 0.94f, 1.00f);
+    c.heroSkyBottom = LinearVec4(0.91f, 0.96f, 1.00f, 1.00f);
+    c.heroLight = LinearVec4(1.00f, 1.00f, 1.00f, 1.00f);
+    c.heroIslandFar = LinearVec4(0.59f, 0.69f, 0.83f, 1.00f);
+    c.heroIslandNear = LinearVec4(0.31f, 0.41f, 0.56f, 1.00f);
+    c.heroGrassFar = LinearVec4(0.50f, 0.68f, 0.61f, 1.00f);
+    c.heroGrassNear = LinearVec4(0.25f, 0.45f, 0.37f, 1.00f);
+
+    c.progressTrack = LinearVec4(0.85f, 0.87f, 0.90f, 1.00f);
     return c;
 }
 

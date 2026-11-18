@@ -1716,6 +1716,7 @@ no repository is open rather than failing the server.
 | Client login fails | Start the web backend first and confirm <http://localhost:3000> is reachable |
 | Client cannot connect | Start `Server.exe`, allow firewall access, and connect to `127.0.0.1` for local testing |
 | Play says the game server did not start | Read `web/game-server-logs/game-server-<port>.log`, which the error also quotes; a leftover `Server.exe` holding the port is the usual cause |
+| SmartScreen still warns after `LinearCert.exe install` | Expected: the certificate settles the publisher, not the reputation. Clear the mark of the web (`Get-ChildItem -Recurse | Unblock-File`), or press *More info → Run anyway* — see [Signing the release](#signing-the-release) |
 
 ## Signing the release
 
@@ -1777,10 +1778,22 @@ download. Signing and certificate making can still be run on their own:
 ./scripts/make-certificate.ps1 -Force            # replace the key (breaks trust for old builds)
 ```
 
-Two limits worth knowing. The certificate is self-signed, so it only helps where it has been
-installed: Windows elsewhere still sees an unknown publisher, and SmartScreen's reputation for a
-freshly downloaded `.exe` starts from zero. Only a certificate from a recognised authority
-changes that, and that is a purchase rather than a script.
+Two limits worth knowing, because the second one is where people get stuck. The certificate is
+self-signed, so it only helps where it has been installed: Windows elsewhere still sees an
+unknown publisher.
+
+The other limit is that installing it fixes the *publisher* question and not the SmartScreen
+page. With the certificate trusted, `Get-AuthenticodeSignature` reads `Valid` and Windows knows
+who signed the file — but the blue *Windows protected your PC* page is a separate reputation
+check that SmartScreen makes against Microsoft's servers, where a freshly downloaded `.exe`
+starts at zero no matter how the machine it runs on is configured. A self-signed certificate has
+no reputation there and never accumulates one, so that page keeps appearing for as long as the
+file carries the mark of the web: Explorer runs the check because the file arrived from the
+internet, not because it distrusts this certificate. Clearing the mark, as above
+(`Get-ChildItem -Recurse | Unblock-File`), takes Explorer's checks out of the picture for good,
+and *More info → Run anyway* dismisses the page once without changing anything. Only a
+certificate from a recognised authority — in practice an EV token, and even then only after
+reputation builds — answers SmartScreen by itself, and that is a purchase rather than a script.
 
 ## Contributing and licence
 

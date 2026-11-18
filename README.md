@@ -1748,6 +1748,20 @@ Started with no arguments — a double-click in Explorer — it installs for you
 its window open until you press Enter, so what it did (or what went wrong) stays on screen
 instead of disappearing with the window it was printed in.
 
+If Explorer refuses to start it with a dialog titled with the program's path that says *A
+referral was returned from the server*, that is the shell's security check on a file that
+arrived from the internet rather than anything the program did: Explorer asks SmartScreen and
+validates the publisher of every `.exe` carrying the mark of the web, and a certificate this
+machine does not trust yet is exactly what it is judging before `LinearCert` has been able to
+install it. Clear the mark once for the folder, which takes the shell's checks out of the
+picture, or start it from a shell, which does not go through them at all:
+
+```powershell
+cd ./dist/linear-windows-release
+Get-ChildItem -Recurse | Unblock-File
+./LinearCert.exe
+```
+
 It writes the `certs\linear-codesign.cer` beside itself into `ROOT` and `TrustedPublisher`, and
 `--file <path>` picks a different certificate. After that, starting a program from that folder
 stops producing "unknown publisher", and `Get-AuthenticodeSignature Client.exe` reports `Valid`.

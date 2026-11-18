@@ -1744,6 +1744,10 @@ so the package carries it and one program installs it:
 ./dist/linear-windows-release/LinearCert.exe uninstall
 ```
 
+Started with no arguments — a double-click in Explorer — it installs for your account and keeps
+its window open until you press Enter, so what it did (or what went wrong) stays on screen
+instead of disappearing with the window it was printed in.
+
 It writes the `certs\linear-codesign.cer` beside itself into `ROOT` and `TrustedPublisher`, and
 `--file <path>` picks a different certificate. After that, starting a program from that folder
 stops producing "unknown publisher", and `Get-AuthenticodeSignature Client.exe` reports `Valid`.

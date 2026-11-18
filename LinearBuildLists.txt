@@ -363,15 +363,21 @@ if(LINEAR_BUILD_HUB)
 endif()
 
 # LinearCert puts the code-signing certificate into the Windows trust stores, so a signed
-# build starts without Windows asking who the publisher is. Signing itself is
-# scripts/sign-binaries.ps1; this program only handles the trust stores.
+# build starts without Windows asking who the publisher is, and takes it out again. Signing
+# itself is scripts/sign-binaries.ps1; this program only handles the trust stores. Double-
+# clicked it draws the installer's window (InstallUi) rather than a console, so it links the
+# same window the setup and the updater use; the argument paths stay on the console.
 if(LINEAR_BUILD_CERT)
     add_executable(LinearCert
         src/CertMain.cpp
         src/CertificateTrust.cpp
+        src/InstallUi.cpp
+        ${LINEARUI_SOURCES}
     )
     configure_linear_target(LinearCert)
-    target_link_libraries(LinearCert PRIVATE crypt32)
+    # crypt32 is the certificate stores; linearwin and lineargl are the window and the GL
+    # context the window draws through.
+    target_link_libraries(LinearCert PRIVATE crypt32 linearwin lineargl)
 endif()
 
 # LinearAntiCheat is compiled straight into the client (see its LinearBuildLists): the

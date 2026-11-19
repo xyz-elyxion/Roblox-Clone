@@ -8,8 +8,10 @@
 // Double-clicked, it draws the installer's window instead of a console: the window reports what
 // this machine already thinks of the certificate and offers the one action that changes it -
 // trust it, or stop trusting it - so removing the trust is a button rather than a command
-// somebody has to know about. The arguments are unchanged, because they are what the packaging
-// scripts and CI call, and a machine that cannot make a window falls back to them.
+// somebody has to know about. --machine on its own draws that same window over the machine
+// stores, because that is the run a person types at an elevated prompt and it wants a button as
+// much as the per-user one does. The arguments are unchanged otherwise, because they are what
+// the packaging scripts and CI call, and a machine that cannot make a window falls back to them.
 
 #include "CertificateTrust.h"
 #include "InstallUi.h"
@@ -55,8 +57,9 @@ void usage() {
         "\n"
         "Started with no arguments it opens a window that says whether this machine trusts the\n"
         "certificate and offers to add it or remove it, which is what double-clicking it does.\n"
-        "Any argument means a script, so the console is used; --ui asks for the window anyway\n"
-        "and --no-ui refuses it.\n"
+        "--machine on its own opens the same window for the machine stores, which the button\n"
+        "can only write from an elevated prompt. A command word, --file or --help is a script,\n"
+        "so the console is used; --ui asks for the window anyway and --no-ui refuses it.\n"
         "\n"
         "Without --machine the certificate goes in your own stores, which needs no\n"
         "administrator. --machine writes to the machine stores and needs an elevated shell.\n"
@@ -68,6 +71,9 @@ void usage() {
 
 struct Options {
     std::string command = "install";
+    // Told apart from the default, because a run that names no command is a person asking
+    // for the window and a run that names one is a script asking for the console.
+    bool commandGiven = false;
     std::string file;
     bool machine = false;
     bool ui = false;
@@ -80,6 +86,7 @@ bool parseOptions(int argc, char** argv, Options* options) {
         const std::string argument = argv[i];
         if (argument == "install" || argument == "uninstall" || argument == "status") {
             options->command = argument;
+            options->commandGiven = true;
         } else if (argument == "--machine") {
             options->machine = true;
         } else if (argument == "--file") {
@@ -220,22 +227,32 @@ int windowed(const std::string& path, bool machine) {
     // action that changes something: trusting an untrusted certificate, or removing a trusted
     // one. A button that would do nothing is a button that looks broken.
     if (trusted) {
-        window.heading = "Windows trusts the Linear certificate";
-        window.detail =
-            "Programs signed with it start without asking who published them. Removing the "
-            "certificate brings that prompt back and touches nothing else. SmartScreen's "
-            "reputation check is separate from this and is not changed by it.";
+        window.heading = machine ? "Every account on this machine trusts the Linear certificate"
+                                 : "Windows trusts the Linear certificate";
+        window.detail = machine
+            ? "Programs signed with it start without asking who published them. Removing it from "
+              "the machine stores brings that prompt back for everyone who signs in here, and "
+              "touches nothing else. SmartScreen's reputation check is separate from this and is "
+              "not changed by it."
+            : "Programs signed with it start without asking who published them. Removing the "
+              "certificate brings that prompt back and touches nothing else. SmartScreen's "
+              "reputation check is separate from this and is not changed by it.";
     } else {
-        window.heading = "Trust the Linear certificate";
-        window.detail =
-            "Programs signed with this certificate ask who published them until Windows trusts "
-            "it. Trusting it here covers your account and needs no administrator.";
+        window.heading = machine ? "Trust the Linear certificate for every account"
+                                 : "Trust the Linear certificate";
+        window.detail = machine
+            ? "Programs signed with it ask who published them until Windows trusts it. This run "
+              "writes to the machine stores, so it covers every account on this computer, and "
+              "Windows only lets it through when the program was started as administrator."
+            : "Programs signed with this certificate ask who published them until Windows trusts "
+              "it. Trusting it here covers your account and needs no administrator.";
     }
     if (!machine) {
         window.detail += " From an administrator shell, --machine covers every account.";
     }
     window.startLabel = trusted ? "Stop trusting it" : "Trust it";
     window.cancelLabel = trusted ? "Keep it" : "Close";
+    window.busyLabel = trusted ? "Removing the certificate..." : "Trusting the certificate...";
     // Nothing to type: the certificate is the one beside this program, and the scope is the one
     // the run was started with.
     window.showFolder = false;
@@ -276,15 +293,18 @@ int main(int argc, char** argv) {
         return finish(1);
     }
 
-    // No arguments at all means somebody double-clicked the program, so it opens a window. Any
-    // argument means a script, which wants the console, unless --ui says otherwise. A window
-    // that cannot be created falls back to the console, which is what the scripts use anyway.
-    if (!options.noUi && (options.ui || argc == 1)) {
+    // No arguments at all means somebody double-clicked the program, and a scope switch on its
+    // own (--machine) is the same person at an elevated prompt, so both open the window. A
+    // command word or --file is a script, which was reading the console before the window
+    // existed and still gets it. --ui asks for the window anyway, --no-ui never has one, and a
+    // window that cannot be created falls back to the console the scripts use.
+    const bool script = options.commandGiven || !options.file.empty();
+    if (!options.noUi && (options.ui || !script)) {
         const int shown = windowed(path, options.machine);
         if (shown >= 0) return shown;
     }
 
-    if (argc <= 1) {
+    if (!script) {
         std::printf("LinearCert - making Windows trust the Linear signing certificate.\n\n");
     }
 

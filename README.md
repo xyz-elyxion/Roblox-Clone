@@ -18,7 +18,7 @@ before pointing it at the internet.
 | `LinearProxy.exe` | Front door for the site: listens on one address and forwards every request to `WebApp.exe` |
 | `AiTrainer.exe` | Signs in with a developer token, learns to play an AI-compatible game, and can draw the run in a window while it trains |
 | `LinearHosts.exe` | Keeps N game servers running on one machine — ports, logs, restarts, control panel — see [HOSTING.md](HOSTING.md) |
-| `LinearCert.exe` | Puts the signing certificate into the Windows trust stores, or takes it out again, so a signed build starts without Windows asking who published it; double-clicked it opens a window that offers both |
+| `LinearCert.exe` | Puts the signing certificate into the Windows trust stores, or takes it out again, so a signed build starts without Windows asking who published it; double-clicked, or started with just `--machine`, it opens a window that offers both |
 
 ```powershell
 build\linearbuild-tool\bin\linearbuild --preset windows-release
@@ -1750,6 +1750,7 @@ so the package carries it and one program installs it:
 
 ```powershell
 ./dist/linear-windows-release/LinearCert.exe                   # window: trust it, or remove it
+./dist/linear-windows-release/LinearCert.exe --machine         # window: every account, elevated
 ./dist/linear-windows-release/LinearCert.exe install           # your account, no admin needed
 ./dist/linear-windows-release/LinearCert.exe install --machine # every account, elevated
 ./dist/linear-windows-release/LinearCert.exe status            # does this machine trust it?
@@ -1759,10 +1760,12 @@ so the package carries it and one program installs it:
 Started with no arguments — a double-click in Explorer — it opens a window instead of a console.
 The window reads the trust stores and offers the one action that changes what it finds: *Trust
 it* when this machine has never seen the certificate, *Stop trusting it* when it is already
-trusted, so removing it is a button rather than a command you have to know. `--ui` asks for the
-window on a run that has arguments and `--no-ui` refuses it, and a machine that cannot make a
-window — a build agent, a session with no desktop — falls back to the console, which keeps its
-own window open until Enter so nothing it printed is lost.
+trusted, so removing it is a button rather than a command you have to know. `--machine` on its
+own opens that window over the machine stores, the run that needs the elevated prompt; a command
+word or `--file` is a script and keeps the console, which `--ui` and `--no-ui` override in either
+direction. A machine that cannot make a window — a build agent, a session with no desktop —
+falls back to the console, which keeps its own window open until Enter so nothing it printed is
+lost.
 
 If Explorer refuses to start it with a dialog titled with the program's path that says *A
 referral was returned from the server*, that is the shell's security check on a file that

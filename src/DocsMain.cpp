@@ -180,6 +180,9 @@ struct State {
     // A section the reader asked for, applied as the page begins.
     float jump = -1.0f;
     float scroll = 0.0f;
+    // The section list belongs to one document, so it goes back to the top when a
+    // different one is opened instead of keeping the last document's offset.
+    bool resetSections = false;
     std::string error;
 };
 
@@ -232,7 +235,11 @@ void drawDocumentList(Frame& frame, float top, float height) {
     LinearUI::BeginChild("##documents", LinearVec2(innerWidth, height), 0,
                          LinearUIWindowFlags_NoBackground);
 
-    float y = top;
+    // Rows belong to the list's content, so they start at its top less how far it
+    // has been scrolled. Placing them at a fixed screen y instead makes the height
+    // the child measures grow with the scroll, and then the bar can be dragged
+    // forever while the rows never move.
+    float y = top - LinearUI::GetScrollY();
     for (std::size_t index = 0; index < frame.state.sources.size(); ++index) {
         const Source& source = frame.state.sources[index];
         const int position = static_cast<int>(index);
@@ -247,6 +254,7 @@ void drawDocumentList(Frame& frame, float top, float height) {
             frame.state.selected = position;
             frame.state.jump = 0.0f;
             frame.state.pageDocument = -1;
+            frame.state.resetSections = true;
         }
 
         if (current || hovered) {
@@ -289,10 +297,16 @@ void drawSectionList(Frame& frame, float top, float height) {
 
     LinearUI::PushStyleVar(LinearUIStyleVar_WindowPadding, LinearVec2(0.0f, 0.0f));
     LinearUI::SetCursorScreenPos(LinearVec2(left, top));
+    if (frame.state.resetSections) {
+        LinearUI::SetNextWindowScroll(LinearVec2(0.0f, 0.0f));
+        frame.state.resetSections = false;
+    }
     LinearUI::BeginChild("##sections", LinearVec2(innerWidth, height), 0,
                          LinearUIWindowFlags_NoBackground);
 
-    float y = top;
+    // As in the document list: the rows move with this list's scroll rather than
+    // sitting at a fixed screen position.
+    float y = top - LinearUI::GetScrollY();
     for (std::size_t index = 0; index < sections.size(); ++index) {
         const Section& section = sections[index];
         const int position = static_cast<int>(index);
@@ -498,8 +512,11 @@ void drawContent(Frame& frame) {
     // the child: the section list and any jump both work from it.
     frame.state.scroll = LinearUI::GetScrollY();
 
-    // One item as tall as the page gives the child something to scroll.
-    LinearUI::SetCursorScreenPos(LinearVec2(contentLeft, pageTop));
+    // One item as tall as the page gives the child something to scroll. It sits at
+    // the content origin, not at the page's screen top, because the height the
+    // child measures is taken from that origin: anchored to the screen it would
+    // grow with the scroll and the page could be scrolled forever.
+    LinearUI::SetCursorPos(LinearVec2(0.0f, 0.0f));
     LinearUI::Dummy(LinearVec2(1.0f, page.height + 12.0f));
 
     const float visibleTop = frame.state.scroll - 40.0f;

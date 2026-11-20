@@ -104,7 +104,7 @@ try {
     $exeDir = Join-Path $BuildDir $Configuration
     $found = @()
     $missing = @()
-    foreach ($name in @('WebApp', 'Server', 'Client', 'Studio', 'LinearCode', 'AiTrainer', 'LinearUpdater', 'LinearSetup', 'LinearHosts', 'LinearProxy', 'LinearGit', 'LinearHub', 'LinearCert', 'ServerSetup')) {
+    foreach ($name in @('WebApp', 'Server', 'Client', 'Studio', 'LinearCode', 'AiTrainer', 'LinearUpdater', 'LinearSetup', 'LinearHosts', 'LinearProxy', 'LinearGit', 'LinearHub', 'LinearCert', 'LinearDocs', 'ServerSetup')) {
         $exePath = Join-Path $exeDir "$name.exe"
         if (Test-Path -LiteralPath $exePath) {
             Copy-Item -LiteralPath $exePath -Destination $Output
@@ -182,6 +182,15 @@ try {
         }
     }
 
+    # The documentation LinearDocs.exe draws: every Markdown file at the top of the
+    # repository, copied as they are. The window reads them at run time, so a
+    # sentence corrected here is corrected in the next package with no build step.
+    $docsTarget = Join-Path $Output 'docs'
+    New-Item -ItemType Directory -Path $docsTarget -Force | Out-Null
+    Get-ChildItem -LiteralPath '.' -Filter *.md -File | ForEach-Object {
+        Copy-Item -LiteralPath $_.FullName -Destination $docsTarget
+    }
+
     $crlf = "`r`n"
     $encoding = [System.Text.Encoding]::ASCII
 
@@ -210,6 +219,8 @@ try {
         '                owner password, secrets) and starts WebApp.exe in production'
         '  LinearCert.exe    trusts or removes the signing certificate, so Windows knows who'
         '                published a build; double-click it for the window'
+        '  LinearDocs.exe    the documentation in docs/, as a page: the README plus every other'
+        '                Markdown file, with the sections of each one listed beside it'
         '  LinearHosts.exe   server supervisor: keeps a pool of Server.exe processes alive, one'
         '                per port with its own log, restarting any that exit'
         '  LinearProxy.exe   reverse proxy: puts the website on another address - port 80 on the'
@@ -218,6 +229,7 @@ try {
         '                repository that git itself can read (loose objects, refs, index)'
         '  LinearHub.exe     repository browser: files at HEAD, history, a commit page and'
         '                issues on http://127.0.0.1:3100, rendered from the repository'
+        '  docs/         the Markdown LinearDocs.exe shows (README.md and the topic files)'
         '  web/          website assets (public/ pages and API scripts, seed-worlds/)'
         '  web/host/     the LinearHosts control panel page'
         '  web/hub/      the LinearHub browser stylesheet'

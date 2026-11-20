@@ -19,6 +19,7 @@ set(LINEARBUILD_CXX_EXTENSIONS OFF)
 option(LINEAR_BUILD_STUDIO "Build the Studio editor target" ON)
 option(LINEAR_BUILD_CODEEDITOR "Build the LinearCode source editor target" ON)
 option(LINEAR_BUILD_CERT "Build the LinearCert certificate installer target" ON)
+option(LINEAR_BUILD_DOCS "Build the LinearDocs documentation window target" ON)
 option(LINEAR_BUILD_CLIENT "Build the game client target" ON)
 option(LINEAR_BUILD_SERVER "Build the game server target" ON)
 option(LINEAR_BUILD_TESTS "Build C++ test targets" ON)
@@ -378,6 +379,23 @@ if(LINEAR_BUILD_CERT)
     # crypt32 is the certificate stores; linearwin and lineargl are the window and the GL
     # context the window draws through.
     target_link_libraries(LinearCert PRIVATE crypt32 linearwin lineargl)
+endif()
+
+# LinearDocs is the documentation as a window: it reads the Markdown the package ships in
+# docs/ and draws it as a page, with the documents listed down the left and the headings of
+# the open one under them, each one a jump. DocsLayout holds the Markdown reader and the
+# wrapping and knows nothing about a window, which is what lets DocsLayoutTests check what
+# the page will say on a machine with no display.
+if(LINEAR_BUILD_DOCS)
+    add_executable(LinearDocs
+        src/DocsMain.cpp
+        src/DocsLibrary.cpp
+        src/DocsLayout.cpp
+        ${LINEARUI_SOURCES}
+    )
+    configure_linear_target(LinearDocs)
+    # linearwin and lineargl are the window and the GL context it draws through.
+    target_link_libraries(LinearDocs PRIVATE linearwin lineargl)
 endif()
 
 # LinearAntiCheat is compiled straight into the client (see its LinearBuildLists): the
@@ -765,5 +783,12 @@ if(LINEAR_BUILD_TESTS)
     )
     target_include_directories(CodeGitTests PRIVATE ${LINEARBUILD_CURRENT_SOURCE_DIR}/include)
     add_test(NAME CodeGitTests COMMAND CodeGitTests)
+
+    # The documentation window's two decisions: what a Markdown file is made of,
+    # and where each line of it ends up at a given width. The font is faked, so
+    # this runs on a build server that has no display and no font files.
+    add_executable(DocsLayoutTests tests/docs_layout_tests.cpp src/DocsLayout.cpp)
+    target_include_directories(DocsLayoutTests PRIVATE ${LINEARBUILD_CURRENT_SOURCE_DIR}/include)
+    add_test(NAME DocsLayoutTests COMMAND DocsLayoutTests)
 
 endif()

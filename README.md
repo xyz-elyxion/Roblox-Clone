@@ -19,6 +19,7 @@ before pointing it at the internet.
 | `AiTrainer.exe` | Signs in with a developer token, learns to play an AI-compatible game, and can draw the run in a window while it trains |
 | `LinearHosts.exe` | Keeps N game servers running on one machine — ports, logs, restarts, control panel — see [HOSTING.md](HOSTING.md) |
 | `LinearCert.exe` | Puts the signing certificate into the Windows trust stores, or takes it out again, so a signed build starts without Windows asking who published it; double-clicked, or started with just `--machine`, it opens a window that offers both |
+| `LinearDocs.exe` | The documentation as a window: this README and the topic files beside it — SECURITY, HOSTING, LINEARBUILD, CONTRIBUTING, the code of conduct, AGENTS — read from `docs/`, with the sections of the open page listed next to it |
 
 ```powershell
 build\linearbuild-tool\bin\linearbuild --preset windows-release
@@ -67,7 +68,11 @@ server](#setting-up-a-server)). `LinearProxy.exe` is the site's front door: it l
 `WebApp.exe`, and adds the `X-Forwarded-*` headers the site cannot learn from its own socket, so the
 site can be reached through one address of your choosing. `LinearProxy.exe --listen 0.0.0.0:80
 --upstream 127.0.0.1:3000` puts it on port 80; the listener stays on loopback until you say
-otherwise, and the site then answers whoever can reach that port.
+otherwise, and the site then answers whoever can reach that port. `LinearDocs.exe` opens the
+documentation that ships with the build: it reads the Markdown in the package's `docs/` folder —
+this README and the topic files it links to — and draws it as a page, with every document listed
+down the left and the headings of the open one under them, each one a jump. It reads the files
+where they are, so the window always shows the text that shipped and a correction needs no build.
 
 There are no `.bat` files anywhere, in the package or in an install: every program looks for its data
 in the folder it runs from, which is where Explorer starts it, so a console wrapper added nothing.
@@ -1588,8 +1593,8 @@ linear-windows-release/
   web/public/  web/seed-worlds/
   shaders/  ServerWorld.world  face*.png  face_hex.txt
   LinearUpdater.exe  LinearSetup.exe  ServerSetup.exe  AiTrainer.exe  LinearHosts.exe  LinearProxy.exe
-  LinearGit.exe  LinearHub.exe  LinearCert.exe  update.json  manifest.json
-  certs/linear-codesign.cer
+  LinearGit.exe  LinearHub.exe  LinearCert.exe  LinearDocs.exe  update.json  manifest.json
+  docs/  certs/linear-codesign.cer
   README.txt
 ```
 

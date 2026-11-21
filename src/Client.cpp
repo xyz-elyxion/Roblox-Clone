@@ -155,7 +155,8 @@ std::string workingDirectory() {
 // initialiser leaves no evidence anywhere - the window opens on an empty prompt and that
 // is all anyone sees. This appends one line per stage to startup_trace.txt in the working
 // directory, using only the Win32 calls that are safe that early, so the next report says
-// how far the process got. It is three short lines per run; delete the file freely.
+// how far the process got. It is a handful of short lines per run, plus one a second
+// while the first frames are drawn; delete the file freely.
 void traceStartup(const char* stage) {
     HANDLE trace = CreateFileA("startup_trace.txt", FILE_APPEND_DATA,
                                FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_ALWAYS,
@@ -170,12 +171,18 @@ void traceStartup(const char* stage) {
     CloseHandle(trace);
 }
 
+// For the stages whose text is built at run time; the const char* overload above stays
+// the one every fixed message uses.
+void traceStartup(const std::string& stage) {
+    traceStartup(stage.c_str());
+}
+
 namespace {
 // Static initialisers run after every TLS callback and before main, so this line being
 // present is what tells "the process got as far as its own code" from "it stopped in the
 // loader, before anything of ours ran".
 struct StartupTrace {
-    StartupTrace() { traceStartup("1/4 static initialisers ran"); }
+    StartupTrace() { traceStartup("1/10 static initialisers ran"); }
 };
 const StartupTrace g_startupTrace;
 }
@@ -1185,7 +1192,7 @@ int main(int argc, char** argv) {
     // opened: a run that prints nothing at all stopped with the loader or in a static
     // initialiser rather than in anything the client does. sayToConsole() writes to the
     // console's own handle as well, so a redirected stdout does not swallow it.
-    traceStartup("2/4 main entered");
+    traceStartup("2/10 main entered");
     sayToConsole("Client starting.");
 
     // Redirect stdout/stderr to files for debugging. These are best effort: if the
@@ -1202,9 +1209,9 @@ int main(int argc, char** argv) {
 
 #if defined(LINEAR_ANTICHEAT)
     sayToConsole("Starting the anti-cheat...");
-    traceStartup("3/4 starting the anti-cheat");
+    traceStartup("3/10 starting the anti-cheat");
     startAntiCheat();
-    traceStartup("4/4 the anti-cheat returned");
+    traceStartup("4/10 the anti-cheat returned");
     sayToConsole("Anti-cheat started.");
 #endif
 
@@ -1226,6 +1233,11 @@ int main(int argc, char** argv) {
 
         Window window(SCR_WIDTH, SCR_HEIGHT, "Linear Client");
         sayToConsole("Window Created.");
+        // The window and its OpenGL context take the video driver, which can be the
+        // slowest thing in a cold start. A trace that ends on the line above stopped
+        // before there was a window at all; one that ends here stopped in the setup
+        // below, which is a different bug.
+        traceStartup("5/10 window and OpenGL context created");
 
         // A machine with no output device still has a game to play, so audio
         // failing is a line in the log and silence, never a reason to stop.
@@ -1246,10 +1258,14 @@ int main(int argc, char** argv) {
         LinearUI_ImplLinearWin_InitForOpenGL(window.getNativeWindow(), true);
         LinearUI_ImplOpenGL3_Init("#version 330");
         sayToConsole("LinearUI Initialized.");
+        traceStartup("6/10 audio and UI ready");
 
         Renderer renderer;
         renderer.init();
         sayToConsole("Renderer Initialized.");
+        // The shaders are compiled here, in the driver, and one the driver refuses
+        // can take as long as a driver decision does.
+        traceStartup("7/10 renderer and shaders ready");
 
         // Skybox skybox; 
         // skybox.init();
@@ -1264,6 +1280,7 @@ int main(int argc, char** argv) {
         ShadowMap shadowMap;
         shadowMap.init();
         std::cout << "ShadowMap Initialized." << std::endl;
+        traceStartup("8/10 sky, physics and shadow map ready");
 
         std::deque<Part> parts;
 
@@ -1339,15 +1356,33 @@ int main(int argc, char** argv) {
             }
         }
 
+        traceStartup(autoConnectOnStart ? "9/10 join request sent, still to get a window frame"
+                                        : "9/10 client settings loaded");
+
         glEnable(GL_DEPTH_TEST);
         glEnable(GL_CULL_FACE);
         std::cout << "Starting Main Loop..." << std::endl;
+        traceStartup("10/10 entering the main loop");
 
         int frameCount = 0;
         while (!window.shouldClose()) {
             // 1. Poll Events
             window.pollEvents();
             applyCursorCapture();
+
+            // Windows draws a window whose thread has stopped pumping its messages as
+            // "Not Responding", and it never says where the thread went. The trace says
+            // whether the loop itself is still running, which is what tells a stop
+            // during startup from one in a later frame. Bounded to the first twenty
+            // seconds so a long game session does not keep growing the file.
+            static int loopTraceCount = 0;
+            static auto lastLoopTrace = std::chrono::steady_clock::now();
+            if (loopTraceCount < 20 &&
+                std::chrono::steady_clock::now() - lastLoopTrace >= std::chrono::seconds(1)) {
+                lastLoopTrace = std::chrono::steady_clock::now();
+                ++loopTraceCount;
+                traceStartup("loop alive after " + std::to_string(loopTraceCount) + " s");
+            }
 
             float currentFrame = static_cast<float>(linearwinGetTime());
             deltaTime = currentFrame - lastFrame;

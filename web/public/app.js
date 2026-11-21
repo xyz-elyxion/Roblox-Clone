@@ -1782,6 +1782,20 @@ function createMyGameRow(game) {
     [
         ['none', 'Blank'],
         ['ascii', 'ASCII'],
+        ['asciify', 'ASCII cursor trail'],
+        ['bend', 'Folded bend'],
+        ['blaze', 'Blazing fire'],
+        ['bubble', 'Iridescent bubbles'],
+        ['paper', 'Textured paper'],
+        ['chrome', 'Liquid chrome'],
+        ['cloth', 'Windblown cloth'],
+        ['clouds', 'Drifting clouds'],
+        ['decrypt', 'Decrypt reveal'],
+        ['displacement', 'Displaced grid'],
+        ['dither', 'Bayer dither'],
+        ['droplets', 'Rain on glass'],
+        ['flame', 'Flame wrap'],
+        ['force', 'Force field'],
         ['grid', 'Moving grid'],
         ['glow', 'Soft glow']
     ].forEach(([value, label]) => {
@@ -1790,7 +1804,7 @@ function createMyGameRow(game) {
         option.textContent = label;
         effectSelect.appendChild(option);
     });
-    effectSelect.value = ['ascii', 'grid', 'glow'].includes(game.heroEffect) ? game.heroEffect : 'none';
+    effectSelect.value = ['ascii', 'asciify', 'bend', 'blaze', 'bubble', 'paper', 'chrome', 'cloth', 'clouds', 'decrypt', 'displacement', 'dither', 'droplets', 'flame', 'force', 'grid', 'glow'].includes(game.heroEffect) ? game.heroEffect : 'none';
     const effectStatus = document.createElement('span');
     effectStatus.className = 'game-effect-status';
     effectStatus.setAttribute('aria-live', 'polite');
@@ -2166,6 +2180,2280 @@ function renderGameStats(container, game) {
     rows.forEach(([label, value]) => container.appendChild(statTile(label, value)));
 }
 
+function initGameAsciiEffect(hero, banner) {
+    if (!hero || !banner) return;
+
+    let canvas = hero.querySelector('[data-game-ascii]');
+    if (hero.dataset.effect !== 'ascii') {
+        hero._linearAsciiStop?.();
+        hero._linearAsciiResizeObserver?.disconnect();
+        canvas?.remove();
+        return;
+    }
+    if (!canvas) {
+        canvas = document.createElement('canvas');
+        canvas.className = 'game-ascii-effect';
+        canvas.setAttribute('data-game-ascii', '');
+        canvas.setAttribute('aria-hidden', 'true');
+        hero.insertBefore(canvas, hero.querySelector('.game-hero-copy'));
+    }
+
+    const context = canvas.getContext('2d', { alpha: true });
+    if (!context) return;
+
+    const sampleCanvas = document.createElement('canvas');
+    const sampleContext = sampleCanvas.getContext('2d', { willReadFrequently: true });
+    if (!sampleContext) return;
+
+    const glyphs = ' .:-=+*#%@';
+    let frame = 0;
+    let stopped = false;
+    let pixels = null;
+    let sampleWidth = 0;
+    let sampleHeight = 0;
+
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+    function stopPreviousEffect() {
+        stopped = true;
+        cancelAnimationFrame(frame);
+    }
+
+    hero._linearAsciiStop?.();
+    hero._linearAsciiStop = stopPreviousEffect;
+
+    function resizeAndSample() {
+        if (!canvas.isConnected) return;
+        const rect = hero.getBoundingClientRect();
+        if (rect.width < 1 || rect.height < 1) return;
+
+        const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+        canvas.width = Math.round(rect.width * pixelRatio);
+        canvas.height = Math.round(rect.height * pixelRatio);
+        canvas.style.width = `${rect.width}px`;
+        canvas.style.height = `${rect.height}px`;
+        context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+
+        sampleWidth = Math.ceil(rect.width / 10);
+        sampleHeight = Math.ceil(rect.height / 10);
+        sampleCanvas.width = sampleWidth;
+        sampleCanvas.height = sampleHeight;
+
+        try {
+            sampleContext.clearRect(0, 0, sampleWidth, sampleHeight);
+            const sourceWidth = banner.naturalWidth;
+            const sourceHeight = banner.naturalHeight;
+            if (sourceWidth && sourceHeight) {
+                const scale = Math.max(sampleWidth / sourceWidth, sampleHeight / sourceHeight);
+                const width = sourceWidth * scale;
+                const height = sourceHeight * scale;
+                sampleContext.drawImage(
+                    banner,
+                    (sampleWidth - width) / 2,
+                    (sampleHeight - height) / 2,
+                    width,
+                    height
+                );
+                pixels = sampleContext.getImageData(0, 0, sampleWidth, sampleHeight).data;
+            } else {
+                pixels = null;
+            }
+        } catch (_) {
+            pixels = null;
+        }
+        draw(performance.now());
+    }
+
+    function draw(time) {
+        if (stopped || !canvas.isConnected) return;
+        cancelAnimationFrame(frame);
+        const rect = hero.getBoundingClientRect();
+        context.clearRect(0, 0, rect.width, rect.height);
+
+        const motionTime = reducedMotion.matches ? 0 : time * 0.001;
+        const sweep = reducedMotion.matches
+            ? rect.width
+            : (motionTime * 110) % (rect.width + 260) - 260;
+        const startX = rect.width * 0.48;
+        context.font = '7px monospace';
+        context.textAlign = 'center';
+        context.textBaseline = 'middle';
+
+        for (let y = 5; y < rect.height; y += 10) {
+            for (let x = 5; x < rect.width; x += 10) {
+                if (x < startX) continue;
+
+                const distance = Math.abs(x - sweep);
+                const sweepGlow = Math.max(0, 1 - distance / 180);
+                const normalizedX = (x - startX) / Math.max(1, rect.width - startX);
+                const wave = 0.5 + Math.sin(y * 0.18 + motionTime * 1.4 + x * 0.035) * 0.5;
+                const flicker = reducedMotion.matches ? 0.72 : 0.58 + wave * 0.42;
+
+                let luminance = 0.18 + normalizedX * 0.12;
+                if (pixels) {
+                    const pixelX = Math.min(sampleWidth - 1, Math.floor(x / rect.width * sampleWidth));
+                    const pixelY = Math.min(sampleHeight - 1, Math.floor(y / rect.height * sampleHeight));
+                    const pixelIndex = (pixelY * sampleWidth + pixelX) * 4;
+                    luminance = (
+                        pixels[pixelIndex] * 0.2126 +
+                        pixels[pixelIndex + 1] * 0.7152 +
+                        pixels[pixelIndex + 2] * 0.0722
+                    ) / 255;
+                }
+
+                const density = Math.min(1, luminance * 0.55 + flicker * 0.38 + sweepGlow * 0.28);
+                if (density < 0.2) continue;
+                const glyphIndex = Math.min(glyphs.length - 1, Math.floor(density * glyphs.length));
+                const glyph = glyphs[glyphIndex];
+                if (!glyph || glyph === ' ') continue;
+                const alpha = 0.16 + density * 0.48 + sweepGlow * 0.36;
+                context.fillStyle = `rgba(225, 245, 255, ${Math.min(0.92, alpha).toFixed(2)})`;
+                context.fillText(glyph, x, y);
+            }
+        }
+
+        if (!reducedMotion.matches) {
+            frame = requestAnimationFrame(draw);
+        }
+    }
+
+    stopped = false;
+    resizeAndSample();
+    if ('ResizeObserver' in window) {
+        const resizeObserver = new ResizeObserver(resizeAndSample);
+        resizeObserver.observe(hero);
+        hero._linearAsciiResizeObserver?.disconnect();
+        hero._linearAsciiResizeObserver = resizeObserver;
+    } else {
+        window.addEventListener('resize', resizeAndSample);
+    }
+    banner.addEventListener('load', resizeAndSample, { once: true });
+}
+
+function initGameAsciifyEffect(hero) {
+    if (!hero) return;
+
+    let canvas = hero.querySelector('[data-game-asciify]');
+    if (hero.dataset.effect !== 'asciify') {
+        hero._linearAsciifyStop?.();
+        hero._linearAsciifyResizeObserver?.disconnect();
+        canvas?.remove();
+        return;
+    }
+    if (!canvas) {
+        canvas = document.createElement('canvas');
+        canvas.className = 'game-asciify-effect';
+        canvas.setAttribute('data-game-asciify', '');
+        canvas.setAttribute('aria-hidden', 'true');
+        hero.insertBefore(canvas, hero.querySelector('.game-hero-copy'));
+    }
+
+    const context = canvas.getContext('2d', { alpha: true });
+    if (!context) return;
+
+    let frame = 0;
+    let stopped = false;
+    let points = [];
+    let clicks = [];
+    const pointer = { x: 0, y: 0, active: false };
+    const glyphs = ' .-=+xX0S8#@';
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+    function stopEffect() {
+        stopped = true;
+        cancelAnimationFrame(frame);
+        hero.removeEventListener('pointermove', onPointerMove);
+        hero.removeEventListener('pointerleave', onPointerLeave);
+        hero.removeEventListener('pointerdown', onPointerDown);
+    }
+
+    hero._linearAsciifyStop?.();
+    hero._linearAsciifyStop = stopEffect;
+
+    function resize() {
+        const rect = hero.getBoundingClientRect();
+        if (rect.width < 1 || rect.height < 1) return;
+        const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+        canvas.width = Math.round(rect.width * pixelRatio);
+        canvas.height = Math.round(rect.height * pixelRatio);
+        canvas.style.width = `${rect.width}px`;
+        canvas.style.height = `${rect.height}px`;
+        context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+    }
+
+    function localPoint(event) {
+        const rect = hero.getBoundingClientRect();
+        return {
+            x: event.clientX - rect.left,
+            y: event.clientY - rect.top
+        };
+    }
+
+    function onPointerMove(event) {
+        const point = localPoint(event);
+        pointer.x = point.x;
+        pointer.y = point.y;
+        pointer.active = true;
+        points.push({ x: point.x, y: point.y, born: performance.now() });
+        if (points.length > 420) points.shift();
+    }
+
+    function onPointerLeave() {
+        pointer.active = false;
+    }
+
+    function onPointerDown(event) {
+        if (reducedMotion.matches) return;
+        const point = localPoint(event);
+        clicks.push({ x: point.x, y: point.y, born: performance.now() });
+        if (clicks.length > 12) clicks.shift();
+    }
+
+    function draw(time) {
+        if (stopped || !canvas.isConnected) return;
+        const rect = hero.getBoundingClientRect();
+        context.clearRect(0, 0, rect.width, rect.height);
+        context.font = '10px monospace';
+        context.textAlign = 'center';
+        context.textBaseline = 'middle';
+
+        if (pointer.active && !reducedMotion.matches) {
+            points.push({ x: pointer.x, y: pointer.y, born: time });
+        }
+
+        const now = time;
+        points = points.filter(point => now - point.born < 900);
+        const cellSize = 12;
+        const drawn = new Set();
+
+        for (const point of points) {
+            const age = (now - point.born) / 900;
+            const radius = 20 + age * 125;
+            for (let y = point.y - radius; y <= point.y + radius; y += cellSize) {
+                for (let x = point.x - radius; x <= point.x + radius; x += cellSize) {
+                    const dx = x - point.x;
+                    const dy = y - point.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    if (distance > radius) continue;
+                    const key = `${Math.round(x / cellSize)}:${Math.round(y / cellSize)}`;
+                    if (drawn.has(key)) continue;
+                    drawn.add(key);
+
+                    const intensity = 1 - distance / radius;
+                    const noise = Math.abs(Math.sin(x * 0.31 + y * 0.19 + now * 0.002));
+                    const glyphIndex = Math.min(
+                        glyphs.length - 1,
+                        Math.floor(intensity * (0.35 + noise * 0.65) * glyphs.length)
+                    );
+                    const glyph = glyphs[glyphIndex];
+                    if (!glyph || glyph === ' ') continue;
+                    context.fillStyle = `rgba(205, 238, 255, ${(intensity * (1 - age) * 0.82).toFixed(2)})`;
+                    context.fillText(glyph, x, y);
+                }
+            }
+        }
+
+        clicks = clicks.filter(click => now - click.born < 700);
+        for (const click of clicks) {
+            const age = (now - click.born) / 700;
+            const ringRadius = 18 + age * 210;
+            for (let angle = 0; angle < Math.PI * 2; angle += 0.22) {
+                const x = click.x + Math.cos(angle) * ringRadius;
+                const y = click.y + Math.sin(angle) * ringRadius;
+                const glyph = glyphs[Math.floor((angle / (Math.PI * 2)) * (glyphs.length - 1))];
+                context.fillStyle = `rgba(215, 244, 255, ${(1 - age).toFixed(2)})`;
+                context.fillText(glyph, x, y);
+            }
+        }
+
+        if (!reducedMotion.matches) {
+            frame = requestAnimationFrame(draw);
+        }
+    }
+
+    stopped = false;
+    resize();
+    hero.addEventListener('pointermove', onPointerMove, { passive: true });
+    hero.addEventListener('pointerleave', onPointerLeave, { passive: true });
+    hero.addEventListener('pointerdown', onPointerDown, { passive: true });
+
+    if ('ResizeObserver' in window) {
+        const resizeObserver = new ResizeObserver(resize);
+        resizeObserver.observe(hero);
+        hero._linearAsciifyResizeObserver?.disconnect();
+        hero._linearAsciifyResizeObserver = resizeObserver;
+    } else {
+        window.addEventListener('resize', resize);
+    }
+    frame = requestAnimationFrame(draw);
+}
+
+function initGameBendEffect(hero) {
+    if (!hero) return;
+
+    let canvas = hero.querySelector('[data-game-bend]');
+    if (hero.dataset.effect !== 'bend') {
+        hero._linearBendStop?.();
+        hero._linearBendResizeObserver?.disconnect();
+        canvas?.remove();
+        hero.style.removeProperty('--bend-rotate-x');
+        hero.style.removeProperty('--bend-rotate-y');
+        return;
+    }
+    if (!canvas) {
+        canvas = document.createElement('canvas');
+        canvas.className = 'game-bend-effect';
+        canvas.setAttribute('data-game-bend', '');
+        canvas.setAttribute('aria-hidden', 'true');
+        hero.insertBefore(canvas, hero.querySelector('.game-hero-copy'));
+    }
+
+    const context = canvas.getContext('2d', { alpha: true });
+    if (!context) return;
+
+    let frame = 0;
+    let stopped = false;
+    let pointerX = 0.5;
+    let pointerY = 0.5;
+    let lastScrollY = window.scrollY;
+    let momentum = 0;
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+    function stopEffect() {
+        stopped = true;
+        cancelAnimationFrame(frame);
+        hero.removeEventListener('pointermove', onPointerMove);
+        hero.removeEventListener('pointerleave', onPointerLeave);
+        window.removeEventListener('scroll', onScroll);
+    }
+
+    hero._linearBendStop?.();
+    hero._linearBendStop = stopEffect;
+
+    function resize() {
+        const rect = hero.getBoundingClientRect();
+        if (rect.width < 1 || rect.height < 1) return;
+        const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+        canvas.width = Math.round(rect.width * pixelRatio);
+        canvas.height = Math.round(rect.height * pixelRatio);
+        canvas.style.width = `${rect.width}px`;
+        canvas.style.height = `${rect.height}px`;
+        context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+    }
+
+    function onPointerMove(event) {
+        if (reducedMotion.matches) return;
+        const rect = hero.getBoundingClientRect();
+        pointerX = Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width));
+        pointerY = Math.min(1, Math.max(0, (event.clientY - rect.top) / rect.height));
+    }
+
+    function onPointerLeave() {
+        pointerX = 0.5;
+        pointerY = 0.5;
+    }
+
+    function onScroll() {
+        if (reducedMotion.matches) return;
+        const next = window.scrollY;
+        momentum = Math.min(1, Math.max(-1, (next - lastScrollY) / 36));
+        lastScrollY = next;
+    }
+
+    function draw(time) {
+        if (stopped || !canvas.isConnected) return;
+        const rect = hero.getBoundingClientRect();
+        context.clearRect(0, 0, rect.width, rect.height);
+
+        const scrollProgress = Math.min(1, Math.max(0,
+            (window.scrollY - Math.max(0, rect.top + window.scrollY - rect.height)) /
+            Math.max(1, rect.height)
+        ));
+        const fold = reducedMotion.matches ? 0.18 : 0.22 + scrollProgress * 0.28 +
+            Math.abs(momentum) * 0.24;
+        const zone = Math.min(rect.height * 0.22, 96);
+        momentum *= 0.92;
+
+        const rotateX = reducedMotion.matches ? 0 : (pointerY - 0.5) * -2.4;
+        const rotateY = reducedMotion.matches ? 0 : (pointerX - 0.5) * 3.2;
+        hero.style.setProperty('--bend-rotate-x', `${rotateX.toFixed(2)}deg`);
+        hero.style.setProperty('--bend-rotate-y', `${rotateY.toFixed(2)}deg`);
+
+        context.save();
+        const topShade = context.createLinearGradient(0, 0, 0, zone);
+        topShade.addColorStop(0, `rgba(0, 0, 0, ${(0.48 * fold).toFixed(3)})`);
+        topShade.addColorStop(0.7, `rgba(20, 28, 38, ${(0.18 * fold).toFixed(3)})`);
+        topShade.addColorStop(1, 'rgba(255, 255, 255, 0)');
+        context.fillStyle = topShade;
+        context.beginPath();
+        context.moveTo(0, 0);
+        context.lineTo(rect.width, 0);
+        context.lineTo(rect.width, zone * (1 - fold * 0.18));
+        context.quadraticCurveTo(rect.width * 0.5, zone * 1.18, 0, zone * (1 - fold * 0.18));
+        context.closePath();
+        context.fill();
+
+        const bottomShade = context.createLinearGradient(0, rect.height - zone, 0, rect.height);
+        bottomShade.addColorStop(0, 'rgba(255, 255, 255, 0)');
+        bottomShade.addColorStop(0.3, `rgba(20, 28, 38, ${(0.18 * fold).toFixed(3)})`);
+        bottomShade.addColorStop(1, `rgba(0, 0, 0, ${(0.48 * fold).toFixed(3)})`);
+        context.fillStyle = bottomShade;
+        context.beginPath();
+        context.moveTo(0, rect.height);
+        context.lineTo(rect.width, rect.height);
+        context.lineTo(rect.width, rect.height - zone * (1 - fold * 0.18));
+        context.quadraticCurveTo(
+            rect.width * 0.5,
+            rect.height - zone * 1.18,
+            0,
+            rect.height - zone * (1 - fold * 0.18)
+        );
+        context.closePath();
+        context.fill();
+
+        context.strokeStyle = `rgba(215, 238, 255, ${(0.12 + fold * 0.16).toFixed(3)})`;
+        context.lineWidth = 1;
+        context.beginPath();
+        context.moveTo(0, zone);
+        context.quadraticCurveTo(rect.width * 0.5, zone * (1.12 + fold), rect.width, zone);
+        context.moveTo(0, rect.height - zone);
+        context.quadraticCurveTo(
+            rect.width * 0.5,
+            rect.height - zone * (1.12 + fold),
+            rect.width,
+            rect.height - zone
+        );
+        context.stroke();
+        context.restore();
+
+        if (!reducedMotion.matches) {
+            frame = requestAnimationFrame(draw);
+        }
+    }
+
+    stopped = false;
+    resize();
+    hero.addEventListener('pointermove', onPointerMove, { passive: true });
+    hero.addEventListener('pointerleave', onPointerLeave, { passive: true });
+    window.addEventListener('scroll', onScroll, { passive: true });
+    if ('ResizeObserver' in window) {
+        const resizeObserver = new ResizeObserver(resize);
+        resizeObserver.observe(hero);
+        hero._linearBendResizeObserver?.disconnect();
+        hero._linearBendResizeObserver = resizeObserver;
+    } else {
+        window.addEventListener('resize', resize);
+    }
+    frame = requestAnimationFrame(draw);
+}
+
+function initGameBlazeEffect(hero) {
+    if (!hero) return;
+
+    let canvas = hero.querySelector('[data-game-blaze]');
+    if (hero.dataset.effect !== 'blaze') {
+        hero._linearBlazeStop?.();
+        hero._linearBlazeResizeObserver?.disconnect();
+        canvas?.remove();
+        return;
+    }
+    if (!canvas) {
+        canvas = document.createElement('canvas');
+        canvas.className = 'game-blaze-effect';
+        canvas.setAttribute('data-game-blaze', '');
+        canvas.setAttribute('aria-hidden', 'true');
+        hero.insertBefore(canvas, hero.querySelector('.game-hero-copy'));
+    }
+
+    const context = canvas.getContext('2d', { alpha: true });
+    if (!context) return;
+
+    let frame = 0;
+    let stopped = false;
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+    function stopEffect() {
+        stopped = true;
+        cancelAnimationFrame(frame);
+    }
+
+    hero._linearBlazeStop?.();
+    hero._linearBlazeStop = stopEffect;
+
+    function resize() {
+        const rect = hero.getBoundingClientRect();
+        if (rect.width < 1 || rect.height < 1) return;
+        const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+        canvas.width = Math.round(rect.width * pixelRatio);
+        canvas.height = Math.round(rect.height * pixelRatio);
+        canvas.style.width = `${rect.width}px`;
+        canvas.style.height = `${rect.height}px`;
+        context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+    }
+
+    function draw(time) {
+        if (stopped || !canvas.isConnected) return;
+        const rect = hero.getBoundingClientRect();
+        context.clearRect(0, 0, rect.width, rect.height);
+        const seconds = reducedMotion.matches ? 2.4 : time * 0.001;
+
+        const glowHeight = rect.height * 0.28;
+        const glow = context.createLinearGradient(
+            0,
+            rect.height - glowHeight,
+            0,
+            rect.height
+        );
+        glow.addColorStop(0, 'rgba(255, 110, 20, 0)');
+        glow.addColorStop(0.7, 'rgba(255, 84, 12, 0.12)');
+        glow.addColorStop(1, 'rgba(255, 128, 28, 0.38)');
+        context.fillStyle = glow;
+        context.fillRect(0, rect.height - glowHeight, rect.width, glowHeight);
+
+        context.save();
+        context.globalCompositeOperation = 'screen';
+        for (let index = 0; index < 22; index += 1) {
+            const seed = index * 5.73;
+            const cycle = (seconds * (0.035 + (index % 5) * 0.006) + seed * 0.017) % 1;
+            const x = ((index * 83.7) % rect.width) +
+                Math.sin(seconds * 1.4 + seed) * 16;
+            const y = rect.height - cycle * rect.height * 0.82;
+            const smokeRadius = 18 + (index % 4) * 10 + cycle * 35;
+            const smoke = context.createRadialGradient(
+                x,
+                y,
+                1,
+                x,
+                y,
+                smokeRadius
+            );
+            smoke.addColorStop(0, `rgba(255, 128, 38, ${(0.16 * (1 - cycle)).toFixed(3)})`);
+            smoke.addColorStop(0.5, `rgba(255, 82, 15, ${(0.08 * (1 - cycle)).toFixed(3)})`);
+            smoke.addColorStop(1, 'rgba(255, 72, 10, 0)');
+            context.fillStyle = smoke;
+            context.beginPath();
+            context.arc(x, y, smokeRadius, 0, Math.PI * 2);
+            context.fill();
+        }
+
+        for (let index = 0; index < 90; index += 1) {
+            const seed = index * 9.17;
+            const speed = 0.12 + (index % 7) * 0.018;
+            const cycle = (seconds * speed + seed * 0.003) % 1;
+            const x = ((index * 67.31) % rect.width) +
+                Math.sin(seconds * 2.1 + seed) * (4 + index % 9);
+            const y = rect.height - 12 - cycle * rect.height * 0.78;
+            const size = 0.7 + (index % 4) * 0.42;
+            const alpha = Math.max(0, 1 - cycle) * 0.86;
+            context.fillStyle = `rgba(255, ${Math.floor(90 + (index % 5) * 24)}, 28, ${alpha.toFixed(3)})`;
+            context.beginPath();
+            context.moveTo(x, y - size * 2.8);
+            context.lineTo(x - size, y);
+            context.lineTo(x + size, y);
+            context.closePath();
+            context.fill();
+        }
+
+        context.strokeStyle = 'rgba(255, 170, 74, 0.12)';
+        context.lineWidth = 1;
+        for (let row = 0; row < 8; row += 1) {
+            const y = rect.height - 25 - row * 24;
+            context.beginPath();
+            for (let x = -20; x <= rect.width + 20; x += 12) {
+                const bend = Math.sin(x * 0.035 + seconds * (1.2 + row * 0.08) + row) * 5;
+                if (x === -20) context.moveTo(x, y + bend);
+                else context.lineTo(x, y + bend);
+            }
+            context.stroke();
+        }
+        context.restore();
+
+        if (!reducedMotion.matches) {
+            frame = requestAnimationFrame(draw);
+        }
+    }
+
+    stopped = false;
+    resize();
+    if ('ResizeObserver' in window) {
+        const resizeObserver = new ResizeObserver(resize);
+        resizeObserver.observe(hero);
+        hero._linearBlazeResizeObserver?.disconnect();
+        hero._linearBlazeResizeObserver = resizeObserver;
+    } else {
+        window.addEventListener('resize', resize);
+    }
+    frame = requestAnimationFrame(draw);
+}
+
+function initGameBubbleEffect(hero) {
+    if (!hero) return;
+
+    let canvas = hero.querySelector('[data-game-bubble]');
+    if (hero.dataset.effect !== 'bubble') {
+        hero._linearBubbleStop?.();
+        hero._linearBubbleResizeObserver?.disconnect();
+        canvas?.remove();
+        return;
+    }
+    if (!canvas) {
+        canvas = document.createElement('canvas');
+        canvas.className = 'game-bubble-effect';
+        canvas.setAttribute('data-game-bubble', '');
+        canvas.setAttribute('aria-hidden', 'true');
+        hero.insertBefore(canvas, hero.querySelector('.game-hero-copy'));
+    }
+
+    const context = canvas.getContext('2d', { alpha: true });
+    if (!context) return;
+
+    let frame = 0;
+    let stopped = false;
+    let bubbles = [];
+    let pointer = { x: 0, y: 0, active: false };
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+    function stopEffect() {
+        stopped = true;
+        cancelAnimationFrame(frame);
+        hero.removeEventListener('pointermove', onPointerMove);
+        hero.removeEventListener('pointerleave', onPointerLeave);
+        hero.removeEventListener('pointerdown', onPointerDown);
+    }
+
+    hero._linearBubbleStop?.();
+    hero._linearBubbleStop = stopEffect;
+
+    function resize() {
+        const rect = hero.getBoundingClientRect();
+        if (rect.width < 1 || rect.height < 1) return;
+        const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+        canvas.width = Math.round(rect.width * pixelRatio);
+        canvas.height = Math.round(rect.height * pixelRatio);
+        canvas.style.width = `${rect.width}px`;
+        canvas.style.height = `${rect.height}px`;
+        context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+    }
+
+    function localPoint(event) {
+        const rect = hero.getBoundingClientRect();
+        return {
+            x: event.clientX - rect.left,
+            y: event.clientY - rect.top
+        };
+    }
+
+    function onPointerMove(event) {
+        const point = localPoint(event);
+        pointer = { x: point.x, y: point.y, active: true };
+        if (!reducedMotion.matches && bubbles.length < 28) {
+            bubbles.push({
+                x: point.x,
+                y: point.y,
+                radius: 8 + (bubbles.length % 5) * 3,
+                born: performance.now(),
+                drift: (bubbles.length % 2 ? 1 : -1) * (8 + bubbles.length % 9)
+            });
+        }
+    }
+
+    function onPointerLeave() {
+        pointer.active = false;
+    }
+
+    function onPointerDown(event) {
+        if (reducedMotion.matches) return;
+        const point = localPoint(event);
+        for (let index = 0; index < 10; index += 1) {
+            const angle = index / 10 * Math.PI * 2;
+            bubbles.push({
+                x: point.x + Math.cos(angle) * 18,
+                y: point.y + Math.sin(angle) * 18,
+                radius: 9 + index % 4 * 3,
+                born: performance.now(),
+                drift: Math.cos(angle) * 18
+            });
+        }
+    }
+
+    function drawBubble(bubble, now) {
+        const age = (now - bubble.born) / 1100;
+        if (age >= 1) return false;
+        const rise = age * 34;
+        const x = bubble.x + bubble.drift * age;
+        const y = bubble.y - rise;
+        const radius = bubble.radius * (1 + age * 0.34);
+        const alpha = Math.sin((1 - age) * Math.PI * 0.5) * 0.82;
+
+        const fill = context.createRadialGradient(
+            x - radius * 0.28,
+            y - radius * 0.34,
+            radius * 0.05,
+            x,
+            y,
+            radius
+        );
+        fill.addColorStop(0, `rgba(255,255,255,${(0.72 * alpha).toFixed(3)})`);
+        fill.addColorStop(0.22, `rgba(160,220,255,${(0.28 * alpha).toFixed(3)})`);
+        fill.addColorStop(0.58, `rgba(170,130,255,${(0.12 * alpha).toFixed(3)})`);
+        fill.addColorStop(0.78, `rgba(255,170,210,${(0.18 * alpha).toFixed(3)})`);
+        fill.addColorStop(1, `rgba(255,255,255,${(0.08 * alpha).toFixed(3)})`);
+        context.fillStyle = fill;
+        context.beginPath();
+        context.arc(x, y, radius, 0, Math.PI * 2);
+        context.fill();
+
+        context.strokeStyle = `rgba(220,245,255,${(0.62 * alpha).toFixed(3)})`;
+        context.lineWidth = 1.2;
+        context.beginPath();
+        context.arc(x, y, radius - 0.5, Math.PI * 1.05, Math.PI * 1.9);
+        context.stroke();
+
+        context.fillStyle = `rgba(255,255,255,${(0.72 * alpha).toFixed(3)})`;
+        context.beginPath();
+        context.arc(x - radius * 0.32, y - radius * 0.38, radius * 0.12, 0, Math.PI * 2);
+        context.fill();
+        return true;
+    }
+
+    function draw(time) {
+        if (stopped || !canvas.isConnected) return;
+        const rect = hero.getBoundingClientRect();
+        context.clearRect(0, 0, rect.width, rect.height);
+
+        if (pointer.active && reducedMotion.matches) {
+            drawBubble({
+                x: pointer.x,
+                y: pointer.y,
+                radius: 22,
+                born: time - 350,
+                drift: 0
+            }, time);
+        }
+
+        bubbles = bubbles.filter(bubble => drawBubble(bubble, time));
+        if (!reducedMotion.matches) {
+            frame = requestAnimationFrame(draw);
+        }
+    }
+
+    stopped = false;
+    resize();
+    hero.addEventListener('pointermove', onPointerMove, { passive: true });
+    hero.addEventListener('pointerleave', onPointerLeave, { passive: true });
+    hero.addEventListener('pointerdown', onPointerDown, { passive: true });
+    if ('ResizeObserver' in window) {
+        const resizeObserver = new ResizeObserver(resize);
+        resizeObserver.observe(hero);
+        hero._linearBubbleResizeObserver?.disconnect();
+        hero._linearBubbleResizeObserver = resizeObserver;
+    } else {
+        window.addEventListener('resize', resize);
+    }
+    frame = requestAnimationFrame(draw);
+}
+
+function initGamePaperEffect(hero) {
+    if (!hero) return;
+
+    let canvas = hero.querySelector('[data-game-paper]');
+    if (hero.dataset.effect !== 'paper') {
+        hero._linearPaperStop?.();
+        hero._linearPaperResizeObserver?.disconnect();
+        canvas?.remove();
+        return;
+    }
+    if (!canvas) {
+        canvas = document.createElement('canvas');
+        canvas.className = 'game-paper-effect';
+        canvas.setAttribute('data-game-paper', '');
+        canvas.setAttribute('aria-hidden', 'true');
+        hero.insertBefore(canvas, hero.querySelector('.game-hero-copy'));
+    }
+
+    const context = canvas.getContext('2d', { alpha: true });
+    if (!context) return;
+
+    let stopped = false;
+    let frame = 0;
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+    function stopEffect() {
+        stopped = true;
+        cancelAnimationFrame(frame);
+    }
+
+    hero._linearPaperStop?.();
+    hero._linearPaperStop = stopEffect;
+
+    function draw(time) {
+        if (stopped || !canvas.isConnected) return;
+        const rect = hero.getBoundingClientRect();
+        if (rect.width < 1 || rect.height < 1) return;
+        const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+        canvas.width = Math.round(rect.width * pixelRatio);
+        canvas.height = Math.round(rect.height * pixelRatio);
+        canvas.style.width = `${rect.width}px`;
+        canvas.style.height = `${rect.height}px`;
+        context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+        context.clearRect(0, 0, rect.width, rect.height);
+
+        context.fillStyle = 'rgba(238, 224, 190, 0.08)';
+        context.fillRect(0, 0, rect.width, rect.height);
+
+        let seed = 2718;
+        for (let index = 0; index < 520; index += 1) {
+            seed = (seed * 16807) % 2147483647;
+            const x = (seed % 100000) / 100000 * rect.width;
+            seed = (seed * 16807) % 2147483647;
+            const y = (seed % 100000) / 100000 * rect.height;
+            const size = 0.25 + (index % 7) * 0.16;
+            context.fillStyle = index % 3
+                ? 'rgba(82, 64, 38, 0.09)'
+                : 'rgba(255, 248, 218, 0.13)';
+            context.fillRect(x, y, size, size);
+        }
+
+        context.lineWidth = 1;
+        for (let column = 1; column < 5; column += 1) {
+            const x = rect.width * column / 5;
+            const fold = context.createLinearGradient(x - 10, 0, x + 10, 0);
+            fold.addColorStop(0, 'rgba(78, 57, 33, 0)');
+            fold.addColorStop(0.45, 'rgba(78, 57, 33, 0.13)');
+            fold.addColorStop(0.55, 'rgba(255, 248, 220, 0.14)');
+            fold.addColorStop(1, 'rgba(78, 57, 33, 0)');
+            context.fillStyle = fold;
+            context.fillRect(x - 10, 0, 20, rect.height);
+        }
+
+        context.strokeStyle = 'rgba(82, 64, 38, 0.12)';
+        for (let row = 0; row < rect.height; row += 7) {
+            const drift = reducedMotion.matches ? 0 : Math.sin(time * 0.00012 + row) * 0.35;
+            context.beginPath();
+            context.moveTo(0, row + drift);
+            context.lineTo(rect.width, row + drift);
+            context.stroke();
+        }
+
+        context.strokeStyle = 'rgba(255, 247, 218, 0.10)';
+        for (let row = 0; row < rect.height; row += 14) {
+            context.beginPath();
+            context.moveTo(0, row);
+            context.bezierCurveTo(
+                rect.width * 0.3,
+                row + 3,
+                rect.width * 0.7,
+                row - 3,
+                rect.width,
+                row
+            );
+            context.stroke();
+        }
+
+        context.strokeStyle = 'rgba(74, 58, 38, 0.08)';
+        for (let index = 0; index < 18; index += 1) {
+            const x = ((index * 91) % 997) / 997 * rect.width;
+            const y = ((index * 149) % 991) / 991 * rect.height;
+            context.beginPath();
+            context.moveTo(x - 32, y);
+            context.quadraticCurveTo(x, y - 15, x + 38, y + 4);
+            context.stroke();
+        }
+
+        if (!reducedMotion.matches) {
+            frame = requestAnimationFrame(draw);
+        }
+    }
+
+    stopped = false;
+    frame = requestAnimationFrame(draw);
+    if ('ResizeObserver' in window) {
+        const resizeObserver = new ResizeObserver(() => {
+            cancelAnimationFrame(frame);
+            frame = requestAnimationFrame(draw);
+        });
+        resizeObserver.observe(hero);
+        hero._linearPaperResizeObserver?.disconnect();
+        hero._linearPaperResizeObserver = resizeObserver;
+    }
+}
+
+function initGameChromeEffect(hero) {
+    if (!hero) return;
+
+    let canvas = hero.querySelector('[data-game-chrome]');
+    if (hero.dataset.effect !== 'chrome') {
+        hero._linearChromeStop?.();
+        hero._linearChromeResizeObserver?.disconnect();
+        canvas?.remove();
+        return;
+    }
+    if (!canvas) {
+        canvas = document.createElement('canvas');
+        canvas.className = 'game-chrome-effect';
+        canvas.setAttribute('data-game-chrome', '');
+        canvas.setAttribute('aria-hidden', 'true');
+        hero.insertBefore(canvas, hero.querySelector('.game-hero-copy'));
+    }
+
+    const context = canvas.getContext('2d', { alpha: true });
+    if (!context) return;
+
+    let frame = 0;
+    let stopped = false;
+    let pointerX = 0.5;
+    let pointerY = 0.5;
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+    function stopEffect() {
+        stopped = true;
+        cancelAnimationFrame(frame);
+        hero.removeEventListener('pointermove', onPointerMove);
+        hero.removeEventListener('pointerleave', onPointerLeave);
+    }
+
+    hero._linearChromeStop?.();
+    hero._linearChromeStop = stopEffect;
+
+    function resize() {
+        const rect = hero.getBoundingClientRect();
+        if (rect.width < 1 || rect.height < 1) return;
+        const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+        canvas.width = Math.round(rect.width * pixelRatio);
+        canvas.height = Math.round(rect.height * pixelRatio);
+        canvas.style.width = `${rect.width}px`;
+        canvas.style.height = `${rect.height}px`;
+        context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+    }
+
+    function onPointerMove(event) {
+        const rect = hero.getBoundingClientRect();
+        pointerX = Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width));
+        pointerY = Math.min(1, Math.max(0, (event.clientY - rect.top) / rect.height));
+    }
+
+    function onPointerLeave() {
+        pointerX = 0.5;
+        pointerY = 0.5;
+    }
+
+    function draw(time) {
+        if (stopped || !canvas.isConnected) return;
+        const rect = hero.getBoundingClientRect();
+        context.clearRect(0, 0, rect.width, rect.height);
+        const seconds = reducedMotion.matches ? 1.5 : time * 0.001;
+        const influenceX = (pointerX - 0.5) * rect.width * 0.16;
+        const influenceY = (pointerY - 0.5) * rect.height * 0.12;
+
+        context.save();
+        context.globalCompositeOperation = 'screen';
+        context.lineWidth = 1;
+
+        for (let band = 0; band < 16; band += 1) {
+            const baseY = rect.height * (0.12 + band * 0.052);
+            const gradient = context.createLinearGradient(
+                0,
+                baseY - 28,
+                rect.width,
+                baseY + 28
+            );
+            const shift = Math.sin(seconds * 0.45 + band * 0.72) * 0.18;
+            gradient.addColorStop(0, 'rgba(62, 72, 92, 0.05)');
+            gradient.addColorStop(0.18 + shift, 'rgba(255, 255, 255, 0.42)');
+            gradient.addColorStop(0.38, 'rgba(93, 156, 255, 0.24)');
+            gradient.addColorStop(0.52, 'rgba(255, 170, 220, 0.20)');
+            gradient.addColorStop(0.68 - shift, 'rgba(255, 255, 255, 0.50)');
+            gradient.addColorStop(1, 'rgba(56, 65, 82, 0.08)');
+
+            context.strokeStyle = gradient;
+            context.lineWidth = 3 + (band % 4);
+            context.beginPath();
+            for (let x = -30; x <= rect.width + 30; x += 12) {
+                const wave =
+                    Math.sin(x * 0.018 + seconds * 0.9 + band * 0.64) * 9 +
+                    Math.sin(x * 0.041 - seconds * 0.55 + band) * 4 +
+                    influenceY * Math.exp(-Math.pow((x / rect.width - pointerX), 2) * 18);
+                const y = baseY + wave + influenceY * 0.08;
+                if (x === -30) context.moveTo(x + influenceX * 0.04, y);
+                else context.lineTo(x + influenceX * 0.04, y);
+            }
+            context.stroke();
+        }
+
+        const highlight = context.createRadialGradient(
+            pointerX * rect.width,
+            pointerY * rect.height,
+            8,
+            pointerX * rect.width,
+            pointerY * rect.height,
+            rect.width * 0.32
+        );
+        highlight.addColorStop(0, 'rgba(255, 255, 255, 0.28)');
+        highlight.addColorStop(0.16, 'rgba(175, 210, 255, 0.16)');
+        highlight.addColorStop(0.42, 'rgba(255, 170, 220, 0.08)');
+        highlight.addColorStop(1, 'rgba(255, 255, 255, 0)');
+        context.fillStyle = highlight;
+        context.fillRect(0, 0, rect.width, rect.height);
+        context.restore();
+
+        if (!reducedMotion.matches) {
+            frame = requestAnimationFrame(draw);
+        }
+    }
+
+    stopped = false;
+    resize();
+    hero.addEventListener('pointermove', onPointerMove, { passive: true });
+    hero.addEventListener('pointerleave', onPointerLeave, { passive: true });
+    if ('ResizeObserver' in window) {
+        const resizeObserver = new ResizeObserver(resize);
+        resizeObserver.observe(hero);
+        hero._linearChromeResizeObserver?.disconnect();
+        hero._linearChromeResizeObserver = resizeObserver;
+    } else {
+        window.addEventListener('resize', resize);
+    }
+    frame = requestAnimationFrame(draw);
+}
+
+function initGameClothEffect(hero) {
+    if (!hero) return;
+
+    let canvas = hero.querySelector('[data-game-cloth]');
+    if (hero.dataset.effect !== 'cloth') {
+        hero._linearClothStop?.();
+        hero._linearClothResizeObserver?.disconnect();
+        canvas?.remove();
+        hero.style.removeProperty('--cloth-brush-x');
+        hero.style.removeProperty('--cloth-brush-y');
+        return;
+    }
+    if (!canvas) {
+        canvas = document.createElement('canvas');
+        canvas.className = 'game-cloth-effect';
+        canvas.setAttribute('data-game-cloth', '');
+        canvas.setAttribute('aria-hidden', 'true');
+        hero.insertBefore(canvas, hero.querySelector('.game-hero-copy'));
+    }
+
+    const context = canvas.getContext('2d', { alpha: true });
+    if (!context) return;
+
+    let frame = 0;
+    let stopped = false;
+    let pointerX = 0.5;
+    let pointerY = 0.5;
+    let pointerInside = false;
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+    function stopEffect() {
+        stopped = true;
+        cancelAnimationFrame(frame);
+        hero.removeEventListener('pointermove', onPointerMove);
+        hero.removeEventListener('pointerleave', onPointerLeave);
+    }
+
+    hero._linearClothStop?.();
+    hero._linearClothStop = stopEffect;
+
+    function resize() {
+        const rect = hero.getBoundingClientRect();
+        if (rect.width < 1 || rect.height < 1) return;
+        const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+        canvas.width = Math.round(rect.width * pixelRatio);
+        canvas.height = Math.round(rect.height * pixelRatio);
+        canvas.style.width = `${rect.width}px`;
+        canvas.style.height = `${rect.height}px`;
+        context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+    }
+
+    function onPointerMove(event) {
+        const rect = hero.getBoundingClientRect();
+        pointerX = Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width));
+        pointerY = Math.min(1, Math.max(0, (event.clientY - rect.top) / rect.height));
+        pointerInside = true;
+    }
+
+    function onPointerLeave() {
+        pointerInside = false;
+        pointerX = 0.5;
+        pointerY = 0.5;
+    }
+
+    function draw(time) {
+        if (stopped || !canvas.isConnected) return;
+        const rect = hero.getBoundingClientRect();
+        context.clearRect(0, 0, rect.width, rect.height);
+        const seconds = reducedMotion.matches ? 1.2 : time * 0.001;
+        const brushX = pointerInside ? pointerX : 0.5;
+        const brushY = pointerInside ? pointerY : 0.5;
+        hero.style.setProperty('--cloth-brush-x', `${(brushX - 0.5).toFixed(3)}`);
+        hero.style.setProperty('--cloth-brush-y', `${(brushY - 0.5).toFixed(3)}`);
+
+        context.save();
+        context.globalCompositeOperation = 'screen';
+        for (let row = 0; row < 18; row += 1) {
+            const y = rect.height * (0.03 + row * 0.057);
+            context.beginPath();
+            for (let x = -30; x <= rect.width + 30; x += 10) {
+                const normalizedX = x / rect.width;
+                const wind =
+                    Math.sin(normalizedX * 9.5 + seconds * 1.1 + row * 0.37) * 8 +
+                    Math.sin(normalizedX * 22 - seconds * 0.7 + row) * 3;
+                let brush = 0;
+                if (pointerInside) {
+                    const dx = normalizedX - brushX;
+                    const dy = y / rect.height - brushY;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    brush = Math.max(0, 1 - distance / 0.24) *
+                        Math.sin(distance * 28 - seconds * 5) * 14;
+                }
+                const depth = wind + brush;
+                if (x === -30) context.moveTo(x, y + depth);
+                else context.lineTo(x, y + depth);
+            }
+            const crest = row % 3 === 0;
+            context.strokeStyle = crest
+                ? 'rgba(255, 255, 255, 0.20)'
+                : 'rgba(170, 205, 255, 0.10)';
+            context.lineWidth = crest ? 3 : 1.5;
+            context.stroke();
+        }
+
+        const shadow = context.createLinearGradient(0, 0, 0, rect.height);
+        shadow.addColorStop(0, 'rgba(0, 0, 0, 0.03)');
+        shadow.addColorStop(0.55, 'rgba(0, 0, 0, 0.10)');
+        shadow.addColorStop(1, 'rgba(0, 0, 0, 0.24)');
+        context.fillStyle = shadow;
+        context.fillRect(0, rect.height * 0.72, rect.width, rect.height * 0.28);
+        context.restore();
+
+        if (!reducedMotion.matches) {
+            frame = requestAnimationFrame(draw);
+        }
+    }
+
+    stopped = false;
+    resize();
+    hero.addEventListener('pointermove', onPointerMove, { passive: true });
+    hero.addEventListener('pointerleave', onPointerLeave, { passive: true });
+    if ('ResizeObserver' in window) {
+        const resizeObserver = new ResizeObserver(resize);
+        resizeObserver.observe(hero);
+        hero._linearClothResizeObserver?.disconnect();
+        hero._linearClothResizeObserver = resizeObserver;
+    } else {
+        window.addEventListener('resize', resize);
+    }
+    frame = requestAnimationFrame(draw);
+}
+
+function initGameCloudsEffect(hero) {
+    if (!hero) return;
+
+    let canvas = hero.querySelector('[data-game-clouds]');
+    if (hero.dataset.effect !== 'clouds') {
+        hero._linearCloudsStop?.();
+        hero._linearCloudsResizeObserver?.disconnect();
+        canvas?.remove();
+        return;
+    }
+    if (!canvas) {
+        canvas = document.createElement('canvas');
+        canvas.className = 'game-clouds-effect';
+        canvas.setAttribute('data-game-clouds', '');
+        canvas.setAttribute('aria-hidden', 'true');
+        hero.insertBefore(canvas, hero.querySelector('.game-hero-copy'));
+    }
+
+    const context = canvas.getContext('2d', { alpha: true });
+    if (!context) return;
+
+    let frame = 0;
+    let stopped = false;
+    let pointerX = 0.5;
+    let pointerY = 0.5;
+    let pointerInside = false;
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+    function stopEffect() {
+        stopped = true;
+        cancelAnimationFrame(frame);
+        hero.removeEventListener('pointermove', onPointerMove);
+        hero.removeEventListener('pointerleave', onPointerLeave);
+    }
+
+    hero._linearCloudsStop?.();
+    hero._linearCloudsStop = stopEffect;
+
+    function resize() {
+        const rect = hero.getBoundingClientRect();
+        if (rect.width < 1 || rect.height < 1) return;
+        const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+        canvas.width = Math.round(rect.width * pixelRatio);
+        canvas.height = Math.round(rect.height * pixelRatio);
+        canvas.style.width = `${rect.width}px`;
+        canvas.style.height = `${rect.height}px`;
+        context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+    }
+
+    function onPointerMove(event) {
+        const rect = hero.getBoundingClientRect();
+        pointerX = Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width));
+        pointerY = Math.min(1, Math.max(0, (event.clientY - rect.top) / rect.height));
+        pointerInside = true;
+    }
+
+    function onPointerLeave() {
+        pointerInside = false;
+        pointerX = 0.5;
+        pointerY = 0.5;
+    }
+
+    function draw(time) {
+        if (stopped || !canvas.isConnected) return;
+        const rect = hero.getBoundingClientRect();
+        context.clearRect(0, 0, rect.width, rect.height);
+        const seconds = reducedMotion.matches ? 1.5 : time * 0.001;
+
+        const sky = context.createLinearGradient(0, 0, 0, rect.height);
+        sky.addColorStop(0, 'rgba(198, 219, 235, 0.12)');
+        sky.addColorStop(0.55, 'rgba(224, 232, 238, 0.08)');
+        sky.addColorStop(1, 'rgba(35, 51, 66, 0.14)');
+        context.fillStyle = sky;
+        context.fillRect(0, 0, rect.width, rect.height);
+
+        context.save();
+        context.globalCompositeOperation = 'screen';
+        for (let index = 0; index < 17; index += 1) {
+            const seed = index * 67.41;
+            const speed = 8 + (index % 5) * 3.5;
+            const span = rect.width + 260;
+            const centerX = ((seed * 3.7 + seconds * speed) % span) - 130;
+            const centerY = rect.height * (0.12 + (index % 7) * 0.105);
+            const baseRadius = 38 + (index % 4) * 18;
+
+            let windShiftX = 0;
+            let windShiftY = 0;
+            if (pointerInside) {
+                const dx = centerX / rect.width - pointerX;
+                const dy = centerY / rect.height - pointerY;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                if (distance < 0.32) {
+                    windShiftX = (dx / Math.max(distance, 0.01)) * 28;
+                    windShiftY = (dy / Math.max(distance, 0.01)) * 20;
+                }
+            }
+
+            for (let puff = -2; puff <= 3; puff += 1) {
+                const x = centerX + puff * baseRadius * 0.82 + windShiftX;
+                const y = centerY +
+                    Math.sin(puff * 1.3 + seed) * baseRadius * 0.24 +
+                    windShiftY;
+                const radius = baseRadius * (0.62 + ((puff + 3) % 4) * 0.11);
+                const cloud = context.createRadialGradient(
+                    x - radius * 0.24,
+                    y - radius * 0.28,
+                    radius * 0.08,
+                    x,
+                    y,
+                    radius
+                );
+                cloud.addColorStop(0, 'rgba(255, 255, 255, 0.38)');
+                cloud.addColorStop(0.48, 'rgba(235, 241, 244, 0.24)');
+                cloud.addColorStop(0.82, 'rgba(200, 213, 222, 0.11)');
+                cloud.addColorStop(1, 'rgba(190, 204, 214, 0)');
+                context.fillStyle = cloud;
+                context.beginPath();
+                context.arc(x, y, radius, 0, Math.PI * 2);
+                context.fill();
+            }
+        }
+        context.restore();
+
+        context.fillStyle = 'rgba(28, 43, 56, 0.13)';
+        context.fillRect(0, rect.height * 0.82, rect.width, rect.height * 0.18);
+
+        if (!reducedMotion.matches) {
+            frame = requestAnimationFrame(draw);
+        }
+    }
+
+    stopped = false;
+    resize();
+    hero.addEventListener('pointermove', onPointerMove, { passive: true });
+    hero.addEventListener('pointerleave', onPointerLeave, { passive: true });
+    if ('ResizeObserver' in window) {
+        const resizeObserver = new ResizeObserver(resize);
+        resizeObserver.observe(hero);
+        hero._linearCloudsResizeObserver?.disconnect();
+        hero._linearCloudsResizeObserver = resizeObserver;
+    } else {
+        window.addEventListener('resize', resize);
+    }
+    frame = requestAnimationFrame(draw);
+}
+
+function initGameDecryptEffect(hero) {
+    if (!hero) return;
+
+    let canvas = hero.querySelector('[data-game-decrypt]');
+    if (hero.dataset.effect !== 'decrypt') {
+        hero._linearDecryptStop?.();
+        hero._linearDecryptResizeObserver?.disconnect();
+        canvas?.remove();
+        return;
+    }
+    if (!canvas) {
+        canvas = document.createElement('canvas');
+        canvas.className = 'game-decrypt-effect';
+        canvas.setAttribute('data-game-decrypt', '');
+        canvas.setAttribute('aria-hidden', 'true');
+        hero.insertBefore(canvas, hero.querySelector('.game-hero-copy'));
+    }
+
+    const context = canvas.getContext('2d', { alpha: true });
+    if (!context) return;
+
+    let frame = 0;
+    let stopped = false;
+    let pointerX = -300;
+    let pointerY = -300;
+    let smoothX = -300;
+    let smoothY = -300;
+    let pointerInside = false;
+    const glyphs = '01ABCDEFGHIJKLMNOPQRSTUVWXYZ#$%&*+=?';
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+    function stopEffect() {
+        stopped = true;
+        cancelAnimationFrame(frame);
+        hero.removeEventListener('pointermove', onPointerMove);
+        hero.removeEventListener('pointerleave', onPointerLeave);
+    }
+
+    hero._linearDecryptStop?.();
+    hero._linearDecryptStop = stopEffect;
+
+    function resize() {
+        const rect = hero.getBoundingClientRect();
+        if (rect.width < 1 || rect.height < 1) return;
+        const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+        canvas.width = Math.round(rect.width * pixelRatio);
+        canvas.height = Math.round(rect.height * pixelRatio);
+        canvas.style.width = `${rect.width}px`;
+        canvas.style.height = `${rect.height}px`;
+        context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+    }
+
+    function onPointerMove(event) {
+        const rect = hero.getBoundingClientRect();
+        pointerX = event.clientX - rect.left;
+        pointerY = event.clientY - rect.top;
+        pointerInside = true;
+    }
+
+    function onPointerLeave() {
+        pointerInside = false;
+    }
+
+    function draw(time) {
+        if (stopped || !canvas.isConnected) return;
+        const rect = hero.getBoundingClientRect();
+        context.clearRect(0, 0, rect.width, rect.height);
+        if (pointerInside) {
+            smoothX += (pointerX - smoothX) * (reducedMotion.matches ? 1 : 0.14);
+            smoothY += (pointerY - smoothY) * (reducedMotion.matches ? 1 : 0.14);
+        } else {
+            smoothX = -300;
+            smoothY = -300;
+        }
+
+        const radius = 145;
+        const seconds = time * 0.001;
+        context.save();
+        context.fillStyle = 'rgba(4, 10, 18, 0.34)';
+        context.fillRect(0, 0, rect.width, rect.height);
+        context.font = '9px monospace';
+        context.textAlign = 'center';
+        context.textBaseline = 'middle';
+
+        for (let y = 7; y < rect.height; y += 14) {
+            for (let x = 7; x < rect.width; x += 10) {
+                const dx = x - smoothX;
+                const dy = y - smoothY;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                if (distance < radius) continue;
+
+                const edge = Math.max(0, 1 - (distance - radius) / 90);
+                const scramble = Math.abs(Math.sin(
+                    x * 0.071 + y * 0.043 + seconds * (reducedMotion.matches ? 0 : 5)
+                ));
+                const glyphIndex = Math.floor(scramble * glyphs.length) % glyphs.length;
+                const alpha = 0.16 + edge * 0.46 + scramble * 0.12;
+                context.fillStyle = `rgba(120, 220, 255, ${alpha.toFixed(3)})`;
+                context.fillText(glyphs[glyphIndex], x, y);
+            }
+        }
+
+        if (pointerInside) {
+            context.globalCompositeOperation = 'destination-out';
+            const reveal = context.createRadialGradient(
+                smoothX,
+                smoothY,
+                radius * 0.58,
+                smoothX,
+                smoothY,
+                radius
+            );
+            reveal.addColorStop(0, 'rgba(0, 0, 0, 1)');
+            reveal.addColorStop(0.72, 'rgba(0, 0, 0, 0.88)');
+            reveal.addColorStop(1, 'rgba(0, 0, 0, 0)');
+            context.fillStyle = reveal;
+            context.beginPath();
+            context.arc(smoothX, smoothY, radius, 0, Math.PI * 2);
+            context.fill();
+
+            context.globalCompositeOperation = 'screen';
+            context.strokeStyle = 'rgba(112, 226, 255, 0.62)';
+            context.lineWidth = 1;
+            context.beginPath();
+            context.arc(smoothX, smoothY, radius * 0.92, 0, Math.PI * 2);
+            context.stroke();
+        }
+        context.restore();
+
+        if (!reducedMotion.matches) {
+            frame = requestAnimationFrame(draw);
+        }
+    }
+
+    stopped = false;
+    resize();
+    hero.addEventListener('pointermove', onPointerMove, { passive: true });
+    hero.addEventListener('pointerleave', onPointerLeave, { passive: true });
+    if ('ResizeObserver' in window) {
+        const resizeObserver = new ResizeObserver(resize);
+        resizeObserver.observe(hero);
+        hero._linearDecryptResizeObserver?.disconnect();
+        hero._linearDecryptResizeObserver = resizeObserver;
+    } else {
+        window.addEventListener('resize', resize);
+    }
+    frame = requestAnimationFrame(draw);
+}
+
+function initGameDisplacementEffect(hero, banner) {
+    if (!hero || !banner) return;
+
+    let canvas = hero.querySelector('[data-game-displacement]');
+    if (hero.dataset.effect !== 'displacement') {
+        hero._linearDisplacementStop?.();
+        hero._linearDisplacementResizeObserver?.disconnect();
+        canvas?.remove();
+        return;
+    }
+    if (!canvas) {
+        canvas = document.createElement('canvas');
+        canvas.className = 'game-displacement-effect';
+        canvas.setAttribute('data-game-displacement', '');
+        canvas.setAttribute('aria-hidden', 'true');
+        hero.insertBefore(canvas, hero.querySelector('.game-hero-copy'));
+    }
+
+    const context = canvas.getContext('2d', { alpha: true });
+    if (!context) return;
+
+    let frame = 0;
+    let stopped = false;
+    let pointerX = -300;
+    let pointerY = -300;
+    let previousX = pointerX;
+    let previousY = pointerY;
+    let pointerInside = false;
+    let velocityX = 0;
+    let velocityY = 0;
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+    function stopEffect() {
+        stopped = true;
+        cancelAnimationFrame(frame);
+        hero.removeEventListener('pointermove', onPointerMove);
+        hero.removeEventListener('pointerleave', onPointerLeave);
+        banner.removeEventListener('load', draw);
+    }
+
+    hero._linearDisplacementStop?.();
+    hero._linearDisplacementStop = stopEffect;
+
+    function resize() {
+        const rect = hero.getBoundingClientRect();
+        if (rect.width < 1 || rect.height < 1) return;
+        const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+        canvas.width = Math.round(rect.width * pixelRatio);
+        canvas.height = Math.round(rect.height * pixelRatio);
+        canvas.style.width = `${rect.width}px`;
+        canvas.style.height = `${rect.height}px`;
+        context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+        draw(performance.now());
+    }
+
+    function onPointerMove(event) {
+        const rect = hero.getBoundingClientRect();
+        pointerX = event.clientX - rect.left;
+        pointerY = event.clientY - rect.top;
+        velocityX = pointerX - previousX;
+        velocityY = pointerY - previousY;
+        previousX = pointerX;
+        previousY = pointerY;
+        pointerInside = true;
+    }
+
+    function onPointerLeave() {
+        pointerInside = false;
+        velocityX = 0;
+        velocityY = 0;
+        pointerX = -300;
+        pointerY = -300;
+    }
+
+    function draw(time) {
+        if (stopped || !canvas.isConnected) return;
+        const rect = hero.getBoundingClientRect();
+        context.clearRect(0, 0, rect.width, rect.height);
+
+        const sourceWidth = banner.naturalWidth;
+        const sourceHeight = banner.naturalHeight;
+        if (!sourceWidth || !sourceHeight) {
+            if (!reducedMotion.matches) frame = requestAnimationFrame(draw);
+            return;
+        }
+
+        const scale = Math.max(rect.width / sourceWidth, rect.height / sourceHeight);
+        const drawnWidth = sourceWidth * scale;
+        const drawnHeight = sourceHeight * scale;
+        const offsetX = (rect.width - drawnWidth) / 2;
+        const offsetY = (rect.height - drawnHeight) / 2;
+        const columns = 30;
+        const rows = 16;
+        const cellWidth = rect.width / columns;
+        const cellHeight = rect.height / rows;
+
+        context.save();
+        context.globalCompositeOperation = 'screen';
+        for (let row = 0; row < rows; row += 1) {
+            for (let column = 0; column < columns; column += 1) {
+                const targetX = column * cellWidth;
+                const targetY = row * cellHeight;
+                const centerX = targetX + cellWidth * 0.5;
+                const centerY = targetY + cellHeight * 0.5;
+                let shiftX = 0;
+                let shiftY = 0;
+
+                if (pointerInside) {
+                    const dx = centerX - pointerX;
+                    const dy = centerY - pointerY;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    const influence = Math.max(0, 1 - distance / 170);
+                    const speed = Math.min(1, (Math.abs(velocityX) + Math.abs(velocityY)) / 28);
+                    shiftX = velocityX * influence * speed * 0.75;
+                    shiftY = velocityY * influence * speed * 0.75;
+                } else if (!reducedMotion.matches) {
+                    const seed = row * 31 + column * 17;
+                    shiftX = Math.sin(time * 0.0012 + seed) * 1.8;
+                    shiftY = Math.cos(time * 0.001 + seed) * 1.2;
+                }
+
+                const sourceX = ((targetX - offsetX) / drawnWidth) * sourceWidth;
+                const sourceY = ((targetY - offsetY) / drawnHeight) * sourceHeight;
+                const sourceW = (cellWidth / drawnWidth) * sourceWidth;
+                const sourceH = (cellHeight / drawnHeight) * sourceHeight;
+                context.drawImage(
+                    banner,
+                    sourceX,
+                    sourceY,
+                    sourceW,
+                    sourceH,
+                    targetX + shiftX,
+                    targetY + shiftY,
+                    cellWidth + 1,
+                    cellHeight + 1
+                );
+
+                if (pointerInside && Math.abs(shiftX) + Math.abs(shiftY) > 2) {
+                    context.fillStyle = 'rgba(90, 180, 255, 0.06)';
+                    context.fillRect(targetX + shiftX - 1, targetY + shiftY, 1, cellHeight);
+                    context.fillStyle = 'rgba(255, 90, 160, 0.05)';
+                    context.fillRect(targetX + shiftX + 1, targetY + shiftY, 1, cellHeight);
+                }
+            }
+        }
+        context.restore();
+
+        context.fillStyle = 'rgba(255, 255, 255, 0.10)';
+        for (let index = 0; index < 180; index += 1) {
+            const seed = (index * 7919 + Math.floor(time * 0.03)) % 2147483647;
+            const x = (seed * 0.000001) % rect.width;
+            const y = ((seed * 13) % 10000) / 10000 * rect.height;
+            context.fillRect(x, y, 0.7, 0.7);
+        }
+
+        velocityX *= 0.88;
+        velocityY *= 0.88;
+        if (!reducedMotion.matches) {
+            frame = requestAnimationFrame(draw);
+        }
+    }
+
+    stopped = false;
+    resize();
+    hero.addEventListener('pointermove', onPointerMove, { passive: true });
+    hero.addEventListener('pointerleave', onPointerLeave, { passive: true });
+    banner.addEventListener('load', draw);
+    if ('ResizeObserver' in window) {
+        const resizeObserver = new ResizeObserver(resize);
+        resizeObserver.observe(hero);
+        hero._linearDisplacementResizeObserver?.disconnect();
+        hero._linearDisplacementResizeObserver = resizeObserver;
+    } else {
+        window.addEventListener('resize', resize);
+    }
+}
+
+function initGameDitherEffect(hero, banner) {
+    if (!hero || !banner) return;
+
+    let canvas = hero.querySelector('[data-game-dither]');
+    if (hero.dataset.effect !== 'dither') {
+        hero._linearDitherStop?.();
+        hero._linearDitherResizeObserver?.disconnect();
+        canvas?.remove();
+        return;
+    }
+    if (!canvas) {
+        canvas = document.createElement('canvas');
+        canvas.className = 'game-dither-effect';
+        canvas.setAttribute('data-game-dither', '');
+        canvas.setAttribute('aria-hidden', 'true');
+        hero.insertBefore(canvas, hero.querySelector('.game-hero-copy'));
+    }
+
+    const context = canvas.getContext('2d', { alpha: true });
+    if (!context) return;
+
+    let frame = 0;
+    let stopped = false;
+    let pointerX = -300;
+    let pointerY = -300;
+    let pointerInside = false;
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const sampleCanvas = document.createElement('canvas');
+    const sampleContext = sampleCanvas.getContext('2d', { willReadFrequently: true });
+    const thresholds = [
+        [0, 8, 2, 10],
+        [12, 4, 14, 6],
+        [3, 11, 1, 9],
+        [15, 7, 13, 5]
+    ];
+
+    function stopEffect() {
+        stopped = true;
+        cancelAnimationFrame(frame);
+        hero.removeEventListener('pointermove', onPointerMove);
+        hero.removeEventListener('pointerleave', onPointerLeave);
+        banner.removeEventListener('load', resize);
+    }
+
+    hero._linearDitherStop?.();
+    hero._linearDitherStop = stopEffect;
+
+    function resize() {
+        const rect = hero.getBoundingClientRect();
+        if (rect.width < 1 || rect.height < 1) return;
+        const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+        canvas.width = Math.round(rect.width * pixelRatio);
+        canvas.height = Math.round(rect.height * pixelRatio);
+        canvas.style.width = `${rect.width}px`;
+        canvas.style.height = `${rect.height}px`;
+        context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+        draw(performance.now());
+    }
+
+    function onPointerMove(event) {
+        const rect = hero.getBoundingClientRect();
+        pointerX = event.clientX - rect.left;
+        pointerY = event.clientY - rect.top;
+        pointerInside = true;
+    }
+
+    function onPointerLeave() {
+        pointerInside = false;
+        pointerX = -300;
+        pointerY = -300;
+    }
+
+    function draw(time) {
+        if (stopped || !canvas.isConnected) return;
+        const rect = hero.getBoundingClientRect();
+        context.clearRect(0, 0, rect.width, rect.height);
+        if (!banner.naturalWidth || !banner.naturalHeight || !sampleContext) {
+            if (!reducedMotion.matches) frame = requestAnimationFrame(draw);
+            return;
+        }
+
+        const gridSize = 7;
+        sampleCanvas.width = Math.ceil(rect.width / gridSize);
+        sampleCanvas.height = Math.ceil(rect.height / gridSize);
+        sampleContext.clearRect(0, 0, sampleCanvas.width, sampleCanvas.height);
+        const sourceWidth = banner.naturalWidth;
+        const sourceHeight = banner.naturalHeight;
+        const scale = Math.max(
+            sampleCanvas.width / sourceWidth,
+            sampleCanvas.height / sourceHeight
+        );
+        const width = sourceWidth * scale;
+        const height = sourceHeight * scale;
+        sampleContext.drawImage(
+            banner,
+            (sampleCanvas.width - width) / 2,
+            (sampleCanvas.height - height) / 2,
+            width,
+            height
+        );
+
+        let pixels = null;
+        try {
+            pixels = sampleContext.getImageData(0, 0, sampleCanvas.width, sampleCanvas.height).data;
+        } catch (_) {
+            pixels = null;
+        }
+
+        context.save();
+        context.globalCompositeOperation = 'multiply';
+        for (let gridY = 0; gridY < sampleCanvas.height; gridY += 1) {
+            for (let gridX = 0; gridX < sampleCanvas.width; gridX += 1) {
+                const x = gridX * gridSize + gridSize * 0.5;
+                const y = gridY * gridSize + gridSize * 0.5;
+                let luminance = 0.5;
+                if (pixels) {
+                    const index = (gridY * sampleCanvas.width + gridX) * 4;
+                    luminance = (
+                        pixels[index] * 0.2126 +
+                        pixels[index + 1] * 0.7152 +
+                        pixels[index + 2] * 0.0722
+                    ) / 255;
+                }
+
+                const threshold = thresholds[gridY % 4][gridX % 4] / 16;
+                let density = luminance + threshold * 0.42 - 0.22;
+                if (pointerInside) {
+                    const dx = x - pointerX;
+                    const dy = y - pointerY;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    if (distance < 150) density += (1 - distance / 150) * 0.58;
+                }
+                density = Math.min(1, Math.max(0, density));
+                if (density < 0.18) continue;
+
+                const radius = (gridSize * 0.5) * density;
+                context.fillStyle = `rgba(18, 24, 32, ${(0.08 + (1 - luminance) * 0.38).toFixed(3)})`;
+                context.beginPath();
+                context.arc(x, y, radius, 0, Math.PI * 2);
+                context.fill();
+            }
+        }
+        context.restore();
+
+        if (!reducedMotion.matches) {
+            frame = requestAnimationFrame(draw);
+        }
+    }
+
+    stopped = false;
+    resize();
+    hero.addEventListener('pointermove', onPointerMove, { passive: true });
+    hero.addEventListener('pointerleave', onPointerLeave, { passive: true });
+    banner.addEventListener('load', resize);
+    if ('ResizeObserver' in window) {
+        const resizeObserver = new ResizeObserver(resize);
+        resizeObserver.observe(hero);
+        hero._linearDitherResizeObserver?.disconnect();
+        hero._linearDitherResizeObserver = resizeObserver;
+    } else {
+        window.addEventListener('resize', resize);
+    }
+}
+
+function initGameDropletsEffect(hero) {
+    if (!hero) return;
+
+    let canvas = hero.querySelector('[data-game-droplets]');
+    if (hero.dataset.effect !== 'droplets') {
+        hero._linearDropletsStop?.();
+        hero._linearDropletsResizeObserver?.disconnect();
+        canvas?.remove();
+        return;
+    }
+    if (!canvas) {
+        canvas = document.createElement('canvas');
+        canvas.className = 'game-droplets-effect';
+        canvas.setAttribute('data-game-droplets', '');
+        canvas.setAttribute('aria-hidden', 'true');
+        hero.insertBefore(canvas, hero.querySelector('.game-hero-copy'));
+    }
+
+    const context = canvas.getContext('2d', { alpha: true });
+    if (!context) return;
+
+    let frame = 0;
+    let stopped = false;
+    let pointerX = -300;
+    let pointerY = -300;
+    let pointerInside = false;
+    let drops = [];
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+    function stopEffect() {
+        stopped = true;
+        cancelAnimationFrame(frame);
+        hero.removeEventListener('pointermove', onPointerMove);
+        hero.removeEventListener('pointerleave', onPointerLeave);
+    }
+
+    hero._linearDropletsStop?.();
+    hero._linearDropletsStop = stopEffect;
+
+    function resize() {
+        const rect = hero.getBoundingClientRect();
+        if (rect.width < 1 || rect.height < 1) return;
+        const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+        canvas.width = Math.round(rect.width * pixelRatio);
+        canvas.height = Math.round(rect.height * pixelRatio);
+        canvas.style.width = `${rect.width}px`;
+        canvas.style.height = `${rect.height}px`;
+        context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+        for (const drop of drops) {
+            if (drop.x > rect.width || drop.y > rect.height) {
+                drop.x = (drop.seed * 73.17) % rect.width;
+                drop.y = (drop.seed * 39.31) % rect.height;
+            }
+        }
+    }
+
+    function onPointerMove(event) {
+        const rect = hero.getBoundingClientRect();
+        pointerX = event.clientX - rect.left;
+        pointerY = event.clientY - rect.top;
+        pointerInside = true;
+    }
+
+    function onPointerLeave() {
+        pointerInside = false;
+        pointerX = -300;
+        pointerY = -300;
+    }
+
+    function draw(time) {
+        if (stopped || !canvas.isConnected) return;
+        const rect = hero.getBoundingClientRect();
+        context.clearRect(0, 0, rect.width, rect.height);
+        const seconds = reducedMotion.matches ? 1.0 : time * 0.001;
+
+        if (drops.length === 0) {
+            for (let index = 0; index < 145; index += 1) {
+                const seed = index * 47.31 + 9.7;
+                drops.push({
+                    seed,
+                    x: (seed * 91.7) % rect.width,
+                    y: (seed * 37.3) % rect.height,
+                    radius: 0.7 + (index % 6) * 0.55,
+                    speed: 4 + (index % 9) * 2.1,
+                    length: 3 + (index % 5) * 3,
+                    running: index % 11 === 0
+                });
+            }
+        }
+
+        context.save();
+        const tint = context.createLinearGradient(0, 0, 0, rect.height);
+        tint.addColorStop(0, 'rgba(205, 226, 238, 0.05)');
+        tint.addColorStop(1, 'rgba(25, 50, 66, 0.10)');
+        context.fillStyle = tint;
+        context.fillRect(0, 0, rect.width, rect.height);
+
+        for (const drop of drops) {
+            if (!reducedMotion.matches && drop.running) {
+                drop.y += drop.speed * 0.016;
+                drop.x += Math.sin(seconds * 1.7 + drop.seed) * 0.16;
+                if (drop.y > rect.height + drop.length) {
+                    drop.y = -drop.length;
+                    drop.x = (drop.seed * 73.17 + seconds * 7) % rect.width;
+                }
+            }
+
+            if (pointerInside) {
+                const dx = drop.x - pointerX;
+                const dy = drop.y - pointerY;
+                if (dx * dx + dy * dy < 44 * 44) continue;
+            }
+
+            const gradient = context.createRadialGradient(
+                drop.x - drop.radius * 0.35,
+                drop.y - drop.radius * 0.35,
+                drop.radius * 0.1,
+                drop.x,
+                drop.y,
+                drop.radius * 1.8
+            );
+            gradient.addColorStop(0, 'rgba(255, 255, 255, 0.78)');
+            gradient.addColorStop(0.28, 'rgba(196, 224, 236, 0.24)');
+            gradient.addColorStop(0.72, 'rgba(20, 43, 58, 0.18)');
+            gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+            context.fillStyle = gradient;
+            context.beginPath();
+            context.ellipse(
+                drop.x,
+                drop.y,
+                drop.radius,
+                drop.radius * (drop.running ? 2.2 : 1.25),
+                0,
+                0,
+                Math.PI * 2
+            );
+            context.fill();
+
+            if (drop.running) {
+                context.strokeStyle = 'rgba(210, 235, 244, 0.18)';
+                context.lineWidth = Math.max(0.6, drop.radius * 0.38);
+                context.beginPath();
+                context.moveTo(drop.x, drop.y - drop.length);
+                context.lineTo(drop.x, drop.y + drop.radius);
+                context.stroke();
+            }
+        }
+        context.restore();
+
+        if (!reducedMotion.matches) {
+            frame = requestAnimationFrame(draw);
+        }
+    }
+
+    stopped = false;
+    resize();
+    hero.addEventListener('pointermove', onPointerMove, { passive: true });
+    hero.addEventListener('pointerleave', onPointerLeave, { passive: true });
+    if ('ResizeObserver' in window) {
+        const resizeObserver = new ResizeObserver(resize);
+        resizeObserver.observe(hero);
+        hero._linearDropletsResizeObserver?.disconnect();
+        hero._linearDropletsResizeObserver = resizeObserver;
+    } else {
+        window.addEventListener('resize', resize);
+    }
+    frame = requestAnimationFrame(draw);
+}
+
+function initGameFlameEffect(hero) {
+    if (!hero) return;
+
+    let canvas = hero.querySelector('[data-game-flame]');
+    if (hero.dataset.effect !== 'flame') {
+        hero._linearFlameStop?.();
+        hero._linearFlameResizeObserver?.disconnect();
+        canvas?.remove();
+        return;
+    }
+    if (!canvas) {
+        canvas = document.createElement('canvas');
+        canvas.className = 'game-flame-effect';
+        canvas.setAttribute('data-game-flame', '');
+        canvas.setAttribute('aria-hidden', 'true');
+        hero.insertBefore(canvas, hero.querySelector('.game-hero-copy'));
+    }
+
+    const context = canvas.getContext('2d', { alpha: true });
+    if (!context) return;
+
+    let frame = 0;
+    let stopped = false;
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+    function stopEffect() {
+        stopped = true;
+        cancelAnimationFrame(frame);
+    }
+
+    hero._linearFlameStop?.();
+    hero._linearFlameStop = stopEffect;
+
+    function resize() {
+        const rect = hero.getBoundingClientRect();
+        if (rect.width < 1 || rect.height < 1) return;
+        const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+        canvas.width = Math.round(rect.width * pixelRatio);
+        canvas.height = Math.round(rect.height * pixelRatio);
+        canvas.style.width = `${rect.width}px`;
+        canvas.style.height = `${rect.height}px`;
+        context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+    }
+
+    function draw(time) {
+        if (stopped || !canvas.isConnected) return;
+        const rect = hero.getBoundingClientRect();
+        context.clearRect(0, 0, rect.width, rect.height);
+        const seconds = reducedMotion.matches ? 1.3 : time * 0.001;
+
+        context.save();
+        context.globalCompositeOperation = 'screen';
+        const glow = context.createLinearGradient(0, 0, rect.width, rect.height);
+        glow.addColorStop(0, 'rgba(86, 145, 255, 0)');
+        glow.addColorStop(0.5, 'rgba(126, 170, 255, 0.54)');
+        glow.addColorStop(1, 'rgba(255, 148, 95, 0.44)');
+        context.strokeStyle = glow;
+        context.lineWidth = 3;
+        context.shadowColor = 'rgba(92, 150, 255, 0.95)';
+        context.shadowBlur = 14;
+        context.beginPath();
+
+        const inset = 4;
+        for (let side = 0; side < 4; side += 1) {
+            const length = side % 2 === 0 ? rect.width : rect.height;
+            for (let index = 0; index <= length; index += 8) {
+                const progress = index / length;
+                const flicker =
+                    Math.sin(index * 0.09 + seconds * 3.1 + side * 1.7) * 5 +
+                    Math.sin(index * 0.023 - seconds * 1.8) * 3;
+                let x = index;
+                let y = flicker;
+                if (side === 0) {
+                    x = index;
+                    y = inset + flicker;
+                } else if (side === 1) {
+                    x = rect.width - inset - flicker;
+                    y = index;
+                } else if (side === 2) {
+                    x = rect.width - index;
+                    y = rect.height - inset - flicker;
+                } else {
+                    x = inset + flicker;
+                    y = rect.height - index;
+                }
+                if (index === 0) context.moveTo(x, y);
+                else context.lineTo(x, y);
+            }
+        }
+        context.closePath();
+        context.stroke();
+        context.shadowBlur = 4;
+
+        context.lineWidth = 1;
+        for (let index = 0; index < 58; index += 1) {
+            const seed = index * 11.73;
+            const cycle = reducedMotion.matches
+                ? (seed * 0.001) % 1
+                : (seconds * (0.15 + (index % 5) * 0.018) + seed * 0.004) % 1;
+            const side = index % 4;
+            let x = 0;
+            let y = 0;
+            if (side === 0) {
+                x = (seed * 7.1) % rect.width;
+                y = 8 - cycle * 96;
+            } else if (side === 1) {
+                x = rect.width - 8 + Math.sin(seconds + seed) * 8;
+                y = (seed * 5.9) % rect.height - cycle * 32;
+            } else if (side === 2) {
+                x = (seed * 7.1) % rect.width;
+                y = rect.height - 8 + cycle * 44;
+            } else {
+                x = 8 - cycle * 28;
+                y = (seed * 5.9) % rect.height;
+            }
+            const alpha = 1 - cycle;
+            context.fillStyle = `rgba(130, 196, 255, ${(alpha * 0.82).toFixed(3)})`;
+            context.beginPath();
+            context.arc(x, y, 0.6 + (index % 3) * 0.35, 0, Math.PI * 2);
+            context.fill();
+        }
+
+        context.restore();
+        if (!reducedMotion.matches) {
+            frame = requestAnimationFrame(draw);
+        }
+    }
+
+    stopped = false;
+    resize();
+    if ('ResizeObserver' in window) {
+        const resizeObserver = new ResizeObserver(resize);
+        resizeObserver.observe(hero);
+        hero._linearFlameResizeObserver?.disconnect();
+        hero._linearFlameResizeObserver = resizeObserver;
+    } else {
+        window.addEventListener('resize', resize);
+    }
+    frame = requestAnimationFrame(draw);
+}
+
+function initGameForceEffect(hero) {
+    if (!hero) return;
+
+    let canvas = hero.querySelector('[data-game-force]');
+    if (hero.dataset.effect !== 'force') {
+        hero._linearForceStop?.();
+        hero._linearForceResizeObserver?.disconnect();
+        canvas?.remove();
+        return;
+    }
+    if (!canvas) {
+        canvas = document.createElement('canvas');
+        canvas.className = 'game-force-effect';
+        canvas.setAttribute('data-game-force', '');
+        canvas.setAttribute('aria-hidden', 'true');
+        hero.insertBefore(canvas, hero.querySelector('.game-hero-copy'));
+    }
+
+    const context = canvas.getContext('2d', { alpha: true });
+    if (!context) return;
+
+    let frame = 0;
+    let stopped = false;
+    let pointerX = -300;
+    let pointerY = -300;
+    let pointerInside = false;
+    let ripples = [];
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+    function stopEffect() {
+        stopped = true;
+        cancelAnimationFrame(frame);
+        hero.removeEventListener('pointermove', onPointerMove);
+        hero.removeEventListener('pointerleave', onPointerLeave);
+        hero.removeEventListener('pointerdown', onPointerDown);
+    }
+
+    hero._linearForceStop?.();
+    hero._linearForceStop = stopEffect;
+
+    function resize() {
+        const rect = hero.getBoundingClientRect();
+        if (rect.width < 1 || rect.height < 1) return;
+        const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+        canvas.width = Math.round(rect.width * pixelRatio);
+        canvas.height = Math.round(rect.height * pixelRatio);
+        canvas.style.width = `${rect.width}px`;
+        canvas.style.height = `${rect.height}px`;
+        context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+    }
+
+    function onPointerMove(event) {
+        const rect = hero.getBoundingClientRect();
+        pointerX = event.clientX - rect.left;
+        pointerY = event.clientY - rect.top;
+        pointerInside = true;
+    }
+
+    function onPointerLeave() {
+        pointerInside = false;
+        pointerX = -300;
+        pointerY = -300;
+    }
+
+    function onPointerDown(event) {
+        if (reducedMotion.matches) return;
+        const rect = hero.getBoundingClientRect();
+        ripples.push({
+            x: event.clientX - rect.left,
+            y: event.clientY - rect.top,
+            born: performance.now()
+        });
+        if (ripples.length > 8) ripples.shift();
+    }
+
+    function hexagon(cx, cy, radius) {
+        context.beginPath();
+        for (let corner = 0; corner < 6; corner += 1) {
+            const angle = Math.PI / 3 * corner;
+            const x = cx + Math.cos(angle) * radius;
+            const y = cy + Math.sin(angle) * radius;
+            if (corner === 0) context.moveTo(x, y);
+            else context.lineTo(x, y);
+        }
+        context.closePath();
+    }
+
+    function draw(time) {
+        if (stopped || !canvas.isConnected) return;
+        const rect = hero.getBoundingClientRect();
+        context.clearRect(0, 0, rect.width, rect.height);
+        const seconds = reducedMotion.matches ? 1.4 : time * 0.001;
+        const radius = 14;
+        const rowHeight = radius * 1.5;
+
+        context.save();
+        context.globalCompositeOperation = 'screen';
+        context.lineWidth = 0.85;
+        for (let row = -1, y = -radius; y < rect.height + radius; row += 1, y += rowHeight) {
+            const offset = row % 2 === 0 ? 0 : radius * 1.73 * 0.5;
+            for (let column = -1, x = -radius + offset;
+                x < rect.width + radius;
+                column += 1, x += radius * 1.73) {
+                let reveal = 0.12;
+                if (pointerInside) {
+                    const dx = x - pointerX;
+                    const dy = y - pointerY;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    reveal = 0.12 + Math.max(0, 1 - distance / 180) * 1.05;
+                }
+
+                for (const ripple of ripples) {
+                    const dx = x - ripple.x;
+                    const dy = y - ripple.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    const age = (time - ripple.born) / 1100;
+                    const ring = Math.abs(distance - age * 240);
+                    if (age < 1) {
+                        reveal += Math.max(0, 1 - ring / 34) * (1 - age) * 1.2;
+                    }
+                }
+
+                const edge = Math.min(x / rect.width, (rect.width - x) / rect.width,
+                    y / rect.height, (rect.height - y) / rect.height);
+                const edgeGlow = Math.max(0, 1 - edge / 0.16);
+                reveal += edgeGlow * 0.6;
+                const flash = 0.5 + Math.sin(
+                    seconds * 1.4 + column * 1.71 + row * 0.93
+                ) * 0.5;
+                const alpha = Math.min(0.92, 0.08 + reveal * 0.22 + flash * reveal * 0.16);
+
+                hexagon(x, y, radius);
+                context.strokeStyle = `rgba(86, 205, 255, ${alpha.toFixed(3)})`;
+                context.stroke();
+            }
+        }
+        context.restore();
+
+        ripples = ripples.filter(ripple => time - ripple.born < 1100);
+        if (!reducedMotion.matches) {
+            frame = requestAnimationFrame(draw);
+        }
+    }
+
+    stopped = false;
+    resize();
+    hero.addEventListener('pointermove', onPointerMove, { passive: true });
+    hero.addEventListener('pointerleave', onPointerLeave, { passive: true });
+    hero.addEventListener('pointerdown', onPointerDown, { passive: true });
+    if ('ResizeObserver' in window) {
+        const resizeObserver = new ResizeObserver(resize);
+        resizeObserver.observe(hero);
+        hero._linearForceResizeObserver?.disconnect();
+        hero._linearForceResizeObserver = resizeObserver;
+    } else {
+        window.addEventListener('resize', resize);
+    }
+    frame = requestAnimationFrame(draw);
+}
+
 function initGamePage() {
     const root = document.querySelector('[data-game-page]');
     if (!root) return;
@@ -2202,7 +4490,22 @@ function initGamePage() {
         description.textContent = currentGame.description || 'No description yet.';
         banner.src = currentGame.bannerUrl || '/assets/games/default-game-banner.webp';
         root.querySelector('[data-game-hero]').dataset.effect =
-            ['ascii', 'grid', 'glow'].includes(currentGame.heroEffect) ? currentGame.heroEffect : 'none';
+            ['ascii', 'asciify', 'bend', 'blaze', 'bubble', 'paper', 'chrome', 'cloth', 'clouds', 'decrypt', 'displacement', 'dither', 'droplets', 'flame', 'force', 'grid', 'glow'].includes(currentGame.heroEffect) ? currentGame.heroEffect : 'none';
+        initGameAsciiEffect(root.querySelector('[data-game-hero]'), banner);
+        initGameAsciifyEffect(root.querySelector('[data-game-hero]'));
+        initGameBendEffect(root.querySelector('[data-game-hero]'));
+        initGameBlazeEffect(root.querySelector('[data-game-hero]'));
+        initGameBubbleEffect(root.querySelector('[data-game-hero]'));
+        initGamePaperEffect(root.querySelector('[data-game-hero]'));
+        initGameChromeEffect(root.querySelector('[data-game-hero]'));
+        initGameClothEffect(root.querySelector('[data-game-hero]'));
+        initGameCloudsEffect(root.querySelector('[data-game-hero]'));
+        initGameDecryptEffect(root.querySelector('[data-game-hero]'));
+        initGameDisplacementEffect(root.querySelector('[data-game-hero]'), banner);
+        initGameDitherEffect(root.querySelector('[data-game-hero]'), banner);
+        initGameDropletsEffect(root.querySelector('[data-game-hero]'));
+        initGameFlameEffect(root.querySelector('[data-game-hero]'));
+        initGameForceEffect(root.querySelector('[data-game-hero]'));
         renderGameStats(stats, currentGame);
         renderServerList(servers, data.servers);
 

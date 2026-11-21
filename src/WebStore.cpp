@@ -351,7 +351,15 @@ bool Store::load(std::string* error) {
         record.iconPath = entry.member("iconPath").asString();
         record.bannerPath = entry.member("bannerPath").asString();
         record.heroEffect = entry.member("heroEffect").asString("none");
-        if (record.heroEffect != "ascii" && record.heroEffect != "grid" &&
+        if (record.heroEffect != "ascii" && record.heroEffect != "asciify" &&
+            record.heroEffect != "bend" && record.heroEffect != "blaze" &&
+            record.heroEffect != "bubble" && record.heroEffect != "paper" &&
+            record.heroEffect != "chrome" && record.heroEffect != "cloth" &&
+            record.heroEffect != "clouds" && record.heroEffect != "decrypt" &&
+            record.heroEffect != "displacement" && record.heroEffect != "dither" &&
+            record.heroEffect != "droplets" && record.heroEffect != "flame" &&
+            record.heroEffect != "force" &&
+            record.heroEffect != "grid" &&
             record.heroEffect != "glow") {
             record.heroEffect = "none";
         }

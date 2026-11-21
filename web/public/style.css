@@ -1231,7 +1231,6 @@ input {
         linear-gradient(0deg, rgba(0, 0, 0, 0.62), transparent 48%);
 }
 
-.game-hero-detail[data-effect="ascii"]::before,
 .game-hero-detail[data-effect="grid"]::before,
 .game-hero-detail[data-effect="glow"]::before {
     content: "";
@@ -1241,22 +1240,185 @@ input {
 }
 
 .game-hero-detail[data-effect="ascii"]::before {
-    inset: 0 0 0 55%;
-    opacity: 0.42;
-    background:
-        repeating-linear-gradient(0deg,
-            transparent 0 14px,
-            rgba(255, 255, 255, 0.42) 15px,
-            transparent 16px 22px),
-        repeating-linear-gradient(90deg,
-            transparent 0 10px,
-            rgba(255, 255, 255, 0.18) 11px,
-            transparent 12px 20px);
-    mask-image: linear-gradient(90deg, transparent, #000 30%, #000);
+    display: none;
 }
 
-.game-hero-detail[data-effect="ascii"]::before {
-    font-family: monospace;
+.game-ascii-effect {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    opacity: 0.78;
+    mix-blend-mode: screen;
+    mask-image: linear-gradient(90deg, transparent 42%, #000 58%);
+}
+
+.game-asciify-effect {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    opacity: 0.9;
+    mix-blend-mode: screen;
+}
+
+.game-hero-detail[data-effect="bend"] {
+    perspective: 900px;
+}
+
+.game-hero-detail[data-effect="bend"] > img {
+    transform:
+        rotateX(var(--bend-rotate-x, 0deg))
+        rotateY(var(--bend-rotate-y, 0deg))
+        scale(1.025);
+    transform-origin: center;
+    transition: transform 180ms ease-out;
+}
+
+.game-bend-effect {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    mix-blend-mode: screen;
+}
+
+.game-blaze-effect {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    opacity: 0.96;
+    mix-blend-mode: screen;
+}
+
+.game-bubble-effect {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+}
+
+.game-paper-effect {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    mix-blend-mode: multiply;
+}
+
+.game-chrome-effect {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    opacity: 0.9;
+    mix-blend-mode: screen;
+}
+
+.game-hero-detail[data-effect="cloth"] > img {
+    transform:
+        skewX(calc(var(--cloth-brush-x, 0) * 1deg))
+        scale(1.018);
+    transform-origin: center bottom;
+    transition: transform 180ms ease-out;
+}
+
+.game-cloth-effect {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    opacity: 0.92;
+    mix-blend-mode: screen;
+}
+
+.game-clouds-effect {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    opacity: 0.82;
+    mix-blend-mode: screen;
+}
+
+.game-decrypt-effect {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    opacity: 0.94;
+}
+
+.game-displacement-effect {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    opacity: 0.98;
+}
+
+.game-dither-effect {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    mix-blend-mode: multiply;
+}
+
+.game-droplets-effect {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    mix-blend-mode: screen;
+}
+
+.game-flame-effect {
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    mix-blend-mode: screen;
+}
+
+.game-force-effect {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    opacity: 0.92;
+    mix-blend-mode: screen;
 }
 
 .game-hero-detail[data-effect="grid"]::before {

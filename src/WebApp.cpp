@@ -522,7 +522,12 @@ std::string normalizeGameDescription(const std::string& value) {
 
 std::string normalizeGameEffect(const std::string& value) {
     const std::string effect = normalizeWhitespace(value);
-    if (effect == "ascii" || effect == "grid" || effect == "glow") {
+    if (effect == "ascii" || effect == "asciify" || effect == "bend" ||
+        effect == "blaze" || effect == "bubble" || effect == "paper" ||
+        effect == "chrome" || effect == "cloth" || effect == "clouds" ||
+        effect == "decrypt" || effect == "displacement" || effect == "dither" ||
+        effect == "droplets" || effect == "flame" || effect == "force" ||
+        effect == "grid" || effect == "glow") {
         return effect;
     }
     return "none";
@@ -2088,7 +2093,15 @@ Json WebsiteApp::gameJson(const GameRecord& game, bool canEdit, int viewerId) co
     result.set("iconUrl", iconPath);
     result.set("bannerUrl", bannerPath);
     result.set("heroEffect",
-               game.heroEffect == "ascii" || game.heroEffect == "grid" ||
+               game.heroEffect == "ascii" || game.heroEffect == "asciify" ||
+                       game.heroEffect == "bend" || game.heroEffect == "blaze" ||
+                       game.heroEffect == "bubble" || game.heroEffect == "paper" ||
+                       game.heroEffect == "chrome" || game.heroEffect == "cloth" ||
+                       game.heroEffect == "clouds" || game.heroEffect == "decrypt" ||
+                       game.heroEffect == "displacement" || game.heroEffect == "dither" ||
+                       game.heroEffect == "droplets" || game.heroEffect == "flame" ||
+                       game.heroEffect == "force" ||
+                       game.heroEffect == "grid" ||
                        game.heroEffect == "glow"
                    ? game.heroEffect
                    : "none");

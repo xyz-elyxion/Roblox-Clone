@@ -65,7 +65,9 @@ void Debugger::AntiDebug::CheckForDebugger(LPVOID AD)
 
 
 /*
-	_IsHardwareDebuggerPresent - suspends threads + Checks debug registers for Dr0-3,6,7 being > 0
+    _IsHardwareDebuggerPresent - suspends each other thread and reads its debug registers.
+    A breakpoint that is enabled (DR7 bits 0-7) or one that fired (DR6 bits 0-3) is a debugger;
+    the raw DR6/DR7 values are the system's own defaults on an ordinary thread and are not.
 */
 void Debugger::AntiDebug::_IsHardwareDebuggerPresent(LPVOID AD)
 {
@@ -105,36 +107,51 @@ void Debugger::AntiDebug::_IsHardwareDebuggerPresent(LPVOID AD)
 
 				SuspendThread(hThread);
 
-				CONTEXT context;
+				CONTEXT context = {};
 				context.ContextFlags = CONTEXT_DEBUG_REGISTERS;
 
-				if (GetThreadContext(hThread, &context))
+				// Nothing between the suspend and the resume may log, allocate or take a
+				// lock. Logger::log holds a mutex, and the thread suspended here can be
+				// the one holding it, which freezes every thread in the process - the
+				// client's window turns white and its log stops in the middle of a line,
+				// with the monitoring and audio threads stopped too. GetThreadContext is a
+				// kernel call that takes no user-mode lock, so it stays inside the window;
+				// its failure is reported after the thread is running again.
+				const BOOL readContext = GetThreadContext(hThread, &context);
+				const DWORD contextError = readContext ? 0 : GetLastError();
+
+				ResumeThread(hThread);
+
+				if (!readContext)
 				{
-					if (context.Dr0 || context.Dr1 || context.Dr2 || context.Dr3 || context.Dr6 || context.Dr7)
-					{
-						Logger::logf(Detection, "Found at least one debug register enabled (hardware debugging)");
-						ResumeThread(hThread);
-
-						AntiDbg->AddFlagged(DetectionFlags::DEBUG_HARDWARE_REGISTERS);
-
-						if (!AntiDbg->EvidenceManager->AddFlagged(DetectionFlags::DEBUG_HARDWARE_REGISTERS))
-						{ //optionally take further action, `Flag` will already log a warning
-						}
-
-						CloseHandle(hThreadSnap);
-						CloseHandle(hThread);
-						return;
-					}
-				}
-				else
-				{
-					Logger::logf(Err, "GetThreadContext failed with: %d", GetLastError());
-					ResumeThread(hThread);
 					CloseHandle(hThread);
+					Logger::logf(Err, "GetThreadContext failed with: %d", contextError);
 					continue;
 				}
 
-				ResumeThread(hThread);
+				// Dr6 and Dr7 are not zero on an ordinary thread - the system leaves its
+				// own defaults in them - so their raw values say nothing about a debugger.
+				// What does: at least one breakpoint enabled (DR7 bits 0-7), or one that
+				// actually fired (DR6 bits 0-3). Reading the defaults as evidence flagged
+				// every ordinary session as hardware debugging.
+				const bool breakpointEnabled = (context.Dr7 & 0xFF) != 0;
+				const bool breakpointHit = (context.Dr6 & 0xF) != 0;
+
+				if (breakpointEnabled || breakpointHit)
+				{
+					Logger::logf(Detection, "Found at least one debug register enabled (hardware debugging)");
+
+					AntiDbg->AddFlagged(DetectionFlags::DEBUG_HARDWARE_REGISTERS);
+
+					if (!AntiDbg->EvidenceManager->AddFlagged(DetectionFlags::DEBUG_HARDWARE_REGISTERS))
+					{ //optionally take further action, `Flag` will already log a warning
+					}
+
+					CloseHandle(hThread);
+					CloseHandle(hThreadSnap);
+					return;
+				}
+
 				CloseHandle(hThread);
 			}
 		} while (Thread32Next(hThreadSnap, &te32));

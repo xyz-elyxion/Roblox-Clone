@@ -74,7 +74,10 @@ them, and writes `README.txt`, `update.json` and `manifest.json` into `dist/line
    accepts a DLL signed by the same publisher as the running executable so `LinearGame.dll` is not
    reported as an injection; and the process mitigations in `Core/Preventions.cpp`, which
    applied `DisallowWin32kSystemCalls` to a process that draws a window, after which the
-   window was created and never shown. Keep those fixes;
+   window was created and never shown; and the hardware-debugger scan in
+   `AntiDebug/AntiDebugger.cpp`, which logged through the logger's mutex while every other
+   thread in the process was suspended, freezing the client mid-line with its window white,
+   and read the leftover Dr6/Dr7 values as proof of a debugger. Keep those fixes;
    they are corrections, not a reformat. Their generated
    documentation, examples, own test suites and CI files have been pruned; the code, build
    files and licences are upstream as pinned.

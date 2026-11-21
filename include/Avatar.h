@@ -3,7 +3,10 @@
 #include <linearmath/linearmath.hpp>
 #include <string>
 
-struct AvatarConfig {
+#include "LinearGameApi.h"
+
+LINEAR_GAME_API_BEGIN
+struct LINEAR_GAME_API AvatarConfig {
     linearmath::vec3 headColor = linearmath::vec3(0.8f, 0.6f, 0.4f);      // Skin color
     linearmath::vec3 torsoColor = linearmath::vec3(0.2f, 0.4f, 0.8f);    // Blue shirt
     linearmath::vec3 leftArmColor = linearmath::vec3(0.8f, 0.6f, 0.4f);  // Skin color
@@ -17,5 +20,6 @@ struct AvatarConfig {
     void saveToFile(const std::string& filename = "avatar.txt");
     void loadFromFile(const std::string& filename = "avatar.txt");
 };
+LINEAR_GAME_API_END
 
 

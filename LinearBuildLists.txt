@@ -103,18 +103,28 @@ set(lineargizmo_SOURCE_DIR ${LINEARBUILD_CURRENT_SOURCE_DIR}/lineargizmo)
 set(lineartextedit_SOURCE_DIR ${LINEARBUILD_CURRENT_SOURCE_DIR}/lineartextedit)
 set(linearstb_SOURCE_DIR ${LINEARBUILD_CURRENT_SOURCE_DIR}/linearstb)
 
+# The game simulation: world files, parts, physics bodies, the character, the camera,
+# picking and the avatar. It is one DLL rather than the same code compiled into four
+# programs, which is what makes an update small - a change to movement or a world file
+# replaces LinearGame.dll, not Client.exe, Server.exe, Studio.exe and AiTrainer.exe.
+set(GAME_SOURCES
+    src/PhysicsWorld.cpp
+    src/Character.cpp
+    src/Avatar.cpp
+    src/WorldLoader.cpp
+    src/Camera.cpp
+    src/Raycaster.cpp
+)
+
+# Everything that draws stays in the executable: it needs the GL context that
+# executable created, and linearwin keeps its platform state per module, so a window
+# handle must not be used by another module. See include/LinearGameApi.h.
 set(SHARED_SOURCES
     src/Renderer.cpp
-    src/Camera.cpp
     src/Shader.cpp
     src/Window.cpp
-    src/Raycaster.cpp
     src/Skybox.cpp
-    src/PhysicsWorld.cpp
     src/ShadowMap.cpp
-    src/Character.cpp
-    src/WorldLoader.cpp
-    src/Avatar.cpp
 )
 
 set(LINEARUI_SOURCES
@@ -163,6 +173,16 @@ function(configure_linear_target target_name)
     endif()
 endfunction()
 
+# LinearGame.dll is unconditional, unlike the executables: Client, Server, Studio and
+# AiTrainer all load it, so a configuration without it would have nothing to run. It
+# links the vendored linearphysics these programs used to compile in, and the same
+# static runtime, so a std::string or std::deque crosses the boundary without a second
+# heap. LINEAR_GAME_BUILD switches include/LinearGameApi.h to the export side.
+add_library(LinearGame SHARED ${GAME_SOURCES})
+configure_linear_target(LinearGame)
+target_compile_definitions(LinearGame PRIVATE LINEAR_GAME_BUILD)
+target_link_libraries(LinearGame PRIVATE linearmath linearphysics)
+
 if(LINEAR_BUILD_STUDIO)
     add_executable(Studio
         src/main.cpp
@@ -185,7 +205,8 @@ if(LINEAR_BUILD_STUDIO)
     )
     configure_linear_target(Studio)
     target_include_directories(Studio PRIVATE ${lineartextedit_SOURCE_DIR})
-    target_link_libraries(Studio PRIVATE linearwin linearmath linearphysics lineargl bcrypt)
+    target_link_libraries(Studio PRIVATE
+        LinearGame linearwin linearmath linearphysics lineargl bcrypt)
     # HttpClient is the only transport left (the website calls used to go
     # through WinHTTP), and it is plain sockets, hence ws2_32.
     target_link_libraries(Studio PRIVATE ws2_32 shell32)
@@ -423,7 +444,8 @@ if(LINEAR_BUILD_CLIENT)
         ${LINEARUI_SOURCES}
     )
     configure_linear_target(Client)
-    target_link_libraries(Client PRIVATE linearwin linearmath linearphysics lineargl bcrypt)
+    target_link_libraries(Client PRIVATE
+        LinearGame linearwin linearmath linearphysics lineargl bcrypt)
     # winmm is the OS mixer waveOut lives in; no other audio dependency exists.
     target_link_libraries(Client PRIVATE ws2_32 shell32 comdlg32 winmm)
     if(TARGET LinearAntiCheat)
@@ -457,8 +479,6 @@ if(LINEAR_BUILD_SERVER)
         src/Server.cpp
         src/ServerAuth.cpp
         src/HttpClient.cpp
-        src/WorldLoader.cpp
-        src/PhysicsWorld.cpp
         src/LinearScript.cpp
         src/WorldScript.cpp
         # A script's PlaySound is validated against the bank before the name
@@ -466,7 +486,7 @@ if(LINEAR_BUILD_SERVER)
         src/SoundBank.cpp
     )
     configure_linear_target(Server)
-    target_link_libraries(Server PRIVATE linearmath linearphysics)
+    target_link_libraries(Server PRIVATE LinearGame linearmath linearphysics)
     target_link_libraries(Server PRIVATE ws2_32)
 endif()
 
@@ -478,10 +498,6 @@ if(LINEAR_BUILD_TRAINER)
     add_executable(AiTrainer
         src/AiTrainer.cpp
         src/TrainerGui.cpp
-        src/PhysicsWorld.cpp
-        src/Character.cpp
-        src/Camera.cpp
-        src/WorldLoader.cpp
         src/HttpClient.cpp
         src/WebJson.cpp
         src/HardwareId.cpp
@@ -489,7 +505,8 @@ if(LINEAR_BUILD_TRAINER)
         ${LINEARUI_SOURCES}
     )
     configure_linear_target(AiTrainer)
-    target_link_libraries(AiTrainer PRIVATE linearphysics linearmath linearwin lineargl ws2_32 bcrypt)
+    target_link_libraries(AiTrainer PRIVATE
+        LinearGame linearphysics linearmath linearwin lineargl ws2_32 bcrypt)
 endif()
 
 set(WEB_SOURCES

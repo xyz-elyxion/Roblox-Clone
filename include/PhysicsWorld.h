@@ -4,8 +4,10 @@
 #include <vector>
 #include <map>
 #include "Part.h"
+#include "LinearGameApi.h"
 
-class PhysicsWorld {
+LINEAR_GAME_API_BEGIN
+class LINEAR_GAME_API PhysicsWorld {
 public:
     PhysicsWorld();
     ~PhysicsWorld();
@@ -44,3 +46,4 @@ private:
     std::map<Part*, int*> indicesDataMap; // For Polyhedron shapes
     std::map<Part*, linearphysics::PolygonVertexArray::PolygonFace*> facesDataMap; // For Polyhedron shapes
 };
+LINEAR_GAME_API_END

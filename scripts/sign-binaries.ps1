@@ -1,7 +1,7 @@
 <#
-    Signs the executables in a folder with the Linear code-signing certificate.
+    Signs the executables and DLLs in a folder with the Linear code-signing certificate.
 
-    Signing embeds the certificate and a signature in each .exe, so Windows can tell who
+    Signing embeds the certificate and a signature in each .exe and .dll, so Windows can tell who
     published it and that nobody edited it afterwards. It is also what an antivirus checks
     before it decides whether a program is a repackaged copy of something it already knows.
 
@@ -79,8 +79,12 @@ if (Test-Path -LiteralPath $publicPath) {
 
 Write-Host "signing with $($certificate.Subject) ($($certificate.Thumbprint))"
 
-$files = @(Get-ChildItem -LiteralPath $Folder -Filter *.exe -File)
-if ($files.Count -eq 0) { throw "No .exe files in $Folder" }
+# LinearGame.dll is loaded into Client.exe, Server.exe, Studio.exe and AiTrainer.exe.
+# An unsigned DLL in a signed process is what an antivirus and SmartScreen report, so
+# the library is signed with the same certificate and timestamp as the executables.
+$files = @(Get-ChildItem -LiteralPath $Folder -File |
+    Where-Object { $_.Extension -in @('.exe', '.dll') })
+if ($files.Count -eq 0) { throw "No .exe or .dll files in $Folder" }
 
 $failed = @()
 foreach ($file in $files) {

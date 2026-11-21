@@ -32,7 +32,8 @@ build\linearbuild-tool\bin\lineartest --preset windows-release
 ```
 
 `LinearBuildPresets.json` has one preset, `windows-release` (Visual Studio 17 2022,
-`build/windows-release`, Release). Binaries land in `build\windows-release\Release\`.
+`build/windows-release`, Release). Binaries land in `build\windows-release\Release\`, and so
+does `LinearGame.dll`, which the client, server, Studio and trainer load from beside themselves.
 Visual Studio 2022 with the C++ workload, or MinGW + Ninja, is required; the vendored
 `linearbuild` is the only build tool.
 
@@ -69,7 +70,9 @@ them, and writes `README.txt`, `update.json` and `manifest.json` into `dist/line
    because those files reach windows.h before libuv includes winsock2.h; the TLS callback in
    `Core/AntiCheatLib.cpp`, which scanned threads and logged through the C runtime while the
    loader still held its lock and before the static runtime existed, hanging the client
-   before `main()` on an empty console. Keep those fixes;
+   before `main()` on an empty console; and the module-trust rule in `Core/Detections.cpp`, which
+   accepts a DLL signed by the same publisher as the running executable so `LinearGame.dll` is not
+   reported as an injection. Keep those fixes;
    they are corrections, not a reformat. Their generated
    documentation, examples, own test suites and CI files have been pruned; the code, build
    files and licences are upstream as pinned.
@@ -82,8 +85,8 @@ them, and writes `README.txt`, `update.json` and `manifest.json` into `dist/line
 4. **No launcher scripts.** There are no `.bat`/`.cmd` files in the repository or in the
    package, on purpose: every program finds its data in the folder it runs from, which is
    where Explorer starts it. Do not add a wrapper to "help".
-5. **Nothing ships unless the packager knows about it.** A new executable must be added
-   to the executable list in `scripts/package-build.ps1`, to the folder listing in
+5. **Nothing ships unless the packager knows about it.** A new executable or DLL must be
+   added to the file list in `scripts/package-build.ps1`, to the folder listing in
    `README.md` and to the generated `README.txt` inside that script.
 6. **Security decisions belong in `SECURITY.md`.** Anything that touches authentication,
    tokens, the data file, rate limits or moderation is described there; keep it true when
@@ -93,6 +96,7 @@ them, and writes `README.txt`, `update.json` and `manifest.json` into `dist/line
 
 | Area | Files |
 | --- | --- |
+| Shared game simulation (`LinearGame.dll`) | `src/PhysicsWorld.cpp`, `src/Character.cpp`, `src/Avatar.cpp`, `src/WorldLoader.cpp`, `src/Camera.cpp`, `src/Raycaster.cpp`; the export boundary is `include/LinearGameApi.h` |
 | Game client | `src/Client.cpp` (startup, arguments, loop), `src/ClientNet.cpp` (socket, session, join), `src/ClientUi.cpp` (menus, HUD, chat, settings), `src/ClientShared.h` |
 | Game server | `src/Server.cpp`, `include/MovementGuard.h`, `include/Moderation.h`, `src/Player.cpp` |
 | Studio | `src/Editor.cpp`, `src/WorldLoader.cpp`, `src/WorldScript.cpp` |
@@ -119,7 +123,9 @@ server and the tests can share it.
 
 - **A source file** goes into the right `add_executable` in `LinearBuildLists.txt`. Sources
   are listed explicitly per target — there is no globbing, so a new file that is not
-  listed simply does not compile into anything.
+  listed simply does not compile into anything. A game-simulation unit belongs in
+  `GAME_SOURCES` (the DLL); anything that draws belongs in `SHARED_SOURCES` (each
+  executable), because it needs that executable's GL context.
 - **A test** is `tests/<area>_tests.cpp`: a plain `main()` that exercises the unit, prints
   what failed and returns nonzero. There is no test framework and none should be added.
   Register it with `add_executable` + `add_test` inside the `if(LINEAR_BUILD_TESTS)` block

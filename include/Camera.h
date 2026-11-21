@@ -6,6 +6,8 @@
 
 #include <vector>
 
+#include "LinearGameApi.h"
+
 // Default camera values
 const float YAW         = -90.0f;
 const float PITCH       =  0.0f;
@@ -22,7 +24,8 @@ enum Camera_Movement {
     DOWN
 };
 
-class Camera {
+LINEAR_GAME_API_BEGIN
+class LINEAR_GAME_API Camera {
 public:
     linearmath::vec3 Position;
     linearmath::vec3 Front;
@@ -49,6 +52,7 @@ public:
 private:
     void updateCameraVectors();
 };
+LINEAR_GAME_API_END
 
 
 

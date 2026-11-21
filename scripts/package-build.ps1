@@ -115,6 +115,20 @@ try {
             Write-Warning "No $name.exe at $exePath."
         }
     }
+    # The DLLs the executables load. They are not programs and the updater replaces
+    # them like any other file, but a package without them is a folder whose client,
+    # server, Studio and trainer cannot start, so a missing one fails packaging too.
+    foreach ($name in @('LinearGame.dll')) {
+        $dllPath = Join-Path $exeDir $name
+        if (Test-Path -LiteralPath $dllPath) {
+            Copy-Item -LiteralPath $dllPath -Destination $Output
+            $found += $name
+        }
+        else {
+            $missing += $name
+            Write-Warning "No $name at $dllPath."
+        }
+    }
     # A link failure can leave some targets built and one missing. Packaging that
     # folder would hand out a release that cannot run the website, so stop here
     # instead of uploading a partial package.
@@ -229,6 +243,8 @@ try {
         '                repository that git itself can read (loose objects, refs, index)'
         '  LinearHub.exe     repository browser: files at HEAD, history, a commit page and'
         '                issues on http://127.0.0.1:3100, rendered from the repository'
+        '  LinearGame.dll    the game simulation Client.exe, Server.exe, Studio.exe and'
+        '                AiTrainer.exe load: worlds, parts, physics, the character, the avatar'
         '  docs/         the Markdown LinearDocs.exe shows (README.md and the topic files)'
         '  web/          website assets (public/ pages and API scripts, seed-worlds/)'
         '  web/host/     the LinearHosts control panel page'
@@ -315,6 +331,9 @@ try {
         '    relative to the folder they run from, which is where Explorer starts them.'
         '  - WebApp.exe uses the Server.exe and Client.exe beside it, so Play launches'
         '    the copies that ship with this package.'
+        '  - LinearGame.dll is loaded by Client.exe, Server.exe, Studio.exe and AiTrainer.exe.'
+        '    Keep it beside them: it is the file an update usually replaces, and a program'
+        '    started without it cannot run.'
         '  - WebApp.exe opens a server console window: the live log with level filters and'
         '    search, every running game server with its port, players and output, plus Stop,'
         '    Open site, Copy log and Clear. Closing it stops the website and its servers.'

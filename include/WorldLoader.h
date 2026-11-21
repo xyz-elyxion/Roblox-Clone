@@ -7,6 +7,7 @@
 
 #include "Part.h"
 #include "PhysicsWorld.h"
+#include "LinearGameApi.h"
 
 // The air of a world, read from the optional fields after the part count on its
 // header line. A world file written before fog existed has none of them, and
@@ -16,9 +17,11 @@ struct WorldEnvironment {
     float fogDensity = 0.0f;
 };
 
-class WorldLoader {
+LINEAR_GAME_API_BEGIN
+class LINEAR_GAME_API WorldLoader {
 public:
     static void loadWorld(const std::string& filename, std::deque<Part>& parts, PhysicsWorld& physicsWorld,
                           WorldEnvironment* environment = nullptr);
 };
+LINEAR_GAME_API_END
 

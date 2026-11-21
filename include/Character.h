@@ -1,5 +1,7 @@
 #pragma once
 
+#include "LinearGameApi.h"
+
 #include <linearmath/linearmath.hpp>
 #include <string>
 #include <vector>
@@ -8,7 +10,8 @@
 #include "PhysicsWorld.h"
 #include "Camera.h"
 
-class Character {
+LINEAR_GAME_API_BEGIN
+class LINEAR_GAME_API Character {
 public:
     Character(linearmath::vec3 startPos, PhysicsWorld* physicsWorld, std::deque<Part>* partsList, 
               const linearmath::vec3& headColor = linearmath::vec3(0.8f, 0.6f, 0.4f),
@@ -99,3 +102,4 @@ private:
     // Physics
     int rootPartIndex;
 };
+LINEAR_GAME_API_END

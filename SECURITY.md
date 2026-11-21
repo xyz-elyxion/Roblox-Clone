@@ -65,6 +65,15 @@ a fresh 16-byte random salt per password and a 120000-round default. Verificatio
 constant-time. The plaintext is never written to the data file or logged. Changing the
 iteration count leaves existing hashes readable, because the count travels with each hash.
 
+**Module trust.** `LinearAntiCheat` checks the Authenticode signature of every module the loader
+adds after it starts, and reports an unsigned or foreign one as an injection. The game's own
+library, `LinearGame.dll`, holds the world, physics and character code the client, the server,
+Studio and the trainer run, and is signed with the same certificate as the executables. A module
+whose valid signature names the running executable's own publisher is therefore accepted as part of
+the game. The comparison is against that executable rather than a fixed publisher name, so a DLL
+signed by somebody else is still refused; `scripts/sign-binaries.ps1` signs both `.exe` and `.dll`
+for that reason.
+
 **Sessions.** The login response is a JWT signed with HMAC-SHA256 through
 `src/WebCrypto.cpp`, carrying `sub`, `iat` and `exp` (`JWT_EXPIRES_IN`, seven days by
 default). Authenticated routes take `Authorization: Bearer <token>`; tokens are no longer

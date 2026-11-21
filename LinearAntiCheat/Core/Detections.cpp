@@ -165,6 +165,26 @@ static bool IsUnderWindowsDirectory(__in const std::wstring& modulePath)
 }
 
 /*
+    MainModulePublisher - the subject of the certificate the running executable is signed with, or an
+    empty string when it has none. Read once: GetSignerFromFile opens the file and walks its
+    certificate table, which is not something to repeat for every module that loads.
+*/
+static const std::wstring& MainModulePublisher()
+{
+    static const std::wstring subject = []() -> std::wstring
+    {
+        wchar_t path[MAX_PATH] = {};
+        const DWORD length = GetModuleFileNameW(nullptr, path, MAX_PATH);
+        if (length == 0 || length == MAX_PATH)
+        {
+            return std::wstring();
+        }
+        return Authenticode::GetSignerFromFile(std::wstring(path, length));
+    }();
+    return subject;
+}
+
+/*
     IsAllowedModuleSignature - a module has to be signed by Microsoft, by a publisher named below, or by
     its vendor if it came out of the Windows directory
 
@@ -183,6 +203,17 @@ bool Detections::IsAllowedModuleSignature(__in const std::wstring& modulePath)
 
     const std::wstring subject = Authenticode::GetSignerFromFile(modulePath);
     if (subject.find(L"Microsoft") != std::wstring::npos)
+    {
+        return true;
+    }
+
+    // The game ships a library of its own beside the executable: LinearGame.dll is the world,
+    // physics and character code the client, the server, Studio and the trainer all run, and
+    // the packager signs it with the same certificate that signs them. A module signed by the
+    // publisher of the running program is therefore part of the game, not an injection. The
+    // comparison is against that executable's own publisher rather than a fixed name, so
+    // anyone else's signature - a cheat's, or none at all - is refused exactly as before.
+    if (!subject.empty() && subject == MainModulePublisher())
     {
         return true;
     }

@@ -21,6 +21,10 @@ before pointing it at the internet.
 | `LinearCert.exe` | Puts the signing certificate into the Windows trust stores, or takes it out again, so a signed build starts without Windows asking who published it; double-clicked, or started with just `--machine`, it opens a window that offers both |
 | `LinearDocs.exe` | The documentation as a window: this README and the topic files beside it — SECURITY, HOSTING, LINEARBUILD, CONTRIBUTING, the code of conduct, AGENTS — read from `docs/`, with the sections of the open page listed next to it |
 
+`LinearGame.dll` is not a program in that list: it is the game simulation — world files, parts,
+physics bodies, the character, the camera and the avatar — which `Client.exe`, `Server.exe`,
+`Studio.exe` and `AiTrainer.exe` all load. It ships beside them.
+
 ```powershell
 build\linearbuild-tool\bin\linearbuild --preset windows-release
 build\linearbuild-tool\bin\linearbuild --build --preset windows-release
@@ -79,7 +83,8 @@ in the folder it runs from, which is where Explorer starts it, so a console wrap
 
 Nothing else needs installing. The executables link the C++ runtime statically, so neither Visual
 Studio nor the VC++ redistributable is required at runtime. Keep the folder layout intact: the
-executables load `shaders/`, `ServerWorld.world` and `web/` relative to the working directory.
+executables load `shaders/`, `ServerWorld.world` and `web/` relative to the working directory, and
+`LinearGame.dll` is loaded from the folder the program starts in, so it travels with them.
 
 ### The installer, and how a copy updates itself
 
@@ -413,6 +418,12 @@ hand, with or without a script:
   local game servers. There is no Node.js service.
 - **One shared copy of each asset set.** Shaders, textures, world files and the script the server
   runs all live beside the checkout, and a packaged build carries them next to the executables.
+- **One simulation, one DLL.** Worlds, parts, physics bodies, the character, the camera, picking
+  and the avatar are compiled into `LinearGame.dll`, which the client, the server, Studio and the
+  trainer all load (`include/LinearGameApi.h` holds the boundary). Nothing in it touches a window
+  or OpenGL: `linearwin` keeps its platform state per module, so the renderer and the window stay
+  in each executable. The split is what makes an update cheap — the updater hashes every file, so
+  a change to movement or a world file downloads one library instead of four executables.
 
 ## Anti-cheat and moderation
 
@@ -1516,6 +1527,8 @@ LinearBuildPresets.json   Visual Studio Release preset (windows-release)
 linearbuild/              LinearBuild itself: the vendored build tool's source
 include/                C++ headers
 src/                    Client, Server, Studio, rendering, physics, auth, web app, world loading
+                        (the simulation the four game programs share is built into
+                        LinearGame.dll; see include/LinearGameApi.h)
 tests/                  C++ protocol, moderation and web tests
 shaders/                OpenGL shaders used by Client and Studio
 textures/               Tileable part textures a world can name
@@ -1593,7 +1606,8 @@ linear-windows-release/
   web/public/  web/seed-worlds/
   shaders/  ServerWorld.world  face*.png  face_hex.txt
   LinearUpdater.exe  LinearSetup.exe  ServerSetup.exe  AiTrainer.exe  LinearHosts.exe  LinearProxy.exe
-  LinearGit.exe  LinearHub.exe  LinearCert.exe  LinearDocs.exe  update.json  manifest.json
+  LinearGit.exe  LinearHub.exe  LinearCert.exe  LinearDocs.exe  LinearGame.dll
+  update.json  manifest.json
   docs/  certs/linear-codesign.cer
   README.txt
 ```

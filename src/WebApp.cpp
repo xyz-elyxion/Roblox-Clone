@@ -520,6 +520,14 @@ std::string normalizeGameDescription(const std::string& value) {
     return description.size() > 240 ? description.substr(0, 240) : description;
 }
 
+std::string normalizeGameEffect(const std::string& value) {
+    const std::string effect = normalizeWhitespace(value);
+    if (effect == "ascii" || effect == "grid" || effect == "glow") {
+        return effect;
+    }
+    return "none";
+}
+
 // A game's icon and banner name a file the site already ships, so the value is a
 // path under web/public and nothing else. A stored absolute URL would make every
 // visitor's browser fetch an image from a host the game's owner chose, which tells
@@ -2079,6 +2087,11 @@ Json WebsiteApp::gameJson(const GameRecord& game, bool canEdit, int viewerId) co
     }
     result.set("iconUrl", iconPath);
     result.set("bannerUrl", bannerPath);
+    result.set("heroEffect",
+               game.heroEffect == "ascii" || game.heroEffect == "grid" ||
+                       game.heroEffect == "glow"
+                   ? game.heroEffect
+                   : "none");
 
     Json stats = Json::makeObject();
     stats.set("partsCount", game.partsCount);
@@ -6124,6 +6137,7 @@ bool WebsiteApp::createGame(const AuthUser& user, const Json& body, GameRecord* 
     record.slug = slugify(title);
     record.description = normalizeGameDescription(body.member("description").asString());
     record.isPublic = boolValue(body.member("isPublic"), true);
+    record.heroEffect = normalizeGameEffect(body.member("heroEffect").asString());
     if (!normalizeGameImagePath(body.member("iconUrl").asString(), kDefaultGameIcon,
                                 &record.iconPath)) {
         errorJson(response, 400,
@@ -6192,6 +6206,9 @@ bool WebsiteApp::updateGameRecord(const AuthUser& user, int gameId, const Json& 
     }
     if (body.has("isPublic")) {
         record.isPublic = boolValue(body.member("isPublic"), record.isPublic);
+    }
+    if (body.has("heroEffect")) {
+        record.heroEffect = normalizeGameEffect(body.member("heroEffect").asString());
     }
     if (body.has("iconUrl")) {
         if (!normalizeGameImagePath(body.member("iconUrl").asString(), kDefaultGameIcon,

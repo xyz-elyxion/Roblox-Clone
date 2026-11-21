@@ -355,6 +355,7 @@ struct GameRecord {
     std::string scriptPath;
     std::string iconPath;
     std::string bannerPath;
+    std::string heroEffect = "none";
     int partsCount = 0;
     int dynamicPartsCount = 0;
     int spawnCount = 0;

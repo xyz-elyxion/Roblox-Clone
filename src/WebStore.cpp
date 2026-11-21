@@ -350,6 +350,11 @@ bool Store::load(std::string* error) {
         record.scriptPath = entry.member("scriptPath").asString();
         record.iconPath = entry.member("iconPath").asString();
         record.bannerPath = entry.member("bannerPath").asString();
+        record.heroEffect = entry.member("heroEffect").asString("none");
+        if (record.heroEffect != "ascii" && record.heroEffect != "grid" &&
+            record.heroEffect != "glow") {
+            record.heroEffect = "none";
+        }
         record.partsCount = static_cast<int>(entry.member("partsCount").asInteger(0));
         record.dynamicPartsCount =
             static_cast<int>(entry.member("dynamicPartsCount").asInteger(0));
@@ -643,6 +648,7 @@ bool Store::save(std::string* error) const {
         entry.set("scriptPath", record.scriptPath);
         entry.set("iconPath", record.iconPath);
         entry.set("bannerPath", record.bannerPath);
+        entry.set("heroEffect", record.heroEffect);
         entry.set("partsCount", record.partsCount);
         entry.set("dynamicPartsCount", record.dynamicPartsCount);
         entry.set("spawnCount", record.spawnCount);

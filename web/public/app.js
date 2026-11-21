@@ -1772,6 +1772,55 @@ function createMyGameRow(game) {
     meta.textContent = `${game.isPublic ? 'Public' : 'Private'} - ${formatGameCount(game.stats?.partsCount, 'part', 'parts')} - Updated ${formatDate(game.updatedAt)}`;
     text.append(title, meta);
 
+    const effectForm = document.createElement('form');
+    effectForm.className = 'game-effect-control';
+    const effectLabel = document.createElement('label');
+    effectLabel.textContent = 'Page effect';
+    const effectSelect = document.createElement('select');
+    effectSelect.className = 'input';
+    effectSelect.setAttribute('aria-label', `Page effect for ${game.title}`);
+    [
+        ['none', 'Blank'],
+        ['ascii', 'ASCII'],
+        ['grid', 'Moving grid'],
+        ['glow', 'Soft glow']
+    ].forEach(([value, label]) => {
+        const option = document.createElement('option');
+        option.value = value;
+        option.textContent = label;
+        effectSelect.appendChild(option);
+    });
+    effectSelect.value = ['ascii', 'grid', 'glow'].includes(game.heroEffect) ? game.heroEffect : 'none';
+    const effectStatus = document.createElement('span');
+    effectStatus.className = 'game-effect-status';
+    effectStatus.setAttribute('aria-live', 'polite');
+    effectLabel.append(effectSelect);
+    effectForm.append(effectLabel, effectStatus);
+    effectSelect.addEventListener('change', async () => {
+        effectSelect.disabled = true;
+        try {
+            const response = await fetch(`/api/games/${game.id}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${getToken()}`
+                },
+                body: JSON.stringify({ heroEffect: effectSelect.value })
+            });
+            const data = await response.json();
+            if (!response.ok || !data.success) {
+                throw new Error(data.error || 'Could not save effect.');
+            }
+            game.heroEffect = data.game.heroEffect;
+            effectStatus.textContent = 'Saved';
+        } catch (error) {
+            effectSelect.value = game.heroEffect || 'none';
+            effectStatus.textContent = error.message || 'Could not save';
+        } finally {
+            effectSelect.disabled = false;
+        }
+    });
+
     // The script is what makes a game move, so the creator's own list is the
     // shortest way into the website's editor.
     const code = document.createElement('a');
@@ -1779,7 +1828,7 @@ function createMyGameRow(game) {
     code.href = `/editor?game=${game.id}`;
     code.textContent = 'Code';
 
-    row.append(icon, text, code);
+    row.append(icon, text, effectForm, code);
     return row;
 }
 
@@ -1847,6 +1896,7 @@ function initCreateGamePage() {
             const body = {
                 title: form.elements.title.value,
                 description: form.elements.description.value,
+                heroEffect: form.elements.heroEffect.value,
                 isPublic: form.elements.isPublic.checked
             };
             if (useFile) {
@@ -2151,6 +2201,8 @@ function initGamePage() {
         owner.textContent = `By ${currentGame.ownerUsername}`;
         description.textContent = currentGame.description || 'No description yet.';
         banner.src = currentGame.bannerUrl || '/assets/games/default-game-banner.webp';
+        root.querySelector('[data-game-hero]').dataset.effect =
+            ['ascii', 'grid', 'glow'].includes(currentGame.heroEffect) ? currentGame.heroEffect : 'none';
         renderGameStats(stats, currentGame);
         renderServerList(servers, data.servers);
 

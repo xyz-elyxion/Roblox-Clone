@@ -187,19 +187,25 @@ struct StartupTrace {
 const StartupTrace g_startupTrace;
 }
 
-// Keeps an error readable when the client was launched from a shortcut and its
-// window closes immediately. Windows uses its own `pause`; the reason itself has
-// already been put on the console by sayToConsole().
-void pauseBeforeExit() {
-    sayToConsole("The full log is in client_log.txt and client_error_log.txt in " +
-                 workingDirectory() + ".");
-    // A client started by the website is given no console, and `pause` there allocates a
-    // console of its own and waits for a keypress nobody can give. That left the process
-    // running with no game window and no way to tell why, which is the one failure a
-    // player cannot diagnose; a launch without a console exits and lets the page report
-    // it from client_log.txt instead.
-    if (GetConsoleWindow() != nullptr)
+// Keeps a fatal error readable when the client stops before it can play. The reason goes
+// to the console and to the log whichever way it was started, but a client started by the
+// website is given no console at all: it simply exits, and the player is left looking at a
+// window that opened and closed. A message box is the one thing such a process can still
+// show, and it is the difference between "it closed" and the sentence that says why.
+// With a console, `pause` keeps the same text on screen instead.
+void pauseBeforeExit(const std::string& reason) {
+    sayToConsole(reason);
+    const std::string logLocation = "The full log is in client_log.txt and "
+                                    "client_error_log.txt in " +
+                                    workingDirectory() + ".";
+    sayToConsole(logLocation);
+
+    if (GetConsoleWindow() != nullptr) {
         system("pause");
+        return;
+    }
+    MessageBoxA(nullptr, (reason + "\n\n" + logLocation).c_str(), "Linear Client",
+                MB_OK | MB_ICONERROR | MB_TOPMOST | MB_SETFOREGROUND);
 }
 
 // Settings
@@ -1219,16 +1225,15 @@ int main(int argc, char** argv) {
         sayToConsole("Starting Client...");
         
         if (!std::ifstream("shaders/vertex.glsl")) {
-             sayToConsole("CRITICAL ERROR: shaders/vertex.glsl not found in current directory!");
-             sayToConsole("Working directory: " + workingDirectory());
-             sayToConsole("Please ensure the 'shaders' folder is next to the executable, and "
-                          "extract the package before running it rather than opening "
-                          "Client.exe from inside a .zip.");
-             reportClientProblem("startup",
-                                 "shaders/vertex.glsl is missing from the client's working "
-                                 "directory, so the client stopped before opening a window.");
-             pauseBeforeExit();
-             return -1;
+            const std::string reason =
+                "CRITICAL ERROR: shaders/vertex.glsl is not in the client's working "
+                "directory (" + workingDirectory() +
+                "). Keep the 'shaders' folder next to the executable, and extract the "
+                "package before running it rather than opening Client.exe from inside a "
+                ".zip.";
+            reportClientProblem("startup", reason);
+            pauseBeforeExit(reason);
+            return -1;
         }
 
         Window window(SCR_WIDTH, SCR_HEIGHT, "Linear Client");
@@ -2638,7 +2643,11 @@ int main(int argc, char** argv) {
             
             frameCount++;
         }
-        
+
+        // The loop ends only when the window was asked to close, so this line is what
+        // separates "the player closed it" from a run that stopped on its own.
+        traceStartup("main loop ended, shutting down");
+
         // The window is destroyed last, by the destructor of `window`, so all of
         // the shutdown below used to run behind a window that had stopped
         // pumping messages. Windows paints that as "Linear Client is not
@@ -2670,14 +2679,16 @@ int main(int argc, char** argv) {
         std::cout << "Winsock closed after " << shutdownMs() << " ms." << std::endl;
         return 0;
     } catch (const std::exception& e) {
-        sayToConsole(std::string("CRITICAL ERROR: ") + e.what());
-        reportClientProblem("startup", std::string("The client stopped with an error: ") + e.what());
-        pauseBeforeExit();
+        const std::string reason = std::string("CRITICAL ERROR: ") + e.what();
+        traceStartup("client stopped: " + reason);
+        reportClientProblem("startup", reason);
+        pauseBeforeExit(reason);
         return -1;
     } catch (...) {
-        sayToConsole("CRITICAL ERROR: the client stopped with an unknown error.");
-        reportClientProblem("startup", "The client stopped with an unknown error.");
-        pauseBeforeExit();
+        const std::string reason = "CRITICAL ERROR: the client stopped with an unknown error.";
+        traceStartup("client stopped: " + reason);
+        reportClientProblem("startup", reason);
+        pauseBeforeExit(reason);
         return -1;
     }
 }

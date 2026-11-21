@@ -286,6 +286,19 @@ std::string clientLogTail(const std::string& directory) {
         }
         return " " + std::string(name) + " says: " + tail.substr(first);
     }
+
+    // The startup trace names the last stage the client reached, and it is written
+    // through its own handle before the log redirection exists, so a client that stops
+    // very early has a trace and no log at all.
+    std::string trace;
+    if (readWholeFile(joinPath(directory, "startup_trace.txt"), &trace)) {
+        const std::size_t end = trace.find_last_not_of("\r\n \t");
+        if (end != std::string::npos) {
+            const std::size_t lineStart = trace.find_last_of("\r\n", end);
+            const std::size_t from = lineStart == std::string::npos ? 0 : lineStart + 1;
+            return " startup_trace.txt ends at: " + trace.substr(from, end - from + 1);
+        }
+    }
     return std::string();
 }
 
@@ -4311,14 +4324,16 @@ bool WebsiteApp::handlePlayGame(Request& request, Response& response) {
             preferredClientWorkingDirectory(clientPath, config_.repoRoot);
         if (spawnProcess(clientPath, args, clientDirectory, &spawned, &spawnError)) {
             // CreateProcess/fork only reports that the image was started, and the
-            // client does work before main() (the anti-cheat TLS callback). A client
-            // that dies there used to be reported as "player opening", so the page
-            // promised a window that never appeared. Give it a moment and check.
+            // client does work before main() (the anti-cheat TLS callback) and then takes
+            // seconds to load shaders and open its window. A client that dies anywhere
+            // in there used to be reported as "player opening", so the page promised a
+            // window that never appeared, or one that opened and closed. Give it long
+            // enough to reach the game and check.
             bool exitedEarly = false;
             int exitCode = 0;
             if (spawned.handle != nullptr) {
                 const HANDLE handle = static_cast<HANDLE>(spawned.handle);
-                if (::WaitForSingleObject(handle, 1200) != WAIT_TIMEOUT) {
+                if (::WaitForSingleObject(handle, 4000) != WAIT_TIMEOUT) {
                     DWORD code = 0;
                     if (::GetExitCodeProcess(handle, &code) != 0) {
                         exitCode = static_cast<int>(code);

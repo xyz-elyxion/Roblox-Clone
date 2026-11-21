@@ -79,8 +79,15 @@ Error Preventions::DeployBarrier()
     //}
 
 #if _WIN32_WINNT >= 0x0602 //minimum windows 8 for SetMitigation routines
+    //DisallowWin32kSystemCalls (the last flag) is off on purpose: this library is compiled
+    //into the game client, which is a GUI process. Once that policy is set the process can
+    //no longer call into win32k, so the window linearwin creates is never shown - ShowWindow
+    //just returns FALSE - and the game runs its loop with no window at all. Started from the
+    //website it has no console either, so nothing reports the failure. The policy is meant
+    //for processes that never draw, such as Chrome-style sandboxed renderers.
+    //DEP, ASLR and the strict handle check below are unchanged.
     //third parameter (dynamic code) set to true -> prevents VirtualProtect from succeeding on .text sections of loaded/signed modules. while this can be very useful, it breaks our TLS callback protections since we patch over the first byte of new thread's execution addresses
-    Preventions::EnableProcessMitigations(true, true, false, true, true); 
+    Preventions::EnableProcessMitigations(true, true, false, true, false); 
 #endif
 
     return retError;

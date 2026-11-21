@@ -186,7 +186,13 @@ const StartupTrace g_startupTrace;
 void pauseBeforeExit() {
     sayToConsole("The full log is in client_log.txt and client_error_log.txt in " +
                  workingDirectory() + ".");
-    system("pause");
+    // A client started by the website is given no console, and `pause` there allocates a
+    // console of its own and waits for a keypress nobody can give. That left the process
+    // running with no game window and no way to tell why, which is the one failure a
+    // player cannot diagnose; a launch without a console exits and lets the page report
+    // it from client_log.txt instead.
+    if (GetConsoleWindow() != nullptr)
+        system("pause");
 }
 
 // Settings

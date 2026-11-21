@@ -72,7 +72,9 @@ them, and writes `README.txt`, `update.json` and `manifest.json` into `dist/line
    loader still held its lock and before the static runtime existed, hanging the client
    before `main()` on an empty console; and the module-trust rule in `Core/Detections.cpp`, which
    accepts a DLL signed by the same publisher as the running executable so `LinearGame.dll` is not
-   reported as an injection. Keep those fixes;
+   reported as an injection; and the process mitigations in `Core/Preventions.cpp`, which
+   applied `DisallowWin32kSystemCalls` to a process that draws a window, after which the
+   window was created and never shown. Keep those fixes;
    they are corrections, not a reformat. Their generated
    documentation, examples, own test suites and CI files have been pruned; the code, build
    files and licences are upstream as pinned.

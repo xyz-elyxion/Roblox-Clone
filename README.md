@@ -771,6 +771,32 @@ catalog does not know is dropped rather than drawn.
 Valid avatar `faceId` values are `classic`, `happy`, `surprised`, `smirk` and `wink`. The web
 previews and the native client use the same transparent face PNG assets.
 
+### Game passes, repeatable purchases and subscriptions
+
+A game sells up to twelve things from its own page. The owner adds them in the **Passes and
+subscriptions** panel, which only the owner sees; a player pays for them with the same coins
+playtime earns, so no payment provider is involved.
+
+- A **one-time pass** (`kind: "pass"`) is bought once and owned for good. Buying it again is
+  refused rather than charged twice.
+- A **repeatable purchase** (`kind: "repeatable"`) can be bought again and again, and `count` in
+  the answer is how many times the account has bought it.
+- A **subscription** (`kind: "subscription"`) buys a term of `periodDays` days. While the account
+  can afford the price and has not cancelled, the next term is charged from its coins when the
+  current one runs out; when it cannot pay, the subscription lapses instead of going into debt.
+  Cancelling stops the next charge and keeps access until the term ends.
+
+`GET /api/games/:id` carries a `passes` array with each pass's price, kind and buyer count, and,
+for a signed-in viewer, `owned`, `count`, `autoRenew` and `expiresAt`. Buying is `POST
+/api/games/:id/passes/:passId/buy`; the price is read from the stored pass and never from the
+request, so a page cannot name its own price, and the answer carries the new balance so the page
+can say what the purchase cost. `POST /api/games/:id/passes/:passId/cancel` turns off renewal.
+
+An expired term is settled when the game page is next read: a renewing subscription is charged if
+it can afford to be, and otherwise marked lapsed. That keeps the data file's answer current without
+a scheduler of its own. Deleting a pass, or the game it belongs to, drops every account's row for
+it; an account's rows go with the account, and they are included in the data export.
+
 ### Games, likes and sorting
 
 `/games` lists the public games with their scores. A **Like** on a card, or on a game's own page, is
@@ -1126,13 +1152,18 @@ compatibility fallback, but new callers should use the header.
 | Route | What it does |
 | --- | --- |
 | `GET /api/games` | Public games for the games page |
-| `GET /api/games/:id` | Details, world stats and active local instances |
+| `GET /api/games/:id` | Details, world stats, active local instances and the game's passes |
 | `GET /api/games/mine` | Your published games |
 | `POST /api/games/:id/like` | Toggles your like on a game; answers with `{ "liked", "likes" }` |
 | `POST /api/games` | `{ "title", "description", "isPublic", "worldText" }` — publishes a world file; `{ "starter": true }` instead of `worldText` publishes a blank baseplate |
 | `POST /api/games/:id/play` | Starts or reuses a local server; returns native launch metadata |
 | `GET /api/games/:id/script` | Owner only: the script text and the 256 KB limit |
 | `PUT /api/games/:id/script` | Owner only: `{ "text": "..." }` |
+| `POST /api/games/:id/passes` | Owner only: `{ "name", "description", "kind", "price", "periodDays" }` — `kind` is `pass`, `repeatable` or `subscription` |
+| `PUT /api/games/:id/passes/:passId` | Owner only: changes a pass; the stored price is what buyers are charged |
+| `DELETE /api/games/:id/passes/:passId` | Owner only: removes a pass and every account's row for it |
+| `POST /api/games/:id/passes/:passId/buy` | Buys a pass with coins; a repeatable one can be bought again, a subscription buys a term |
+| `POST /api/games/:id/passes/:passId/cancel` | Stops a subscription renewing; access lasts until the term ends |
 
 ### Detection, moderation and admin
 

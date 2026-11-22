@@ -520,6 +520,34 @@ std::string normalizeGameDescription(const std::string& value) {
     return description.size() > 240 ? description.substr(0, 240) : description;
 }
 
+// How much one game may sell at once, and the bounds of a price and a billing
+// period. The whole data file is rewritten on every save, so a shelf is bounded
+// here rather than by however many rows a page could ask for.
+const std::size_t kMaxGamePassesPerGame = 12;
+const long long kMaxGamePassPrice = 100000;
+const int kMaxGamePassPeriodDays = 365;
+
+std::string normalizeGamePassName(const std::string& value) {
+    const std::string name = normalizeWhitespace(value);
+    if (name.size() < 2 || name.size() > 48) {
+        return std::string();
+    }
+    return name;
+}
+
+std::string normalizeGamePassDescription(const std::string& value) {
+    const std::string description = normalizeWhitespace(value);
+    return description.size() > 160 ? description.substr(0, 160) : description;
+}
+
+std::string normalizeGamePassKind(const std::string& value) {
+    const std::string kind = normalizeWhitespace(value);
+    if (kind == "repeatable" || kind == "subscription") {
+        return kind;
+    }
+    return "pass";
+}
+
 std::string normalizeGameEffect(const std::string& value) {
     const std::string effect = normalizeWhitespace(value);
     if (effect == "ascii" || effect == "asciify" || effect == "bend" ||
@@ -2468,6 +2496,28 @@ void WebsiteApp::installRoutes() {
                   guard([this](Request& request, Response& response) {
                       return handleToggleGameLike(request, response);
                   }));
+    // What a game sells: the owner puts passes on the shelf, a player buys them,
+    // and a subscription is stopped here rather than by deleting the row.
+    server_.route("POST", "/api/games/:id/passes",
+                  guard([this](Request& request, Response& response) {
+                      return handleCreateGamePass(request, response);
+                  }));
+    server_.route("PUT", "/api/games/:id/passes/:passId",
+                  guard([this](Request& request, Response& response) {
+                      return handleUpdateGamePass(request, response);
+                  }));
+    server_.route("DELETE", "/api/games/:id/passes/:passId",
+                  guard([this](Request& request, Response& response) {
+                      return handleDeleteGamePass(request, response);
+                  }));
+    server_.route("POST", "/api/games/:id/passes/:passId/buy",
+                  guard([this](Request& request, Response& response) {
+                      return handleBuyGamePass(request, response);
+                  }));
+    server_.route("POST", "/api/games/:id/passes/:passId/cancel",
+                  guard([this](Request& request, Response& response) {
+                      return handleCancelGamePass(request, response);
+                  }));
     server_.route("PUT", "/api/games/:id", guard([this](Request& request, Response& response) {
                       return handleUpdateGame(request, response);
                   }));
@@ -3348,6 +3398,32 @@ bool WebsiteApp::handleExportData(Request& request, Response& response) {
     }
     result.set("games", games);
 
+    // What the account bought from games, with the names copied in so the export
+    // still reads correctly after a game is renamed or taken down.
+    Json gamePasses = Json::makeArray();
+    for (const GamePassOwnershipRecord* ownership : store_.gamePassOwnershipsForUser(user.id)) {
+        const GamePassRecord* pass = store_.findGamePass(ownership->passId);
+        const GameRecord* game = store_.findGame(ownership->gameId);
+        Json entry = Json::makeObject();
+        entry.set("pass", pass != nullptr ? pass->name : std::string());
+        entry.set("game", game != nullptr ? game->title : std::string());
+        entry.set("kind", pass != nullptr ? pass->kind : std::string("pass"));
+        entry.set("count", ownership->count);
+        entry.set("coinsPaid", ownership->coinsPaid);
+        entry.set("purchasedAt", ownership->purchasedAt);
+        entry.set("renewedAt", ownership->renewedAt);
+        if (ownership->expiresAtMs > 0) {
+            entry.set("expiresAt", isoFromTime(
+                                        static_cast<std::time_t>(ownership->expiresAtMs / 1000)));
+        } else {
+            entry.setNull("expiresAt");
+        }
+        entry.set("autoRenew", ownership->autoRenew);
+        entry.set("active", ownership->active);
+        gamePasses.push(entry);
+    }
+    result.set("gamePasses", gamePasses);
+
     Json friends = Json::makeArray();
     for (const FriendshipRecord* friendship : store_.acceptedFriendships(user.id, 200)) {
         const int friendId = friendship->requesterId == user.id ? friendship->addresseeId
@@ -4022,7 +4098,17 @@ bool WebsiteApp::handleGetGame(Request& request, Response& response) {
     result.set("game",
                gameJson(*game, authenticated && viewer.id == game->ownerId,
                         authenticated ? viewer.id : 0));
+    // A subscription that has reached the end of its term is renewed from the
+    // account's coins or lapses here, before the page says what it holds. Doing
+    // it on the read is what makes a term end without a scheduler of its own.
+    const int viewerId = authenticated ? viewer.id : 0;
+    if (viewerId > 0 && store_.settleGamePassSubscriptions(nowMilliseconds(), nowIso()) > 0) {
+        std::string saveError;
+        store_.save(&saveError);
+    }
+
     result.set("servers", servers);
+    result.set("passes", gamePassesJson(*game, viewerId));
     sendJson(response, 200, result);
     return true;
 }
@@ -5733,6 +5819,327 @@ bool WebsiteApp::handleEquipItem(Request& request, Response& response) {
     result.set("success", true);
     result.set("avatar", avatarJson(avatar));
     result.set("items", itemsJson(user.id));
+    sendJson(response, 200, result);
+    return true;
+}
+
+Json WebsiteApp::gamePassJson(const GamePassRecord& pass, int viewerId) const {
+    Json entry = Json::makeObject();
+    entry.set("id", pass.id);
+    entry.set("gameId", pass.gameId);
+    entry.set("name", pass.name);
+    entry.set("description", pass.description);
+    entry.set("kind", pass.kind);
+    entry.set("price", pass.price);
+    entry.set("periodDays", pass.periodDays);
+    entry.set("buyers", store_.gamePassBuyerCount(pass.id));
+    entry.set("owned", viewerId > 0 && store_.ownsGamePass(viewerId, pass.id));
+
+    // The rest is the viewer's own row: how many times it was bought, whether the
+    // next term is paid for, and when the current one ends. A signed-out visitor
+    // gets none of it, which is why the ownership row is only looked up with an id.
+    const GamePassOwnershipRecord* ownership =
+        viewerId > 0 ? store_.findGamePassOwnership(pass.id, viewerId) : nullptr;
+    entry.set("count", ownership != nullptr ? ownership->count : 0);
+    entry.set("autoRenew", ownership != nullptr && ownership->autoRenew);
+    if (ownership != nullptr && ownership->expiresAtMs > 0) {
+        entry.set("expiresAt",
+                  isoFromTime(static_cast<std::time_t>(ownership->expiresAtMs / 1000)));
+    } else {
+        entry.setNull("expiresAt");
+    }
+    return entry;
+}
+
+Json WebsiteApp::gamePassesJson(const GameRecord& game, int viewerId) const {
+    Json list = Json::makeArray();
+    for (const GamePassRecord* pass : store_.gamePassesForGame(game.id)) {
+        list.push(gamePassJson(*pass, viewerId));
+    }
+    return list;
+}
+
+bool WebsiteApp::handleCreateGamePass(Request& request, Response& response) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    AuthUser user;
+    if (!requireAuth(request, response, &user)) {
+        return true;
+    }
+    Json body;
+    if (!parseJsonBody(request, &body, response)) {
+        return true;
+    }
+
+    const int gameId = parseUserId(request.param("id"));
+    const GameRecord* game = gameId > 0 ? store_.findGame(gameId) : nullptr;
+    // Only the owner sells from a game, the same rule that lets it be edited.
+    if (game == nullptr || game->ownerId != user.id) {
+        errorJson(response, 404, "Game not found.");
+        return true;
+    }
+    if (store_.gamePassCountForGame(gameId) >= kMaxGamePassesPerGame) {
+        errorJson(response, 400,
+                  "A game can sell up to " + std::to_string(kMaxGamePassesPerGame) +
+                      " passes.");
+        return true;
+    }
+
+    GamePassRecord pass;
+    pass.gameId = gameId;
+    pass.name = normalizeGamePassName(body.member("name").asString());
+    if (pass.name.empty()) {
+        errorJson(response, 400, "A pass name is 2-48 characters.");
+        return true;
+    }
+    pass.description = normalizeGamePassDescription(body.member("description").asString());
+    pass.kind = normalizeGamePassKind(body.member("kind").asString());
+    pass.price = body.member("price").asInteger(0);
+    if (pass.price <= 0 || pass.price > kMaxGamePassPrice) {
+        errorJson(response, 400,
+                  "A pass price is a whole number of coins from 1 to " +
+                      std::to_string(kMaxGamePassPrice) + ".");
+        return true;
+    }
+    if (pass.kind == "subscription") {
+        pass.periodDays = static_cast<int>(body.member("periodDays").asInteger(30));
+        if (pass.periodDays < 1 || pass.periodDays > kMaxGamePassPeriodDays) {
+            errorJson(response, 400,
+                      "A subscription bills every 1-" +
+                          std::to_string(kMaxGamePassPeriodDays) + " days.");
+            return true;
+        }
+    }
+    pass.createdAt = nowIso();
+    pass.updatedAt = pass.createdAt;
+
+    const int passId = store_.addGamePass(pass);
+    if (passId <= 0) {
+        errorJson(response, 500, "Server error.");
+        return true;
+    }
+    std::string saveError;
+    store_.save(&saveError);
+
+    Json result = Json::makeObject();
+    result.set("success", true);
+    const GamePassRecord* stored = store_.findGamePass(passId);
+    result.set("pass", gamePassJson(*stored, user.id));
+    result.set("passes", gamePassesJson(*game, user.id));
+    sendJson(response, 201, result);
+    return true;
+}
+
+bool WebsiteApp::handleUpdateGamePass(Request& request, Response& response) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    AuthUser user;
+    if (!requireAuth(request, response, &user)) {
+        return true;
+    }
+    Json body;
+    if (!parseJsonBody(request, &body, response)) {
+        return true;
+    }
+
+    const int gameId = parseUserId(request.param("id"));
+    const int passId = parseUserId(request.param("passId"));
+    const GamePassRecord* existing = passId > 0 ? store_.findGamePass(passId) : nullptr;
+    const GameRecord* game = gameId > 0 ? store_.findGame(gameId) : nullptr;
+    if (existing == nullptr || existing->gameId != gameId || game == nullptr ||
+        game->ownerId != user.id) {
+        errorJson(response, 404, "Pass not found.");
+        return true;
+    }
+
+    GamePassRecord pass = *existing;
+    if (body.has("name")) {
+        pass.name = normalizeGamePassName(body.member("name").asString());
+        if (pass.name.empty()) {
+            errorJson(response, 400, "A pass name is 2-48 characters.");
+            return true;
+        }
+    }
+    if (body.has("description")) {
+        pass.description = normalizeGamePassDescription(body.member("description").asString());
+    }
+    if (body.has("kind")) {
+        pass.kind = normalizeGamePassKind(body.member("kind").asString());
+    }
+    if (body.has("price")) {
+        pass.price = body.member("price").asInteger(0);
+        if (pass.price <= 0 || pass.price > kMaxGamePassPrice) {
+            errorJson(response, 400,
+                      "A pass price is a whole number of coins from 1 to " +
+                          std::to_string(kMaxGamePassPrice) + ".");
+            return true;
+        }
+    }
+    if (pass.kind == "subscription") {
+        if (body.has("periodDays")) {
+            pass.periodDays = static_cast<int>(body.member("periodDays").asInteger(0));
+        } else if (pass.periodDays <= 0) {
+            pass.periodDays = 30;
+        }
+        if (pass.periodDays < 1 || pass.periodDays > kMaxGamePassPeriodDays) {
+            errorJson(response, 400,
+                      "A subscription bills every 1-" +
+                          std::to_string(kMaxGamePassPeriodDays) + " days.");
+            return true;
+        }
+    } else {
+        pass.periodDays = 0;
+    }
+    pass.updatedAt = nowIso();
+    store_.updateGamePass(pass);
+
+    std::string saveError;
+    store_.save(&saveError);
+
+    Json result = Json::makeObject();
+    result.set("success", true);
+    const GamePassRecord* stored = store_.findGamePass(passId);
+    result.set("pass", gamePassJson(*stored, user.id));
+    result.set("passes", gamePassesJson(*game, user.id));
+    sendJson(response, 200, result);
+    return true;
+}
+
+bool WebsiteApp::handleDeleteGamePass(Request& request, Response& response) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    AuthUser user;
+    if (!requireAuth(request, response, &user)) {
+        return true;
+    }
+
+    const int gameId = parseUserId(request.param("id"));
+    const int passId = parseUserId(request.param("passId"));
+    const GamePassRecord* existing = passId > 0 ? store_.findGamePass(passId) : nullptr;
+    const GameRecord* game = gameId > 0 ? store_.findGame(gameId) : nullptr;
+    if (existing == nullptr || existing->gameId != gameId || game == nullptr ||
+        game->ownerId != user.id) {
+        errorJson(response, 404, "Pass not found.");
+        return true;
+    }
+
+    store_.removeGamePass(passId);
+    std::string saveError;
+    store_.save(&saveError);
+
+    Json result = Json::makeObject();
+    result.set("success", true);
+    result.set("message", "Pass removed.");
+    result.set("passes", gamePassesJson(*game, user.id));
+    sendJson(response, 200, result);
+    return true;
+}
+
+bool WebsiteApp::handleBuyGamePass(Request& request, Response& response) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    AuthUser user;
+    if (!requireAuth(request, response, &user)) {
+        return true;
+    }
+
+    const int gameId = parseUserId(request.param("id"));
+    const int passId = parseUserId(request.param("passId"));
+    const GameRecord* game = gameId > 0 ? store_.findGame(gameId) : nullptr;
+    // A private game is not there for anyone but its owner, and its shelf is part
+    // of the game.
+    if (game == nullptr || (!game->isPublic && game->ownerId != user.id)) {
+        errorJson(response, 404, "Game not found.");
+        return true;
+    }
+    const GamePassRecord* pass = passId > 0 ? store_.findGamePass(passId) : nullptr;
+    if (pass == nullptr || pass->gameId != game->id) {
+        errorJson(response, 404, "Pass not found.");
+        return true;
+    }
+    // A pass is sold to players: the owner's own shelf is not a way to move coins
+    // to itself, and buying what it already controls says nothing useful.
+    if (game->ownerId == user.id) {
+        errorJson(response, 400, "You cannot buy a pass from your own game.");
+        return true;
+    }
+    if (pass->kind == "pass" && store_.ownsGamePass(user.id, pass->id)) {
+        errorJson(response, 409, "That pass is already yours.");
+        return true;
+    }
+    // Coins come from playtime, so a purchase is refused rather than taking the
+    // balance negative. A subscription's renewal goes through the same check.
+    if (!store_.spendCoins(user.id, pass->price)) {
+        errorJson(response, 402, "Not enough coins.");
+        return true;
+    }
+
+    const long long durationMs =
+        pass->kind == "subscription" ? static_cast<long long>(pass->periodDays) * 24 * 60 * 60 * 1000
+                                      : 0;
+    if (!store_.recordGamePassPurchase(pass->id, user.id, pass->price, durationMs,
+                                      nowMilliseconds(), nowIso())) {
+        // The purchase did not land, so the coins go back rather than being spent
+        // on a pass the account does not hold.
+        store_.grantCoins(user.id, pass->price);
+        errorJson(response, 400, "That pass could not be bought.");
+        return true;
+    }
+
+    std::string saveError;
+    store_.save(&saveError);
+
+    std::string message;
+    if (pass->kind == "subscription") {
+        message = "Subscribed to " + pass->name + " for " + std::to_string(pass->periodDays) +
+                  (pass->periodDays == 1 ? " day." : " days.");
+    } else if (pass->kind == "repeatable") {
+        message = "Bought " + pass->name + " again.";
+    } else {
+        message = pass->name + " is yours.";
+    }
+
+    Json result = Json::makeObject();
+    result.set("success", true);
+    result.set("message", message);
+    result.set("coins", store_.coinsFor(user.id));
+    result.set("passes", gamePassesJson(*game, user.id));
+    sendJson(response, 200, result);
+    return true;
+}
+
+bool WebsiteApp::handleCancelGamePass(Request& request, Response& response) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    AuthUser user;
+    if (!requireAuth(request, response, &user)) {
+        return true;
+    }
+
+    const int gameId = parseUserId(request.param("id"));
+    const int passId = parseUserId(request.param("passId"));
+    const GameRecord* game = gameId > 0 ? store_.findGame(gameId) : nullptr;
+    if (game == nullptr || (!game->isPublic && game->ownerId != user.id)) {
+        errorJson(response, 404, "Game not found.");
+        return true;
+    }
+    const GamePassRecord* pass = passId > 0 ? store_.findGamePass(passId) : nullptr;
+    if (pass == nullptr || pass->gameId != game->id) {
+        errorJson(response, 404, "Pass not found.");
+        return true;
+    }
+    if (pass->kind != "subscription") {
+        errorJson(response, 400, "That pass is not a subscription.");
+        return true;
+    }
+    if (!store_.endGamePassSubscription(pass->id, user.id)) {
+        errorJson(response, 404, "You do not have that subscription.");
+        return true;
+    }
+
+    std::string saveError;
+    store_.save(&saveError);
+
+    Json result = Json::makeObject();
+    result.set("success", true);
+    result.set("message", "Renewal cancelled. You keep the pass until this term ends.");
+    result.set("coins", store_.coinsFor(user.id));
+    result.set("passes", gamePassesJson(*game, user.id));
     sendJson(response, 200, result);
     return true;
 }

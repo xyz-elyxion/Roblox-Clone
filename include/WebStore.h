@@ -375,6 +375,44 @@ struct GameRecord {
     std::string aiGoal;
 };
 
+// One thing a game sells. The kind decides how buying it behaves:
+//   "pass"         bought once, owned for good.
+//   "repeatable"   bought again and again; the ownership row counts the buys.
+//   "subscription" a term of `periodDays` that renews itself from the account's
+//                  coins while the ownership row has `autoRenew` set.
+// Prices are in coins, like the avatar shop, because that is the only currency
+// the prototype has and a pass must not need a payment provider to be testable.
+// `periodDays` is zero for the kinds that have no term.
+struct GamePassRecord {
+    int id = 0;
+    int gameId = 0;
+    std::string name;
+    std::string description;
+    std::string kind = "pass";
+    long long price = 0;
+    int periodDays = 0;
+    std::string createdAt;
+    std::string updatedAt;
+};
+
+// One account's standing with one pass. A pass bought more than once keeps one
+// row and raises `count`, so an inventory reads one line per thing bought rather
+// than one line per purchase. `expiresAtMs` is the end of the current term of a
+// subscription; a lapsed one keeps its row with `active` false so the account's
+// history still says it once had it.
+struct GamePassOwnershipRecord {
+    int passId = 0;
+    int gameId = 0;
+    int userId = 0;
+    int count = 0;
+    long long coinsPaid = 0;
+    std::string purchasedAt;
+    std::string renewedAt;
+    long long expiresAtMs = 0;
+    bool autoRenew = false;
+    bool active = false;
+};
+
 // In-memory records backed by a single JSON document on disk. Not thread safe:
 // the web app serialises access with its own mutex.
 class Store {
@@ -616,6 +654,43 @@ public:
     bool removeGame(int id);
     std::size_t gameCount() const { return games_.size(); }
 
+    // game passes
+    const GamePassRecord* findGamePass(int id) const;
+    // The passes one game sells, oldest first.
+    std::vector<const GamePassRecord*> gamePassesForGame(int gameId) const;
+    std::size_t gamePassCountForGame(int gameId) const;
+    // Adds a pass and returns its id, or 0 for a record that cannot be sold (no
+    // game, no name, no price).
+    int addGamePass(const GamePassRecord& record);
+    // Replaces the editable half of a pass; the id and the game it belongs to are
+    // kept from the stored row.
+    bool updateGamePass(const GamePassRecord& record);
+    // Removes a pass together with every account's ownership of it; false when
+    // there is no such pass.
+    bool removeGamePass(int id);
+    const GamePassOwnershipRecord* findGamePassOwnership(int passId, int userId) const;
+    std::vector<const GamePassOwnershipRecord*> gamePassOwnershipsForUser(int userId) const;
+    // How many accounts hold one pass, counting a lapsed subscription as gone.
+    int gamePassBuyerCount(int passId) const;
+    // Whether an account holds a pass right now: owned for the kinds that are
+    // permanent, an unexpired term for a subscription.
+    bool ownsGamePass(int userId, int passId) const;
+    // Records one purchase: a subscription's term is extended from whichever is
+    // later, now or its current end, and a repeatable's count goes up. False when
+    // the pass or account is gone, or when a one-time pass is already owned.
+    bool recordGamePassPurchase(int passId, int userId, long long price, long long durationMs,
+                                long long nowMs, const std::string& nowIso);
+    // Sets whether a subscription buys another term when this one ends.
+    bool setGamePassAutoRenew(int passId, int userId, bool autoRenew);
+    // Stops renewing. Access lasts until the term ends, which is what a cancelled
+    // subscription means; the caller says so on the page.
+    bool endGamePassSubscription(int passId, int userId);
+    // Renews or lapses every subscription whose term has passed. An auto-renewing
+    // one is paid for out of the account's coins; when it cannot afford the price
+    // the subscription lapses instead of going into debt. Returns how many rows
+    // changed, so the caller only rewrites the data file when something did.
+    int settleGamePassSubscriptions(long long nowMs, const std::string& nowIso);
+
     // likes
     int gameLikeCount(int gameId) const;
     bool hasLikedGame(int userId, int gameId) const;
@@ -657,6 +732,8 @@ private:
     std::vector<ChatReadRecord> chatReads_;
     std::vector<UploadRecord> uploads_;
     std::vector<GameLikeRecord> likes_;
+    std::vector<GamePassRecord> gamePasses_;
+    std::vector<GamePassOwnershipRecord> gamePassOwnerships_;
     int nextUserId_ = 1;
     int nextFriendshipId_ = 1;
     int nextGameId_ = 1;
@@ -670,6 +747,7 @@ private:
     int nextDevTokenId_ = 1;
     int nextChatMessageId_ = 1;
     int nextUploadId_ = 1;
+    int nextGamePassId_ = 1;
 };
 
 // Turns key material written by a person into the 32 bytes AES-256 takes: 64 hex

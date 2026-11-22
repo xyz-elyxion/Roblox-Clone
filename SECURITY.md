@@ -187,6 +187,15 @@ the movement guard and every other player-facing check apply to the AI exactly a
 a person. A token cannot start or enter an instance on its own; the server it plays on was
 launched by somebody who did have one of those rights.
 
+**Purchases.** A game's shelf is managed by its owner and nobody else: creating, changing and
+removing a pass all check that the caller owns the game, and the owner is the only account shown
+the seller form. The buyer's side reads the price from the stored pass, never from the request, so
+a page cannot name a cheaper one, and the coins are deducted before the ownership row is written —
+a purchase that fails to land is refunded rather than left half-applied. The balance cannot go
+negative: a purchase or a subscription renewal that cannot afford the price is refused (or, for a
+renewal, lapses the subscription) instead of borrowing. Pass rows belong to the account and to the
+game they were bought from, so deleting either removes them.
+
 **Request handling.** A JSON body is capped (`JSON_BODY_LIMIT_BYTES`, 2 MiB by default), a
 published world at 2 MiB, a game script at 256 KiB. Failed authentication is rate-limited
 per client address (`AUTH_RATE_LIMIT_MAX` 20 per `AUTH_RATE_LIMIT_WINDOW_MS` 15 minutes) and every

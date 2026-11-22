@@ -4468,7 +4468,21 @@ function initGamePage() {
     const status = document.querySelector('[data-game-status]');
     const playButton = document.querySelector('[data-play-game]');
     const launchCommand = document.querySelector('[data-launch-command]');
+    const passesSlot = document.querySelector('[data-game-passes]');
+    const passForm = document.querySelector('[data-pass-form]');
+    const passStatus = document.querySelector('[data-pass-status]');
+    const passKind = passForm ? passForm.elements.kind : null;
+    const passPeriodField = document.querySelector('[data-pass-period]');
     let currentGame = null;
+
+    function syncPassPeriodField() {
+        if (!passKind || !passPeriodField) return;
+        passPeriodField.hidden = passKind.value !== 'subscription';
+    }
+    if (passKind) {
+        passKind.addEventListener('change', syncPassPeriodField);
+        syncPassPeriodField();
+    }
 
     async function loadGame() {
         if (!gameId) {
@@ -4508,6 +4522,12 @@ function initGamePage() {
         initGameForceEffect(root.querySelector('[data-game-hero]'));
         renderGameStats(stats, currentGame);
         renderServerList(servers, data.servers);
+        currentGame.passes = Array.isArray(data.passes) ? data.passes : [];
+        renderPasses();
+        // Only the owner sells from the game, so only the owner is shown the form.
+        if (passForm) {
+            passForm.hidden = !currentGame.canEdit;
+        }
 
         const likeSlot = document.querySelector('[data-game-like]');
         if (likeSlot) {
@@ -4561,6 +4581,249 @@ function initGamePage() {
             playButton.textContent = 'Play';
         }
     });
+
+    function passKindLabel(kind) {
+        if (kind === 'repeatable') return 'Repeatable';
+        if (kind === 'subscription') return 'Subscription';
+        return 'One-time pass';
+    }
+
+    function passPriceLine(pass) {
+        if (pass.kind === 'subscription') {
+            const period = pass.periodDays === 1 ? 'day' : 'days';
+            return `${pass.price} coins every ${pass.periodDays} ${period}`;
+        }
+        return `${pass.price} coins`;
+    }
+
+    function passTermLine(pass) {
+        if (!pass.expiresAt) return '';
+        const end = new Date(pass.expiresAt);
+        if (Number.isNaN(end.getTime())) return '';
+        const date = end.toLocaleDateString();
+        return pass.owned ? `Active until ${date}` : `Ended ${date}`;
+    }
+
+    function applyPasses(passes) {
+        if (!Array.isArray(passes) || !currentGame) return;
+        currentGame.passes = passes;
+        renderPasses();
+    }
+
+    async function buyPass(pass, button) {
+        const token = getToken();
+        if (!token) {
+            window.location.href = `/login?next=${encodeURIComponent(window.location.pathname)}`;
+            return;
+        }
+        button.disabled = true;
+        button.textContent = 'Buying';
+        try {
+            const { response, data } = await postJson(
+                `/api/games/${currentGame.id}/passes/${pass.id}/buy`, {}, token);
+            if (!response.ok || !data.success) throw new Error(data.error || 'Could not buy that pass.');
+            applyPasses(data.passes);
+            const balance = typeof data.coins === 'number' ? ` ${data.coins} coins left.` : '';
+            setStatus(status, `${data.message || 'Bought.'}${balance}`, 'success');
+        } catch (error) {
+            setStatus(status, error.message || 'Could not buy that pass.', 'error');
+            button.disabled = false;
+            button.textContent = passActionLabel(pass);
+        }
+    }
+
+    async function cancelPass(pass, button) {
+        button.disabled = true;
+        button.textContent = 'Cancelling';
+        try {
+            const { response, data } = await postJson(
+                `/api/games/${currentGame.id}/passes/${pass.id}/cancel`, {}, getToken());
+            if (!response.ok || !data.success) throw new Error(data.error || 'Could not cancel that.');
+            applyPasses(data.passes);
+            setStatus(status, data.message || 'Renewal cancelled.', 'success');
+        } catch (error) {
+            setStatus(status, error.message || 'Could not cancel that.', 'error');
+            button.disabled = false;
+            button.textContent = 'Cancel renewal';
+        }
+    }
+
+    async function deletePass(pass, button) {
+        if (!window.confirm(`Remove "${pass.name}" from this game?`)) return;
+        button.disabled = true;
+        button.textContent = 'Removing';
+        try {
+            const response = await fetch(`/api/games/${currentGame.id}/passes/${pass.id}`, {
+                method: 'DELETE',
+                headers: { Authorization: `Bearer ${getToken()}` }
+            });
+            const data = await response.json();
+            if (!response.ok || !data.success) {
+                throw new Error(data.error || 'Could not remove that pass.');
+            }
+            applyPasses(data.passes);
+            setStatus(status, data.message || 'Pass removed.', 'success');
+        } catch (error) {
+            setStatus(status, error.message || 'Could not remove that pass.', 'error');
+            button.disabled = false;
+            button.textContent = 'Remove';
+        }
+    }
+
+    function passActionLabel(pass) {
+        if (pass.kind === 'subscription') return pass.owned ? 'Renew' : 'Subscribe';
+        if (pass.kind === 'repeatable') return 'Buy again';
+        return 'Buy';
+    }
+
+    function passButton(pass) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'button';
+        button.textContent = passActionLabel(pass);
+        button.addEventListener('click', () => {
+            buyPass(pass, button).catch((error) => {
+                setStatus(status, error.message || 'Could not buy that pass.', 'error');
+            });
+        });
+        return button;
+    }
+
+    function renderPasses() {
+        if (!passesSlot) return;
+        passesSlot.innerHTML = '';
+        const passes = currentGame?.passes || [];
+        // The owner runs the shelf; buying from it is a player's action, and the
+        // server refuses an owner's purchase of its own pass too.
+        const owner = Boolean(currentGame?.canEdit);
+        if (passes.length === 0) {
+            passesSlot.appendChild(emptyMessage(currentGame?.canEdit
+                ? 'Nothing for sale yet. Add a pass below and it appears here for players.'
+                : 'This game does not sell passes.'));
+            return;
+        }
+
+        for (const pass of passes) {
+            const row = document.createElement('div');
+            row.className = 'pass-row';
+
+            const copy = document.createElement('div');
+            copy.className = 'pass-copy';
+            const name = document.createElement('strong');
+            name.textContent = pass.name;
+            const meta = document.createElement('span');
+            meta.className = 'pass-meta';
+            const parts = [passKindLabel(pass.kind), passPriceLine(pass)];
+            if (owner) {
+                parts.push(`${pass.buyers} ${pass.buyers === 1 ? 'buyer' : 'buyers'}`);
+            }
+            meta.textContent = parts.join(' · ');
+            copy.append(name, meta);
+            if (pass.description) {
+                const description = document.createElement('p');
+                description.className = 'pass-description';
+                description.textContent = pass.description;
+                copy.appendChild(description);
+            }
+
+            const actions = document.createElement('div');
+            actions.className = 'pass-actions';
+
+            if (owner) {
+                // Nothing to buy here: the buttons are the buyer's side of the row.
+            } else if (pass.kind === 'subscription' && pass.owned) {
+                const term = passTermLine(pass);
+                if (term) {
+                    const badge = document.createElement('span');
+                    badge.className = 'pass-badge';
+                    badge.textContent = term;
+                    actions.appendChild(badge);
+                }
+                if (pass.autoRenew) {
+                    const cancel = document.createElement('button');
+                    cancel.type = 'button';
+                    cancel.className = 'button secondary';
+                    cancel.textContent = 'Cancel renewal';
+                    cancel.addEventListener('click', () => {
+                        cancelPass(pass, cancel).catch((error) => {
+                            setStatus(status, error.message || 'Could not cancel that.', 'error');
+                        });
+                    });
+                    actions.appendChild(cancel);
+                }
+            } else if (pass.owned && pass.kind === 'pass') {
+                const badge = document.createElement('span');
+                badge.className = 'pass-badge';
+                badge.textContent = 'Owned';
+                actions.appendChild(badge);
+            } else if (pass.owned && pass.kind === 'repeatable') {
+                const badge = document.createElement('span');
+                badge.className = 'pass-badge';
+                badge.textContent = `Bought x${pass.count}`;
+                actions.appendChild(badge);
+                actions.appendChild(passButton(pass));
+            } else {
+                if (pass.kind === 'subscription') {
+                    const term = passTermLine(pass);
+                    if (term) {
+                        const badge = document.createElement('span');
+                        badge.className = 'pass-badge';
+                        badge.textContent = term;
+                        actions.appendChild(badge);
+                    }
+                }
+                actions.appendChild(passButton(pass));
+            }
+
+            if (owner) {
+                const remove = document.createElement('button');
+                remove.type = 'button';
+                remove.className = 'button secondary';
+                remove.textContent = 'Remove';
+                remove.addEventListener('click', () => {
+                    deletePass(pass, remove).catch((error) => {
+                        setStatus(status, error.message || 'Could not remove that pass.', 'error');
+                    });
+                });
+                actions.appendChild(remove);
+            }
+
+            row.append(copy, actions);
+            passesSlot.appendChild(row);
+        }
+    }
+
+    if (passForm) {
+        passForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            if (!currentGame) return;
+            const submit = passForm.querySelector('button[type="submit"]');
+            submit.disabled = true;
+            submit.textContent = 'Adding';
+            setStatus(passStatus, '', '');
+            try {
+                const { response, data } = await postJson(`/api/games/${currentGame.id}/passes`, {
+                    name: passForm.elements.name.value,
+                    description: passForm.elements.description.value,
+                    kind: passForm.elements.kind.value,
+                    price: Number(passForm.elements.price.value),
+                    periodDays: Number(passForm.elements.periodDays.value)
+                }, getToken());
+                if (!response.ok || !data.success) {
+                    throw new Error(data.error || 'Could not add that pass.');
+                }
+                applyPasses(data.passes);
+                passForm.reset();
+                syncPassPeriodField();
+                setStatus(passStatus, 'Pass added.', 'success');
+            } catch (error) {
+                setStatus(passStatus, error.message || 'Could not add that pass.', 'error');
+            } finally {
+                submit.disabled = false;
+                submit.textContent = 'Add pass';
+            }
+        });
+    }
 
     loadGame().catch((error) => {
         setStatus(status, error.message || 'Could not load game.', 'error');

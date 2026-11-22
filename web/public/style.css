@@ -1688,6 +1688,86 @@ input {
     border-radius: 2px;
 }
 
+/* Passes on a game page: the copy and the actions sit apart so a price never
+   reads as the button beside it, and a narrow page stacks them. */
+.pass-note {
+    margin: 0 0 var(--space-3);
+    max-width: 62ch;
+    color: var(--muted);
+}
+
+.pass-row {
+    display: flex;
+    gap: var(--space-3);
+    align-items: flex-start;
+    justify-content: space-between;
+    padding: var(--space-2) 0;
+    border-bottom: 1px solid var(--soft-line);
+}
+
+.pass-row:last-child {
+    border-bottom: 0;
+}
+
+.pass-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    min-width: 0;
+}
+
+.pass-meta {
+    color: var(--muted);
+    font-size: 0.85rem;
+}
+
+.pass-description {
+    margin: 0.25rem 0 0;
+    color: var(--muted);
+}
+
+.pass-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-1);
+    align-items: center;
+    justify-content: flex-end;
+}
+
+.pass-badge {
+    border: 1px solid var(--line);
+    padding: 0.2rem 0.5rem;
+    font-size: 0.75rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.pass-form {
+    display: grid;
+    gap: var(--space-2);
+    margin-top: var(--space-3);
+    padding-top: var(--space-3);
+    border-top: 1px solid var(--soft-line);
+}
+
+/* The form and its billing row are hidden by attribute, which the grid above
+   would otherwise override. */
+.pass-form[hidden],
+.field[hidden] {
+    display: none;
+}
+
+@media (max-width: 640px) {
+    .pass-row {
+        flex-direction: column;
+    }
+
+    .pass-actions {
+        justify-content: flex-start;
+    }
+}
+
 /* Settings page: account facts, password form and display preference. */
 /* Settings is a shell: who is signed in and a section list on the left, one
    panel on the right. Only the selected panel is in the flow, and the others stay

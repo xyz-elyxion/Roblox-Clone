@@ -300,6 +300,19 @@ private:
     bool handleGetGameScript(Request& request, Response& response);
     bool handlePutGameScript(Request& request, Response& response);
     bool handleGameServers(Request& request, Response& response);
+    // One pass as a page reads it, with what this viewer holds of it. Zero for
+    // the viewer means a signed-out visitor, who only sees the shelf.
+    Json gamePassJson(const GamePassRecord& pass, int viewerId) const;
+    // Everything one game sells. A subscription whose term ran out is settled
+    // before this is asked, so `owned` is the state the account is in now.
+    Json gamePassesJson(const GameRecord& game, int viewerId) const;
+    // The owner's side: put a pass on sale, change one, take one down.
+    bool handleCreateGamePass(Request& request, Response& response);
+    bool handleUpdateGamePass(Request& request, Response& response);
+    bool handleDeleteGamePass(Request& request, Response& response);
+    // A player's side: buy a pass, and stop a subscription from renewing.
+    bool handleBuyGamePass(Request& request, Response& response);
+    bool handleCancelGamePass(Request& request, Response& response);
     bool handlePlayGame(Request& request, Response& response);
     bool handleClientReport(Request& request, Response& response);
     // The client's own anti-cheat, reporting a detection from inside the process.

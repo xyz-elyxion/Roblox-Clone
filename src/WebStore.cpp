@@ -179,6 +179,8 @@ void Store::clear() {
     chatReads_.clear();
     uploads_.clear();
     likes_.clear();
+    gamePasses_.clear();
+    gamePassOwnerships_.clear();
     nextUserId_ = 1;
     nextFriendshipId_ = 1;
     nextGameId_ = 1;
@@ -188,6 +190,7 @@ void Store::clear() {
     nextAppealId_ = 1;
     nextChatMessageId_ = 1;
     nextUploadId_ = 1;
+    nextGamePassId_ = 1;
 }
 
 bool Store::load(std::string* error) {
@@ -481,6 +484,62 @@ bool Store::load(std::string* error) {
         nextUploadId_ = std::max(nextUploadId_, record.id + 1);
     }
 
+    for (const Json& entry : document.member("gamePasses").elements()) {
+        GamePassRecord record;
+        record.id = static_cast<int>(entry.member("id").asInteger(0));
+        record.gameId = static_cast<int>(entry.member("gameId").asInteger(0));
+        record.name = entry.member("name").asString();
+        record.description = entry.member("description").asString();
+        record.kind = entry.member("kind").asString("pass");
+        record.price = entry.member("price").asInteger(0);
+        record.periodDays = static_cast<int>(entry.member("periodDays").asInteger(0));
+        record.createdAt = entry.member("createdAt").asString();
+        record.updatedAt = entry.member("updatedAt").asString();
+        // A pass that cannot be bought, cannot be found on its game page, or
+        // belongs to no game is not a product: it is dropped rather than listed
+        // as a broken row.
+        if (record.id <= 0 || record.gameId <= 0 || record.name.empty() || record.price <= 0 ||
+            findGame(record.gameId) == nullptr) {
+            continue;
+        }
+        if (record.kind != "pass" && record.kind != "repeatable" &&
+            record.kind != "subscription") {
+            record.kind = "pass";
+        }
+        if (record.kind != "subscription" || record.periodDays <= 0) {
+            record.kind = record.kind == "repeatable" ? "repeatable" : "pass";
+            record.periodDays = 0;
+        }
+        gamePasses_.push_back(record);
+        nextGamePassId_ = std::max(nextGamePassId_, record.id + 1);
+    }
+
+    for (const Json& entry : document.member("gamePassOwnerships").elements()) {
+        GamePassOwnershipRecord record;
+        record.passId = static_cast<int>(entry.member("passId").asInteger(0));
+        record.gameId = static_cast<int>(entry.member("gameId").asInteger(0));
+        record.userId = static_cast<int>(entry.member("userId").asInteger(0));
+        record.count = static_cast<int>(entry.member("count").asInteger(0));
+        record.coinsPaid = entry.member("coinsPaid").asInteger(0);
+        record.purchasedAt = entry.member("purchasedAt").asString();
+        record.renewedAt = entry.member("renewedAt").asString();
+        record.expiresAtMs = entry.member("expiresAtMs").asInteger(0);
+        record.autoRenew = entry.member("autoRenew").asBool(false);
+        record.active = entry.member("active").asBool(false);
+        // Ownership of a pass that no longer exists, or by an account that no
+        // longer exists, is a row nothing can show or honour.
+        if (record.passId <= 0 || record.userId <= 0 || record.count <= 0) {
+            continue;
+        }
+        if (findGamePass(record.passId) == nullptr || findUserById(record.userId) == nullptr) {
+            continue;
+        }
+        if (findGamePassOwnership(record.passId, record.userId) != nullptr) {
+            continue;
+        }
+        gamePassOwnerships_.push_back(record);
+    }
+
     for (const Json& entry : document.member("chatReads").elements()) {
         ChatReadRecord record;
         record.userId = static_cast<int>(entry.member("userId").asInteger(0));
@@ -771,6 +830,39 @@ bool Store::save(std::string* error) const {
     }
     document.set("gameLikes", gameLikes);
 
+    Json gamePasses = Json::makeArray();
+    for (const GamePassRecord& record : gamePasses_) {
+        Json entry = Json::makeObject();
+        entry.set("id", record.id);
+        entry.set("gameId", record.gameId);
+        entry.set("name", record.name);
+        entry.set("description", record.description);
+        entry.set("kind", record.kind);
+        entry.set("price", record.price);
+        entry.set("periodDays", record.periodDays);
+        entry.set("createdAt", record.createdAt);
+        entry.set("updatedAt", record.updatedAt);
+        gamePasses.push(entry);
+    }
+    document.set("gamePasses", gamePasses);
+
+    Json gamePassOwnerships = Json::makeArray();
+    for (const GamePassOwnershipRecord& record : gamePassOwnerships_) {
+        Json entry = Json::makeObject();
+        entry.set("passId", record.passId);
+        entry.set("gameId", record.gameId);
+        entry.set("userId", record.userId);
+        entry.set("count", record.count);
+        entry.set("coinsPaid", record.coinsPaid);
+        entry.set("purchasedAt", record.purchasedAt);
+        entry.set("renewedAt", record.renewedAt);
+        entry.set("expiresAtMs", record.expiresAtMs);
+        entry.set("autoRenew", record.autoRenew);
+        entry.set("active", record.active);
+        gamePassOwnerships.push(entry);
+    }
+    document.set("gamePassOwnerships", gamePassOwnerships);
+
     Json appeals = Json::makeArray();
     for (const AppealRecord& record : appeals_) {
         Json entry = Json::makeObject();
@@ -978,6 +1070,12 @@ bool Store::removeUser(int id) {
                                     return isUser(record.userId);
                                 }),
                  likes_.end());
+    gamePassOwnerships_.erase(
+        std::remove_if(gamePassOwnerships_.begin(), gamePassOwnerships_.end(),
+                       [&](const GamePassOwnershipRecord& record) {
+                           return isUser(record.userId);
+                       }),
+        gamePassOwnerships_.end());
     removeChatMessagesForUser(id);
     return true;
 }
@@ -2103,6 +2201,19 @@ bool Store::removeGame(int id) {
                                             return record.gameId == id;
                                         }),
                          likes_.end());
+            // A game's passes go with the game, and so does everything bought
+            // from it: a product whose page is gone cannot be shown or renewed.
+            gamePasses_.erase(std::remove_if(gamePasses_.begin(), gamePasses_.end(),
+                                             [id](const GamePassRecord& record) {
+                                                 return record.gameId == id;
+                                             }),
+                              gamePasses_.end());
+            gamePassOwnerships_.erase(
+                std::remove_if(gamePassOwnerships_.begin(), gamePassOwnerships_.end(),
+                               [id](const GamePassOwnershipRecord& record) {
+                                   return record.gameId == id;
+                               }),
+                gamePassOwnerships_.end());
             return true;
         }
     }
@@ -2160,6 +2271,247 @@ bool Store::toggleGameLike(int userId, int gameId, const std::string& nowIso, bo
         *liked = true;
     }
     return true;
+}
+
+const GamePassRecord* Store::findGamePass(int id) const {
+    for (const GamePassRecord& record : gamePasses_) {
+        if (record.id == id) {
+            return &record;
+        }
+    }
+    return nullptr;
+}
+
+std::vector<const GamePassRecord*> Store::gamePassesForGame(int gameId) const {
+    std::vector<const GamePassRecord*> records;
+    for (const GamePassRecord& record : gamePasses_) {
+        if (record.gameId == gameId) {
+            records.push_back(&record);
+        }
+    }
+    std::sort(records.begin(), records.end(),
+              [](const GamePassRecord* a, const GamePassRecord* b) { return a->id < b->id; });
+    return records;
+}
+
+std::size_t Store::gamePassCountForGame(int gameId) const {
+    std::size_t count = 0;
+    for (const GamePassRecord& record : gamePasses_) {
+        if (record.gameId == gameId) {
+            ++count;
+        }
+    }
+    return count;
+}
+
+int Store::addGamePass(const GamePassRecord& record) {
+    if (record.gameId <= 0 || record.name.empty() || record.price <= 0 ||
+        findGame(record.gameId) == nullptr) {
+        return 0;
+    }
+    GamePassRecord stored = record;
+    stored.id = nextGamePassId_++;
+    if (stored.kind != "repeatable" && stored.kind != "subscription") {
+        stored.kind = "pass";
+    }
+    if (stored.kind != "subscription") {
+        stored.periodDays = 0;
+    }
+    gamePasses_.push_back(stored);
+    return stored.id;
+}
+
+bool Store::updateGamePass(const GamePassRecord& record) {
+    for (GamePassRecord& stored : gamePasses_) {
+        if (stored.id != record.id) {
+            continue;
+        }
+        stored.name = record.name;
+        stored.description = record.description;
+        stored.kind = record.kind == "repeatable" || record.kind == "subscription"
+                          ? record.kind
+                          : "pass";
+        stored.price = record.price;
+        stored.periodDays = stored.kind == "subscription" ? record.periodDays : 0;
+        stored.updatedAt = record.updatedAt;
+        return true;
+    }
+    return false;
+}
+
+bool Store::removeGamePass(int id) {
+    for (auto it = gamePasses_.begin(); it != gamePasses_.end(); ++it) {
+        if (it->id != id) {
+            continue;
+        }
+        gamePasses_.erase(it);
+        // Ownership of a pass that is gone is a row no page can show, and a
+        // subscription that has nothing left to renew.
+        gamePassOwnerships_.erase(
+            std::remove_if(gamePassOwnerships_.begin(), gamePassOwnerships_.end(),
+                           [id](const GamePassOwnershipRecord& record) {
+                               return record.passId == id;
+                           }),
+            gamePassOwnerships_.end());
+        return true;
+    }
+    return false;
+}
+
+const GamePassOwnershipRecord* Store::findGamePassOwnership(int passId, int userId) const {
+    for (const GamePassOwnershipRecord& record : gamePassOwnerships_) {
+        if (record.passId == passId && record.userId == userId) {
+            return &record;
+        }
+    }
+    return nullptr;
+}
+
+std::vector<const GamePassOwnershipRecord*> Store::gamePassOwnershipsForUser(int userId) const {
+    std::vector<const GamePassOwnershipRecord*> records;
+    for (const GamePassOwnershipRecord& record : gamePassOwnerships_) {
+        if (record.userId == userId) {
+            records.push_back(&record);
+        }
+    }
+    std::sort(records.begin(), records.end(), [](const GamePassOwnershipRecord* a,
+                                                 const GamePassOwnershipRecord* b) {
+        return a->purchasedAt > b->purchasedAt;
+    });
+    return records;
+}
+
+int Store::gamePassBuyerCount(int passId) const {
+    const GamePassRecord* pass = findGamePass(passId);
+    if (pass == nullptr) {
+        return 0;
+    }
+    int count = 0;
+    for (const GamePassOwnershipRecord& record : gamePassOwnerships_) {
+        if (record.passId != passId || record.count <= 0) {
+            continue;
+        }
+        // A lapsed subscription is not a buyer any more: the count is what the
+        // owner reads as demand for the thing, not a list of everyone who ever
+        // paid once.
+        if (pass->kind == "subscription" && !record.active) {
+            continue;
+        }
+        ++count;
+    }
+    return count;
+}
+
+bool Store::ownsGamePass(int userId, int passId) const {
+    const GamePassRecord* pass = findGamePass(passId);
+    const GamePassOwnershipRecord* ownership = findGamePassOwnership(passId, userId);
+    if (pass == nullptr || ownership == nullptr || ownership->count <= 0) {
+        return false;
+    }
+    // A subscription is held only while its term is paid for; the caller settles
+    // expired terms before asking, so `active` is the answer here.
+    return pass->kind == "subscription" ? ownership->active : true;
+}
+
+bool Store::recordGamePassPurchase(int passId, int userId, long long price, long long durationMs,
+                                   long long nowMs, const std::string& nowIso) {
+    const GamePassRecord* pass = findGamePass(passId);
+    if (pass == nullptr || userId <= 0 || findUserById(userId) == nullptr) {
+        return false;
+    }
+
+    for (GamePassOwnershipRecord& record : gamePassOwnerships_) {
+        if (record.passId != passId || record.userId != userId) {
+            continue;
+        }
+        if (pass->kind == "pass") {
+            return false;
+        }
+        if (pass->kind == "subscription") {
+            const long long term = durationMs > 0 ? durationMs : 30LL * 24 * 60 * 60 * 1000;
+            const long long base = record.expiresAtMs > nowMs ? record.expiresAtMs : nowMs;
+            record.expiresAtMs = base + term;
+            record.active = true;
+            record.autoRenew = true;
+            record.renewedAt = nowIso;
+        }
+        record.count += 1;
+        record.coinsPaid += price;
+        return true;
+    }
+
+    GamePassOwnershipRecord record;
+    record.passId = passId;
+    record.gameId = pass->gameId;
+    record.userId = userId;
+    record.count = 1;
+    record.coinsPaid = price;
+    record.purchasedAt = nowIso;
+    if (pass->kind == "subscription") {
+        const long long term = durationMs > 0 ? durationMs : 30LL * 24 * 60 * 60 * 1000;
+        record.expiresAtMs = nowMs + term;
+        record.autoRenew = true;
+        record.active = true;
+        record.renewedAt = nowIso;
+    }
+    gamePassOwnerships_.push_back(record);
+    return true;
+}
+
+bool Store::setGamePassAutoRenew(int passId, int userId, bool autoRenew) {
+    const GamePassRecord* pass = findGamePass(passId);
+    if (pass == nullptr || pass->kind != "subscription") {
+        return false;
+    }
+    for (GamePassOwnershipRecord& record : gamePassOwnerships_) {
+        if (record.passId == passId && record.userId == userId) {
+            record.autoRenew = autoRenew;
+            return true;
+        }
+    }
+    return false;
+}
+
+bool Store::endGamePassSubscription(int passId, int userId) {
+    const GamePassRecord* pass = findGamePass(passId);
+    if (pass == nullptr || pass->kind != "subscription") {
+        return false;
+    }
+    for (GamePassOwnershipRecord& record : gamePassOwnerships_) {
+        if (record.passId == passId && record.userId == userId) {
+            record.autoRenew = false;
+            return true;
+        }
+    }
+    return false;
+}
+
+int Store::settleGamePassSubscriptions(long long nowMs, const std::string& nowIso) {
+    int changed = 0;
+    for (GamePassOwnershipRecord& record : gamePassOwnerships_) {
+        const GamePassRecord* pass = findGamePass(record.passId);
+        if (pass == nullptr || pass->kind != "subscription" || !record.active ||
+            record.expiresAtMs <= 0 || record.expiresAtMs > nowMs) {
+            continue;
+        }
+
+        const long long term = pass->periodDays > 0
+                                   ? static_cast<long long>(pass->periodDays) * 24 * 60 * 60 * 1000
+                                   : 30LL * 24 * 60 * 60 * 1000;
+        // The term is renewed from now rather than from the old end, so a player
+        // who was away is not handed several terms for one payment.
+        if (record.autoRenew && spendCoins(record.userId, pass->price)) {
+            record.expiresAtMs = nowMs + term;
+            record.renewedAt = nowIso;
+            record.coinsPaid += pass->price;
+            record.count += 1;
+            ++changed;
+            continue;
+        }
+        record.active = false;
+        ++changed;
+    }
+    return changed;
 }
 
 void Store::resolveOwnerNames() {

@@ -436,6 +436,8 @@ if(LINEAR_BUILD_CLIENT)
         # The hashed machine id the join carries; the hash is the same sha256 the
         # website uses, so the client links it rather than a second copy.
         src/HardwareId.cpp
+        # What an anti-cheat detection carries to staff: the machine it fired on.
+        src/SystemSnapshot.cpp
         src/HttpClient.cpp
         # The client mixes its own sounds; the bank is synthesised, not shipped.
         src/Audio.cpp
@@ -818,7 +820,8 @@ endif()
 # here instead of being named a second time.
 if(MSVC)
     foreach(_linear_app Client Server Studio LinearCode LinearUpdater LinearSetup
-            ServerSetup LinearCert LinearDocs LinearHub)
+            ServerSetup LinearCert LinearDocs LinearHub LinearHosts LinearProxy LinearGit
+            WebApp AiTrainer)
         if(TARGET ${_linear_app})
             target_sources(${_linear_app} PRIVATE src/linear.rc)
         endif()

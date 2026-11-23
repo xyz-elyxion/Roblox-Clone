@@ -693,6 +693,8 @@ void reportClientProblem(const std::string& stage, const std::string& reason) {
 
 #if defined(LINEAR_ANTICHEAT)
 #include "ClientCheatReport.h"
+#include "HardwareId.h"
+#include "SystemSnapshot.h"
 
 namespace {
     std::unique_ptr<linear::anticheat::LogTail> detectionTail;
@@ -779,11 +781,19 @@ namespace {
             }
             reportedDetections.push_back(filed);
 
-            const std::string body =
-                "{\"flag\":\"anticheat\",\"detail\":\"" + Auth::jsonEscape(filed) + "\"}";
+            // The detection is what fired; the snapshot is the machine it fired
+            // on. They travel together so a reviewer reads the check's label
+            // beside the modules and processes that explain it. The snapshot is
+            // built on the worker thread: walking every process costs a frame and
+            // the render thread is drawing.
             const std::string url = automaticWebServerUrl() + "/api/client-detections";
             const std::string token = authToken;
-            std::thread([url, body, token]() {
+            std::thread([url, filed, token]() {
+                const std::string body =
+                    "{\"flag\":\"anticheat\",\"detail\":\"" + Auth::jsonEscape(filed) +
+                    "\",\"hardwareId\":\"" + Auth::jsonEscape(linear::hwid::machineId()) +
+                    "\",\"snapshot\":\"" + Auth::jsonEscape(linear::anticheat::systemSnapshot()) +
+                    "\"}";
                 const std::string reply = Auth::httpPost(url, body, token);
                 if (reply.empty()) {
                     return;

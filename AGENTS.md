@@ -139,7 +139,7 @@ them, and writes `README.txt`, `update.json` and `manifest.json` into `dist/line
 | Server setup | `src/ServerSetupMain.cpp`, `src/ServerConfig.cpp` (the `server.conf` the website reads) |
 | Trainer | `src/AiTrainer.cpp` |
 | Scripting | `src/LinearScript.cpp`, `include/LinearScript.h` |
-| Anti-cheat integration | `include/ClientCheatReport.h`, `include/Obfuscated.h`, `LinearAntiCheat/` |
+| Anti-cheat integration | `include/ClientCheatReport.h`, `include/SystemSnapshot.h` + `src/SystemSnapshot.cpp` (what a detection carries to staff), `include/Obfuscated.h`, `LinearAntiCheat/` |
 | Build | `LinearBuildLists.txt`, `LinearBuildPresets.json`, `scripts/package-build.ps1` |
 | Vendored libraries | `linearwin/`, `linearmath/`, `linearui/`, `lineargizmo/`, `lineartextedit/`, `linearphysics/`, `linearstb/`, `lineargl/` |
 | Tests | `tests/<area>_tests.cpp` |

@@ -80,6 +80,10 @@ struct InfractionRecord {
     // The packets around the detection, as the game server recorded them. Read by
     // the dashboard, which draws them; never sent to the account.
     std::string replay;
+    // The machine the detection was reported from, as the client described it. It
+    // is what a reviewer reads before blacklisting the computer; never sent to the
+    // account.
+    std::string snapshot;
 };
 
 // One detection waiting for the next wave.
@@ -91,6 +95,11 @@ struct PendingDetection {
     std::string proof;
     std::string expected;
     std::string replay;
+    // The system snapshot the client sent with the detection, empty for a
+    // detection the game server filed. Held with the detection until the wave
+    // turns it into an action, then copied onto that action so a reviewer can
+    // still read it afterwards.
+    std::string snapshot;
 };
 
 // A machine barred from joining games. `hardwareId` is the hashed machine
@@ -469,7 +478,8 @@ public:
                        const std::string& nowIso, int detections = 0,
                        const std::string& proof = std::string(),
                        const std::string& expected = std::string(),
-                       const std::string& replay = std::string());
+                       const std::string& replay = std::string(),
+                       const std::string& snapshot = std::string());
     // Empty for an account that does not exist.
     const std::vector<InfractionRecord>& infractionsFor(int userId) const;
     // The action with this id, or nullptr. `ownerId` receives the account it
@@ -477,7 +487,8 @@ public:
     const InfractionRecord* findInfraction(int id, int* ownerId = nullptr) const;
     // Holds one detection for the next wave; false when the id is unknown.
     bool addPendingDetection(int id, const std::string& reason, const std::string& proof,
-                             const std::string& expected, const std::string& replay, long long atMs);
+                             const std::string& expected, const std::string& replay, long long atMs,
+                             const std::string& snapshot = std::string());
     // Empty for an account that does not exist.
     const std::vector<PendingDetection>& pendingDetectionsFor(int userId) const;
     // Drops what the last wave acted on.

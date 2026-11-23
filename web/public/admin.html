@@ -171,12 +171,31 @@
                                             <th scope="col">Joined</th>
                                             <th scope="col">Client AC</th>
                                             <th scope="col">Strikes</th>
+                                            <th scope="col">Evidence</th>
                                             <th scope="col">Moderation</th>
                                         </tr>
                                     </thead>
                                     <tbody data-admin-users></tbody>
                                 </table>
                             </div>
+                        </article>
+
+                        <!-- What the account's client sent when its anti-cheat fired,
+                             opened by the Evidence cell of a row above. -->
+                        <article class="panel" data-admin-evidence-panel tabindex="-1"
+                            aria-labelledby="admin-evidence-title" hidden>
+                            <div class="panel-heading">
+                                <div>
+                                    <p class="label">Moderation</p>
+                                    <h2 id="admin-evidence-title" data-admin-evidence-title>Detection evidence</h2>
+                                </div>
+                                <div>
+                                    <button type="button" class="button danger small" data-admin-evidence-blacklist>Blacklist device</button>
+                                    <button type="button" class="button secondary small" data-admin-evidence-close>Close</button>
+                                </div>
+                            </div>
+                            <p class="admin-reason" data-admin-evidence-note></p>
+                            <div data-admin-evidence-body></div>
                         </article>
                     </section>
 

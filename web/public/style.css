@@ -995,6 +995,19 @@ input {
     white-space: normal;
 }
 
+/* A system snapshot is read line by line, so it keeps its own whitespace and
+   scrolls inside the panel rather than widening the page. */
+.admin-evidence {
+    margin: 0 0 var(--space-4);
+    padding: var(--space-3);
+    max-height: 24rem;
+    overflow: auto;
+    border: 2px solid var(--line);
+    font-size: 0.85rem;
+    line-height: 1.5;
+    white-space: pre;
+}
+
 /* The balance is read-only and the grant box sits beside it, so the coins an
    account earned and the coins about to be added never read as one number. */
 .admin-table .coin-grant-input {

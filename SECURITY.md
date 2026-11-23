@@ -253,6 +253,15 @@ detections are filed against the caller's own account only. Bans also bar the ma
 account was last seen on (`POST /api/hardware-check` for guests), as a 32-character hash of
 the system volume serial and the computer name; the raw values never leave the client.
 
+A client detection also carries a bounded system snapshot — OS build and architecture, computer and
+account name, the client's path, process id, uptime and handle count, its loaded modules and the
+processes running beside it, as text, with no file contents, credential or environment variable. It is
+stored with the detection and readable only through `GET /api/admin/users/:id/detections`, which needs
+the moderation permission. `POST /api/admin/users/:id/moderation` accepts `blacklist`, which bans the
+account and puts its machine on the hardware ban list, and needs the hardware-ban permission as well;
+the queue, the snapshot and the barred hash sit in the same sealed part of the account record as the
+rest of its moderation history, and are never sent to the account.
+
 **Friends.** A friendship is one row per pair holding the requester, the addressee, a status and
 the two timestamps, so a request crossing an existing row is answered rather than duplicated and a
 pair cannot appear twice in a list. Both endpoints take a target user id that has to exist, and read

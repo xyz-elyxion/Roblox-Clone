@@ -5,6 +5,7 @@
 #include "MalwareScan.h"
 #include "Moderation.h"
 #include "Roles.h"
+#include "SystemSnapshot.h"
 #include "WebApp.h"
 
 #include "HubSite.h"
@@ -2557,6 +2558,13 @@ void WebsiteApp::installRoutes() {
                   guard([this](Request& request, Response& response) {
                       return handleAdminModerateUser(request, response);
                   }));
+    // The evidence behind an account's detections. Separate from the overview
+    // because a system snapshot is a screenful of text and the overview lists
+    // every account; staff ask for it when they open one.
+    server_.route("GET", "/api/admin/users/:id/detections",
+                  guard([this](Request& request, Response& response) {
+                      return handleAdminUserDetections(request, response);
+                  }));
     server_.route("GET", "/api/admin/hardware-bans",
                   guard([this](Request& request, Response& response) {
                       return handleAdminHardwareBans(request, response);
@@ -4590,9 +4598,12 @@ int WebsiteApp::applyBanWaves() {
         if (decision.action != linear::moderation::Action::None) {
             // The account keeps its session: it is told what happened, reads the
             // action in Settings and appeals that action there.
+            // The snapshot is carried onto the action, because the queue is
+            // cleared here and the review happens after it: a reviewer still needs
+            // the machine the detection was described from.
             store_.addInfraction(userId, infractionKindOf(decision.action), reason, true,
                                  state.strikes, suspensionExpiry(state, now), createdAt, held,
-                                 newest.proof, newest.expected, newest.replay);
+                                 newest.proof, newest.expected, newest.replay, newest.snapshot);
         }
         // A ban that stopped at the account would be worth one free account, so
         // it is copied onto the machine it was earned on.
@@ -4632,6 +4643,13 @@ bool WebsiteApp::handleClientDetection(Request& request, Response& response) {
     }
     std::string flag = trimCopy(body.member("flag").asString());
     std::string detail = trimCopy(body.member("detail").asString());
+    // What the client saw around the detection: its modules, the processes on the
+    // machine, the OS. It is evidence for staff to read, not something the site
+    // parses, so it is stored as text and cut to a length a data file can hold.
+    std::string snapshot = trimCopy(body.member("snapshot").asString());
+    if (snapshot.size() > linear::anticheat::kMaxSnapshotCharacters) {
+        snapshot.resize(linear::anticheat::kMaxSnapshotCharacters);
+    }
     if (detail.empty()) {
         errorJson(response, 400, "A detection detail is required.");
         return true;
@@ -4650,6 +4668,14 @@ bool WebsiteApp::handleClientDetection(Request& request, Response& response) {
     if (record == nullptr) {
         errorJson(response, 401, "Invalid or expired token.");
         return true;
+    }
+
+    // The machine the report came from. The join records it too, but a detection
+    // can fire at the menu or before a world is joined, and a blacklist taken from
+    // this evidence has to reach the computer that produced it.
+    const std::string hardwareId = linear::hwid::normalize(body.member("hardwareId").asString());
+    if (linear::hwid::valid(hardwareId)) {
+        store_.setLastHardwareId(record->id, hardwareId, nowIso());
     }
 
     ClientReport report;
@@ -4673,15 +4699,17 @@ bool WebsiteApp::handleClientDetection(Request& request, Response& response) {
     const long long now = nowMilliseconds();
     const std::string createdAt = nowIso();
     store_.recordClientDetection(record->id, createdAt);
-    store_.addPendingDetection(record->id, "client anti-cheat: " + detail, "", "", "", now);
+    store_.addPendingDetection(record->id, "client anti-cheat: " + detail, "", "", "", now,
+                               snapshot);
     std::string saveError;
     if (!store_.save(&saveError)) {
         std::fprintf(stderr, "Could not save the data file: %s\n", saveError.c_str());
     }
 
     const std::size_t held = store_.pendingDetectionsFor(record->id).size();
-    std::fprintf(stdout, "  anti-cheat detection [%s] %s, held for the next wave (%zu)\n",
-                 user.username.c_str(), report.reason.c_str(), held);
+    std::fprintf(stdout, "  anti-cheat detection [%s] %s, held for the next wave (%zu), "
+                         "snapshot %zu bytes\n",
+                 user.username.c_str(), report.reason.c_str(), held, snapshot.size());
 
     const UserRecord* updated = store_.findUserById(user.id);
     Json result = Json::makeObject();
@@ -4900,10 +4928,18 @@ bool WebsiteApp::handleAdminModerateUser(Request& request, Response& response) {
     if (reason.size() > 80) {
         reason.resize(80);
     }
+    // Blacklisting bans the account and the machine both, so it asks for the
+    // machine permission on top of the moderation one: a moderator who may not
+    // bar a computer must not reach it through this action.
+    if (action == "blacklist" &&
+        !requirePermission(user, linear::roles::kHardwareBans, "blacklist a machine", response)) {
+        return true;
+    }
 
     const long long now = nowMilliseconds();
     linear::moderation::State state = moderationStateOf(*record);
     std::string message;
+    bool machineBlacklisted = false;
     if (action == "pardon") {
         // The way back for a false positive: everything a strike added is cleared.
         message = linear::moderation::liftRestriction(&state).message;
@@ -4923,8 +4959,15 @@ bool WebsiteApp::handleAdminModerateUser(Request& request, Response& response) {
     } else if (action == "ban") {
         state.banned = true;
         message = linear::moderation::restrictionMessage(state, now);
+    } else if (action == "blacklist") {
+        // A review that found what the snapshot described: the account goes and
+        // so does the machine, because a ban that stops at the account is worth
+        // one new account.
+        state.banned = true;
+        message = "This account was banned and its computer was added to the blacklist, "
+                  "so a new account on it is refused at the join.";
     } else {
-        errorJson(response, 400, "Action must be warn, suspend, ban or pardon.");
+        errorJson(response, 400, "Action must be warn, suspend, ban, blacklist or pardon.");
         return true;
     }
 
@@ -4944,9 +4987,16 @@ bool WebsiteApp::handleAdminModerateUser(Request& request, Response& response) {
     // a pardon has to reach it too: an admin who fixes a false positive must not
     // leave the player locked out of the computer it was taken on.
     if (state.banned) {
-        banHardwareForAccount(store_, *record, reason, createdAt);
+        machineBlacklisted = banHardwareForAccount(store_, *record, reason, createdAt);
     } else if (action == "pardon") {
         store_.liftHardwareBansForUser(record->id, createdAt);
+    }
+    if (action == "blacklist" && !machineBlacklisted) {
+        // The account has never joined from a client that sends its machine id, so
+        // there is nothing to put on the list yet. Saying so is better than a
+        // button that quietly does half of what it says.
+        message += " No machine is on record for this account, so only the account was "
+                   "restricted; the machine is blacklisted from the next join that names it.";
     }
     std::string saveError;
     if (!store_.save(&saveError)) {
@@ -4962,6 +5012,7 @@ bool WebsiteApp::handleAdminModerateUser(Request& request, Response& response) {
     result.set("action", action);
     result.set("strikes", state.strikes);
     result.set("banned", state.banned);
+    result.set("machineBlacklisted", machineBlacklisted);
     if (state.suspendedUntilMs > now) {
         result.set("suspendedUntil",
                    isoFromTime(static_cast<std::time_t>(state.suspendedUntilMs / 1000)));
@@ -4969,6 +5020,78 @@ bool WebsiteApp::handleAdminModerateUser(Request& request, Response& response) {
         result.setNull("suspendedUntil");
     }
     result.set("message", message);
+    sendJson(response, 200, result);
+    return true;
+}
+
+// The evidence behind what an account's client reported: the detections still
+// waiting for the wave, and the ones the wave already turned into an action. Each
+// carries the system snapshot the client sent, which is what a reviewer reads
+// before adding the machine to the blacklist.
+//
+// It is a request of its own rather than part of the overview because a snapshot
+// is a few kilobytes of text per detection and the overview lists every account
+// on the site; staff ask for one account's evidence when they open it.
+bool WebsiteApp::handleAdminUserDetections(Request& request, Response& response) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    AuthUser user;
+    if (!requireAuth(request, response, &user)) {
+        return true;
+    }
+    if (!requirePermission(user, linear::roles::kModerateUsers, "read a detection's evidence",
+                           response)) {
+        return true;
+    }
+
+    const int userId = parseUserId(request.param("id"));
+    const UserRecord* record = userId > 0 ? store_.findUserById(userId) : nullptr;
+    if (record == nullptr) {
+        errorJson(response, 404, "User not found.");
+        return true;
+    }
+
+    // Still queued: nothing has acted on these yet, so the review can still change
+    // what happens at the next wave.
+    Json queued = Json::makeArray();
+    for (const PendingDetection& pending : store_.pendingDetectionsFor(record->id)) {
+        Json entry = Json::makeObject();
+        entry.set("reason", pending.reason);
+        entry.set("proof", pending.proof);
+        entry.set("expected", pending.expected);
+        entry.set("createdAt", isoFromTime(static_cast<std::time_t>(pending.atMs / 1000)));
+        entry.set("snapshot", pending.snapshot);
+        queued.push(entry);
+    }
+
+    // Already acted on: the queue was cleared by the wave, so the snapshot lives on
+    // the action it produced.
+    Json acted = Json::makeArray();
+    for (const InfractionRecord& entry : store_.infractionsFor(record->id)) {
+        if (entry.snapshot.empty()) {
+            continue;
+        }
+        Json item = Json::makeObject();
+        item.set("kind", entry.kind);
+        item.set("reason", entry.reason);
+        item.set("createdAt", entry.createdAt);
+        item.set("snapshot", entry.snapshot);
+        acted.push(item);
+    }
+
+    // Which machine a blacklist would reach, and whether it is on the list
+    // already, so the button is never offered twice for the same computer.
+    const std::string hardwareId = linear::hwid::normalize(record->lastHardwareId);
+    const HardwareBanRecord* ban =
+        linear::hwid::valid(hardwareId) ? store_.activeHardwareBan(hardwareId) : nullptr;
+
+    Json result = Json::makeObject();
+    result.set("success", true);
+    result.set("username", record->username);
+    result.set("hardwareId", hardwareId);
+    result.set("blacklisted", ban != nullptr);
+    result.set("blacklistedAt", ban != nullptr ? ban->createdAt : std::string());
+    result.set("queued", queued);
+    result.set("acted", acted);
     sendJson(response, 200, result);
     return true;
 }

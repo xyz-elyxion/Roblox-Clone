@@ -103,6 +103,7 @@ Json infractionsToJson(const std::vector<InfractionRecord>& entries) {
         saved.set("proof", infraction.proof);
         saved.set("expected", infraction.expected);
         saved.set("replay", infraction.replay);
+        saved.set("snapshot", infraction.snapshot);
         array.push(saved);
     }
     return array;
@@ -117,6 +118,7 @@ Json pendingToJson(const std::vector<PendingDetection>& entries) {
         saved.set("proof", detection.proof);
         saved.set("expected", detection.expected);
         saved.set("replay", detection.replay);
+        saved.set("snapshot", detection.snapshot);
         array.push(saved);
     }
     return array;
@@ -136,6 +138,7 @@ void readInfractions(const Json& array, std::vector<InfractionRecord>* out, int*
         infraction.proof = saved.member("proof").asString();
         infraction.expected = saved.member("expected").asString();
         infraction.replay = saved.member("replay").asString();
+        infraction.snapshot = saved.member("snapshot").asString();
         if (infraction.id <= 0 || infraction.kind.empty()) {
             continue;
         }
@@ -154,6 +157,7 @@ void readPending(const Json& array, std::vector<PendingDetection>* out) {
         pending.proof = saved.member("proof").asString();
         pending.expected = saved.member("expected").asString();
         pending.replay = saved.member("replay").asString();
+        pending.snapshot = saved.member("snapshot").asString();
         if (pending.reason.empty()) {
             continue;
         }
@@ -1417,7 +1421,7 @@ bool Store::addInfraction(int id, const std::string& kind, const std::string& re
                           bool automatic, int strikes, const std::string& expiresAt,
                           const std::string& nowIso, int detections,
                           const std::string& proof, const std::string& expected,
-                          const std::string& replay) {
+                          const std::string& replay, const std::string& snapshot) {
     for (UserRecord& user : users_) {
         if (user.id != id) {
             continue;
@@ -1435,6 +1439,7 @@ bool Store::addInfraction(int id, const std::string& kind, const std::string& re
         entry.proof = proof;
         entry.expected = expected;
         entry.replay = replay;
+        entry.snapshot = snapshot;
         user.infractions.push_back(entry);
         // The record is a history, not an archive: the oldest entries fall off so
         // one account cannot grow the data file without end.
@@ -1481,7 +1486,7 @@ const InfractionRecord* Store::findInfraction(int id, int* ownerId) const {
 
 bool Store::addPendingDetection(int id, const std::string& reason, const std::string& proof,
                                 const std::string& expected, const std::string& replay,
-                                long long atMs) {
+                                long long atMs, const std::string& snapshot) {
     for (UserRecord& user : users_) {
         if (user.id != id) {
             continue;
@@ -1493,6 +1498,7 @@ bool Store::addPendingDetection(int id, const std::string& reason, const std::st
         pending.proof = proof;
         pending.expected = expected;
         pending.replay = replay;
+        pending.snapshot = snapshot;
         user.pendingDetections.push_back(pending);
         // The newest are the ones a wave acts on, so the oldest fall off first.
         if (user.pendingDetections.size() > kMaxPendingDetections) {

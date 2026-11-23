@@ -4850,6 +4850,12 @@ function initAdminPage() {
     const status = document.querySelector('[data-admin-status]');
     const refreshButton = document.querySelector('[data-admin-refresh]');
     const rolesBody = document.querySelector('[data-admin-roles]');
+    const evidencePanel = document.querySelector('[data-admin-evidence-panel]');
+    const evidenceTitle = document.querySelector('[data-admin-evidence-title]');
+    const evidenceNote = document.querySelector('[data-admin-evidence-note]');
+    const evidenceBody = document.querySelector('[data-admin-evidence-body]');
+    const evidenceBlacklist = document.querySelector('[data-admin-evidence-blacklist]');
+    const evidenceClose = document.querySelector('[data-admin-evidence-close]');
     // The ladder as the server described it to this caller, and where the caller
     // sits on it: the picker offers only what an assignment would be accepted for.
     let roleTable = [];
@@ -4996,10 +5002,14 @@ function initAdminPage() {
         return 'Clear';
     }
 
-    async function moderateUser(user, action, button) {
-        if (action === 'ban') {
-            const confirmed = window.confirm(`Ban "${user.username}" for cheating?`);
-            if (!confirmed) return;
+    async function moderateUser(user, action, button, reason) {
+        // A blacklist reaches further than a ban, so the question says so before
+        // the click rather than after it.
+        if (action === 'ban' || action === 'blacklist') {
+            const question = action === 'blacklist'
+                ? `Ban "${user.username}" and blacklist the computer it played from?`
+                : `Ban "${user.username}" for cheating?`;
+            if (!window.confirm(question)) return false;
         }
         button.disabled = true;
         try {
@@ -5009,16 +5019,98 @@ function initAdminPage() {
                     'Content-Type': 'application/json',
                     Authorization: `Bearer ${getToken()}`
                 },
-                body: JSON.stringify({ action })
+                body: JSON.stringify(reason ? { action, reason } : { action })
             });
             const data = await response.json();
             if (!response.ok || !data.success) throw new Error(data.error || 'Could not change the account.');
             await load();
             setStatus(status, data.message || `Updated "${user.username}".`, 'success');
+            return true;
         } catch (error) {
             setStatus(status, error.message || 'Could not change the account.', 'error');
             button.disabled = false;
+            return false;
         }
+    }
+
+    // A detection line names the check; the snapshot names the machine. A reviewer
+    // reads both before deciding whether the computer joins the blacklist, so the
+    // evidence opens from the row rather than from a separate page.
+    let evidenceUser = null;
+    let evidenceOpener = null;
+
+    async function showEvidence(user, opener) {
+        try {
+            const response = await fetch(`/api/admin/users/${user.id}/detections`, {
+                headers: { Authorization: `Bearer ${getToken()}` }
+            });
+            const data = await response.json();
+            if (!response.ok || !data.success) throw new Error(data.error || 'Could not load the evidence.');
+
+            const entries = [...(data.queued ?? []), ...(data.acted ?? [])];
+            if (evidenceBody) {
+                evidenceBody.innerHTML = '';
+                if (entries.length === 0) {
+                    const empty = document.createElement('p');
+                    empty.className = 'admin-reason';
+                    empty.textContent = 'No detection evidence is held for this account.';
+                    evidenceBody.appendChild(empty);
+                }
+                for (const entry of entries) {
+                    const heading = document.createElement('p');
+                    heading.className = 'admin-reason';
+                    heading.textContent = `${formatDate(entry.createdAt)} - ${entry.reason || entry.kind || 'detection'}`;
+                    evidenceBody.appendChild(heading);
+                    const snapshot = document.createElement('pre');
+                    snapshot.className = 'admin-evidence';
+                    snapshot.textContent = entry.snapshot || 'No system snapshot was sent with this detection.';
+                    evidenceBody.appendChild(snapshot);
+                }
+            }
+            if (evidenceTitle) evidenceTitle.textContent = `Evidence: ${data.username}`;
+            if (evidenceNote) {
+                evidenceNote.textContent = data.blacklisted
+                    ? `This account's machine is already on the blacklist (added ${formatDate(data.blacklistedAt)}).`
+                    : data.hardwareId
+                        ? 'Blacklisting bans the account and adds the machine it played from to the blacklist, so a new account on that computer is refused at the join.'
+                        : 'No machine is on record for this account yet, so a blacklist would reach the account only.';
+            }
+            if (evidenceBlacklist) {
+                evidenceBlacklist.disabled = Boolean(data.blacklisted) || !data.hardwareId;
+            }
+            evidenceUser = user;
+            evidenceOpener = opener || document.activeElement;
+            openShellSection('users');
+            if (evidencePanel) {
+                evidencePanel.hidden = false;
+                evidencePanel.focus();
+            }
+        } catch (error) {
+            setStatus(status, error.message || 'Could not load the evidence.', 'error');
+        }
+    }
+
+    if (evidenceBlacklist) {
+        evidenceBlacklist.addEventListener('click', () => {
+            if (!evidenceUser) return;
+            moderateUser(evidenceUser, 'blacklist', evidenceBlacklist, 'anti-cheat evidence review')
+                .then((done) => {
+                    if (!done) return;
+                    if (evidencePanel) evidencePanel.hidden = true;
+                    if (evidenceOpener && document.contains(evidenceOpener)) evidenceOpener.focus();
+                    evidenceOpener = null;
+                    evidenceUser = null;
+                })
+                .catch(() => {});
+        });
+    }
+    if (evidenceClose) {
+        evidenceClose.addEventListener('click', () => {
+            if (evidencePanel) evidencePanel.hidden = true;
+            if (evidenceOpener && document.contains(evidenceOpener)) evidenceOpener.focus();
+            evidenceOpener = null;
+            evidenceUser = null;
+        });
     }
 
     // The balance is earned by playtime, so the dashboard reads it and offers a
@@ -5053,7 +5145,7 @@ function initAdminPage() {
         if (!usersBody) return;
         usersBody.innerHTML = '';
         if (!users || users.length === 0) {
-            adminEmptyRow(usersBody, 11, 'No accounts yet.');
+            adminEmptyRow(usersBody, 12, 'No accounts yet.');
             return;
         }
         for (const user of users) {
@@ -5095,6 +5187,20 @@ function initAdminPage() {
             });
             coinCell.append(balance, grant, giveButton);
 
+            // The count is what is still waiting for a wave; the button opens the
+            // snapshots behind it, which is what a blacklist decision rests on.
+            const evidenceCell = document.createElement('div');
+            const waiting = user.pendingDetections ?? 0;
+            const evidenceButton = makeButton(
+                waiting > 0 ? `Review (${waiting})` : 'Review',
+                waiting > 0 ? 'button small' : 'button secondary small',
+                () => {}
+            );
+            evidenceButton.addEventListener('click', () => {
+                showEvidence(user, evidenceButton).catch(() => {});
+            });
+            evidenceCell.append(evidenceButton);
+
             usersBody.appendChild(adminRow([
                 user.id,
                 name,
@@ -5106,6 +5212,7 @@ function initAdminPage() {
                 formatDate(user.createdAt),
                 user.clientDetections ?? 0,
                 user.cheatStrikes ?? 0,
+                evidenceCell,
                 cell
             ]));
         }

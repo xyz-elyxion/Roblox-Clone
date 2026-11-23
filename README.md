@@ -580,6 +580,29 @@ and chipset drivers install their libraries there and sign them with AMD's, Inte
 name; Discord's `DiscordHook64.dll` is loaded into every game running beside Discord and hooks the
 frame the client presents. The client also drops detections that name that module, the way it
 drops handle detections about its own launcher.
+
+### What a client detection sends staff
+
+A detection line names the check; it does not say what the machine looked like. So the client attaches a
+bounded system snapshot to every detection it files (`include/SystemSnapshot.h`, built in
+`src/SystemSnapshot.cpp`): the Windows build and architecture, the computer and account name, the
+client's own path, process id, uptime and handle count, the modules it has loaded (base, size, path) and
+the processes running beside it (pid, parent pid, name).
+
+It is plain text, capped at a few kilobytes, and carries no file contents, no credential and no
+environment variable. The website stores it with the detection (`snapshot` on `POST
+/api/client-detections`) and the wave copies it onto the action that detection produced, so it is still
+there once the queue has been cleared.
+
+Staff read it in the admin console. The **Evidence** cell of a row opens `GET
+/api/admin/users/:id/detections`, which returns the queued detections and the actions already taken with
+their snapshots, plus the machine the account last played from and whether it is barred already. The
+panel's **Blacklist device** button sends the moderation action `blacklist`: the account is banned and
+that machine is put on the hardware ban list, so a new account on the same computer is refused at the
+join. It asks for the hardware-ban permission on top of the moderation one, and when the account has
+never joined from a client that sends its machine id there is nothing but the account to restrict — the
+panel says that instead of doing half of what its button says.
+
 ## The website
 
 `WebApp.exe` is the website backend, written in C++ under `src/` (`WebApp`, `WebHttp`, `WebJson`,

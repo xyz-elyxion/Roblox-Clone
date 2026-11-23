@@ -333,6 +333,9 @@ private:
     bool handleInstanceModeration(Request& request, Response& response);
     // Admin override: warn, suspend, ban or pardon an account by hand.
     bool handleAdminModerateUser(Request& request, Response& response);
+    // The snapshots behind an account's client detections, for a reviewer reading
+    // them before a blacklist.
+    bool handleAdminUserDetections(Request& request, Response& response);
     // The machines barred from the game, and the switch that lets one back in.
     bool handleAdminHardwareBans(Request& request, Response& response);
     bool handleAdminLiftHardwareBan(Request& request, Response& response);

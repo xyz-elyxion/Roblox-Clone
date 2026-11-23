@@ -13,6 +13,8 @@
 // network.
 
 #include <algorithm>
+#include <atomic>
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -20,7 +22,6 @@
 #include <functional>
 #include <map>
 #include <memory>
-#include <random>
 #include <vector>
 
 namespace linear {
@@ -113,10 +114,19 @@ public:
         incomplete_.clear();
     }
 
+    // A session id only has to differ from the sessions the server is already holding,
+    // so the clock, a counter and this object's own address are enough. This used to be
+    // std::random_device, which is a call into the C runtime's generator: it was the one
+    // call inside the join that could fail in the runtime rather than in our code, and a
+    // failure there is a process that closes with nothing written to any log. Nothing
+    // here can fail.
     static uint32_t makeConnectionId() {
-        std::random_device device;
-        uint32_t value = static_cast<uint32_t>(device()) ^
-                         (static_cast<uint32_t>(device()) << 16);
+        static std::atomic<uint32_t> counter{0};
+        const uint64_t ticks = static_cast<uint64_t>(
+            std::chrono::steady_clock::now().time_since_epoch().count());
+        const uint32_t salt = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(&counter));
+        uint32_t value = static_cast<uint32_t>(ticks) ^ static_cast<uint32_t>(ticks >> 32) ^ salt ^
+                         counter.fetch_add(1, std::memory_order_relaxed) * 0x9E3779B1u;
         return value != 0 ? value : 1;
     }
 

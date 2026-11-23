@@ -440,7 +440,10 @@ The client's own `client_log.txt` and `client_error_log.txt` are opened shared, 
 read while the client is still running — a client that has stopped answering is exactly when
 they are worth opening, and `startup_trace.txt` next to them names the stage it stopped at. A crash,
 or an exception nobody caught in a worker thread, also writes `crash.txt` with its code, the faulting
-module and offset, and the last stage reached. The anti-cheat's open-handle check looks only at
+module and offset, and the last stage reached. A process that calls `abort()` cannot be caught
+that way at all - Windows ends it with a fail fast that runs no exception handler - so the same
+file is also written from a `SIGABRT` handler, naming the thread that aborted and the frames that
+led to it. The anti-cheat's open-handle check looks only at
 process handles, and duplicates exactly the handle value the snapshot names, read from the extended
 system handle table so a busy process's handle values are not truncated, so its once-a-tick pass
 costs a few hundred calls instead of one to the kernel for every handle on the machine. The client

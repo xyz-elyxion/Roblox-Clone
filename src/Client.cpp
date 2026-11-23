@@ -38,6 +38,7 @@
 #include <chrono>
 #include <cstdio>
 #include <cstdlib>
+#include <csignal>
 #include <exception>
 #include <io.h>
 #include <share.h>
@@ -218,6 +219,21 @@ void pauseBeforeExit(const std::string& reason) {
                 MB_OK | MB_ICONERROR | MB_TOPMOST | MB_SETFOREGROUND);
 }
 
+// Appends text to crash.txt. Fixed buffers and Win32 calls only, because this can run
+// while the process is already ending.
+void appendToCrashFile(const char* text) {
+    HANDLE file = CreateFileA("crash.txt", FILE_APPEND_DATA,
+                              FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_ALWAYS,
+                              FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (file == INVALID_HANDLE_VALUE) {
+        return;
+    }
+    SetFilePointer(file, 0, nullptr, FILE_END);
+    DWORD written = 0;
+    WriteFile(file, text, static_cast<DWORD>(std::strlen(text)), &written, nullptr);
+    CloseHandle(file);
+}
+
 // Writes crash.txt beside the logs. A crash that Windows or the anti-cheat handles
 // on its own closes the window and leaves client_log.txt ending mid-line: the code,
 // the module and the last stage below are what turn "it closed" into a call site.
@@ -246,19 +262,11 @@ void writeCrashReport(const char* kind, unsigned long code, const void* address,
                   kind, code, module, offset, g_lastStartupStage,
                   detail != nullptr ? detail : "");
 
-    HANDLE file = CreateFileA("crash.txt", FILE_APPEND_DATA,
-                              FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_ALWAYS,
-                              FILE_ATTRIBUTE_NORMAL, nullptr);
-    if (file == INVALID_HANDLE_VALUE) {
-        return;
-    }
-    SetFilePointer(file, 0, nullptr, FILE_END);
-    DWORD written = 0;
-    WriteFile(file, text, static_cast<DWORD>(std::strlen(text)), &written, nullptr);
-    CloseHandle(file);
+    appendToCrashFile(text);
 }
 
 LPTOP_LEVEL_EXCEPTION_FILTER g_previousExceptionFilter = nullptr;
+DWORD g_mainThreadId = 0;
 
 LONG WINAPI reportUnhandledException(EXCEPTION_POINTERS* info) {
     if (info != nullptr && info->ExceptionRecord != nullptr) {
@@ -295,9 +303,62 @@ void reportTerminate() {
     std::abort();
 }
 
+// Which thread called abort(), and from where.
+//
+// abort() is the one ending that runs no exception handler: Windows reports the process as
+// a fast fail (0xC0000409, subcode 7), so both the filter above and the terminate handler
+// are skipped and crash.txt stays empty. abort() raises SIGABRT first, and a signal handler
+// does run, so the report is written from here. Nothing below may allocate - it runs on the
+// thread that is already ending the process.
+void reportAbort(int) {
+    char text[4096];
+    const int headerLength = std::snprintf(
+        text, sizeof(text),
+        "abort (a fast fail: 0xC0000409, subcode 7)\r\nthread: %lu (main thread %lu)\r\n"
+        "last stage: %s\r\nframes:\r\n",
+        GetCurrentThreadId(), g_mainThreadId, g_lastStartupStage);
+
+    size_t used = 0;
+    if (headerLength > 0) {
+        used = std::min(static_cast<size_t>(headerLength), sizeof(text) - 1);
+    }
+
+    void* frames[24] = {};
+    const USHORT frameCount = CaptureStackBackTrace(0, 24, frames, nullptr);
+
+    for (USHORT i = 0; i < frameCount && used + 128 < sizeof(text); ++i) {
+        HMODULE module = nullptr;
+        char moduleName[MAX_PATH] = "unknown";
+        unsigned long long offset = 0;
+        if (GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
+                                   GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+                               static_cast<LPCSTR>(frames[i]), &module) != 0 &&
+            module != nullptr) {
+            if (GetModuleFileNameA(module, moduleName, sizeof(moduleName)) == 0) {
+                std::snprintf(moduleName, sizeof(moduleName), "unknown");
+            }
+            offset = static_cast<unsigned long long>(
+                static_cast<const char*>(frames[i]) - reinterpret_cast<const char*>(module));
+        }
+        const int length = std::snprintf(text + used, sizeof(text) - used, "  %s+0x%llX\r\n",
+                                         moduleName, offset);
+        if (length <= 0) {
+            break;
+        }
+        used += std::min(static_cast<size_t>(length), sizeof(text) - used - 1);
+    }
+
+    appendToCrashFile(text);
+}
+
 void installCrashReporting() {
     g_previousExceptionFilter = SetUnhandledExceptionFilter(reportUnhandledException);
     std::set_terminate(reportTerminate);
+
+    // The signal handler is the only hook a fast fail leaves: it runs before the process is
+    // ended, where no exception handler gets a turn.
+    g_mainThreadId = GetCurrentThreadId();
+    std::signal(SIGABRT, reportAbort);
 }
 
 // Sends one stream to a log file with a share mode that lets anybody else read it.

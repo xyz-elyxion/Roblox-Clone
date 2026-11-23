@@ -12,22 +12,20 @@
 
 namespace Handles
 {
+    // One open handle from the system handle table, in the form the scan works with. This is
+    // our own record rather than the kernel's layout: GetHandles copies the kernel's fields
+    // into it one at a time, so it can keep the bookkeeping member at the end without reading
+    // past the end of the snapshot buffer.
     typedef struct _SYSTEM_HANDLE
     {
         ULONG ProcessId;
         BYTE ObjectTypeNumber;
         BYTE Flags;
-        USHORT Handle;
         PVOID Object;
+        ULONG_PTR Handle; //the handle value in the owning process, not an index into the table
         ACCESS_MASK GrantedAccess;
         BOOL ReferencingOurProcess; //custom addition to the structure, we fill this member in ::DetectOpenHandlesToProcess
     } SYSTEM_HANDLE, * PSYSTEM_HANDLE;
-
-    typedef struct _SYSTEM_HANDLE_INFORMATION
-    {
-        ULONG HandleCount;
-        SYSTEM_HANDLE Handles[1];
-    } SYSTEM_HANDLE_INFORMATION, * PSYSTEM_HANDLE_INFORMATION;
 
     std::vector<SYSTEM_HANDLE> GetHandles();
     std::vector<SYSTEM_HANDLE>  DetectOpenHandlesToProcess();

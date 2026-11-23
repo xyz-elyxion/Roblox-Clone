@@ -154,12 +154,16 @@ bool connectToServer(std::string& error) {
     Network::setNonBlocking(clientSocket);
     traceStartup("join: socket configured");
 
+    // Two near-identical stages, because a report that ends at the line above cannot say
+    // which of the two calls below it was in when the process stopped.
+    traceStartup("join: connecting");
     if (connect(clientSocket, reinterpret_cast<sockaddr*>(&serverAddr), sizeof(serverAddr)) ==
         SOCKET_ERROR) {
-        error = "Could not reach the game server.";
+        error = "Could not reach the game server (" + std::to_string(WSAGetLastError()) + ").";
         disconnectFromServerOnly();
         return false;
     }
+    traceStartup("join: connected");
 
     clientSession = std::make_unique<linear::net::UdpSession>();
     traceStartup("join: session ready");

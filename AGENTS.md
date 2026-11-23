@@ -91,10 +91,14 @@ them, and writes `README.txt`, `update.json` and `manifest.json` into `dist/line
    module name did not resolve, so `std::terminate` closed the game with no message at all; and the
    open-handle check in `Core/Detections.cpp`, which counted the launcher that started the client
    as an intrusion even though `WebApp.exe` holds that handle by design; and the enumeration behind
-   it in `Process/Handles.cpp`, which duplicated a snapshot handle's *index* as if it were the
-   handle value, so it asked each process about an unrelated handle and could not tell a process
-   handle from a file, and which did that for every handle on the machine, one `OpenProcess` per
-   entry, every five seconds.
+   it in `Process/Handles.cpp`, which did that for every handle on the machine, one `OpenProcess`
+   per entry, every five seconds, and which read the system handle table through its oldest class,
+   where the process id and the handle value are 16 bits each, so the value it handed to
+   `DuplicateHandle` had been truncated and it asked each process about a handle that process did
+   not have; and the strict handle check in `Core/Preventions.cpp`, which makes every invalid
+   handle reference in the process a fatal error - not an exception, so no handler runs and
+   nothing is written to a log - which is what closed the client a second into a match, leaving
+   `crash.txt` and both logs empty.
    Keep those fixes;
    they are corrections, not a reformat. Their generated
    documentation, examples, own test suites and CI files have been pruned; the code, build

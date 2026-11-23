@@ -85,9 +85,14 @@ Error Preventions::DeployBarrier()
     //just returns FALSE - and the game runs its loop with no window at all. Started from the
     //website it has no console either, so nothing reports the failure. The policy is meant
     //for processes that never draw, such as Chrome-style sandboxed renderers.
-    //DEP, ASLR and the strict handle check below are unchanged.
+    //DEP and ASLR only. The strict handle check is off on purpose: it turns any invalid
+    //handle reference in the process into a fatal error, and a fatal error is not an
+    //exception - no handler runs, nothing is written to a log, and the window simply
+    //closes. Any component that closes a handle twice, any driver or anti-virus hook that
+    //mishandles one, and any handle value that a snapshot no longer has would end a match
+    //that way, while stopping no cheat the detections do not already cover.
     //third parameter (dynamic code) set to true -> prevents VirtualProtect from succeeding on .text sections of loaded/signed modules. while this can be very useful, it breaks our TLS callback protections since we patch over the first byte of new thread's execution addresses
-    Preventions::EnableProcessMitigations(true, true, false, true, false); 
+    Preventions::EnableProcessMitigations(true, true, false, false, false); 
 #endif
 
     return retError;

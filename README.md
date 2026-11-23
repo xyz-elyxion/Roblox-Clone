@@ -441,8 +441,12 @@ read while the client is still running — a client that has stopped answering i
 they are worth opening, and `startup_trace.txt` next to them names the stage it stopped at. A crash,
 or an exception nobody caught in a worker thread, also writes `crash.txt` with its code, the faulting
 module and offset, and the last stage reached. The anti-cheat's open-handle check looks only at
-process handles, and only duplicates the handle the snapshot actually names, so its once-a-tick
-pass costs a few hundred calls instead of one to the kernel for every handle on the machine. Asking
+process handles, and duplicates exactly the handle value the snapshot names, read from the extended
+system handle table so a busy process's handle values are not truncated, so its once-a-tick pass
+costs a few hundred calls instead of one to the kernel for every handle on the machine. The client
+does not adopt the strict handle check policy: it makes any invalid handle reference anywhere in
+the process a fatal error with no message and no log, so one driver hook mishandling one handle
+would close the game mid-match. Asking
 the client to close gives the anti-cheat's threads four seconds to stop and then ends the process,
 so a wedged check cannot leave a hidden process behind that refuses to be closed.
 

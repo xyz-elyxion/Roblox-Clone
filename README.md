@@ -436,6 +436,12 @@ Cheating costs the account, not just the packet.
 GNU AGPL v3 — see `LinearAntiCheat/LICENSE`). It starts with the client, writes
 `LinearAntiCheat.log`, and a failed start is logged instead of stopping the game.
 
+The client's own `client_log.txt` and `client_error_log.txt` are opened shared, so they can be
+read while the client is still running — a client that has stopped answering is exactly when
+they are worth opening, and `startup_trace.txt` next to them names the stage it stopped at. Asking
+the client to close gives the anti-cheat's threads four seconds to stop and then ends the process,
+so a wedged check cannot leave a hidden process behind that refuses to be closed.
+
 Its identifying strings (log name, startup messages, accepted parent processes) are stored
 XOR-masked at compile time through `include/Obfuscated.h` so they do not show up in `strings`, and
 MSVC Release builds link the client with control-flow guard, full ASLR and identical-code folding.

@@ -38,6 +38,8 @@
 #include <chrono>
 #include <cstdio>
 #include <cstdlib>
+#include <io.h>
+#include <share.h>
 #include <thread>
 #include <mutex>
 #include <iomanip>
@@ -206,6 +208,25 @@ void pauseBeforeExit(const std::string& reason) {
     }
     MessageBoxA(nullptr, (reason + "\n\n" + logLocation).c_str(), "Linear Client",
                 MB_OK | MB_ICONERROR | MB_TOPMOST | MB_SETFOREGROUND);
+}
+
+// Sends one stream to a log file with a share mode that lets anybody else read it.
+//
+// freopen_s() opens the file with the CRT's default sharing, and a client that is
+// wedged holds that handle open: opening client_log.txt in an editor, or reading it
+// from the website, then fails with "being used by another process" at exactly the
+// moment the log is worth reading. _fsopen() takes the share mode, and _SH_DENYNO
+// lets another process read the file while this one keeps writing it. The descriptor
+// is put on the stream's own, so printf and iostream need no change. Best effort: on
+// failure the stream keeps its current destination and the caller reports it.
+bool redirectStreamToLog(const char* path, FILE* stream) {
+    FILE* log = _fsopen(path, "w", _SH_DENYNO);
+    if (log == nullptr) {
+        return false;
+    }
+    const bool redirected = _dup2(_fileno(log), _fileno(stream)) == 0;
+    fclose(log); // the duplicate stays open; this handle is only the way to the file
+    return redirected;
 }
 
 // Settings
@@ -1203,12 +1224,11 @@ int main(int argc, char** argv) {
 
     // Redirect stdout/stderr to files for debugging. These are best effort: if the
     // file cannot be opened the console stays the destination and the run continues,
-    // which is why the checked form of freopen is used and its result read.
-    FILE* logOut = nullptr;
-    FILE* logErr = nullptr;
-    if (freopen_s(&logOut, "client_log.txt", "w", stdout) != 0 || logOut == nullptr)
+    // which is why the result is read. The files are shared so they can be read while
+    // the client is still running; see redirectStreamToLog.
+    if (!redirectStreamToLog("client_log.txt", stdout))
         std::cout << "warning: could not redirect stdout to client_log.txt" << std::endl;
-    if (freopen_s(&logErr, "client_error_log.txt", "w", stderr) != 0 || logErr == nullptr)
+    if (!redirectStreamToLog("client_error_log.txt", stderr))
         std::cerr << "warning: could not redirect stderr to client_error_log.txt" << std::endl;
     setvbuf(stdout, NULL, _IONBF, 0);
     setvbuf(stderr, NULL, _IONBF, 0);
@@ -1322,8 +1342,10 @@ int main(int argc, char** argv) {
             return p;
         };
 
+        traceStartup("starting Winsock");
         Network::init();
         std::cout << "Network Initialized." << std::endl;
+        traceStartup("Winsock ready");
         
         // Load saved token on startup
         std::string savedToken;
@@ -1351,9 +1373,12 @@ int main(int argc, char** argv) {
             currentState = MENU_AUTH_CHOICE;
         }
 
+        traceStartup("loading face textures");
         loadFaceTextures();
+        traceStartup("face textures loaded");
 
         if (autoConnectOnStart) {
+            traceStartup("sending join request");
             std::string connectError;
             if (!connectToServer(connectError)) {
                 showLoginError = true;
@@ -2672,7 +2697,32 @@ int main(int argc, char** argv) {
         std::cout << "Sockets closed after " << shutdownMs() << " ms." << std::endl;
 
 #if defined(LINEAR_ANTICHEAT)
-        stopAntiCheat();
+        // stopAntiCheat() joins the anti-cheat's threads. A thread can be inside a
+        // driver or a certificate call that never returns, and then the join never
+        // returns either: the window is already hidden by this point, so the process
+        // sits in the background holding client_log.txt, responds to nothing, and
+        // Task Manager's End task has no window to close. Wait a bounded time and then
+        // end the process outright, which is what End task would have done anyway.
+        std::atomic<bool> antiCheatStopped{false};
+        std::thread stopper([&antiCheatStopped]() {
+            stopAntiCheat();
+            antiCheatStopped.store(true, std::memory_order_release);
+        });
+        stopper.detach();
+
+        const auto antiCheatDeadline =
+            std::chrono::steady_clock::now() + std::chrono::seconds(4);
+        while (!antiCheatStopped.load(std::memory_order_acquire) &&
+               std::chrono::steady_clock::now() < antiCheatDeadline) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(20));
+        }
+
+        if (!antiCheatStopped.load(std::memory_order_acquire)) {
+            std::cout << "Anti-cheat did not stop within 4 s; ending the process."
+                      << std::endl;
+            std::cout.flush();
+            ExitProcess(0);
+        }
         std::cout << "Anti-cheat stopped after " << shutdownMs() << " ms." << std::endl;
 #endif
         Network::cleanup();

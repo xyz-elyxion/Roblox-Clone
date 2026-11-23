@@ -85,7 +85,7 @@ void Integrity::PeriodicIntegrityCheck(LPVOID classThisPtr)
 
 	if (currentModule == NULL)
 	{
-		Logger::logfw(Err, L"Failed to get module handle for %s in PeriodicIntegrityCheck", processName.c_str());
+		Logger::logf(Err, "Failed to get module handle for %s in PeriodicIntegrityCheck", processName.c_str());
 		throw std::runtime_error("Failed to get module handle for current process in PeriodicIntegrityCheck");
 	}
 
@@ -267,7 +267,7 @@ uintptr_t Integrity::CalculateChecksumFromSection(const std::string module, cons
 
 	if (hMod == NULL)
 	{
-		Logger::logfw(Err, L"Failed to get module handle for %s @ Integrity::CalculateChecksumFromSection", module.c_str());
+		Logger::logf(Err, "Failed to get module handle for %s @ Integrity::CalculateChecksumFromSection", module.c_str());
 		return 0;
 	}
 
@@ -348,7 +348,7 @@ uintptr_t Integrity::FindWritableAddress(__in const std::string moduleName, __in
 
 	if (hMod == NULL)
 	{
-		Logger::logfw(Err, L"Failed to get module handle for %s @ Integrity::FindWritableAddress", moduleName.c_str());
+		Logger::logf(Err, "Failed to get module handle for %s @ Integrity::FindWritableAddress", moduleName.c_str());
 		return 0;
 	}
 

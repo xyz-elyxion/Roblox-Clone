@@ -77,7 +77,16 @@ them, and writes `README.txt`, `update.json` and `manifest.json` into `dist/line
    window was created and never shown; and the hardware-debugger scan in
    `AntiDebug/AntiDebugger.cpp`, which logged through the logger's mutex while every other
    thread in the process was suspended, freezing the client mid-line with its window white,
-   and read the leftover Dr6/Dr7 values as proof of a debugger. Keep those fixes;
+   and read the leftover Dr6/Dr7 values as proof of a debugger; and the DLL-load notification in
+   `Core/Detections.cpp`, which logged from the loader callback while the loader lock was held, so a
+   thread waiting on the logger's mutex inside an anti-virus file hook stopped every later DLL load
+   and left the client unkillable; and the module-signature pass beside it, which re-verified modules
+   already judged and so fed its own signature lookups (and the AV provider DLLs they load) back into
+   the queue as new modules; and the same file's publisher lookup, which used
+   `GetModuleFileNameW` after `RandomizeModuleName` had rewritten the loader entry, so it read
+   the bare randomized name instead of the image path and could never match the game's own
+   publisher; and the `logfw` calls that passed a narrow `std::string` to a wide `%s` in
+   `Core/Detections.cpp` and `AntiTamper/Integrity.cpp`. Keep those fixes;
    they are corrections, not a reformat. Their generated
    documentation, examples, own test suites and CI files have been pruned; the code, build
    files and licences are upstream as pinned.

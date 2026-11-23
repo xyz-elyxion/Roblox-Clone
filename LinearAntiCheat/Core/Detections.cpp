@@ -119,7 +119,15 @@ VOID CALLBACK Detections::OnDllNotification(ULONG NotificationReason, const PLDR
 
         if (Monitor != nullptr && FullDllName != nullptr)
         {
-            Logger::logfw(Info, L"[LdrpDllNotification Callback] dll loaded: %s", FullDllName);
+            // Nothing is logged here on purpose. This callback runs inside the loader,
+            // with the loader lock held, and the logger takes a mutex and writes to two
+            // files: a thread holding that mutex while it waits for the loader lock - an
+            // anti-virus hook on a file write does exactly that - then stops every DLL
+            // load and every new thread in the process for good. The client froze this
+            // way, with its log ending in the middle of the startup's DLL loads, and a
+            // process stuck behind the loader lock cannot be ended from Task Manager
+            // either. The queue is the only thing this callback needs to do; what was
+            // loaded is reported below if the module is not allowed.
             std::lock_guard<std::mutex> lock(Monitor->DLLVerificationQueueMutex);
             Monitor->DLLVerificationQueue.push(std::wstring(FullDllName));
         }
@@ -173,13 +181,22 @@ static const std::wstring& MainModulePublisher()
 {
     static const std::wstring subject = []() -> std::wstring
     {
-        wchar_t path[MAX_PATH] = {};
-        const DWORD length = GetModuleFileNameW(nullptr, path, MAX_PATH);
-        if (length == 0 || length == MAX_PATH)
+        // Not GetModuleFileNameW: Preventions::RandomizeModuleName rewrites the
+        // loader's FullDllName at startup and GetModuleFileNameW reads that entry, so
+        // it returns the bare randomized name ("p21!Jg3Z1f") instead of a path. Opening
+        // that name either fails - the log said "Could not open file: p21!Jg3Z1f @
+        // SignerFromCatalogSignature" - or reads whatever file of that name happens to
+        // sit in the working directory, which is the one answer that must not be wrong.
+        // The image path the kernel holds for the process is not touched by the rename.
+        std::wstring path(32768, L'\0');
+        DWORD length = static_cast<DWORD>(path.size());
+        if (!QueryFullProcessImageNameW(GetCurrentProcess(), 0, &path[0], &length) ||
+            length == 0)
         {
             return std::wstring();
         }
-        return Authenticode::GetSignerFromFile(std::wstring(path, length));
+        path.resize(length);
+        return Authenticode::GetSignerFromFile(path);
     }();
     return subject;
 }
@@ -264,6 +281,26 @@ void Detections::CheckDLLSignature()
  
         if (FullDllName.size() > 0) //now do the expensive work without holding the lock
         {
+            // Skip a module that was already judged. Verifying one is not free: it runs
+            // WinVerifyTrust and a catalog lookup, and those load the Windows and the
+            // anti-virus signing providers into this process. Every one of those loads
+            // arrives in the notification above as another module to verify, so without
+            // this check the same handful of modules was re-verified over and over and
+            // the log filled with provider DLLs and catalog errors during startup. The
+            // answer for a path cannot change while the process runs, so the cached one
+            // is used.
+            const bool alreadyPassed =
+                std::find(this->PassedCertCheckModules.begin(), this->PassedCertCheckModules.end(),
+                          FullDllName) != this->PassedCertCheckModules.end();
+            const bool alreadyFlagged =
+                std::find(this->UnsignedModulesLoaded.begin(), this->UnsignedModulesLoaded.end(),
+                          FullDllName) != this->UnsignedModulesLoaded.end();
+
+            if (alreadyPassed || alreadyFlagged)
+            {
+                continue;
+            }
+
             if (!this->IsAllowedModuleSignature(FullDllName))
             {
                 Logger::logfw(Detection, L"Module %s is not signed by a trusted publisher", FullDllName.c_str());
@@ -791,7 +828,7 @@ uint64_t Detections::FindWritableAddress(__in const std::string& moduleName, __i
 
     if (hMod == NULL)
     {
-        Logger::logfw(Err, L"Failed to get module handle for %s @ Integrity::FindWritableAddress", moduleName.c_str());
+        Logger::logf(Err, "Failed to get module handle for %s @ Detections::FindWritableAddress", moduleName.c_str());
         return 0;
     }
 

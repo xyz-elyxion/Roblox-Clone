@@ -10,6 +10,7 @@
 #include "linearui.h"
 #include "Auth.h"
 #include "ClientMenu.h"
+#include "LogoMark.h"
 #include "UiScale.h"
 #include "UiTheme.h"
 #include "WebJson.h"
@@ -532,6 +533,17 @@ void renderAuthMenu(float uiScale) {
     LinearUI::SetNextWindowSize(LinearVec2(panelWidth, panelHeight), LinearUICond_Always);
 
     if (LinearUI::Begin("PlayerAuth", nullptr, overlayFlags())) {
+        // The mark sits in the panel's corner rather than in the flow: the panel
+        // has a fixed height, and a longer sign-in message must not push the
+        // buttons out of it.
+        const float markSize = UiScale::Px(28.0f, uiScale);
+        const LinearVec2 panel = LinearUI::GetWindowPos();
+        linear::ui::logo::drawMark(
+            LinearUI::GetWindowDrawList(),
+            LinearVec2(panel.x + panelWidth - markSize - UiScale::Px(18.0f, uiScale),
+                       panel.y + UiScale::Px(16.0f, uiScale)),
+            markSize);
+
         drawLabel("LINEAR PLAYER");
         LinearUI::TextUnformatted("Sign in through the website");
         LinearUI::PushTextWrapPos(LinearUI::GetCursorPosX() + panelWidth - UiScale::Px(48.0f, uiScale));

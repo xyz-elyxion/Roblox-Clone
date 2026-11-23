@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Linear">
+  <!-- The Linear mark: a tile holding the sky over the water, the sun above the
+       horizon and an L standing on it. The same five shapes are drawn in the
+       windows by include/LogoMark.h and rasterised by scripts/make-logo.py, so
+       the three cannot disagree about what the mark looks like. -->
+  <clipPath id="tile"><rect width="512" height="512" rx="113"/></clipPath>
+  <g clip-path="url(#tile)">
+    <rect width="512" height="282" fill="#0b1e39"/>
+    <rect y="282" width="512" height="230" fill="#2e7bd6"/>
+  </g>
+  <circle cx="348" cy="169" r="59" fill="#ffd166"/>
+  <rect x="138" y="118" width="72" height="256" rx="16" fill="#ffffff"/>
+  <rect x="138" y="302" width="225" height="72" rx="16" fill="#ffffff"/>
+</svg>

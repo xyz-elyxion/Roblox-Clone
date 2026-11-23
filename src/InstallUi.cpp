@@ -21,6 +21,7 @@
 #include "linearui.h"
 #include "linearui_impl_linearwin.h"
 #include "linearui_impl_opengl3.h"
+#include "LogoMark.h"
 #include "UiTheme.h"
 
 namespace linear {
@@ -207,32 +208,15 @@ bool drawButton(const std::string& label, const LinearVec4& color, const LinearV
     return pressed;
 }
 
-// The mark in the corner: an accent tile with a play glyph cut out of it. Drawn
-// rather than loaded so the setup stays one executable with no artwork beside it.
-void drawLogo(LinearDrawList* draw, const LinearVec2& pos, float size) {
-    const float radius = size * 0.28f;
-    const float inset = size * 0.06f;
-    draw->AddRectFilled(pos, LinearVec2(pos.x + size, pos.y + size), colorOf(theme::accentStrong()),
-                        radius);
-    draw->AddRectFilled(LinearVec2(pos.x + inset, pos.y + inset),
-                        LinearVec2(pos.x + size - inset, pos.y + size - inset), colorOf(kAccent),
-                        radius - inset);
-
-    const LinearVec2 middle(pos.x + size * 0.545f, pos.y + size * 0.5f);
-    const float glyph = size * 0.28f;
-    draw->AddTriangleFilled(LinearVec2(middle.x - glyph * 0.55f, middle.y - glyph * 0.80f),
-                            LinearVec2(middle.x - glyph * 0.55f, middle.y + glyph * 0.80f),
-                            LinearVec2(middle.x + glyph * 0.85f, middle.y),
-                            colorOf(theme::background()));
-}
-
 // The brand block: the mark, the product name with its optional accent word, the
 // tagline and the rule under them. Returns the y a caller starts the steps or the
 // form at, so the column is measured in one place.
 float drawBrand(LinearDrawList* draw, const Fonts& fonts, const Options& options, float left,
                 const LinearVec2& origin, float contentWidth) {
     float y = origin.y + 34.0f;
-    drawLogo(draw, LinearVec2(left, y), 64.0f);
+    // The mark from include/LogoMark.h: every window of this project shows the
+    // same one, drawn rather than loaded so each stays a single executable.
+    logo::drawMark(draw, LinearVec2(left, y), 64.0f);
     y += 64.0f + 26.0f;
 
     const float productWidth =

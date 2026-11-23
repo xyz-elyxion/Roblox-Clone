@@ -1,0 +1,9 @@
+// The icon each of these executables carries. linearwin loads a window's big and
+// small icon from the resource named LINEARWIN_ICON in its own module, so one
+// statement below gives the program its file icon in Explorer, its taskbar icon
+// and the icon on its title bar at once.
+//
+// app.ico is made by scripts/make-logo.py and must not be edited by hand: the
+// same geometry is in web/public/assets/linear-mark.svg and in
+// include/LogoMark.h, and the script is what keeps the three identical.
+LINEARWIN_ICON ICON "app.ico"

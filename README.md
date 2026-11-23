@@ -1,3 +1,5 @@
+<img src="web/public/assets/linear-mark.svg" width="88" height="88" alt="The Linear mark: an L and the sun on a tile of sky over water" align="right">
+
 # Linear
 
 A block-building sandbox built from scratch in C++17: a player client, an authoritative game

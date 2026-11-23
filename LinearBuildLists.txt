@@ -809,3 +809,18 @@ if(LINEAR_BUILD_TESTS)
     add_test(NAME DocsLayoutTests COMMAND DocsLayoutTests)
 
 endif()
+
+# Every program that puts a window on screen carries the mark. One resource gives
+# both icons: the file icon Explorer and Add/Remove Programs read, and the big and
+# small window icons, because linearwin loads those from the resource named
+# LINEARWIN_ICON in its own module. RC is enabled by the MSVC platform module, so
+# the resource is an ordinary source; a target that is switched off is skipped
+# here instead of being named a second time.
+if(MSVC)
+    foreach(_linear_app Client Server Studio LinearCode LinearUpdater LinearSetup
+            ServerSetup LinearCert LinearDocs LinearHub)
+        if(TARGET ${_linear_app})
+            target_sources(${_linear_app} PRIVATE src/linear.rc)
+        endif()
+    endforeach()
+endif()

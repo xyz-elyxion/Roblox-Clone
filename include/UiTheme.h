@@ -115,6 +115,16 @@ struct Colors {
     LinearVec4 heroSandFar;
     LinearVec4 heroSandNear;
 
+    // The mark: the sky band above its horizon, the water under it, the sun over
+    // it and the ink of the letter. The same four values in both palettes - the
+    // brand does not change with the theme - but named here so the windows that
+    // draw it, the icon the executables carry and the site's copy cannot drift
+    // apart, and so no window keeps a colour of its own.
+    LinearVec4 logoSkyTop;
+    LinearVec4 logoSkyBottom;
+    LinearVec4 logoSun;
+    LinearVec4 logoInk;
+
     // The trough of a progress bar, which is neither a frame nor a button.
     LinearVec4 progressTrack;
 };
@@ -316,6 +326,11 @@ inline Colors darkColors() {
     c.heroSandFar = LinearVec4(0.89f, 0.74f, 0.53f, 1.00f);
     c.heroSandNear = LinearVec4(0.78f, 0.58f, 0.35f, 1.00f);
 
+    c.logoSkyTop = LinearVec4(0.04f, 0.12f, 0.22f, 1.00f);
+    c.logoSkyBottom = LinearVec4(0.18f, 0.48f, 0.84f, 1.00f);
+    c.logoSun = LinearVec4(1.00f, 0.82f, 0.40f, 1.00f);
+    c.logoInk = LinearVec4(1.00f, 1.00f, 1.00f, 1.00f);
+
     c.progressTrack = LinearVec4(0.15f, 0.17f, 0.21f, 1.00f);
     return c;
 }
@@ -389,6 +404,11 @@ inline Colors lightColors() {
     c.heroSandFar = LinearVec4(0.92f, 0.79f, 0.58f, 1.00f);
     c.heroSandNear = LinearVec4(0.83f, 0.64f, 0.41f, 1.00f);
 
+    c.logoSkyTop = LinearVec4(0.04f, 0.12f, 0.22f, 1.00f);
+    c.logoSkyBottom = LinearVec4(0.18f, 0.48f, 0.84f, 1.00f);
+    c.logoSun = LinearVec4(1.00f, 0.82f, 0.40f, 1.00f);
+    c.logoInk = LinearVec4(1.00f, 1.00f, 1.00f, 1.00f);
+
     c.progressTrack = LinearVec4(0.85f, 0.87f, 0.90f, 1.00f);
     return c;
 }
@@ -407,6 +427,12 @@ inline LinearVec4 muted() { return colors().muted; }
 inline LinearVec4 ok() { return colors().ok; }
 inline LinearVec4 error() { return colors().error; }
 inline LinearVec4 warning() { return colors().warning; }
+
+// The mark's own colours, which are the same on both palettes.
+inline LinearVec4 logoSkyTop() { return colors().logoSkyTop; }
+inline LinearVec4 logoSkyBottom() { return colors().logoSkyBottom; }
+inline LinearVec4 logoSun() { return colors().logoSun; }
+inline LinearVec4 logoInk() { return colors().logoInk; }
 
 inline LinearVec4 background() { return colors().background; }
 inline LinearVec4 panel() { return colors().panel; }

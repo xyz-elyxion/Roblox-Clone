@@ -3258,15 +3258,15 @@ textarea.input {
     font-size: 1.12rem;
 }
 
+/* The mark: the one file the icon and the browser tab use as well, so the top of
+   every page carries the same picture as the program it belongs to. The tile
+   brings its own rounded corners, so the box only sets the size. */
 .brand::before {
     content: "";
     width: 30px;
     height: 30px;
-    border-radius: 9px;
-    background:
-        linear-gradient(135deg, transparent 0 32%, var(--panel) 33% 67%, transparent 68%);
-    background-color: var(--fg);
-    box-shadow: inset 0 0 0 7px var(--bg);
+    flex: none;
+    background: url("/assets/linear-mark.svg") center / contain no-repeat;
 }
 
 .nav a,

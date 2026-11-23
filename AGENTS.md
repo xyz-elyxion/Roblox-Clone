@@ -133,6 +133,7 @@ them, and writes `README.txt`, `update.json` and `manifest.json` into `dist/line
 | Server supervisor | `src/ServerHost.cpp`, `src/HostMain.cpp`, `include/ServerHost.h` |
 | Supervisor control panel | `src/HostDashboard.cpp`, `include/HostDashboard.h`, `web/host/` |
 | Installer / updater | `src/SetupMain.cpp`, `src/InstallUi.cpp`, `src/UpdaterMain.cpp`, `src/Updater.cpp` |
+| The mark | `include/LogoMark.h` draws it in every window; `web/public/assets/linear-mark.svg` is the site's copy and the top bar's; `scripts/make-logo.py` rasterises it into `src/app.ico` and `web/public/favicon.ico`; `src/linear.rc` is the resource the executables load it from. All three hold the same geometry, so a change goes in all three or in none |
 | Certificate trust | `src/CertMain.cpp`, `src/CertificateTrust.cpp`, `scripts/make-certificate.ps1`, `scripts/sign-binaries.ps1` |
 | Documentation window | `src/DocsMain.cpp`, `src/DocsLibrary.cpp` (finding and reading `docs/`), `include/DocsLayout.h` + `src/DocsLayout.cpp` (Markdown and wrapping, no window) |
 | Server setup | `src/ServerSetupMain.cpp`, `src/ServerConfig.cpp` (the `server.conf` the website reads) |

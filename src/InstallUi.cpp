@@ -253,10 +253,16 @@ float drawBrand(LinearDrawList* draw, const Fonts& fonts, const Options& options
     return y + 26.0f;
 }
 
+// A cloud drifting in the sky. `phase` and `time` give it its own slow slide, and
+// `speed` is how quickly it does it: the ones drawn near have to move further in the
+// same second, or the whole panel reads as one flat sheet. The slide is a sine rather
+// than a crossing, so nothing ever jumps back to the other side on screen.
 void drawCloud(LinearDrawList* draw, const ArtRect& rect, float x, float y, float scale,
-               const LinearVec4& light, float alpha) {
+               float phase, float speed, float time, const LinearVec4& light, float alpha) {
     const float width = (rect.max.x - rect.min.x) * scale;
-    const LinearVec2 center = pointIn(rect, x, y);
+    const float drift = std::sin(time * speed + phase) * (0.012f + alpha * 0.075f);
+    const float hover = std::sin(time * speed * 1.7f + phase * 2.3f) * 0.005f;
+    const LinearVec2 center = pointIn(rect, x + drift, y + hover);
     for (int puff = 0; puff < 6; ++puff) {
         const float offset = (static_cast<float>(puff) - 2.5f) * width * 0.42f;
         const float radius = width * (0.26f + 0.05f * static_cast<float>((puff * 7) % 4));
@@ -268,13 +274,18 @@ void drawCloud(LinearDrawList* draw, const ArtRect& rect, float x, float y, floa
 
 // One floating island: a rock that narrows as it goes down, a grass cap, three
 // trees and the water falling off the far side. `depth` fades it into the sky so
-// the ones drawn first read as distant.
+// the ones drawn first read as distant, and also sets how far it drifts: the near
+// islands move more than the far ones.
 void drawIsland(LinearDrawList* draw, const ArtRect& rect, float x, float y, float scale,
-                float depth, const theme::Colors& palette) {
+                float depth, float phase, float time, const theme::Colors& palette) {
     const float full = rect.max.x - rect.min.x;
     const float width = full * 0.26f * scale;
     const float height = width * 0.62f;
-    const LinearVec2 top = pointIn(rect, x, y);
+    // A slow bob and an even slower sway, out of step per island: one motion shared
+    // by all of them would read as the window shaking, not as islands in the sky.
+    const float bob = std::sin(time * 0.5f + phase) * 0.011f * (0.6f + depth * 0.8f);
+    const float sway = std::sin(time * 0.19f + phase * 1.7f) * 0.009f;
+    const LinearVec2 top = pointIn(rect, x + sway, y + bob);
 
     const LinearVec4 rock = mix(palette.heroIslandFar, palette.heroIslandNear, depth);
     const LinearVec4 grass = mix(palette.heroGrassFar, palette.heroGrassNear, depth);
@@ -298,19 +309,28 @@ void drawIsland(LinearDrawList* draw, const ArtRect& rect, float x, float y, flo
         const float lean = static_cast<float>(tree);
         const LinearVec2 base(top.x + lean * width * 0.24f, top.y - height * 0.05f);
         const float tall = height * (0.34f - 0.05f * (lean < 0.0f ? -lean : lean));
+        // The trees bend one after another, never quite together.
+        const float bend = std::sin(time * 0.9f + phase + lean * 0.7f) * width * 0.02f;
         draw->AddTriangleFilled(LinearVec2(base.x - width * 0.075f, base.y),
                                 LinearVec2(base.x + width * 0.075f, base.y),
-                                LinearVec2(base.x, base.y - tall), colorOf(leaf));
+                                LinearVec2(base.x + bend, base.y - tall), colorOf(leaf));
     }
 
+    // The fall shimmers, and reaches a little further down on each swell.
+    const float shimmer = 0.70f + 0.14f * std::sin(time * 1.6f + phase * 2.3f);
+    const float reach = 1.20f + 0.05f * std::sin(time * 1.1f + phase);
     const LinearVec2 fallStart(top.x + width * 0.24f, top.y + height * 0.02f);
-    const LinearVec2 fallEnd(fallStart.x + width * 0.13f, fallStart.y + height * 1.20f);
-    draw->AddRectFilledMultiColor(fallStart, fallEnd, tint(palette.heroLight, 0.85f),
-                                  tint(palette.heroLight, 0.85f), tint(palette.heroLight, 0.0f),
+    const LinearVec2 fallEnd(fallStart.x + width * 0.13f, fallStart.y + height * reach);
+    draw->AddRectFilledMultiColor(fallStart, fallEnd, tint(palette.heroLight, shimmer),
+                                  tint(palette.heroLight, shimmer), tint(palette.heroLight, 0.0f),
                                   tint(palette.heroLight, 0.0f));
 }
 
-void drawHero(LinearDrawList* draw, const ArtRect& rect) {
+// `time` is seconds since the window opened. Everything in the panel moves on it:
+// islands bob and sway, the trees bend, the falls shimmer and the sun breathes. All
+// of it is slow and out of step, so the panel reads as scenery rather than as a
+// spinner - the steps on the left say how the job is going.
+void drawHero(LinearDrawList* draw, const ArtRect& rect, float time) {
     const theme::Colors& palette = theme::colors();
     const float width = rect.max.x - rect.min.x;
     const float height = rect.max.y - rect.min.y;
@@ -326,27 +346,32 @@ void drawHero(LinearDrawList* draw, const ArtRect& rect) {
                                   colorOf(palette.heroSkyMid), colorOf(palette.heroSkyMid),
                                   colorOf(palette.heroSkyBottom), colorOf(palette.heroSkyBottom));
 
-    // A low sun on the right: a stack of discs that get brighter as they shrink.
+    // A low sun on the right: a stack of discs that get brighter as they shrink, and
+    // that breathe together so the sky does not sit perfectly still.
+    const float breath = 0.5f + 0.5f * std::sin(time * 0.7f);
     const LinearVec2 sun = pointIn(rect, 0.74f, 0.15f);
     for (int ring = 8; ring >= 1; --ring) {
         const float fraction = static_cast<float>(ring) / 8.0f;
-        draw->AddCircleFilled(sun, width * 0.26f * fraction,
-                              tint(palette.heroLight, 0.035f + 0.10f * (1.0f - fraction)), 64);
+        draw->AddCircleFilled(sun, width * (0.24f + 0.02f * breath) * fraction,
+                              tint(palette.heroLight,
+                                   0.035f + 0.10f * (1.0f - fraction) + 0.02f * breath),
+                              64);
     }
 
     // Far clouds, then the islands, then near clouds: depth here is nothing but
-    // the order things are drawn in.
-    drawCloud(draw, rect, 0.16f, 0.36f, 0.20f, palette.heroLight, 0.26f);
-    drawCloud(draw, rect, 0.52f, 0.30f, 0.16f, palette.heroLight, 0.22f);
-    drawCloud(draw, rect, 0.88f, 0.42f, 0.22f, palette.heroLight, 0.28f);
+    // the order things are drawn in, which is what lets a near cloud slide across a
+    // far island.
+    drawCloud(draw, rect, 0.16f, 0.36f, 0.20f, 0.0f, 0.13f, time, palette.heroLight, 0.26f);
+    drawCloud(draw, rect, 0.52f, 0.30f, 0.16f, 1.9f, 0.16f, time, palette.heroLight, 0.22f);
+    drawCloud(draw, rect, 0.88f, 0.42f, 0.22f, 3.7f, 0.11f, time, palette.heroLight, 0.28f);
 
-    drawIsland(draw, rect, 0.34f, 0.46f, 0.70f, 0.30f, palette);
-    drawIsland(draw, rect, 0.66f, 0.33f, 0.50f, 0.15f, palette);
-    drawIsland(draw, rect, 0.74f, 0.62f, 0.95f, 0.80f, palette);
-    drawIsland(draw, rect, 0.18f, 0.74f, 1.05f, 1.00f, palette);
+    drawIsland(draw, rect, 0.34f, 0.46f, 0.70f, 0.30f, 0.0f, time, palette);
+    drawIsland(draw, rect, 0.66f, 0.33f, 0.50f, 0.15f, 2.1f, time, palette);
+    drawIsland(draw, rect, 0.74f, 0.62f, 0.95f, 0.80f, 4.2f, time, palette);
+    drawIsland(draw, rect, 0.18f, 0.74f, 1.05f, 1.00f, 5.6f, time, palette);
 
-    drawCloud(draw, rect, 0.30f, 0.80f, 0.30f, palette.heroLight, 0.42f);
-    drawCloud(draw, rect, 0.82f, 0.84f, 0.34f, palette.heroLight, 0.45f);
+    drawCloud(draw, rect, 0.30f, 0.80f, 0.30f, 2.6f, 0.17f, time, palette.heroLight, 0.42f);
+    drawCloud(draw, rect, 0.82f, 0.84f, 0.34f, 5.1f, 0.19f, time, palette.heroLight, 0.45f);
 
     draw->AddRectFilledMultiColor(LinearVec2(rect.min.x, rect.max.y - height * 0.28f), rect.max,
                                   tint(palette.heroLight, 0.0f), tint(palette.heroLight, 0.0f),
@@ -616,7 +641,7 @@ Result run(Options& options, const std::vector<std::string>& actions,
         ArtRect art;
         art.min = LinearVec2(origin.x + sidebarWidth, origin.y);
         art.max = LinearVec2(origin.x + display.x, origin.y + bottomTop);
-        drawHero(draw, art);
+        drawHero(draw, art, static_cast<float>(LinearUI::GetTime()));
 
         // The brand block, top left.
         const float stateTop = drawBrand(draw, fonts, options, left, origin, contentWidth);

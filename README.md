@@ -544,8 +544,10 @@ join is checked through `POST /api/hardware-check`, so signing out is not a way 
 Bans from the detection ladder and bans an admin applies both bar the machine the account was last
 seen playing from. A pardon — the admin action or an accepted appeal — lifts the machine bans that
 account created, so a false positive does not leave the player locked out of their own computer.
-Machines can also be listed and released directly: `GET /api/admin/hardware-bans` and
-`POST /api/admin/hardware-bans/lift`.
+The admin console's **Blacklist** section lists every barred machine with the account it was banned
+for and the reason, showing lifted rows as history, and offers **Lift** on the ones still active; a
+role that lacks the hardware-ban permission does not see the section, and the same list and release
+are available directly as `GET /api/admin/hardware-bans` and `POST /api/admin/hardware-bans/lift`.
 
 The hash is not a security boundary: a modified client can send any value it likes, so this raises
 the cost of coming back rather than making it impossible.

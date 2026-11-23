@@ -126,6 +126,9 @@
                         <button class="shell-nav-item" type="button" role="tab" id="admin-tab-reports"
                             data-shell-tab="reports" aria-controls="admin-panel-reports"
                             aria-selected="false" tabindex="-1">Reports</button>
+                        <button class="shell-nav-item" type="button" role="tab" id="admin-tab-blacklist"
+                            data-shell-tab="blacklist" aria-controls="admin-panel-blacklist"
+                            aria-selected="false" tabindex="-1">Blacklist</button>
                     </nav>
                     <!-- Pages rather than sections, so they sit outside the tab list. -->
                     <nav class="shell-nav-links" aria-label="Site pages">
@@ -372,6 +375,40 @@
                                         </tr>
                                     </thead>
                                     <tbody data-admin-user-reports></tbody>
+                                </table>
+                            </div>
+                        </article>
+                    </section>
+
+                    <!-- The machines the join refuses. Written by the ladder and by the
+                         Evidence panel's Blacklist button; this section is where staff
+                         see them together and let one back in. -->
+                    <section class="shell-panel" id="admin-panel-blacklist" role="tabpanel"
+                        aria-labelledby="admin-tab-blacklist" data-shell-panel="blacklist" hidden>
+                        <article class="panel">
+                            <div class="panel-heading">
+                                <div>
+                                    <p class="label">Moderation</p>
+                                    <h2>Blacklist</h2>
+                                </div>
+                            </div>
+                            <p class="admin-reason">The machines barred from joining, with the account
+                                each was barred for. Only the hash the client sent is kept, so a row cannot
+                                be tied to a person's name on the computer. Lifting a ban lets that
+                                computer in again and leaves the account where the ladder put it.</p>
+                            <div class="admin-table-wrap">
+                                <table class="admin-table">
+                                    <thead>
+                                        <tr>
+                                            <th scope="col">Machine</th>
+                                            <th scope="col">Account</th>
+                                            <th scope="col">Reason</th>
+                                            <th scope="col">Barred</th>
+                                            <th scope="col">Status</th>
+                                            <th scope="col">Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody data-admin-blacklist></tbody>
                                 </table>
                             </div>
                         </article>

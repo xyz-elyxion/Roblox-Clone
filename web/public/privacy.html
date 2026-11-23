@@ -85,7 +85,7 @@
             </div>
 
             <article class="panel legal-doc">
-                <p class="legal-meta">Last updated 1 November 2026</p>
+                <p class="legal-meta">Last updated 23 November 2026</p>
 
                 <p>Linear is a self-hosted prototype: the website, the game server and the player all run
                     on one machine that you or someone you know controls. This page explains what that install
@@ -102,6 +102,18 @@
                         replaces the old one when you generate one or use one to reset a forgotten password.</li>
                     <li><strong>Activity.</strong> The time of your last signed-in request, used to show friends an
                         online dot. It is never shown on a public profile.</li>
+                    <li><strong>Machine id.</strong> The game client sends a 32-character hash of the system volume's
+                        serial number and the computer name when it joins. The serial and the name themselves never
+                        leave the machine, and the hash cannot be turned back into either; it is kept on the account
+                        so a ban can follow the computer rather than just the account.</li>
+                    <li><strong>Anti-cheat evidence.</strong> When the anti-cheat built into the game client flags
+                        something suspicious, it sends a short plain-text snapshot of the machine running it: the
+                        Windows version and architecture, the computer and account name, the client's own folder,
+                        its process id, uptime and open-handle count, the libraries it has loaded (with where they
+                        sit on disk) and the processes running beside it (their ids and names). It holds no file
+                        contents, no password, no environment variable and no screenshot. It is kept with the
+                        detection, including after the detection has been actioned, so staff can check what the
+                        client actually saw.</li>
                     <li><strong>Safety choices.</strong> The accounts you blocked and the reports you filed. A report
                         carries your username so an admin can follow it up, and its target and reason.</li>
                     <li><strong>Chat.</strong> The messages you post in a game's channels, with your username copied
@@ -134,7 +146,8 @@
                     <li>Players in the same game instance see your character, its colours and face, and your chat
                         messages. Hats are not sent to other players in this build.</li>
                     <li>Your password hash, session token and coin balance are never shown to another account.
-                        The admin dashboard does show an admin the user list, game list and running servers.</li>
+                        The admin dashboard does show an admin the user list, game list and running servers, and,
+                        for an account the anti-cheat flagged, the snapshot described above.</li>
                 </ul>
 
                 <h2>What the browser remembers</h2>
@@ -150,6 +163,11 @@
                     (with the files attached to them and what the scanner said about each) and the files themselves,
                     without the password or recovery hashes — and can delete the account after asking for its
                     password.</p>
+                <p>What deleting an account does not remove is its moderation record: the warnings, suspensions
+                    and bans it collected, the snapshot attached to a detection that produced one, and the hash of
+                    a machine that was blacklisted. That record is the evidence behind a decision other players
+                    were affected by, so it stays with the install; only staff can read it and the account it
+                    describes is not shown it.</p>
                 <p>Deleting an account removes its profile, avatar, playtime, coins, friendships, blocks and the
                     reports it filed, together with its games, their published world files and any game server
                     running for them. Deleting a single game from its page or the admin dashboard is immediate in

@@ -258,7 +258,9 @@ account name, the client's path, process id, uptime and handle count, its loaded
 processes running beside it, as text, with no file contents, credential or environment variable. It is
 stored with the detection and readable only through `GET /api/admin/users/:id/detections`, which needs
 the moderation permission. `POST /api/admin/users/:id/moderation` accepts `blacklist`, which bans the
-account and puts its machine on the hardware ban list, and needs the hardware-ban permission as well;
+account and puts its machine on the hardware ban list, and needs the hardware-ban permission as well,
+which is also what `GET /api/admin/hardware-bans` and its lift route check. Staff read and lift those
+bans in the console's **Blacklist** section, which a role without that permission does not see;
 the queue, the snapshot and the barred hash sit in the same sealed part of the account record as the
 rest of its moderation history, and are never sent to the account.
 

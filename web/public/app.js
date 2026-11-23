@@ -4856,6 +4856,9 @@ function initAdminPage() {
     const evidenceBody = document.querySelector('[data-admin-evidence-body]');
     const evidenceBlacklist = document.querySelector('[data-admin-evidence-blacklist]');
     const evidenceClose = document.querySelector('[data-admin-evidence-close]');
+    const blacklistBody = document.querySelector('[data-admin-blacklist]');
+    const blacklistTab = document.querySelector('[data-shell-tab="blacklist"]');
+    const blacklistPanel = document.querySelector('[data-shell-panel="blacklist"]');
     // The ladder as the server described it to this caller, and where the caller
     // sits on it: the picker offers only what an assignment would be accepted for.
     let roleTable = [];
@@ -5302,6 +5305,105 @@ function initAdminPage() {
         }
     }
 
+    // The machines the join refuses. A lifted ban stays in the list as history, so
+    // the section shows both and offers Lift only where there is still one to lift.
+    function renderBlacklist(bans) {
+        if (!blacklistBody) return;
+        blacklistBody.innerHTML = '';
+        const rows = [...(bans ?? [])].sort((a, b) => {
+            if (Boolean(a.active) !== Boolean(b.active)) return a.active ? -1 : 1;
+            return String(b.createdAt || '').localeCompare(String(a.createdAt || ''));
+        });
+        if (rows.length === 0) {
+            adminEmptyRow(blacklistBody, 6, 'No machine is blacklisted.');
+            return;
+        }
+        for (const ban of rows) {
+            const machine = document.createElement('code');
+            machine.textContent = ban.hardwareId;
+            machine.title = ban.hardwareId;
+
+            const account = document.createElement('a');
+            account.className = 'game-title-link';
+            account.href = profileHref({ id: ban.userId, username: ban.username });
+            account.textContent = ban.username || String(ban.userId);
+
+            const reason = document.createElement('span');
+            reason.className = 'admin-reason';
+            reason.textContent = ban.reason || '—';
+
+            const state = document.createElement('span');
+            state.textContent = ban.active ? 'Active' : `Lifted ${formatDate(ban.liftedAt)}`;
+
+            const action = document.createElement('div');
+            if (ban.active) {
+                const lift = makeButton('Lift', 'button secondary small', () => {});
+                lift.addEventListener('click', () => { liftHardwareBan(ban, lift).catch(() => {}); });
+                action.appendChild(lift);
+            } else {
+                action.textContent = '—';
+            }
+
+            blacklistBody.appendChild(adminRow([
+                machine,
+                account,
+                reason,
+                formatDate(ban.createdAt),
+                state,
+                action
+            ]));
+        }
+    }
+
+    async function liftHardwareBan(ban, button) {
+        const confirmed = window.confirm(
+            `Let the machine ${ban.hardwareId.slice(0, 12)}… back in? The account stays as it is.`);
+        if (!confirmed) return;
+        button.disabled = true;
+        button.textContent = 'Lifting';
+        try {
+            const response = await fetch('/api/admin/hardware-bans/lift', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${getToken()}`
+                },
+                body: JSON.stringify({ hardwareId: ban.hardwareId })
+            });
+            const data = await response.json();
+            if (!response.ok || !data.success) throw new Error(data.error || 'Could not lift the ban.');
+            await load();
+            setStatus(status, `Lifted the ban on ${ban.username}'s machine.`, 'success');
+        } catch (error) {
+            setStatus(status, error.message || 'Could not lift the ban.', 'error');
+            button.disabled = false;
+            button.textContent = 'Lift';
+        }
+    }
+
+    // The list needs the hardware-ban permission, which the moderation permission
+    // does not imply. A role without it does not see the section at all rather than
+    // reading a refusal inside it.
+    async function loadBlacklist() {
+        if (!blacklistBody) return;
+        try {
+            const response = await fetch('/api/admin/hardware-bans', {
+                headers: { Authorization: `Bearer ${getToken()}` }
+            });
+            const data = await response.json();
+            if (response.status === 403) {
+                if (blacklistTab) blacklistTab.hidden = true;
+                if (blacklistPanel && !blacklistPanel.hidden) openShellSection('overview');
+                if (blacklistPanel) blacklistPanel.hidden = true;
+                return;
+            }
+            if (!response.ok || !data.success) throw new Error(data.error || 'Could not load the blacklist.');
+            renderBlacklist(data.bans);
+        } catch (error) {
+            setStatus(status, error.message || 'Could not load the blacklist.', 'error');
+        }
+    }
+
     async function reviewAppeal(appeal, action, button) {
         button.disabled = true;
         try {
@@ -5526,6 +5628,7 @@ function initAdminPage() {
             renderUserReports(data.reports);
             renderAppeals(data.appeals);
             setStatus(status, '', '');
+            await loadBlacklist();
         } catch (error) {
             setStatus(status, error.message || 'Could not load admin data.', 'error');
         } finally {

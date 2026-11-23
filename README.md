@@ -438,7 +438,9 @@ GNU AGPL v3 — see `LinearAntiCheat/LICENSE`). It starts with the client, write
 
 The client's own `client_log.txt` and `client_error_log.txt` are opened shared, so they can be
 read while the client is still running — a client that has stopped answering is exactly when
-they are worth opening, and `startup_trace.txt` next to them names the stage it stopped at. Asking
+they are worth opening, and `startup_trace.txt` next to them names the stage it stopped at. A crash,
+or an exception nobody caught in a worker thread, also writes `crash.txt` with its code, the faulting
+module and offset, and the last stage reached. Asking
 the client to close gives the anti-cheat's threads four seconds to stop and then ends the process,
 so a wedged check cannot leave a hidden process behind that refuses to be closed.
 

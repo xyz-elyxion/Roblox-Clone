@@ -38,6 +38,7 @@
 #include <chrono>
 #include <cstdio>
 #include <cstdlib>
+#include <exception>
 #include <io.h>
 #include <share.h>
 #include <thread>
@@ -159,6 +160,12 @@ std::string workingDirectory() {
 // directory, using only the Win32 calls that are safe that early, so the next report says
 // how far the process got. It is a handful of short lines per run, plus one a second
 // while the first frames are drawn; delete the file freely.
+
+// The last stage reached, for the crash report below. A fixed buffer on purpose:
+// the report may be written while the process is already faulting, which is no time
+// to allocate.
+char g_lastStartupStage[160] = "before the first trace line";
+
 void traceStartup(const char* stage) {
     HANDLE trace = CreateFileA("startup_trace.txt", FILE_APPEND_DATA,
                                FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_ALWAYS,
@@ -166,6 +173,7 @@ void traceStartup(const char* stage) {
     if (trace == INVALID_HANDLE_VALUE) {
         return;
     }
+    std::snprintf(g_lastStartupStage, sizeof(g_lastStartupStage), "%s", stage);
     DWORD written = 0;
     SetFilePointer(trace, 0, nullptr, FILE_END);
     WriteFile(trace, stage, static_cast<DWORD>(lstrlenA(stage)), &written, nullptr);
@@ -208,6 +216,88 @@ void pauseBeforeExit(const std::string& reason) {
     }
     MessageBoxA(nullptr, (reason + "\n\n" + logLocation).c_str(), "Linear Client",
                 MB_OK | MB_ICONERROR | MB_TOPMOST | MB_SETFOREGROUND);
+}
+
+// Writes crash.txt beside the logs. A crash that Windows or the anti-cheat handles
+// on its own closes the window and leaves client_log.txt ending mid-line: the code,
+// the module and the last stage below are what turn "it closed" into a call site.
+// Win32 calls and one fixed buffer only, because this runs after the process has
+// already faulted.
+void writeCrashReport(const char* kind, unsigned long code, const void* address,
+                      const char* detail) {
+    char module[MAX_PATH] = "unknown";
+    unsigned long long offset = 0;
+    if (address != nullptr) {
+        MEMORY_BASIC_INFORMATION info{};
+        if (VirtualQuery(address, &info, sizeof(info)) != 0 && info.AllocationBase != nullptr) {
+            if (GetModuleFileNameA(static_cast<HMODULE>(info.AllocationBase), module,
+                                   sizeof(module)) == 0) {
+                std::snprintf(module, sizeof(module), "unknown");
+            }
+            offset = static_cast<unsigned long long>(static_cast<const char*>(address) -
+                                                     static_cast<const char*>(info.AllocationBase));
+        }
+    }
+
+    char text[1024];
+    std::snprintf(text, sizeof(text),
+                  "%s\r\ncode: 0x%08lX\r\naddress: %s+0x%llX\r\n"
+                  "last stage: %s\r\ndetail: %s\r\n\r\n",
+                  kind, code, module, offset, g_lastStartupStage,
+                  detail != nullptr ? detail : "");
+
+    HANDLE file = CreateFileA("crash.txt", FILE_APPEND_DATA,
+                              FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_ALWAYS,
+                              FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (file == INVALID_HANDLE_VALUE) {
+        return;
+    }
+    SetFilePointer(file, 0, nullptr, FILE_END);
+    DWORD written = 0;
+    WriteFile(file, text, static_cast<DWORD>(std::strlen(text)), &written, nullptr);
+    CloseHandle(file);
+}
+
+LPTOP_LEVEL_EXCEPTION_FILTER g_previousExceptionFilter = nullptr;
+
+LONG WINAPI reportUnhandledException(EXCEPTION_POINTERS* info) {
+    if (info != nullptr && info->ExceptionRecord != nullptr) {
+        writeCrashReport("unhandled exception", info->ExceptionRecord->ExceptionCode,
+                         info->ExceptionRecord->ExceptionAddress, "");
+    }
+    // The anti-cheat installs its own filter from the loader, and letting it run
+    // keeps its log line and Windows Error Reporting: this report is an addition.
+    if (g_previousExceptionFilter != nullptr &&
+        g_previousExceptionFilter != reportUnhandledException) {
+        return g_previousExceptionFilter(info);
+    }
+    return EXCEPTION_CONTINUE_SEARCH;
+}
+
+// std::terminate runs for an exception nobody caught in a thread, which is silent
+// from the outside: the window closes and the reason only ever reached stderr.
+void reportTerminate() {
+    const char* detail = "no active exception";
+    std::string message;
+    if (std::current_exception()) {
+        try {
+            std::rethrow_exception(std::current_exception());
+        } catch (const std::exception& error) {
+            message = error.what();
+        } catch (...) {
+            message = "non-standard exception";
+        }
+        if (!message.empty()) {
+            detail = message.c_str();
+        }
+    }
+    writeCrashReport("std::terminate", 0, nullptr, detail);
+    std::abort();
+}
+
+void installCrashReporting() {
+    g_previousExceptionFilter = SetUnhandledExceptionFilter(reportUnhandledException);
+    std::set_terminate(reportTerminate);
 }
 
 // Sends one stream to a log file with a share mode that lets anybody else read it.
@@ -1232,6 +1322,10 @@ int main(int argc, char** argv) {
         std::cerr << "warning: could not redirect stderr to client_error_log.txt" << std::endl;
     setvbuf(stdout, NULL, _IONBF, 0);
     setvbuf(stderr, NULL, _IONBF, 0);
+
+    // After the redirect, so the report and the log land in the same folder, and
+    // before the anti-cheat, so it is in place for the whole run.
+    installCrashReporting();
 
 #if defined(LINEAR_ANTICHEAT)
     sayToConsole("Starting the anti-cheat...");

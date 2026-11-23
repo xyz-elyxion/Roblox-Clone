@@ -149,8 +149,10 @@ bool connectToServer(std::string& error) {
         error = "Could not create network socket.";
         return false;
     }
+    traceStartup("join: socket created");
     Network::setIoBufferSize(clientSocket, 4 << 20);
     Network::setNonBlocking(clientSocket);
+    traceStartup("join: socket configured");
 
     if (connect(clientSocket, reinterpret_cast<sockaddr*>(&serverAddr), sizeof(serverAddr)) ==
         SOCKET_ERROR) {
@@ -160,6 +162,7 @@ bool connectToServer(std::string& error) {
     }
 
     clientSession = std::make_unique<linear::net::UdpSession>();
+    traceStartup("join: session ready");
 
     PacketConnect pkt;
     std::memset(&pkt, 0, sizeof(pkt));
@@ -174,8 +177,11 @@ bool connectToServer(std::string& error) {
     pkt.packetLayout = PacketProtocol::packetLayoutSignature();
     // The site bars a machine from joining, so the join has to say which machine
     // it is. Hashed in the process: the disk serial and machine name the hash is
-    // built from never leave it.
+    // built from never leave it. The first call reads the volume serial and the
+    // computer name, which can involve the storage stack, so the trace brackets it.
+    traceStartup("join: reading machine id");
     copyToBuffer(pkt.hardwareId, sizeof(pkt.hardwareId), linear::hwid::machineId());
+    traceStartup("join: machine id ready");
 
     if (!sendClientPacket(PacketProtocol::buildStructPacket(PacketType::CONNECT, pkt), true)) {
         error = "Could not send the join packet.";
@@ -184,6 +190,7 @@ bool connectToServer(std::string& error) {
         return false;
     }
 
+    traceStartup("join: connect frame queued");
     isConnected = true;
     currentState = ONLINE;
     awaitingWelcome = true;

@@ -874,8 +874,22 @@ bool Detections::CheckOpenHandles()
     bool foundHandle = false;
     std::vector<Handles::_SYSTEM_HANDLE> handles = Handles::DetectOpenHandlesToProcess();
 
+    // The launcher that started this client holds a handle to it by design: the
+    // website's WebApp.exe creates the process and waits on it for a few seconds to
+    // report whether it opened at all. Counting that as an intrusion flagged every
+    // game the site launched, once per monitor pass, and the client forwards its
+    // DETECTION lines to the site - so a player's own launcher would have been
+    // filing a report against their account. What the check is for is a third
+    // process opening a handle to us, and that is unchanged.
+    const DWORD parentProcessId = Process::GetParentProcessId();
+
     for (const auto& handle : handles)
     {
+        if (handle.ProcessId == parentProcessId)
+        {
+            continue;
+        }
+
         if (Handles::DoesProcessHaveOpenHandleToUs(handle.ProcessId, handles))
         {
             std::wstring procName = Process::GetProcessName(handle.ProcessId);

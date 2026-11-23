@@ -170,6 +170,10 @@ int receiveGameDatagrams();
 void disconnectFromServerOnly();
 void leaveCurrentGame(std::deque<Part>& parts, PhysicsWorld& physicsWorld);
 bool connectToServer(std::string& error);
+
+// One line per startup stage into startup_trace.txt (implemented by Client.cpp).
+// Used for calls whose completion matters and which print nothing of their own.
+void traceStartup(const std::string& stage);
 void sendChatMessage();
 void requestRespawn();
 void toggleVehicle();

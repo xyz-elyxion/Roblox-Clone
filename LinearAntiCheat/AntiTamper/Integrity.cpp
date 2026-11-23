@@ -81,12 +81,16 @@ void Integrity::PeriodicIntegrityCheck(LPVOID classThisPtr)
 
 	std::string processName = Utility::ConvertWStringToString(Process::GetProcessName(GetCurrentProcessId()));
 
-	HMODULE currentModule = GetModuleHandleA(processName.c_str());
-
-	if (currentModule == NULL)
+	if (GetModuleHandleA(processName.c_str()) == NULL)
 	{
-		Logger::logf(Err, "Failed to get module handle for %s in PeriodicIntegrityCheck", processName.c_str());
-		throw std::runtime_error("Failed to get module handle for current process in PeriodicIntegrityCheck");
+		// A check that cannot start is reported and left out, never thrown. This
+		// runs on a worker thread, so an uncaught exception here reaches
+		// std::terminate, and the game closes with no window message and nothing on
+		// stdout - which reads exactly like a crash the player cannot explain. The
+		// module name is randomized at runtime (Preventions::RandomizeModuleName), so
+		// a name that no longer resolves is an expected state rather than damage.
+		Logger::logf(Err, "Failed to get module handle for %s in PeriodicIntegrityCheck; periodic checks are off", processName.c_str());
+		return;
 	}
 
 	while (checking)

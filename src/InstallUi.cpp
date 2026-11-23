@@ -326,41 +326,137 @@ void drawIsland(LinearDrawList* draw, const ArtRect& rect, float x, float y, flo
                                   tint(palette.heroLight, 0.0f));
 }
 
-// `time` is seconds since the window opened. Everything in the panel moves on it:
-// islands bob and sway, the trees bend, the falls shimmer and the sun breathes. All
-// of it is slow and out of step, so the panel reads as scenery rather than as a
-// spinner - the steps on the left say how the job is going.
-void drawHero(LinearDrawList* draw, const ArtRect& rect, float time) {
-    const theme::Colors& palette = theme::colors();
+// ---------------------------------------------------------------------------
+// The scenes in the art panel
+//
+// Four drawn pictures take turns there: the islands, a city skyline, dunes and a
+// night sky. They share the helpers below so each one is a short list of shapes,
+// and all of them move on `time` - seconds since the window opened - so the panel
+// is alive while the job runs without any of it asking for attention.
+
+struct SkylineBlock {
+    float x;      // left edge, as a fraction of the panel's width
+    float width;  // how wide it is, the same way
+    float top;    // where the roof sits, as a fraction of the panel's height
+};
+
+// Two bands rather than one quad, so the colour holds near the top and opens up
+// lower down instead of washing out through the middle.
+void drawSky(LinearDrawList* draw, const ArtRect& rect, const LinearVec4& top,
+             const LinearVec4& mid, const LinearVec4& bottom) {
+    const float split = rect.min.y + (rect.max.y - rect.min.y) * 0.58f;
+    draw->AddRectFilledMultiColor(rect.min, LinearVec2(rect.max.x, split), colorOf(top),
+                                  colorOf(top), colorOf(mid), colorOf(mid));
+    draw->AddRectFilledMultiColor(LinearVec2(rect.min.x, split), rect.max, colorOf(mid),
+                                  colorOf(mid), colorOf(bottom), colorOf(bottom));
+}
+
+// A light that breathes: a stack of discs that get brighter as they shrink, the
+// whole stack swelling a little so the sky never sits perfectly still.
+void drawLight(LinearDrawList* draw, const ArtRect& rect, const LinearVec4& light, float time,
+               float x, float y, float radius, float rate) {
     const float width = rect.max.x - rect.min.x;
-    const float height = rect.max.y - rect.min.y;
-    draw->PushClipRect(rect.min, rect.max, true);
-
-    // Two bands rather than one quad, so the blue holds near the top and opens
-    // into white lower down instead of washing out through the middle.
-    const float split = rect.min.y + height * 0.58f;
-    draw->AddRectFilledMultiColor(rect.min, LinearVec2(rect.max.x, split),
-                                  colorOf(palette.heroSkyTop), colorOf(palette.heroSkyTop),
-                                  colorOf(palette.heroSkyMid), colorOf(palette.heroSkyMid));
-    draw->AddRectFilledMultiColor(LinearVec2(rect.min.x, split), rect.max,
-                                  colorOf(palette.heroSkyMid), colorOf(palette.heroSkyMid),
-                                  colorOf(palette.heroSkyBottom), colorOf(palette.heroSkyBottom));
-
-    // A low sun on the right: a stack of discs that get brighter as they shrink, and
-    // that breathe together so the sky does not sit perfectly still.
-    const float breath = 0.5f + 0.5f * std::sin(time * 0.7f);
-    const LinearVec2 sun = pointIn(rect, 0.74f, 0.15f);
+    const float breath = 0.5f + 0.5f * std::sin(time * rate);
+    const LinearVec2 center = pointIn(rect, x, y);
     for (int ring = 8; ring >= 1; --ring) {
         const float fraction = static_cast<float>(ring) / 8.0f;
-        draw->AddCircleFilled(sun, width * (0.24f + 0.02f * breath) * fraction,
-                              tint(palette.heroLight,
-                                   0.035f + 0.10f * (1.0f - fraction) + 0.02f * breath),
-                              64);
+        draw->AddCircleFilled(center, width * radius * (0.92f + 0.08f * breath) * fraction,
+                              tint(light, 0.035f + 0.10f * (1.0f - fraction) + 0.02f * breath), 64);
     }
+}
 
-    // Far clouds, then the islands, then near clouds: depth here is nothing but
-    // the order things are drawn in, which is what lets a near cloud slide across a
-    // far island.
+// The haze along the bottom, so a scene ends in light instead of at a hard line.
+void drawHaze(LinearDrawList* draw, const ArtRect& rect, const LinearVec4& light, float strength) {
+    const float height = rect.max.y - rect.min.y;
+    draw->AddRectFilledMultiColor(LinearVec2(rect.min.x, rect.max.y - height * 0.28f), rect.max,
+                                  tint(light, 0.0f), tint(light, 0.0f), tint(light, strength),
+                                  tint(light, strength));
+}
+
+// A dune, a hill or a bank of sand: a circle big enough that only its crown shows
+// above the bottom edge, which is the only curve a draw list can fill.
+void drawCrown(LinearDrawList* draw, const ArtRect& rect, const LinearVec4& color, float centerX,
+               float radiusShare, float riseShare) {
+    const float width = rect.max.x - rect.min.x;
+    const float height = rect.max.y - rect.min.y;
+    const float radius = width * radiusShare;
+    const LinearVec2 center(rect.min.x + width * centerX, rect.max.y + radius - height * riseShare);
+    draw->AddCircleFilled(center, radius, colorOf(color), 96);
+}
+
+// One row of buildings standing on the bottom edge. With `windows`, every window
+// has its own moment, so the city flickers instead of glowing evenly.
+void drawSkyline(LinearDrawList* draw, const ArtRect& rect, const LinearVec4& color,
+                 const SkylineBlock* blocks, int count, float time, bool windows,
+                 const LinearVec4& windowColor) {
+    const float width = rect.max.x - rect.min.x;
+    const float height = rect.max.y - rect.min.y;
+
+    for (int index = 0; index < count; ++index) {
+        const SkylineBlock& block = blocks[index];
+        const float left = rect.min.x + width * block.x;
+        const float right = left + width * block.width;
+        const float roof = rect.min.y + height * block.top;
+
+        draw->AddRectFilled(LinearVec2(left, roof), LinearVec2(right, rect.max.y), colorOf(color));
+        // A lit edge down the left side, so a rectangle reads as a block with a face.
+        draw->AddRectFilled(LinearVec2(left, roof), LinearVec2(left + width * 0.006f, rect.max.y),
+                            colorOf(lighten(color, 0.20f)));
+
+        if (!windows) continue;
+
+        const float margin = width * 0.010f;
+        const float size = width * 0.007f;
+        int column = 0;
+        for (float windowX = left + margin; windowX + size < right - margin;
+             windowX += size * 2.4f, ++column) {
+            int row = 0;
+            for (float windowY = roof + margin; windowY + size < rect.max.y - margin;
+                 windowY += size * 2.9f, ++row) {
+                const float mood = std::sin(
+                    time * 0.8f + static_cast<float>(index * 7 + column * 3 + row * 11));
+                draw->AddRectFilled(LinearVec2(windowX, windowY),
+                                    LinearVec2(windowX + size, windowY + size),
+                                    tint(windowColor, mood > 0.15f ? 0.72f : 0.18f));
+            }
+        }
+    }
+}
+
+// A cactus: a trunk and two arms, each arm a piece across and a piece up.
+void drawCactus(LinearDrawList* draw, const ArtRect& rect, float x, float base, float scale,
+                const LinearVec4& color) {
+    const float width = rect.max.x - rect.min.x;
+    const float height = rect.max.y - rect.min.y;
+    const float trunk = width * 0.014f * scale;
+    const float tall = height * 0.15f * scale;
+    const LinearVec2 foot = pointIn(rect, x, base);
+
+    draw->AddRectFilled(LinearVec2(foot.x - trunk * 0.5f, foot.y - tall),
+                        LinearVec2(foot.x + trunk * 0.5f, foot.y), colorOf(color), trunk * 0.5f);
+
+    for (int side = -1; side <= 1; side += 2) {
+        const LinearVec2 elbow(foot.x + static_cast<float>(side) * trunk * 1.7f,
+                               foot.y - tall * 0.62f);
+        draw->AddRectFilled(LinearVec2(std::min(elbow.x, foot.x), elbow.y - trunk * 0.5f),
+                            LinearVec2(std::max(elbow.x, foot.x), elbow.y + trunk * 0.5f),
+                            colorOf(color), trunk * 0.5f);
+        draw->AddRectFilled(LinearVec2(elbow.x - trunk * 0.5f, elbow.y - tall * 0.26f),
+                            LinearVec2(elbow.x + trunk * 0.5f, elbow.y + trunk * 0.5f),
+                            colorOf(color), trunk * 0.5f);
+    }
+}
+
+// Scene one: the islands. A day sky, a low sun, clouds, and four islands whose
+// grass, trees and waterfalls all move.
+void drawIslandScene(LinearDrawList* draw, const ArtRect& rect, float time) {
+    const theme::Colors& palette = theme::colors();
+    drawSky(draw, rect, palette.heroSkyTop, palette.heroSkyMid, palette.heroSkyBottom);
+    drawLight(draw, rect, palette.heroLight, time, 0.74f, 0.15f, 0.26f, 0.7f);
+
+    // Far clouds, then the islands, then near clouds: depth here is nothing but the
+    // order things are drawn in, which is what lets a near cloud slide across a far
+    // island.
     drawCloud(draw, rect, 0.16f, 0.36f, 0.20f, 0.0f, 0.13f, time, palette.heroLight, 0.26f);
     drawCloud(draw, rect, 0.52f, 0.30f, 0.16f, 1.9f, 0.16f, time, palette.heroLight, 0.22f);
     drawCloud(draw, rect, 0.88f, 0.42f, 0.22f, 3.7f, 0.11f, time, palette.heroLight, 0.28f);
@@ -373,17 +469,154 @@ void drawHero(LinearDrawList* draw, const ArtRect& rect, float time) {
     drawCloud(draw, rect, 0.30f, 0.80f, 0.30f, 2.6f, 0.17f, time, palette.heroLight, 0.42f);
     drawCloud(draw, rect, 0.82f, 0.84f, 0.34f, 5.1f, 0.19f, time, palette.heroLight, 0.45f);
 
-    draw->AddRectFilledMultiColor(LinearVec2(rect.min.x, rect.max.y - height * 0.28f), rect.max,
-                                  tint(palette.heroLight, 0.0f), tint(palette.heroLight, 0.0f),
-                                  tint(palette.heroLight, 0.62f),
-                                  tint(palette.heroLight, 0.62f));
+    drawHaze(draw, rect, palette.heroLight, 0.62f);
+}
+
+// Scene two: a city on the same day sky. Two rows of blocks, the far one pale and
+// still, the near one dark with windows that come and go, and a beacon on the
+// tallest roof.
+void drawCityScene(LinearDrawList* draw, const ArtRect& rect, float time) {
+    const theme::Colors& palette = theme::colors();
+
+    static const SkylineBlock kFar[] = {
+        {0.00f, 0.10f, 0.30f}, {0.09f, 0.07f, 0.24f}, {0.15f, 0.12f, 0.36f},
+        {0.26f, 0.08f, 0.27f}, {0.33f, 0.11f, 0.42f}, {0.43f, 0.07f, 0.29f},
+        {0.49f, 0.13f, 0.35f}, {0.61f, 0.09f, 0.25f}, {0.69f, 0.12f, 0.39f},
+        {0.80f, 0.08f, 0.28f}, {0.87f, 0.13f, 0.34f},
+    };
+    static const SkylineBlock kNear[] = {
+        {0.03f, 0.15f, 0.52f}, {0.20f, 0.12f, 0.63f}, {0.34f, 0.17f, 0.47f},
+        {0.54f, 0.14f, 0.58f}, {0.70f, 0.19f, 0.44f},
+    };
+    const int farCount = static_cast<int>(sizeof(kFar) / sizeof(kFar[0]));
+    const int nearCount = static_cast<int>(sizeof(kNear) / sizeof(kNear[0]));
+
+    drawSky(draw, rect, palette.heroSkyTop, palette.heroSkyMid, palette.heroSkyBottom);
+    drawLight(draw, rect, palette.heroLight, time, 0.18f, 0.14f, 0.22f, 0.55f);
+
+    drawCloud(draw, rect, 0.30f, 0.20f, 0.22f, 1.2f, 0.14f, time, palette.heroLight, 0.22f);
+    drawCloud(draw, rect, 0.72f, 0.12f, 0.18f, 4.4f, 0.12f, time, palette.heroLight, 0.20f);
+
+    drawSkyline(draw, rect, palette.heroIslandFar, kFar, farCount, time, false, palette.heroLight);
+    drawSkyline(draw, rect, palette.heroIslandNear, kNear, nearCount, time, true, palette.heroLight);
+
+    // The beacon: a mast on one roof with a light that pulses, so the skyline has
+    // one thing clearly alive in it.
+    const float height = rect.max.y - rect.min.y;
+    const LinearVec2 mast = pointIn(rect, kNear[2].x + kNear[2].width * 0.5f, kNear[2].top);
+    const LinearVec2 tip(mast.x, mast.y - height * 0.11f);
+    draw->AddLine(mast, tip, colorOf(palette.heroIslandNear), 2.0f);
+    draw->AddCircleFilled(tip, 4.0f,
+                          tint(kAccent, 0.35f + 0.65f * (0.5f + 0.5f * std::sin(time * 2.6f))), 16);
+
+    drawHaze(draw, rect, palette.heroLight, 0.30f);
+}
+
+// Scene three: dunes under a warm sky, with cacti on the near bank and dust moving
+// low across the sand.
+void drawDesertScene(LinearDrawList* draw, const ArtRect& rect, float time) {
+    const theme::Colors& palette = theme::colors();
+    drawSky(draw, rect, palette.heroWarmSkyTop,
+            mix(palette.heroWarmSkyTop, palette.heroWarmSkyBottom, 0.5f),
+            palette.heroWarmSkyBottom);
+    drawLight(draw, rect, palette.heroLight, time, 0.28f, 0.20f, 0.20f, 0.5f);
+
+    drawCloud(draw, rect, 0.58f, 0.34f, 0.22f, 0.9f, 0.10f, time, palette.heroSandFar, 0.30f);
+
+    drawCrown(draw, rect, palette.heroSandFar, 0.30f, 0.55f, 0.30f);
+    drawCrown(draw, rect, palette.heroSandFar, 0.82f, 0.42f, 0.22f);
+    drawCrown(draw, rect, palette.heroSandNear, 0.55f, 0.62f, 0.16f);
+    drawCrown(draw, rect, palette.heroSandNear, 0.10f, 0.45f, 0.10f);
+
+    drawCactus(draw, rect, 0.36f, 0.88f, 1.00f, palette.heroGrassNear);
+    drawCactus(draw, rect, 0.72f, 0.82f, 0.68f, palette.heroGrassNear);
+
+    drawHaze(draw, rect, palette.heroLight, 0.22f);
+}
+
+// Scene four: a night sky. Stars twinkle out of step, the moon has a halo, a
+// shooting star crosses every few seconds, and two hills keep it all from floating.
+void drawNightScene(LinearDrawList* draw, const ArtRect& rect, float time) {
+    const theme::Colors& palette = theme::colors();
+    const float width = rect.max.x - rect.min.x;
+
+    drawSky(draw, rect, palette.heroNightTop,
+            mix(palette.heroNightTop, palette.heroNightBottom, 0.5f), palette.heroNightBottom);
+
+    for (int index = 0; index < 54; ++index) {
+        const float starX = std::fmod(static_cast<float>(index) * 0.6180339887f, 1.0f);
+        const float starY = std::fmod(static_cast<float>(index) * 0.4142135624f + 0.07f, 0.74f);
+        const float twinkle =
+            0.35f + 0.55f * (0.5f + 0.5f * std::sin(time * 1.3f + static_cast<float>(index) * 1.7f));
+        draw->AddCircleFilled(pointIn(rect, starX, starY),
+                              width * (0.0014f + 0.0011f * static_cast<float>(index % 3)),
+                              tint(palette.heroStar, twinkle), 12);
+    }
+
+    drawLight(draw, rect, palette.heroMoon, time, 0.74f, 0.20f, 0.14f, 0.4f);
+    draw->AddCircleFilled(pointIn(rect, 0.74f, 0.20f), width * 0.042f, colorOf(palette.heroMoon), 48);
+
+    // A shooting star, once every seven seconds and gone in under one.
+    const float shot = std::fmod(time, 7.0f);
+    if (shot < 0.75f) {
+        const float progress = shot / 0.75f;
+        const LinearVec2 from = pointIn(rect, 0.10f, 0.10f);
+        const LinearVec2 to = pointIn(rect, 0.52f, 0.32f);
+        const LinearVec2 head(from.x + (to.x - from.x) * progress,
+                              from.y + (to.y - from.y) * progress);
+        const float fade = 1.0f - progress;
+        const LinearVec2 tail(head.x - (to.x - from.x) * 0.16f, head.y - (to.y - from.y) * 0.16f);
+        draw->AddLine(tail, head, tint(palette.heroStar, 0.55f * fade), 2.0f);
+        draw->AddCircleFilled(head, 2.4f, tint(palette.heroStar, 0.9f * fade), 10);
+    }
+
+    drawCrown(draw, rect, lighten(palette.heroNightTop, 0.16f), 0.26f, 0.60f, 0.16f);
+    drawCrown(draw, rect, lighten(palette.heroNightTop, 0.10f), 0.74f, 0.52f, 0.11f);
+
+    drawHaze(draw, rect, palette.heroMoon, 0.10f);
+}
+
+// How long one scene holds, and how long the dip between two of them takes.
+constexpr float kSceneSeconds = 15.0f;
+constexpr float kSceneDip = 0.55f;
+
+// `time` is seconds since the window opened. Four scenes take turns in the panel,
+// and the change is hidden under a dip to the window's own colour, so nothing cuts.
+void drawHero(LinearDrawList* draw, const ArtRect& rect, float time) {
+    const theme::Colors& palette = theme::colors();
+    draw->PushClipRect(rect.min, rect.max, true);
+
+    const float cycle = std::fmod(time, kSceneSeconds * 4.0f);
+    if (cycle < kSceneSeconds) {
+        drawIslandScene(draw, rect, time);
+    } else if (cycle < kSceneSeconds * 2.0f) {
+        drawCityScene(draw, rect, time);
+    } else if (cycle < kSceneSeconds * 3.0f) {
+        drawDesertScene(draw, rect, time);
+    } else {
+        drawNightScene(draw, rect, time);
+    }
 
     // The soft edge where the column ends, so the art reads as part of the window
     // rather than as an image pasted beside it.
+    const float width = rect.max.x - rect.min.x;
     draw->AddRectFilledMultiColor(rect.min, LinearVec2(rect.min.x + width * 0.12f, rect.max.y),
                                   tint(palette.background, 0.55f),
                                   tint(palette.background, 0.0f), tint(palette.background, 0.0f),
                                   tint(palette.background, 0.55f));
+
+    // The dip: opaque at the moment the scene changes, gone half a second either
+    // side of it. It also fades the panel in when the window opens.
+    const float local = std::fmod(time, kSceneSeconds);
+    float cover = 0.0f;
+    if (local < kSceneDip) {
+        cover = 1.0f - local / kSceneDip;
+    } else if (local > kSceneSeconds - kSceneDip) {
+        cover = 1.0f - (kSceneSeconds - local) / kSceneDip;
+    }
+    if (cover > 0.001f) {
+        draw->AddRectFilled(rect.min, rect.max, tint(palette.background, cover));
+    }
 
     draw->PopClipRect();
 }

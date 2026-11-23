@@ -93,8 +93,9 @@ struct Colors {
     LinearVec4 overlayBase;
 
     // The art panel of the setup window. It is drawn rather than loaded so the
-    // package ships no artwork beside the executable: a sky, a low sun, and
-    // islands with grass and water on them.
+    // package ships no artwork beside the executable: four scenes take turns there,
+    // so beside the day sky and its islands there is a night sky and the warm one
+    // over the dunes, with the sand and what is drawn on it.
     LinearVec4 heroSkyTop;
     LinearVec4 heroSkyMid;
     LinearVec4 heroSkyBottom;
@@ -103,6 +104,16 @@ struct Colors {
     LinearVec4 heroIslandNear;
     LinearVec4 heroGrassFar;
     LinearVec4 heroGrassNear;
+    // The night sky, its stars and the moon.
+    LinearVec4 heroNightTop;
+    LinearVec4 heroNightBottom;
+    LinearVec4 heroStar;
+    LinearVec4 heroMoon;
+    // The evening sky over the dunes, and the sand itself, far and near.
+    LinearVec4 heroWarmSkyTop;
+    LinearVec4 heroWarmSkyBottom;
+    LinearVec4 heroSandFar;
+    LinearVec4 heroSandNear;
 
     // The trough of a progress bar, which is neither a frame nor a button.
     LinearVec4 progressTrack;
@@ -296,6 +307,15 @@ inline Colors darkColors() {
     c.heroGrassFar = LinearVec4(0.45f, 0.63f, 0.57f, 1.00f);
     c.heroGrassNear = LinearVec4(0.20f, 0.39f, 0.33f, 1.00f);
 
+    c.heroNightTop = LinearVec4(0.03f, 0.05f, 0.14f, 1.00f);
+    c.heroNightBottom = LinearVec4(0.20f, 0.25f, 0.44f, 1.00f);
+    c.heroStar = LinearVec4(1.00f, 1.00f, 1.00f, 1.00f);
+    c.heroMoon = LinearVec4(0.93f, 0.95f, 1.00f, 1.00f);
+    c.heroWarmSkyTop = LinearVec4(0.95f, 0.58f, 0.33f, 1.00f);
+    c.heroWarmSkyBottom = LinearVec4(1.00f, 0.87f, 0.68f, 1.00f);
+    c.heroSandFar = LinearVec4(0.89f, 0.74f, 0.53f, 1.00f);
+    c.heroSandNear = LinearVec4(0.78f, 0.58f, 0.35f, 1.00f);
+
     c.progressTrack = LinearVec4(0.15f, 0.17f, 0.21f, 1.00f);
     return c;
 }
@@ -359,6 +379,15 @@ inline Colors lightColors() {
     c.heroIslandNear = LinearVec4(0.31f, 0.41f, 0.56f, 1.00f);
     c.heroGrassFar = LinearVec4(0.50f, 0.68f, 0.61f, 1.00f);
     c.heroGrassNear = LinearVec4(0.25f, 0.45f, 0.37f, 1.00f);
+
+    c.heroNightTop = LinearVec4(0.05f, 0.08f, 0.19f, 1.00f);
+    c.heroNightBottom = LinearVec4(0.26f, 0.31f, 0.50f, 1.00f);
+    c.heroStar = LinearVec4(1.00f, 1.00f, 1.00f, 1.00f);
+    c.heroMoon = LinearVec4(0.97f, 0.98f, 1.00f, 1.00f);
+    c.heroWarmSkyTop = LinearVec4(0.97f, 0.64f, 0.39f, 1.00f);
+    c.heroWarmSkyBottom = LinearVec4(1.00f, 0.91f, 0.76f, 1.00f);
+    c.heroSandFar = LinearVec4(0.92f, 0.79f, 0.58f, 1.00f);
+    c.heroSandNear = LinearVec4(0.83f, 0.64f, 0.41f, 1.00f);
 
     c.progressTrack = LinearVec4(0.85f, 0.87f, 0.90f, 1.00f);
     return c;

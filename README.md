@@ -101,8 +101,9 @@ LinearSetup.exe --uninstall --purge              # removes those too
 
 Double-clicked, with no arguments, it opens its own window instead of a console: the Linear mark and
 the three passes it is about to make — copying the files, recording them for updates, finalising the
-shortcut and the uninstall entry — down the left, an art panel beside them with its islands bobbing,
-its waterfalls shimmering and its sun breathing, and one bar along
+shortcut and the uninstall entry — down the left, an art panel beside them that takes turns between
+four drawn scenes (islands, a city skyline, dunes and a night sky), each with something moving in it,
+and one bar along
 the bottom naming the job, counting the bytes copied and their rate, and showing the percentage. The
 pass that is running has an accent ring, the ones behind it a tick, and a failure is a red line in
 the list underneath them, so a setup that fails still says why. The folder field, the shortcut

@@ -440,7 +440,9 @@ The client's own `client_log.txt` and `client_error_log.txt` are opened shared, 
 read while the client is still running — a client that has stopped answering is exactly when
 they are worth opening, and `startup_trace.txt` next to them names the stage it stopped at. A crash,
 or an exception nobody caught in a worker thread, also writes `crash.txt` with its code, the faulting
-module and offset, and the last stage reached. Asking
+module and offset, and the last stage reached. The anti-cheat's open-handle check looks only at
+process handles, and only duplicates the handle the snapshot actually names, so its once-a-tick
+pass costs a few hundred calls instead of one to the kernel for every handle on the machine. Asking
 the client to close gives the anti-cheat's threads four seconds to stop and then ends the process,
 so a wedged check cannot leave a hidden process behind that refuses to be closed.
 

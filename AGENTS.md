@@ -89,8 +89,12 @@ them, and writes `README.txt`, `update.json` and `manifest.json` into `dist/line
    `Core/Detections.cpp` and `AntiTamper/Integrity.cpp`; and the periodic integrity check in
    `AntiTamper/Integrity.cpp`, which threw from its worker thread when the (runtime-renamed)
    module name did not resolve, so `std::terminate` closed the game with no message at all; and the
-   open-handle check in the same file, which counted the launcher that started the client as an
-   intrusion even though `WebApp.exe` holds that handle by design.
+   open-handle check in `Core/Detections.cpp`, which counted the launcher that started the client
+   as an intrusion even though `WebApp.exe` holds that handle by design; and the enumeration behind
+   it in `Process/Handles.cpp`, which duplicated a snapshot handle's *index* as if it were the
+   handle value, so it asked each process about an unrelated handle and could not tell a process
+   handle from a file, and which did that for every handle on the machine, one `OpenProcess` per
+   entry, every five seconds.
    Keep those fixes;
    they are corrections, not a reformat. Their generated
    documentation, examples, own test suites and CI files have been pruned; the code, build

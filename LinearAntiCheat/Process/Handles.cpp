@@ -1,5 +1,6 @@
 //By AlSch092 @github
 #include "Handles.hpp"
+#include <map>
 
 /*
     GetHandles - Returns a vector of SYSTEM_HANDLE representing all running handles on the system
@@ -75,11 +76,50 @@ std::vector<Handles::SYSTEM_HANDLE> Handles::GetHandles()
         //}
 
 		SYSTEM_HANDLE handle = handleInfo->Handles[i];
+		handle.ReferencingOurProcess = false; //the snapshot has no such member; do not leave garbage there
 		handles.push_back(handle);
 	}
 
     free(buffer);
     return handles;
+}
+
+/*
+    ObjectTypeIndexForProcess - the object type index a process handle carries in the system handle snapshot
+
+    Only a handle of type Process can be an open handle to this process, but the index is
+    not the same on every Windows build, so it is read rather than assumed: a handle to this
+    process is opened, and its own entry in the snapshot is a process handle by definition.
+    Returns false when that entry cannot be found, in which case the caller keeps scanning
+    every entry instead of guessing.
+*/
+static bool ObjectTypeIndexForProcess(const std::vector<Handles::SYSTEM_HANDLE>& handles, BYTE* typeIndex)
+{
+    const DWORD currentProcessId = GetCurrentProcessId();
+    HANDLE self = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, currentProcessId);
+
+    if (self == NULL)
+    {
+        return false;
+    }
+
+    // Handle values are a multiple of four and the snapshot stores the index, so the
+    // entry for this handle is the one whose HandleValue is the value divided by four.
+    const USHORT selfIndex = static_cast<USHORT>(reinterpret_cast<ULONG_PTR>(self) / 4);
+    bool found = false;
+
+    for (const auto& handle : handles)
+    {
+        if (handle.ProcessId == currentProcessId && handle.Handle == selfIndex)
+        {
+            *typeIndex = handle.ObjectTypeNumber;
+            found = true;
+            break;
+        }
+    }
+
+    CloseHandle(self);
+    return found;
 }
 
 /*
@@ -92,61 +132,91 @@ std::vector<Handles::SYSTEM_HANDLE> Handles::DetectOpenHandlesToProcess()
     auto handles = GetHandles();
     std::vector<Handles::SYSTEM_HANDLE> handlesTous;
 
+    // Every entry in the snapshot used to be opened and duplicated, one OpenProcess and one
+    // DuplicateHandle for each handle on the machine: hundreds of thousands of kernel calls
+    // per pass, every five seconds, nearly all of them about files, events and sections that
+    // cannot be a handle to this process. The type index keeps the pass to process handles.
+    BYTE processTypeIndex = 0;
+    const bool typeIndexKnown = ObjectTypeIndexForProcess(handles, &processTypeIndex);
+
+    // One process handle per process for the whole pass, instead of one per entry.
+    std::map<DWORD, HANDLE> processes;
+    auto processHandleFor = [&processes](DWORD processId) -> HANDLE
+    {
+        auto cached = processes.find(processId);
+        if (cached != processes.end())
+        {
+            return cached->second;
+        }
+
+        HANDLE opened = OpenProcess(PROCESS_DUP_HANDLE, FALSE, processId);
+        processes[processId] = opened;
+        return opened;
+    };
+
     for (auto& handle : handles)
     {
-        if (handle.ProcessId != currentProcessId)
+        if (handle.ProcessId == currentProcessId || handle.ProcessId <= 4 || handle.Handle == 0)
         {
-            if (handle.ProcessId <= 4) //skip any system processes
+            continue; // our own handles, the kernel's, and the null handle can never be an open handle to us
+        }
+
+        if (typeIndexKnown && handle.ObjectTypeNumber != processTypeIndex)
+        {
+            continue;
+        }
+
+        HANDLE processHandle = processHandleFor(handle.ProcessId);
+
+        if (processHandle == NULL) //possibly SYSTEM process, or one that has already exited
+        {
+            continue;
+        }
+
+        // The snapshot stores the index of the entry, and a handle value is that index
+        // multiplied by four. Duplicating the index itself asked for an unrelated handle in
+        // that process, so the check could not tell a process handle from anything else and
+        // reported whichever handle happened to sit at the index.
+        HANDLE duplicatedHandle = INVALID_HANDLE_VALUE;
+        if (!DuplicateHandle(processHandle,
+                             reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(handle.Handle) * 4),
+                             GetCurrentProcess(), &duplicatedHandle, 0, FALSE, DUPLICATE_SAME_ACCESS))
+        {
+            continue; //the handle was closed between the snapshot and now
+        }
+
+        if (GetProcessId(duplicatedHandle) == currentProcessId)
+        {
+            std::wstring procName = Process::GetProcessName(handle.ProcessId);
+            int size = sizeof(Handles::Whitelisted) / sizeof(UINT64);
+
+            bool foundWhitelisted = false;
+
+            for (int i = 0; i < size; i++)   // Check if handle belongs to whitelisted process; if so skip this handle
             {
-                continue;
-            }
-
-            HANDLE processHandle = OpenProcess(PROCESS_DUP_HANDLE, FALSE, handle.ProcessId);
-
-            if (processHandle) 
-            {
-                HANDLE duplicatedHandle = INVALID_HANDLE_VALUE;
-
-                if (DuplicateHandle(processHandle, (HANDLE)handle.Handle, GetCurrentProcess(), &duplicatedHandle, 0, FALSE, DUPLICATE_SAME_ACCESS))
+                if (wcscmp(Handles::Whitelisted[i], procName.c_str()) == 0) //whitelisted program has open handle
                 {
-                    if (GetProcessId(duplicatedHandle) == currentProcessId)
-                    {
-                        std::wstring procName = Process::GetProcessName(handle.ProcessId);
-                        int size = sizeof(Handles::Whitelisted) / sizeof(UINT64);
-
-                        bool foundWhitelisted = false;
-
-                        for (int i = 0; i < size; i++)   // Check if handle belongs to whitelisted process; if so skip this handle
-                        {
-                            if (wcscmp(Handles::Whitelisted[i], procName.c_str()) == 0) //whitelisted program has open handle
-                            {
-                                foundWhitelisted = true;
-                                break;
-                            }
-                        }
-
-                        if (!foundWhitelisted)
-                        {
-                            Logger::logf(Detection, "Handle %d from process %d is referencing our process.", handle.Handle, handle.ProcessId);
-                            handle.ReferencingOurProcess = true;
-                            handlesTous.push_back(handle);
-                        }
-                    }
-                    else
-                    {
-                        handle.ReferencingOurProcess = false;
-                    }
-
-                    if(duplicatedHandle != INVALID_HANDLE_VALUE)
-                        CloseHandle(duplicatedHandle);
+                    foundWhitelisted = true;
+                    break;
                 }
+            }
 
-                CloseHandle(processHandle);
-            }
-            else //possibly SYSTEM process, skip over
+            if (!foundWhitelisted)
             {
-                continue;
+                Logger::logf(Detection, "Handle %d from process %d is referencing our process.", handle.Handle, handle.ProcessId);
+                handle.ReferencingOurProcess = true;
+                handlesTous.push_back(handle);
             }
+        }
+
+        CloseHandle(duplicatedHandle);
+    }
+
+    for (auto& entry : processes)
+    {
+        if (entry.second != NULL)
+        {
+            CloseHandle(entry.second);
         }
     }
 

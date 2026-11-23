@@ -365,6 +365,14 @@ void drawHero(LinearDrawList* draw, const ArtRect& rect, float time) {
     drawCloud(draw, rect, 0.52f, 0.30f, 0.16f, 1.9f, 0.16f, time, palette.heroLight, 0.22f);
     drawCloud(draw, rect, 0.88f, 0.42f, 0.22f, 3.7f, 0.11f, time, palette.heroLight, 0.28f);
 
+    // Four small islands out in the distance first, so the near ones in the middle
+    // of this block are drawn over them. Their depth is low, which is also what
+    // keeps their own drift slow: far scenery moves least.
+    drawIsland(draw, rect, 0.44f, 0.09f, 0.26f, 0.04f, 8.9f, time, palette);
+    drawIsland(draw, rect, 0.10f, 0.17f, 0.32f, 0.08f, 7.3f, time, palette);
+    drawIsland(draw, rect, 0.95f, 0.30f, 0.34f, 0.14f, 10.6f, time, palette);
+    drawIsland(draw, rect, 0.08f, 0.56f, 0.30f, 0.12f, 11.4f, time, palette);
+
     drawIsland(draw, rect, 0.34f, 0.46f, 0.70f, 0.30f, 0.0f, time, palette);
     drawIsland(draw, rect, 0.66f, 0.33f, 0.50f, 0.15f, 2.1f, time, palette);
     drawIsland(draw, rect, 0.74f, 0.62f, 0.95f, 0.80f, 4.2f, time, palette);

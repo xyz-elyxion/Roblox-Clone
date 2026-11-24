@@ -78,8 +78,9 @@ void testFlightClamped() {
     float y = 0.0f;
     uint64_t now = 0;
     // Under the 14 units/s rise limit, so only the climb budget can catch it:
-    // at 12 units/s the budget drains by 6 units/s and runs out after ~4 s.
-    for (int step = 0; step < 400; ++step) {
+    // at 12 units/s the budget drains by 6 units/s and runs out after ~3.7 s,
+    // and the verdict waits flightHoldSeconds after that.
+    for (int step = 0; step < 800; ++step) {
         now += 16;
         y += 12.0f * 0.016f; // quietly floating upward at 12 units/s
         const auto result = guard.validate(linearmath::vec3(0.0f, y, 0.0f), now);
@@ -192,6 +193,43 @@ void testRepeatedJumpingIsNotFlight() {
     }
     check(!corrected, "thirty jumps in a row are not corrected");
     check(!flight, "jumping is never reported as flying");
+}
+
+// The reported bug: standing between a movable part and an anchored one, a jump
+// makes the physics solver push the body out, and the client reports where it
+// ended up - tens of units up in one frame. It is clamped like any other
+// impossible step, but it is a squeeze, not a fly hack: the body stops rising
+// and comes back down, which a fly hack never does.
+void testPhysicsEjectionIsNotFlight() {
+    linear::movement::Guard guard;
+    guard.reset(linearmath::vec3(0.0f), 0);
+    bool corrected = false;
+    bool flight = false;
+    uint64_t now = 0;
+    float y = 0.0f;
+    float velocity = 0.0f;
+    for (int step = 0; step < 300; ++step) {
+        const float dt = 0.016f;
+        if (step == 1) {
+            // The solver's push: 30 units in the frame the player jumps.
+            y += 30.0f;
+            velocity = 18.0f;
+        } else if (step > 1 && y > 0.0f) {
+            velocity -= 20.0f * dt;
+            y = std::max(0.0f, y + velocity * dt);
+        }
+        now += 16;
+        // The client keeps sending its own simulation, not the correction.
+        const auto result = guard.validate(linearmath::vec3(0.0f, y, 0.0f), now);
+        corrected = corrected || result.corrected;
+        flight = flight || result.flight;
+    }
+    check(corrected, "a physics ejection is still cut back");
+    check(!flight, "a body pushed out of a squeeze is not reported as flying");
+    check(guard.climbCorrections() == 0,
+          "an ejection leaves no climb corrections behind once it lands");
+    check(guard.horizontalCorrections() == 0,
+          "a vertical ejection is not a horizontal speed episode either");
 }
 
 // A correction is only worth recording if it says what was measured and what the
@@ -310,6 +348,7 @@ int main() {
     testStampThatOutrunsTheWireIsNotBelieved();
     testCorroboratedStallAccepted();
     testRepeatedJumpingIsNotFlight();
+    testPhysicsEjectionIsNotFlight();
     testEvidenceRecordsProof();
     testEvidenceRecordsExpectation();
     testEvidenceOnAcceptedStep();

@@ -98,7 +98,11 @@ them, and writes `README.txt`, `update.json` and `manifest.json` into `dist/line
    not have; and the strict handle check in `Core/Preventions.cpp`, which makes every invalid
    handle reference in the process a fatal error - not an exception, so no handler runs and
    nothing is written to a log - which is what closed the client a second into a match, leaving
-   `crash.txt` and both logs empty.
+   `crash.txt` and both logs empty; and the certificate check in `AntiTamper/NAuthenticode.cpp`,
+   which filed a cheat detection, with no file name in it, for any module whose chain Windows would
+   not vouch for - which is every module of a self-signed build on a machine where `LinearCert` has
+   not run, and every one of them again once the signing certificate passes its date - instead of
+   leaving the judgement to the caller that knows the module's path and its publisher.
    Keep those fixes;
    they are corrections, not a reformat. Their generated
    documentation, examples, own test suites and CI files have been pruned; the code, build

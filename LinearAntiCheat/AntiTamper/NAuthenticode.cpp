@@ -61,9 +61,15 @@ BOOL Authenticode::VerifyEmbeddedSignature(__in const LPCWSTR filePath, __in con
         if (status == TRUST_E_NOSIGNATURE || status == TRUST_E_BAD_DIGEST)
             return FALSE;
 
-        if (status == CERT_E_REVOKED || status == CERT_E_EXPIRED || status == CERT_E_UNTRUSTEDROOT || status == CERT_E_CHAINING)
-        {
-			Logger::log(LogType::Detection, "Revoked or expired signature detected");
+        		if (status == CERT_E_REVOKED || status == CERT_E_EXPIRED || status == CERT_E_UNTRUSTEDROOT || status == CERT_E_CHAINING)
+		{
+			// A chain Windows will not vouch for is not by itself a cheat. The game's own
+			// binaries are signed with a certificate the machine has to be told to trust
+			// first, and an expired date or a missing root says that about the signer, not
+			// about the module. The caller decides what an untrusted module means and names
+			// the file when it reports one; this used to file a detection with no file name
+			// at all, so a self-signed build accused its own player of cheating.
+			Logger::logfw(LogType::Warning, L"Signature on %s is expired, revoked or untrusted", filePath);
 			return FALSE;
 	}
     }

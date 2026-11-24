@@ -70,8 +70,11 @@ struct ConnectedPlayer {
     // The server's own view of where this player can legitimately be.
     linear::movement::Guard movement;
     // Corrections already reported to the website, so one long episode earns
-    // one strike rather than one per packet.
+    // one strike rather than one per packet. Speed and climb are counted apart:
+    // what earns a flying report is a climb, not the frames a pushed body spent
+    // sliding back to the ground.
     int reportedCorrections = 0;
+    int reportedFlightCorrections = 0;
     // The last couple of seconds of packets, so a report carries the run-up to
     // what it accuses the player of rather than a single frame.
     linear::replay::Recorder replay;
@@ -1829,11 +1832,21 @@ static int runServer(int argc, char** argv) {
                             // Report the episode, not the packet: a fly hack is
                             // corrected once per packet, and a strike each would
                             // ban the account before the warning reached the screen.
-                            const int corrections = player.movement.corrections();
+                            const int corrections = movement.flight
+                                                        ? player.movement.climbCorrections()
+                                                        : player.movement.horizontalCorrections();
+                            // The guard clears a climb's count when the player comes
+                            // back down, so a count below what was last reported is a
+                            // new episode rather than a smaller one.
+                            int& reported = movement.flight ? player.reportedFlightCorrections
+                                                            : player.reportedCorrections;
+                            if (reported > corrections) {
+                                reported = 0;
+                            }
                             const int needed = movement.flight ? kFlightCorrectionsPerReport
                                                                : kCorrectionsPerReport;
-                            if (corrections - player.reportedCorrections >= needed) {
-                                player.reportedCorrections = corrections;
+                            if (corrections - reported >= needed) {
+                                reported = corrections;
                                 // The frame that earned the strike travels with it,
                                 // beside the rule it broke. An admin judging an appeal
                                 // reads what the server measured against what the game
@@ -1841,7 +1854,7 @@ static int runServer(int argc, char** argv) {
                                 std::string proof =
                                     linear::movement::describeProof(movement.evidence);
                                 proof += ", correction " + std::to_string(corrections) +
-                                         " this session";
+                                         " this episode";
                                 reportCheatingToWebsite(
                                     id, PacketProtocol::fixedString(player.username, sizeof(player.username)),
                                     movement.flight ? "flying" : "moving faster than allowed",

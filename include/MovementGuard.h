@@ -44,6 +44,14 @@ struct Limits {
     // How far ahead of the server's arrival gap the client's stamp may run
     // before it stops being believed.
     float clientStampToleranceMs = 120.0f;
+    // How long a client has to keep asking for height after the server started
+    // cutting its climb back before that climb is flight. A body the physics
+    // solver pushes out of a squeeze is over the budget too, but it stops rising
+    // and comes down again; a fly hack never stops asking.
+    float flightHoldSeconds = 4.0f;
+    // How much higher than its previous claim a frame has to be to count as still
+    // climbing. Reports are in hundredths of a unit, so this is noise.
+    float claimEpsilon = 0.01f;
 };
 
 // What one frame was measured against, and what the client claimed. A guard that
@@ -118,6 +126,9 @@ public:
         haveClient_ = false;
         riseBudget_ = limitsBudget_;
         primed_ = true;
+        climbing_ = false;
+        climbCorrections_ = 0;
+        previousClaimY_ = position.y;
     }
 
     // A position the server itself placed the player at (a script teleport, a
@@ -125,7 +136,15 @@ public:
     void teleport(const linearmath::vec3& position, uint64_t nowMs) { reset(position, nowMs); }
 
     bool primed() const { return primed_; }
+    // Every corrected frame, for the console line and the proof.
     int corrections() const { return corrections_; }
+    // The two kinds of bad frame are counted apart, because they mean different
+    // things: a speed hack is a run of horizontal clamps, and flight is a climb
+    // the client has not come down from. Mixing them let a physics ejection with
+    // a horizontal component reach the flying threshold on the strength of the
+    // frames it spent falling back to earth.
+    int horizontalCorrections() const { return horizontalCorrections_; }
+    int climbCorrections() const { return climbCorrections_; }
 
     // Without a client stamp, the gap is the server's own arrival time.
     Correction validate(const linearmath::vec3& proposed, uint64_t nowMs) {
@@ -164,6 +183,7 @@ public:
         evidence.limits = limits_;
         result.evidence = evidence;
 
+        bool horizontalClamped = false;
         const float horizontal = evidence.horizontal;
         if (horizontal > maxHorizontal) {
             // Clamp along the direction of travel rather than snapping back to
@@ -173,16 +193,49 @@ public:
             result.position.x = position_.x + delta.x * scale;
             result.position.z = position_.z + delta.z * scale;
             result.corrected = true;
+            horizontalClamped = true;
         }
 
+        bool climbClamped = false;
         const float rise = result.position.y - position_.y;
         if (rise > 0.01f && (rise > maxRise || rise > riseBudget_)) {
             const float allowed = std::max(0.0f, std::min(maxRise, riseBudget_));
             result.position.y = position_.y + allowed;
             result.corrected = true;
-            // A single oversized hop is a speed hack; a step that only fails
-            // because the climb budget ran out is sustained flight.
-            result.flight = rise > riseBudget_;
+            climbClamped = true;
+        }
+
+        // Whether a cut-back climb is flight is a question about what the client
+        // does next, not about this frame. A character squeezed between a moving
+        // part and an anchored one is pushed out by the solver at whatever speed
+        // the overlap takes, and the client reports where it ended up: the first
+        // frames of that are indistinguishable from the first frames of a fly
+        // hack, because both are over the budget and cut back. They part at the
+        // peak, so the verdict waits for it - the client has to still be asking
+        // for height this long after the climb was first cut back.
+        const bool claimedRise = proposed.y > previousClaimY_ + limits_.claimEpsilon;
+        previousClaimY_ = proposed.y;
+        if (climbClamped && claimedRise) {
+            if (!climbing_) {
+                climbing_ = true;
+                climbStartMs_ = arrivalMs;
+            }
+            ++climbCorrections_;
+            if (secondsBetween(climbStartMs_, arrivalMs) >= limits_.flightHoldSeconds) {
+                result.flight = true;
+            }
+        } else if (climbing_) {
+            // The client stopped asking for height: it landed, stood still or
+            // came back down. Whatever pushed it up is over, and the frames it
+            // spent doing so are not evidence against the player.
+            climbing_ = false;
+            climbCorrections_ = 0;
+        }
+
+        // A frame that was part of an ejection is not a speed hack either: the
+        // server is conceding a position the client already had.
+        if (horizontalClamped && !climbClamped) {
+            ++horizontalCorrections_;
         }
 
         // Spend what was actually allowed, not what was claimed, so a client
@@ -259,6 +312,12 @@ private:
     float riseBudget_ = Limits{}.riseBudget;
     float limitsBudget_ = Limits{}.riseBudget;
     int corrections_ = 0;
+    int horizontalCorrections_ = 0;
+    int climbCorrections_ = 0;
+    // An open climb the client has not come down from.
+    bool climbing_ = false;
+    uint64_t climbStartMs_ = 0;
+    float previousClaimY_ = 0.0f;
     Limits limits_{};
 };
 

@@ -74,6 +74,13 @@ the game. The comparison is against that executable rather than a fixed publishe
 signed by somebody else is still refused; `scripts/sign-binaries.ps1` signs both `.exe` and `.dll`
 for that reason.
 
+That certificate is self-signed, so a machine that has never run `LinearCert` reports the chain as
+untrusted, and a certificate past its date reports it as expired. Neither is evidence of cheating
+and neither files a detection on its own: the signature check logs a warning naming the module, and
+the decision about the module is made in one place, by publisher, with the path attached when it is
+reported. A build whose own library is refused because the certificate was never installed is a
+trust step that was skipped, not an intrusion.
+
 **Sessions.** The login response is a JWT signed with HMAC-SHA256 through
 `src/WebCrypto.cpp`, carrying `sub`, `iat` and `exp` (`JWT_EXPIRES_IN`, seven days by
 default). Authenticated routes take `Authorization: Bearer <token>`; tokens are no longer

@@ -522,7 +522,13 @@ delivered in one tick (measured over the time the player actually walked, so it 
 hack), a stall both clocks agree on (a second of walking is a second of walking), and a client
 claiming a quarter of a second in one datagram (held to the millisecond it took to arrive). Climbing
 is budgeted rather than timed, and landing pays back what a jump spent, so a player who keeps
-jumping or walks up a staircase is not reported as flying for it. A confirmed detection is reported
+jumping or walks up a staircase is not reported as flying for it. A body the physics solver pushes
+out of a squeeze — a movable part driven into a player standing against an anchored one — is cut
+back like any other impossible step but is not called flight: a climb is only reported once the
+client is still asking for height four seconds after the server started cutting it back, and a
+flung body has stopped asking long before it lands. Flight and speed are counted separately, so a
+few frames of falling back to earth cannot carry a pushed player to the flying threshold on the
+back of the horizontal distance the push covered. A confirmed detection is reported
 to the website, which keeps the account's strikes:
 
 | Strike | Result |

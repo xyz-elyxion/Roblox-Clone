@@ -155,6 +155,19 @@ int main() {
     check(subjectFromDetection("Module 'ntdll.dll' was modified").empty(),
           "the modified-module line keeps its name in the filed text instead");
 
+    // The guard service writes outside the process and its lines are read from the
+    // same tail; they have to anchor the snapshot the same way.
+    const linear::anticheat::SnapshotSubject runningSubject =
+        subjectFromDetection("Process aim.exe (pid 4321) is running on this machine");
+    check(runningSubject.processName == "aim.exe",
+          "the guard's running-program line names the program");
+    check(runningSubject.processId == 4321, "and carries the pid it named");
+    const linear::anticheat::SnapshotSubject guardedModule = subjectFromDetection(
+        "Module C:\\Users\\player\\AppData\\Local\\Temp\\a.dll was loaded into the game "
+        "from a folder any program can write to");
+    check(guardedModule.modulePath == "C:\\Users\\player\\AppData\\Local\\Temp\\a.dll",
+          "the guard's module line names the path it was loaded from");
+
     std::string longLine = "[t] [DETECTION] ";
     longLine.append(400, 'x');
     check(detectionDetail(longLine).size() == 300, "a long detail is clipped to the limit");

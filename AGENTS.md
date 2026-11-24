@@ -140,6 +140,7 @@ them, and writes `README.txt`, `update.json` and `manifest.json` into `dist/line
 | Trainer | `src/AiTrainer.cpp` |
 | Scripting | `src/LinearScript.cpp`, `include/LinearScript.h` |
 | Anti-cheat integration | `include/ClientCheatReport.h`, `include/SystemSnapshot.h` + `src/SystemSnapshot.cpp` (what a detection carries to staff), `include/Obfuscated.h`, `LinearAntiCheat/` |
+| Guard service (anti-cheat outside the client) | `src/GuardService.cpp` (service manager, cycle), `include/GuardChecks.h` + `src/GuardChecks.cpp` (the judgements, testable without Windows), `include/GuardStatus.h` + `src/GuardStatus.cpp` (log and heartbeat paths the client reads) |
 | Build | `LinearBuildLists.txt`, `LinearBuildPresets.json`, `scripts/package-build.ps1` |
 | Vendored libraries | `linearwin/`, `linearmath/`, `linearui/`, `lineargizmo/`, `lineartextedit/`, `linearphysics/`, `linearstb/`, `lineargl/` |
 | Tests | `tests/<area>_tests.cpp` |

@@ -20,6 +20,7 @@ before pointing it at the internet.
 | `LinearProxy.exe` | Front door for the site: listens on one address and forwards every request to `WebApp.exe` |
 | `AiTrainer.exe` | Signs in with a developer token, learns to play an AI-compatible game, and can draw the run in a window while it trains |
 | `LinearHosts.exe` | Keeps N game servers running on one machine — ports, logs, restarts, control panel — see [HOSTING.md](HOSTING.md) |
+| `LinearGuard.exe` | The anti-cheat guard service: watches the game from outside `Client.exe`, for cheat tools running on the machine and modules loaded into the client from a folder any program can write to |
 | `LinearCert.exe` | Puts the signing certificate into the Windows trust stores, or takes it out again, so a signed build starts without Windows asking who published it; double-clicked, or started with just `--machine`, it opens a window that offers both |
 | `LinearDocs.exe` | The documentation as a window: this README and the topic files beside it — SECURITY, HOSTING, LINEARBUILD, CONTRIBUTING, the code of conduct, AGENTS — read from `docs/`, with the sections of the open page listed next to it |
 
@@ -462,6 +463,36 @@ XOR-masked at compile time through `include/Obfuscated.h` so they do not show up
 MSVC Release builds link the client with control-flow guard, full ASLR and identical-code folding.
 That raises the cost of finding and patching the checks; it is not a security boundary, which is
 why the rules that matter (movement, world contents) are enforced by the server.
+
+### What the guard service can prove
+
+Every check above runs inside the process it protects, which is also the process a cheater
+controls: a frozen, patched or simply unstarted client takes them with it. `LinearGuard.exe` is
+the other half. Installed once (`LinearGuard.exe --install`, from an elevated prompt) it is a
+Windows service, started by the service manager as LocalSystem before anyone signs in, and it
+watches the game from outside:
+
+- **Programs on the machine.** A cheat tool that is running is visible from outside the game. The
+guard compares the process list against the same names `LinearAntiCheat` keeps
+(`include/GuardChecks.h` has the table, so the two cannot drift apart).
+- **Modules the client loaded.** Every module `Client.exe` has loaded is checked for where it came
+  from. One loaded out of a user profile, a temporary folder, Downloads or `Users\Public` was put
+  there by whoever was logged in rather than installed; the guard reports it with the path, and
+  skips the game's own library and the Discord overlay every player has.
+
+It cannot see the player's desktop: a service runs in session 0, where there are no windows to
+enumerate, so the window-title checks stay in the client. What it finds is written to
+`%ProgramData%\Linear\LinearGuard.log` in the same `[stamp] [DETECTION] …` shape the client
+already tails, and the client files those lines against the signed-in account with the flag
+`guard` — so the service needs no account or token of its own, and the admin console can tell a
+finding from outside the process apart from one inside it.
+
+A cheater who stops the service is not invisible either: every snapshot carries a `guard:` line
+saying whether it is installed, running, and how long ago it last wrote its heartbeat
+(`%ProgramData%\Linear\LinearGuard.state`, refreshed every five seconds). `LinearGuard.exe
+--status` prints the same line, and `--run` runs the checks in a console for a machine where
+installing a service is not wanted; `--uninstall` removes it. The client works either way — the
+service is a second pair of eyes, not a requirement to play.
 
 ### The ladder
 
@@ -1690,7 +1721,7 @@ linear-windows-release/
   web/public/  web/seed-worlds/
   shaders/  ServerWorld.world  face*.png  face_hex.txt
   LinearUpdater.exe  LinearSetup.exe  ServerSetup.exe  AiTrainer.exe  LinearHosts.exe  LinearProxy.exe
-  LinearGit.exe  LinearHub.exe  LinearCert.exe  LinearDocs.exe  LinearGame.dll
+  LinearGit.exe  LinearHub.exe  LinearCert.exe  LinearGuard.exe  LinearDocs.exe  LinearGame.dll
   update.json  manifest.json
   docs/  certs/linear-codesign.cer
   README.txt

@@ -268,6 +268,19 @@ bans in the console's **Blacklist** section, which a role without that permissio
 the queue, the snapshot and the barred hash sit in the same sealed part of the account record as the
 rest of its moderation history, and are never sent to the account.
 
+**The guard service.** `LinearGuard.exe` runs the checks that do not need to be inside the game
+from a Windows service, which the service manager starts as LocalSystem at boot: whether a known
+cheat tool is running on the machine, and whether a module in the client was loaded from a folder
+any logged-in user can write to. Installing or removing it needs administrator rights, and it does
+nothing else with them - it opens no network connection, reads no file contents and stores no
+credential. What it finds goes into `%ProgramData%\Linear\LinearGuard.log` in the same detection
+line shape the client already reads, and the client files those lines against the account that is
+signed in, so the service itself has no account, token or identity of its own. That file sits on
+the player's machine, where a local administrator can edit or delete it: the report is evidence for
+a review, not proof, which is why every snapshot records whether the service is running and when it
+last wrote its heartbeat. A service runs in session 0 and cannot enumerate the player's windows, so
+the window-title checks stay in the client.
+
 **Friends.** A friendship is one row per pair holding the requester, the addressee, a status and
 the two timestamps, so a request crossing an existing row is answered rather than duplicated and a
 pair cannot appear twice in a list. Both endpoints take a target user id that has to exist, and read

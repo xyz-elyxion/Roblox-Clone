@@ -36,6 +36,7 @@ option(LINEAR_BUILD_ANTICHEAT "Embed the vendored LinearAntiCheat library in the
 option(LINEAR_ANTICHEAT_INVASIVE "Let the anti-cheat patch ntdll and remap its own settings (anti-virus engines flag this)" OFF)
 option(LINEAR_BUILD_UPDATER "Build the installer and update launcher targets" ON)
 option(LINEAR_BUILD_HOSTS "Build the game server supervisor target" ON)
+option(LINEAR_BUILD_GUARD "Build the anti-cheat guard service target" ON)
 option(LINEAR_BUILD_PROXY "Build the website reverse proxy target" ON)
 option(LINEAR_BUILD_GIT "Build the LinearGit command line target" ON)
 option(LINEAR_BUILD_HUB "Build the LinearHub repository browser target" ON)
@@ -426,6 +427,24 @@ if(LINEAR_BUILD_ANTICHEAT)
     add_subdirectory(LinearAntiCheat)
 endif()
 
+# The guard is the other half of the anti-cheat: a service that watches the game
+# from outside the process, so freezing or patching the client does not stop the
+# checks that do not need to be inside it. It shares the log folder with the
+# client through GuardStatus.cpp, and the service manager calls it at boot.
+if(LINEAR_BUILD_GUARD)
+    add_executable(LinearGuard
+        src/GuardService.cpp
+        # The judgements, without a Windows call in them, so the tests can answer
+        # for every name and path without a machine to look at.
+        src/GuardChecks.cpp
+        # Where the log and heartbeat live: the client reads the same paths.
+        src/GuardStatus.cpp
+    )
+    configure_linear_target(LinearGuard)
+    # advapi32 is the service manager; the rest is the process and module lists.
+    target_link_libraries(LinearGuard PRIVATE advapi32)
+endif()
+
 if(LINEAR_BUILD_CLIENT)
     add_executable(Client
         src/Client.cpp
@@ -436,8 +455,10 @@ if(LINEAR_BUILD_CLIENT)
         # The hashed machine id the join carries; the hash is the same sha256 the
         # website uses, so the client links it rather than a second copy.
         src/HardwareId.cpp
-        # What an anti-cheat detection carries to staff: the machine it fired on.
+        # What an anti-cheat detection carries to staff: the machine it fired on,
+        # including whether the guard service behind it is running.
         src/SystemSnapshot.cpp
+        src/GuardStatus.cpp
         src/HttpClient.cpp
         # The client mixes its own sounds; the bank is synthesised, not shipped.
         src/Audio.cpp
@@ -450,6 +471,9 @@ if(LINEAR_BUILD_CLIENT)
         LinearGame linearwin linearmath linearphysics lineargl bcrypt)
     # winmm is the OS mixer waveOut lives in; no other audio dependency exists.
     target_link_libraries(Client PRIVATE ws2_32 shell32 comdlg32 winmm)
+    # advapi32 asks the service manager whether the guard is running, for the
+    # snapshot's "guard" line.
+    target_link_libraries(Client PRIVATE advapi32)
     if(TARGET LinearAntiCheat)
         target_compile_definitions(Client PRIVATE LINEAR_ANTICHEAT)
         target_link_libraries(Client PRIVATE LinearAntiCheat)
@@ -606,6 +630,12 @@ if(LINEAR_BUILD_TESTS)
     add_executable(ClientCheatReportTests tests/client_cheat_report_tests.cpp)
     target_include_directories(ClientCheatReportTests PRIVATE ${LINEARBUILD_CURRENT_SOURCE_DIR}/include)
     add_test(NAME ClientCheatReportTests COMMAND ClientCheatReportTests)
+
+    # The guard service's judgements: which programs are cheat tools, which folders
+    # a module should not have been loaded from, and the line it writes.
+    add_executable(GuardChecksTests tests/guard_checks_tests.cpp src/GuardChecks.cpp)
+    target_include_directories(GuardChecksTests PRIVATE ${LINEARBUILD_CURRENT_SOURCE_DIR}/include)
+    add_test(NAME GuardChecksTests COMMAND GuardChecksTests)
 
     add_executable(ObfuscatedTests tests/obfuscated_tests.cpp)
     target_include_directories(ObfuscatedTests PRIVATE ${LINEARBUILD_CURRENT_SOURCE_DIR}/include)

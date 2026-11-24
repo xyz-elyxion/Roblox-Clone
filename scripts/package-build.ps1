@@ -104,7 +104,7 @@ try {
     $exeDir = Join-Path $BuildDir $Configuration
     $found = @()
     $missing = @()
-    foreach ($name in @('WebApp', 'Server', 'Client', 'Studio', 'LinearCode', 'AiTrainer', 'LinearUpdater', 'LinearSetup', 'LinearHosts', 'LinearProxy', 'LinearGit', 'LinearHub', 'LinearCert', 'LinearDocs', 'ServerSetup')) {
+    foreach ($name in @('WebApp', 'Server', 'Client', 'Studio', 'LinearCode', 'AiTrainer', 'LinearUpdater', 'LinearSetup', 'LinearHosts', 'LinearProxy', 'LinearGit', 'LinearHub', 'LinearCert', 'LinearGuard', 'LinearDocs', 'ServerSetup')) {
         $exePath = Join-Path $exeDir "$name.exe"
         if (Test-Path -LiteralPath $exePath) {
             Copy-Item -LiteralPath $exePath -Destination $Output
@@ -243,6 +243,9 @@ try {
         '                repository that git itself can read (loose objects, refs, index)'
         '  LinearHub.exe     repository browser: files at HEAD, history, a commit page and'
         '                issues on http://127.0.0.1:3100, rendered from the repository'
+        '  LinearGuard.exe   anti-cheat service: watches the game from outside Client.exe for'
+        '                cheat tools running on the machine and modules loaded into the client'
+        '                from a folder any program can write to (HOW TO RUN, below)'
         '  LinearGame.dll    the game simulation Client.exe, Server.exe, Studio.exe and'
         '                AiTrainer.exe load: worlds, parts, physics, the character, the avatar'
         '  docs/         the Markdown LinearDocs.exe shows (README.md and the topic files)'
@@ -266,6 +269,9 @@ try {
         '  ServerSetup.exe     sets this folder up as a server and starts the website (below)'
         '  AiTrainer.exe       headless trainer, run it from this folder with the flags below'
         '  LinearHosts.exe up    keeps a pool of servers running on their own ports (HOSTING below)'
+        '  LinearGuard.exe --install   installs the anti-cheat service so it starts with'
+        '                      Windows; it needs an elevated prompt, and --status says whether'
+        '                      it is running (the client works without it)'
         '  LinearGit.exe init .  makes a repository in this folder; add .,'
         '                      commit -m "first" and log are the rest of it'
         '  LinearHub.exe         browses the repository this folder is inside on port 3100'

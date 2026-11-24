@@ -1,5 +1,7 @@
 #include "SystemSnapshot.h"
 
+#include "GuardStatus.h"
+
 #include <cstdio>
 #include <cstring>
 #include <cwchar>
@@ -485,6 +487,10 @@ std::string systemSnapshot(const SnapshotLimits& limits, const SnapshotSubject& 
     lines.field("process", processFacts());
     lines.field("os", osDescription());
     lines.field("architecture", architectureName());
+    // Whether the check that runs outside this process is running: a client with
+    // no guard behind it is a client that took the guard away, and the review
+    // needs to see that on the snapshot rather than infer it.
+    lines.field("guard", linear::guard::serviceFacts());
 
     char computerName[MAX_COMPUTERNAME_LENGTH + 1] = {0};
     DWORD nameLength = MAX_COMPUTERNAME_LENGTH;

@@ -207,6 +207,49 @@ inline SnapshotSubject subjectFromDetection(const std::string& detail) {
         }
     }
 
+    // The guard service's two shapes: "Process <name> (pid <n>) is running on
+    // this machine" and "Module <path> was loaded into the game from a folder any
+    // program can write to". They arrive through the same tail, from the log the
+    // service writes outside the process, and anchor the same way.
+    const std::string runningHead = "Process ";
+    const std::string runningTail = " is running on this machine";
+    if (subject.processName.empty() && subject.processId == 0 &&
+        detail.rfind(runningHead, 0) == 0) {
+        const std::size_t end = detail.find(runningTail);
+        if (end != std::string::npos && end > runningHead.size()) {
+            std::string named = detail.substr(runningHead.size(), end - runningHead.size());
+            // The service writes "name (pid 1234)"; both parts are worth having.
+            const std::size_t pidAt = named.rfind(" (pid ");
+            if (pidAt != std::string::npos && !named.empty() && named.back() == ')') {
+                const std::string digits =
+                    named.substr(pidAt + 6, named.size() - pidAt - 7);
+                unsigned long pid = 0;
+                bool numeric = !digits.empty();
+                for (char c : digits) {
+                    if (c < '0' || c > '9') {
+                        numeric = false;
+                        break;
+                    }
+                    pid = pid * 10 + static_cast<unsigned long>(c - '0');
+                }
+                if (numeric) {
+                    subject.processId = pid;
+                    named = named.substr(0, pidAt);
+                }
+            }
+            subject.processName = named;
+        }
+    }
+
+    const std::string loadedHead = "Module ";
+    const std::string loadedTail = " was loaded into the game";
+    if (subject.modulePath.empty() && detail.rfind(loadedHead, 0) == 0) {
+        const std::size_t end = detail.find(loadedTail);
+        if (end != std::string::npos && end > loadedHead.size()) {
+            subject.modulePath = detail.substr(loadedHead.size(), end - loadedHead.size());
+        }
+    }
+
     // "Detected a window with text '<title>' (includes open folder names)"
     const std::string windowHead = "Detected a window with text '";
     if (detail.rfind(windowHead, 0) == 0) {

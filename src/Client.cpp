@@ -693,6 +693,7 @@ void reportClientProblem(const std::string& stage, const std::string& reason) {
 
 #if defined(LINEAR_ANTICHEAT)
 #include "ClientCheatReport.h"
+#include "GuardStatus.h"
 #include "HardwareId.h"
 #include "SystemSnapshot.h"
 
@@ -708,6 +709,83 @@ namespace {
     std::atomic<bool> punishmentPending{false};
     std::mutex punishmentMutex;
     std::string punishmentMessage;
+
+    // Posts one filed detection with the snapshot that explains it. Two readers
+    // produce detections - this process's log and the guard service's - so the
+    // request body and the thread that carries it are written once.
+    void postDetection(const std::string& flag, const std::string& filed,
+                       const linear::anticheat::SnapshotSubject& subject) {
+        const std::string url = automaticWebServerUrl() + "/api/client-detections";
+        const std::string token = authToken;
+        std::thread([url, flag, filed, subject, token]() {
+            const std::string body =
+                "{\"flag\":\"" + flag + "\",\"detail\":\"" + Auth::jsonEscape(filed) +
+                "\",\"hardwareId\":\"" + Auth::jsonEscape(linear::hwid::machineId()) +
+                "\",\"snapshot\":\"" +
+                Auth::jsonEscape(linear::anticheat::systemSnapshot(
+                    linear::anticheat::SnapshotLimits(), subject)) +
+                "\"}";
+            const std::string reply = Auth::httpPost(url, body, token);
+            if (reply.empty()) {
+                return;
+            }
+            std::string parseError;
+            const linear::web::Json answer = linear::web::Json::parse(reply, &parseError);
+            if (!answer.member("restricted").asBool(false)) {
+                return;
+            }
+            // The account is suspended or banned now. The player is told why
+            // and taken out of the game rather than left playing until the
+            // token happens to expire.
+            {
+                std::lock_guard<std::mutex> lock(punishmentMutex);
+                punishmentMessage = answer.member("message").asString();
+            }
+            punishmentPending = true;
+        }).detach();
+    }
+
+    // What the guard service found, from the log it writes outside this process.
+    // A check that runs there survives a client that has been frozen or patched,
+    // so its lines are filed the same way and keep their own flag: the admin
+    // console shows whether a detection came from inside the game or beside it.
+    // The file not existing is the normal state of a machine without the service.
+    void pollGuardDetections() {
+        static std::unique_ptr<linear::anticheat::LogTail> guardTail;
+        if (!guardTail) {
+            guardTail = std::make_unique<linear::anticheat::LogTail>();
+        }
+
+        std::vector<std::string> lines;
+        const std::string path = linear::guard::logPath();
+        if (path.empty() || !guardTail->poll(path, &lines)) {
+            return;
+        }
+
+        for (const std::string& line : lines) {
+            const std::string detail = linear::anticheat::detectionDetail(line);
+            if (detail.empty()) {
+                continue;
+            }
+
+            // The service writes one line per finding, already deduplicated on
+            // its side; the client still remembers it, so a service restarted
+            // mid-session does not file the same tool twice.
+            const std::string key = "guard\n" + detail;
+            bool alreadySent = false;
+            for (const std::string& sent : reportedDetections) {
+                if (sent == key) {
+                    alreadySent = true;
+                    break;
+                }
+            }
+            if (alreadySent || reportedDetections.size() >= 64) {
+                continue;
+            }
+            reportedDetections.push_back(key);
+            postDetection("guard", detail, linear::anticheat::subjectFromDetection(detail));
+        }
+    }
 
     // The anti-cheat library writes its detections to LinearAntiCheat.log and
     // nowhere else: its own transport is switched off, and it speaks a protocol
@@ -729,6 +807,10 @@ namespace {
             return;
         }
         lastDetectionPoll = now;
+
+        // The service first: its lines come from outside this process, so a
+        // client that has stopped its own checks still reports them.
+        pollGuardDetections();
 
         if (!detectionTail) {
             detectionTail = std::make_unique<linear::anticheat::LogTail>();
@@ -768,10 +850,12 @@ namespace {
             const std::string filed = linear::anticheat::canonicalDetection(detail);
 
             // The library repeats a detection every time its check runs, so the
-            // same detection is only sent once.
+            // same detection is only sent once. The guard's findings share the
+            // list, so their keys are marked apart from these.
+            const std::string key = "anticheat\n" + filed;
             bool alreadySent = false;
             for (const std::string& sent : reportedDetections) {
-                if (sent == filed) {
+                if (sent == key) {
                     alreadySent = true;
                     break;
                 }
@@ -779,7 +863,7 @@ namespace {
             if (alreadySent || reportedDetections.size() >= 64) {
                 continue;
             }
-            reportedDetections.push_back(filed);
+            reportedDetections.push_back(key);
 
             // The detection is what fired; the snapshot is the machine it fired
             // on. They travel together so a reviewer reads the check's label
@@ -791,34 +875,7 @@ namespace {
             // render thread is drawing.
             const linear::anticheat::SnapshotSubject subject =
                 linear::anticheat::subjectFromDetection(detail);
-            const std::string url = automaticWebServerUrl() + "/api/client-detections";
-            const std::string token = authToken;
-            std::thread([url, filed, subject, token]() {
-                const std::string body =
-                    "{\"flag\":\"anticheat\",\"detail\":\"" + Auth::jsonEscape(filed) +
-                    "\",\"hardwareId\":\"" + Auth::jsonEscape(linear::hwid::machineId()) +
-                    "\",\"snapshot\":\"" +
-                    Auth::jsonEscape(linear::anticheat::systemSnapshot(
-                        linear::anticheat::SnapshotLimits(), subject)) +
-                    "\"}";
-                const std::string reply = Auth::httpPost(url, body, token);
-                if (reply.empty()) {
-                    return;
-                }
-                std::string parseError;
-                const linear::web::Json answer = linear::web::Json::parse(reply, &parseError);
-                if (!answer.member("restricted").asBool(false)) {
-                    return;
-                }
-                // The account is suspended or banned now. The player is told why
-                // and taken out of the game rather than left playing until the
-                // token happens to expire.
-                {
-                    std::lock_guard<std::mutex> lock(punishmentMutex);
-                    punishmentMessage = answer.member("message").asString();
-                }
-                punishmentPending = true;
-            }).detach();
+            postDetection("anticheat", filed, subject);
         }
     }
 }  // namespace

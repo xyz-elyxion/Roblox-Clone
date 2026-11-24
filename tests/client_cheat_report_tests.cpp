@@ -111,6 +111,50 @@ int main() {
               "Module 'ntdll.dll' was modified",
           "a modified module is still its own detection");
 
+    // What the check named travels in the snapshot, because the filed text does
+    // not: the module scan's label is the same for every module it distrusts.
+    using linear::anticheat::subjectFromDetection;
+    const linear::anticheat::SnapshotSubject moduleSubject = subjectFromDetection(
+        "Module C:\\WINDOWS\\system32\\wbem\\wbemprox.dll is not signed by a trusted "
+        "publisher");
+    check(moduleSubject.modulePath == "C:\\WINDOWS\\system32\\wbem\\wbemprox.dll",
+          "the module scan's subject is the path it named");
+    check(moduleSubject.processName.empty() && moduleSubject.processId == 0 &&
+              moduleSubject.windowTitle.empty(),
+          "a module subject names nothing else");
+    check(subjectFromDetection("Checksum for module LinearGame.dll, section .text is "
+                               "different, tampering detected")
+                  .modulePath == "LinearGame.dll",
+          "a checksum detection names its module");
+    check(subjectFromDetection("Hooked IAT detected: kernel32.dll at 7FFB2C10").modulePath ==
+              "kernel32.dll",
+          "a hooked IAT names the module it points into");
+    check(subjectFromDetection("Process cheatengine-x86_64.exe has open process handle to "
+                               "our process.")
+                  .processName == "cheatengine-x86_64.exe",
+          "a handle detection names the process behind it");
+    check(subjectFromDetection("Handle 12 from process 29916 is referencing our process.")
+                  .processId == 29916,
+          "a handle detection carries the pid behind the handle");
+    check(subjectFromDetection("Handle ABC from process 12 is referencing our process.")
+                  .processId == 12,
+          "a non-numeric handle value does not stop the pid being read");
+    check(subjectFromDetection("Blacklisted process was spawned: C:\\cheats\\aim.exe")
+                  .processName == "C:\\cheats\\aim.exe",
+          "a spawned blacklisted process is named as it was logged");
+    check(subjectFromDetection("Blacklisted process was found through byte signature: "
+                               "C:\\cheats\\aim.exe")
+                  .processName == "C:\\cheats\\aim.exe",
+          "a byte-signature match names the process it scanned");
+    check(subjectFromDetection("Detected a window with text 'Cheat Engine 7.5' (includes "
+                               "open folder names)")
+                  .windowTitle == "Cheat Engine 7.5",
+          "a window detection names the text it looked for");
+    check(subjectFromDetection("Hypervisor was present with vendor: KVM").empty(),
+          "a detection that names nothing carries no subject");
+    check(subjectFromDetection("Module 'ntdll.dll' was modified").empty(),
+          "the modified-module line keeps its name in the filed text instead");
+
     std::string longLine = "[t] [DETECTION] ";
     longLine.append(400, 'x');
     check(detectionDetail(longLine).size() == 300, "a long detail is clipped to the limit");

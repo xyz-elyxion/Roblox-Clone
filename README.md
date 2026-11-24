@@ -591,6 +591,13 @@ bounded system snapshot to every detection it files (`include/SystemSnapshot.h`,
 client's own path, process id, uptime and handle count, the modules it has loaded (base, size, path) and
 the processes running beside it (pid, parent pid, name).
 
+It opens with what the check itself named, looked up in the machine as it is at that moment: the module a
+scan distrusted and where it sits in memory (or that it is no longer loaded), the process behind an open
+handle with its pid, parent and image path (or that it is no longer running), and whether a window title a
+check looked for is still on the desktop. The name never travels in the detection text — the ladder files
+one label per scan, not six — so this is where staff see what tripped it, instead of searching the lists
+below for it.
+
 It is plain text, capped at a few kilobytes, and carries no file contents, no credential and no
 environment variable. The website stores it with the detection (`snapshot` on `POST
 /api/client-detections`) and the wave copies it onto the action that detection produced, so it is still

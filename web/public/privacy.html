@@ -110,8 +110,11 @@
                         something suspicious, it sends a short plain-text snapshot of the machine running it: the
                         Windows version and architecture, the computer and account name, the client's own folder,
                         its process id, uptime and open-handle count, the libraries it has loaded (with where they
-                        sit on disk) and the processes running beside it (their ids and names). It holds no file
-                        contents, no password, no environment variable and no screenshot. It is kept with the
+                        sit on disk) and the processes running beside it (their ids and names). When the check
+                        that fired named a particular library, program or window, that name is included along
+                        with what it is doing now — where the library is loaded from, or the file a named
+                        program runs from. It holds no file contents, no password, no environment variable and
+                        no screenshot. It is kept with the
                         detection, including after the detection has been actioned, so staff can check what the
                         client actually saw.</li>
                     <li><strong>Safety choices.</strong> The accounts you blocked and the reports you filed. A report

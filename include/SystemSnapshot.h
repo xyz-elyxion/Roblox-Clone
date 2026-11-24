@@ -9,6 +9,13 @@
 // sees the injector or the trainer the check tripped over, or sees that a
 // signature false positive came from a clean machine.
 //
+// The check that fired usually named what it found - a module path, a process, a
+// window title - and that name is folded away before the detection reaches the
+// site, because one scan that names six modules is one finding on the ladder. A
+// SnapshotSubject carries the name here, so the snapshot can put it first and say
+// where it is now, instead of leaving staff to look for it in a list the
+// per-machine cap may already have cut.
+//
 // It is plain text on purpose. Staff read it in the admin console, it is stored
 // with the detection, and text survives being pasted into a report unchanged. It
 // is bounded, because a machine with four hundred processes must not turn one
@@ -41,11 +48,32 @@ struct SnapshotLimits {
 // so the client and the site agree without the site having to tell the client.
 const std::size_t kMaxSnapshotCharacters = 12000;
 
+// What the detection line named, when it named anything. Every field is optional
+// and every field comes from the log the reviewed machine writes, so none of it
+// is trusted: the snapshot treats it as a claim to look up, not as a fact.
+struct SnapshotSubject {
+    // A module the check named - a full path from the module scan, or a bare
+    // module name from the checksum and IAT checks.
+    std::string modulePath;
+    // A process the check named, by name or by full path.
+    std::string processName;
+    // The pid behind an open handle, when the line carried one.
+    unsigned long processId = 0;
+    // Window text a check looked for.
+    std::string windowTitle;
+
+    bool empty() const {
+        return modulePath.empty() && processName.empty() && processId == 0 &&
+               windowTitle.empty();
+    }
+};
+
 // A description of this machine and this process: one "key: value" line per
-// fact, then the module and process lists. Never empty - a fact that cannot be
-// read leaves a line saying so, so staff can tell "clean" from "the client could
-// not look".
-std::string systemSnapshot(const SnapshotLimits& limits = SnapshotLimits());
+// fact, the subject the check named if there is one, then the module and process
+// lists. Never empty - a fact that cannot be read leaves a line saying so, so
+// staff can tell "clean" from "the client could not look".
+std::string systemSnapshot(const SnapshotLimits& limits = SnapshotLimits(),
+                           const SnapshotSubject& subject = SnapshotSubject());
 
 }  // namespace anticheat
 }  // namespace linear

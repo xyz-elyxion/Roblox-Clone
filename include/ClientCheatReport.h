@@ -19,6 +19,8 @@
 #include <string>
 #include <vector>
 
+#include "SystemSnapshot.h"
+
 namespace linear::anticheat {
 
 // The library logs "[timestamp] [DETECTION] message". Everything else in the
@@ -119,6 +121,102 @@ inline std::string canonicalDetection(const std::string& detail) {
         return "Loaded a module that is not signed by a trusted publisher";
     }
     return detail;
+}
+
+// What the line named, for the snapshot to look up. The module scan and the
+// handle scan collapse to one label each (canonicalDetection below), so the name
+// in the raw line is the only record of what the check actually saw; this pulls
+// it out before that happens. A line that names nothing - a hypervisor vendor, a
+// hooked section of our own module - leaves an empty subject, and the snapshot
+// then carries only its facts and its lists.
+inline SnapshotSubject subjectFromDetection(const std::string& detail) {
+    SnapshotSubject subject;
+
+    // "Module <path> is not signed by a trusted publisher"
+    const std::string unsignedHead = "Module ";
+    const std::string unsignedTail = " is not signed by a trusted publisher";
+    if (detail.rfind(unsignedHead, 0) == 0) {
+        const std::size_t end = detail.find(unsignedTail);
+        if (end != std::string::npos && end > unsignedHead.size()) {
+            subject.modulePath = detail.substr(unsignedHead.size(), end - unsignedHead.size());
+        }
+    }
+
+    // "Checksum for module <name>, section <name> is different, tampering detected"
+    const std::string checksumHead = "Checksum for module ";
+    if (detail.rfind(checksumHead, 0) == 0) {
+        const std::size_t end = detail.find(", section ");
+        if (end != std::string::npos && end > checksumHead.size()) {
+            subject.modulePath = detail.substr(checksumHead.size(), end - checksumHead.size());
+        }
+    }
+
+    // "Hooked IAT detected: <module> at <address>"
+    const std::string hookedHead = "Hooked IAT detected: ";
+    if (detail.rfind(hookedHead, 0) == 0) {
+        const std::size_t end = detail.find(" at ", hookedHead.size());
+        if (end != std::string::npos && end > hookedHead.size()) {
+            subject.modulePath = detail.substr(hookedHead.size(), end - hookedHead.size());
+        }
+    }
+
+    // "Process <name> has open process handle to our process."
+    const std::string handleHead = "Process ";
+    const std::string handleTail = " has open process handle to our process.";
+    if (detail.rfind(handleHead, 0) == 0) {
+        const std::size_t end = detail.find(handleTail);
+        if (end != std::string::npos && end > handleHead.size()) {
+            subject.processName = detail.substr(handleHead.size(), end - handleHead.size());
+        }
+    }
+
+    // "Blacklisted process was spawned: <name>" and its byte-scan sibling.
+    const char* const spawnedHeads[] = {"Blacklisted process was spawned: ",
+                                        "Blacklisted process was found through byte signature: "};
+    for (const char* head : spawnedHeads) {
+        const std::string prefix(head);
+        if (detail.rfind(prefix, 0) == 0 && detail.size() > prefix.size()) {
+            subject.processName = detail.substr(prefix.size());
+        }
+    }
+
+    // "Handle <value> from process <pid> is referencing our process."
+    const std::string fromProcess = " from process ";
+    const std::string referencing = " is referencing our process.";
+    if (detail.rfind("Handle ", 0) == 0) {
+        const std::size_t at = detail.find(fromProcess);
+        if (at != std::string::npos && at > std::string("Handle ").size()) {
+            const std::size_t start = at + fromProcess.size();
+            const std::size_t end = detail.find(referencing, start);
+            if (end != std::string::npos && end > start) {
+                // A pid is decimal digits; anything else is not one worth naming.
+                unsigned long pid = 0;
+                bool numeric = true;
+                for (std::size_t i = start; i < end; ++i) {
+                    const char c = detail[i];
+                    if (c < '0' || c > '9' || pid > 429496729ul) {
+                        numeric = false;
+                        break;
+                    }
+                    pid = pid * 10 + static_cast<unsigned long>(c - '0');
+                }
+                if (numeric) {
+                    subject.processId = pid;
+                }
+            }
+        }
+    }
+
+    // "Detected a window with text '<title>' (includes open folder names)"
+    const std::string windowHead = "Detected a window with text '";
+    if (detail.rfind(windowHead, 0) == 0) {
+        const std::size_t end = detail.find('\'', windowHead.size());
+        if (end != std::string::npos && end > windowHead.size()) {
+            subject.windowTitle = detail.substr(windowHead.size(), end - windowHead.size());
+        }
+    }
+
+    return subject;
 }
 
 // Every detection in a chunk of log text, in the order the library wrote them.

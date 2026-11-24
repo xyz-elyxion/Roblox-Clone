@@ -783,16 +783,23 @@ namespace {
 
             // The detection is what fired; the snapshot is the machine it fired
             // on. They travel together so a reviewer reads the check's label
-            // beside the modules and processes that explain it. The snapshot is
-            // built on the worker thread: walking every process costs a frame and
-            // the render thread is drawing.
+            // beside the modules and processes that explain it. What the line
+            // named travels in the snapshot: `filed` has the family label the
+            // ladder counts, and the raw line has the module or process that
+            // tripped it, which is what a review acts on. The snapshot is built
+            // on the worker thread: walking every process costs a frame and the
+            // render thread is drawing.
+            const linear::anticheat::SnapshotSubject subject =
+                linear::anticheat::subjectFromDetection(detail);
             const std::string url = automaticWebServerUrl() + "/api/client-detections";
             const std::string token = authToken;
-            std::thread([url, filed, token]() {
+            std::thread([url, filed, subject, token]() {
                 const std::string body =
                     "{\"flag\":\"anticheat\",\"detail\":\"" + Auth::jsonEscape(filed) +
                     "\",\"hardwareId\":\"" + Auth::jsonEscape(linear::hwid::machineId()) +
-                    "\",\"snapshot\":\"" + Auth::jsonEscape(linear::anticheat::systemSnapshot()) +
+                    "\",\"snapshot\":\"" +
+                    Auth::jsonEscape(linear::anticheat::systemSnapshot(
+                        linear::anticheat::SnapshotLimits(), subject)) +
                     "\"}";
                 const std::string reply = Auth::httpPost(url, body, token);
                 if (reply.empty()) {

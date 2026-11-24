@@ -255,9 +255,13 @@ the system volume serial and the computer name; the raw values never leave the c
 
 A client detection also carries a bounded system snapshot — OS build and architecture, computer and
 account name, the client's path, process id, uptime and handle count, its loaded modules and the
-processes running beside it, as text, with no file contents, credential or environment variable. It is
-stored with the detection and readable only through `GET /api/admin/users/:id/detections`, which needs
-the moderation permission. `POST /api/admin/users/:id/moderation` accepts `blacklist`, which bans the
+processes running beside it, as text, with no file contents, credential or environment variable. When
+the detection itself named a module, a process or a window, that name is repeated at the top of the
+snapshot, resolved against the machine at report time: whether the module is loaded and where, whether
+the process is running and the image it runs from. Those names are read out of a log the client machine
+writes, so they are quoted as that machine's claim and carry no more weight than the rest of the
+snapshot. It is stored with the detection and readable only through
+`GET /api/admin/users/:id/detections`, which needs the moderation permission. `POST /api/admin/users/:id/moderation` accepts `blacklist`, which bans the
 account and puts its machine on the hardware ban list, and needs the hardware-ban permission as well,
 which is also what `GET /api/admin/hardware-bans` and its lift route check. Staff read and lift those
 bans in the console's **Blacklist** section, which a role without that permission does not see;

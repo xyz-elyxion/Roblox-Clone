@@ -2219,6 +2219,20 @@ int main(int argc, char** argv) {
                                 for (uint32_t i = 0; i < playerCount; i++) {
                                     playerList.push_back(players[i]);
                                     playerNames[players[i].playerId] = players[i].username;
+                                    // The server names a player from the account its join
+                                    // token belongs to, and this client sends its join
+                                    // request before that token has been checked: its own
+                                    // row was labelled "Guest" for the whole session while
+                                    // the site, the chat and every detection filed against
+                                    // the account used the real name. The player list is
+                                    // where the two meet, so take the server's answer.
+                                    if (players[i].playerId == myPlayerId) {
+                                        const std::string selfName = PacketProtocol::fixedString(
+                                            players[i].username, sizeof(players[i].username));
+                                        if (!selfName.empty()) {
+                                            copyToBuffer(myUsername, sizeof(myUsername), selfName);
+                                        }
+                                    }
                                     const std::string faceId = normalizeFaceId(PacketProtocol::fixedString(players[i].faceId, sizeof(players[i].faceId)));
                                     
                                     // Apply avatar colors to remote character if it exists

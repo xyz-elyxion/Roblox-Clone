@@ -401,6 +401,29 @@ void sendReport() {
                               : "Report sent about this game.");
 }
 
+// A row's action icons are laid out from its right edge inwards, so a name long
+// enough to reach them is painted first and covered by them: the row then reads as
+// a nameless entry whose buttons belong to nobody. Cut the name to the room the
+// icons leave and mark the cut.
+std::string fitTextToWidth(const std::string& text, float width) {
+    if (width <= 0.0f) {
+        return std::string();
+    }
+    if (LinearUI::CalcTextSize(text.c_str()).x <= width) {
+        return text;
+    }
+    const std::string tail = "...";
+    std::string cut = text;
+    while (!cut.empty() && LinearUI::CalcTextSize((cut + tail).c_str()).x > width) {
+        cut.pop_back();
+        // Remove a whole UTF-8 sequence rather than half of one.
+        while (!cut.empty() && (static_cast<unsigned char>(cut.back()) & 0xC0) == 0x80) {
+            cut.pop_back();
+        }
+    }
+    return cut + tail;
+}
+
 // The people in this session, the account itself first: that is the list a
 // player opens the menu to look at.
 void drawPeopleRows(float uiScale) {
@@ -418,7 +441,13 @@ void drawPeopleRows(float uiScale) {
     for (const PlayerInfo& player : playerList) {
         const std::string name =
             PacketProtocol::fixedString(player.username, sizeof(player.username));
-        if (name.empty() || name == myUsername) {
+        // The local player is the first row whatever the server calls them. The id
+        // is what says so: the client joins before its token has been verified, so
+        // its own name arrives from the server under the account name while the
+        // menu was still calling it "Guest", and comparing names put the same
+        // player in this list twice - once as you, once as a stranger with Add
+        // Friend, Block and Report buttons.
+        if (name.empty() || player.playerId == myPlayerId) {
             continue;
         }
         people.push_back(
@@ -457,15 +486,24 @@ void drawPeopleRows(float uiScale) {
                        person.head, person.torso, uiScale);
 
         const float textX = origin.x + edge + tile + UiScale::Px(12.0f, uiScale);
-        const LinearVec2 nameSize = LinearUI::CalcTextSize(person.name.c_str());
+        // What the icons below will take, so the name is cut to what is left
+        // rather than painted underneath them.
+        float reserved = mark;
+        if (!person.isMe) {
+            reserved += (mark + gap) * 2 + friendWidth + gap;
+        }
+        const float nameWidth = std::max(0.0f, (maxCorner.x - edge - reserved - gap) - textX);
+        const std::string shownName = fitTextToWidth(person.name, nameWidth);
+        const LinearVec2 nameSize = LinearUI::CalcTextSize(shownName.c_str());
         const std::string handle = linear::client_menu::handle(person.name);
+        const std::string shownHandle = fitTextToWidth(handle, nameWidth);
         const float lineGap = UiScale::Px(3.0f, uiScale);
         const float textHeight = handle.empty() ? nameSize.y : nameSize.y * 2.0f + lineGap;
         const float textY = origin.y + (rowHeight - textHeight) * 0.5f;
-        draw->AddText(LinearVec2(textX, textY), packedColor(palette.text), person.name.c_str());
-        if (!handle.empty()) {
+        draw->AddText(LinearVec2(textX, textY), packedColor(palette.text), shownName.c_str());
+        if (!shownHandle.empty()) {
             draw->AddText(LinearVec2(textX, textY + nameSize.y + lineGap),
-                          packedColor(palette.muted), handle.c_str());
+                          packedColor(palette.muted), shownHandle.c_str());
         }
 
         // Laid out from the right edge inwards, so a row that has no block or

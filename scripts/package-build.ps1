@@ -273,6 +273,8 @@ try {
         '  LinearGuard.exe --install   installs the anti-cheat service so it starts with'
         '                      Windows; it needs an elevated prompt, and --status says whether'
         '                      it is running (the client works without it)'
+        '  LinearGuard.exe --run --background   the same checks in your own session, started by'
+        '                      the installer when the machine cannot elevate (no administrator)'
         '  LinearGit.exe init .  makes a repository in this folder; add .,'
         '                      commit -m "first" and log are the rest of it'
         '  LinearHub.exe         browses the repository this folder is inside on port 3100'

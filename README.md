@@ -112,8 +112,9 @@ the bottom naming the job, counting the bytes copied and their rate, and showing
 pass that is running has an accent ring, the ones behind it a tick, and a failure is a red line in
 the list underneath them, so a setup that fails still says why. The folder field, the shortcut
 checkbox, the guard-service checkbox and the buttons live in the same window; ticking the guard
-raises Windows' administrator prompt after the copy, for that one step, and leaving it unticked -
-or dismissing the prompt - still leaves a complete install. `--no-ui` refuses the window for a script that
+raises Windows' administrator prompt after the copy, for that one step. Leaving it unticked still
+leaves a complete install, and so does a prompt that is dismissed or that the machine cannot
+answer at all: the guard then starts at sign-in as your user instead. `--no-ui` refuses the window for a script that
 wants the console, and a machine that cannot give the window a graphics context keeps the console it
 always had.
 
@@ -499,6 +500,16 @@ saying whether it is installed, running, and how long ago it last wrote its hear
 installing a service is not wanted; `--uninstall` removes it, and so does removing Linear through
 `LinearSetup.exe`, which takes the service out before the files it runs from. The client works
 either way — the service is a second pair of eyes, not a requirement to play.
+
+**When elevation itself is refused.** On an account that cannot answer a UAC prompt — a standard
+user, a machine where the prompt fails with the directory-service error *A referral was returned
+from the server*, a home folder on a network share — the installer does not stop there. It writes
+the same guard into `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` as
+`LinearGuard.exe --run --background`, starts it, and the snapshot reports
+`guard: running (user, started at logon)` instead of `(service)`. The checks are identical; what
+changes is the privilege they run with — the player's instead of LocalSystem's — so a process that
+account cannot open is not visible to it, and the player can end it from Task Manager. Removing
+Linear removes that entry too.
 
 ### The ladder
 

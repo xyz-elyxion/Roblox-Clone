@@ -1,6 +1,7 @@
 #include "GuardStatus.h"
 
 #include <cstdio>
+#include <fstream>
 #include <string>
 
 #ifndef WIN32_LEAN_AND_MEAN
@@ -33,6 +34,39 @@ long long secondsSince(const FILETIME& when) {
         return 0;
     }
     return static_cast<long long>((current.QuadPart - start.QuadPart) / 10000000ull);
+}
+
+// Which way the guard was started, read from the heartbeat it writes: "service"
+// when the service manager runs it, "user" when the machine starts it at logon.
+// Empty when there is no heartbeat, or the last one is old enough that the guard
+// is not running any more - a dead guard must not be reported as alive.
+std::string heartbeatMode() {
+    const std::string path = statePath();
+    if (path.empty()) {
+        return std::string();
+    }
+    WIN32_FILE_ATTRIBUTE_DATA attributes = {};
+    if (!GetFileAttributesExA(path.c_str(), GetFileExInfoStandard, &attributes) ||
+        secondsSince(attributes.ftLastWriteTime) > kStaleHeartbeatSeconds) {
+        return std::string();
+    }
+    std::ifstream file(path.c_str());
+    std::string line;
+    if (!std::getline(file, line)) {
+        return std::string();
+    }
+    const std::size_t at = line.find("mode=");
+    if (at == std::string::npos) {
+        return std::string();
+    }
+    std::string mode = line.substr(at + 5);
+    while (!mode.empty() && (mode.back() == '\r' || mode.back() == ' ')) {
+        mode.pop_back();
+    }
+    if (mode == "service" || mode == "user") {
+        return mode;
+    }
+    return std::string();
 }
 
 std::string heartbeatAge() {
@@ -135,6 +169,10 @@ std::string serviceFacts() {
         const DWORD code = GetLastError();
         CloseServiceHandle(manager);
         if (code == ERROR_SERVICE_DOES_NOT_EXIST) {
+            const std::string mode = heartbeatMode();
+            if (!mode.empty()) {
+                return "running (" + mode + ", started at logon), " + heartbeatAge();
+            }
             return std::string("not installed");
         }
         return std::string("installed, not visible to this account (Windows error ") +
@@ -146,11 +184,15 @@ std::string serviceFacts() {
     if (!QueryServiceStatus(service, &status)) {
         facts = "state unreadable (Windows error " + std::to_string(GetLastError()) + ")";
     } else if (status.dwCurrentState == SERVICE_RUNNING) {
-        facts = "running, " + heartbeatAge();
+        facts = "running (service), " + heartbeatAge();
     } else if (status.dwCurrentState == SERVICE_START_PENDING) {
         facts = "starting";
     } else if (status.dwCurrentState == SERVICE_STOP_PENDING) {
         facts = "stopping";
+    } else if (const std::string mode = heartbeatMode(); !mode.empty()) {
+        // The service is not running, but something is still writing its
+        // heartbeat: this machine starts the same guard at logon instead.
+        facts = "running (" + mode + ", started at logon), " + heartbeatAge();
     } else {
         facts = "installed, not running";
     }

@@ -275,7 +275,11 @@ any logged-in user can write to. Installing or removing it needs administrator r
 nothing else with them - it opens no network connection, reads no file contents and stores no
 credential. The only elevation the project asks for is that step: `LinearSetup.exe` raises one
 consent prompt for `LinearGuard.exe --install` and runs everything else unelevated, so declining
-it leaves a complete per-user install. What it finds goes into `%ProgramData%\Linear\LinearGuard.log` in the same detection
+it leaves a complete per-user install. When the machine cannot elevate at all - a standard account,
+a prompt that fails, a home folder on a network share - the installer writes the same guard into
+the current user's `Run` key and starts it there: the same checks, with the player's rights instead
+of LocalSystem's, which means the player can also end it. The snapshot says which of the two is
+running, so a review is never guessing. What it finds goes into `%ProgramData%\Linear\LinearGuard.log` in the same detection
 line shape the client already reads, and the client files those lines against the account that is
 signed in, so the service itself has no account, token or identity of its own. That file sits on
 the player's machine, where a local administrator can edit or delete it: the report is evidence for

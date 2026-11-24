@@ -441,6 +441,27 @@ std::string readVersion(const std::string& directory) {
     return "0.0.0";
 }
 
+// The message Windows has for an error code, so a failed step reports what went
+// wrong and not only a number: elevation refusing with "A referral was returned
+// from the server" is not something a number explains to a player.
+std::string windowsMessage(DWORD code) {
+    char* buffer = nullptr;
+    const DWORD length = FormatMessageA(
+        FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM |
+            FORMAT_MESSAGE_IGNORE_INSERTS,
+        nullptr, code, 0, reinterpret_cast<char*>(&buffer), 0, nullptr);
+    std::string text =
+        (length > 0 && buffer != nullptr) ? std::string(buffer, length) : std::string();
+    if (buffer != nullptr) {
+        LocalFree(buffer);
+    }
+    while (!text.empty() && (text.back() == '\n' || text.back() == '\r' || text.back() == '.' ||
+                             text.back() == ' ')) {
+        text.pop_back();
+    }
+    return text;
+}
+
 // Runs the installed guard elevated. Registering a service is the service
 // manager's business and needs an administrator, while the install itself is a
 // per-user copy: so only this one step asks, and Windows raises the prompt for
@@ -474,7 +495,7 @@ bool runGuardElevated(const std::string& target, const wchar_t* arguments,
         if (error != nullptr) {
             *error = code == ERROR_CANCELLED
                          ? "the administrator prompt was dismissed"
-                         : "Windows would not start it (error " + std::to_string(code) + ")";
+                         : windowsMessage(code) + " (Windows error " + std::to_string(code) + ")";
         }
     } else {
         DWORD exitCode = 1;
@@ -513,6 +534,60 @@ bool removeGuardService(const std::string& target, std::string* error) {
         return true;
     }
     return runGuardElevated(target, L"--uninstall", error);
+}
+
+// The guard without an administrator: a value in the current user's Run key. It
+// is the same program and the same checks, started at sign-in with the player's
+// rights instead of LocalSystem's. That is what a machine where elevation is
+// refused - a standard account, a home folder redirected to a network share -
+// can still have.
+bool installGuardAtLogon(const std::string& target, std::string* error) {
+    const fs::path guard = fs::path(target) / "LinearGuard.exe";
+    if (!fs::exists(guard)) {
+        if (error != nullptr) {
+            *error = "this build has no LinearGuard.exe";
+        }
+        return false;
+    }
+
+    const std::string command = "\"" + guard.string() + "\" --run --background";
+    HKEY key = nullptr;
+    if (RegCreateKeyExA(HKEY_CURRENT_USER, "Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+                        0, nullptr, 0, KEY_SET_VALUE, nullptr, &key, nullptr) != ERROR_SUCCESS) {
+        if (error != nullptr) {
+            *error = "could not open the current user's Run key";
+        }
+        return false;
+    }
+    const LONG written = RegSetValueExA(key, "LinearGuard", 0, REG_SZ,
+                                        reinterpret_cast<const BYTE*>(command.c_str()),
+                                        static_cast<DWORD>(command.size() + 1));
+    RegCloseKey(key);
+    if (written != ERROR_SUCCESS) {
+        if (error != nullptr) {
+            *error = "could not write the Run entry (Windows error " +
+                     std::to_string(written) + ")";
+        }
+        return false;
+    }
+
+    // Start it now as well: the guard should be watching this session, not the
+    // next one. It exits by itself if one is already running.
+    _spawnl(_P_NOWAIT, guard.string().c_str(), guard.string().c_str(), "--run", "--background",
+            static_cast<char*>(nullptr));
+    return true;
+}
+
+bool removeGuardAtLogon() {
+    HKEY key = nullptr;
+    if (RegOpenKeyExA(HKEY_CURRENT_USER,
+                      "Software\\Microsoft\\Windows\\CurrentVersion\\Run", 0, KEY_SET_VALUE,
+                      &key) != ERROR_SUCCESS) {
+        return false;
+    }
+    const LONG removed = RegDeleteValueA(key, "LinearGuard");
+    RegCloseKey(key);
+    return removed == ERROR_SUCCESS;
 }
 
 int install(const Options& options, const std::string& source) {
@@ -648,20 +723,33 @@ int install(const Options& options, const std::string& source) {
     // already a working install whether this step happens or not.
     if (options.guard) {
         if (linear::guard::running()) {
-            print(options, "  the anti-cheat guard service is already running");
+            print(options, "  the anti-cheat guard is already running");
         } else {
             std::string guardError;
             if (installGuardService(target, &guardError)) {
                 print(options, "  installed and started the anti-cheat guard service");
+                // An earlier run may have fallen back to the logon entry when it
+                // could not elevate; now that the service works, that copy would be
+                // a second guard for no reason.
+                if (removeGuardAtLogon()) {
+                    print(options, "  removed the earlier start-at-sign-in entry");
+                }
             } else {
                 print(options, "  the anti-cheat guard service was not installed: " + guardError);
-                print(options, "  the game works without it; run \"" +
-                                   (fs::path(target) / "LinearGuard.exe").string() +
-                                   " --install\" from an administrator prompt to add it");
+                // Only the elevation failed, so do the same job the way an account
+                // that cannot elevate can: the guard's own start-up entry, which
+                // needs no administrator at all.
+                std::string logonError;
+                if (installGuardAtLogon(target, &logonError)) {
+                    print(options, "  starting the guard at sign-in instead, as your user: the "
+                                   "same checks without an administrator");
+                } else {
+                    printError("the guard was not installed: " + logonError);
+                }
             }
         }
     } else {
-        print(options, "  the anti-cheat guard service was skipped (--guard installs it)");
+        print(options, "  the anti-cheat guard was skipped (--guard installs it)");
     }
 
     print(options, "installed; start it with " + target);
@@ -700,6 +788,11 @@ int uninstall(const Options& options, const char* argv0) {
             printError("the anti-cheat guard service is still installed: " + guardError +
                        "; remove it with \"sc delete LinearGuard\" from an administrator prompt");
         }
+    }
+    // The per-user start-up goes with it: a Run entry pointing at a program that
+    // has just been deleted would fail at every sign-in.
+    if (removeGuardAtLogon()) {
+        print(options, "  removed the guard's start-in-Windows entry");
     }
 
     if (g_stage) g_stage(0);
@@ -845,7 +938,7 @@ int windowed(Options& options, const std::string& source, const char* argv0) {
     // an administrator, and it is the user's machine.
     window.showExtra = !options.uninstall;
     window.extra = options.guard;
-    window.extraLabel = "Install the anti-cheat guard service (administrator)";
+    window.extraLabel = "Install the anti-cheat guard (administrator for the service)";
 
     const std::vector<std::string> actions =
         options.uninstall ? std::vector<std::string>{"Close"}

@@ -59,6 +59,11 @@ HANDLE g_stopEvent = nullptr;
 bool g_consoleStop = false;
 std::vector<std::string> g_reported;
 
+// How this guard was started, written into its heartbeat: "service" when the
+// service manager runs it, "user" when it was started at logon instead. The
+// client reports which, because the two have different privileges.
+const char* g_mode = "service";
+
 std::string narrow(const wchar_t* text) {
     if (text == nullptr || *text == L'\0') {
         return std::string();
@@ -148,7 +153,8 @@ void writeState() {
         return;
     }
     std::ofstream file(path.c_str(), std::ios::binary | std::ios::trunc);
-    file << "running " << utcNow() << " pid " << GetCurrentProcessId() << "\n";
+    file << "running " << utcNow() << " pid " << GetCurrentProcessId() << " mode=" << g_mode
+         << "\n";
 }
 
 std::string imagePathOf(unsigned long pid) {
@@ -467,34 +473,68 @@ bool uninstallService(std::string* error) {
 
 void printUsage(const char* program) {
     std::printf(
-        "LinearGuard - the anti-cheat that runs as a Windows service\n"
+        "LinearGuard - the anti-cheat that watches the game from outside it\n"
         "\n"
         "  %s --install      register it with the service manager and start it\n"
         "                    (needs an elevated command prompt)\n"
         "  %s --uninstall    stop it and remove it\n"
         "  %s --status       what the client's snapshot says about it\n"
         "  %s --run          run the checks here, once every %lu seconds, until Ctrl+C\n"
+        "                    (--background starts it without a console)\n"
         "\n"
-        "The service watches every running Client.exe from outside the game: cheat\n"
+        "The guard watches every running Client.exe from outside the game: cheat\n"
         "tools running on the machine, and modules loaded into the client from a\n"
         "folder any program can write to. What it finds goes into\n"
         "%%ProgramData%%\\Linear\\LinearGuard.log, which the client reads and files\n"
-        "against the signed-in account.\n",
+        "against the signed-in account.\n"
+        "\n"
+        "A machine where the player cannot elevate the service runs the same program\n"
+        "from the user's Run key instead: --run --background, with the user's rights.\n",
         program, program, program, program, static_cast<unsigned long>(kCycleMilliseconds / 1000));
 }
 
 }  // namespace
 
 int main(int argc, char** argv) {
-    const std::string mode = argc > 1 ? argv[1] : std::string();
+    std::vector<std::string> arguments;
+    for (int i = 1; i < argc; ++i) {
+        arguments.push_back(argv[i]);
+    }
+    const auto has = [&arguments](const char* flag) {
+        for (const std::string& argument : arguments) {
+            if (argument == flag) {
+                return true;
+            }
+        }
+        return false;
+    };
 
-    if (mode == "--help" || mode == "-h" || mode == "/?") {
+    if (has("--help") || has("-h") || has("/?")) {
         printUsage(argv[0]);
         return 0;
     }
 
+    // A flag this build does not know is a typo, not a mode: say so instead of
+    // falling through to the service manager, which would wait forever for one.
+    static const char* const known[] = {"--install", "--uninstall", "--status", "--run",
+                                        "--service", "--background"};
+    for (const std::string& argument : arguments) {
+        bool recognised = false;
+        for (const char* flag : known) {
+            if (argument == flag) {
+                recognised = true;
+                break;
+            }
+        }
+        if (!recognised) {
+            std::fprintf(stderr, "LinearGuard: unknown option \"%s\". Use --help.\n",
+                         argument.c_str());
+            return 1;
+        }
+    }
+
     std::string error;
-    if (mode == "--install") {
+    if (has("--install")) {
         if (!installService(&error)) {
             std::fprintf(stderr, "LinearGuard: %s\n", error.c_str());
             return 1;
@@ -504,7 +544,7 @@ int main(int argc, char** argv) {
         return 0;
     }
 
-    if (mode == "--uninstall") {
+    if (has("--uninstall")) {
         if (!uninstallService(&error)) {
             std::fprintf(stderr, "LinearGuard: %s\n", error.c_str());
             return 1;
@@ -513,29 +553,50 @@ int main(int argc, char** argv) {
         return 0;
     }
 
-    if (mode == "--status") {
+    if (has("--status")) {
         std::printf("guard: %s\n", linear::guard::serviceFacts().c_str());
         std::printf("log:   %s\n", linear::guard::logPath().c_str());
         return 0;
     }
 
-    if (mode == "--run") {
+    if (has("--run")) {
+        // The logon start-up uses this: no console window, and one guard per
+        // session, because Windows can start the same value twice.
+        const bool background = has("--background");
+        if (background) {
+            FreeConsole();
+        }
+
+        HANDLE single = CreateMutexW(nullptr, TRUE, L"Local\\LinearGuard");
+        const DWORD mutexState = GetLastError();
+        if (single == nullptr || mutexState == ERROR_ALREADY_EXISTS) {
+            if (single != nullptr) {
+                CloseHandle(single);
+            }
+            if (!background) {
+                std::printf("LinearGuard: already running in this session.\n");
+            }
+            return 0;
+        }
+
+        g_mode = "user";
         SetConsoleCtrlHandler(consoleHandler, TRUE);
         if (!linear::guard::ensureFolder(&error)) {
-            std::fprintf(stderr, "LinearGuard: %s\n", error.c_str());
+            if (!background) {
+                std::fprintf(stderr, "LinearGuard: %s\n", error.c_str());
+            }
+            CloseHandle(single);
             return 1;
         }
-        std::printf("LinearGuard: watching from this console; Ctrl+C stops it.\n");
+        if (!background) {
+            std::printf("LinearGuard: watching as your user; Ctrl+C stops it.\n");
+        }
         while (!g_consoleStop) {
             runCycle();
             Sleep(kCycleMilliseconds);
         }
+        CloseHandle(single);
         return 0;
-    }
-
-    if (!mode.empty() && mode != "--service") {
-        std::fprintf(stderr, "LinearGuard: unknown option \"%s\". Use --help.\n", mode.c_str());
-        return 1;
     }
 
     // Started by the service manager. Started by hand with no flag it comes back

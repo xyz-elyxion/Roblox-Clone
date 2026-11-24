@@ -781,6 +781,7 @@ Result run(Options& options, const std::vector<std::string>& actions,
     char folderBuffer[1024] = {};
     std::snprintf(folderBuffer, sizeof(folderBuffer), "%s", options.folder.c_str());
     bool shortcuts = options.shortcuts;
+    bool extra = options.extra;
 
     // One buffer per field, because the widget edits a fixed-size char array. The
     // value goes back into the options when the job is started, so the tool reads
@@ -807,6 +808,7 @@ Result run(Options& options, const std::vector<std::string>& actions,
         // What the user typed is what the tool must use.
         if (options.showFolder) options.folder = folderBuffer;
         options.shortcuts = shortcuts;
+        options.extra = extra;
         for (std::size_t index = 0; index < options.fields.size(); ++index) {
             options.fields[index].value = fieldBuffers[index].data();
         }
@@ -889,6 +891,11 @@ Result run(Options& options, const std::vector<std::string>& actions,
                 if (options.showShortcuts) {
                     LinearUI::SetCursorScreenPos(LinearVec2(left, y));
                     LinearUI::Checkbox("Add Play to the Start menu and the desktop", &shortcuts);
+                    y += frameHeight + 16.0f;
+                }
+                if (options.showExtra) {
+                    LinearUI::SetCursorScreenPos(LinearVec2(left, y));
+                    LinearUI::Checkbox(options.extraLabel.c_str(), &extra);
                     y += frameHeight + 16.0f;
                 }
             }
@@ -1127,6 +1134,7 @@ Result run(Options& options, const std::vector<std::string>& actions,
     result.shown = true;
     result.ok = report.ok();
     result.shortcuts = shortcuts;
+    result.extra = extra;
     if (options.showFolder) result.folder = folderBuffer;
     result.fields.reserve(options.fields.size());
     for (std::size_t index = 0; index < options.fields.size(); ++index) {

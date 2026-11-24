@@ -93,6 +93,13 @@ struct Options {
     bool shortcuts = true;
     // The installer offers the shortcuts; a server setup has none to offer.
     bool showShortcuts = true;
+    // A second checkbox under the shortcuts one, for one optional part of the job
+    // the tool can do but the user may not want. The installer offers the guard
+    // service there, which needs an administrator: the prompt belongs to that step
+    // and the user gets to say no before it appears.
+    bool showExtra = false;
+    bool extra = false;
+    std::string extraLabel;
     // Run the job as soon as the window opens, for a tool whose whole purpose is
     // the job rather than a choice.
     bool autoStart = false;
@@ -141,6 +148,7 @@ struct Result {
     std::string action;
     std::string folder;
     bool shortcuts = true;
+    bool extra = false;
     // What was typed into Options::fields, in the same order.
     std::vector<std::string> fields;
 };

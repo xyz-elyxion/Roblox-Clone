@@ -23,6 +23,12 @@ std::string statePath();
 // thing to need it; the client only ever reads.
 bool ensureFolder(std::string* error);
 
+// Whether the service is registered with the service manager, and whether it is
+// running right now. Neither needs elevation: the manager lets any account ask
+// about a service, which is what the installer and the client both rely on.
+bool installed();
+bool running();
+
 // One line for the snapshot: installed, running, and how long ago the service
 // last said it was alive. Never empty, and it says so when the service manager
 // cannot be read, because "the guard is not running" and "the client cannot see

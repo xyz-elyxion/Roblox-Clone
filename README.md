@@ -98,6 +98,7 @@ where a player runs it from the folder they unpacked:
 ```powershell
 LinearSetup.exe                                  # install into %LOCALAPPDATA%\Linear
 LinearSetup.exe --dir D:\Games\Linear --launch
+LinearSetup.exe --guard                          # also install the anti-cheat service
 LinearSetup.exe --uninstall                      # keeps worlds and account data
 LinearSetup.exe --uninstall --purge              # removes those too
 ```
@@ -110,7 +111,9 @@ and one bar along
 the bottom naming the job, counting the bytes copied and their rate, and showing the percentage. The
 pass that is running has an accent ring, the ones behind it a tick, and a failure is a red line in
 the list underneath them, so a setup that fails still says why. The folder field, the shortcut
-checkbox and the buttons live in the same window. `--no-ui` refuses the window for a script that
+checkbox, the guard-service checkbox and the buttons live in the same window; ticking the guard
+raises Windows' administrator prompt after the copy, for that one step, and leaving it unticked -
+or dismissing the prompt - still leaves a complete install. `--no-ui` refuses the window for a script that
 wants the console, and a machine that cannot give the window a graphics context keeps the console it
 always had.
 
@@ -468,9 +471,11 @@ why the rules that matter (movement, world contents) are enforced by the server.
 
 Every check above runs inside the process it protects, which is also the process a cheater
 controls: a frozen, patched or simply unstarted client takes them with it. `LinearGuard.exe` is
-the other half. Installed once (`LinearGuard.exe --install`, from an elevated prompt) it is a
-Windows service, started by the service manager as LocalSystem before anyone signs in, and it
-watches the game from outside:
+the other half. It is a Windows service, started by the service manager as LocalSystem before
+anyone signs in, and it watches the game from outside. The install screen offers it as a checkbox
+- `LinearSetup.exe` raises the administrator prompt for that one step and nothing else, so the rest
+of the install stays a per-user copy - with `LinearGuard.exe --install` for a console and
+`LinearSetup.exe --guard` for a script that wants the same:
 
 - **Programs on the machine.** A cheat tool that is running is visible from outside the game. The
 guard compares the process list against the same names `LinearAntiCheat` keeps
@@ -491,8 +496,9 @@ A cheater who stops the service is not invisible either: every snapshot carries 
 saying whether it is installed, running, and how long ago it last wrote its heartbeat
 (`%ProgramData%\Linear\LinearGuard.state`, refreshed every five seconds). `LinearGuard.exe
 --status` prints the same line, and `--run` runs the checks in a console for a machine where
-installing a service is not wanted; `--uninstall` removes it. The client works either way — the
-service is a second pair of eyes, not a requirement to play.
+installing a service is not wanted; `--uninstall` removes it, and so does removing Linear through
+`LinearSetup.exe`, which takes the service out before the files it runs from. The client works
+either way — the service is a second pair of eyes, not a requirement to play.
 
 ### The ladder
 

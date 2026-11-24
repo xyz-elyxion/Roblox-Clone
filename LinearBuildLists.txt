@@ -283,6 +283,9 @@ if(LINEAR_BUILD_UPDATER)
         src/WebJson.cpp
         src/WebCrypto.cpp
         src/InstallUi.cpp
+        # Whether the guard service is already running, so a reinstall does not
+        # raise an administrator prompt for something that is already there.
+        src/GuardStatus.cpp
         ${LINEARUI_SOURCES}
     )
     configure_linear_target(LinearSetup)

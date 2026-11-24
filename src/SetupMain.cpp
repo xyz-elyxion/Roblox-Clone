@@ -22,6 +22,7 @@
 // HKCU on Windows, a .desktop file on everything else. Nothing here needs a
 // network: the payload is the folder the setup was run from.
 
+#include "GuardStatus.h"
 #include "InstallUi.h"
 #include "Updater.h"
 
@@ -41,6 +42,7 @@
     #include <windows.h>
     #include <objbase.h>
     #include <process.h>
+    #include <shellapi.h>
     #include <shlobj.h>
 
 namespace {
@@ -56,6 +58,13 @@ struct Options {
     bool uninstall = false;
     bool purge = false;
     bool shortcuts = true;
+    // Whether the guard service is installed and started as part of this run.
+    // The window offers it as a checkbox, checked by default; a script gets no
+    // elevation prompt it did not ask for, so there it is off unless --guard says
+    // otherwise. guardGiven records that the flag was passed, so the console
+    // default does not override it.
+    bool guard = true;
+    bool guardGiven = false;
     bool launch = false;
     bool quiet = false;
     bool help = false;
@@ -97,13 +106,17 @@ void printError(const std::string& text) {
 void usage() {
     std::cout << "LinearSetup - installs Linear for the current user\n\n"
                  "  LinearSetup [--dir <folder>] [--url <manifest.json>] [--no-shortcuts] [--launch]\n"
-                 "  LinearSetup --uninstall [--dir <folder>] [--purge]\n\n"
+                 "  LinearSetup --uninstall [--dir <folder>] [--purge]\n"
+                 "  LinearSetup --guard | --no-guard   install the anti-cheat service, or not\n\n"
                  "Run with no arguments to install from a window. Any argument means a\n"
                  "script, so the console is used; --ui asks for the window anyway and\n"
                  "--no-ui refuses it.\n\n"
                  "Installs the folder this program is in, keeps its layout, and records it\n"
                  "as manifest.json so LinearUpdater can update or remove it file by file.\n"
-                 "Run it from a packaged folder; it refuses to install into itself.\n";
+                 "Run it from a packaged folder; it refuses to install into itself.\n\n"
+                 "The anti-cheat guard service is offered in the window and installed with\n"
+                 "--guard; that one step asks Windows for an administrator, and the rest of\n"
+                 "the install stays a per-user copy. --no-guard leaves it out.\n";
 }
 
 std::string executablePath(const char* argv0) {
@@ -428,6 +441,80 @@ std::string readVersion(const std::string& directory) {
     return "0.0.0";
 }
 
+// Runs the installed guard elevated. Registering a service is the service
+// manager's business and needs an administrator, while the install itself is a
+// per-user copy: so only this one step asks, and Windows raises the prompt for
+// that process alone. A dismissed prompt is an answer, not a failed install.
+bool runGuardElevated(const std::string& target, const wchar_t* arguments,
+                      std::string* error) {
+    const fs::path guard = fs::path(target) / "LinearGuard.exe";
+    if (!fs::exists(guard)) {
+        if (error != nullptr) {
+            *error = "this build has no LinearGuard.exe";
+        }
+        return false;
+    }
+
+    // The job runs on the window's worker thread, and elevation goes through the
+    // shell's own COM services.
+    const HRESULT com = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
+
+    const std::wstring program = widen(guard.string());
+    SHELLEXECUTEINFOW info = {};
+    info.cbSize = sizeof(info);
+    info.fMask = SEE_MASK_NOCLOSEPROCESS;
+    info.lpVerb = L"runas";
+    info.lpFile = program.c_str();
+    info.lpParameters = arguments;
+    info.nShow = SW_SHOWNORMAL;
+
+    bool ok = false;
+    if (!ShellExecuteExW(&info)) {
+        const DWORD code = GetLastError();
+        if (error != nullptr) {
+            *error = code == ERROR_CANCELLED
+                         ? "the administrator prompt was dismissed"
+                         : "Windows would not start it (error " + std::to_string(code) + ")";
+        }
+    } else {
+        DWORD exitCode = 1;
+        if (info.hProcess != nullptr) {
+            WaitForSingleObject(info.hProcess, 120000);
+            if (!GetExitCodeProcess(info.hProcess, &exitCode)) {
+                exitCode = 1;
+            }
+            CloseHandle(info.hProcess);
+        }
+        ok = exitCode == 0;
+        if (!ok && error != nullptr) {
+            *error = "it reported a failure (exit code " + std::to_string(exitCode) + ")";
+        }
+    }
+
+    if (SUCCEEDED(com)) {
+        CoUninitialize();
+    }
+    return ok;
+}
+
+// Installs and starts the guard, unless it is already running: reinstalling the
+// same copy should not raise a prompt for something that is already there.
+bool installGuardService(const std::string& target, std::string* error) {
+    if (linear::guard::running()) {
+        return true;
+    }
+    return runGuardElevated(target, L"--install", error);
+}
+
+// Removing the folder while the service is registered would leave a service
+// pointing at a program that is no longer there, so the service goes first.
+bool removeGuardService(const std::string& target, std::string* error) {
+    if (!linear::guard::installed()) {
+        return true;
+    }
+    return runGuardElevated(target, L"--uninstall", error);
+}
+
 int install(const Options& options, const std::string& source) {
     if (source.empty()) {
         printError("could not work out which folder this setup is running from");
@@ -556,6 +643,27 @@ int install(const Options& options, const std::string& source) {
         printError("could not register the uninstall entry; the install itself is complete");
     }
 
+    // The guard is the only part that leaves the install's own folder and the
+    // only part that needs an administrator, so it runs last: everything above is
+    // already a working install whether this step happens or not.
+    if (options.guard) {
+        if (linear::guard::running()) {
+            print(options, "  the anti-cheat guard service is already running");
+        } else {
+            std::string guardError;
+            if (installGuardService(target, &guardError)) {
+                print(options, "  installed and started the anti-cheat guard service");
+            } else {
+                print(options, "  the anti-cheat guard service was not installed: " + guardError);
+                print(options, "  the game works without it; run \"" +
+                                   (fs::path(target) / "LinearGuard.exe").string() +
+                                   " --install\" from an administrator prompt to add it");
+            }
+        }
+    } else {
+        print(options, "  the anti-cheat guard service was skipped (--guard installs it)");
+    }
+
     print(options, "installed; start it with " + target);
     return 0;
 }
@@ -580,6 +688,19 @@ int uninstall(const Options& options, const char* argv0) {
     }
 
     print(options, "removing " + std::string(kProductName) + " from " + target);
+
+    // The service lives outside this folder and points into it, so it has to go
+    // before the files it runs from do. Same elevated step that installed it; a
+    // dismissed prompt leaves it registered, which is said out loud below.
+    if (linear::guard::installed()) {
+        std::string guardError;
+        if (removeGuardService(target, &guardError)) {
+            print(options, "  removed the anti-cheat guard service");
+        } else {
+            printError("the anti-cheat guard service is still installed: " + guardError +
+                       "; remove it with \"sc delete LinearGuard\" from an administrator prompt");
+        }
+    }
 
     if (g_stage) g_stage(0);
     int removed = 0;
@@ -649,6 +770,12 @@ bool parseOptions(int argc, char** argv, Options* options) {
             options->purge = true;
         } else if (argument == "--no-shortcuts") {
             options->shortcuts = false;
+        } else if (argument == "--guard") {
+            options->guard = true;
+            options->guardGiven = true;
+        } else if (argument == "--no-guard") {
+            options->guard = false;
+            options->guardGiven = true;
         } else if (argument == "--launch") {
             options->launch = true;
         } else if (argument == "--ui") {
@@ -714,6 +841,11 @@ int windowed(Options& options, const std::string& source, const char* argv0) {
     window.folder = options.uninstall ? std::string() : defaultFolder;
     window.showFolder = !options.uninstall;
     window.shortcuts = options.shortcuts;
+    // Offered as a checkbox rather than assumed: it is the one step that asks for
+    // an administrator, and it is the user's machine.
+    window.showExtra = !options.uninstall;
+    window.extra = options.guard;
+    window.extraLabel = "Install the anti-cheat guard service (administrator)";
 
     const std::vector<std::string> actions =
         options.uninstall ? std::vector<std::string>{"Close"}
@@ -727,6 +859,7 @@ int windowed(Options& options, const std::string& source, const char* argv0) {
             options.uninstall ? options.directory
                               : (window.folder.empty() ? defaultFolder : window.folder);
         run.shortcuts = window.shortcuts;
+        run.guard = window.extra;
         run.quiet = false;
 
         g_progress = [&report](const std::string& text) { report.line(text); };
@@ -771,8 +904,15 @@ int main(int argc, char** argv) {
     // No arguments at all means somebody double-clicked the setup, so it opens a
     // window. Any argument means a script, which wants the console, unless --ui
     // says otherwise. A window that cannot be created falls back to the console.
+    const bool wantsWindow = !options.noUi && (options.ui || argc == 1);
+    // A script gets no elevation prompt it did not ask for: the service is a
+    // checkbox in the window, and --guard is how a script asks for it.
+    if (!wantsWindow && !options.guardGiven) {
+        options.guard = false;
+    }
+
     int status = -1;
-    if (!options.noUi && (options.ui || argc == 1)) {
+    if (wantsWindow) {
         status = windowed(options, source, argv[0]);
     }
     if (status < 0) {

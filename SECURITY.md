@@ -273,7 +273,9 @@ from a Windows service, which the service manager starts as LocalSystem at boot:
 cheat tool is running on the machine, and whether a module in the client was loaded from a folder
 any logged-in user can write to. Installing or removing it needs administrator rights, and it does
 nothing else with them - it opens no network connection, reads no file contents and stores no
-credential. What it finds goes into `%ProgramData%\Linear\LinearGuard.log` in the same detection
+credential. The only elevation the project asks for is that step: `LinearSetup.exe` raises one
+consent prompt for `LinearGuard.exe --install` and runs everything else unelevated, so declining
+it leaves a complete per-user install. What it finds goes into `%ProgramData%\Linear\LinearGuard.log` in the same detection
 line shape the client already reads, and the client files those lines against the account that is
 signed in, so the service itself has no account, token or identity of its own. That file sits on
 the player's machine, where a local administrator can edit or delete it: the report is evidence for

@@ -92,6 +92,37 @@ bool ensureFolder(std::string* error) {
     return false;
 }
 
+bool installed() {
+    SC_HANDLE manager = OpenSCManagerW(nullptr, nullptr, SC_MANAGER_CONNECT);
+    if (manager == nullptr) {
+        return false;
+    }
+    SC_HANDLE service = OpenServiceW(manager, kServiceName, SERVICE_QUERY_STATUS);
+    const bool found = service != nullptr;
+    if (service != nullptr) {
+        CloseServiceHandle(service);
+    }
+    CloseServiceHandle(manager);
+    return found;
+}
+
+bool running() {
+    SC_HANDLE manager = OpenSCManagerW(nullptr, nullptr, SC_MANAGER_CONNECT);
+    if (manager == nullptr) {
+        return false;
+    }
+    SC_HANDLE service = OpenServiceW(manager, kServiceName, SERVICE_QUERY_STATUS);
+    bool isRunning = false;
+    if (service != nullptr) {
+        SERVICE_STATUS status = {};
+        isRunning = QueryServiceStatus(service, &status) != FALSE &&
+                    status.dwCurrentState == SERVICE_RUNNING;
+        CloseServiceHandle(service);
+    }
+    CloseServiceHandle(manager);
+    return isRunning;
+}
+
 std::string serviceFacts() {
     const char* const unknown = "state unknown (the service manager is not readable)";
     SC_HANDLE manager = OpenSCManagerW(nullptr, nullptr, SC_MANAGER_CONNECT);

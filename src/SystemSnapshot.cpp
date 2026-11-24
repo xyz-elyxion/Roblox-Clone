@@ -2,6 +2,7 @@
 
 #include <cstdio>
 #include <cstring>
+#include <cwchar>
 #include <string>
 
 #ifndef WIN32_LEAN_AND_MEAN
@@ -40,6 +41,24 @@ private:
     std::string text_;
     std::size_t maxBytes_ = 0;
 };
+
+// Toolhelp has no ...A structures: the SDK declares MODULEENTRY32 and
+// PROCESSENTRY32 plus their W forms, and the bare name follows UNICODE. The W
+// structures are named here and narrowed, so the snapshot reads the same whatever
+// UNICODE the build sets.
+std::string narrow(const wchar_t* text) {
+    if (text == nullptr || *text == L'\0') {
+        return std::string();
+    }
+    const int length = static_cast<int>(std::wcslen(text));
+    const int bytes = WideCharToMultiByte(CP_UTF8, 0, text, length, nullptr, 0, nullptr, nullptr);
+    if (bytes <= 0) {
+        return std::string();
+    }
+    std::string result(static_cast<std::size_t>(bytes), '\0');
+    WideCharToMultiByte(CP_UTF8, 0, text, length, result.data(), bytes, nullptr, nullptr);
+    return result;
+}
 
 std::string utcNow() {
     SYSTEMTIME now;
@@ -156,14 +175,12 @@ void appendModules(Lines* lines, const SnapshotLimits& limits) {
         return;
     }
 
-    // The A forms explicitly: the toolhelp structures follow the TCHAR setting,
-    // and this unit reads names as bytes wherever it is compiled.
-    MODULEENTRY32A entry;
+    MODULEENTRY32W entry;
     entry.dwSize = sizeof(entry);
     std::size_t listed = 0;
     std::size_t skipped = 0;
     lines->add("modules: loaded into this process");
-    if (Module32FirstA(snapshot, &entry)) {
+    if (Module32FirstW(snapshot, &entry)) {
         do {
             if (listed >= limits.maxModules) {
                 ++skipped;
@@ -172,13 +189,13 @@ void appendModules(Lines* lines, const SnapshotLimits& limits) {
             char line[768] = {0};
             std::snprintf(line, sizeof(line), "  0x%p %llu KB %s", static_cast<void*>(entry.modBaseAddr),
                           static_cast<unsigned long long>(entry.modBaseSize) / 1024ull,
-                          entry.szExePath);
+                          narrow(entry.szExePath).c_str());
             if (!lines->add(line)) {
                 ++skipped;
                 continue;
             }
             ++listed;
-        } while (Module32NextA(snapshot, &entry));
+        } while (Module32NextW(snapshot, &entry));
     }
     CloseHandle(snapshot);
 
@@ -197,12 +214,12 @@ void appendProcesses(Lines* lines, const SnapshotLimits& limits) {
         return;
     }
 
-    PROCESSENTRY32A entry;
+    PROCESSENTRY32W entry;
     entry.dwSize = sizeof(entry);
     std::size_t listed = 0;
     std::size_t skipped = 0;
     lines->add("processes: running on this machine (pid parent-pid name)");
-    if (Process32FirstA(snapshot, &entry)) {
+    if (Process32FirstW(snapshot, &entry)) {
         do {
             // Pid 0 is the idle process; it has no image and no parent worth
             // reading.
@@ -216,13 +233,14 @@ void appendProcesses(Lines* lines, const SnapshotLimits& limits) {
             char line[512] = {0};
             std::snprintf(line, sizeof(line), "  %lu %lu %s",
                           static_cast<unsigned long>(entry.th32ProcessID),
-                          static_cast<unsigned long>(entry.th32ParentProcessID), entry.szExeFile);
+                          static_cast<unsigned long>(entry.th32ParentProcessID),
+                          narrow(entry.szExeFile).c_str());
             if (!lines->add(line)) {
                 ++skipped;
                 continue;
             }
             ++listed;
-        } while (Process32NextA(snapshot, &entry));
+        } while (Process32NextW(snapshot, &entry));
     }
     CloseHandle(snapshot);
 

@@ -559,8 +559,8 @@ bool Config::read(const std::string& text, std::string* error) {
     const std::string lower = lowercase(url);
     if (lower.rfind("https://", 0) == 0) {
         if (error) {
-            *error = "update.json uses https, which this build cannot speak: the updater "
-                     "has no TLS stack, so point it at an http:// address";
+            *error = "update.json uses https, which the updater does not read: point it at "
+                     "an http:// address";
         }
         return false;
     }

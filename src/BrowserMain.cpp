@@ -1,8 +1,8 @@
 // LinearBrowser: the project's own browser.
 //
 // It is a browser in the sense this project can honestly build one. A page is
-// fetched over plain HTTP - there is no TLS stack in the tree, and HttpClient
-// says so instead of pretending - read by BrowserPage.cpp into the same blocks
+// fetched over HTTP or HTTPS - the latter through Windows' own SChannel, so no
+// crypto library had to be vendored - and read by BrowserPage.cpp into the same blocks
 // LinearDocs lays out, and drawn as a document with an address bar, Back,
 // Forward, Reload, Home and links you can click. It runs no script, applies no
 // style sheet, draws no image and submits no form: the page is text, which is
@@ -224,12 +224,9 @@ bool openPage(State& state, const std::string& typed, bool remember) {
         return true;
     }
 
-    if (url.compare(0, 7, "http://") != 0) {
-        return stop(url, url.compare(0, 8, "https://") == 0
-                              ? "This project has no TLS stack, so https:// cannot be opened. "
-                                "Type an http:// address instead."
-                              : "LinearBrowser opens http:// addresses and about:start. "
-                                "A mailto: or javascript: link is not a page.");
+    if (url.compare(0, 7, "http://") != 0 && url.compare(0, 8, "https://") != 0) {
+        return stop(url, "LinearBrowser opens http:// and https:// addresses and about:start. "
+                          "A mailto: or javascript: link is not a page.");
     }
 
     // A website answering 301 for http:// is ordinary, so the window asks again
@@ -262,14 +259,9 @@ bool openPage(State& state, const std::string& typed, bool remember) {
             return stop(url, "The server redirected this address to itself, so there is nothing "
                               "to open.");
         }
-        if (next.compare(0, 8, "https://") == 0) {
+        if (next.compare(0, 7, "http://") != 0 && next.compare(0, 8, "https://") != 0) {
             return stop(next, url + " redirects to " + next +
-                                   ", and this project has no TLS stack to open an https:// "
-                                   "address, so the page cannot be read here.");
-        }
-        if (next.compare(0, 7, "http://") != 0) {
-            return stop(next, url + " redirects to " + next +
-                                   ", which is not an http:// page this window can open.");
+                                   ", which is not a page this window can open.");
         }
         if (++redirects > kMaxRedirects) {
             return stop(url, "The server redirected more than " + std::to_string(kMaxRedirects) +

@@ -8,10 +8,14 @@
 // instance heartbeats).
 //
 // It replaces the WinHTTP code both binaries carried, so the client and the game
-// server share one transport. Only plain HTTP is supported: the backend is a local
-// development server (http://localhost:3000, or 127.0.0.1 inside a game
-// server), there is no TLS stack in this project, and a request to an https://
-// URL fails with an explanatory error instead of silently returning nothing.
+// server share one transport, and LinearBrowser reads pages with it.
+//
+// http:// goes straight down the socket and https:// goes through Windows' own
+// SChannel: the project vendors no TLS library, and the certificate checks are
+// Windows' (the machine's trust store, and the host name against the
+// certificate) rather than this file's. A chunked body is decoded for the
+// caller; a compressed one is not, because nothing here inflates gzip, so the
+// request asks for the identity encoding.
 namespace linear {
 namespace http {
 
@@ -19,6 +23,7 @@ struct Response {
     int status = 0;          // HTTP status, or 0 when the request never completed
     std::string body;        // response body, empty on failure
     std::string headers;     // the raw header block, for a caller that reads one
+                             // (Location on a redirect, for instance)
     std::string error;       // why the request failed, empty on success
 
     // A 2xx response that actually arrived.

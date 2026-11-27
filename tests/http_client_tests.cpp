@@ -178,6 +178,8 @@ int main() {
         check(request.find("GET /api/games HTTP/1.1") != std::string::npos, "path is sent verbatim");
         check(request.find("Host: 127.0.0.1") != std::string::npos, "Host header carries the port");
         check(request.find("Connection: close") != std::string::npos, "client asks the server to close");
+        check(request.find("Accept-Encoding: identity") != std::string::npos,
+              "the client asks for a body it can read without inflating it");
 
         server.stop();
     }
@@ -277,9 +279,30 @@ int main() {
     }
 
     {
-        const linear::http::Response response = linear::http::request("GET", "https://example.com/");
-        check(response.networkError(), "https URLs fail instead of pretending to work");
-        check(response.error.find("TLS") != std::string::npos, "https failure explains the missing TLS support");
+        // https is spoken through SChannel, so it gets as far as connecting: a
+        // port with nothing on it fails as a connection rather than as a scheme
+        // this client refuses.
+        const linear::http::Response response =
+            linear::http::request("GET", "https://127.0.0.1:1/");
+        check(response.networkError(), "an https URL that cannot connect is a network error");
+        check(response.error.find("Could not connect") != std::string::npos,
+              "https is attempted instead of being refused for want of TLS");
+    }
+
+    {
+        // Real servers answer a generated page in chunks; the sizes are framing,
+        // not page text, so they must not reach the reader.
+        StubServer server("HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n"
+                          "7\r\n{\"a\":1}\r\n0\r\n\r\n",
+                          1);
+        check(server.start(), "chunked stub server listens");
+
+        const linear::http::Response response =
+            linear::http::request("GET", baseUrl(server) + "/chunked");
+        check(response.ok(), "a chunked response is a success");
+        check(response.body == "{\"a\":1}", "chunk sizes are framing, not body bytes");
+
+        server.stop();
     }
 
     {

@@ -2,7 +2,7 @@
 
 // The document model behind LinearBrowser, the project's own browser window.
 //
-// It reads the HTML an http:// server sends and turns it into the block model
+// It reads the HTML an http:// or https:// server sends and turns it into the block model
 // LinearDocs already lays out - headings, paragraphs, lists, quotes, code, tables
 // and rules - with the one thing a reader needs that documentation does not: a
 // link keeps the address it points at, so the window can turn it into a button.
@@ -10,8 +10,9 @@
 //
 // This is a reader, not a rendering engine: it runs no script, applies no style
 // sheet, draws no image and submits no form. It fetches through
-// include/HttpClient.h, which speaks plain http:// because this project has no
-// TLS stack, so an https:// address is answered with a page that says so.
+// include/HttpClient.h, which speaks http:// directly and https:// through
+// Windows' own SChannel, so a public site opens without a vendored TLS library
+// and a certificate the machine will not vouch for stops the page with the reason.
 
 #include <cstddef>
 #include <string>

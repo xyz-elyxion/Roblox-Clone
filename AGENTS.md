@@ -49,8 +49,11 @@ them, and writes `README.txt`, `update.json` and `manifest.json` into `dist/line
 ## Rules that are not negotiable
 
 1. **Windows only.** There is no POSIX branch: sockets go through `include/Network.h`
-   (WinSock), HTTP through `include/HttpClient.h`. Do not reintroduce `#ifdef _WIN32`
-   forks or a "portable" path; the project was deliberately cut down to one platform.
+   (WinSock), HTTP through `include/HttpClient.h` (plain sockets, plus the operating
+   system's SChannel for `https://` — that is why the targets that compile it link
+   `secur32` and `crypt32`; there is still no TLS library in the tree). Do not reintroduce
+   `#ifdef _WIN32` forks or a "portable" path; the project was deliberately cut down to one
+   platform.
 2. **No new dependencies.** Do not add a dependency, a package manager, a submodule or a
    generated blob. The eight library trees at the top of the repository (`linearwin`,
    `linearmath`, `linearui`, `lineargizmo`, `lineartextedit`, `linearphysics`, `linearstb`, `lineargl`),

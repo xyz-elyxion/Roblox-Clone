@@ -210,8 +210,9 @@ if(LINEAR_BUILD_STUDIO)
     target_link_libraries(Studio PRIVATE
         LinearGame linearwin linearmath linearphysics lineargl bcrypt)
     # HttpClient is the only transport left (the website calls used to go
-    # through WinHTTP), and it is plain sockets, hence ws2_32.
-    target_link_libraries(Studio PRIVATE ws2_32 shell32)
+    # through WinHTTP): plain sockets, plus SChannel and the certificate checks
+    # for https, hence ws2_32 secur32 crypt32.
+    target_link_libraries(Studio PRIVATE ws2_32 secur32 crypt32 shell32)
 endif()
 
 if(LINEAR_BUILD_CODEEDITOR)
@@ -267,7 +268,7 @@ if(LINEAR_BUILD_UPDATER)
     )
     configure_linear_target(LinearUpdater)
     target_link_libraries(LinearUpdater PRIVATE linearwin lineargl bcrypt)
-    target_link_libraries(LinearUpdater PRIVATE ws2_32)
+    target_link_libraries(LinearUpdater PRIVATE ws2_32 secur32 crypt32)
 
     # The setup is the installer: it copies the packaged folder into a per-user
     # location, records what it put there as manifest.json, adds the shortcuts and
@@ -424,9 +425,9 @@ if(LINEAR_BUILD_DOCS)
     target_link_libraries(LinearDocs PRIVATE linearwin lineargl)
 endif()
 
-# LinearBrowser is the project's own browser: it fetches a page over plain HTTP - this tree
-# has no TLS stack - reads the HTML into the block model LinearDocs already lays out, and
-# shows it with an address bar, history and clickable links. BrowserPage holds the reader
+# LinearBrowser is the project's own browser: it fetches a page over http:// or https://,
+# reads the HTML into the block model LinearDocs already lays out, and shows it with an
+# address bar, history and clickable links. BrowserPage holds the reader
 # and knows nothing about a window, which is what lets BrowserPageTests check it with no
 # display and no socket.
 if(LINEAR_BUILD_BROWSER)
@@ -438,8 +439,10 @@ if(LINEAR_BUILD_BROWSER)
         ${LINEARUI_SOURCES}
     )
     configure_linear_target(LinearBrowser)
-    # ws2_32 is the transport; linearwin and lineargl are the window and its context.
-    target_link_libraries(LinearBrowser PRIVATE linearwin lineargl ws2_32)
+    # ws2_32 is the transport and secur32 is SChannel, Windows' TLS, which is what
+    # https costs; crypt32 is the certificate policy check. linearwin and lineargl
+    # are the window and its context.
+    target_link_libraries(LinearBrowser PRIVATE linearwin lineargl ws2_32 secur32 crypt32)
 endif()
 
 # LinearAntiCheat is compiled straight into the client (see its LinearBuildLists): the
@@ -492,7 +495,7 @@ if(LINEAR_BUILD_CLIENT)
     target_link_libraries(Client PRIVATE
         LinearGame linearwin linearmath linearphysics lineargl bcrypt)
     # winmm is the OS mixer waveOut lives in; no other audio dependency exists.
-    target_link_libraries(Client PRIVATE ws2_32 shell32 comdlg32 winmm)
+    target_link_libraries(Client PRIVATE ws2_32 secur32 crypt32 shell32 comdlg32 winmm)
     # advapi32 asks the service manager whether the guard is running, for the
     # snapshot's "guard" line.
     target_link_libraries(Client PRIVATE advapi32)
@@ -535,7 +538,7 @@ if(LINEAR_BUILD_SERVER)
     )
     configure_linear_target(Server)
     target_link_libraries(Server PRIVATE LinearGame linearmath linearphysics)
-    target_link_libraries(Server PRIVATE ws2_32)
+    target_link_libraries(Server PRIVATE ws2_32 secur32 crypt32)
 endif()
 
 if(LINEAR_BUILD_TRAINER)
@@ -554,7 +557,7 @@ if(LINEAR_BUILD_TRAINER)
     )
     configure_linear_target(AiTrainer)
     target_link_libraries(AiTrainer PRIVATE
-        LinearGame linearphysics linearmath linearwin lineargl ws2_32 bcrypt)
+        LinearGame linearphysics linearmath linearwin lineargl ws2_32 secur32 crypt32 bcrypt)
 endif()
 
 set(WEB_SOURCES
@@ -706,7 +709,7 @@ if(LINEAR_BUILD_TESTS)
 
     add_executable(HttpClientTests tests/http_client_tests.cpp src/HttpClient.cpp)
     target_include_directories(HttpClientTests PRIVATE ${LINEARBUILD_CURRENT_SOURCE_DIR}/include)
-    target_link_libraries(HttpClientTests PRIVATE ws2_32)
+    target_link_libraries(HttpClientTests PRIVATE ws2_32 secur32 crypt32)
     add_test(NAME HttpClientTests COMMAND HttpClientTests)
 
     # The chat page's rules and the store behind them: channel names, what a

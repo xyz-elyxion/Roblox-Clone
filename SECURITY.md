@@ -23,27 +23,32 @@ do not own, and do not put other people's data at risk.
 ## What is known and deliberate
 
 These are documented limitations, not vulnerabilities. A report that says "the client can
-lie" or "there is no TLS" is answered by the relevant paragraph below.
+lie" or "the website speaks plain HTTP" is answered by the relevant paragraph below.
 
 - **Local-only deployment.** `WebApp.exe` accepts connections on every interface, and game
   servers bind every interface too, so anything on the same network can reach them if the
   firewall allows it. The intended setup is one machine: keep the Windows firewall on, or
   bind the game servers to loopback with `GAME_SERVER_HOST=127.0.0.1`.
-- **No TLS.** The website is plain HTTP and `include/HttpClient.h` speaks `http://` only;
-  there is no TLS implementation anywhere in the tree. Any token or password over a network
-  is readable in transit. Put it behind a TLS-terminating proxy before it faces anything
-  other than loopback and trusted LAN clients.
-- **The browser is a reader.** `LinearBrowser.exe` fetches `http://` pages and draws their text.
-  It has no script engine, no cookie jar, no form submission and no TLS, so a page cannot run
-  code in it, read another site's data or keep a session. It stores nothing and sends no
-  credentials: a typed address or a clicked link is the only thing that causes a request, and
-  `https://`, `mailto:` and other schemes are answered with a page that says they are not
-  supported rather than being opened. A redirect the server sends is followed to another
-  `http://` address and nowhere else: a `Location` naming `https://` or any other scheme stops
-  the navigation with a page that says so, so no request leaves for a scheme the reader cannot
-  speak and a redirect loop is cut off after eight hops. The layout, the HTML reader and the page's own text are
-  treated as untrusted input: generated pages escape the address and the server's error before
-  they become markup.
+- **The website is plain HTTP.** `WebApp.exe` has no certificate and no TLS listener, so any
+  token or password sent to it over a network is readable in transit. Put it behind a
+  TLS-terminating proxy before it faces anything other than loopback and trusted LAN clients.
+  The tree holds no TLS library: `include/HttpClient.h` reads `https://` through Windows' own
+  SChannel, which is part of the operating system, and the certificate is validated there (the
+  machine's trust store, plus the host name through `CertVerifyCertificateChainPolicy`) before
+  any response byte is read. That protects a program here talking to a public site; it does not
+  put TLS in front of this project's own server.
+- **The browser is a reader.** `LinearBrowser.exe` fetches `http://` and `https://` pages and
+  draws their text. It has no script engine, no cookie jar and no form submission, so a page
+  cannot run code in it, read another site's data or keep a session. It stores nothing and sends
+  no credentials: a typed address or a clicked link is the only thing that causes a request, and
+  `mailto:` and other schemes are answered with a page that says they are not supported rather
+  than being opened. An `https://` page is read through Windows' SChannel with TLS 1.2; the
+  certificate is validated by Windows against the machine's trust store and against the typed
+  host name before a byte of the response is read, and a failure is shown as the reason the page
+  did not open, never skipped. A redirect the server sends is followed to another `http://` or
+  `https://` address and nowhere else, and the chain is cut off after eight hops. The layout, the
+  HTML reader and the page's own text are treated as untrusted input: generated pages escape the
+  address and the server's error before they become markup.
 - **The client is untrusted.** `LinearAntiCheat` runs inside the client process, so a
   modified client can decline to run it, and the machine id the client sends can be any
   value. Neither is a boundary. The boundary is the server: the movement guard in

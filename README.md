@@ -23,7 +23,7 @@ before pointing it at the internet.
 | `LinearGuard.exe` | The anti-cheat guard service: watches the game from outside `Client.exe`, for cheat tools running on the machine and modules loaded into the client from a folder any program can write to |
 | `LinearCert.exe` | Puts the signing certificate into the Windows trust stores, or takes it out again, so a signed build starts without Windows asking who published it; double-clicked, or started with just `--machine`, it opens a window that offers both |
 | `LinearDocs.exe` | The documentation as a window: this README and the topic files beside it — SECURITY, HOSTING, LINEARBUILD, CONTRIBUTING, the code of conduct, AGENTS — read from `docs/`, with the sections of the open page listed next to it |
-| `LinearBrowser.exe` | The project's own browser: an address bar, Back, Forward, Reload, Home and clickable links, reading a page over plain `http://` and drawing it as text with the same layout the documentation window uses |
+| `LinearBrowser.exe` | The project's own browser: an address bar, Back, Forward, Reload, Home and clickable links, reading a page over `http://` or `https://` and drawing it as text with the same layout the documentation window uses |
 
 `LinearGame.dll` is not a program in that list: it is the game simulation — world files, parts,
 physics bodies, the character, the camera and the avatar — which `Client.exe`, `Server.exe`,
@@ -83,12 +83,15 @@ down the left and the headings of the open one under them, each one a jump. It r
 where they are, so the window always shows the text that shipped and a correction needs no build.
 
 `LinearBrowser.exe` is the same idea for the web. It opens on a start page whose links go to
-the site, `LinearHub` and the hosting panel, fetches a page over plain HTTP and draws it as a
-document — headings, paragraphs, lists, quotes, code, tables and links you can click. It is a
-reader, not a rendering engine: no TLS, no JavaScript, no style sheets, no images, no cookies and
-no forms. It follows the redirects a server sends, so a site that moves `http://` to `https://` is
-answered with a page saying the https address cannot be opened here rather than a bare status code.
-`LinearBrowser.exe http://localhost:3000` opens the site directly.
+the site, `LinearHub` and the hosting panel, fetches a page over `http://` or `https://` and draws
+it as a document — headings, paragraphs, lists, quotes, code, tables and links you can click. TLS
+is Windows' own SChannel, so a public site opens without a second crypto library in the tree: the
+certificate is checked against the machine's trust store and against the host that was typed, and
+a certificate this computer will not vouch for stops the page with the reason instead of its text.
+It is a reader, not a rendering engine: no JavaScript, no style sheets, no images, no cookies and
+no forms. It follows the redirects a server sends, including the `http://` to `https://` move most
+sites make, and stops after eight hops. `LinearBrowser.exe http://localhost:3000` opens the site
+directly.
 
 There are no `.bat` files anywhere, in the package or in an install: every program looks for its data
 in the folder it runs from, which is where Explorer starts it, so a console wrapper added nothing.
@@ -1859,8 +1862,10 @@ no repository is open rather than failing the server.
 - Sound is mono and synthesised. A sound fades with distance from the player instead of panning
   left or right, there is no volume control beyond the system mixer, and no audio file is loaded:
   the ten built-in sounds are the whole set, so a game that wants its own noise needs a code change.
-- The HTTP client speaks plain `http://` only. There is no TLS implementation, so an `https://`
-  backend URL fails with an explanation instead of working.
+- The HTTP client is HTTP/1.1: `http://` goes straight down the socket, `https://` goes through
+  Windows' own SChannel (TLS 1.2, the certificate validated against the machine's trust store and
+  the typed host name). It reads chunked bodies but not compressed ones — it asks for the identity
+  encoding — and it has no HTTP/2, proxy or cookie support.
 - The binary protocol depends on matching C++ struct layouts, so Client and Server must be built
   from the same source. The handshake carries a protocol revision and a layout signature derived
   from the packet sizes; a mismatched pair refuses the join and prints which build to rebuild

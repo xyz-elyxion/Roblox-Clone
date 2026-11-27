@@ -165,6 +165,14 @@ void resolvesAddresses() {
     expectEqual(linear::browser::resolveUrl(base, ""), base, "an empty link is the page itself");
     expectEqual(linear::browser::resolveUrl("http://localhost:3000", "games"),
                 "http://localhost:3000/games", "a bare host has an implicit / directory");
+
+    // A page read over TLS keeps https for what it links to, and a
+    // protocol-relative link borrows that scheme as well.
+    const std::string secureBase = "https://example.com/docs/page.html";
+    expectEqual(linear::browser::resolveUrl(secureBase, "other.html"),
+                "https://example.com/docs/other.html", "an https page keeps its scheme");
+    expectEqual(linear::browser::resolveUrl(secureBase, "//cdn.example.com/x"),
+                "https://cdn.example.com/x", "a protocol-relative link borrows https");
 }
 
 void skipsCodeAndKeepsAltText() {
@@ -241,8 +249,8 @@ void normalisesWhatIsTyped() {
                 "http://localhost:3000", "a bare host gets http://");
     expectEqual(linear::browser::normaliseAddress("example.com/a"),
                 "http://example.com/a", "so does a host with a path");
-    expectEqual(linear::browser::normaliseAddress("https://example.com"),
-                "https://example.com", "an https address is kept for the error page");
+    expectEqual(linear::browser::normaliseAddress("  HTTPS://Example.com/a  "),
+                "https://Example.com/a", "an https address is kept, with its scheme folded");
     expectEqual(linear::browser::normaliseAddress("HTTP://LOCALHOST:3000"),
                 "http://LOCALHOST:3000", "the scheme is folded to lower case");
     expectEqual(linear::browser::normaliseAddress("about:start"), "about:start",

@@ -2,30 +2,52 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <memory>
 #include <mutex>
+#include <vector>
 
-    #ifndef WIN32_LEAN_AND_MEAN
-        #define WIN32_LEAN_AND_MEAN
-    #endif
-    #include <winsock2.h>
-    #include <ws2tcpip.h>
-    #pragma comment(lib, "ws2_32.lib")
-    using SocketHandle = SOCKET;
-    constexpr SocketHandle kInvalidSocket = INVALID_SOCKET;
-    #define LINEAR_CLOSE_SOCKET(s) closesocket(s)
-    #define LINEAR_LAST_ERROR() WSAGetLastError()
+#ifndef WIN32_LEAN_AND_MEAN
+    #define WIN32_LEAN_AND_MEAN
+#endif
+#define SECURITY_WIN32
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#include <windows.h>
+#include <wincrypt.h>
+#include <security.h>
+#include <schannel.h>
+#pragma comment(lib, "ws2_32.lib")
+// SChannel is Windows' own TLS, so https:// costs this project a link line
+// rather than a vendored crypto library (see AGENTS.md rule 2).
+#pragma comment(lib, "secur32.lib")
+// CertVerifyCertificateChainPolicy, which checks the name on the certificate
+// against the host that was typed.
+#pragma comment(lib, "crypt32.lib")
+
+using SocketHandle = SOCKET;
+constexpr SocketHandle kInvalidSocket = INVALID_SOCKET;
+#define LINEAR_CLOSE_SOCKET(s) closesocket(s)
+#define LINEAR_LAST_ERROR() WSAGetLastError()
 
 namespace linear {
 namespace http {
 namespace {
 
+constexpr int kReadChunk = 16384;
+
+// A TLS record carries at most 2^14 bytes of plaintext, plus its header and the
+// cipher's trailer. A record longer than this is not something to try to read.
+constexpr std::size_t kMaxTlsRecord = 5 + 16384 + 2048;
+
 struct ParsedUrl {
     std::string host;
     std::string path;   // path plus query string
     uint16_t port = 80;
+    bool secure = false;
 };
 
 void ensureSockets() {
@@ -42,31 +64,44 @@ std::string lower(std::string value) {
     return value;
 }
 
-// Accepts http://host[:port][/path]. Anything else is rejected, including
-// https://, because this project has no TLS implementation to offer.
+std::string hexCode(unsigned long code) {
+    char text[16] = {};
+    std::snprintf(text, sizeof(text), "0x%08lX", code);
+    return text;
+}
+
+std::wstring widen(const std::string& text) {
+    const int length = MultiByteToWideChar(CP_UTF8, 0, text.c_str(), -1, nullptr, 0);
+    if (length <= 1) return std::wstring();
+    std::wstring wide(static_cast<std::size_t>(length), L'\0');
+    MultiByteToWideChar(CP_UTF8, 0, text.c_str(), -1, &wide[0], length);
+    wide.resize(static_cast<std::size_t>(length - 1));
+    return wide;
+}
+
+// Accepts http://host[:port][/path] and https://host[:port][/path]. The port is
+// the scheme's own when neither says otherwise.
 bool parseUrl(const std::string& url, ParsedUrl& out, std::string* error) {
-    const std::string prefix = "http://";
-    if (url.compare(0, prefix.size(), prefix) != 0) {
-        if (error) {
-            *error = url.compare(0, 8, "https://") == 0
-                         ? "Only plain http:// URLs are supported by this client (no TLS)."
-                         : "URL must start with http://.";
-        }
+    const bool secure = url.compare(0, 8, "https://") == 0;
+    if (!secure && url.compare(0, 7, "http://") != 0) {
+        if (error) *error = "URL must start with http:// or https://.";
         return false;
     }
 
-    const size_t hostBegin = prefix.size();
-    const size_t pathBegin = url.find('/', hostBegin);
+    const std::size_t hostBegin = secure ? 8 : 7;
+    const std::size_t pathBegin = url.find('/', hostBegin);
     const std::string authority = url.substr(hostBegin,
                                              pathBegin == std::string::npos ? std::string::npos
                                                                             : pathBegin - hostBegin);
+    out.secure = secure;
+    out.port = secure ? 443 : 80;
     out.path = pathBegin == std::string::npos ? "/" : url.substr(pathBegin);
     if (authority.empty()) {
         if (error) *error = "URL has no host.";
         return false;
     }
 
-    const size_t colon = authority.rfind(':');
+    const std::size_t colon = authority.rfind(':');
     if (colon != std::string::npos && authority.find(']') == std::string::npos) {
         out.host = authority.substr(0, colon);
         const int port = std::atoi(authority.c_str() + colon + 1);
@@ -150,27 +185,500 @@ SocketHandle connectToHost(const std::string& host, uint16_t port, int timeoutMs
 }
 
 bool sendAll(SocketHandle socket, const std::string& data) {
-    size_t sent = 0;
+    std::size_t sent = 0;
     while (sent < data.size()) {
-        const int written = ::send(socket, data.data() + sent, static_cast<int>(data.size() - sent), 0);
+        const int written = ::send(socket, data.data() + sent,
+                                   static_cast<int>(data.size() - sent), 0);
         if (written <= 0) {
             return false;
         }
-        sent += static_cast<size_t>(written);
+        sent += static_cast<std::size_t>(written);
     }
     return true;
 }
 
 // Content-Length from a block of headers, or -1 when the server did not say.
-// Read before the body so a progress bar knows what it is moving towards.
+// Read before the body so a progress bar knows what it is moving towards (and
+// so a chunked answer, which declares no length, reports -1).
 long long declaredLength(const std::string& headers) {
     const std::string lowered = lower(headers);
-    const size_t position = lowered.find("content-length:");
+    const std::size_t position = lowered.find("content-length:");
     if (position == std::string::npos) {
         return -1;
     }
     return std::atoll(headers.c_str() + position + std::strlen("content-length:"));
 }
+
+bool isChunked(const std::string& headers) {
+    const std::string lowered = lower(headers);
+    const std::size_t position = lowered.find("transfer-encoding:");
+    if (position == std::string::npos) {
+        return false;
+    }
+    std::size_t end = lowered.find("\r\n", position);
+    if (end == std::string::npos) end = lowered.size();
+    return lowered.substr(position, end - position).find("chunked") != std::string::npos;
+}
+
+// Removes the lengths from a chunked body. Real servers answer this way as soon
+// as the body is generated rather than measured, so without this a page would
+// carry its chunk sizes as text.
+std::string decodeChunked(const std::string& body) {
+    std::string out;
+    std::size_t cursor = 0;
+    while (cursor < body.size()) {
+        const std::size_t lineEnd = body.find("\r\n", cursor);
+        if (lineEnd == std::string::npos) break;
+        std::string digits = body.substr(cursor, lineEnd - cursor);
+        const std::size_t extension = digits.find(';');
+        if (extension != std::string::npos) digits.resize(extension);
+        const unsigned long long size = std::strtoull(digits.c_str(), nullptr, 16);
+        if (size == 0) break;  // the last chunk, followed by optional trailers
+        cursor = lineEnd + 2;
+        if (cursor + static_cast<std::size_t>(size) > body.size()) {
+            out.append(body, cursor, body.size() - cursor);
+            break;
+        }
+        out.append(body, cursor, static_cast<std::size_t>(size));
+        cursor += static_cast<std::size_t>(size);
+        if (body.compare(cursor, 2, "\r\n") == 0) cursor += 2;
+    }
+    return out;
+}
+
+// How the bytes of one response travel. A plain socket is one implementation
+// and TLS another, so the request below has a single read loop rather than two
+// copies of one.
+class Transport {
+public:
+    virtual ~Transport() = default;
+    virtual bool send(const std::string& data, std::string* error) = 0;
+    // >0 bytes read, 0 when the server closed, -1 on failure.
+    virtual int receive(char* buffer, int capacity, std::string* error) = 0;
+    // True while decrypted bytes are waiting, so a caller that polls a Cancel
+    // button does not wait on the socket for data it already has.
+    virtual bool hasBuffered() const { return false; }
+    // 1 readable, 0 timed out, -1 failed.
+    virtual int waitReadable(int timeoutMs) = 0;
+};
+
+class PlainTransport : public Transport {
+public:
+    explicit PlainTransport(SocketHandle socket) : socket_(socket) {}
+
+    bool send(const std::string& data, std::string* error) override {
+        if (!sendAll(socket_, data)) {
+            if (error) *error = "Could not send the request.";
+            return false;
+        }
+        return true;
+    }
+
+    int receive(char* buffer, int capacity, std::string* error) override {
+        const int received = ::recv(socket_, buffer, capacity, 0);
+        if (received < 0) {
+            if (error) *error = "Could not read the response.";
+            return -1;
+        }
+        return received;
+    }
+
+    int waitReadable(int timeoutMs) override {
+        fd_set readable;
+        FD_ZERO(&readable);
+        FD_SET(socket_, &readable);
+        timeval wait{};
+        wait.tv_sec = timeoutMs / 1000;
+        wait.tv_usec = (timeoutMs % 1000) * 1000;
+        const int ready =
+            ::select(static_cast<int>(socket_) + 1, &readable, nullptr, nullptr, &wait);
+        if (ready < 0) return -1;
+        return ready == 0 ? 0 : 1;
+    }
+
+private:
+    SocketHandle socket_;
+};
+
+// A TLS session over a connected socket. SChannel does the handshake and the
+// record layer; the certificate it presents is checked against the machine's
+// trust store and the host that was typed before a single byte of the response
+// is read.
+class TlsTransport : public Transport {
+public:
+    explicit TlsTransport(SocketHandle socket) : socket_(socket) {}
+    ~TlsTransport() override {
+        if (haveContext_) DeleteSecurityContext(&context_);
+        if (haveCredentials_) FreeCredentialsHandle(&credentials_);
+    }
+
+    TlsTransport(const TlsTransport&) = delete;
+    TlsTransport& operator=(const TlsTransport&) = delete;
+
+    bool handshake(const std::string& host, std::string* error) {
+        // SCHANNEL_CRED is the long-lived way to say "TLS 1.2, strong ciphers,
+        // Windows validates the server": it needs no newer SDK than the CRT
+        // already does, and every site worth reaching still speaks 1.2.
+        SCHANNEL_CRED settings{};
+        settings.dwVersion = SCHANNEL_CRED_VERSION;
+        settings.grbitEnabledProtocols = SP_PROT_TLS1_2_CLIENT;
+        settings.dwFlags = SCH_USE_STRONG_CRYPTO | SCH_CRED_AUTO_CRED_VALIDATION |
+                           SCH_CRED_NO_DEFAULT_CREDS;
+        settings.dwMinimumCipherStrength = 128;
+
+        TimeStamp expiry{};
+        SECURITY_STATUS status = AcquireCredentialsHandleW(
+            nullptr, const_cast<SEC_WCHAR*>(UNISP_NAME_W), SECPKG_CRED_OUTBOUND, nullptr,
+            &settings, nullptr, nullptr, &credentials_, &expiry);
+        if (status != SEC_E_OK) {
+            if (error) {
+                *error = "Could not start TLS for " + host + " (" +
+                         hexCode(static_cast<unsigned long>(status)) + ").";
+            }
+            return false;
+        }
+        haveCredentials_ = true;
+
+        const std::wstring target = widen(host);
+        // Extended errors are left out on purpose: without that flag a failure
+        // comes back as the SEC_E_ value that says what went wrong (an
+        // untrusted root, a name that does not match) instead of a request to
+        // send one more alert and read again.
+        const DWORD requested = ISC_REQ_STREAM | ISC_REQ_SEQUENCE_DETECT |
+                                ISC_REQ_REPLAY_DETECT | ISC_REQ_CONFIDENTIALITY;
+
+        std::string input;  // the server's token, and any bytes after the handshake
+        bool firstCall = true;
+        while (true) {
+            SecBuffer inBuffers[2] = {};
+            inBuffers[0].BufferType = SECBUFFER_TOKEN;
+            inBuffers[0].cbBuffer = static_cast<unsigned long>(input.size());
+            inBuffers[0].pvBuffer = input.empty() ? nullptr : &input[0];
+            inBuffers[1].BufferType = SECBUFFER_EMPTY;
+            SecBufferDesc inDescriptor{SECBUFFER_VERSION, 2, inBuffers};
+
+            SecBuffer outBuffer{};
+            outBuffer.BufferType = SECBUFFER_TOKEN;
+            SecBufferDesc outDescriptor{SECBUFFER_VERSION, 1, &outBuffer};
+
+            DWORD outFlags = 0;
+            status = InitializeSecurityContextW(
+                &credentials_, firstCall ? nullptr : &context_,
+                const_cast<SEC_WCHAR*>(target.c_str()), requested, 0, 0,
+                firstCall ? nullptr : &inDescriptor, 0,
+                firstCall ? &context_ : nullptr, &outDescriptor, &outFlags, &expiry);
+            firstCall = false;
+            // A failure before the first token leaves no context to delete, so
+            // the handle only becomes the destructor's business once SChannel
+            // has produced one.
+            if (status == SEC_E_OK || status == SEC_I_CONTINUE_NEEDED ||
+                status == SEC_E_INCOMPLETE_MESSAGE) {
+                haveContext_ = true;
+            }
+
+            if (outBuffer.pvBuffer != nullptr) {
+                bool written = true;
+                if (outBuffer.cbBuffer > 0) {
+                    written = rawSend(static_cast<const char*>(outBuffer.pvBuffer),
+                                      outBuffer.cbBuffer);
+                }
+                FreeContextBuffer(outBuffer.pvBuffer);
+                if (!written) {
+                    if (error) *error = "Could not send the TLS handshake to " + host + ".";
+                    return false;
+                }
+            }
+
+            if (status == SEC_E_OK) {
+                // Whatever SChannel did not consume is the start of the answer.
+                if (inBuffers[1].BufferType == SECBUFFER_EXTRA && inBuffers[1].cbBuffer > 0) {
+                    const std::size_t extra = inBuffers[1].cbBuffer;
+                    if (extra <= input.size()) {
+                        incoming_.assign(input, input.size() - extra, extra);
+                    }
+                }
+                break;
+            }
+
+            if (status != SEC_I_CONTINUE_NEEDED && status != SEC_E_INCOMPLETE_MESSAGE) {
+                if (error) *error = describeHandshakeFailure(status, host);
+                return false;
+            }
+
+            char raw[8192];
+            const int received = rawReceive(raw, sizeof(raw));
+            if (received <= 0) {
+                if (error) *error = host + " did not answer the TLS handshake.";
+                return false;
+            }
+            if (status == SEC_E_INCOMPLETE_MESSAGE) {
+                input.append(raw, static_cast<std::size_t>(received));
+            } else {
+                input.assign(raw, static_cast<std::size_t>(received));
+            }
+        }
+
+        status = QueryContextAttributesW(&context_, SECPKG_ATTR_STREAM_SIZES, &sizes_);
+        if (status != SEC_E_OK) {
+            if (error) {
+                *error = "The secure connection to " + host +
+                         " did not report its record sizes (" +
+                         hexCode(static_cast<unsigned long>(status)) + ").";
+            }
+            return false;
+        }
+        return verifyCertificate(host, error);
+    }
+
+    bool send(const std::string& data, std::string* error) override {
+        // One TLS record carries a bounded amount of plaintext, so a large body
+        // (a POST, say) is split across records.
+        const std::size_t maximum =
+            std::max<std::size_t>(1024, static_cast<std::size_t>(sizes_.cbMaximumMessage));
+        std::size_t offset = 0;
+        while (offset < data.size()) {
+            const std::size_t length = std::min(maximum, data.size() - offset);
+            if (!sendRecord(data.data() + offset, length)) {
+                if (error) *error = "Could not send the request.";
+                return false;
+            }
+            offset += length;
+        }
+        return true;
+    }
+
+    int receive(char* buffer, int capacity, std::string* error) override {
+        while (plain_.empty()) {
+            if (closed_) return 0;
+            if (!hasCompleteRecord()) {
+                char raw[kReadChunk];
+                const int received = rawReceive(raw, sizeof(raw));
+                if (received < 0) {
+                    if (error) *error = "Could not read the response.";
+                    return -1;
+                }
+                if (received == 0) {
+                    closed_ = true;
+                    return 0;
+                }
+                incoming_.append(raw, static_cast<std::size_t>(received));
+                continue;
+            }
+            if (!decryptRecord(error)) return -1;
+        }
+
+        const std::size_t take =
+            std::min<std::size_t>(plain_.size(), static_cast<std::size_t>(capacity));
+        std::memcpy(buffer, plain_.data(), take);
+        plain_.erase(0, take);
+        return static_cast<int>(take);
+    }
+
+    bool hasBuffered() const override { return !plain_.empty(); }
+
+    int waitReadable(int timeoutMs) override {
+        if (!plain_.empty()) return 1;
+        fd_set readable;
+        FD_ZERO(&readable);
+        FD_SET(socket_, &readable);
+        timeval wait{};
+        wait.tv_sec = timeoutMs / 1000;
+        wait.tv_usec = (timeoutMs % 1000) * 1000;
+        const int ready =
+            ::select(static_cast<int>(socket_) + 1, &readable, nullptr, nullptr, &wait);
+        if (ready < 0) return -1;
+        return ready == 0 ? 0 : 1;
+    }
+
+private:
+    static std::string describeHandshakeFailure(SECURITY_STATUS status,
+                                                const std::string& host) {
+        const unsigned long code = static_cast<unsigned long>(status);
+        switch (status) {
+            case SEC_E_UNTRUSTED_ROOT:
+                return "The certificate " + host + " presented is not trusted by this computer.";
+            case SEC_E_WRONG_PRINCIPAL:
+                return "The certificate " + host + " presented is for a different name.";
+            case SEC_E_CERT_EXPIRED:
+                return "The certificate " + host + " presented has expired.";
+            case SEC_E_ILLEGAL_MESSAGE:
+                return "The secure connection to " + host +
+                       " was closed with an error (a TLS alert).";
+            case SEC_E_ALGORITHM_MISMATCH:
+                return "This computer and " + host + " share no cipher for a secure connection.";
+            case SEC_E_INVALID_TOKEN:
+                return host + " answered the TLS handshake with something that is not TLS.";
+            case SEC_E_TARGET_UNKNOWN:
+                return "Could not reach a TLS service at " + host + ".";
+            default:
+                return "Could not establish a secure connection to " + host + " (" +
+                       hexCode(code) + ").";
+        }
+    }
+
+    bool verifyCertificate(const std::string& host, std::string* error) {
+        // SChannel validated the chain as it completed (the credential does not
+        // ask for manual validation), and this asks Windows the same question
+        // about the name, with its own rules for wildcards and alternative
+        // names, so a certificate for example.com cannot speak for
+        // www.example.com.
+        PCCERT_CONTEXT remote = nullptr;
+        if (QueryContextAttributesW(&context_, SECPKG_ATTR_REMOTE_CERT_CONTEXT, &remote) !=
+                SEC_E_OK ||
+            remote == nullptr) {
+            if (error) *error = "The secure connection to " + host + " presented no certificate.";
+            return false;
+        }
+
+        const std::wstring wideHost = widen(host);
+        HTTPSPolicyCallbackData https{};
+        https.cbSize = sizeof(https);
+        https.dwAuthType = AUTHTYPE_SERVER;
+        https.pwszServerName = const_cast<wchar_t*>(wideHost.c_str());
+
+        CERT_CHAIN_POLICY_PARA parameters{};
+        parameters.cbSize = sizeof(parameters);
+        parameters.pvExtraPolicyPara = &https;
+
+        CERT_CHAIN_POLICY_STATUS status{};
+        status.cbSize = sizeof(status);
+
+        // The policy answers about a chain, not one certificate, so the chain
+        // the machine would build for it is built first.
+        CERT_CHAIN_PARA chainParameters{};
+        chainParameters.cbSize = sizeof(chainParameters);
+        PCCERT_CHAIN_CONTEXT chain = nullptr;
+        const BOOL built = CertGetCertificateChain(nullptr, remote, nullptr, remote->hCertStore,
+                                                   &chainParameters, 0, nullptr, &chain);
+        bool verified = false;
+        unsigned long problem = 0;
+        if (built && chain != nullptr) {
+            verified = CertVerifyCertificateChainPolicy(CERT_CHAIN_POLICY_SSL, chain,
+                                                        &parameters, &status) != FALSE;
+            problem = static_cast<unsigned long>(status.dwError);
+            CertFreeCertificateChain(chain);
+        }
+        CertFreeCertificateContext(remote);
+
+        if (verified && problem == 0) return true;
+
+        if (error) {
+            const std::string code = hexCode(problem);
+            if (!built || chain == nullptr) {
+                *error = "Could not check the certificate " + host + " presented.";
+            } else if (problem == static_cast<unsigned long>(CERT_E_CN_NO_MATCH)) {
+                *error = "The certificate " + host + " presented is for a different name.";
+            } else if (problem == static_cast<unsigned long>(CERT_E_EXPIRED)) {
+                *error = "The certificate " + host + " presented has expired.";
+            } else if (problem == static_cast<unsigned long>(CERT_E_UNTRUSTEDROOT)) {
+                *error = "The certificate " + host + " presented is not trusted by this computer.";
+            } else if (problem == 0) {
+                *error = "The certificate " + host + " presented does not vouch for it.";
+            } else {
+                *error = "The certificate " + host + " presented does not vouch for it (" +
+                         code + ").";
+            }
+        }
+        return false;
+    }
+
+    bool rawSend(const char* data, std::size_t size) {
+        std::size_t sent = 0;
+        while (sent < size) {
+            const int written = ::send(socket_, data + sent, static_cast<int>(size - sent), 0);
+            if (written <= 0) return false;
+            sent += static_cast<std::size_t>(written);
+        }
+        return true;
+    }
+
+    int rawReceive(char* buffer, int capacity) {
+        const int received = ::recv(socket_, buffer, capacity, 0);
+        return received < 0 ? -1 : received;
+    }
+
+    bool sendRecord(const char* data, std::size_t size) {
+        const std::size_t header = sizes_.cbHeader;
+        const std::size_t trailer = sizes_.cbTrailer;
+        std::vector<char> record(header + size + trailer, 0);
+        SecBuffer buffers[3] = {};
+        buffers[0].BufferType = SECBUFFER_STREAM_HEADER;
+        buffers[0].cbBuffer = static_cast<unsigned long>(header);
+        buffers[0].pvBuffer = record.data();
+        buffers[1].BufferType = SECBUFFER_DATA;
+        buffers[1].cbBuffer = static_cast<unsigned long>(size);
+        buffers[1].pvBuffer = record.data() + header;
+        buffers[2].BufferType = SECBUFFER_STREAM_TRAILER;
+        buffers[2].cbBuffer = static_cast<unsigned long>(trailer);
+        buffers[2].pvBuffer = record.data() + header + size;
+        std::memcpy(buffers[1].pvBuffer, data, size);
+
+        SecBufferDesc descriptor{SECBUFFER_VERSION, 3, buffers};
+        if (EncryptMessage(&context_, 0, &descriptor, 0) != SEC_E_OK) return false;
+        return rawSend(record.data(), record.size());
+    }
+
+    // Whether the first record in incoming_ arrived whole. Reading record by
+    // record keeps the decryption deterministic: SChannel is never handed a
+    // partial record it could only answer with "incomplete message".
+    bool hasCompleteRecord() const {
+        if (incoming_.size() < 5) return false;
+        const std::size_t length = (static_cast<unsigned char>(incoming_[3]) << 8) |
+                                   static_cast<unsigned char>(incoming_[4]);
+        return length > 0 && length < kMaxTlsRecord && incoming_.size() >= 5 + length;
+    }
+
+    bool decryptRecord(std::string* error) {
+        const std::size_t length = (static_cast<unsigned char>(incoming_[3]) << 8) |
+                                   static_cast<unsigned char>(incoming_[4]);
+        std::vector<char> record(incoming_.begin(), incoming_.begin() + 5 + length);
+        incoming_.erase(0, 5 + length);
+
+        SecBuffer buffers[4] = {};
+        buffers[0].BufferType = SECBUFFER_DATA;
+        buffers[0].cbBuffer = static_cast<unsigned long>(record.size());
+        buffers[0].pvBuffer = record.data();
+        for (int index = 1; index < 4; ++index) buffers[index].BufferType = SECBUFFER_EMPTY;
+        SecBufferDesc descriptor{SECBUFFER_VERSION, 4, buffers};
+
+        const SECURITY_STATUS status = DecryptMessage(&context_, &descriptor, 0, nullptr);
+        if (status == SEC_E_OK) {
+            for (int index = 0; index < 4; ++index) {
+                if (buffers[index].BufferType == SECBUFFER_DATA && buffers[index].cbBuffer > 0) {
+                    plain_.append(static_cast<const char*>(buffers[index].pvBuffer),
+                                  buffers[index].cbBuffer);
+                } else if (buffers[index].BufferType == SECBUFFER_ALERT) {
+                    closed_ = true;
+                }
+            }
+            return true;
+        }
+        if (status == SEC_I_CONTEXT_EXPIRED) {
+            // A close_notify: the server has said everything it is going to say.
+            closed_ = true;
+            return true;
+        }
+        if (status == SEC_I_RENEGOTIATE) {
+            if (error) *error = "The server asked to renegotiate the secure connection.";
+            return false;
+        }
+        if (error) {
+            *error = "Could not read the secure response (" +
+                     hexCode(static_cast<unsigned long>(status)) + ").";
+        }
+        return false;
+    }
+
+    SocketHandle socket_;
+    CredHandle credentials_{};
+    CtxtHandle context_{};
+    bool haveCredentials_ = false;
+    bool haveContext_ = false;
+    SecPkgContext_StreamSizes sizes_{};
+    std::string incoming_;  // encrypted bytes not yet turned into a record
+    std::string plain_;     // decrypted bytes not yet handed to the caller
+    bool closed_ = false;
+};
 
 }  // namespace
 
@@ -201,14 +709,30 @@ Response request(const std::string& method,
         return response;
     }
 
+    std::unique_ptr<Transport> transport;
+    if (parsed.secure) {
+        std::unique_ptr<TlsTransport> tls(new TlsTransport(socket));
+        if (!tls->handshake(parsed.host, &response.error)) {
+            LINEAR_CLOSE_SOCKET(socket);
+            return response;
+        }
+        transport = std::move(tls);
+    } else {
+        transport.reset(new PlainTransport(socket));
+    }
+
     std::string head = method + " " + parsed.path + " HTTP/1.1\r\n";
     head += "Host: " + parsed.host;
-    if (parsed.port != 80) {
+    const uint16_t defaultPort = parsed.secure ? 443 : 80;
+    if (parsed.port != defaultPort) {
         head += ":" + std::to_string(parsed.port);
     }
     head += "\r\n";
     head += "User-Agent: Linear Client/1.0\r\n";
     head += "Accept: " + (accept.empty() ? std::string("application/json") : accept) + "\r\n";
+    // Nothing here inflates a compressed body, so the server is told not to
+    // send one. Chunked bodies, on the other hand, are decoded below.
+    head += "Accept-Encoding: identity\r\n";
     head += "Connection: close\r\n";
     if (!body.empty() || method == "POST" || method == "PUT") {
         head += "Content-Type: application/json\r\n";
@@ -219,14 +743,15 @@ Response request(const std::string& method,
     }
     head += "\r\n";
 
-    if (!sendAll(socket, head + body)) {
+    if (!transport->send(head + body, &response.error)) {
+        if (response.error.empty()) response.error = "Could not send the request to " + parsed.host + ".";
+        transport.reset();
         LINEAR_CLOSE_SOCKET(socket);
-        response.error = "Could not send the request to " + parsed.host + ".";
         return response;
     }
 
-    // The backend answers with Connection: close, so reading to EOF is enough
-    // to know the response is complete.
+    // The request asked for Connection: close, so reading to EOF is enough to
+    // know the response is complete (a chunked body ends with a zero chunk).
     std::string raw;
     char buffer[4096];
     bool headersSeen = false;
@@ -242,33 +767,24 @@ Response request(const std::string& method,
                 aborted = true;
                 break;
             }
-            fd_set readable;
-            FD_ZERO(&readable);
-            FD_SET(socket, &readable);
-            timeval wait{};
-            wait.tv_sec = 0;
-            wait.tv_usec = 200 * 1000;
-            const int ready =
-                ::select(static_cast<int>(socket) + 1, &readable, nullptr, nullptr, &wait);
-            if (ready == 0) {
-                continue;
-            }
-            if (ready < 0) {
-                break;
+            if (!transport->hasBuffered()) {
+                const int ready = transport->waitReadable(200);
+                if (ready == 0) continue;
+                if (ready < 0) break;
             }
         }
 
-        const int received = ::recv(socket, buffer, static_cast<int>(sizeof(buffer)), 0);
-        if (received <= 0) {
-            break;
-        }
-        raw.append(buffer, static_cast<size_t>(received));
+        const int received = transport->receive(buffer, static_cast<int>(sizeof(buffer)),
+                                                &response.error);
+        if (received < 0) break;
+        if (received == 0) break;
+        raw.append(buffer, static_cast<std::size_t>(received));
 
         // The length is worth reading as soon as the headers are complete, even
         // though the body is assembled below: a caller watching a download wants
         // a total to move towards.
         if (!headersSeen) {
-            const size_t headerEnd = raw.find("\r\n\r\n");
+            const std::size_t headerEnd = raw.find("\r\n\r\n");
             if (headerEnd != std::string::npos) {
                 headersSeen = true;
                 bodyStart = headerEnd + 4;
@@ -285,6 +801,8 @@ Response request(const std::string& method,
             break;  // a runaway response must not grow without bound
         }
     }
+    // The TLS context has to go before the socket it sits on.
+    transport.reset();
     LINEAR_CLOSE_SOCKET(socket);
 
     if (aborted) {
@@ -296,11 +814,11 @@ Response request(const std::string& method,
     }
 
     if (raw.empty()) {
-        response.error = "No response from " + parsed.host + ".";
+        if (response.error.empty()) response.error = "No response from " + parsed.host + ".";
         return response;
     }
 
-    const size_t headerEnd = raw.find("\r\n\r\n");
+    const std::size_t headerEnd = raw.find("\r\n\r\n");
     if (headerEnd == std::string::npos) {
         response.error = "Malformed HTTP response.";
         return response;
@@ -310,22 +828,27 @@ Response request(const std::string& method,
     std::string payload = raw.substr(headerEnd + 4);
 
     // Status line: HTTP/1.1 200 OK
-    const size_t firstSpace = headers.find(' ');
+    const std::size_t firstSpace = headers.find(' ');
     if (firstSpace == std::string::npos) {
         response.error = "Malformed HTTP status line.";
         return response;
     }
     response.status = std::atoi(headers.c_str() + firstSpace + 1);
 
-    // Honour Content-Length when present: with keep-alive headers a server may
-    // leave the connection open, and the body would otherwise be ambiguous.
-    const std::string lowered = lower(headers);
-    const size_t lengthHeader = lowered.find("content-length:");
-    if (lengthHeader != std::string::npos) {
-        const size_t valueBegin = lengthHeader + std::strlen("content-length:");
-        const long long declaredLength = std::atoll(headers.c_str() + valueBegin);
-        if (declaredLength >= 0 && static_cast<size_t>(declaredLength) <= payload.size()) {
-            payload.resize(static_cast<size_t>(declaredLength));
+    if (isChunked(headers)) {
+        payload = decodeChunked(payload);
+    } else {
+        // Honour Content-Length when present: with keep-alive headers a server
+        // may leave the connection open, and the body would otherwise be
+        // ambiguous.
+        const std::string lowered = lower(headers);
+        const std::size_t lengthHeader = lowered.find("content-length:");
+        if (lengthHeader != std::string::npos) {
+            const std::size_t valueBegin = lengthHeader + std::strlen("content-length:");
+            const long long announced = std::atoll(headers.c_str() + valueBegin);
+            if (announced >= 0 && static_cast<std::size_t>(announced) <= payload.size()) {
+                payload.resize(static_cast<std::size_t>(announced));
+            }
         }
     }
 

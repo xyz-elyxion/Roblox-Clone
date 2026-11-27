@@ -344,8 +344,16 @@ public:
         // comes back as the SEC_E_ value that says what went wrong (an
         // untrusted root, a name that does not match) instead of a request to
         // send one more alert and read again.
+
+        // ISC_REQ_ALLOCATE_MEMORY is not optional here: the output buffer below
+        // starts empty, so without it SChannel has nowhere to write the
+        // ClientHello and answers SEC_E_INSUFFICIENT_MEMORY (0x80090300), which
+        // reads like an out-of-memory failure and is not one. Every sample that
+        // leaves pvBuffer NULL sets this flag, and the token it hands back is
+        // released with FreeContextBuffer.
         const DWORD requested = ISC_REQ_STREAM | ISC_REQ_SEQUENCE_DETECT |
-                                ISC_REQ_REPLAY_DETECT | ISC_REQ_CONFIDENTIALITY;
+                                ISC_REQ_REPLAY_DETECT | ISC_REQ_CONFIDENTIALITY |
+                                ISC_REQ_ALLOCATE_MEMORY;
 
         std::string input;  // the server's token, and any bytes after the handshake
         bool firstCall = true;
@@ -510,6 +518,12 @@ private:
                 return host + " answered the TLS handshake with something that is not TLS.";
             case SEC_E_TARGET_UNKNOWN:
                 return "Could not reach a TLS service at " + host + ".";
+            case SEC_I_INCOMPLETE_CREDENTIALS:
+                return host +
+                       " asked for a client certificate, which this browser does not send.";
+            case SEC_E_NO_CREDENTIALS:
+                return host +
+                       " asked for a client certificate, which this browser does not send.";
             default:
                 return "Could not establish a secure connection to " + host + " (" +
                        hexCode(code) + ").";

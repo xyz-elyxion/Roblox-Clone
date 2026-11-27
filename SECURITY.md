@@ -38,7 +38,10 @@ lie" or "there is no TLS" is answered by the relevant paragraph below.
   code in it, read another site's data or keep a session. It stores nothing and sends no
   credentials: a typed address or a clicked link is the only thing that causes a request, and
   `https://`, `mailto:` and other schemes are answered with a page that says they are not
-  supported rather than being opened. The layout, the HTML reader and the page's own text are
+  supported rather than being opened. A redirect the server sends is followed to another
+  `http://` address and nowhere else: a `Location` naming `https://` or any other scheme stops
+  the navigation with a page that says so, so no request leaves for a scheme the reader cannot
+  speak and a redirect loop is cut off after eight hops. The layout, the HTML reader and the page's own text are
   treated as untrusted input: generated pages escape the address and the server's error before
   they become markup.
 - **The client is untrusted.** `LinearAntiCheat` runs inside the client process, so a

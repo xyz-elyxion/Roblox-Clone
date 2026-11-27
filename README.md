@@ -86,7 +86,9 @@ where they are, so the window always shows the text that shipped and a correctio
 the site, `LinearHub` and the hosting panel, fetches a page over plain HTTP and draws it as a
 document — headings, paragraphs, lists, quotes, code, tables and links you can click. It is a
 reader, not a rendering engine: no TLS, no JavaScript, no style sheets, no images, no cookies and
-no forms. `LinearBrowser.exe http://localhost:3000` opens the site directly.
+no forms. It follows the redirects a server sends, so a site that moves `http://` to `https://` is
+answered with a page saying the https address cannot be opened here rather than a bare status code.
+`LinearBrowser.exe http://localhost:3000` opens the site directly.
 
 There are no `.bat` files anywhere, in the package or in an install: every program looks for its data
 in the folder it runs from, which is where Explorer starts it, so a console wrapper added nothing.

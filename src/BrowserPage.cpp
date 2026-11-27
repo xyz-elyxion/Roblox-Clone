@@ -693,6 +693,40 @@ std::string resolveUrl(const std::string& base, const std::string& href) {
     return scheme + "://" + authority + normalisePath(directory + link);
 }
 
+namespace {
+
+// One header's value, found without regard to case. `headers` is the block
+// HttpClient hands over: CRLF-separated lines, no trailing blank line, and the
+// status line first.
+std::string headerValue(const std::string& headers, const std::string& name) {
+    std::size_t cursor = 0;
+    while (cursor < headers.size()) {
+        std::size_t end = headers.find("\r\n", cursor);
+        if (end == std::string::npos) end = headers.size();
+        const std::string line = headers.substr(cursor, end - cursor);
+        const std::size_t colon = line.find(':');
+        if (colon != std::string::npos && lower(trim(line.substr(0, colon))) == name) {
+            return trim(line.substr(colon + 1));
+        }
+        cursor = end + 2;
+    }
+    return std::string();
+}
+
+}  // namespace
+
+bool redirectLocation(int status, const std::string& headers, std::string* location) {
+    // 300, 304 and 305 are left out on purpose: 304 is a cache answer and the
+    // others leave the choice to the reader, which this window does not make.
+    if (status != 301 && status != 302 && status != 303 && status != 307 && status != 308) {
+        return false;
+    }
+    const std::string value = headerValue(headers, "location");
+    if (value.empty()) return false;
+    if (location != nullptr) *location = value;
+    return true;
+}
+
 std::string normaliseAddress(const std::string& typed) {
     const std::string text = trim(typed);
     if (text.empty()) return "about:start";

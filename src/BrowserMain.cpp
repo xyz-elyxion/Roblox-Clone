@@ -179,16 +179,45 @@ struct Frame {
     std::string clicked;
 };
 
+// A page is asked for as a page: HttpClient's default is the backend's JSON, and
+// a website is entitled to answer a request for JSON with a 406 or its API.
+const char* const kPageAccept = "text/html,application/xhtml+xml,text/plain;q=0.9,*/*;q=0.8";
+
+// Each redirect costs one request, so a site that redirects in a circle is cut
+// off instead of costing the reader a timeout per lap.
+constexpr int kMaxRedirects = 8;
+
+linear::http::Response fetchPage(const std::string& url) {
+    // Blocking on purpose: the window is a reader, and the only other work in
+    // this process is drawing the page that is already on screen. The timeout is
+    // what keeps a hung server from freezing it forever.
+    return linear::http::request("GET", url, std::string(), std::string(), 12000,
+                                 linear::http::ProgressCallback(), linear::http::CancelCheck(),
+                                 kPageAccept);
+}
+
 // Reads `typed` into the window. `remember` is false for Back and Forward, which
 // have already moved the history; every other navigation records where it went.
 bool openPage(State& state, const std::string& typed, bool remember) {
-    const std::string url = linear::browser::normaliseAddress(typed);
-    if (remember) state.history.push(url);
+    std::string url = linear::browser::normaliseAddress(typed);
     std::snprintf(state.address, sizeof(state.address), "%s", url.c_str());
     state.jumpToTop = true;
     state.pageDirty = true;
 
+    // Every way out of here shows the address the window ended at, records it
+    // when asked, and can say on the page itself what went wrong.
+    const auto stop = [&state, remember](const std::string& address, const std::string& detail) {
+        if (remember) state.history.push(address);
+        std::snprintf(state.address, sizeof(state.address), "%s", address.c_str());
+        state.document =
+            linear::browser::parse(linear::browser::errorPage(address, detail), address);
+        state.status = detail;
+        state.statusError = true;
+        return false;
+    };
+
     if (url == "about:start") {
+        if (remember) state.history.push(url);
         state.document = linear::browser::parse(linear::browser::startPage(), url);
         state.status = "Start page";
         state.statusError = false;
@@ -196,46 +225,72 @@ bool openPage(State& state, const std::string& typed, bool remember) {
     }
 
     if (url.compare(0, 7, "http://") != 0) {
-        const std::string detail =
-            url.compare(0, 8, "https://") == 0
-                ? "This project has no TLS stack, so https:// cannot be opened. "
-                  "Type an http:// address instead."
-                : "LinearBrowser opens http:// addresses and about:start. "
-                  "A mailto: or javascript: link is not a page.";
-        state.document = linear::browser::parse(linear::browser::errorPage(url, detail), url);
-        state.status = detail;
-        state.statusError = true;
-        return false;
+        return stop(url, url.compare(0, 8, "https://") == 0
+                              ? "This project has no TLS stack, so https:// cannot be opened. "
+                                "Type an http:// address instead."
+                              : "LinearBrowser opens http:// addresses and about:start. "
+                                "A mailto: or javascript: link is not a page.");
     }
 
-    // Blocking on purpose: the window is a reader, and the only other work in
-    // this process is drawing the page that is already on screen. The timeout is
-    // what keeps a hung server from freezing it forever.
-    const linear::http::Response response =
-        linear::http::request("GET", url, std::string(), std::string(), 12000);
+    // A website answering 301 for http:// is ordinary, so the window asks again
+    // at the address the response names. The address bar ends up showing where
+    // it landed, and history records that, the way a browser's does.
+    linear::http::Response response;
+    std::string location;
+    int redirects = 0;
+    while (true) {
+        response = fetchPage(url);
 
-    if (response.networkError()) {
-        const std::string detail =
-            response.error.empty() ? "The request did not complete." : response.error;
-        state.document = linear::browser::parse(linear::browser::errorPage(url, detail), url);
-        state.status = detail;
-        state.statusError = true;
-        return false;
+        if (response.networkError()) {
+            return stop(url, response.error.empty() ? "The request did not complete."
+                                                    : response.error);
+        }
+
+        if (response.ok()) break;
+
+        if (!linear::browser::redirectLocation(response.status, response.headers, &location)) {
+            char detail[160] = {};
+            std::snprintf(detail, sizeof(detail), "The server answered HTTP %d.",
+                          response.status);
+            return stop(url, detail);
+        }
+
+        // A Location is relative to the page that sent it as often as not, so it
+        // goes through the same resolution a link does.
+        const std::string next = linear::browser::resolveUrl(url, location);
+        if (next == url) {
+            return stop(url, "The server redirected this address to itself, so there is nothing "
+                              "to open.");
+        }
+        if (next.compare(0, 8, "https://") == 0) {
+            return stop(next, url + " redirects to " + next +
+                                   ", and this project has no TLS stack to open an https:// "
+                                   "address, so the page cannot be read here.");
+        }
+        if (next.compare(0, 7, "http://") != 0) {
+            return stop(next, url + " redirects to " + next +
+                                   ", which is not an http:// page this window can open.");
+        }
+        if (++redirects > kMaxRedirects) {
+            return stop(url, "The server redirected more than " + std::to_string(kMaxRedirects) +
+                                 " times without landing on a page.");
+        }
+        url = next;
     }
 
-    if (!response.ok()) {
-        char detail[160] = {};
-        std::snprintf(detail, sizeof(detail), "The server answered HTTP %d.", response.status);
-        state.document = linear::browser::parse(linear::browser::errorPage(url, detail), url);
-        state.status = detail;
-        state.statusError = true;
-        return false;
-    }
-
+    if (remember) state.history.push(url);
+    std::snprintf(state.address, sizeof(state.address), "%s", url.c_str());
     state.document = linear::browser::parse(response.body, url);
-    char summary[160] = {};
-    std::snprintf(summary, sizeof(summary), "HTTP %d  -  %zu bytes", response.status,
-                  response.body.size());
+
+    char summary[200] = {};
+    if (redirects > 0) {
+        std::snprintf(summary, sizeof(summary), "HTTP %d  -  %zu bytes  -  %d redirect%s",
+                      response.status, response.body.size(), redirects,
+                      redirects == 1 ? "" : "s");
+    } else {
+        std::snprintf(summary, sizeof(summary), "HTTP %d  -  %zu bytes", response.status,
+                      response.body.size());
+    }
     state.status = summary;
     state.statusError = false;
     return true;

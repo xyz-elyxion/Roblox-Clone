@@ -202,6 +202,39 @@ void readsBaseAndEntities() {
     expect(text.find('\xE2') != std::string::npos, "named entities become UTF-8");
 }
 
+void followsAResponseThatMoves() {
+    // What a plain http:// site sends when it wants https instead. Reporting
+    // "HTTP 301" as a failure, which this window used to do, told the reader
+    // nothing about where the address had gone.
+    const std::string moved =
+        "HTTP/1.1 301 Moved Permanently\r\nContent-Length: 0\r\n"
+        "Location: https://www.youtube.com/\r\nConnection: close";
+    std::string location;
+    expect(linear::browser::redirectLocation(301, moved, &location),
+           "a 301 names where to go");
+    expectEqual(location, "https://www.youtube.com/", "the Location value is read");
+
+    expect(linear::browser::redirectLocation(302, "location: /home\r\n", &location),
+           "a header name is not case sensitive");
+    expectEqual(location, "/home", "a relative Location is handed back as it was sent");
+    expectEqual(linear::browser::resolveUrl("http://localhost:3000/a/b", location),
+                "http://localhost:3000/home", "and resolves against the page that redirected");
+
+    expect(!linear::browser::redirectLocation(200, "Location: /ignored", &location),
+           "a 200 is a page, not a move");
+    expectEqual(location, "/home", "a status that is not a redirect leaves the location alone");
+    expect(!linear::browser::redirectLocation(304, "Location: /ignored", &location),
+           "304 is a cache answer, not a move");
+    expect(!linear::browser::redirectLocation(303, "X-Other: 1", &location),
+           "a redirect without a Location cannot be followed");
+    expect(linear::browser::redirectLocation(307, "Location: http://localhost:3000/x", &location),
+           "307 is followed");
+    expectEqual(location, "http://localhost:3000/x", "307's location is read");
+    expect(linear::browser::redirectLocation(308, "Location: http://localhost:3000/y", &location),
+           "308 is followed");
+    expectEqual(location, "http://localhost:3000/y", "308's location is read");
+}
+
 void normalisesWhatIsTyped() {
     expectEqual(linear::browser::normaliseAddress(""), "about:start", "empty is the start page");
     expectEqual(linear::browser::normaliseAddress("  localhost:3000  "),
@@ -293,6 +326,7 @@ int main() {
     readsBlockStructure();
     readsLinksWithTargets();
     resolvesAddresses();
+    followsAResponseThatMoves();
     skipsCodeAndKeepsAltText();
     readsBaseAndEntities();
     normalisesWhatIsTyped();

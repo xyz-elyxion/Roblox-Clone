@@ -18,6 +18,7 @@ namespace http {
 struct Response {
     int status = 0;          // HTTP status, or 0 when the request never completed
     std::string body;        // response body, empty on failure
+    std::string headers;     // the raw header block, for a caller that reads one
     std::string error;       // why the request failed, empty on success
 
     // A 2xx response that actually arrived.
@@ -38,13 +39,18 @@ using CancelCheck = std::function<bool()>;
 // connect, each write and each read, so a hung server cannot block a caller
 // forever. A `cancelled` check makes the wait interruptible: the request returns
 // at once with the error "cancelled" rather than reading out its timeout.
+// `accept` is the Accept header, empty for the backend's "application/json". A
+// caller fetching something other than the backend's JSON (the browser asking
+// for a page) says so here rather than getting whatever the server does with a
+// request for JSON.
 Response request(const std::string& method,
                  const std::string& url,
                  const std::string& body = std::string(),
                  const std::string& bearerToken = std::string(),
                  int timeoutMs = 5000,
                  const ProgressCallback& onProgress = ProgressCallback(),
-                 const CancelCheck& cancelled = CancelCheck());
+                 const CancelCheck& cancelled = CancelCheck(),
+                 const std::string& accept = std::string());
 
 }  // namespace http
 }  // namespace linear

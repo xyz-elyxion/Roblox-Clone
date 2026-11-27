@@ -170,6 +170,8 @@ int main() {
         check(response.status == 200, "status code is parsed from the status line");
         check(response.body == "{\"success\":true,\"n\":1}", "body is read in full");
         check(!response.networkError(), "a completed request is not a network error");
+        check(response.headers.find("Content-Type: application/json") != std::string::npos,
+              "the response headers are handed to the caller");
 
         const std::string request = server.lastRequest();
         check(request.compare(0, 4, "GET ") == 0, "request line uses the given method");
@@ -255,6 +257,21 @@ int main() {
         check(response.networkError(), "a cancelled request is a network error");
         check(response.error == "cancelled", "a cancelled request says it was cancelled");
         check(took < std::chrono::milliseconds(1000), "cancelling does not wait for the timeout");
+
+        server.stop();
+    }
+
+    {
+        // The browser fetches pages, not the backend's JSON, so it asks for HTML.
+        StubServer server("HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\n{}", 1);
+        check(server.start(), "accept stub server listens");
+
+        const linear::http::Response response = linear::http::request(
+            "GET", baseUrl(server) + "/page", "", "", 5000, linear::http::ProgressCallback(),
+            linear::http::CancelCheck(), "text/html");
+        check(response.ok(), "a request with its own Accept header succeeds");
+        check(server.lastRequest().find("Accept: text/html\r\n") != std::string::npos,
+              "the caller's Accept header is the one sent");
 
         server.stop();
     }

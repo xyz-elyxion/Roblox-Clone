@@ -38,6 +38,14 @@ Page parse(const std::string& html, const std::string& pageUrl);
 // base's scheme). An address that is already absolute is returned unchanged.
 std::string resolveUrl(const std::string& base, const std::string& href);
 
+// Reads the move out of a response: true when `status` is one of the redirect
+// codes a browser follows and the header block names a `Location`. The location
+// is handed back as it was sent - absolute, or relative to the page that
+// redirected - so the caller resolves it with resolveUrl and asks again. A
+// website answering 301 for http:// is ordinary, not an error, which is why the
+// window asks rather than reporting the status.
+bool redirectLocation(int status, const std::string& headers, std::string* location);
+
 // What the address bar does with what was typed: it adds http:// when no scheme
 // is given, leaves about: and mailto: alone, and trims spaces. Empty becomes
 // "about:start".

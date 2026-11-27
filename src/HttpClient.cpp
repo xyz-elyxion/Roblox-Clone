@@ -180,7 +180,8 @@ Response request(const std::string& method,
                  const std::string& bearerToken,
                  int timeoutMs,
                  const ProgressCallback& onProgress,
-                 const CancelCheck& cancelled) {
+                 const CancelCheck& cancelled,
+                 const std::string& accept) {
     Response response;
 
     ParsedUrl parsed;
@@ -207,7 +208,7 @@ Response request(const std::string& method,
     }
     head += "\r\n";
     head += "User-Agent: Linear Client/1.0\r\n";
-    head += "Accept: application/json\r\n";
+    head += "Accept: " + (accept.empty() ? std::string("application/json") : accept) + "\r\n";
     head += "Connection: close\r\n";
     if (!body.empty() || method == "POST" || method == "PUT") {
         head += "Content-Type: application/json\r\n";
@@ -329,6 +330,7 @@ Response request(const std::string& method,
     }
 
     response.body = std::move(payload);
+    response.headers = headers;
     return response;
 }
 

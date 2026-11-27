@@ -47,7 +47,8 @@ bool isWordChar(char c) { return !isBlank(c); }
 
 // Appends `text` as words in one style. Words are the unit of wrapping, so a
 // run of spaces collapses at a line break instead of stretching it.
-void appendWords(const std::string& text, RunStyle style, std::vector<Run>* words) {
+void appendWords(const std::string& text, RunStyle style, std::vector<Run>* words,
+                 const std::string& target = std::string()) {
     std::size_t index = 0;
     while (index < text.size()) {
         while (index < text.size() && isBlank(text[index])) ++index;
@@ -57,6 +58,7 @@ void appendWords(const std::string& text, RunStyle style, std::vector<Run>* word
         Run run;
         run.text = text.substr(start, index - start);
         run.style = style;
+        run.target = target;
         words->push_back(run);
     }
 }
@@ -116,8 +118,10 @@ std::vector<Run> inlineWords(const std::string& text) {
                     flushPlain();
                     // A link reads as its label. The target is an anchor in the
                     // same file or a path beside it, and printing it would make
-                    // the sentence harder to read rather than easier.
-                    appendWords(text.substr(open + 1, label - open - 1), RunStyle::Link, &words);
+                    // the sentence harder to read rather than easier. It travels
+                    // with the run so a window can open it.
+                    appendWords(text.substr(open + 1, label - open - 1), RunStyle::Link, &words,
+                                text.substr(label + 2, close - label - 2));
                     index = close + 1;
                     continue;
                 }
@@ -548,6 +552,7 @@ private:
             out.style = word.style;
             out.mono = mono;
             out.spaceBefore = line.runs.empty() ? 0.0f : gap;
+            out.target = word.target;
             line.runs.push_back(out);
             used += out.spaceBefore + wordWidth;
         }

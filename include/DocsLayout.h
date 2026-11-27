@@ -25,6 +25,10 @@ enum class RunStyle { Text, Strong, Code, Link };
 struct Run {
     std::string text;
     RunStyle style = RunStyle::Text;
+    // A [link](target)'s destination, empty for every other word. LinearDocs only
+    // sets the link, but LinearBrowser turns the same run into a button, so the
+    // address has to survive layout rather than be parsed a second time.
+    std::string target;
 };
 
 // The block kinds the project's documents actually use. Anything the parser does
@@ -84,6 +88,7 @@ struct LineRun {
     RunStyle style = RunStyle::Text;
     bool mono = false;
     float spaceBefore = 0.0f;
+    std::string target;  // see Run::target
 };
 
 struct Line {

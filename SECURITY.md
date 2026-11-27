@@ -33,6 +33,14 @@ lie" or "there is no TLS" is answered by the relevant paragraph below.
   there is no TLS implementation anywhere in the tree. Any token or password over a network
   is readable in transit. Put it behind a TLS-terminating proxy before it faces anything
   other than loopback and trusted LAN clients.
+- **The browser is a reader.** `LinearBrowser.exe` fetches `http://` pages and draws their text.
+  It has no script engine, no cookie jar, no form submission and no TLS, so a page cannot run
+  code in it, read another site's data or keep a session. It stores nothing and sends no
+  credentials: a typed address or a clicked link is the only thing that causes a request, and
+  `https://`, `mailto:` and other schemes are answered with a page that says they are not
+  supported rather than being opened. The layout, the HTML reader and the page's own text are
+  treated as untrusted input: generated pages escape the address and the server's error before
+  they become markup.
 - **The client is untrusted.** `LinearAntiCheat` runs inside the client process, so a
   modified client can decline to run it, and the machine id the client sends can be any
   value. Neither is a boundary. The boundary is the server: the movement guard in

@@ -1,11 +1,11 @@
 # Working in this repository
 
 Linear is a Windows-only sandbox-platform prototype in C++17: a game client, a game
-server, a world editor (Studio), a source editor (LinearCode), a native website backend
-(`WebApp.exe`), an installer, an updater, a headless trainer and a server supervisor
-(`LinearHosts.exe`). Everything — including the website — is C++ built from this tree, and
-the build tool itself is vendored. There is no Node.js, npm, Python, CMake install or
-package manager involved.
+server, a world editor (Studio), a source editor (LinearCode), a browser
+(`LinearBrowser.exe`), a native website backend (`WebApp.exe`), an installer, an updater, a
+headless trainer and a server supervisor (`LinearHosts.exe`). Everything — including the
+website — is C++ built from this tree, and the build tool itself is vendored. There is no
+Node.js, npm, Python, CMake install or package manager involved.
 
 This file is the short version for anyone (person or agent) making a change. The
 [README](README.md) is the reference for what the project is; [HOSTING.md](HOSTING.md) and
@@ -140,6 +140,7 @@ them, and writes `README.txt`, `update.json` and `manifest.json` into `dist/line
 | The mark | `include/LogoMark.h` draws it in every window; `web/public/assets/linear-mark.svg` is the site's copy and the top bar's; `scripts/make-logo.py` rasterises it into `src/app.ico` and `web/public/favicon.ico`; `src/linear.rc` is the resource the executables load it from. All three hold the same geometry, so a change goes in all three or in none |
 | Certificate trust | `src/CertMain.cpp`, `src/CertificateTrust.cpp`, `scripts/make-certificate.ps1`, `scripts/sign-binaries.ps1` |
 | Documentation window | `src/DocsMain.cpp`, `src/DocsLibrary.cpp` (finding and reading `docs/`), `include/DocsLayout.h` + `src/DocsLayout.cpp` (Markdown and wrapping, no window) |
+| Browser | `src/BrowserMain.cpp` (toolbar, page, footer, link hit-testing), `include/BrowserPage.h` + `src/BrowserPage.cpp` (HTML reader, link resolution, address normalising and history; no window) |
 | Server setup | `src/ServerSetupMain.cpp`, `src/ServerConfig.cpp` (the `server.conf` the website reads) |
 | Trainer | `src/AiTrainer.cpp` |
 | Scripting | `src/LinearScript.cpp`, `include/LinearScript.h` |

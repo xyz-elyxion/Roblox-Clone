@@ -23,6 +23,7 @@ before pointing it at the internet.
 | `LinearGuard.exe` | The anti-cheat guard service: watches the game from outside `Client.exe`, for cheat tools running on the machine and modules loaded into the client from a folder any program can write to |
 | `LinearCert.exe` | Puts the signing certificate into the Windows trust stores, or takes it out again, so a signed build starts without Windows asking who published it; double-clicked, or started with just `--machine`, it opens a window that offers both |
 | `LinearDocs.exe` | The documentation as a window: this README and the topic files beside it — SECURITY, HOSTING, LINEARBUILD, CONTRIBUTING, the code of conduct, AGENTS — read from `docs/`, with the sections of the open page listed next to it |
+| `LinearBrowser.exe` | The project's own browser: an address bar, Back, Forward, Reload, Home and clickable links, reading a page over plain `http://` and drawing it as text with the same layout the documentation window uses |
 
 `LinearGame.dll` is not a program in that list: it is the game simulation — world files, parts,
 physics bodies, the character, the camera and the avatar — which `Client.exe`, `Server.exe`,
@@ -80,6 +81,12 @@ documentation that ships with the build: it reads the Markdown in the package's 
 this README and the topic files it links to — and draws it as a page, with every document listed
 down the left and the headings of the open one under them, each one a jump. It reads the files
 where they are, so the window always shows the text that shipped and a correction needs no build.
+
+`LinearBrowser.exe` is the same idea for the web. It opens on a start page whose links go to
+the site, `LinearHub` and the hosting panel, fetches a page over plain HTTP and draws it as a
+document — headings, paragraphs, lists, quotes, code, tables and links you can click. It is a
+reader, not a rendering engine: no TLS, no JavaScript, no style sheets, no images, no cookies and
+no forms. `LinearBrowser.exe http://localhost:3000` opens the site directly.
 
 There are no `.bat` files anywhere, in the package or in an install: every program looks for its data
 in the folder it runs from, which is where Explorer starts it, so a console wrapper added nothing.
@@ -1744,7 +1751,8 @@ linear-windows-release/
   web/public/  web/seed-worlds/
   shaders/  ServerWorld.world  face*.png  face_hex.txt
   LinearUpdater.exe  LinearSetup.exe  ServerSetup.exe  AiTrainer.exe  LinearHosts.exe  LinearProxy.exe
-  LinearGit.exe  LinearHub.exe  LinearCert.exe  LinearGuard.exe  LinearDocs.exe  LinearGame.dll
+  LinearGit.exe  LinearHub.exe  LinearCert.exe  LinearGuard.exe  LinearDocs.exe
+  LinearBrowser.exe  LinearGame.dll
   update.json  manifest.json
   docs/  certs/linear-codesign.cer
   README.txt

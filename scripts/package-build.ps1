@@ -104,7 +104,7 @@ try {
     $exeDir = Join-Path $BuildDir $Configuration
     $found = @()
     $missing = @()
-    foreach ($name in @('WebApp', 'Server', 'Client', 'Studio', 'LinearCode', 'AiTrainer', 'LinearUpdater', 'LinearSetup', 'LinearHosts', 'LinearProxy', 'LinearGit', 'LinearHub', 'LinearCert', 'LinearGuard', 'LinearDocs', 'ServerSetup')) {
+    foreach ($name in @('WebApp', 'Server', 'Client', 'Studio', 'LinearCode', 'AiTrainer', 'LinearUpdater', 'LinearSetup', 'LinearHosts', 'LinearProxy', 'LinearGit', 'LinearHub', 'LinearCert', 'LinearGuard', 'LinearDocs', 'LinearBrowser', 'ServerSetup')) {
         $exePath = Join-Path $exeDir "$name.exe"
         if (Test-Path -LiteralPath $exePath) {
             Copy-Item -LiteralPath $exePath -Destination $Output
@@ -236,6 +236,8 @@ try {
         '                published a build; double-click it for the window'
         '  LinearDocs.exe    the documentation in docs/, as a page: the README plus every other'
         '                Markdown file, with the sections of each one listed beside it'
+        '  LinearBrowser.exe the project''s own browser: an address bar, Back/Forward/Reload/Home'
+        '                and clickable links, reading pages as text over plain HTTP'
         '  LinearHosts.exe   server supervisor: keeps a pool of Server.exe processes alive, one'
         '                per port with its own log, restarting any that exit'
         '  LinearProxy.exe   reverse proxy: puts the website on another address - port 80 on the'
@@ -278,6 +280,9 @@ try {
         '  LinearGit.exe init .  makes a repository in this folder; add .,'
         '                      commit -m "first" and log are the rest of it'
         '  LinearHub.exe         browses the repository this folder is inside on port 3100'
+        '  LinearBrowser.exe     opens on a start page with links to the site, LinearHub and the'
+        '                      hosting panel; pass an address (LinearBrowser.exe'
+        '                      http://localhost:3000) to open it directly'
         ''
         'FIRST RUN: THE GUIDED TOUR'
         '  A fresh unzip has no account data yet. Start WebApp.exe, press Open site, and'

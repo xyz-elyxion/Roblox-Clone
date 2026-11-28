@@ -6,10 +6,9 @@
 
 // The client's mixer: one mono output, a handful of short clips mixed into it.
 //
-// There are no audio files in the repository, and nothing here loads one. The
-// clips are synthesised (see SoundBank.h), which keeps the package a folder of
-// executables rather than an asset bundle, and keeps a sound from ever shipping
-// out of step with the code that names it.
+// A clip is mono 16-bit at kSampleRate whichever way it arrived: the bank
+// synthesises its own sounds and converts a game's WAV files into the same shape
+// (see SoundBank.h). Nothing here opens a file - the mixer only ever mixes.
 namespace linear {
 namespace audio {
 

@@ -485,7 +485,8 @@ public:
                     }
                     known += name;
                 }
-                error = "there is no sound '" + args[0].string + "'; this build has " + known;
+                error = "there is no sound '" + args[0].string + "'; this build has " + known +
+                        ", and whatever .wav files are in the sounds folder";
                 return false;
             }
             if (!state_->soundHandler) {

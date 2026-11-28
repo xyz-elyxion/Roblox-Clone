@@ -86,7 +86,8 @@ in the folder it runs from, which is where Explorer starts it, so a console wrap
 
 Nothing else needs installing. The executables link the C++ runtime statically, so neither Visual
 Studio nor the VC++ redistributable is required at runtime. Keep the folder layout intact: the
-executables load `shaders/`, `ServerWorld.world` and `web/` relative to the working directory, and
+executables load `shaders/`, `sounds/`, `ServerWorld.world` and `web/` relative to the working
+directory, and
 `LinearGame.dll` is loaded from the folder the program starts in, so it travels with them.
 
 ### The installer, and how a copy updates itself
@@ -1343,24 +1344,40 @@ end)
 | `RunService.Heartbeat:Connect(function(dt) ... end)` | Per-tick logic |
 | `Players:GetPlayers()`, `Players.PlayerCount` | The players in the game |
 | `player.Name`, `player:Teleport(vector)`, `player:TakeDamage(amount)` | Player access; damage is applied by the server and answered with a death and respawn |
-| `workspace:PlaySound(name[, position[, volume]])` | Plays one of the build's sounds, at a place in the world when a position is given |
+| `workspace:PlaySound(name[, position[, volume]])` | Plays a sound by name — a built-in one or a WAV in `sounds/` — at a place in the world when a position is given |
 | `Vector3.new(x, y, z)` | A vector |
 
 ### Sound
 
 A script makes a noise with `workspace:PlaySound("door")`, or with a `position` for one that comes
-from somewhere in the world and an optional `volume` from 0 to 1. The server checks the name against
-the build's list and forwards it to every client, which mixes it and fades it by how far the player
-is from the position, so a door down the corridor is a whisper and the one in front of you is not. A
-name the build does not have fails at the line that used it, with the list of what it does have,
+from somewhere in the world and an optional `volume` from 0 to 1. The server checks the name and
+forwards it to every client, which mixes it and fades it by how far the player is from the position,
+so a door down the corridor is a whisper and the one in front of you is not. A name that is neither
+a built-in sound nor a file fails at the line that used it, with the list of what the build has,
 rather than becoming a sound that never comes.
 
-The sounds are synthesised by the client instead of shipped as files, which keeps the package a
-folder of executables and keeps a sound from ever drifting out of step with the code that names it.
-The set is `footstep`, `jump`, `door`, `wardrobe`, `entity`, `death`, `lap`, `lava`, `chime` and
-`elevator`; the client plays footsteps and jumps itself, because a character's own feet should not
-wait for a round trip. Three ships with the build: the lava and the goal in Sky Platformer, the lap
-bell in Turbo Circuit, and the doors, wardrobes, entity, deaths and the elevator in Doors Hotel.
+Ten sounds are synthesised by the client: `footstep`, `jump`, `door`, `wardrobe`, `entity`, `death`,
+`lap`, `lava`, `chime` and `elevator`. Three ships with the build: the lava and the goal in Sky
+Platformer, the lap bell in Turbo Circuit, and the doors, wardrobes, entity, deaths and the elevator
+in Doors Hotel. The client plays footsteps and jumps itself, because a character's own feet should
+not wait for a round trip.
+
+Any other name is a file. Put `sounds/<name>.wav` beside the executables — or in the checkout's
+`sounds/` when running a build out of `build/<preset>/`, which is looked for the same two ways a part
+texture is — and `workspace:PlaySound("name")` plays it. The folder travels with the package when it
+has anything in it, so a game's own audio ships with the build instead of sitting outside it. A name
+is letters, digits, `-` and `_`, up to 23 characters, with no extension and no directory; a name
+travels in a fixed-size packet field, and the rule is also what stops a script from reading a file
+somewhere else. A built-in name always plays the built-in sound, so a file cannot quietly replace
+one the client plays itself.
+
+A WAV is read as 16-bit PCM, mono or stereo, at any sample rate: the bank averages the two channels
+when there are two and resamples to the 22050 Hz the mixer runs at, so a file out of an ordinary
+editor works as it is. 8- and 24-bit samples, a compressed format, more than two channels and
+anything over a minute are refused with a message that says which, because the whole clip is held in
+memory while it plays. A file is read once and kept for the life of the process. `sounds/example.wav`
+is the one file in that folder in this repository, so `workspace:PlaySound("example")` in a script
+plays the loader rather than the synthesiser.
 
 ### Scripts in Studio and on the server
 
@@ -1670,6 +1687,7 @@ src/                    Client, Server, Studio, rendering, physics, auth, web ap
 tests/                  C++ protocol, moderation and web tests
 shaders/                OpenGL shaders used by Client and Studio
 textures/               Tileable part textures a world can name
+sounds/                 WAV files a script plays by name (workspace:PlaySound)
 games/                  The bundled worlds and their .rbx scripts
 web/                    Public pages, starter worlds, published worlds, game-server logs
 web/host/               The LinearHosts control panel page (served by LinearHosts.exe)
@@ -1742,7 +1760,7 @@ Open the latest run under **Actions** and download `linear-windows-release`.
 linear-windows-release/
   WebApp.exe  Server.exe  Client.exe  Studio.exe  LinearCode.exe
   web/public/  web/seed-worlds/
-  shaders/  ServerWorld.world  face*.png  face_hex.txt
+  shaders/  sounds/  ServerWorld.world  face*.png  face_hex.txt
   LinearUpdater.exe  LinearSetup.exe  ServerSetup.exe  AiTrainer.exe  LinearHosts.exe  LinearProxy.exe
   LinearGit.exe  LinearHub.exe  LinearCert.exe  LinearGuard.exe  LinearDocs.exe
   LinearGame.dll
@@ -1847,9 +1865,9 @@ no repository is open rather than failing the server.
   stops at collidable parts, but there is no client-side prediction, so steering over a high-latency
   connection feels delayed. Collision uses the axis-aligned box around a rotated part, so a diagonal
   wall blocks a little more ground than it looks like it does.
-- Sound is mono and synthesised. A sound fades with distance from the player instead of panning
-  left or right, there is no volume control beyond the system mixer, and no audio file is loaded:
-  the ten built-in sounds are the whole set, so a game that wants its own noise needs a code change.
+- Sound is mono. A sound fades with distance from the player instead of panning left or right, and
+  there is no volume control beyond the system mixer. The ten built-in sounds are synthesised; a
+game's own are WAV files in `sounds/`, and only 16-bit PCM at no more than a minute is read.
 - The HTTP client is HTTP/1.1: `http://` goes straight down the socket, `https://` goes through
   Windows' own SChannel (TLS 1.2, the certificate validated against the machine's trust store and
   the typed host name). It reads chunked bodies but not compressed ones — it asks for the identity

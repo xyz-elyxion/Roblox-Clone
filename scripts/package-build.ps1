@@ -151,6 +151,11 @@ try {
     if (Test-Path -LiteralPath 'textures') {
         Copy-Item -LiteralPath 'textures' -Destination (Join-Path $Output 'textures') -Recurse
     }
+    # A game's own sounds: a script names sounds/<name>.wav and both the server
+    # (which checks the name) and the client (which plays it) look beside themselves.
+    if (Test-Path -LiteralPath 'sounds') {
+        Copy-Item -LiteralPath 'sounds' -Destination (Join-Path $Output 'sounds') -Recurse
+    }
     Copy-Item -LiteralPath 'ServerWorld.world' -Destination $Output
     Get-ChildItem -LiteralPath '.' -File |
         Where-Object {
@@ -255,6 +260,7 @@ try {
         '  web/hub/      the LinearHub browser stylesheet'
         '  games/        example worlds and their .rbx scripts (Sky Platformer)'
         '  shaders/      OpenGL shaders used by Client and Studio'
+        '  sounds/       .wav files a script plays by name (workspace:PlaySound)'
         '  ServerWorld.world, face*.png, face_hex.txt  data loaded from the working directory'
         ''
         'HOW TO RUN'
@@ -336,8 +342,8 @@ try {
         '  HOSTING.md in the source repository documents every key the config accepts.'
         ''
         'NOTES'
-        '  - Keep this folder layout intact. The executables look for shaders/ and web/'
-        '    relative to the folder they run from, which is where Explorer starts them.'
+        '  - Keep this folder layout intact. The executables look for shaders/, sounds/ and'
+        '    web/ relative to the folder they run from, which is where Explorer starts them.'
         '  - WebApp.exe uses the Server.exe and Client.exe beside it, so Play launches'
         '    the copies that ship with this package.'
         '  - LinearGame.dll is loaded by Client.exe, Server.exe, Studio.exe and AiTrainer.exe.'

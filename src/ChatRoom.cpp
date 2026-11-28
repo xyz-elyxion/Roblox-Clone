@@ -14,7 +14,7 @@ const std::vector<Channel> kChannels = {
     {"world-building", "world-building", "Parts, spawns and the things that eat players."},
     {"bug-reports", "bug-reports",
      "One report per message: what you did, what happened, what you expected."},
-    {"sound-design", "sound-design", "Synthesised sounds, one mixer, no audio files."},
+    {"sound-design", "sound-design", "Ten synthesised sounds, one mixer, and the files in sounds/."},
 };
 
 }  // namespace

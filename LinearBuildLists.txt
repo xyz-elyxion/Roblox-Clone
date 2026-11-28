@@ -195,6 +195,8 @@ if(LINEAR_BUILD_STUDIO)
         ${lineartextedit_SOURCE_DIR}/LinearTextEditor.cpp
         src/LinearScript.cpp
         src/WorldScript.cpp
+        # The service tree the Explorer draws and a script asks for by name.
+        src/WorldServices.cpp
         # Undo and redo: the world as it stood at the end of each interaction.
         src/StudioHistory.cpp
         # The script runtime checks a sound name against the bank before it asks
@@ -511,6 +513,8 @@ if(LINEAR_BUILD_SERVER)
         src/HttpClient.cpp
         src/LinearScript.cpp
         src/WorldScript.cpp
+        # The service tree a script asks for by name.
+        src/WorldServices.cpp
         # A script's PlaySound is validated against the bank before the name
         # reaches a client.
         src/SoundBank.cpp
@@ -583,6 +587,20 @@ if(LINEAR_BUILD_TESTS)
     add_executable(ScriptTests tests/linear_script_tests.cpp src/LinearScript.cpp)
     target_include_directories(ScriptTests PRIVATE ${LINEARBUILD_CURRENT_SOURCE_DIR}/include)
     add_test(NAME ScriptTests COMMAND ScriptTests)
+
+    # The world API: the service tree, Lighting, and the two ways a script reaches
+    # a sound. No window and no physics: a part list and an interpreter are enough,
+    # which is what keeps this runnable on a build machine.
+    add_executable(WorldScriptTests
+        tests/world_script_tests.cpp
+        src/WorldScript.cpp
+        src/LinearScript.cpp
+        src/PhysicsWorld.cpp
+        src/SoundBank.cpp
+        src/WorldServices.cpp
+    )
+    target_include_directories(WorldScriptTests PRIVATE ${LINEARBUILD_CURRENT_SOURCE_DIR}/include)
+    add_test(NAME WorldScriptTests COMMAND WorldScriptTests)
 
     # The source editor's file handling is headless, so its checks run without a
     # display or the graphics dependencies.

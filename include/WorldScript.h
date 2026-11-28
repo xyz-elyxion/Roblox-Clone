@@ -53,6 +53,13 @@ public:
     void setSoundHandler(std::function<void(const std::string& sound, const linearmath::vec3& position,
                                            float volume, bool spatial)> handler);
 
+    // The fog the world file starts with, so Lighting reads back what the clients
+    // were given, and the handler a change goes through: a client is handed the
+    // environment once, at the join, so the clients already in the game only hear
+    // about a new one if the host sends it.
+    void setEnvironment(const linearmath::vec3& fogColor, float fogDensity);
+    void setEnvironmentHandler(std::function<void(const linearmath::vec3&, float)> handler);
+
     // Fires RunService.Heartbeat handlers and checks parts for new Touched pairs.
     void heartbeat(float deltaTime);
 

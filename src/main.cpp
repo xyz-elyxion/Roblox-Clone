@@ -10,6 +10,7 @@
 #include "WorldLoader.h"
 #include "LinearScript.h"
 #include "WorldScript.h"
+#include "WorldServices.h"
 #include "StudioHistory.h"
 #include "StudioSelection.h"
 #include "Auth.h"
@@ -288,6 +289,37 @@ namespace {
 
     // Where a part sits in the world, or -1. A weld names a part by pointer while
     // the rest of Studio names parts by index, so this is where the two meet.
+    // The world's own hierarchy: a part's folder is Part::parentIndex, so the tree
+    // the Explorer draws is the one the file holds rather than a second copy of it.
+    // The depth limit is what stops a file whose parent index points into its own
+    // children from recursing for ever.
+    void drawPartTree(std::deque<Part>& parts, std::vector<int>& selection, int parent,
+                      int depth) {
+        if (depth > 8) return;
+        for (int i = 0; i < static_cast<int>(parts.size()); ++i) {
+            Part& part = parts[static_cast<std::size_t>(i)];
+            if (part.deleted || part.parentIndex != parent) continue;
+            if (part.isFolder) {
+                // A folder opens onto its contents. The pointer is the id, because
+                // two folders may carry the same name.
+                if (LinearUI::TreeNode(static_cast<const void*>(&part), "%s",
+                                       part.name.c_str())) {
+                    drawPartTree(parts, selection, i, depth + 1);
+                    LinearUI::TreePop();
+                }
+                continue;
+            }
+            if (LinearUI::Selectable(part.name.c_str(),
+                                     linear::studio::isSelected(selection, i))) {
+                if (LinearUI::GetIO().KeyCtrl) {
+                    linear::studio::toggleSelected(selection, i);
+                } else {
+                    linear::studio::selectOnly(selection, i);
+                }
+            }
+        }
+    }
+
     int partIndex(const std::deque<Part>& parts, const Part* part) {
         for (std::size_t index = 0; index < parts.size(); ++index) {
             if (&parts[index] == part) {
@@ -741,15 +773,26 @@ int main() {
             LinearUI::End();
 
             LinearUI::Begin("Explorer");
-            for (size_t i = 0; i < parts.size(); ++i) {
-                if (parts[i].deleted) continue;
-                if (LinearUI::Selectable(parts[i].name.c_str(),
-                                      linear::studio::isSelected(selection, static_cast<int>(i)))) {
-                    if (io.KeyCtrl) {
-                        linear::studio::toggleSelected(selection, static_cast<int>(i));
+            // The same tree a script names through game:GetService, in the same
+            // order, so the panel and the language cannot disagree about what a
+            // world has.
+            for (const linear::worldscript::Service& service : linear::worldscript::services()) {
+                const bool isWorkspace = std::string(service.name) == "Workspace";
+                const LinearUI::LinearUITreeNodeFlags flags =
+                    isWorkspace ? LinearUI::LinearUITreeNodeFlags_DefaultOpen
+                                : LinearUI::LinearUITreeNodeFlags_None;
+                if (LinearUI::CollapsingHeader(service.name, flags)) {
+                    LinearUI::Indent();
+                    // A part may carry a service's name, and the id stack is what
+                    // keeps the two rows from opening each other.
+                    LinearUI::PushID("children");
+                    if (isWorkspace) {
+                        drawPartTree(parts, selection, -1, 0);
                     } else {
-                        linear::studio::selectOnly(selection, static_cast<int>(i));
+                        LinearUI::TextDisabled("%s", service.note);
                     }
+                    LinearUI::PopID();
+                    LinearUI::Unindent();
                 }
             }
             LinearUI::TextDisabled("Ctrl+click adds or removes a part");

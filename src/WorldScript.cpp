@@ -1,6 +1,7 @@
 #include "WorldScript.h"
 
 #include "SoundBank.h"
+#include "WorldServices.h"
 
 #include <linearphysics/linearphysics.h>
 
@@ -133,8 +134,22 @@ struct WorldRuntimeState : public std::enable_shared_from_this<WorldRuntimeState
     std::function<void(const std::string&, const linearmath::vec3&)> teleportHandler;
     std::function<void(const std::string&, float)> damageHandler;
     std::function<void(const std::string&, const linearmath::vec3&, float, bool)> soundHandler;
+    std::function<void(const linearmath::vec3&, float)> environmentHandler;
+
+    // What the fog is: the world file's values, or what a script has changed them
+    // to since. Kept here so Lighting answers with the numbers the clients were
+    // given rather than with zeros.
+    linearmath::vec3 fogColor{0.0f};
+    float fogDensity = 0.0f;
+
+    // The service tree, built once: game:GetService has to hand back the same
+    // object each time, because Lighting carries state and two copies of it would
+    // disagree.
+    std::map<std::string, Value> serviceValues;
 
     int findPart(const std::string& name) const;
+    const Value* service(const std::string& name) const;
+    void applyEnvironment();
     Value partValue(int index);
     Value playerValue(const std::string& name);
     std::vector<ScriptPlayer> players() const;
@@ -191,6 +206,16 @@ std::vector<ScriptPlayer> WorldRuntimeState::players() const {
     return playerSource();
 }
 
+const Value* WorldRuntimeState::service(const std::string& name) const {
+    const auto found = serviceValues.find(name);
+    return found == serviceValues.end() ? nullptr : &found->second;
+}
+
+void WorldRuntimeState::applyEnvironment() {
+    if (!environmentHandler) return;
+    environmentHandler(fogColor, fogDensity);
+}
+
 void WorldRuntimeState::updateTouches() {
     if (parts == nullptr) return;
     const std::vector<ScriptPlayer> currentPlayers = players();
@@ -226,6 +251,58 @@ void WorldRuntimeState::updateTouches() {
 }
 
 namespace {
+
+// workspace:PlaySound and SoundService:Play are the same call: the script names a
+// sound and the host puts it where the ears are, because the world a script runs
+// in has none.
+bool playSound(WorldRuntimeState& state, const std::string& method,
+               const std::vector<Value>& args, Value& out, std::string& error) {
+    if (args.empty() || !args[0].isString()) {
+        error = method + " expects a sound name";
+        return false;
+    }
+    // Checked on this side of the wire: the same typo would reach the client as a
+    // name it cannot resolve, which is a noise that never comes and nothing to
+    // look at.
+    if (linear::audio::soundByName(args[0].string) == nullptr) {
+        std::string known;
+        for (const std::string& name : linear::audio::soundNames()) {
+            if (!known.empty()) {
+                known += ", ";
+            }
+            known += name;
+        }
+        error = "there is no sound '" + args[0].string + "'; this build has " + known +
+                ", and whatever .wav files are in the sounds folder";
+        return false;
+    }
+    if (!state.soundHandler) {
+        error = "sounds cannot be played here";
+        return false;
+    }
+
+    linearmath::vec3 position(0.0f);
+    bool spatial = false;
+    if (args.size() >= 2) {
+        if (!readVector3(args[1], position)) {
+            error = method + " expects a Vector3 position";
+            return false;
+        }
+        spatial = true;
+    }
+    float volume = 1.0f;
+    if (args.size() >= 3) {
+        if (!args[2].isNumber()) {
+            error = method + " expects a number for its volume";
+            return false;
+        }
+        volume = static_cast<float>(args[2].number);
+    }
+
+    state.soundHandler(args[0].string, position, volume, spatial);
+    out = Value::nil();
+    return true;
+}
 
 class PartObject : public ScriptObject {
 public:
@@ -442,6 +519,10 @@ public:
     const char* typeName() const override { return "Workspace"; }
 
     bool get(const std::string& name, Value& out) override {
+        if (name == "Name" || name == "ClassName") {
+            out = Value::stringValue("Workspace");
+            return true;
+        }
         const int index = state_->findPart(name);
         if (index < 0) return false;
         out = state_->partValue(index);
@@ -470,51 +551,7 @@ public:
             return true;
         }
         if (method == "PlaySound") {
-            if (args.empty() || !args[0].isString()) {
-                error = "PlaySound expects a sound name";
-                return false;
-            }
-            // Checked on this side of the wire: the same typo would reach the
-            // client as a name it cannot resolve, which is a noise that never
-            // comes and nothing to look at.
-            if (linear::audio::soundByName(args[0].string) == nullptr) {
-                std::string known;
-                for (const std::string& name : linear::audio::soundNames()) {
-                    if (!known.empty()) {
-                        known += ", ";
-                    }
-                    known += name;
-                }
-                error = "there is no sound '" + args[0].string + "'; this build has " + known +
-                        ", and whatever .wav files are in the sounds folder";
-                return false;
-            }
-            if (!state_->soundHandler) {
-                error = "sounds cannot be played here";
-                return false;
-            }
-
-            linearmath::vec3 position(0.0f);
-            bool spatial = false;
-            if (args.size() >= 2) {
-                if (!readVector3(args[1], position)) {
-                    error = "PlaySound expects a Vector3 position";
-                    return false;
-                }
-                spatial = true;
-            }
-            float volume = 1.0f;
-            if (args.size() >= 3) {
-                if (!args[2].isNumber()) {
-                    error = "PlaySound expects a number for its volume";
-                    return false;
-                }
-                volume = static_cast<float>(args[2].number);
-            }
-
-            state_->soundHandler(args[0].string, position, volume, spatial);
-            out = Value::nil();
-            return true;
+            return playSound(*state_, method, args, out, error);
         }
         if (method == "CreatePart") {
             // The way a script makes a level instead of decorating one: a room
@@ -582,6 +619,10 @@ public:
     const char* typeName() const override { return "RunService"; }
 
     bool get(const std::string& name, Value& out) override {
+        if (name == "Name" || name == "ClassName") {
+            out = Value::stringValue("RunService");
+            return true;
+        }
         if (name != "Heartbeat") return false;
         out = linear::script::makeSignalValue(*state_->heartbeatSignal);
         return true;
@@ -599,6 +640,10 @@ public:
     const char* typeName() const override { return "Players"; }
 
     bool get(const std::string& name, Value& out) override {
+        if (name == "Name" || name == "ClassName") {
+            out = Value::stringValue("Players");
+            return true;
+        }
         if (name == "PlayerCount") {
             out = Value::numberValue(static_cast<double>(state_->players().size()));
             return true;
@@ -622,6 +667,167 @@ public:
 
 private:
     std::shared_ptr<WorldRuntimeState> state_;
+};
+
+// The world's air. The fog the world file sets travels to a client once, with
+// the join, so a script that changes it has to hand the new pair to the host: the
+// clients already in the game will not be sent a second welcome.
+class LightingObject : public ScriptObject {
+public:
+    explicit LightingObject(std::shared_ptr<WorldRuntimeState> state) : state_(std::move(state)) {}
+
+    const char* typeName() const override { return "Lighting"; }
+
+    bool get(const std::string& name, Value& out) override {
+        if (name == "Name" || name == "ClassName") {
+            out = Value::stringValue("Lighting");
+            return true;
+        }
+        if (name == "FogColor") {
+            out = makeVector3(state_->fogColor.x, state_->fogColor.y, state_->fogColor.z);
+            return true;
+        }
+        if (name == "FogDensity") {
+            out = Value::numberValue(state_->fogDensity);
+            return true;
+        }
+        return false;
+    }
+
+    bool set(const std::string& name, const Value& value) override {
+        if (name == "FogColor") {
+            linearmath::vec3 color;
+            if (!readVector3(value, color)) return false;
+            state_->fogColor = linearmath::vec3(std::clamp(color.x, 0.0f, 1.0f),
+                                               std::clamp(color.y, 0.0f, 1.0f),
+                                               std::clamp(color.z, 0.0f, 1.0f));
+            state_->applyEnvironment();
+            return true;
+        }
+        if (name == "FogDensity") {
+            if (!value.isNumber()) return false;
+            // The client stops thickening the haze at 0.2, so a script cannot ask
+            // for fog that hides the world outright.
+            state_->fogDensity = std::clamp(static_cast<float>(value.number), 0.0f, 0.2f);
+            state_->applyEnvironment();
+            return true;
+        }
+        return false;
+    }
+
+private:
+    std::shared_ptr<WorldRuntimeState> state_;
+};
+
+// The service a script plays sounds through, which is the workspace's PlaySound
+// under the name the familiar tree gives it.
+class SoundServiceObject : public ScriptObject {
+public:
+    explicit SoundServiceObject(std::shared_ptr<WorldRuntimeState> state)
+        : state_(std::move(state)) {}
+
+    const char* typeName() const override { return "SoundService"; }
+
+    bool get(const std::string& name, Value& out) override {
+        if (name == "Name" || name == "ClassName") {
+            out = Value::stringValue("SoundService");
+            return true;
+        }
+        return false;
+    }
+
+    bool call(Interpreter&, const std::string& method, const std::vector<Value>& args,
+              Value& out, std::string& error) override {
+        if (method == "Play") {
+            return playSound(*state_, method, args, out, error);
+        }
+        error = "SoundService has no method '" + method + "'; this build has Play";
+        return false;
+    }
+
+private:
+    std::shared_ptr<WorldRuntimeState> state_;
+};
+
+// A service this build does not fill. It exists so a script written against the
+// familiar tree meets a service that says what is missing at the line that asked,
+// instead of a nil that fails somewhere else with no explanation.
+class EmptyServiceObject : public ScriptObject {
+public:
+    EmptyServiceObject(std::string name, std::string note)
+        : name_(std::move(name)), note_(std::move(note)) {}
+
+    const char* typeName() const override { return name_.c_str(); }
+
+    bool get(const std::string& name, Value& out) override {
+        if (name == "Name" || name == "ClassName") {
+            out = Value::stringValue(name_);
+            return true;
+        }
+        return false;
+    }
+
+    bool call(Interpreter&, const std::string& method, const std::vector<Value>&, Value& out,
+              std::string& error) override {
+        (void)out;
+        error = name_ + " has no method '" + method + "' in this build: " + note_;
+        return false;
+    }
+
+private:
+    std::string name_;
+    std::string note_;
+};
+
+// game itself: the tree a script reaches every service through.
+class GameObject : public ScriptObject {
+public:
+    GameObject(std::shared_ptr<WorldRuntimeState> state, Value workspace)
+        : state_(std::move(state)), workspace_(std::move(workspace)) {}
+
+    const char* typeName() const override { return "game"; }
+
+    bool get(const std::string& name, Value& out) override {
+        if (name == "Workspace") {
+            out = workspace_;
+            return true;
+        }
+        if (name == "Name" || name == "ClassName") {
+            out = Value::stringValue("game");
+            return true;
+        }
+        return false;
+    }
+
+    bool call(Interpreter&, const std::string& method, const std::vector<Value>& args, Value& out,
+              std::string& error) override {
+        if (method != "GetService") {
+            error = "game has no method '" + method + "'; this build has GetService";
+            return false;
+        }
+        if (args.empty() || !args[0].isString()) {
+            error = "GetService expects a service name";
+            return false;
+        }
+        const Value* service = state_->service(args[0].string);
+        if (service == nullptr) {
+            std::string known;
+            for (const linear::worldscript::Service& candidate : services()) {
+                if (!known.empty()) {
+                    known += ", ";
+                }
+                known += candidate.name;
+            }
+            error = "there is no service '" + args[0].string + "'; this build has " + known;
+            return false;
+        }
+        out = *service;
+        return true;
+    }
+
+private:
+    std::shared_ptr<WorldRuntimeState> state_;
+    Value workspace_;
 };
 
 }  // namespace
@@ -654,15 +860,31 @@ WorldRuntime::WorldRuntime(std::deque<Part>& parts, PhysicsWorld* physicsWorld,
         });
     interpreter.setGlobal("Vector3", vector3);
 
-    interpreter.setGlobal(
-        "RunService", Value::objectValue(std::make_shared<RunServiceObject>(state_)));
-    interpreter.setGlobal(
-        "Players", Value::objectValue(std::make_shared<PlayersObject>(state_)));
+    const Value runService = Value::objectValue(std::make_shared<RunServiceObject>(state_));
+    const Value players = Value::objectValue(std::make_shared<PlayersObject>(state_));
+    interpreter.setGlobal("RunService", runService);
+    interpreter.setGlobal("Players", players);
 
-    Value game = linear::script::makeTable();
-    game.table->fields["Workspace"] = workspace;
-    game.table->fields["Name"] = Value::stringValue("Sky Platformer");
-    interpreter.setGlobal("game", game);
+    // The tree a script asks for by name. The services with state are made here and
+    // every other name in the shared table gets an object that says what this build
+    // keeps instead of existing as a nil.
+    state_->serviceValues["Workspace"] = workspace;
+    state_->serviceValues["Players"] = players;
+    state_->serviceValues["RunService"] = runService;
+    state_->serviceValues["Lighting"] =
+        Value::objectValue(std::make_shared<LightingObject>(state_));
+    state_->serviceValues["SoundService"] =
+        Value::objectValue(std::make_shared<SoundServiceObject>(state_));
+    for (const linear::worldscript::Service& service : services()) {
+        if (state_->serviceValues.count(service.name) != 0) {
+            continue;
+        }
+        state_->serviceValues[service.name] =
+            Value::objectValue(std::make_shared<EmptyServiceObject>(service.name, service.note));
+    }
+
+    interpreter.setGlobal(
+        "game", Value::objectValue(std::make_shared<GameObject>(state_, workspace)));
 }
 
 WorldRuntime::~WorldRuntime() = default;
@@ -684,6 +906,18 @@ void WorldRuntime::setDamageHandler(
 void WorldRuntime::setSoundHandler(
     std::function<void(const std::string&, const linearmath::vec3&, float, bool)> handler) {
     state_->soundHandler = std::move(handler);
+}
+
+void WorldRuntime::setEnvironment(const linearmath::vec3& fogColor, float fogDensity) {
+    // The numbers the world file gave the clients. Setting them here is not a
+    // change to send: this is what everybody was already told at the join.
+    state_->fogColor = fogColor;
+    state_->fogDensity = fogDensity;
+}
+
+void WorldRuntime::setEnvironmentHandler(
+    std::function<void(const linearmath::vec3&, float)> handler) {
+    state_->environmentHandler = std::move(handler);
 }
 
 bool WorldRuntime::runScript(const std::string& source, const std::string& chunkName,

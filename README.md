@@ -252,8 +252,9 @@ file plus an optional `.rbx` script, runs the script's `Heartbeat`, streams part
 clients, and reports detections to the website.
 
 **Studio** uses LINEARWindow/OpenGL/LINEARUI/LinearGizmo and has a basic world editing path: a toolbox of parts,
-move/rotate/scale tools with snapping, a properties panel (surface material, optional tiled
-texture), a script panel with a VS Code-style editor, and publish. Scale operations assign the
+move/rotate/scale tools with snapping, an Explorer that lists the services a script sees with the
+world's parts under Workspace, a properties panel (surface material, optional tiled texture), a
+script panel with a VS Code-style editor, and publish. Scale operations assign the
 decomposed absolute scale from the gizmo and clamp it to a positive range; they do not multiply
 scale every frame.
 
@@ -1345,7 +1346,33 @@ end)
 | `Players:GetPlayers()`, `Players.PlayerCount` | The players in the game |
 | `player.Name`, `player:Teleport(vector)`, `player:TakeDamage(amount)` | Player access; damage is applied by the server and answered with a death and respawn |
 | `workspace:PlaySound(name[, position[, volume]])` | Plays a sound by name — a built-in one or a WAV in `sounds/` — at a place in the world when a position is given |
+| `game:GetService(name)` | A service by name: the tree Studio's Explorer draws, and the names a script written against another sandbox already asks for |
+| `Lighting.FogColor`, `Lighting.FogDensity` | The fog the world file set; writing it sends the new pair to every client in the game |
+| `SoundService:Play(name[, position[, volume]])` | The same call as `workspace:PlaySound`, under the name the service tree gives it |
 | `Vector3.new(x, y, z)` | A vector |
+
+### The service tree
+
+`game:GetService("Lighting")` is how a script reaches a service, and Studio's Explorer draws the
+same list in the same order — the table is `include/WorldServices.h`, held once so the panel and the
+language cannot disagree. Five of the fourteen hold something in this build:
+
+| Service | What a script finds in it |
+| --- | --- |
+| `Workspace` | The world's parts: `FindFirstChild`, `CreatePart`, `GetChildren` |
+| `Players` | `GetPlayers()`, `PlayerCount`, and a player's name, position, teleport and damage |
+| `RunService` | `Heartbeat` |
+| `Lighting` | `FogColor` and `FogDensity`, which the world file sets and a script can change; a change goes to every client already in the game, because a client is handed the environment once, at its join |
+| `SoundService` | `Play(name[, position[, volume]])`, which is `workspace:PlaySound` under the name the service tree gives it |
+
+The rest — `MaterialService`, `ReplicatedFirst`, `ReplicatedStorage`, `ServerScriptService`,
+`ServerStorage`, `StarterGui`, `StarterPack`, `StarterPlayer`, `Teams`, `TextChatService` — are
+services that say what this build keeps instead of holding it: a part's material is a field on the
+part, a client is handed the world as one snapshot, a world has one script and the server runs it,
+the menus and the HUD are native code, and chat is native with its own rate limits. They are
+objects rather than `nil`, so a script written against the familiar tree fails at the line that
+asked, with the reason, instead of three lines later. `workspace` stays a global of its own as
+well, because that is the name scripts actually type.
 
 ### Sound
 

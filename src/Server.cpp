@@ -152,6 +152,7 @@ std::vector<PacketSound> pendingSounds;
 // a flood, so a tick carries a few and drops the rest: the player already heard
 // the first ones, and the mixer has eight voices anyway.
 constexpr std::size_t kMaxSoundsPerTick = 8;
+
 std::map<int, linearmath::vec3> lastBroadcastPositions;
 
 // What the clients already know about the world: every part that was in the join
@@ -171,6 +172,12 @@ std::vector<PartData> announcedPartLooks;
 // The world's air. It belongs to the world, but the client never sees a .world
 // file, so it is sent to every player as part of joining.
 WorldEnvironment serverEnvironment;
+
+// The fog a script has changed, waiting for the next tick to carry it out. One
+// packet per tick at most, holding the last values set: a script that repaints the
+// sky every frame still only needs the newest one to arrive.
+bool pendingEnvironment = false;
+PacketWorldEnvironment pendingEnvironmentPacket{};
 
 // The driving game's car. A part named "Car" in the world is the vehicle: the
 // server integrates it and every client follows the packets, so the car cannot
@@ -1259,6 +1266,17 @@ static int runServer(int argc, char** argv) {
                 pendingSounds.push_back(packet);
             });
 
+            // The fog the world file set, so Lighting reads back what every client
+            // was told at its join, and a change that goes out with the tick.
+            gameScriptRuntime->setEnvironment(serverEnvironment.fogColor,
+                                              serverEnvironment.fogDensity);
+            gameScriptRuntime->setEnvironmentHandler(
+                [](const linearmath::vec3& fogColor, float fogDensity) {
+                    pendingEnvironmentPacket.fogColor = fogColor;
+                    pendingEnvironmentPacket.fogDensity = fogDensity;
+                    pendingEnvironment = true;
+                });
+
             std::string scriptError;
             if (!gameScriptRuntime->runScript(scriptBuffer.str(), scriptPath, scriptError)) {
                 std::cerr << "Script error: " << scriptError << std::endl;
@@ -1385,6 +1403,18 @@ static int runServer(int argc, char** argv) {
                                 false);
             }
             pendingSounds.clear();
+            // The air a script changed. Reliable: a client that missed this would
+            // draw the rest of the match in the fog it joined in.
+            if (pendingEnvironment) {
+                broadcastPacket(PacketProtocol::buildStructPacket(PacketType::WORLD_ENVIRONMENT,
+                                                                 pendingEnvironmentPacket),
+                                -1, true);
+                // The next join is handed the fog as it stands now, not as the
+                // file had it.
+                serverEnvironment.fogColor = pendingEnvironmentPacket.fogColor;
+                serverEnvironment.fogDensity = pendingEnvironmentPacket.fogDensity;
+                pendingEnvironment = false;
+            }
             networkAccumulator = 0.0f;
         }
 

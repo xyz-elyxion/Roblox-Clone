@@ -1,10 +1,12 @@
 #pragma once
 
+#include <algorithm>
+#include <cmath>
 #include <cstdint>
 #include <string>
 #include <vector>
 
-// The client's mixer: one mono output, a handful of short clips mixed into it.
+// The client's mixer: one stereo output, a handful of short clips mixed into it.
 //
 // A clip is mono 16-bit at kSampleRate whichever way it arrived: the bank reads
 // WAV files and converts them into that shape (see SoundBank.h). Nothing here
@@ -38,6 +40,29 @@ inline float attenuation(float distance) {
     return 12.0f / (12.0f + distance);
 }
 
+// How one voice sits between the two speakers: -1 is hard left, 0 the middle and
+// +1 hard right.
+//
+// The gains are equal power rather than linear, so a sound sweeping from one ear
+// to the other keeps the same loudness instead of dipping through the centre. A
+// voice with no side - a sound the script never placed - is the middle.
+struct StereoGain {
+    float left = 0.70710678f;
+    float right = 0.70710678f;
+};
+
+inline StereoGain panGains(float pan) {
+    StereoGain gain;
+    if (!std::isfinite(pan)) {
+        return gain;
+    }
+    constexpr float kQuarterTurn = 0.25f * 3.14159265358979323846f;
+    const float angle = (std::clamp(pan, -1.0f, 1.0f) + 1.0f) * kQuarterTurn;
+    gain.left = std::cos(angle);
+    gain.right = std::sin(angle);
+    return gain;
+}
+
 // Opens the default output device and starts the thread that fills it. A machine
 // without a sound card is a machine that runs the game silently, so a failure
 // here is reported and the caller carries on: audio is never a reason to refuse
@@ -47,9 +72,10 @@ bool available();
 void shutdown();
 
 // Starts a clip. `clip` has to outlive the sound, which is why the bank keeps
-// every clip it makes for the life of the process. Returns false when there is
-// no device or no free voice.
-bool play(const Clip& clip, float volume, bool loop = false);
+// every clip it makes for the life of the process. `pan` is where it sits
+// between the speakers, -1 left to +1 right, 0 for a sound with no place in the
+// world. Returns false when there is no device or no free voice.
+bool play(const Clip& clip, float volume, bool loop = false, float pan = 0.0f);
 
 void stopAll();
 void setMasterVolume(float volume);

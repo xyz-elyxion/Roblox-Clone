@@ -1407,7 +1407,11 @@ well, because that is the name scripts actually type.
 A script makes a noise with `workspace:PlaySound("door")`, or with a `position` for one that comes
 from somewhere in the world and an optional `volume` from 0 to 1. The server checks the name and
 forwards it to every client, which mixes it and fades it by how far the player is from the position,
-so a door down the corridor is a whisper and the one in front of you is not. A name whose file is not
+so a door down the corridor is a whisper and the one in front of you is not. A spatial sound is also
+panned: the mixer runs a stereo output and puts the sound in the ear its direction is nearer, taken
+from the way the view faces, so the door that opens behind the player is heard behind them. The pan
+is equal power, so a car passing from one side to the other keeps its loudness instead of dipping in
+the middle. A name whose file is not
 in the sounds folder fails at the line that used it, with the list of what the build ships, rather
 than becoming a sound that never comes.
 
@@ -1922,9 +1926,11 @@ no repository is open rather than failing the server.
   stops at collidable parts, but there is no client-side prediction, so steering over a high-latency
   connection feels delayed. Collision uses the axis-aligned box around a rotated part, so a diagonal
   wall blocks a little more ground than it looks like it does.
-- Sound is mono. A sound fades with distance from the player instead of panning left or right, and
-  there is no volume control beyond the system mixer. Every sound, the ten the build ships
-  included, is a WAV in `sounds/`; only 16-bit PCM at no more than a minute is read.
+- Sound is stereo, panned left and right by where a sound is against the view, but not placed in
+  three dimensions: there is no elevation, no reverb and no occlusion, so a sound behind a wall
+  arrives as clearly as one in the open. There is no volume control beyond the system mixer. Every
+  sound, the ten the build ships included, is a WAV in `sounds/`; only 16-bit PCM at no more than a
+  minute is read.
 - The HTTP client is HTTP/1.1: `http://` goes straight down the socket, `https://` goes through
   Windows' own SChannel (TLS 1.2, the certificate validated against the machine's trust store and
   the typed host name). It reads chunked bodies and inflates gzip ones (it asks for gzip, and

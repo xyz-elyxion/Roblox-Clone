@@ -30,6 +30,38 @@ void check(bool condition, const std::string& what) {
     }
 }
 
+// Panning is a stereo mixer's whole point: a sound with a place in the world is
+// louder in the ear it is closer to, and a sound with no place stays in the
+// middle.
+void testPan() {
+    const linear::audio::StereoGain centre = linear::audio::panGains(0.0f);
+    check(std::fabs(centre.left - centre.right) < 1e-5f, "the middle is level");
+    // Not both ears at full: an equal-power centre is each side at 1/sqrt(2), so
+    // a sound sweeping across the middle does not get louder as it arrives.
+    check(centre.left > 0.6f && centre.left < 0.8f, "the middle is not both ears at once");
+
+    const linear::audio::StereoGain hardLeft = linear::audio::panGains(-1.0f);
+    check(hardLeft.left > 0.999f && hardLeft.right < 0.001f, "hard left is the left ear alone");
+    const linear::audio::StereoGain hardRight = linear::audio::panGains(1.0f);
+    check(hardRight.right > 0.999f && hardRight.left < 0.001f, "hard right is the right ear alone");
+
+    // Past the ends it is clamped to that side, and a broken value is the middle
+    // rather than a silent voice or a NaN in the mix.
+    const linear::audio::StereoGain beyond = linear::audio::panGains(4.0f);
+    check(std::fabs(beyond.right - 1.0f) < 1e-5f, "past the right end stays on the right");
+    const linear::audio::StereoGain broken = linear::audio::panGains(std::nanf(""));
+    check(std::fabs(broken.left - broken.right) < 1e-5f, "a broken pan is the middle");
+
+    // Equal power all the way across: the squares add up to one at every step,
+    // which is what keeps a car passing the player from dipping in volume.
+    for (int step = -10; step <= 10; ++step) {
+        const float pan = static_cast<float>(step) / 10.0f;
+        const linear::audio::StereoGain gain = linear::audio::panGains(pan);
+        check(std::fabs(gain.left * gain.left + gain.right * gain.right - 1.0f) < 1e-4f,
+              "equal power at pan " + std::to_string(pan));
+    }
+}
+
 void testNames() {
     std::set<std::string> seen;
     for (int index = 0; index < linear::audio::kSoundCount; ++index) {
@@ -350,6 +382,7 @@ int main(int argc, char** argv) {
     const std::filesystem::path sounds =
         findSoundsFolder(argc > 0 ? argv[0] : "");
     testNames();
+    testPan();
     testShippedSounds(sounds);
     testLookup();
     testSoundNameRules();

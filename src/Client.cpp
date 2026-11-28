@@ -1908,11 +1908,25 @@ int main(int argc, char** argv) {
                                 continue;
                             }
                             float volume = pkt->volume;
+                            float pan = 0.0f;
                             if (pkt->spatial != 0 && myCharacter != nullptr) {
-                                volume *= linear::audio::attenuation(
-                                    linearmath::length(pkt->position - myCharacter->getPosition()));
+                                const linearmath::vec3 offset =
+                                    pkt->position - myCharacter->getPosition();
+                                const float distance = linearmath::length(offset);
+                                volume *= linear::audio::attenuation(distance);
+                                // Which ear it is nearer is decided by the view,
+                                // not by the body: the player's ears turn with the
+                                // camera, so a sound behind the head lands on the
+                                // side it would really be heard on. A sound at the
+                                // ear itself has no side to be on.
+                                if (distance > 0.001f) {
+                                    const linearmath::vec3 direction =
+                                        offset * (1.0f / distance);
+                                    pan = std::clamp(linearmath::dot(direction, camera.Right),
+                                                     -1.0f, 1.0f);
+                                }
                             }
-                            linear::audio::play(*clip, volume, false);
+                            linear::audio::play(*clip, volume, false, pan);
                         }
                         else if (header->type == PacketType::PLAYER_SCORE) {
                             if (header->size < sizeof(PacketPlayerScore)) {

@@ -23,6 +23,10 @@ namespace {
 constexpr int kBlockFrames = 512;
 constexpr int kBlockCount = 3;
 
+// The device is opened as stereo because a positional sound has to be able to
+// come from one side. Every block holds a left and a right sample per frame.
+constexpr int kChannels = 2;
+
 // Enough for a room: the door, the wardrobe, the entity and footsteps at once,
 // with a couple to spare. Every voice costs one multiply per sample, so this is
 // a limit on taste, not on the machine.
@@ -32,6 +36,8 @@ struct Voice {
     const Clip* clip = nullptr;
     std::size_t cursor = 0;
     float volume = 1.0f;
+    // -1 hard left, 0 the middle, +1 hard right; see panGains in Audio.h.
+    float pan = 0.0f;
     bool loop = false;
     bool active = false;
 };
@@ -53,7 +59,7 @@ std::atomic<float> gain{0.7f};
 // which is why a sound started between two blocks is never cut in half.
 void fillBlock(int index) {
     std::int16_t* out = blocks[index].data();
-    std::fill(out, out + kBlockFrames, static_cast<std::int16_t>(0));
+    std::fill(out, out + kBlockFrames * kChannels, static_cast<std::int16_t>(0));
 
     std::lock_guard<std::mutex> lock(voiceMutex);
     const float master = gain.load();
@@ -69,6 +75,11 @@ void fillBlock(int index) {
         }
 
         const float level = voice.volume * master;
+        // Worked out once per block: a pan that drifted inside a block would be a
+        // sound that slid across the room 43 times a second.
+        const StereoGain stereo = panGains(voice.pan);
+        const float leftLevel = level * stereo.left;
+        const float rightLevel = level * stereo.right;
         for (int frame = 0; frame < kBlockFrames; ++frame) {
             if (voice.cursor >= samples.size()) {
                 if (!voice.loop) {
@@ -80,9 +91,13 @@ void fillBlock(int index) {
             }
             // Clamped per sample rather than wrapped: a loud mix that clips is a
             // click, and a wrapped sample is a bang.
-            const int mixed = out[frame] +
-                              static_cast<int>(samples[voice.cursor] * level);
-            out[frame] = static_cast<std::int16_t>(std::clamp(mixed, -32768, 32767));
+            const float sample = static_cast<float>(samples[voice.cursor]);
+            const int left = out[frame * kChannels] + static_cast<int>(sample * leftLevel);
+            const int right = out[frame * kChannels + 1] + static_cast<int>(sample * rightLevel);
+            out[frame * kChannels] =
+                static_cast<std::int16_t>(std::clamp(left, -32768, 32767));
+            out[frame * kChannels + 1] =
+                static_cast<std::int16_t>(std::clamp(right, -32768, 32767));
             ++voice.cursor;
         }
     }
@@ -92,7 +107,7 @@ void mixerLoop() {
     for (int index = 0; index < kBlockCount; ++index) {
         fillBlock(index);
         headers[index].lpData = reinterpret_cast<LPSTR>(blocks[index].data());
-        headers[index].dwBufferLength = kBlockFrames * sizeof(std::int16_t);
+        headers[index].dwBufferLength = kBlockFrames * kChannels * sizeof(std::int16_t);
         headers[index].dwFlags = 0;
         waveOutPrepareHeader(device, &headers[index], sizeof(WAVEHDR));
         waveOutWrite(device, &headers[index], sizeof(WAVEHDR));
@@ -125,7 +140,7 @@ bool init(std::string* error) {
     }
 
     format.wFormatTag = WAVE_FORMAT_PCM;
-    format.nChannels = 1;
+    format.nChannels = kChannels;
     format.wBitsPerSample = 16;
     format.nSamplesPerSec = kSampleRate;
     format.nBlockAlign = static_cast<WORD>(format.nChannels * format.wBitsPerSample / 8);
@@ -156,7 +171,7 @@ bool init(std::string* error) {
     }
 
     for (std::vector<int16_t>& block : blocks) {
-        block.assign(kBlockFrames, 0);
+        block.assign(kBlockFrames * kChannels, 0);
     }
     stopping = false;
     running = true;
@@ -192,7 +207,7 @@ void shutdown() {
     stopAll();
 }
 
-bool play(const Clip& clip, float volume, bool loop) {
+bool play(const Clip& clip, float volume, bool loop, float pan) {
     if (!running.load() || clip.samples.empty()) {
         return false;
     }
@@ -200,6 +215,7 @@ bool play(const Clip& clip, float volume, bool loop) {
     if (level <= 0.0f) {
         return false;
     }
+    const float side = std::isfinite(pan) ? std::clamp(pan, -1.0f, 1.0f) : 0.0f;
 
     std::lock_guard<std::mutex> lock(voiceMutex);
     Voice* target = nullptr;
@@ -225,6 +241,7 @@ bool play(const Clip& clip, float volume, bool loop) {
     target->clip = &clip;
     target->cursor = 0;
     target->volume = level;
+    target->pan = side;
     target->loop = loop;
     target->active = true;
     return true;

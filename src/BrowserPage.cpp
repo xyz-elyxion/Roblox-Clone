@@ -259,8 +259,12 @@ bool startsBlock(const std::string& name) {
 
 class Reader {
 public:
-    Reader(const std::string& html, const std::string& pageUrl)
-        : html_(html), lowered_(lower(html)), pageUrl_(pageUrl) {}
+    // `contentOnly` is how the caller asks for the <main> element when there is
+    // one; parse() is where that is decided.
+    Reader(const std::string& html, const std::string& pageUrl, bool contentOnly)
+        : html_(html), lowered_(lower(html)), pageUrl_(pageUrl), contentOnly_(contentOnly) {
+        hasMain_ = contentOnly_ && findMainTag() != std::string::npos;
+    }
 
     Page run() {
         std::size_t index = 0;
@@ -330,6 +334,20 @@ private:
         bool ordered = false;
         int next = 1;
     };
+
+    // Where a <main> element starts, if the document has one. The name has to
+    // end there, so "<mainframe>" and a mention inside a script are not it.
+    std::size_t findMainTag() const {
+        std::size_t at = lowered_.find("<main");
+        while (at != std::string::npos) {
+            const std::size_t after = at + 5;
+            if (after >= lowered_.size()) return std::string::npos;
+            const char next = lowered_[after];
+            if (next == '>' || next == '/' || isSpace(next)) return at;
+            at = lowered_.find("<main", at + 1);
+        }
+        return std::string::npos;
+    }
 
     // The contents of a script or style element are code, not prose, and the
     // page is more readable without it. The search is case-insensitive and has
@@ -403,6 +421,15 @@ private:
         }
     }
 
+    // A block lands in the page only when it belongs to what is being read: with
+    // a <main> element, the header, the menus and the footer around it are the
+    // site's own furniture, and a text reader that draws them buries the page
+    // under them.
+    void pushBlock(docs::Block block) {
+        if (hasMain_ && !inContent_) return;
+        blocks_.push_back(std::move(block));
+    }
+
     void flush() {
         if (!words_.empty()) {
             docs::Block block;
@@ -427,7 +454,7 @@ private:
             }
             block.words = std::move(words_);
             words_.clear();
-            blocks_.push_back(std::move(block));
+            pushBlock(std::move(block));
         }
         kind_ = Kind::Paragraph;
         heading_ = 0;
@@ -466,7 +493,7 @@ private:
             flush();
             docs::Block rule;
             rule.kind = docs::Block::Kind::Rule;
-            blocks_.push_back(std::move(rule));
+            pushBlock(std::move(rule));
             return;
         }
         if (name == "a") {
@@ -542,6 +569,12 @@ private:
             kind_ = Kind::Quote;
             return;
         }
+        if (name == "main") {
+            // From here to </main> is the page itself, when the document says so.
+            flush();
+            inContent_ = true;
+            return;
+        }
         if (startsBlock(name)) flush();
     }
 
@@ -592,6 +625,12 @@ private:
             if (!lists_.empty()) lists_.pop_back();
             return;
         }
+        if (name == "main") {
+            // The text after </main> is the site's footer, not the page.
+            flush();
+            inContent_ = false;
+            return;
+        }
         if (name == "li" || name == "blockquote" || headingLevel(name) > 0 || startsBlock(name)) {
             flush();
         }
@@ -605,7 +644,7 @@ private:
         block.kind = docs::Block::Kind::Code;
         block.code = std::move(preLines_);
         preLines_.clear();
-        if (!block.code.empty()) blocks_.push_back(std::move(block));
+        if (!block.code.empty()) pushBlock(std::move(block));
     }
 
     void endTable() {
@@ -620,7 +659,7 @@ private:
             block.kind = docs::Block::Kind::Table;
             block.rows = std::move(rows_);
             rows_.clear();
-            blocks_.push_back(std::move(block));
+            pushBlock(std::move(block));
         }
         // A table is a block of its own, so the text after it is a new paragraph
         // whatever block the table interrupted.
@@ -658,6 +697,10 @@ private:
     std::string titleText_;
     std::string title_;
     std::string baseUrl_;
+
+    bool contentOnly_ = false;
+    bool hasMain_ = false;   // the document marks its content with <main>
+    bool inContent_ = false; // and the reader is inside it
 };
 
 }  // namespace
@@ -742,8 +785,19 @@ std::string normaliseAddress(const std::string& typed) {
 }
 
 Page parse(const std::string& html, const std::string& pageUrl) {
-    Reader reader(html, pageUrl);
-    return reader.run();
+    // A page that marks its content with <main> is read as just that content.
+    // The header, the menus and the footer around it are navigation, and a text
+    // reader that draws them buries the page under a wall of links: a tool
+    // directory answered with 700 of them, its hidden hover menu, above the tool
+    // itself. A page with no <main> is read whole, as it always was, and so is
+    // one whose <main> holds nothing at all - a blank page is not an answer.
+    Reader reader(html, pageUrl, true);
+    Page page = reader.run();
+    if (!page.blocks.empty()) return page;
+
+    Reader whole(html, pageUrl, false);
+    Page fallback = whole.run();
+    return fallback.blocks.empty() ? page : fallback;
 }
 
 std::string startPage() {

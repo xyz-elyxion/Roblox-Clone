@@ -327,6 +327,42 @@ void historyMovesBackAndForward() {
     expectEqual(url, "http://localhost:3100/", "and it goes to the entry that was ahead");
 }
 
+// A page can say which part of it is the page. Everything around <main> is the
+// site's own furniture: menus, news, a footer, and on a real tool directory a
+// hidden menu holding seven hundred links.
+void readsTheMainContentWhenAPageMarksIt() {
+    const linear::browser::Page page = linear::browser::parse(
+        "<!doctype html><html><head><title>Tools</title></head><body>"
+        "<header><nav><a href=\"/one\">One</a> <a href=\"/two\">Two</a></nav></header>"
+        "<main><h1>The tool</h1><p>It works.</p></main>"
+        "<footer>Copyright nobody</footer></body></html>",
+        "http://localhost:3000/tool");
+
+    expectEqual(page.title, "Tools", "the title still comes from the whole document");
+    std::string text;
+    for (const linear::docs::Block& block : page.blocks) {
+        for (const linear::docs::Run& word : block.words) {
+            if (!text.empty()) text += ' ';
+            text += word.text;
+        }
+    }
+    expect(text.find("The tool") != std::string::npos, "the main content is read");
+    expect(text.find("It works") != std::string::npos, "and so is the text under it");
+    expect(text.find("One") == std::string::npos, "the menu outside main is not");
+    expect(text.find("Copyright") == std::string::npos, "nor is the footer");
+
+    // A page whose <main> holds nothing is a page to read whole, not a blank one.
+    const linear::browser::Page empty = linear::browser::parse(
+        "<html><body><header>Menus</header><main></main><footer>After</footer></body></html>",
+        "http://localhost:3000/");
+    std::string fallback;
+    for (const linear::docs::Block& block : empty.blocks) {
+        for (const linear::docs::Run& word : block.words) fallback += word.text + ' ';
+    }
+    expect(fallback.find("After") != std::string::npos,
+           "an empty main falls back to the whole page");
+}
+
 }  // namespace
 
 int main() {
@@ -340,6 +376,7 @@ int main() {
     normalisesWhatIsTyped();
     startPageOffersLinks();
     errorPageEscapesDetail();
+    readsTheMainContentWhenAPageMarksIt();
     historyMovesBackAndForward();
 
     if (g_failures == 0) {

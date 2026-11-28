@@ -89,8 +89,11 @@ is Windows' own SChannel, so a public site opens without a second crypto library
 certificate is checked against the machine's trust store and against the host that was typed, and
 a certificate this computer will not vouch for stops the page with the reason instead of its text.
 It is a reader, not a rendering engine: no JavaScript, no style sheets, no images, no cookies and
-no forms. It follows the redirects a server sends, including the `http://` to `https://` move most
-sites make, and stops after eight hops. `LinearBrowser.exe http://localhost:3000` opens the site
+no forms. A page that marks its content with `<main>` is read as that content alone — the header,
+menus and footer around it are the site's own furniture and are skipped, which is what keeps a
+page whose navigation is a hidden menu of seven hundred links from opening as seven hundred links;
+a page without `<main>`, or one whose `<main>` is empty, is read whole. It follows the redirects a
+server sends, including the `http://` to `https://` move most sites make, and stops after eight hops. `LinearBrowser.exe http://localhost:3000` opens the site
 directly.
 
 There are no `.bat` files anywhere, in the package or in an install: every program looks for its data

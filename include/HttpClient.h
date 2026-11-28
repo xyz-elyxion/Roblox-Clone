@@ -13,9 +13,9 @@
 // http:// goes straight down the socket and https:// goes through Windows' own
 // SChannel: the project vendors no TLS library, and the certificate checks are
 // Windows' (the machine's trust store, and the host name against the
-// certificate) rather than this file's. A chunked body is decoded for the
-// caller; a compressed one is not, because nothing here inflates gzip, so the
-// request asks for the identity encoding.
+// certificate) rather than this file's. A chunked body is de-chunked for the
+// caller, and a gzip one is inflated: the request asks for gzip, because a page
+// or a JSON answer is text and halves or better once deflated.
 namespace linear {
 namespace http {
 

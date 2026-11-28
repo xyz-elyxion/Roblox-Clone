@@ -188,6 +188,8 @@ if(LINEAR_BUILD_STUDIO)
     add_executable(Studio
         src/main.cpp
         src/HttpClient.cpp
+        # The HTTP client inflates the gzip bodies it asks the site for.
+        src/GitZlib.cpp
         # The publish login solves the machine captcha, which needs sha256.
         src/WebJson.cpp
         src/WebCrypto.cpp
@@ -264,6 +266,8 @@ if(LINEAR_BUILD_UPDATER)
         src/WebJson.cpp
         src/WebCrypto.cpp
         src/HttpClient.cpp
+        # The release manifest arrives gzipped, so the updater inflates it.
+        src/GitZlib.cpp
         src/InstallUi.cpp
         ${LINEARUI_SOURCES}
     )
@@ -466,6 +470,8 @@ if(LINEAR_BUILD_CLIENT)
         src/SystemSnapshot.cpp
         src/GuardStatus.cpp
         src/HttpClient.cpp
+        # The HTTP client inflates the gzip bodies it asks the site for.
+        src/GitZlib.cpp
         # The client mixes its own sounds; the bank reads the files in sounds/.
         src/Audio.cpp
         src/SoundBank.cpp
@@ -511,6 +517,8 @@ if(LINEAR_BUILD_SERVER)
         src/Server.cpp
         src/ServerAuth.cpp
         src/HttpClient.cpp
+        # The HTTP client inflates the gzip bodies it asks the site for.
+        src/GitZlib.cpp
         src/LinearScript.cpp
         src/WorldScript.cpp
         # The service tree a script asks for by name.
@@ -533,6 +541,8 @@ if(LINEAR_BUILD_TRAINER)
         src/AiTrainer.cpp
         src/TrainerGui.cpp
         src/HttpClient.cpp
+        # The HTTP client inflates the gzip bodies it asks the site for.
+        src/GitZlib.cpp
         src/WebJson.cpp
         src/HardwareId.cpp
         src/WebCrypto.cpp
@@ -709,7 +719,7 @@ if(LINEAR_BUILD_TESTS)
     target_include_directories(ClientMenuTests PRIVATE ${LINEARBUILD_CURRENT_SOURCE_DIR}/include)
     add_test(NAME ClientMenuTests COMMAND ClientMenuTests)
 
-    add_executable(HttpClientTests tests/http_client_tests.cpp src/HttpClient.cpp)
+    add_executable(HttpClientTests tests/http_client_tests.cpp src/HttpClient.cpp src/GitZlib.cpp)
     target_include_directories(HttpClientTests PRIVATE ${LINEARBUILD_CURRENT_SOURCE_DIR}/include)
     target_link_libraries(HttpClientTests PRIVATE ws2_32 secur32 crypt32)
     add_test(NAME HttpClientTests COMMAND HttpClientTests)

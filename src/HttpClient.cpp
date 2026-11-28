@@ -1,5 +1,7 @@
 #include "HttpClient.h"
 
+#include "GitZlib.h"
+
 #include <algorithm>
 #include <cctype>
 #include <cstdint>
@@ -228,6 +230,21 @@ long long declaredLength(const std::string& headers) {
         return -1;
     }
     return std::atoll(headers.c_str() + position + std::strlen("content-length:"));
+}
+
+// True when the body arrived compressed. A server only compresses what the
+// request asked for, so in practice this is gzip; `x-gzip` is the older spelling
+// of the same thing and some proxies still use it.
+bool isGzipEncoded(const std::string& headers) {
+    const std::string lowered = lower(headers);
+    const std::size_t position = lowered.find("content-encoding:");
+    if (position == std::string::npos) {
+        return false;
+    }
+    std::size_t end = lowered.find("\r\n", position);
+    if (end == std::string::npos) end = lowered.size();
+    const std::string value = lowered.substr(position, end - position);
+    return value.find("gzip") != std::string::npos;
 }
 
 bool isChunked(const std::string& headers) {
@@ -799,9 +816,11 @@ Response request(const std::string& method,
     head += "\r\n";
     head += "User-Agent: Linear Client/1.0\r\n";
     head += "Accept: " + (accept.empty() ? std::string("application/json") : accept) + "\r\n";
-    // Nothing here inflates a compressed body, so the server is told not to
-    // send one. Chunked bodies, on the other hand, are decoded below.
-    head += "Accept-Encoding: identity\r\n";
+    // The site's JSON and the pages it serves are text, which halves or better
+    // once deflated, so the compressed form is asked for and inflated below.
+    // Nothing else is offered: a body in an encoding this client does not read
+    // would be a response it cannot use.
+    head += "Accept-Encoding: gzip\r\n";
     head += "Connection: close\r\n";
     if (!body.empty() || method == "POST" || method == "PUT") {
         head += "Content-Type: application/json\r\n";
@@ -919,6 +938,22 @@ Response request(const std::string& method,
                 payload.resize(static_cast<std::size_t>(announced));
             }
         }
+    }
+
+    // Last, because compression is applied to whatever the body was: a chunked
+    // answer is de-chunked first and a measured one is trimmed first, and both
+    // of those are about the compressed bytes, not the text inside them.
+    if (isGzipEncoded(headers)) {
+        std::string inflated;
+        std::string gzipError;
+        if (!linear::git::inflateGzip(payload, &inflated, &gzipError)) {
+            // A body that cannot be inflated is not a body: the caller gets the
+            // reason instead of JSON it would fail to parse further downstream.
+            response.error = "Could not decompress the response: " + gzipError;
+            response.headers = headers;
+            return response;
+        }
+        payload = std::move(inflated);
     }
 
     response.body = std::move(payload);

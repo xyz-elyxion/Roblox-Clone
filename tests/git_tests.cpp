@@ -65,6 +65,80 @@ void testDigest() {
           "the digest of a million a's");
 }
 
+// A deflate stream using uncompressed blocks only, written out here so the gzip
+// checks below do not stand on the writer the repository uses for its objects.
+// Each block is BFINAL/BTYPE in one byte, then LEN and its complement, then the
+// bytes themselves.
+std::string storedDeflate(const std::string& data) {
+    std::string out;
+    std::size_t cursor = 0;
+    do {
+        const std::size_t chunk = std::min<std::size_t>(65535, data.size() - cursor);
+        const bool last = cursor + chunk >= data.size();
+        const unsigned length = static_cast<unsigned>(chunk);
+        out.push_back(static_cast<char>(last ? 1 : 0));
+        out.push_back(static_cast<char>(length & 0xFF));
+        out.push_back(static_cast<char>((length >> 8) & 0xFF));
+        out.push_back(static_cast<char>((~length) & 0xFF));
+        out.push_back(static_cast<char>(((~length) >> 8) & 0xFF));
+        out.append(data, cursor, chunk);
+        cursor += chunk;
+    } while (cursor < data.size());
+    return out;
+}
+
+// What a web server sends back when the request said `Accept-Encoding: gzip`.
+// The CRC-32 in the trailer is left at zero because the reader does not check it
+// (see GitZlib.h); the length beside it is real, because it does.
+std::string gzipStream(const std::string& data) {
+    std::string out;
+    out.push_back('\x1f');
+    out.push_back('\x8b');
+    out.push_back(8);     // deflate
+    out.push_back(0);     // no flags, so no name, comment or extra field
+    for (int byte = 0; byte < 4; ++byte) out.push_back(0);  // modification time
+    out.push_back(0);     // maximum compression hint
+    out.push_back(0xFF);  // unknown operating system
+    out += storedDeflate(data);
+    for (int byte = 0; byte < 4; ++byte) out.push_back(0);  // CRC-32, not checked
+    const std::uint32_t size = static_cast<std::uint32_t>(data.size());
+    for (int byte = 0; byte < 4; ++byte) {
+        out.push_back(static_cast<char>((size >> (byte * 8)) & 0xFFu));
+    }
+    return out;
+}
+
+void testGzip() {
+    std::string error;
+    const std::string json = "{\"games\":[{\"id\":1,\"title\":\"Sky Platformer\"}]}";
+    const std::string compressed = gzipStream(json);
+
+    std::string inflated;
+    check(git::inflateGzip(compressed, &inflated, &error), "a gzip body inflates: " + error);
+    check(inflated == json, "the gzip body comes back whole");
+
+    // A gzip header may name the file it came from; that name is skipped rather
+    // than read as the start of the data.
+    std::string named;
+    named.push_back('\x1f');
+    named.push_back('\x8b');
+    named.push_back(8);
+    named.push_back(0x08);  // FNAME
+    for (int byte = 0; byte < 6; ++byte) named.push_back(0);
+    named += "page.json";
+    named.push_back('\0');
+    named += compressed.substr(10);
+    check(git::inflateGzip(named, &inflated, &error) && inflated == json,
+          "a gzip header with a file name is skipped");
+
+    check(!git::inflateGzip("{\"not\":\"gzip\"}", &inflated, &error),
+          "a body without the gzip magic is refused");
+    check(!git::inflateGzip(compressed.substr(0, compressed.size() - 4), &inflated, &error),
+          "a gzip body that stops before its length is refused");
+    check(!git::inflateGzip(compressed.substr(0, 12), &inflated, &error),
+          "a gzip body that is all header is refused");
+}
+
 void testCompression() {
     std::string error;
     // Written by Python's zlib: a dynamic Huffman stream, not the stored form this
@@ -85,6 +159,10 @@ void testCompression() {
     check(!git::inflateZlib(damaged, &back, &error), "a damaged stream is refused");
     check(!git::inflateZlib(stored.substr(0, stored.size() / 2), &back, &error),
           "a truncated stream is refused");
+
+    // The same deflate reader serves the compressed HTTP bodies the website
+    // sends, so the two formats' checks live together.
+    testGzip();
 }
 
 void testIndex() {

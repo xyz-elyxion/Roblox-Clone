@@ -343,6 +343,78 @@ bool inflateZlib(const std::string& input, std::string* output, std::string* err
     return true;
 }
 
+bool inflateGzip(const std::string& input, std::string* output, std::string* error) {
+    output->clear();
+    // 10 bytes of header, at least one block and the 8-byte trailer.
+    if (input.size() < 19) {
+        *error = "the body is too short to be a gzip stream";
+        return false;
+    }
+    const unsigned char* bytes = reinterpret_cast<const unsigned char*>(input.data());
+    if (bytes[0] != 0x1f || bytes[1] != 0x8b) {
+        *error = "the body does not start with the gzip magic";
+        return false;
+    }
+    if (bytes[2] != 8) {
+        *error = "the gzip body is not deflate data";
+        return false;
+    }
+    const unsigned flags = bytes[3];
+    if ((flags & 0xe0) != 0) {
+        *error = "the gzip header sets a reserved flag";
+        return false;
+    }
+
+    // The optional fields sit between the header and the data, in the order the
+    // format writes them: extra, name, comment, then the header's own checksum.
+    std::size_t offset = 10;
+    if ((flags & 0x04) != 0) {  // FEXTRA
+        if (offset + 2 > input.size()) {
+            *error = "the gzip header ends inside its extra field";
+            return false;
+        }
+        const std::size_t extra = static_cast<std::size_t>(bytes[offset]) |
+                                  (static_cast<std::size_t>(bytes[offset + 1]) << 8);
+        offset += 2 + extra;
+    }
+    if ((flags & 0x08) != 0) {  // FNAME
+        while (offset < input.size() && bytes[offset] != 0) ++offset;
+        ++offset;
+    }
+    if ((flags & 0x10) != 0) {  // FCOMMENT
+        while (offset < input.size() && bytes[offset] != 0) ++offset;
+        ++offset;
+    }
+    if ((flags & 0x02) != 0) {  // FHCRC
+        offset += 2;
+    }
+    if (offset + 8 >= input.size()) {
+        *error = "the gzip stream is all header and no data";
+        return false;
+    }
+
+    const std::size_t bodySize = input.size() - offset - 8;
+    if (!inflateRaw(bytes + offset, bodySize, output, error)) {
+        output->clear();
+        return false;
+    }
+
+    // The trailer's last four bytes are the uncompressed length, little-endian.
+    // It catches a body that arrives cut short, which is what a connection that
+    // dropped mid-response leaves behind.
+    const std::size_t tail = input.size() - 4;
+    const std::uint32_t declared = static_cast<std::uint32_t>(bytes[tail]) |
+                                   (static_cast<std::uint32_t>(bytes[tail + 1]) << 8) |
+                                   (static_cast<std::uint32_t>(bytes[tail + 2]) << 16) |
+                                   (static_cast<std::uint32_t>(bytes[tail + 3]) << 24);
+    if (declared != static_cast<std::uint32_t>(output->size())) {
+        *error = "the gzip stream's length does not match its contents";
+        output->clear();
+        return false;
+    }
+    return true;
+}
+
 bool deflateZlibStored(const std::string& input, std::string* output, std::string* error) {
     (void)error;
     std::string out;

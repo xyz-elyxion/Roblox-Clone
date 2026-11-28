@@ -1927,8 +1927,9 @@ no repository is open rather than failing the server.
   included, is a WAV in `sounds/`; only 16-bit PCM at no more than a minute is read.
 - The HTTP client is HTTP/1.1: `http://` goes straight down the socket, `https://` goes through
   Windows' own SChannel (TLS 1.2, the certificate validated against the machine's trust store and
-  the typed host name). It reads chunked bodies but not compressed ones — it asks for the identity
-  encoding — and it has no HTTP/2, proxy or cookie support.
+  the typed host name). It reads chunked bodies and inflates gzip ones (it asks for gzip, and
+  `inflateGzip` in `src/GitZlib.cpp` decodes them with the same deflate reader the repository uses),
+  and it has no HTTP/2, proxy or cookie support.
 - The binary protocol depends on matching C++ struct layouts, so Client and Server must be built
   from the same source. The handshake carries a protocol revision and a layout signature derived
   from the packet sizes; a mismatched pair refuses the join and prints which build to rebuild

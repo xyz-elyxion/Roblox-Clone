@@ -16,6 +16,17 @@ namespace git {
 // instead of yielding plausible garbage.
 bool inflateZlib(const std::string& input, std::string* output, std::string* error);
 
+// Reads a gzip body - the format a web server sends when the request says
+// `Accept-Encoding: gzip` - into `output`.
+//
+// It is the same deflate data as a zlib stream behind a different header: the
+// magic, the method and the optional file name and comment are skipped and the
+// raw blocks are inflated. The length in the trailer is checked, so a body cut
+// short by a dropped connection fails; the CRC-32 beside it is not, because
+// nothing in this project computes one and the bytes already crossed TCP (or
+// TLS) with a checksum of its own.
+bool inflateGzip(const std::string& input, std::string* output, std::string* error);
+
 // Writes a valid zlib stream using uncompressed blocks only. Real git does the
 // same for incompressible data, so this is a legal encoding rather than a
 // shortcut, and it keeps the writer small; compression is a size question, not a

@@ -427,14 +427,27 @@ hand, with or without a script:
 - **The website is native.** `WebApp.exe` is a C++ service (`WebApp`, `WebHttp`, `WebJson`,
   `WebCrypto`, `WebStore`) that serves `web/public`, owns accounts and sessions, and orchestrates
   local game servers. There is no Node.js service.
-- **One shared copy of each asset set.** Shaders, textures, world files and the script the server
-  runs all live beside the checkout, and a packaged build carries them next to the executables.
+- **One shared copy of each asset set.** Shaders, textures (a world's own images and the four
+  material surfaces), world files and the script the server runs all live beside the checkout, and a
+  packaged build carries them next to the executables.
 - **One simulation, one DLL.** Worlds, parts, physics bodies, the character, the camera, picking
   and the avatar are compiled into `LinearGame.dll`, which the client, the server, Studio and the
   trainer all load (`include/LinearGameApi.h` holds the boundary). Nothing in it touches a window
   or OpenGL: `linearwin` keeps its platform state per module, so the renderer and the window stay
   in each executable. The split is what makes an update cheap — the updater hashes every file, so
   a change to movement or a world file downloads one library instead of four executables.
+
+### Materials and surfaces
+
+A part's look is its colour, its material and an optional image of its own. The material is one of
+eight: plastic (the studded brick look), smooth plastic, neon, metal, wood, grass, concrete and
+brick. The last four take their surface from `textures/material-<name>.png` — tileable, 256×256, one
+tile per two studs, multiplied by the part's colour — so replacing the file re-skins every wall of
+that material, in the game and in Studio, with no rebuild. The first four are a colour and a
+reflectance rather than a pattern, and have no image. A part can also name an image of its own from
+`textures/`, tiled across it at the same scale; a part that does both multiplies the two. Every
+image repeats, so a wall is one tile rather than one file per face, and a missing file draws the
+plain surface with the name of what it wanted in the log.
 
 ## Anti-cheat and moderation
 
@@ -1467,6 +1480,9 @@ chat and player list toggles, the debug overlay, and a reset to defaults button.
 The **Toolbox** adds parts and switches the move/rotate/scale tools and snapping. **Properties**
 edits the selected part, including the surface material (plastic, smooth plastic, neon, metal,
 wood, grass, concrete, brick) and an optional texture image from `textures/`, tiled across the part.
+Four of those materials — wood, grass, concrete and brick — are drawn from an image of their own
+(`textures/material-<name>.png`), so a wall of a different colour reuses the same file and a
+different surface is a different file; see [Materials and surfaces](#materials-and-surfaces).
 **Publish** signs in against the web server, saves the current world, and publishes it to the site
 as a public or private game.
 
@@ -1712,7 +1728,7 @@ src/                    Client, Server, Studio, rendering, physics, auth, web ap
                         LinearGame.dll; see include/LinearGameApi.h)
 tests/                  C++ protocol, moderation and web tests
 shaders/                OpenGL shaders used by Client and Studio
-textures/               Tileable part textures a world can name
+textures/               Part images a world can name, and the material surfaces in material-*.png
 sounds/                 Every sound by name: the ten the build ships, and any a game adds
 games/                  The bundled worlds and their .rbx scripts
 web/                    Public pages, starter worlds, published worlds, game-server logs
@@ -1786,7 +1802,7 @@ Open the latest run under **Actions** and download `linear-windows-release`.
 linear-windows-release/
   WebApp.exe  Server.exe  Client.exe  Studio.exe  LinearCode.exe
   web/public/  web/seed-worlds/
-  shaders/  sounds/  ServerWorld.world  face*.png  face_hex.txt
+  shaders/  textures/  sounds/  ServerWorld.world  face*.png  face_hex.txt
   LinearUpdater.exe  LinearSetup.exe  ServerSetup.exe  AiTrainer.exe  LinearHosts.exe  LinearProxy.exe
   LinearGit.exe  LinearHub.exe  LinearCert.exe  LinearGuard.exe  LinearDocs.exe
   LinearGame.dll

@@ -23,6 +23,8 @@ uniform float isCamera;  // Flag for camera part visualization
 uniform float material;  // Material enum value, see Material in include/Part.h
 uniform sampler2D partTexture; // Tiled image, when the part names one
 uniform float hasPartTexture;
+uniform sampler2D materialTexture; // textures/material-<name>.png, when the material has one
+uniform float hasMaterialTexture;
 
 // The world's air, sent by the server with the world. The density is per stud and
 // zero in a world that has no fog, which leaves every part exactly as it was.
@@ -51,23 +53,6 @@ vec3 toSrgb(vec3 c) { return pow(max(c, vec3(0.0)), vec3(1.0 / 2.2)); }
 // anything at all, so the samples are clamped to a real colour range.
 vec3 sampleSky(vec3 dir) { return clamp(texture(skybox, dir).rgb, 0.0, 1.0); }
 
-float hash21(vec2 p) {
-    p = fract(p * vec2(123.34, 456.21));
-    p += dot(p, p + 45.32);
-    return fract(p.x * p.y);
-}
-
-float valueNoise(vec2 p) {
-    vec2 i = floor(p);
-    vec2 f = fract(p);
-    f = f * f * (3.0 - 2.0 * f);
-    float a = hash21(i);
-    float b = hash21(i + vec2(1.0, 0.0));
-    float c = hash21(i + vec2(0.0, 1.0));
-    float d = hash21(i + vec2(1.0, 1.0));
-    return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
-}
-
 // Box mapping in stud units: every face samples the same image without needing
 // the mesh to carry UVs, and the scale comes from the part's size so a small
 // brick and a large platform show tiles of the same physical size.
@@ -79,35 +64,14 @@ vec2 boxUv(vec3 localPos, vec3 localNormal) {
     return p.xy;
 }
 
-// Procedural surface patterns for the flat materials. They are deliberately
-// cheap and coarse: the point is that a wall reads as brick and a plank reads as
-// wood from across the map, not that it survives a close-up shader review.
-vec3 materialPattern(float matId, vec2 uv, vec3 p) {
-    if (abs(matId - MAT_WOOD) < 0.5) {
-        float rings = sin(p.y * 6.5 + valueNoise(p.xz * 1.3) * 4.0);
-        float grain = valueNoise(vec2(p.x * 2.0, p.y * 22.0));
-        return vec3(0.84 + 0.16 * rings) * (0.92 + 0.08 * grain);
-    }
-    if (abs(matId - MAT_GRASS) < 0.5) {
-        float clumps = valueNoise(p.xz * 2.2) * 0.65 + valueNoise(p.xz * 8.0) * 0.35;
-        return mix(vec3(0.74, 0.88, 0.70), vec3(1.10, 1.06, 0.94), clumps);
-    }
-    if (abs(matId - MAT_CONCRETE) < 0.5) {
-        float speck = valueNoise(p.xz * 13.0 + p.y * 5.0);
-        float blotch = valueNoise(p.xz * 2.6 + p.y * 1.4);
-        return vec3(0.84 + 0.10 * speck + 0.06 * blotch);
-    }
-    if (abs(matId - MAT_BRICK) < 0.5) {
-        vec2 brickUv = uv * vec2(0.5, 1.0);
-        float row = floor(brickUv.y);
-        brickUv.x += mod(row, 2.0) * 0.5;
-        vec2 cell = fract(brickUv);
-        float mortar = smoothstep(0.0, 0.05, cell.x) * smoothstep(0.0, 0.05, 1.0 - cell.x) *
-                       smoothstep(0.0, 0.09, cell.y) * smoothstep(0.0, 0.09, 1.0 - cell.y);
-        float tint = 0.86 + 0.14 * hash21(floor(brickUv));
-        return mix(vec3(0.68, 0.64, 0.60), vec3(tint), mortar);
-    }
-    return vec3(1.0);
+// The material's own surface, from textures/material-<name>.png. One tile is two
+// studs across - the scale a part texture uses - so a brick stays one stud wide
+// whatever part it is on. The image multiplies the part's colour rather than
+// replacing it, which is what lets a world pick red brick and grey brick from the
+// same file.
+vec3 materialSurface(vec2 uv) {
+    if (hasMaterialTexture < 0.5) return vec3(1.0);
+    return texture(materialTexture, uv * 0.5).rgb;
 }
 
 float ShadowCalculation(vec4 fragPosLightSpace, vec3 normal, vec3 lightDir)
@@ -158,7 +122,6 @@ void main() {
     vec3 N = normalize(Normal);
     vec3 V = normalize(viewPos - FragPos);
 
-    vec3 surfacePos = LocalPos * partSize;
     vec2 surfaceUv = boxUv(LocalPos, LocalNormal);
 
     bool isFacePart = isCamera > 0.5;
@@ -211,7 +174,7 @@ void main() {
         albedo = toLinear(texel.rgb) * albedo;
     }
 
-    albedo *= materialPattern(matId, surfaceUv, surfacePos);
+    albedo *= materialSurface(surfaceUv);
 
     // --- Lighting parameters per material ---
     float gloss = clamp(reflectance, 0.0, 1.0);

@@ -772,6 +772,13 @@ if(LINEAR_BUILD_TESTS)
     target_include_directories(AudioTests PRIVATE ${LINEARBUILD_CURRENT_SOURCE_DIR}/include)
     add_test(NAME AudioTests COMMAND AudioTests)
 
+    # The material surfaces: four of the eight materials are drawn from an image
+    # in textures/, so their names and files are checked without a window or a GPU.
+    add_executable(MaterialTextureTests tests/material_texture_tests.cpp)
+    target_include_directories(MaterialTextureTests PRIVATE ${LINEARBUILD_CURRENT_SOURCE_DIR}/include)
+    target_link_libraries(MaterialTextureTests PRIVATE linearmath)
+    add_test(NAME MaterialTextureTests COMMAND MaterialTextureTests)
+
     # Studio's undo history: one step per finished interaction, and the world
     # coming back exactly as it was.
     add_executable(StudioHistoryTests tests/studio_history_tests.cpp src/StudioHistory.cpp)

@@ -34,4 +34,15 @@ private:
     // once instead of being retried every frame for every part using it.
     std::map<std::string, unsigned int> partTextures;
     unsigned int textureForPart(const std::string& path);
+
+    // The four material surfaces, one image each, held once for every part that
+    // uses that material. Keyed by the Material value rather than the file name
+    // so a material with no image is cached too and costs one lookup per part.
+    std::map<int, unsigned int> materialTextures;
+    unsigned int textureForMaterial(Material material);
+
+    // Reads an image from beside the program, textures/ or the two folders a
+    // build/ checkout sits under, and uploads it as a repeating RGBA texture. 0
+    // when it is not there.
+    unsigned int loadTextureFile(const std::string& path, const char* kind);
 };

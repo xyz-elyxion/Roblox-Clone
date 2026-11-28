@@ -103,6 +103,16 @@ void Renderer::drawPart(const Part& part, const linearmath::mat4& view, const li
         glActiveTexture(GL_TEXTURE3);
         glBindTexture(GL_TEXTURE_2D, partTexture);
     }
+
+    // The material's surface is an image too, loaded once and shared by every
+    // part of that material; plastic, neon and metal have none and draw plain.
+    const unsigned int materialTextureId = textureForMaterial(part.material);
+    shader->setInt("materialTexture", 4);
+    shader->setFloat("hasMaterialTexture", materialTextureId > 0 ? 1.0f : 0.0f);
+    if (materialTextureId > 0) {
+        glActiveTexture(GL_TEXTURE4);
+        glBindTexture(GL_TEXTURE_2D, materialTextureId);
+    }
     // Check if this is a head part (character head) or camera part
     bool isHeadPart = (part.name == "Head");
     unsigned int activeFaceTexture = (isHeadPart && part.textureId > 0) ? part.textureId : faceTexture;
@@ -232,26 +242,12 @@ void Renderer::drawPartShadow(const Part& part, const linearmath::mat4& lightSpa
     glBindVertexArray(0);
 }
 
-unsigned int Renderer::textureForPart(const std::string& path) {
-    if (path.empty()) {
-        return 0;
-    }
-
-    const auto cached = partTextures.find(path);
-    if (cached != partTextures.end()) {
-        return cached->second;
-    }
-
-    if (!isSafeTexturePath(path)) {
-        std::cerr << "Refusing unsafe part texture path: " << path << std::endl;
-        partTextures[path] = 0;
-        return 0;
-    }
-
+unsigned int Renderer::loadTextureFile(const std::string& path, const char* kind) {
     // A world names its texture relative to textures/, but Studio and the client
-    // run from different working directories, so try the same three places the
-    // shaders are looked for.
-    const std::string candidates[] = {path, "textures/" + path, "../../textures/" + path};
+    // run from different working directories: the folder itself, textures/ beside
+    // a packaged build, then the checkout the two build folders sit under.
+    const std::string candidates[] = {path, "textures/" + path, "../../textures/" + path,
+                                      "../../../textures/" + path};
     int width = 0;
     int height = 0;
     int channels = 0;
@@ -270,10 +266,10 @@ unsigned int Renderer::textureForPart(const std::string& path) {
     }
 
     if (!data) {
-        std::cerr << "Part texture not found: " << path
-                  << " (looked for it as given, under textures/ and ../../textures/)"
+        std::cerr << "No " << kind << " at " << path
+                  << " (looked for it as given, under textures/, ../../textures/ and"
+                     " ../../../textures/)"
                   << std::endl;
-        partTextures[path] = 0;
         return 0;
     }
 
@@ -291,10 +287,44 @@ unsigned int Renderer::textureForPart(const std::string& path) {
     glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
 
     linearstbi_image_free(data);
-    std::cout << "Loaded part texture " << loadedFrom << " (" << width << "x" << height << ")"
-              << std::endl;
+    std::cout << "Loaded " << kind << " " << loadedFrom << " (" << width << "x" << height
+              << ")" << std::endl;
+    return textureId;
+}
 
+unsigned int Renderer::textureForPart(const std::string& path) {
+    if (path.empty()) {
+        return 0;
+    }
+
+    const auto cached = partTextures.find(path);
+    if (cached != partTextures.end()) {
+        return cached->second;
+    }
+
+    if (!isSafeTexturePath(path)) {
+        std::cerr << "Refusing unsafe part texture path: " << path << std::endl;
+        partTextures[path] = 0;
+        return 0;
+    }
+
+    const unsigned int textureId = loadTextureFile(path, "part texture");
     partTextures[path] = textureId;
+    return textureId;
+}
+
+unsigned int Renderer::textureForMaterial(Material material) {
+    const int index = static_cast<int>(material);
+    const auto cached = materialTextures.find(index);
+    if (cached != materialTextures.end()) {
+        return cached->second;
+    }
+
+    // The names come from the build, not from a world file, so there is no path
+    // to keep safe here; a material without an image is cached as 0 as well.
+    const char* file = linear::material::textureFile(material);
+    const unsigned int textureId = *file == '\0' ? 0 : loadTextureFile(file, "material texture");
+    materialTextures[index] = textureId;
     return textureId;
 }
 

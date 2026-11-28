@@ -147,10 +147,20 @@ try {
 
     # Data the executables read from their working directory.
     Copy-Item -LiteralPath 'shaders' -Destination (Join-Path $Output 'shaders') -Recurse
-    # Part textures: world files name their images relative to this folder.
-    if (Test-Path -LiteralPath 'textures') {
-        Copy-Item -LiteralPath 'textures' -Destination (Join-Path $Output 'textures') -Recurse
+    # Textures: a world names its images relative to this folder, and the renderer
+    # draws four of the eight materials from material-*.png, so a package without
+    # them draws flat colours.
+    $materialTextures = @('material-wood.png', 'material-grass.png', 'material-concrete.png', 'material-brick.png')
+    $missingTextures = @()
+    foreach ($name in $materialTextures) {
+        if (-not (Test-Path -LiteralPath (Join-Path 'textures' $name))) {
+            $missingTextures += $name
+        }
     }
+    if ($missingTextures.Count -gt 0) {
+        throw "The textures folder is missing $($missingTextures -join ', '); every material is drawn from them."
+    }
+    Copy-Item -LiteralPath 'textures' -Destination (Join-Path $Output 'textures') -Recurse
     # Sounds are files, and the ten below are the ones Client.exe and the bundled
     # games ask for by name. The server checks a script's name against this folder
     # and the client plays from it, so a package without them is a silent game.
@@ -269,6 +279,7 @@ try {
         '  web/hub/      the LinearHub browser stylesheet'
         '  games/        example worlds and their .rbx scripts (Sky Platformer)'
         '  shaders/      OpenGL shaders used by Client and Studio'
+        '  textures/     a world''s own part images, and the material surfaces the renderer draws'
         '  sounds/       every sound, by name: the ten the build ships and any a game adds'
         '  ServerWorld.world, face*.png, face_hex.txt  data loaded from the working directory'
         ''

@@ -43,6 +43,10 @@ constexpr int kReadChunk = 16384;
 // cipher's trailer. A record longer than this is not something to try to read.
 constexpr std::size_t kMaxTlsRecord = 5 + 16384 + 2048;
 
+// A handshake that has not finished after this many bytes is not a handshake
+// this client is going to finish, whatever the other end is doing.
+constexpr std::size_t kMaxHandshakeBytes = 256 * 1024;
+
 struct ParsedUrl {
     std::string host;
     std::string path;   // path plus query string
@@ -67,6 +71,23 @@ std::string lower(std::string value) {
 std::string hexCode(unsigned long code) {
     char text[16] = {};
     std::snprintf(text, sizeof(text), "0x%08lX", code);
+    return text;
+}
+
+// The first bytes of an answer, in words. When a server answers a TLS
+// ClientHello with a plain HTTP error - or an alert instead of a flight - the
+// only useful thing to report is what actually arrived, not "something went
+// wrong".
+std::string describeHeard(const std::string& bytes) {
+    if (bytes.empty()) return "nothing at all";
+    const unsigned char first = static_cast<unsigned char>(bytes[0]);
+    if (first == 0x15) return "a TLS alert instead of a handshake reply";
+    if (first == 0x14) return "a TLS session change instead of a handshake reply";
+    if (first == 0x16) return "a TLS handshake record";
+    if (first == 0x17) return "encrypted data instead of a handshake reply";
+    if (bytes.compare(0, 5, "HTTP/") == 0) return "a plain HTTP response";
+    char text[32] = {};
+    std::snprintf(text, sizeof(text), "the byte 0x%02X", first);
     return text;
 }
 
@@ -355,13 +376,22 @@ public:
                                 ISC_REQ_REPLAY_DETECT | ISC_REQ_CONFIDENTIALITY |
                                 ISC_REQ_ALLOCATE_MEMORY;
 
-        std::string input;  // the server's token, and any bytes after the handshake
+        // The bytes the server has sent that SChannel has not consumed yet. A
+        // server's half of a handshake is several records, and one read can stop
+        // in the middle of them: SChannel then consumes what it can and hands the
+        // rest back as a SECBUFFER_EXTRA buffer. Those bytes are the head of the
+        // next token, so they are kept and the next read appends *after* them.
+        // Dropping them - or replacing the buffer with a fresh read - feeds
+        // SChannel a token that starts inside a record, which is what
+        // SEC_E_INVALID_TOKEN (0x80090308, "the token supplied to the function is
+        // invalid") reports.
+        std::string pending;
         bool firstCall = true;
         while (true) {
             SecBuffer inBuffers[2] = {};
             inBuffers[0].BufferType = SECBUFFER_TOKEN;
-            inBuffers[0].cbBuffer = static_cast<unsigned long>(input.size());
-            inBuffers[0].pvBuffer = input.empty() ? nullptr : &input[0];
+            inBuffers[0].cbBuffer = static_cast<unsigned long>(pending.size());
+            inBuffers[0].pvBuffer = pending.empty() ? nullptr : &pending[0];
             inBuffers[1].BufferType = SECBUFFER_EMPTY;
             SecBufferDesc inDescriptor{SECBUFFER_VERSION, 2, inBuffers};
 
@@ -375,13 +405,34 @@ public:
                 const_cast<SEC_WCHAR*>(target.c_str()), requested, 0, 0,
                 firstCall ? nullptr : &inDescriptor, 0,
                 firstCall ? &context_ : nullptr, &outDescriptor, &outFlags, &expiry);
-            firstCall = false;
             // A failure before the first token leaves no context to delete, so
             // the handle only becomes the destructor's business once SChannel
             // has produced one.
-            if (status == SEC_E_OK || status == SEC_I_CONTINUE_NEEDED ||
-                status == SEC_E_INCOMPLETE_MESSAGE) {
+            if (firstCall && (status == SEC_E_OK || status == SEC_I_CONTINUE_NEEDED ||
+                              status == SEC_E_INCOMPLETE_MESSAGE)) {
                 haveContext_ = true;
+            }
+            firstCall = false;
+
+            // Schannel never asks for this, but a token that says it is only
+            // half built is finished here rather than sent that way.
+            if (status == SEC_I_COMPLETE_NEEDED || status == SEC_I_COMPLETE_AND_CONTINUE) {
+                if (CompleteAuthToken(&context_, &outDescriptor) != SEC_E_OK) {
+                    if (error) *error = describeHandshakeFailure(status, host, heard_);
+                    return false;
+                }
+                status = status == SEC_I_COMPLETE_NEEDED ? SEC_E_OK : SEC_I_CONTINUE_NEEDED;
+            }
+
+            // Whatever was consumed is dropped; whatever was not is the head of
+            // the next token.
+            if (inBuffers[1].BufferType == SECBUFFER_EXTRA && inBuffers[1].cbBuffer > 0 &&
+                inBuffers[1].cbBuffer <= pending.size()) {
+                const std::size_t extra = inBuffers[1].cbBuffer;
+                std::memmove(&pending[0], pending.data() + (pending.size() - extra), extra);
+                pending.resize(extra);
+            } else {
+                pending.clear();
             }
 
             if (outBuffer.pvBuffer != nullptr) {
@@ -397,19 +448,18 @@ public:
                 }
             }
 
-            if (status == SEC_E_OK) {
-                // Whatever SChannel did not consume is the start of the answer.
-                if (inBuffers[1].BufferType == SECBUFFER_EXTRA && inBuffers[1].cbBuffer > 0) {
-                    const std::size_t extra = inBuffers[1].cbBuffer;
-                    if (extra <= input.size()) {
-                        incoming_.assign(input, input.size() - extra, extra);
-                    }
-                }
-                break;
-            }
+            if (status == SEC_E_OK) break;
 
             if (status != SEC_I_CONTINUE_NEEDED && status != SEC_E_INCOMPLETE_MESSAGE) {
-                if (error) *error = describeHandshakeFailure(status, host);
+                if (error) *error = describeHandshakeFailure(status, host, heard_);
+                return false;
+            }
+
+            if (pending.size() >= kMaxHandshakeBytes) {
+                if (error) {
+                    *error = host + " kept sending without agreeing to a secure connection (";
+                    *error += describeHeard(heard_) + ").";
+                }
                 return false;
             }
 
@@ -419,12 +469,14 @@ public:
                 if (error) *error = host + " did not answer the TLS handshake.";
                 return false;
             }
-            if (status == SEC_E_INCOMPLETE_MESSAGE) {
-                input.append(raw, static_cast<std::size_t>(received));
-            } else {
-                input.assign(raw, static_cast<std::size_t>(received));
+            if (heard_.empty()) {
+                heard_.assign(raw, static_cast<std::size_t>(std::min<int>(received, 16)));
             }
+            pending.append(raw, static_cast<std::size_t>(received));
         }
+
+        // What SChannel left over is the start of the server's answer.
+        incoming_ = pending;
 
         status = QueryContextAttributesW(&context_, SECPKG_ATTR_STREAM_SIZES, &sizes_);
         if (status != SEC_E_OK) {
@@ -500,7 +552,8 @@ public:
 
 private:
     static std::string describeHandshakeFailure(SECURITY_STATUS status,
-                                                const std::string& host) {
+                                                const std::string& host,
+                                                const std::string& heard) {
         const unsigned long code = static_cast<unsigned long>(status);
         switch (status) {
             case SEC_E_UNTRUSTED_ROOT:
@@ -515,7 +568,8 @@ private:
             case SEC_E_ALGORITHM_MISMATCH:
                 return "This computer and " + host + " share no cipher for a secure connection.";
             case SEC_E_INVALID_TOKEN:
-                return host + " answered the TLS handshake with something that is not TLS.";
+                return host + " answered the TLS handshake with " + describeHeard(heard) +
+                       ", which is not something a secure connection can be built on.";
             case SEC_E_TARGET_UNKNOWN:
                 return "Could not reach a TLS service at " + host + ".";
             case SEC_I_INCOMPLETE_CREDENTIALS:
@@ -689,6 +743,7 @@ private:
     bool haveCredentials_ = false;
     bool haveContext_ = false;
     SecPkgContext_StreamSizes sizes_{};
+    std::string heard_;     // the first bytes the server sent, for error messages
     std::string incoming_;  // encrypted bytes not yet turned into a record
     std::string plain_;     // decrypted bytes not yet handed to the caller
     bool closed_ = false;

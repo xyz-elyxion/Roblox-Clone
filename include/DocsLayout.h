@@ -25,9 +25,8 @@ enum class RunStyle { Text, Strong, Code, Link };
 struct Run {
     std::string text;
     RunStyle style = RunStyle::Text;
-    // A [link](target)'s destination, empty for every other word. LinearDocs only
-    // sets the link, but LinearBrowser turns the same run into a button, so the
-    // address has to survive layout rather than be parsed a second time.
+    // A [link](target)'s destination, empty for every other word. The address has
+    // to survive layout rather than be parsed a second time.
     std::string target;
 };
 

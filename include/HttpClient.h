@@ -8,7 +8,7 @@
 // instance heartbeats).
 //
 // It replaces the WinHTTP code both binaries carried, so the client and the game
-// server share one transport, and LinearBrowser reads pages with it.
+// server share one transport.
 //
 // http:// goes straight down the socket and https:// goes through Windows' own
 // SChannel: the project vendors no TLS library, and the certificate checks are

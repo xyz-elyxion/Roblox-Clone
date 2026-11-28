@@ -20,7 +20,6 @@ option(LINEAR_BUILD_STUDIO "Build the Studio editor target" ON)
 option(LINEAR_BUILD_CODEEDITOR "Build the LinearCode source editor target" ON)
 option(LINEAR_BUILD_CERT "Build the LinearCert certificate installer target" ON)
 option(LINEAR_BUILD_DOCS "Build the LinearDocs documentation window target" ON)
-option(LINEAR_BUILD_BROWSER "Build the LinearBrowser web browser target" ON)
 option(LINEAR_BUILD_CLIENT "Build the game client target" ON)
 option(LINEAR_BUILD_SERVER "Build the game server target" ON)
 option(LINEAR_BUILD_TESTS "Build C++ test targets" ON)
@@ -423,26 +422,6 @@ if(LINEAR_BUILD_DOCS)
     configure_linear_target(LinearDocs)
     # linearwin and lineargl are the window and the GL context it draws through.
     target_link_libraries(LinearDocs PRIVATE linearwin lineargl)
-endif()
-
-# LinearBrowser is the project's own browser: it fetches a page over http:// or https://,
-# reads the HTML into the block model LinearDocs already lays out, and shows it with an
-# address bar, history and clickable links. BrowserPage holds the reader
-# and knows nothing about a window, which is what lets BrowserPageTests check it with no
-# display and no socket.
-if(LINEAR_BUILD_BROWSER)
-    add_executable(LinearBrowser
-        src/BrowserMain.cpp
-        src/BrowserPage.cpp
-        src/DocsLayout.cpp
-        src/HttpClient.cpp
-        ${LINEARUI_SOURCES}
-    )
-    configure_linear_target(LinearBrowser)
-    # ws2_32 is the transport and secur32 is SChannel, Windows' TLS, which is what
-    # https costs; crypt32 is the certificate policy check. linearwin and lineargl
-    # are the window and its context.
-    target_link_libraries(LinearBrowser PRIVATE linearwin lineargl ws2_32 secur32 crypt32)
 endif()
 
 # LinearAntiCheat is compiled straight into the client (see its LinearBuildLists): the
@@ -865,12 +844,6 @@ if(LINEAR_BUILD_TESTS)
     target_include_directories(DocsLayoutTests PRIVATE ${LINEARBUILD_CURRENT_SOURCE_DIR}/include)
     add_test(NAME DocsLayoutTests COMMAND DocsLayoutTests)
 
-    # The browser's HTML reader: what a page is made of, where a link points,
-    # what the address bar accepts, and how history moves. No socket and no window.
-    add_executable(BrowserPageTests tests/browser_page_tests.cpp src/BrowserPage.cpp)
-    target_include_directories(BrowserPageTests PRIVATE ${LINEARBUILD_CURRENT_SOURCE_DIR}/include)
-    add_test(NAME BrowserPageTests COMMAND BrowserPageTests)
-
 endif()
 
 # Every program that puts a window on screen carries the mark. One resource gives
@@ -881,7 +854,7 @@ endif()
 # here instead of being named a second time.
 if(MSVC)
     foreach(_linear_app Client Server Studio LinearCode LinearUpdater LinearSetup
-            ServerSetup LinearCert LinearDocs LinearBrowser LinearHub LinearHosts LinearProxy
+            ServerSetup LinearCert LinearDocs LinearHub LinearHosts LinearProxy
             LinearGit WebApp AiTrainer)
         if(TARGET ${_linear_app})
             target_sources(${_linear_app} PRIVATE src/linear.rc)

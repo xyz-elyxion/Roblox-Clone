@@ -6,9 +6,9 @@
 
 // The client's mixer: one mono output, a handful of short clips mixed into it.
 //
-// A clip is mono 16-bit at kSampleRate whichever way it arrived: the bank
-// synthesises its own sounds and converts a game's WAV files into the same shape
-// (see SoundBank.h). Nothing here opens a file - the mixer only ever mixes.
+// A clip is mono 16-bit at kSampleRate whichever way it arrived: the bank reads
+// WAV files and converts them into that shape (see SoundBank.h). Nothing here
+// opens a file - the mixer only ever mixes.
 namespace linear {
 namespace audio {
 

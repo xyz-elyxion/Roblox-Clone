@@ -5,18 +5,74 @@
 // which is what keeps the world's own API testable on a machine with no window and
 // no sound card: the host's handlers stand in for the server and the clients.
 
+#include "SoundBank.h"
 #include "WorldScript.h"
 #include "WorldServices.h"
 
 #include <cmath>
 #include <cstdio>
+#include <cstdint>
 #include <deque>
+#include <filesystem>
+#include <fstream>
 #include <string>
 #include <vector>
 
 namespace {
 
 int failures = 0;
+
+// Every sound is a file, so the test brings the two names it asks for: what is
+// under test here is the script's API, not the loader. A folder of its own also
+// keeps the refusal of a name this build does not have honest.
+void writeTestSound(const std::filesystem::path& path) {
+    const int frames = 64;
+    std::vector<unsigned char> file;
+    const auto put16 = [&file](unsigned int value) {
+        file.push_back(static_cast<unsigned char>(value & 0xFFu));
+        file.push_back(static_cast<unsigned char>((value >> 8) & 0xFFu));
+    };
+    const auto put32 = [&file](unsigned int value) {
+        for (int byte = 0; byte < 4; ++byte) {
+            file.push_back(static_cast<unsigned char>((value >> (byte * 8)) & 0xFFu));
+        }
+    };
+    const auto tag = [&file](const char* text) {
+        for (int index = 0; index < 4; ++index) {
+            file.push_back(static_cast<unsigned char>(text[index]));
+        }
+    };
+
+    tag("RIFF");
+    put32(static_cast<unsigned int>(36 + frames * 2));
+    tag("WAVE");
+    tag("fmt ");
+    put32(16);
+    put16(1);  // PCM
+    put16(1);  // mono
+    put32(static_cast<unsigned int>(linear::audio::kSampleRate));
+    put32(static_cast<unsigned int>(linear::audio::kSampleRate * 2));
+    put16(2);
+    put16(16);
+    tag("data");
+    put32(static_cast<unsigned int>(frames * 2));
+    for (int frame = 0; frame < frames; ++frame) {
+        put16(800);
+    }
+
+    std::ofstream out(path, std::ios::binary);
+    out.write(reinterpret_cast<const char*>(file.data()),
+              static_cast<std::streamsize>(file.size()));
+}
+
+void useTestSounds() {
+    const std::filesystem::path folder =
+        std::filesystem::temp_directory_path() / "linear-world-script-sounds";
+    std::filesystem::create_directories(folder);
+    writeTestSound(folder / "door.wav");
+    writeTestSound(folder / "jump.wav");
+    linear::audio::setSoundDirectory(folder.string());
+}
 
 struct Harness {
     std::deque<Part> parts;
@@ -181,6 +237,7 @@ void testLighting() {
 }
 
 void testSounds() {
+    useTestSounds();
     Harness harness;
 
     checkRuns(harness, "game:GetService(\"SoundService\"):Play(\"door\")",

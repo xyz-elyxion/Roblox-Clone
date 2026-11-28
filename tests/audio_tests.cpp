@@ -1,10 +1,10 @@
 // The sound bank and the distance falloff, checked without a sound card: the
 // device is only opened by audio::init(), which these tests never call.
 //
-// What matters here is what a client depends on: every sound has a stable name
-// that fits a packet, every sound is audible and none of them clips, a build is
-// repeatable, and a name the bank does not know is refused instead of playing
-// something else.
+// What matters here is what a client depends on: every shipped sound has a name
+// that fits a packet and a file that is audible and does not clip, a file is read
+// once, and a name the bank cannot find is refused instead of played as something
+// else.
 
 #include "SoundBank.h"
 
@@ -49,31 +49,67 @@ void testNames() {
           "soundNames lists one name per sound");
 }
 
-void testClips() {
+// The ten names are files, so these tests need the ones the checkout carries: a
+// build folder sits a few levels under it, so the folder is found by walking up
+// from the tests' own directory and from their working directory, the way the
+// bank itself looks beside the program and two folders up.
+std::filesystem::path findSoundsFolder(const char* argv0) {
+    std::error_code ignored;
+    std::vector<std::filesystem::path> starts;
+    starts.push_back(std::filesystem::current_path(ignored));
+    starts.push_back(std::filesystem::absolute(argv0, ignored).parent_path());
+
+    for (const std::filesystem::path& start : starts) {
+        std::filesystem::path folder = start;
+        for (int hop = 0; hop < 4; ++hop) {
+            const std::filesystem::path candidate = folder / "sounds";
+            if (std::filesystem::exists(candidate / "footstep.wav")) {
+                return candidate;
+            }
+            folder = folder.parent_path();
+            if (folder.empty()) {
+                break;
+            }
+        }
+    }
+    return std::filesystem::path();
+}
+
+void testShippedSounds(const std::filesystem::path& folder) {
+    check(!folder.empty(), "the sounds folder is beside the tests or a few levels above them");
+    if (folder.empty()) {
+        return;
+    }
+    linear::audio::setSoundDirectory(folder.string());
+
     for (int index = 0; index < linear::audio::kSoundCount; ++index) {
         const auto id = static_cast<linear::audio::SoundId>(index);
         const std::string name = linear::audio::soundName(id);
-        const linear::audio::Clip clip = linear::audio::synthesise(id);
 
-        check(!clip.samples.empty(), name + " has samples");
+        check(std::filesystem::exists(folder / (name + ".wav")),
+              name + " ships as a file in the sounds folder");
+
+        const linear::audio::Clip* clip = linear::audio::soundByName(name);
+        check(clip != nullptr, name + " resolves to a clip");
+        if (clip == nullptr) {
+            continue;
+        }
+        check(!clip->samples.empty(), name + " has samples");
 
         const float seconds =
-            static_cast<float>(clip.samples.size()) / linear::audio::kSampleRate;
+            static_cast<float>(clip->samples.size()) / linear::audio::kSampleRate;
         check(seconds >= 0.05f, name + " is at least 50 ms");
         check(seconds <= 2.5f, name + " is at most 2.5 s so it cannot outlast a voice");
 
         int peak = 0;
-        for (const std::int16_t sample : clip.samples) {
+        for (const std::int16_t sample : clip->samples) {
             peak = std::max(peak, std::abs(static_cast<int>(sample)));
         }
-        // Quiet enough to be a background noise would be a bug in the synthesis;
-        // on the clamp would be a click waiting to happen.
+        // A file that is nearly silence would waste a voice; one on the clamp is a
+        // click waiting to happen.
         check(peak >= 500, name + " is audible (peak " + std::to_string(peak) + ")");
-        check(peak <= 32000, name + " does not reach the clamp (peak " +
-                                 std::to_string(peak) + ")");
-
-        const linear::audio::Clip again = linear::audio::synthesise(id);
-        check(again.samples == clip.samples, name + " builds the same samples twice");
+        check(peak <= 32000,
+              name + " does not reach the clamp (peak " + std::to_string(peak) + ")");
     }
 }
 
@@ -271,8 +307,14 @@ void testFileSounds() {
           "a missing file is not looked for twice");
     check(linear::audio::soundByName("../escape") == nullptr,
           "a name cannot reach a file outside the folder");
-    check(linear::audio::soundByName("door") != nullptr,
-          "the built-in sounds still answer while a folder is set");
+    // No name is privileged: the door in the folder the bank was given is the door
+    // that plays, which is what makes a game's audio the game's.
+    std::vector<std::int16_t> door(90, 1500);
+    check(writeWav(directory / "door.wav", linear::audio::kSampleRate, 1, 16, door),
+          "a game's own door.wav is written");
+    const linear::audio::Clip* shipped = linear::audio::soundByName("door");
+    check(shipped != nullptr && shipped->samples == door,
+          "a shipped name is read from the folder the bank was given");
 
     linear::audio::setSoundDirectory("sounds");
     check(linear::audio::soundDirectory() == "sounds", "the folder goes back to its default");
@@ -304,9 +346,11 @@ void testAttenuation() {
 
 }  // namespace
 
-int main() {
+int main(int argc, char** argv) {
+    const std::filesystem::path sounds =
+        findSoundsFolder(argc > 0 ? argv[0] : "");
     testNames();
-    testClips();
+    testShippedSounds(sounds);
     testLookup();
     testSoundNameRules();
     testWavLoading();

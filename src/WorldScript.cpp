@@ -272,8 +272,9 @@ bool playSound(WorldRuntimeState& state, const std::string& method,
             }
             known += name;
         }
-        error = "there is no sound '" + args[0].string + "'; this build has " + known +
-                ", and whatever .wav files are in the sounds folder";
+        error = "there is no sound '" + args[0].string + "': the sounds folder has no " +
+                args[0].string + ".wav. This build ships " + known + ", and takes any other "
+                "name a .wav in that folder has";
         return false;
     }
     if (!state.soundHandler) {

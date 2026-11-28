@@ -8,15 +8,15 @@
 
 // The sounds this build can make.
 //
-// A name is the stable part: a script writes "door", the server forwards that
-// name, and the client resolves it. A client built from other source therefore
-// plays silence for a sound it does not know instead of a wrong noise, and a
-// typo fails in the script that made it rather than becoming a mystery.
+// A sound is a file: <name>.wav in the sounds folder. The name is the stable
+// part - a script writes "door", the server forwards that name, and the client
+// resolves it - so a game replaces a sound by replacing the file, with no
+// rebuild, and a client without that file plays silence instead of a wrong
+// noise. A typo fails in the script that made it rather than becoming a mystery.
 //
-// The built-in names below are synthesised. Any other name is a file: a game that
-// wants its own noise puts <name>.wav in the sounds folder instead of changing
-// this source, which is what makes a game's audio part of the game rather than
-// part of the engine.
+// The ten names below are the ones the client and the bundled games ask for, and
+// this repository carries a file for each of them. Nothing here synthesises
+// audio: the bank opens files and converts them into the mixer's one format.
 namespace linear {
 namespace audio {
 
@@ -60,23 +60,22 @@ std::string soundDirectory();
 // minute of audio, which is a song rather than the noise a script asked for.
 bool loadWav(const std::string& path, Clip* out, std::string* error);
 
-// The name a script and a packet use. Empty for SoundId::Count.
+// The name a script and a packet use, and the name of the file in the sounds
+// folder. Empty for SoundId::Count.
 const char* soundName(SoundId id);
 
-// Builds a fresh clip. Deterministic: the same id is the same samples, which is
-// what lets the test compare two builds.
-Clip synthesise(SoundId id);
-
-// The clip for an id, made on first use and kept for the life of the process: a
+// The clip for an id, read on first use and kept for the life of the process: a
 // voice only holds a pointer, so a clip must never be moved or freed while it
-// could be playing. Returns nullptr for an id out of range.
+// could be playing. Returns nullptr for an id out of range or a file that is not
+// in the sounds folder.
 const Clip* sound(SoundId id);
 
-// The clip for a name a script or a packet carried: a built-in sound, or a WAV in
-// the sounds folder. nullptr when this build has neither.
+// The clip for a name a script or a packet carried: <name>.wav in the sounds
+// folder. nullptr when there is no such file.
 const Clip* soundByName(const std::string& name);
 
-// Every built-in name, in enum order, for the message a script gets for a typo.
+// The ten names this build ships a file for, in enum order, for the message a
+// script gets for a typo.
 std::vector<std::string> soundNames();
 
 }  // namespace audio

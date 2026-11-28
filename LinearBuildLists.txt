@@ -466,7 +466,7 @@ if(LINEAR_BUILD_CLIENT)
         src/SystemSnapshot.cpp
         src/GuardStatus.cpp
         src/HttpClient.cpp
-        # The client mixes its own sounds; the bank is synthesised, not shipped.
+        # The client mixes its own sounds; the bank reads the files in sounds/.
         src/Audio.cpp
         src/SoundBank.cpp
         ${SHARED_SOURCES}

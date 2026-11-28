@@ -1345,7 +1345,7 @@ end)
 | `RunService.Heartbeat:Connect(function(dt) ... end)` | Per-tick logic |
 | `Players:GetPlayers()`, `Players.PlayerCount` | The players in the game |
 | `player.Name`, `player:Teleport(vector)`, `player:TakeDamage(amount)` | Player access; damage is applied by the server and answered with a death and respawn |
-| `workspace:PlaySound(name[, position[, volume]])` | Plays a sound by name — a built-in one or a WAV in `sounds/` — at a place in the world when a position is given |
+| `workspace:PlaySound(name[, position[, volume]])` | Plays `sounds/<name>.wav` at a place in the world when a position is given |
 | `game:GetService(name)` | A service by name: the tree Studio's Explorer draws, and the names a script written against another sandbox already asks for |
 | `Lighting.FogColor`, `Lighting.FogDensity` | The fog the world file set; writing it sends the new pair to every client in the game |
 | `SoundService:Play(name[, position[, volume]])` | The same call as `workspace:PlaySound`, under the name the service tree gives it |
@@ -1379,32 +1379,31 @@ well, because that is the name scripts actually type.
 A script makes a noise with `workspace:PlaySound("door")`, or with a `position` for one that comes
 from somewhere in the world and an optional `volume` from 0 to 1. The server checks the name and
 forwards it to every client, which mixes it and fades it by how far the player is from the position,
-so a door down the corridor is a whisper and the one in front of you is not. A name that is neither
-a built-in sound nor a file fails at the line that used it, with the list of what the build has,
-rather than becoming a sound that never comes.
+so a door down the corridor is a whisper and the one in front of you is not. A name whose file is not
+in the sounds folder fails at the line that used it, with the list of what the build ships, rather
+than becoming a sound that never comes.
 
-Ten sounds are synthesised by the client: `footstep`, `jump`, `door`, `wardrobe`, `entity`, `death`,
-`lap`, `lava`, `chime` and `elevator`. Three ships with the build: the lava and the goal in Sky
-Platformer, the lap bell in Turbo Circuit, and the doors, wardrobes, entity, deaths and the elevator
-in Doors Hotel. The client plays footsteps and jumps itself, because a character's own feet should
-not wait for a round trip.
+Every sound is a file: `sounds/<name>.wav` beside the executables, or in the checkout's `sounds/`
+when running a build out of `build/<preset>/`, which is looked for the same way a part texture is.
+Ten ship with this repository, and they are the names the client and the bundled games use:
+`footstep`, `jump`, `door`, `wardrobe`, `entity`, `death`, `lap`, `lava`, `chime` and `elevator`.
+Sky Platformer uses the lava and the goal, Turbo Circuit the lap bell, and Doors Hotel the doors,
+wardrobes, entity, deaths and the elevator. The client plays footsteps and jumps itself, because a
+character's own feet should not wait for a round trip.
 
-Any other name is a file. Put `sounds/<name>.wav` beside the executables — or in the checkout's
-`sounds/` when running a build out of `build/<preset>/`, which is looked for the same two ways a part
-texture is — and `workspace:PlaySound("name")` plays it. The folder travels with the package when it
-has anything in it, so a game's own audio ships with the build instead of sitting outside it. A name
-is letters, digits, `-` and `_`, up to 23 characters, with no extension and no directory; a name
-travels in a fixed-size packet field, and the rule is also what stops a script from reading a file
-somewhere else. A built-in name always plays the built-in sound, so a file cannot quietly replace
-one the client plays itself.
+A sound is therefore the same kind of thing as a world or a script: replace the file with your own
+recording and the game plays that instead, with no rebuild, and a game you publish brings its own
+audio in the same folder. A name is letters, digits, `-` and `_`, up to 23 characters, with no
+extension and no directory; a name travels in a fixed-size packet field, and the rule is also what
+stops a script from reading a file somewhere else.
 
 A WAV is read as 16-bit PCM, mono or stereo, at any sample rate: the bank averages the two channels
 when there are two and resamples to the 22050 Hz the mixer runs at, so a file out of an ordinary
 editor works as it is. 8- and 24-bit samples, a compressed format, more than two channels and
 anything over a minute are refused with a message that says which, because the whole clip is held in
 memory while it plays. A file is read once and kept for the life of the process. `sounds/example.wav`
-is the one file in that folder in this repository, so `workspace:PlaySound("example")` in a script
-plays the loader rather than the synthesiser.
+is an extra 0.6-second tone, there as a template to copy for a sound of your own, and
+`package-build.ps1` refuses to assemble a folder that is missing any of the ten.
 
 ### Scripts in Studio and on the server
 
@@ -1714,7 +1713,7 @@ src/                    Client, Server, Studio, rendering, physics, auth, web ap
 tests/                  C++ protocol, moderation and web tests
 shaders/                OpenGL shaders used by Client and Studio
 textures/               Tileable part textures a world can name
-sounds/                 WAV files a script plays by name (workspace:PlaySound)
+sounds/                 Every sound by name: the ten the build ships, and any a game adds
 games/                  The bundled worlds and their .rbx scripts
 web/                    Public pages, starter worlds, published worlds, game-server logs
 web/host/               The LinearHosts control panel page (served by LinearHosts.exe)
@@ -1893,8 +1892,8 @@ no repository is open rather than failing the server.
   connection feels delayed. Collision uses the axis-aligned box around a rotated part, so a diagonal
   wall blocks a little more ground than it looks like it does.
 - Sound is mono. A sound fades with distance from the player instead of panning left or right, and
-  there is no volume control beyond the system mixer. The ten built-in sounds are synthesised; a
-game's own are WAV files in `sounds/`, and only 16-bit PCM at no more than a minute is read.
+  there is no volume control beyond the system mixer. Every sound, the ten the build ships
+  included, is a WAV in `sounds/`; only 16-bit PCM at no more than a minute is read.
 - The HTTP client is HTTP/1.1: `http://` goes straight down the socket, `https://` goes through
   Windows' own SChannel (TLS 1.2, the certificate validated against the machine's trust store and
   the typed host name). It reads chunked bodies but not compressed ones — it asks for the identity

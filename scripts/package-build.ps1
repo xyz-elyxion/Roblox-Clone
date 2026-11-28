@@ -151,11 +151,20 @@ try {
     if (Test-Path -LiteralPath 'textures') {
         Copy-Item -LiteralPath 'textures' -Destination (Join-Path $Output 'textures') -Recurse
     }
-    # A game's own sounds: a script names sounds/<name>.wav and both the server
-    # (which checks the name) and the client (which plays it) look beside themselves.
-    if (Test-Path -LiteralPath 'sounds') {
-        Copy-Item -LiteralPath 'sounds' -Destination (Join-Path $Output 'sounds') -Recurse
+    # Sounds are files, and the ten below are the ones Client.exe and the bundled
+    # games ask for by name. The server checks a script's name against this folder
+    # and the client plays from it, so a package without them is a silent game.
+    $soundNames = @('footstep', 'jump', 'door', 'wardrobe', 'entity', 'death', 'lap', 'lava', 'chime', 'elevator')
+    $missingSounds = @()
+    foreach ($name in $soundNames) {
+        if (-not (Test-Path -LiteralPath (Join-Path 'sounds' "$name.wav"))) {
+            $missingSounds += "$name.wav"
+        }
     }
+    if ($missingSounds.Count -gt 0) {
+        throw "The sounds folder is missing $($missingSounds -join ', '); scripts and the client ask for them by name."
+    }
+    Copy-Item -LiteralPath 'sounds' -Destination (Join-Path $Output 'sounds') -Recurse
     Copy-Item -LiteralPath 'ServerWorld.world' -Destination $Output
     Get-ChildItem -LiteralPath '.' -File |
         Where-Object {
@@ -260,7 +269,7 @@ try {
         '  web/hub/      the LinearHub browser stylesheet'
         '  games/        example worlds and their .rbx scripts (Sky Platformer)'
         '  shaders/      OpenGL shaders used by Client and Studio'
-        '  sounds/       .wav files a script plays by name (workspace:PlaySound)'
+        '  sounds/       every sound, by name: the ten the build ships and any a game adds'
         '  ServerWorld.world, face*.png, face_hex.txt  data loaded from the working directory'
         ''
         'HOW TO RUN'

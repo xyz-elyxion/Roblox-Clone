@@ -199,7 +199,7 @@ struct PacketWorldEnvironment {
 // does not have. Sounds are cosmetic, so they travel unreliably and a lost one
 // is simply not heard.
 struct PacketSound {
-    char name[24];      // a built-in sound, or <name>.wav in sounds/ (SoundBank.h)
+    char name[24];      // <name>.wav in sounds/ (SoundBank.h)
     linearmath::vec3 position; // where it happened, when spatial is set
     float volume;       // 0..1, the level the script asked for
     uint8_t spatial;    // 1 when position is a place in the world

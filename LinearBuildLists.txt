@@ -589,8 +589,8 @@ if(LINEAR_BUILD_TESTS)
     add_test(NAME ScriptTests COMMAND ScriptTests)
 
     # The world API: the service tree, Lighting, and the two ways a script reaches
-    # a sound. No window and no physics: a part list and an interpreter are enough,
-    # which is what keeps this runnable on a build machine.
+    # a sound. No window: a part list, an interpreter and the physics world a script
+    # drives are enough, which is what keeps this runnable on a build machine.
     add_executable(WorldScriptTests
         tests/world_script_tests.cpp
         src/WorldScript.cpp
@@ -600,6 +600,11 @@ if(LINEAR_BUILD_TESTS)
         src/WorldServices.cpp
     )
     target_include_directories(WorldScriptTests PRIVATE ${LINEARBUILD_CURRENT_SOURCE_DIR}/include)
+    # The runtime owns a PhysicsWorld, so this target compiles the real one instead
+    # of a stub, and that is linearphysics: its headers, the <chrono> include it
+    # forces in for MSVC, and the library itself. Linking it is also what puts the
+    # vendored headers on the include path; without it the target does not compile.
+    target_link_libraries(WorldScriptTests PRIVATE linearmath linearphysics)
     add_test(NAME WorldScriptTests COMMAND WorldScriptTests)
 
     # The source editor's file handling is headless, so its checks run without a

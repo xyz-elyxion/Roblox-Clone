@@ -114,6 +114,7 @@ void leaveCurrentGame(std::deque<Part>& parts, PhysicsWorld& physicsWorld) {
     }
     remotePlayers.clear();
     playerNames.clear();
+    playerScores.clear();
     playerList.clear();
     targetTransforms.clear();
     startTransforms.clear();

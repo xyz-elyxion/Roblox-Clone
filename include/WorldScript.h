@@ -20,10 +20,15 @@ struct WorldRuntimeState;
 struct ScriptPlayer {
     std::string name;
     linearmath::vec3 position{0.0f};
+    // The one number the world keeps for this player (player.Score), as the host
+    // holds it: a script reads it back and the clients draw it in their player
+    // list, so the two cannot disagree about what the score is.
+    int score = 0;
 };
 
 // Connects a script interpreter to a world: exposes workspace, part properties,
-// Vector3, RunService.Heartbeat and part.Touched, and drives those events.
+// Vector3, the Players add/remove events, RunService.Heartbeat and part.Touched,
+// and drives those events.
 class WorldRuntime {
 public:
     WorldRuntime(std::deque<Part>& parts, PhysicsWorld* physicsWorld,
@@ -60,7 +65,14 @@ public:
     void setEnvironment(const linearmath::vec3& fogColor, float fogDensity);
     void setEnvironmentHandler(std::function<void(const linearmath::vec3&, float)> handler);
 
-    // Fires RunService.Heartbeat handlers and checks parts for new Touched pairs.
+    // The one number a world keeps per player, written by a script
+    // (player.Score = n). The host stores it and tells the clients; the server is
+    // the only owner, because a score a client decided for itself is a player who
+    // always wins.
+    void setScoreHandler(std::function<void(const std::string& name, int score)> handler);
+
+    // Fires RunService.Heartbeat, reports the players who joined or left since the
+    // last tick, and checks parts for new Touched pairs.
     void heartbeat(float deltaTime);
 
     bool isRunning() const;

@@ -145,6 +145,22 @@ int main() {
     assert(!PacketProtocol::validatePayload(PacketType::WORLD_ENVIRONMENT, environmentPacket.data(),
                                             static_cast<uint32_t>(sizeof(PacketWorldEnvironment) - 1)));
 
+    // The one number a world keeps per player: the server sends the new value
+    // whole, so a lost packet is corrected by the next one rather than leaving a
+    // scoreboard a point behind for the rest of the match.
+    PacketPlayerScore playerScore{};
+    playerScore.playerId = 3;
+    playerScore.score = -12;
+    std::vector<char> playerScorePacket =
+        PacketProtocol::buildStructPacket(PacketType::PLAYER_SCORE, playerScore);
+    assert(PacketProtocol::tryReadFrame(playerScorePacket, parsed) ==
+           PacketProtocol::ParseStatus::Complete);
+    assert(parsed.type == PacketType::PLAYER_SCORE);
+    assert(parsed.payloadSize == sizeof(PacketPlayerScore));
+    assert(!PacketProtocol::validatePayload(PacketType::PLAYER_SCORE, nullptr, 0));
+    assert(!PacketProtocol::validatePayload(PacketType::PLAYER_SCORE, playerScorePacket.data(),
+                                            static_cast<uint32_t>(sizeof(PacketPlayerScore) - 1)));
+
     // A world snapshot is one frame, and the largest legal world has to fit in
     // it. A script that builds a hundred rooms sends a few hundred parts' worth
     // of data in one go, so a frame the size of a single datagram is not enough.

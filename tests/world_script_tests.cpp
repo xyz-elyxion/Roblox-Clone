@@ -1,5 +1,5 @@
-// The world API as a script sees it: the service tree, Lighting, and the two ways
-// a script reaches a sound.
+// The world API as a script sees it: the service tree, Lighting, the two player
+// events, and the two ways a script reaches a sound.
 //
 // A part list, an interpreter and no physics are enough to run every one of these,
 // which is what keeps the world's own API testable on a machine with no window and
@@ -89,6 +89,12 @@ struct Harness {
     float fogX = -1.0f;
     float fogDensity = -1.0f;
 
+    // The players the host reports, and what it was told about their score.
+    std::vector<linear::worldscript::ScriptPlayer> playerSnapshot;
+    int scoreChanges = 0;
+    std::string lastScored;
+    int lastScore = 0;
+
     std::string lastError;
 
     Harness() : runtime(parts, nullptr, interpreter) {
@@ -105,6 +111,12 @@ struct Harness {
             environments = true;
             fogX = color.x;
             fogDensity = density;
+        });
+        runtime.setPlayerSource([this]() { return playerSnapshot; });
+        runtime.setScoreHandler([this](const std::string& name, int score) {
+            scoreChanges += 1;
+            lastScored = name;
+            lastScore = score;
         });
     }
 
@@ -257,6 +269,68 @@ void testSounds() {
                  "SoundService only offers what it has", "SoundService has no method 'Stop'");
 }
 
+// The two events a round loop is built from, and the number the world keeps for a
+// player. Both are driven by the list the host supplies, so a host that already
+// knows its players does not have to report the moments separately.
+void testPlayers() {
+    Harness harness;
+    harness.playerSnapshot.push_back(
+        linear::worldscript::ScriptPlayer{"Ana", linearmath::vec3(0.0f), 0});
+
+    checkRuns(harness,
+              "added = \"\"\n"
+              "removed = \"\"\n"
+              "lastPlayer = nil\n"
+              "Players.PlayerAdded:Connect(function(player)\n"
+              "    added = added .. player.Name .. \",\"\n"
+              "    lastPlayer = player\n"
+              "end)\n"
+              "Players.PlayerRemoving:Connect(function(player)\n"
+              "    removed = removed .. player.Name .. \",\"\n"
+              "end)",
+              "a script connects to the two player events");
+
+    // The players who were in the game when the script started are the first
+    // PlayerAdded: that is what makes the events enough to count a match without
+    // asking every tick whether the list changed.
+    harness.runtime.heartbeat(0.016f);
+    checkRuns(harness, "if added ~= \"Ana,\" then error(added) end",
+              "PlayerAdded fires for a player already in the game");
+    checkRuns(harness, "if removed ~= \"\" then error(removed) end", "nothing has left yet");
+
+    harness.playerSnapshot.push_back(
+        linear::worldscript::ScriptPlayer{"Bo", linearmath::vec3(0.0f), 0});
+    harness.runtime.heartbeat(0.016f);
+    checkRuns(harness, "if added ~= \"Ana,Bo,\" then error(added) end",
+              "a join reports the player who joined and not the one who was there");
+
+    harness.playerSnapshot.erase(harness.playerSnapshot.begin());
+    harness.runtime.heartbeat(0.016f);
+    checkRuns(harness, "if removed ~= \"Ana,\" then error(removed) end",
+              "a leave reports the player who left");
+    checkRuns(harness, "if Players.PlayerCount ~= 1 then error(\"count\") end",
+              "the count follows the list");
+
+    // The score is written by the script and owned by the host, the same way
+    // damage and teleports are: the script says what, the host decides whether
+    // anyone hears it.
+    checkRuns(harness, "lastPlayer.Score = 7", "a script writes a score");
+    check(harness.scoreChanges == 1, "the score reaches the host once");
+    check(harness.lastScored == "Bo", "the score is named after the player it belongs to");
+    check(harness.lastScore == 7, "the value the script wrote is the value the host got");
+    checkRuns(harness, "if lastPlayer.Score ~= 7 then error(\"score did not stay\") end",
+              "a player reads back the score it was given");
+
+    // A score the host already holds - a join in the middle of a match - is what
+    // the script reads, so the HUD and the script cannot disagree.
+    harness.playerSnapshot.back().score = 4;
+    harness.runtime.heartbeat(0.016f);
+    checkRuns(harness, "if lastPlayer.Score ~= 4 then error(\"host score did not arrive\") end",
+              "a score the host holds is what the script reads");
+
+    checkRefused(harness, "lastPlayer.Score = \"high\"", "a score has to be a number", "");
+}
+
 void testPlaceholders() {
     Harness harness;
 
@@ -279,6 +353,7 @@ int main() {
     testGetService();
     testLighting();
     testSounds();
+    testPlayers();
     testPlaceholders();
 
     if (failures == 0) {

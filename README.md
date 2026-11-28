@@ -1357,12 +1357,27 @@ end)
 | `part.Touched:Connect(function(hit) ... end)` | Touch events |
 | `RunService.Heartbeat:Connect(function(dt) ... end)` | Per-tick logic |
 | `Players:GetPlayers()`, `Players.PlayerCount` | The players in the game |
+| `Players.PlayerAdded:Connect(function(player) ... end)` | A player is in the game: one who was already there when the script started, or one who joined since the last tick |
+| `Players.PlayerRemoving:Connect(function(player) ... end)` | A player left; the player handed over still answers with the name and the score it had |
 | `player.Name`, `player:Teleport(vector)`, `player:TakeDamage(amount)` | Player access; damage is applied by the server and answered with a death and respawn |
+| `player.Score` | The one number the world keeps for a player: a script writes it, the server stores it, and every client draws it in its player list |
 | `workspace:PlaySound(name[, position[, volume]])` | Plays `sounds/<name>.wav` at a place in the world when a position is given |
 | `game:GetService(name)` | A service by name: the tree Studio's Explorer draws, and the names a script written against another sandbox already asks for |
 | `Lighting.FogColor`, `Lighting.FogDensity` | The fog the world file set; writing it sends the new pair to every client in the game |
 | `SoundService:Play(name[, position[, volume]])` | The same call as `workspace:PlaySound`, under the name the service tree gives it |
 | `Vector3.new(x, y, z)` | A vector |
+
+A round-based game is built from those two events rather than from polling. The list the server
+already holds is compared tick to tick, so `PlayerAdded` fires for the players who were in the game
+when the script ran - which is what lets a lobby count them - and for every join after that, once
+each; `PlayerRemoving` fires for a leave, and the player it hands over still reads back its name and
+its score.
+
+`player.Score` is the one number the world keeps for a player. A script writes it, the server stores
+it and sends the new value to every client, and the player list draws it against the right edge of
+that player's row: a scoreboard is a script, with no HUD code. It is a whole number between
+-1000000 and 1000000, and a client never reports one - a score a client could set is a player who
+always wins.
 
 ### The service tree
 
@@ -1373,7 +1388,7 @@ language cannot disagree. Five of the fourteen hold something in this build:
 | Service | What a script finds in it |
 | --- | --- |
 | `Workspace` | The world's parts: `FindFirstChild`, `CreatePart`, `GetChildren` |
-| `Players` | `GetPlayers()`, `PlayerCount`, and a player's name, position, teleport and damage |
+| `Players` | `GetPlayers()`, `PlayerCount`, the `PlayerAdded` and `PlayerRemoving` events, and a player's name, position, teleport, damage and score |
 | `RunService` | `Heartbeat` |
 | `Lighting` | `FogColor` and `FogDensity`, which the world file sets and a script can change; a change goes to every client already in the game, because a client is handed the environment once, at its join |
 | `SoundService` | `Play(name[, position[, volume]])`, which is `workspace:PlaySound` under the name the service tree gives it |

@@ -867,11 +867,30 @@ void renderPlayerList(float uiScale) {
         }
         LinearUI::Text("%d online", count);
         LinearUI::Separator();
-        LinearUI::Text("%s  (You)", myUsername);
+        // The one number a world keeps for a player (player.Score) sits against
+        // the right edge, so a score that grows from 9 to 10 does not shift the
+        // name beside it or the rows under it.
+        const auto scoreOf = [](int playerId) {
+            const auto found = playerScores.find(playerId);
+            return found == playerScores.end() ? 0 : found->second;
+        };
+        const auto row = [](const std::string& name, int score) {
+            const float width = LinearUI::GetContentRegionAvail().x;
+            LinearUI::TextUnformatted(name.c_str());
+            const std::string text = std::to_string(score);
+            const float numberWidth = LinearUI::CalcTextSize(text.c_str()).x;
+            // A zero is what every player has until a script says otherwise, so
+            // it is left out rather than filling the column with noughts.
+            if (score != 0 && numberWidth < width) {
+                LinearUI::SameLine(width - numberWidth);
+                LinearUI::TextUnformatted(text.c_str());
+            }
+        };
+        row(std::string(myUsername) + "  (You)", scoreOf(myPlayerId));
         for (const auto& player : playerList) {
             if (player.playerId == myPlayerId) continue;
             const std::string username = PacketProtocol::fixedString(player.username, sizeof(player.username));
-            LinearUI::Text("%s", username.empty() ? "Player" : username.c_str());
+            row(username.empty() ? "Player" : username, scoreOf(player.playerId));
         }
     }
     LinearUI::End();

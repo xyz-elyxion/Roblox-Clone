@@ -104,6 +104,9 @@ enum EscapeMenuTab {
 extern EscapeMenuTab escapeMenuTab;
 extern std::map<int, Character*> remotePlayers;
 extern std::map<int, std::string> playerNames;
+// The one number a world keeps for each player, from the server's PLAYER_SCORE
+// packets and drawn beside the name in the player list.
+extern std::map<int, int> playerScores;
 extern std::vector<PlayerInfo> playerList;
 extern std::vector<char> clientReceiveBuffer;
 extern Character* myCharacter;

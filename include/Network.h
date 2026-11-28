@@ -31,7 +31,8 @@ enum class PacketType : uint8_t {
     PART_STATE = 15,
     PART_REMOVE = 16,
     WORLD_ENVIRONMENT = 17,
-    SOUND = 18
+    SOUND = 18,
+    PLAYER_SCORE = 19
 };
 
 #pragma pack(push, 1)
@@ -206,13 +207,25 @@ struct PacketSound {
     uint8_t reserved[3];
 };
 
+// 14. Player Score (Server -> Client): the one number a world keeps for a
+// player.
+//
+// A script writes it (player.Score = n) and the client draws it beside the name
+// in its player list. The server owns it for the same reason it owns health: a
+// client that decided its own score would be a client that wins. The new value
+// travels instead of a delta, so a lost packet is corrected by the next one.
+struct PacketPlayerScore {
+    int playerId;
+    int score;
+};
+
 #pragma pack(pop)
 
 namespace PacketProtocol {
     // Bumped whenever a packet layout or its meaning changes. Sent in the
     // handshake next to `kPacketLayoutSignature` so two differently built
     // binaries fail with an explanation instead of silently misparsing.
-    constexpr uint16_t kProtocolRevision = 11;
+    constexpr uint16_t kProtocolRevision = 12;
 
     constexpr uint16_t packetLayoutSignature() {
         // Any change to a packet's size moves this, so a client and a server
@@ -226,6 +239,7 @@ namespace PacketProtocol {
                                      sizeof(PacketVehicleState) * 13u +
                                      sizeof(PacketVehicleInput) * 7u +
                                      sizeof(PacketSound) * 9u +
+                                     sizeof(PacketPlayerScore) * 7u +
                                      sizeof(PlayerInfo) * 5u);
     }
 
@@ -282,6 +296,7 @@ namespace PacketProtocol {
             case PacketType::PART_REMOVE:
             case PacketType::WORLD_ENVIRONMENT:
             case PacketType::SOUND:
+            case PacketType::PLAYER_SCORE:
                 return true;
             default:
                 return false;
@@ -319,6 +334,8 @@ namespace PacketProtocol {
                 return payloadSize == sizeof(PacketWorldEnvironment);
             case PacketType::SOUND:
                 return payloadSize == sizeof(PacketSound);
+            case PacketType::PLAYER_SCORE:
+                return payloadSize == sizeof(PacketPlayerScore);
             case PacketType::PLAYER_JOIN:
                 return payloadSize == sizeof(PacketPlayerJoin);
             case PacketType::PLAYER_LEAVE:

@@ -135,6 +135,21 @@ struct WorldRuntimeState : public std::enable_shared_from_this<WorldRuntimeState
     std::function<void(const std::string&, float)> damageHandler;
     std::function<void(const std::string&, const linearmath::vec3&, float, bool)> soundHandler;
     std::function<void(const linearmath::vec3&, float)> environmentHandler;
+    std::function<void(const std::string&, int)> scoreHandler;
+
+    // The players the last tick saw. PlayerAdded and PlayerRemoving are the
+    // difference between two of these, which is why a host only has to keep
+    // supplying the list it already has and the events still land on the tick
+    // the list changed - the server does not have to remember to call in.
+    std::set<std::string> knownPlayers;
+
+    // The one number the world keeps per player, held here as well as on the host
+    // because a script reads it back with player.Score and PlayerRemoving hands
+    // over a player who is no longer in the list.
+    std::map<std::string, int> scores;
+
+    std::shared_ptr<Signal> playerAddedSignal = std::make_shared<Signal>();
+    std::shared_ptr<Signal> playerRemovingSignal = std::make_shared<Signal>();
 
     // What the fog is: the world file's values, or what a script has changed them
     // to since. Kept here so Lighting answers with the numbers the clients were
@@ -156,6 +171,7 @@ struct WorldRuntimeState : public std::enable_shared_from_this<WorldRuntimeState
     std::shared_ptr<Signal> touchedFor(int index);
     void movePart(int index, const linearmath::vec3& position, bool stopMotion);
     void refreshBody(Part& part);
+    void refreshPlayers();
     void updateTouches();
 };
 
@@ -204,6 +220,29 @@ void WorldRuntimeState::refreshBody(Part& part) {
 std::vector<ScriptPlayer> WorldRuntimeState::players() const {
     if (!playerSource) return {};
     return playerSource();
+}
+
+void WorldRuntimeState::refreshPlayers() {
+    if (!playerSource) return;
+    const std::vector<ScriptPlayer> current = players();
+    std::set<std::string> next;
+    for (const ScriptPlayer& player : current) {
+        next.insert(player.name);
+        scores[player.name] = player.score;
+    }
+
+    // The first tick after the script starts is the script's "who is already
+    // here": PlayerAdded fires for the players in the game when it ran, which is
+    // what a round loop needs to count them without polling for the change.
+    for (const ScriptPlayer& player : current) {
+        if (knownPlayers.count(player.name) != 0) continue;
+        playerAddedSignal->fire(*interpreter, {playerValue(player.name)});
+    }
+    for (const std::string& name : knownPlayers) {
+        if (next.count(name) != 0) continue;
+        playerRemovingSignal->fire(*interpreter, {playerValue(name)});
+    }
+    knownPlayers.swap(next);
 }
 
 const Value* WorldRuntimeState::service(const std::string& name) const {
@@ -462,6 +501,12 @@ public:
             out = Value::stringValue("Player");
             return true;
         }
+        if (name == "Score") {
+            const auto found = state_->scores.find(name_);
+            const int score = found == state_->scores.end() ? 0 : found->second;
+            out = Value::numberValue(static_cast<double>(score));
+            return true;
+        }
         if (name == "Position") {
             for (const ScriptPlayer& player : state_->players()) {
                 if (player.name != name_) continue;
@@ -472,6 +517,20 @@ public:
             return true;
         }
         return false;
+    }
+
+    bool set(const std::string& name, const Value& value) override {
+        if (name != "Score") return false;
+        // Whole numbers only, and finite: a score is a counter, and a HUD that
+        // rounds two clients' copies differently is a scoreboard that disagrees.
+        if (!value.isNumber() || !std::isfinite(value.number)) return false;
+        const int score = static_cast<int>(
+            std::llround(std::clamp(value.number, -1000000.0, 1000000.0)));
+        state_->scores[name_] = score;
+        if (state_->scoreHandler) {
+            state_->scoreHandler(name_, score);
+        }
+        return true;
     }
 
     bool call(Interpreter&, const std::string& method, const std::vector<Value>& args,
@@ -647,6 +706,14 @@ public:
         }
         if (name == "PlayerCount") {
             out = Value::numberValue(static_cast<double>(state_->players().size()));
+            return true;
+        }
+        if (name == "PlayerAdded") {
+            out = linear::script::makeSignalValue(*state_->playerAddedSignal);
+            return true;
+        }
+        if (name == "PlayerRemoving") {
+            out = linear::script::makeSignalValue(*state_->playerRemovingSignal);
             return true;
         }
         return false;
@@ -921,6 +988,10 @@ void WorldRuntime::setEnvironmentHandler(
     state_->environmentHandler = std::move(handler);
 }
 
+void WorldRuntime::setScoreHandler(std::function<void(const std::string&, int)> handler) {
+    state_->scoreHandler = std::move(handler);
+}
+
 bool WorldRuntime::runScript(const std::string& source, const std::string& chunkName,
                              std::string& error) {
     state_->running = false;
@@ -933,6 +1004,7 @@ bool WorldRuntime::runScript(const std::string& source, const std::string& chunk
 
 void WorldRuntime::heartbeat(float deltaTime) {
     if (!state_->running) return;
+    state_->refreshPlayers();
     state_->heartbeatSignal->fire(*state_->interpreter,
                                   {Value::numberValue(static_cast<double>(deltaTime))});
     state_->updateTouches();

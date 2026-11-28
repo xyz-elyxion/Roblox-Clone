@@ -575,6 +575,7 @@ char chatInput[256] = "";
 
 std::map<int, Character*> remotePlayers;
 std::map<int, std::string> playerNames;
+std::map<int, int> playerScores;
 std::vector<PlayerInfo> playerList;
 std::vector<char> clientReceiveBuffer;
 std::vector<ChatLine> chatLines;
@@ -1912,6 +1913,18 @@ int main(int argc, char** argv) {
                                     linearmath::length(pkt->position - myCharacter->getPosition()));
                             }
                             linear::audio::play(*clip, volume, false);
+                        }
+                        else if (header->type == PacketType::PLAYER_SCORE) {
+                            if (header->size < sizeof(PacketPlayerScore)) {
+                                std::cerr << "ERROR: Invalid PLAYER_SCORE packet size" << std::endl;
+                                offset += packetSize;
+                                continue;
+                            }
+                            PacketPlayerScore* pkt =
+                                (PacketPlayerScore*)(packetBuffer + offset + sizeof(PacketHeader));
+                            // The server owns the score; this only remembers what
+                            // it was last told, for the player list.
+                            playerScores[pkt->playerId] = pkt->score;
                         }
                         else if (header->type == PacketType::TELEPORT) {
                             if (header->size < sizeof(PacketPlayerState)) {

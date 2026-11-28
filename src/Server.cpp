@@ -49,6 +49,9 @@ struct ConnectedPlayer {
     char username[32];
     PacketPlayerState state;
     bool active;
+    // The one number the world keeps for this player (player.Score). A script
+    // writes it through the runtime and every client is sent the new value.
+    int score = 0;
     int userId = -1;
     std::string authToken;
     // The hashed machine this player joined from (see HardwareId.h). Kept so the
@@ -648,6 +651,22 @@ void sendPlayerList(ConnectedPlayer& player) {
     sendToPlayer(player, buildPlayerListPacket(), true);
 }
 
+// The scores as they stand, for a player who has just joined: a newcomer was not
+// in the game for the changes that made them, and a score nobody sent is a zero
+// in the list for the rest of the match.
+void sendScores(ConnectedPlayer& player) {
+    for (auto& entry : players) {
+        if (!entry.second.active) continue;
+        PacketPlayerScore packet;
+        packet.playerId = entry.first;
+        packet.score = entry.second.score;
+        if (!sendToPlayer(player, PacketProtocol::buildStructPacket(PacketType::PLAYER_SCORE, packet),
+                          true)) {
+            return;
+        }
+    }
+}
+
 void broadcastPlayerList(int excludeId = -1) {
     broadcastPacket(buildPlayerListPacket(), excludeId, true);
 }
@@ -1233,6 +1252,7 @@ static int runServer(int argc, char** argv) {
                     linear::worldscript::ScriptPlayer scriptPlayer;
                     scriptPlayer.name = scriptPlayerName(player, entry.first);
                     scriptPlayer.position = player.state.position;
+                    scriptPlayer.score = player.score;
                     snapshot.push_back(scriptPlayer);
                 }
                 return snapshot;
@@ -1264,6 +1284,27 @@ static int runServer(int argc, char** argv) {
                 packet.volume = std::clamp(volume, 0.0f, 1.0f);
                 packet.spatial = spatial ? 1 : 0;
                 pendingSounds.push_back(packet);
+            });
+
+            // The one number a world keeps per player. The script names a player
+            // the way the rest of the API does and the host finds them; the new
+            // value goes to every client, so the player list every copy draws
+            // says the same thing.
+            gameScriptRuntime->setScoreHandler([](const std::string& name, int score) {
+                for (auto& entry : players) {
+                    ConnectedPlayer& player = entry.second;
+                    if (!player.active) continue;
+                    if (scriptPlayerName(player, entry.first) != name) continue;
+                    if (player.score == score) return;
+                    player.score = score;
+                    PacketPlayerScore packet;
+                    packet.playerId = entry.first;
+                    packet.score = score;
+                    broadcastPacket(
+                        PacketProtocol::buildStructPacket(PacketType::PLAYER_SCORE, packet), -1,
+                        true);
+                    return;
+                }
             });
 
             // The fog the world file set, so Lighting reads back what every client
@@ -1779,6 +1820,7 @@ static int runServer(int argc, char** argv) {
                         std::cout << "Sent complete world state (" << partCount << " parts) to player " << id << std::endl;
 
                         sendPlayerList(player);
+                        sendScores(player);
                         broadcastPlayerList(id);
                         broadcastPlayerHealth(id, player.health, nowMs);
 

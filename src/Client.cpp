@@ -16,6 +16,7 @@
 #include "ClientShared.h"
 #include "Audio.h"
 #include "SoundBank.h"
+#include "Vehicle.h"
 #include "Obfuscated.h"
 #include "WebJson.h"
 #include <linearmath/gtx/euler_angles.hpp>
@@ -545,6 +546,54 @@ float respawnCountdown = 0.0f;
 int vehiclePartIndex = -1;
 int vehicleDriverId = -1;
 float vehicleSpeed = 0.0f;
+
+// The client's own copy of the car while this player is driving. The server still
+// owns the car; this runs the same integration a tick ahead of its next packet so
+// the controls answer on the frame they are pressed, and every packet pulls the
+// copy back into line instead of replacing it.
+linear::vehicle::State predictedVehicle;
+linear::vehicle::Input predictedVehicleInput;
+bool vehiclePredictionValid = false;
+std::vector<linear::vehicle::Obstacle> predictedVehicleObstacles;
+float predictedVehicleObstacleAge = 0.0f;
+
+// How far the prediction may drift before the server is simply right: a car
+// length or so is a wall, a teleport or a client that fell behind, and closing
+// that in steps would be a car that swims through a barrier.
+constexpr float kPredictedVehicleSnapDistance = 6.0f;
+// A script can move or delete a part while somebody is driving, so the client's
+// obstacle list is rebuilt this often - the server reads its own every tick.
+constexpr float kPredictedVehicleObstacleSeconds = 0.5f;
+
+// Half the car part's size, so the box the prediction collides is the car the
+// player sees: the same numbers the server uses for the same part.
+linearmath::vec3 vehicleHalfExtents(const Part& car) {
+    return linearmath::vec3(std::max(0.5f, car.size.x) * 0.5f,
+                            std::max(0.5f, car.size.y) * 0.5f,
+                            std::max(0.5f, car.size.z) * 0.5f);
+}
+
+// The boxes the car cannot drive through, built the way the server builds them -
+// the axis-aligned box around a yaw-rotated part - so both sides stop the car in
+// the same place. Without this the predicted car would drive through a wall and
+// be dragged back out of it by the next packet.
+void refreshPredictedVehicleObstacles(const std::deque<Part>& parts, int carIndex) {
+    predictedVehicleObstacles.clear();
+    for (int i = 0; i < static_cast<int>(parts.size()); ++i) {
+        const Part& part = parts[static_cast<std::size_t>(i)];
+        if (i == carIndex || part.deleted || part.isFolder || !part.canCollide) continue;
+        const float yaw = linearmath::radians(part.rotation.y);
+        const float cosine = std::abs(std::cos(yaw));
+        const float sine = std::abs(std::sin(yaw));
+        const linearmath::vec3 half(0.5f * (cosine * part.size.x + sine * part.size.z),
+                                    0.5f * part.size.y,
+                                    0.5f * (sine * part.size.x + cosine * part.size.z));
+        linear::vehicle::Obstacle obstacle;
+        obstacle.min = part.position - half;
+        obstacle.max = part.position + half;
+        predictedVehicleObstacles.push_back(obstacle);
+    }
+}
 char serverIP[32] = "127.0.0.1";
 int serverPort = 7777;
 char authToken[256] = "";
@@ -2158,22 +2207,55 @@ int main(int argc, char** argv) {
                             const int previousDriver = vehicleDriverId;
                             vehiclePartIndex = pkt->partIndex;
                             vehicleDriverId = pkt->driverId;
-                            vehicleSpeed = pkt->speed;
 
-                            // The car is as authoritative as any other world part,
-                            // so it is placed exactly where the server says.
-                            if (pkt->partIndex >= 0 && pkt->partIndex < (int)parts.size()) {
-                                Part& car = parts[pkt->partIndex];
-                                car.position = pkt->position;
-                                car.rotation.y = pkt->yaw;
-                                if (car.physicsBody) {
-                                    auto* body = (linearphysics::RigidBody*)car.physicsBody;
-                                    body->setType(linearphysics::BodyType::KINEMATIC);
-                                    body->setTransform(linearphysics::Transform(
-                                        linearphysics::Vector3(pkt->position.x, pkt->position.y, pkt->position.z),
-                                        linearphysics::Quaternion::fromEulerAngles(0.0f, linearmath::radians(pkt->yaw), 0.0f)));
-                                    body->setLinearVelocity(linearphysics::Vector3(0, 0, 0));
-                                    body->setAngularVelocity(linearphysics::Vector3(0, 0, 0));
+                            const linear::vehicle::State fromServer{pkt->position, pkt->yaw, pkt->speed};
+                            if (pkt->driverId == myPlayerId && pkt->partIndex >= 0) {
+                                // Driving: the prediction owns the car. A packet it
+                                // already agrees with is only a nudge, so the wheel
+                                // does not jump every time one arrives; one that
+                                // disagrees by more than a car length is the server
+                                // being right, and the copy starts again from it.
+                                if (!vehiclePredictionValid) {
+                                    predictedVehicle = fromServer;
+                                    vehiclePredictionValid = true;
+                                } else {
+                                    const float error = linearmath::length(
+                                        fromServer.position - predictedVehicle.position);
+                                    float yawError = fromServer.yawDegrees - predictedVehicle.yawDegrees;
+                                    while (yawError > 180.0f) yawError -= 360.0f;
+                                    while (yawError < -180.0f) yawError += 360.0f;
+                                    if (error > kPredictedVehicleSnapDistance ||
+                                        std::fabs(yawError) > 45.0f) {
+                                        predictedVehicle = fromServer;
+                                    } else {
+                                        predictedVehicle.position +=
+                                            (fromServer.position - predictedVehicle.position) * 0.25f;
+                                        predictedVehicle.yawDegrees += yawError * 0.25f;
+                                        predictedVehicle.speed = fromServer.speed;
+                                    }
+                                }
+                                vehicleSpeed = predictedVehicle.speed;
+                            } else {
+                                vehiclePredictionValid = false;
+                                predictedVehicle = fromServer;
+                                vehicleSpeed = pkt->speed;
+
+                                // A car nobody here is driving is as authoritative
+                                // as any other world part, so it is placed exactly
+                                // where the server says.
+                                if (pkt->partIndex >= 0 && pkt->partIndex < (int)parts.size()) {
+                                    Part& car = parts[pkt->partIndex];
+                                    car.position = pkt->position;
+                                    car.rotation.y = pkt->yaw;
+                                    if (car.physicsBody) {
+                                        auto* body = (linearphysics::RigidBody*)car.physicsBody;
+                                        body->setType(linearphysics::BodyType::KINEMATIC);
+                                        body->setTransform(linearphysics::Transform(
+                                            linearphysics::Vector3(pkt->position.x, pkt->position.y, pkt->position.z),
+                                            linearphysics::Quaternion::fromEulerAngles(0.0f, linearmath::radians(pkt->yaw), 0.0f)));
+                                        body->setLinearVelocity(linearphysics::Vector3(0, 0, 0));
+                                        body->setAngularVelocity(linearphysics::Vector3(0, 0, 0));
+                                    }
                                 }
                             }
 
@@ -2675,21 +2757,60 @@ int main(int argc, char** argv) {
             vehicleKeyDown = vehicleKey;
 
             if (drivingVehicle) {
+                // The keys are read on every frame now: the server is told at
+                // 20 Hz, but the car this client draws is stepped on every frame,
+                // so the throttle it integrates is the one held right now.
+                const auto pressed = [&](int key) {
+                    return linearwinGetKey(window.getNativeWindow(), key) == LINEARWIN_PRESS;
+                };
+                const float throttle = (pressed(LINEARWIN_KEY_W) ? 1.0f : 0.0f) -
+                                       (pressed(LINEARWIN_KEY_S) ? 1.0f : 0.0f);
+                const float steer = (pressed(LINEARWIN_KEY_D) ? 1.0f : 0.0f) -
+                                    (pressed(LINEARWIN_KEY_A) ? 1.0f : 0.0f);
+
                 static float vehicleInputTimer = 0.0f;
                 vehicleInputTimer += deltaTime;
                 if (vehicleInputTimer >= 1.0f / 20.0f) {
                     vehicleInputTimer = 0.0f;
-                    const auto pressed = [&](int key) {
-                        return linearwinGetKey(window.getNativeWindow(), key) == LINEARWIN_PRESS;
-                    };
-                    const float throttle = (pressed(LINEARWIN_KEY_W) ? 1.0f : 0.0f) -
-                                           (pressed(LINEARWIN_KEY_S) ? 1.0f : 0.0f);
-                    const float steer = (pressed(LINEARWIN_KEY_D) ? 1.0f : 0.0f) -
-                                        (pressed(LINEARWIN_KEY_A) ? 1.0f : 0.0f);
                     sendVehicleInput(throttle, steer);
                 }
 
                 Part& car = parts[vehiclePartIndex];
+
+                // Client-side prediction: the same integration, with the same
+                // obstacles, stepped ahead of the server's next packet. Without it
+                // the car only moves when a round trip completes, which is what
+                // made steering over any real latency feel late.
+                if (!vehiclePredictionValid) {
+                    predictedVehicle.position = car.position;
+                    predictedVehicle.yawDegrees = car.rotation.y;
+                    predictedVehicle.speed = 0.0f;
+                    vehiclePredictionValid = true;
+                    predictedVehicleObstacleAge = kPredictedVehicleObstacleSeconds;
+                }
+                predictedVehicleObstacleAge += deltaTime;
+                if (predictedVehicleObstacleAge >= kPredictedVehicleObstacleSeconds) {
+                    predictedVehicleObstacleAge = 0.0f;
+                    refreshPredictedVehicleObstacles(parts, vehiclePartIndex);
+                }
+                predictedVehicleInput.set(throttle, steer);
+                linear::vehicle::stepColliding(predictedVehicle, predictedVehicleInput, deltaTime,
+                                               predictedVehicleObstacles,
+                                               vehicleHalfExtents(car));
+
+                car.position = predictedVehicle.position;
+                car.rotation.y = predictedVehicle.yawDegrees;
+                if (car.physicsBody) {
+                    auto* body = static_cast<linearphysics::RigidBody*>(car.physicsBody);
+                    body->setType(linearphysics::BodyType::KINEMATIC);
+                    body->setTransform(linearphysics::Transform(
+                        linearphysics::Vector3(car.position.x, car.position.y, car.position.z),
+                        linearphysics::Quaternion::fromEulerAngles(
+                            0.0f, linearmath::radians(car.rotation.y), 0.0f)));
+                    body->setLinearVelocity(linearphysics::Vector3(0.0f, 0.0f, 0.0f));
+                    body->setAngularVelocity(linearphysics::Vector3(0.0f, 0.0f, 0.0f));
+                }
+                vehicleSpeed = predictedVehicle.speed;
                 myCharacter->teleportTo(car.position + linearmath::vec3(0.0f, 1.8f, 0.0f));
                 myCharacter->update(deltaTime, nullptr, false);
 

@@ -266,7 +266,9 @@ scale every frame.
   `Car` is the vehicle: the server integrates it from client throttle and steer input
   (`include/Vehicle.h`) and broadcasts its position, so a modified client cannot teleport the car
   any more than a character. Walk up to it and press `E` to get in or out; the driver's character
-  rides in the car, the camera follows behind and the HUD shows km/h. A `.rbx` script counts laps at
+  rides in the car, the camera follows behind and the HUD shows km/h. The driver's own client
+  predicts the car forward from its keys between packets and is corrected by the server, so steering
+  answers on the frame it is pressed rather than a round trip later. A `.rbx` script counts laps at
   the finish line. The car stops at the world's collidable parts and slides along a wall it only
   clips, so a lap cannot be finished by driving through the edge of the track; the finish line and
   the checkpoints are non-colliding triggers, because a car that bumps into a checkpoint flag would
@@ -1923,9 +1925,12 @@ no repository is open rather than failing the server.
 
 - This is a prototype and should be treated as local-only.
 - The driving game's car is a kinematic arcade body: it accelerates, brakes, coasts, steers and
-  stops at collidable parts, but there is no client-side prediction, so steering over a high-latency
-  connection feels delayed. Collision uses the axis-aligned box around a rotated part, so a diagonal
-  wall blocks a little more ground than it looks like it does.
+  stops at collidable parts. The driver's client runs the same integration and the same obstacle
+  boxes ahead of the server's next packet, so the controls answer at once and each packet pulls the
+  car back into line; a disagreement larger than six studs is treated as the server being right and
+  the car jumps to it - which is what a wall, a scripted teleport or a client that fell behind
+  looks like. Collision uses the axis-aligned box around a rotated part, so a diagonal wall blocks
+  a little more ground than it looks like it does.
 - Sound is stereo, panned left and right by where a sound is against the view, but not placed in
   three dimensions: there is no elevation, no reverb and no occlusion, so a sound behind a wall
   arrives as clearly as one in the open. There is no volume control beyond the system mixer. Every

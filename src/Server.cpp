@@ -1690,6 +1690,42 @@ static int runServer(int argc, char** argv) {
                             player.lastPlaytimeReportedAt = std::chrono::steady_clock::now();
                             copyFixedString(player.username, sizeof(player.username), verified.username);
 
+                            // A block hides both sides on the website, and until now
+                            // it stopped there: two players who had blocked each
+                            // other still ended up in the same game. The question
+                            // is asked on this player's own token with the names
+                            // already in the room, so the answer can only be about
+                            // blocks this player is part of.
+                            {
+                                std::vector<std::string> present;
+                                for (const auto& entry : players) {
+                                    if (!entry.second.active) continue;
+                                    present.push_back(scriptPlayerName(entry.second, entry.first));
+                                }
+                                const std::vector<std::string> blocked =
+                                    ServerAuth::blockedFromJoining(token, present, webServerUrl);
+                                if (!blocked.empty()) {
+                                    std::cout << "Player " << id << " was refused: blocked with "
+                                              << blocked.front() << std::endl;
+                                    PacketChat notice;
+                                    std::memset(&notice, 0, sizeof(notice));
+                                    copyFixedString(notice.username, sizeof(notice.username),
+                                                    "Server");
+                                    copyFixedString(
+                                        notice.message, sizeof(notice.message),
+                                        "You cannot join this game: " + blocked.front() +
+                                            " is here, and one of you has blocked the other. "
+                                            "A block keeps you apart in games as well as on the "
+                                            "website.");
+                                    sendToPlayer(
+                                        player,
+                                        PacketProtocol::buildStructPacket(PacketType::CHAT, notice),
+                                        true);
+                                    shouldDisconnect = true;
+                                    break;
+                                }
+                            }
+
                             std::string avatarJson = ServerAuth::getAvatar(token, webServerUrl);
                             if (!avatarJson.empty() && avatarJson.find("\"success\":true") != std::string::npos) {
                                 parseAvatarColor(avatarJson, "headColor", player.headColor);

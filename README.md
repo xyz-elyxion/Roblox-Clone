@@ -867,8 +867,15 @@ second connection, and deleting an account takes its friendship rows with it.
 
 `POST /api/blocks` with `{ "userId": 3, "blocked": true }` blocks an account and drops any
 friendship between the pair; `false` removes the block. A block hides both accounts from each other
-in `/api/users/search` and shows up on the profile as `"blocked": true`. It does not reach the
-native game server, so it cannot stop someone joining a game you are in.
+in `/api/users/search` and shows up on the profile as `"blocked": true`.
+
+A block reaches the game as well. Before a signed-in player is let into a game server, the server
+asks `POST /api/blocks/join` on that player's own token for the names already in the room, and a
+pair blocked either way is refused with the name and the reason. The question is asked from the
+joining account's session, so the answer can only ever describe blocks that account is part of; a
+website that cannot be reached does not refuse the join, since a block is a courtesy of the join
+path and an outage must not lock everybody out of every game. Guests have no account, so they are
+not checked.
 
 `POST /api/reports` files a report against a `game` or a `user`, which the admin dashboard lists
 newest first under **Reports** and counts in its totals.
@@ -1259,6 +1266,7 @@ compatibility fallback, but new callers should use the header.
 | `POST /api/friends/respond` | `{ "userId": 2, "action": "accept" }` |
 | `POST /api/friends/remove` | Removes a friend or cancels a pending request |
 | `POST /api/blocks` | `{ "userId": 2, "blocked": true }` |
+| `POST /api/blocks/join` | `{ "players": ["Pilot", "Builder"] }` — asked by a game server on the joining player's token; answers `"blocked"` with the names that account may not share a room with |
 | `POST /api/reports` | `{ "targetType": "game", "targetId": 1, "reason": "..." }` |
 
 ### Chat
@@ -1950,8 +1958,10 @@ no repository is open rather than failing the server.
   `X-Frame-Options: DENY`, `Referrer-Policy: same-origin` and a strict `Content-Security-Policy`,
   but that is baseline browser hygiene, not a security review.
 - Account recovery depends on a recovery code the player saved, not on email, and presence is "an
-  authenticated request in the last two minutes" rather than a game-server connection. Blocks and
-  reports stop at the website: the native game server is not told about either.
+  authenticated request in the last two minutes" rather than a game-server connection. A block
+  reaches the join (see [Blocks, reports and presence](#blocks-reports-and-presence)); a report still
+  stops at the website, so it is a note for staff and not something the game server acts on, and a
+  player already in a game is not removed when someone blocks them mid-match.
 - Machine bans raise the cost of returning, not the possibility: the client sends a hash, and a
   modified client can send any hash it likes (see
   [Bans follow the machine](#bans-follow-the-machine)).

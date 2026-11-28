@@ -303,7 +303,16 @@ the two timestamps, so a request crossing an existing row is answered rather tha
 pair cannot appear twice in a list. Both endpoints take a target user id that has to exist, and read
 the pair through the caller's own id, so a caller cannot act on a friendship it is not part of. A
 blocked pair is refused with `403`: a block is a request to end contact in both directions, and a
-friend request is contact. Accepted friends are capped at 200 and unresolved requests a sender may
+friend request is contact.
+
+A block also holds in a game. Before a signed-in player is let into a game server, the server asks
+`POST /api/blocks/join` on that player's own token with the names already in the room, and a pair
+blocked either way refuses the join with the name and the reason. The account id comes from the
+caller's session, never from the body, and the answer lists only names that account is itself
+blocked with - so the route cannot be used to discover other people's blocks, and the list it
+accepts is capped at the 128 players one server holds. An unreachable website, a guest with no
+token, or an empty room means no check rather than a refusal: a block is a courtesy of the join
+path, and an outage of the site must not close every game on the machine. Accepted friends are capped at 200 and unresolved requests a sender may
 leave at 50, which bounds the relationship table against one account filling it. Deleting an account
 deletes its rows, and online state is the same two-minute presence window used elsewhere, kept in
 memory rather than on disk.

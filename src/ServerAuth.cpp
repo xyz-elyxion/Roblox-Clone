@@ -97,6 +97,55 @@ VerifiedUser ServerAuth::verifyToken(const std::string& token, const std::string
     return user;
 }
 
+std::vector<std::string> ServerAuth::blockedFromJoining(
+    const std::string& token, const std::vector<std::string>& players,
+    const std::string& serverUrl) {
+    std::vector<std::string> blocked;
+    if (token.empty() || players.empty()) {
+        return blocked;
+    }
+
+    std::string body = "{\"players\":[";
+    for (const std::string& name : players) {
+        if (name.empty()) continue;
+        if (body.back() != '[') body += ",";
+        body += "\"" + jsonSafe(name, 32) + "\"";
+    }
+    body += "]}";
+
+    const std::string reply = postJson(serverUrl + "/api/blocks/join", body, token);
+    if (reply.empty()) {
+        return blocked;
+    }
+
+    // The answer is `"blocked":[ "name", ... ]`. Read the names out of that one
+    // array rather than parsing the document, so a name is compared with the one
+    // the game server already knows.
+    const std::size_t key = reply.find("\"blocked\"");
+    if (key == std::string::npos) {
+        return blocked;
+    }
+    std::size_t cursor = reply.find('[', key);
+    if (cursor == std::string::npos) {
+        return blocked;
+    }
+    ++cursor;
+    while (cursor < reply.size()) {
+        const std::size_t open = reply.find('"', cursor);
+        if (open == std::string::npos) break;
+        const std::size_t close = reply.find('"', open + 1);
+        if (close == std::string::npos) break;
+        const std::string name = reply.substr(open + 1, close - open - 1);
+        if (!name.empty() && blocked.size() < 8) {
+            blocked.push_back(name);
+        }
+        const std::size_t next = reply.find_first_of(",]", close + 1);
+        if (next == std::string::npos || reply[next] == ']') break;
+        cursor = next + 1;
+    }
+    return blocked;
+}
+
 std::string ServerAuth::getAvatar(const std::string& token, const std::string& serverUrl) {
     if (token.empty()) return "";
 

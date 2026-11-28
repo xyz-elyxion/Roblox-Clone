@@ -287,6 +287,24 @@ void testStore() {
     check(friends.size() == 1 && friends[0]->status == "accepted",
           "accepted friendships are listed");
 
+    // A block hides both sides, so the game server asks one question per join:
+    // which of the players already in its room must this player not meet. Both
+    // directions count, the account itself never comes back, and a name that is
+    // no account is a guest the query skips.
+    const int third = store.createUser("Watcher", "hash-four", "2026-01-01T00:00:00Z");
+    check(third > second, "store keeps assigning increasing ids");
+    store.addBlock(third, first, "2026-01-05T00:00:00Z");
+    const std::vector<std::string> present = {"Pilot", "Builder", "Watcher", "Nobody"};
+    const std::vector<std::string> forBlocker = store.blockedAmong(third, present);
+    check(forBlocker.size() == 1 && forBlocker[0] == "Pilot",
+          "a block the caller made comes back by name");
+    const std::vector<std::string> forBlocked = store.blockedAmong(first, present);
+    check(forBlocked.size() == 1 && forBlocked[0] == "Watcher",
+          "a block made against the caller counts too");
+    check(store.blockedAmong(second, present).empty(),
+          "an account with no blocks may share a room with anybody");
+    check(store.blockedAmong(third, {}).empty(), "an empty room has nobody to avoid");
+
     linear::web::GameRecord game;
     game.ownerId = first;
     game.title = "Test World";

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <vector>
 
 struct VerifiedUser {
     bool success = false;
@@ -32,6 +33,14 @@ public:
     // it because they have no account for the website to refuse instead.
     static bool isHardwareBanned(const std::string& hardwareId, std::string* reason,
                                  const std::string& serverUrl = "http://localhost:3000");
+    // The accounts in `players` the joining player may not share a game with,
+    // asked on that player's own token: a block hides both sides on the site, and
+    // the join is where they would otherwise meet. Empty for a guest, for a room
+    // with nobody in it, and when the website cannot be reached - a block is a
+    // courtesy of the join path, and an unreachable site must not shut every game.
+    static std::vector<std::string> blockedFromJoining(
+        const std::string& token, const std::vector<std::string>& players,
+        const std::string& serverUrl = "http://localhost:3000");
     static std::string getAvatar(const std::string& token, const std::string& serverUrl = "http://localhost:3000");
     static bool recordPlaytime(const std::string& token, int seconds, const std::string& serverUrl = "http://localhost:3000");
     static bool reportInstanceHeartbeat(const std::string& instanceId, const std::string& managerToken, int playerCount, const std::string& serverUrl = "http://localhost:3000");

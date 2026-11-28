@@ -2420,6 +2420,13 @@ void WebsiteApp::installRoutes() {
     server_.route("POST", "/api/blocks", guard([this](Request& request, Response& response) {
                       return handleBlockUser(request, response);
                   }));
+    // The game server asks this on the joining player's own token, with the names
+    // already in its room: a block that only hid two players from each other on
+    // the site still let them meet in a game.
+    server_.route("POST", "/api/blocks/join",
+                  guard([this](Request& request, Response& response) {
+                      return handleJoinBlockCheck(request, response);
+                  }));
     server_.route("POST", "/api/reports", guard([this](Request& request, Response& response) {
                       return handleReport(request, response);
                   }));
@@ -3521,6 +3528,47 @@ bool WebsiteApp::handleBlockUser(Request& request, Response& response) {
     if (!store_.save(&saveError)) {
         errorJson(response, 500, "Could not update the data file.");
         return true;
+    }
+
+    Json result = Json::makeObject();
+    result.set("success", true);
+    result.set("blocked", blocked);
+    sendJson(response, 200, result);
+    return true;
+}
+
+bool WebsiteApp::handleJoinBlockCheck(Request& request, Response& response) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    AuthUser user;
+    // The caller can only ever learn about blocks it is part of: the id comes
+    // from this account's own session, never from the body.
+    if (!requireAuth(request, response, &user)) {
+        return true;
+    }
+    Json body;
+    if (!parseJsonBody(request, &body, response)) {
+        return true;
+    }
+    const Json& players = body.member("players");
+    if (!players.isArray()) {
+        errorJson(response, 400, "players has to be a list of account names.");
+        return true;
+    }
+
+    // One game server holds at most 128 players, so a longer list is a caller
+    // describing rooms that do not exist; the first 128 names are answered.
+    std::vector<std::string> names;
+    for (const Json& entry : players.elements()) {
+        if (names.size() >= 128) break;
+        const std::string name = entry.asString();
+        if (!name.empty()) names.push_back(name);
+    }
+
+    Json blocked = Json::makeArray();
+    for (const std::string& name : store_.blockedAmong(user.id, names)) {
+        // Json's string constructor is explicit, so an array of names is built one
+        // Json at a time rather than by handing it a std::string.
+        blocked.push(Json(name));
     }
 
     Json result = Json::makeObject();

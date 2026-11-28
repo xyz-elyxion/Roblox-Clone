@@ -583,6 +583,12 @@ public:
     // True when either account blocked the other: a block hides both sides from
     // each other, whoever filed it.
     bool blockedEitherWay(int firstUserId, int secondUserId) const;
+    // Which of `usernames` this account may not share a game with: a block hides
+    // both sides, so either direction counts, and the account itself is never in
+    // the answer. A name that is not an account is skipped - the game server asks
+    // about the players in one room, and an unknown name there is a guest.
+    std::vector<std::string> blockedAmong(int userId,
+                                          const std::vector<std::string>& usernames) const;
     std::vector<const BlockRecord*> blocksBy(int userId) const;
 
     // chat

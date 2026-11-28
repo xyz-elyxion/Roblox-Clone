@@ -362,6 +362,9 @@ private:
     bool handleDeleteAccount(Request& request, Response& response);
     bool handleExportData(Request& request, Response& response);
     bool handleBlockUser(Request& request, Response& response);
+    // The blocks between the caller and the players in one game server, asked by
+    // the game server on the joining player's own token.
+    bool handleJoinBlockCheck(Request& request, Response& response);
     bool handleReport(Request& request, Response& response);
     // Chat: the rooms a signed-out visitor may read, one room's messages and
     // members, and posting into a channel.

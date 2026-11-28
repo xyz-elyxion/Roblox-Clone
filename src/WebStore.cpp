@@ -1757,6 +1757,25 @@ bool Store::blockedEitherWay(int firstUserId, int secondUserId) const {
     return isBlocked(firstUserId, secondUserId) || isBlocked(secondUserId, firstUserId);
 }
 
+std::vector<std::string> Store::blockedAmong(
+    int userId, const std::vector<std::string>& usernames) const {
+    std::vector<std::string> out;
+    if (userId <= 0) {
+        return out;
+    }
+    for (const std::string& username : usernames) {
+        const UserRecord* other = findUserByName(username);
+        if (other == nullptr || other->id == userId) {
+            continue;
+        }
+        if (!blockedEitherWay(userId, other->id)) {
+            continue;
+        }
+        out.push_back(other->username);
+    }
+    return out;
+}
+
 std::vector<const BlockRecord*> Store::blocksBy(int userId) const {
     std::vector<const BlockRecord*> out;
     for (const BlockRecord& record : blocks_) {
